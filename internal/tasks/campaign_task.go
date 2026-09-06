@@ -218,6 +218,7 @@ func (s *tasksService) HandleCampaignTask(task *proto.ProcessTask) *errx.Error {
 			if cerr := s.createCampaignTask(ctx, campaign.ID, accountID, scheduledNext); cerr != nil {
 				log.Warn().Err(cerr).Str("campaign_id", campaign.ID.String()).Str("task_id", taskID.String()).Msg("Failed to schedule deferred campaign task")
 			}
+			s.clearIdle(ctx, campaign)
 			s.taskRepo.UpdateTaskStatus(ctx, taskID, "completed")
 			executionStatus = "completed"
 			return nil
@@ -241,6 +242,13 @@ func (s *tasksService) HandleCampaignTask(task *proto.ProcessTask) *errx.Error {
 					return nil
 				}
 				reason = fmt.Sprintf("%s (%d lead(s) skipped: address verification refused them)", reason, n)
+			}
+			// A continuous campaign out of leads is waiting, not finished
+			// (issue #336). Only its end date ends it.
+			if errors.Is(err, scheduler.ErrCampaignCompleted) && campaign.Continuous {
+				s.idleCampaign(ctx, campaign, taskID)
+				executionStatus = "completed"
+				return nil
 			}
 			s.campaignRepo.UpdateStatus(ctx, campaign.ID, "completed")
 			if s.campaignLogRepo != nil {
@@ -298,6 +306,8 @@ func (s *tasksService) HandleCampaignTask(task *proto.ProcessTask) *errx.Error {
 		executionStatus = "failed"
 		return errx.InternalError()
 	}
+
+	s.clearIdle(ctx, campaign)
 
 	// STEP 7: Load contact and sequence
 	contact, xerr := s.contactRepo.GetByID(ctx, nextPair.ContactID)
@@ -933,6 +943,56 @@ func (s *tasksService) pauseUndeliverable(ctx context.Context, campaignID, taskI
 			CampaignID: campaignID.String(),
 			Status:     "paused_undeliverable",
 		})
+	}
+}
+
+// CampaignIdleEventType is the activity log entry written when a continuous
+// campaign runs out of leads and waits; CampaignIdleMessage is its text.
+const (
+	CampaignIdleEventType = "idle"
+	CampaignIdleMessage   = "Waiting for new leads: every lead has finished the sequence. The campaign stays active and sends to leads as they arrive."
+)
+
+// idleCampaign parks a continuous campaign that has nothing left to send. It
+// stays active with no chain: a lead add wakes it, and the reconciler re-checks
+// it every pass. Logged and broadcast once per wait, not once per pass.
+func (s *tasksService) idleCampaign(ctx context.Context, campaign *models.Campaign, taskID uuid.UUID) {
+	if taskID != uuid.Nil {
+		s.taskRepo.UpdateTaskStatus(ctx, taskID, "completed")
+	}
+	transitioned, err := s.campaignRepo.MarkIdle(ctx, campaign.ID)
+	if err != nil {
+		log.Warn().Err(err).Str("campaign_id", campaign.ID.String()).Msg("could not mark the campaign idle")
+		return
+	}
+	if !transitioned {
+		return
+	}
+	if s.campaignLogRepo != nil {
+		s.campaignLogRepo.CreateLog(ctx, &repository.CampaignLogEntry{
+			CampaignID: campaign.ID,
+			EventType:  CampaignIdleEventType,
+			Message:    CampaignIdleMessage,
+		})
+	}
+	if s.streamingPublisher != nil {
+		s.streamingPublisher.PublishCampaignEvent(ctx, &pubsub.CampaignEvent{
+			BaseEvent:  pubsub.BaseEvent{EventType: pubsub.EventCampaignIdle, UserID: campaign.UserID},
+			OrgID:      campaignOrgID(campaign),
+			CampaignID: campaign.ID.String(),
+			Name:       campaign.Name,
+			Status:     "active",
+		})
+	}
+}
+
+// clearIdle ends an idle wait once the campaign has something to send again.
+func (s *tasksService) clearIdle(ctx context.Context, campaign *models.Campaign) {
+	if campaign.IdleSince == nil {
+		return
+	}
+	if err := s.campaignRepo.ClearIdle(ctx, campaign.ID); err != nil {
+		log.Warn().Err(err).Str("campaign_id", campaign.ID.String()).Msg("could not clear the campaign's idle mark")
 	}
 }
 

@@ -125,11 +125,14 @@ export function useSetCampaignSegments() {
     return useMutation({
         mutationFn: ({ campaignId, segmentIds }: { campaignId: string; segmentIds: string[] }) =>
             setCampaignSegments(campaignId, segmentIds),
-        // Linking enrols leads right away, so the campaign's contact list moves.
-        onSuccess: () =>
+        // Linking enrols leads right away, so the campaign's contact list
+        // moves, and it turns "keep running for new leads" on.
+        onSuccess: (_data, { campaignId }) =>
             Promise.all([
                 queryClient.invalidateQueries({ queryKey: ["contacts"] }),
                 queryClient.invalidateQueries({ queryKey: ["segments"] }),
+                queryClient.invalidateQueries({ queryKey: ["campaigns", campaignId] }),
+                queryClient.invalidateQueries({ queryKey: ["campaigns", "list"] }),
             ]),
     });
 }

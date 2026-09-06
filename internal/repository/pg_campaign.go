@@ -107,6 +107,11 @@ type CampaignRepository interface {
 	// still in flight back to active, so the failed step is retried instead of
 	// being finalised as done. Returns true when the status changed.
 	ReopenAfterSendFailure(ctx context.Context, campaignID uuid.UUID) (bool, error)
+	// MarkIdle stamps idle_since on an active continuous campaign that has no
+	// lead left to send to; true only when it was not already idle.
+	MarkIdle(ctx context.Context, campaignID uuid.UUID) (bool, error)
+	// ClearIdle removes the idle mark once there is something to send.
+	ClearIdle(ctx context.Context, campaignID uuid.UUID) error
 
 	// ── Campaign-scoped tracking domain (feature 5) ─────────────────────
 	// SetCampaignTrackingDomainVerified flips the verified flag / timestamp on
@@ -147,7 +152,8 @@ const CAMPAIGN_SELECT = `id, name, description, status,
 		  guardrail_tripped_at, guardrail_reason,
 		  kind,
 		  utm_tracking, utm_source, utm_medium, utm_campaign,
-		  unsubscribe_mode`
+		  unsubscribe_mode,
+		  continuous, idle_since`
 
 func getCampaign(rows db.Scannable, campaign *models.Campaign, extra ...any) error {
 	var dest []any = []any{
@@ -169,6 +175,7 @@ func getCampaign(rows db.Scannable, campaign *models.Campaign, extra ...any) err
 		&campaign.Kind,
 		&campaign.UTMTracking, &campaign.UTMSource, &campaign.UTMMedium, &campaign.UTMCampaign,
 		&campaign.UnsubscribeMode,
+		&campaign.Continuous, &campaign.IdleSince,
 	}
 	dest = append(dest, extra...)
 	return rows.Scan(
@@ -195,6 +202,7 @@ const CAMPAIGN_SELECT_FULL = `
 	c.kind,
 	c.utm_tracking, c.utm_source, c.utm_medium, c.utm_campaign,
 	c.unsubscribe_mode,
+	c.continuous, c.idle_since,
 	COALESCE(array_agg(cet.tag_id) FILTER (WHERE cet.tag_id IS NOT NULL), '{}') AS email_tag_ids,
 	COALESCE(array_agg(cec.folder_id) FILTER (WHERE cec.folder_id IS NOT NULL), '{}') AS email_folder_ids
 `
@@ -425,6 +433,10 @@ func (r *campaignRepository) Create(ctx context.Context, userID string, orgID *u
 	if data.PrioritizeNewLeads != nil {
 		prioritizeNewLeads = *data.PrioritizeNewLeads
 	}
+	continuous := false
+	if data.Continuous != nil {
+		continuous = *data.Continuous
+	}
 	trackingDomain := ""
 	if data.TrackingDomain != nil {
 		// Normalize first so a pasted URL or a trailing dot is reduced to the
@@ -467,7 +479,7 @@ func (r *campaignRepository) Create(ctx context.Context, userID string, orgID *u
 			esp_match_mode, max_new_leads_per_day, prioritize_new_leads,
 			tracking_domain, kind,
 			utm_tracking, utm_source, utm_medium, utm_campaign,
-			unsubscribe_mode,
+			unsubscribe_mode, continuous,
 			created_at, updated_at
 		) VALUES (
 			gen_random_uuid(), $1, $2, $3, $4,
@@ -480,7 +492,7 @@ func (r *campaignRepository) Create(ctx context.Context, userID string, orgID *u
 			$27, $28, $29,
 			$30, $31,
 			$32, $33, $34, $35,
-			$36,
+			$36, $37,
 			NOW(), NOW()
 		)
 		RETURNING %s
@@ -523,6 +535,7 @@ func (r *campaignRepository) Create(ctx context.Context, userID string, orgID *u
 		utmMedium,          // $34
 		utmCampaign,        // $35
 		unsubMode,          // $36
+		continuous,         // $37
 	}
 
 	row := tx.QueryRow(ctx, insertSQL, params...)
@@ -1163,6 +1176,11 @@ func (r *campaignRepository) Update(ctx context.Context, userID, campaignID stri
 		args = append(args, *data.PrioritizeNewLeads)
 		argPos++
 	}
+	if data.Continuous != nil {
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", "continuous", argPos))
+		args = append(args, *data.Continuous)
+		argPos++
+	}
 	if data.TrackingDomain != nil {
 		domain := config.NormalizeTrackingHost(*data.TrackingDomain)
 		if err := validate.CampaignTrackingDomain(domain); err != nil {
@@ -1355,6 +1373,7 @@ func (r *campaignRepository) GetByID(ctx context.Context, campaignID uuid.UUID) 
 		&campaign.Kind,
 		&campaign.UTMTracking, &campaign.UTMSource, &campaign.UTMMedium, &campaign.UTMCampaign,
 		&campaign.UnsubscribeMode,
+		&campaign.Continuous, &campaign.IdleSince,
 		&campaign.EmailTags, &campaign.Folders,
 	)
 	if err != nil {
@@ -1477,7 +1496,7 @@ var validCampaignTransitions = map[string]map[string]bool{
 
 // UpdateStatus updates only the status of a campaign with state machine validation
 func (r *campaignRepository) UpdateStatus(ctx context.Context, campaignID uuid.UUID, status string) error {
-	query := `UPDATE campaigns SET status = $1, updated_at = NOW() WHERE id = $2 AND status != $1`
+	query := `UPDATE campaigns SET status = $1, idle_since = NULL, updated_at = NOW() WHERE id = $2 AND status != $1`
 
 	// Validate that the transition is allowed
 	var currentStatus string
@@ -1504,6 +1523,7 @@ func (r *campaignRepository) StartCampaign(ctx context.Context, campaignID uuid.
 		SET status = 'active',
 		    last_status_change_at = NOW(),
 		    updated_at = NOW(),
+		    idle_since = NULL,
 		    ramp_level = CASE WHEN ramp_enabled AND ramp_level = 0 THEN ramp_start ELSE ramp_level END,
 		    ramp_level_date = CASE WHEN ramp_enabled AND ramp_level = 0 THEN CURRENT_DATE ELSE ramp_level_date END,
 		    -- Starting again clears any auto-pause marker: the badge describes
@@ -1518,7 +1538,7 @@ func (r *campaignRepository) StartCampaign(ctx context.Context, campaignID uuid.
 
 // StopCampaign sets campaign status to paused and updates last_status_change_at
 func (r *campaignRepository) StopCampaign(ctx context.Context, campaignID uuid.UUID) error {
-	query := `UPDATE campaigns SET status = 'paused', last_status_change_at = NOW(), updated_at = NOW() WHERE id = $1`
+	query := `UPDATE campaigns SET status = 'paused', idle_since = NULL, last_status_change_at = NOW(), updated_at = NOW() WHERE id = $1`
 	_, err := r.DB.Exec(ctx, query, campaignID)
 	return err
 }
@@ -1535,13 +1555,17 @@ func (r *campaignRepository) ValidateCampaignReady(ctx context.Context, campaign
 		return errx.New(errx.BadRequest, "campaign must have at least one sequence")
 	}
 
-	// Check contacts
+	// Check contacts. A continuous campaign may start empty: it waits for
+	// leads instead of needing them up front.
 	var contactCount int
-	err = r.DB.QueryRow(ctx, `SELECT COUNT(*) FROM campaign_leads WHERE campaign_id = $1`, campaignID).Scan(&contactCount)
+	var continuous bool
+	err = r.DB.QueryRow(ctx, `
+		SELECT (SELECT COUNT(*) FROM campaign_leads WHERE campaign_id = $1),
+		       (SELECT continuous FROM campaigns WHERE id = $1)`, campaignID).Scan(&contactCount, &continuous)
 	if err != nil {
 		return err
 	}
-	if contactCount == 0 {
+	if contactCount == 0 && !continuous {
 		return errx.New(errx.BadRequest, "campaign must have at least one contact")
 	}
 
@@ -1619,6 +1643,7 @@ func (r *campaignRepository) ListCampaignScheduleCandidates(ctx context.Context,
 		    JOIN tasks t ON t.id = ct.task_id
 		    WHERE ct.campaign_id = c.id AND t.status = 'pending'
 		  )
+		ORDER BY c.idle_since ASC NULLS FIRST
 		LIMIT $1`
 
 	rows, err := r.DB.Query(ctx, query, limit)
@@ -2036,6 +2061,30 @@ func (r *campaignRepository) ReopenAfterSendFailure(ctx context.Context, campaig
 	return tag.RowsAffected() > 0, nil
 }
 
+// MarkIdle records that an active continuous campaign ran out of leads and is
+// waiting for more. Returns true only on the transition, so the caller logs
+// and broadcasts it once rather than on every pass that finds nothing.
+func (r *campaignRepository) MarkIdle(ctx context.Context, campaignID uuid.UUID) (bool, error) {
+	tag, err := r.DB.Exec(ctx, `
+		UPDATE campaigns
+		SET idle_since = NOW(), updated_at = NOW()
+		WHERE id = $1 AND status = 'active' AND continuous AND idle_since IS NULL
+	`, campaignID)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+// ClearIdle ends the wait once the campaign has something to send again.
+func (r *campaignRepository) ClearIdle(ctx context.Context, campaignID uuid.UUID) error {
+	_, err := r.DB.Exec(ctx, `
+		UPDATE campaigns SET idle_since = NULL, updated_at = NOW()
+		WHERE id = $1 AND idle_since IS NOT NULL
+	`, campaignID)
+	return err
+}
+
 // CountNewLeadsStartedToday returns new_leads_started for the current UTC day.
 func (r *campaignRepository) CountNewLeadsStartedToday(ctx context.Context, campaignID uuid.UUID) (int, error) {
 	var n int
@@ -2084,7 +2133,7 @@ func (r *campaignRepository) UpdateStatusWithLock(ctx context.Context, campaignI
 		return err
 	}
 
-	query := `UPDATE campaigns SET status = $1, last_status_change_at = NOW(), updated_at = NOW() WHERE id = $2 AND status = 'active'`
+	query := `UPDATE campaigns SET status = $1, idle_since = NULL, last_status_change_at = NOW(), updated_at = NOW() WHERE id = $2 AND status = 'active'`
 	_, err = tx.Exec(ctx, query, status, campaignID)
 	if err != nil {
 		db.CaptureError(err, query, []any{status, campaignID}, "exec")
