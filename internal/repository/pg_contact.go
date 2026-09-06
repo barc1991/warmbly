@@ -372,6 +372,7 @@ func (r *contactRepository) Add(ctx context.Context, userID string, orgID uuid.U
 		if ncon.CustomFields == nil {
 			ncon.CustomFields = map[string]string{}
 		}
+		ncon.IsNew = inserted
 		ncontacts = append(ncontacts, ncon)
 		created = append(created, inserted)
 		if inserted {

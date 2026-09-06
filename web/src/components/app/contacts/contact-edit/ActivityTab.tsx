@@ -1435,6 +1435,8 @@ export function sourceLabel(source?: string | null): string {
             return "Created by the AI assistant";
         case "form":
             return "Submitted a form";
+        case "automation":
+            return "Created by an automation";
         case "unknown":
         case undefined:
         case null:
@@ -1506,6 +1508,8 @@ function createdLabel(source?: string | null): string {
             return "Created by AI assistant";
         case "form":
             return "Submitted a form";
+        case "automation":
+            return "Created by automation";
         case "manual":
             return "Created manually";
         default:

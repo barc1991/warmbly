@@ -109,6 +109,8 @@ The **Submissions** tab is a table of everyone who engaged, newest activity firs
 
 Each submitted contact carries `form` as its first-touch source, gets a "Submitted a form" entry on its activity timeline, and can be filtered in segments by source. The form's page views, submission count and conversion rate show on the Forms list.
 
+A submission is also the **Form submitted** [automation trigger](/guides/automations/#triggers) and the `form.submitted` webhook event, carrying the form, the contact and every answer by its key, so a flow can tag the contact, open a task or post to Slack the moment it lands.
+
 Submissions also fire the `form.submitted` [webhook](/guides/webhooks/), carrying the answers and the contact id, so you can forward leads to any external system.
 
 ## Analytics

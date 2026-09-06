@@ -19,6 +19,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/advanced"
 	"github.com/warmbly/warmbly/internal/app/cipher"
 	jobs "github.com/warmbly/warmbly/internal/app/consumer"
+	"github.com/warmbly/warmbly/internal/app/contact"
 	"github.com/warmbly/warmbly/internal/app/credits"
 	"github.com/warmbly/warmbly/internal/app/creditwatch"
 	"github.com/warmbly/warmbly/internal/app/feature"
@@ -316,10 +317,18 @@ func main() {
 	// wiring native actions here a reply-triggered automation's add_tag /
 	// create_deal / label_email node would fail with "native actions are not
 	// available". Mirrors the backend wiring.
+	// The lead-intake actions (create or update contact, add to campaign) write
+	// through a contact service so a reply-triggered flow in this process gets
+	// the same plan check, campaign wake and contact.created as the backend.
+	contactServiceC := contact.NewService(contactRepo, subscriptionRepoConsumer, planRepoConsumer, streamingPublisher)
+	if aware, ok := contactServiceC.(contact.WebhookAware); ok {
+		aware.WireWebhooks(webhookService)
+	}
 	integrationServiceC.SetNativeActions(nativeactions.Adapter{
-		Adv:      advancedService,
-		Contacts: contactRepo,
-		Orgs:     orgRepoConsumer,
+		Adv:        advancedService,
+		Contacts:   contactRepo,
+		Orgs:       orgRepoConsumer,
+		ContactSvc: contactServiceC,
 	})
 	// In-app notifications: the reply/bounce/complaint gate fires in THIS
 	// process (inbox ingest + deliverability ingest run in the consumer), so the
