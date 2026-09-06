@@ -164,6 +164,11 @@ type Campaign struct {
 	MaxNewLeadsPerDay  int  `json:"max_new_leads_per_day"`
 	PrioritizeNewLeads bool `json:"prioritize_new_leads"`
 
+	// Continuous keeps the campaign active when it runs out of leads: it waits
+	// for more instead of finishing. IdleSince is set while it waits.
+	Continuous bool       `json:"continuous"`
+	IdleSince  *time.Time `json:"idle_since,omitempty"`
+
 	// Auto-pause guardrails. Rates are evaluated over a rolling window and the
 	// campaign is paused the moment a band is breached, rather than waiting for
 	// a mailbox provider to react first. A rate threshold of 0 disables that
@@ -319,6 +324,7 @@ type UpdateCampaign struct {
 	ESPMatchMode       *string `json:"esp_match_mode,omitempty"`
 	MaxNewLeadsPerDay  *int    `json:"max_new_leads_per_day,omitempty"`
 	PrioritizeNewLeads *bool   `json:"prioritize_new_leads,omitempty"`
+	Continuous         *bool   `json:"continuous,omitempty"`
 	TrackingDomain     *string `json:"tracking_domain,omitempty"`
 
 	UTMTracking *bool   `json:"utm_tracking,omitempty"`
@@ -399,6 +405,7 @@ type CreateCampaign struct {
 	ESPMatchMode       *string `json:"esp_match_mode,omitempty"`
 	MaxNewLeadsPerDay  *int    `json:"max_new_leads_per_day,omitempty"`
 	PrioritizeNewLeads *bool   `json:"prioritize_new_leads,omitempty"`
+	Continuous         *bool   `json:"continuous,omitempty"`
 	TrackingDomain     *string `json:"tracking_domain,omitempty"`
 
 	// Automatic UTM tagging (off unless sent). Empty values keep the defaults.

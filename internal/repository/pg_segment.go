@@ -519,6 +519,12 @@ func setForCampaignTx(ctx context.Context, tx pgx.Tx, orgID, campaignID uuid.UUI
 			db.CaptureError(err, "campaign segments insert", nil, "exec")
 			return "", errx.InternalError()
 		}
+		// A live audience is the reason to keep running: linking turns the
+		// setting on, and the owner can turn it off again in preferences.
+		if _, err := tx.Exec(ctx, `UPDATE campaigns SET continuous = true, updated_at = NOW() WHERE id = $1 AND NOT continuous`, campaignID); err != nil {
+			db.CaptureError(err, "campaign continuous", nil, "exec")
+			return "", errx.InternalError()
+		}
 	}
 	return status, nil
 }

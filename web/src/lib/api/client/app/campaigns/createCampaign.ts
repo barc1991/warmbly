@@ -49,6 +49,7 @@ export interface CreateCampaignInput {
     esp_match_mode?: 'off' | 'prefer' | 'strict';
     max_new_leads_per_day?: number;
     prioritize_new_leads?: boolean;
+    continuous?: boolean;
     tracking_domain?: string;
 
     // Initial sequences (ordered)

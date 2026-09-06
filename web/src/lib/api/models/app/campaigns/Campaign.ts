@@ -69,6 +69,11 @@ export default interface Campaign {
     max_new_leads_per_day: number;
     prioritize_new_leads: boolean;
 
+    // Keep running for new leads: out of leads, the campaign waits (idle_since
+    // set) instead of finishing. Linking a segment turns it on.
+    continuous: boolean;
+    idle_since?: string | null;
+
     // Auto-pause guardrails. Bounce and complaint rates are ceilings (pause at
     // or above); the reply rate is a floor (pause below). A rate of 0 turns its
     // rule off. guardrail_tripped_at/reason are server-owned.

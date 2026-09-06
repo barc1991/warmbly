@@ -566,10 +566,20 @@ func (s *campaignService) WakeCampaigns(ctx context.Context, orgID uuid.UUID, ca
 		seen[id] = true
 
 		campaign, err := s.campaignRepository.GetByID(ctx, id)
-		if err != nil || campaign == nil || campaign.Status != "active" {
+		if err != nil || campaign == nil {
 			continue
 		}
 		if campaign.OrganizationID == nil || *campaign.OrganizationID != orgID {
+			continue
+		}
+		// Finished only means it ran out of leads, and a lead just arrived by
+		// whichever path (a linked segment, the API, an automation): restart
+		// it through the full launch checks, never a raw status flip.
+		if campaign.Status == "completed" {
+			s.restartForNewLeads(ctx, orgID, campaign)
+			continue
+		}
+		if campaign.Status != "active" {
 			continue
 		}
 
@@ -604,6 +614,63 @@ func (s *campaignService) WakeCampaigns(ctx context.Context, orgID uuid.UUID, ca
 			_ = s.taskRepo.DeleteTask(ctx, pending[i].ID)
 		}
 		_ = s.enqueueCampaignWakeup(ctx, id)
+	}
+}
+
+// restartForNewLeads starts a finished campaign again because leads were added
+// to it. A refusal is written to the campaign's activity log (once an hour per
+// reason) so the owner can see why the new leads are waiting, instead of a
+// finished campaign quietly ignoring them.
+func (s *campaignService) restartForNewLeads(ctx context.Context, orgID uuid.UUID, campaign *models.Campaign) {
+	xerr := s.StartCampaign(ctx, orgID, campaign.ID.String(), models.StartCampaignOptions{Automatic: true})
+	if xerr == nil {
+		return
+	}
+	log.Info().Str("campaign_id", campaign.ID.String()).Str("reason", xerr.Message).Msg("finished campaign not restarted for new leads")
+	if s.campaignLogRepo == nil {
+		return
+	}
+	entry := &repository.CampaignLogEntry{
+		CampaignID: campaign.ID,
+		EventType:  "restart_refused",
+		Message:    "New leads arrived but the campaign could not restart: " + xerr.Message + " Fix the cause, then press play.",
+		Metadata:   map[string]interface{}{"reason": xerr.Message},
+	}
+	written, lerr := s.campaignLogRepo.CreateLogOnce(ctx, entry, "reason", xerr.Message, time.Now().Add(-time.Hour))
+	if lerr != nil || !written || s.streamingPublisher == nil {
+		return
+	}
+	// An update with no status refreshes the activity feed without moving
+	// the campaign's badge.
+	s.streamingPublisher.PublishCampaignEvent(ctx, &pubsub.CampaignEvent{
+		BaseEvent:  pubsub.BaseEvent{EventType: pubsub.EventCampaignUpdated, UserID: campaign.UserID},
+		OrgID:      modelOrgID(campaign.OrganizationID),
+		CampaignID: campaign.ID.String(),
+	})
+}
+
+// idleContinuousCampaign keeps a continuous campaign active with nothing to
+// send: it waits for leads. Logged and broadcast on the transition only.
+func (s *campaignService) idleContinuousCampaign(ctx context.Context, campaign *models.Campaign) {
+	transitioned, err := s.campaignRepository.MarkIdle(ctx, campaign.ID)
+	if err != nil || !transitioned {
+		return
+	}
+	if s.campaignLogRepo != nil {
+		s.campaignLogRepo.CreateLog(ctx, &repository.CampaignLogEntry{
+			CampaignID: campaign.ID,
+			EventType:  tasks.CampaignIdleEventType,
+			Message:    tasks.CampaignIdleMessage,
+		})
+	}
+	if s.streamingPublisher != nil {
+		s.streamingPublisher.PublishCampaignEvent(ctx, &pubsub.CampaignEvent{
+			BaseEvent:  pubsub.BaseEvent{EventType: pubsub.EventCampaignIdle, UserID: campaign.UserID},
+			OrgID:      modelOrgID(campaign.OrganizationID),
+			CampaignID: campaign.ID.String(),
+			Name:       campaign.Name,
+			Status:     "active",
+		})
 	}
 }
 
@@ -643,6 +710,11 @@ func (s *campaignService) enqueueCampaignWakeup(ctx context.Context, campaignID 
 						fmt.Sprintf("%d remaining lead(s) were refused by address verification; re-verify them or mark them deliverable to continue", n))
 				}
 			}
+			// A continuous campaign starts with nothing to send and waits.
+			if c, gerr := s.campaignRepository.GetByID(ctx, campaignID); gerr == nil && c != nil && c.Continuous {
+				s.idleContinuousCampaign(ctx, c)
+				return nil
+			}
 			_ = s.campaignRepository.UpdateStatusWithLock(ctx, campaignID, "completed")
 			return errx.New(errx.BadRequest, "campaign has no remaining contacts to send")
 		case errors.Is(err, scheduler.ErrCampaignEnded):
@@ -675,6 +747,7 @@ func (s *campaignService) enqueueCampaignWakeup(ctx context.Context, campaignID 
 	if !created {
 		return nil
 	}
+	_ = s.campaignRepository.ClearIdle(ctx, campaignID)
 
 	cloudTaskName, err := s.tasksClient.CreateTask(ctx, &proto.ProcessTask{TaskId: taskID.String()}, nextTime)
 	if err != nil {
