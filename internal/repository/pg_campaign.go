@@ -1180,6 +1180,11 @@ func (r *campaignRepository) Update(ctx context.Context, userID, campaignID stri
 		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", "continuous", argPos))
 		args = append(args, *data.Continuous)
 		argPos++
+		// Turning it off ends the wait; the next reconcile pass finishes the
+		// campaign if there is still nothing to send.
+		if !*data.Continuous {
+			setClauses = append(setClauses, "idle_since = NULL")
+		}
 	}
 	if data.TrackingDomain != nil {
 		domain := config.NormalizeTrackingHost(*data.TrackingDomain)
