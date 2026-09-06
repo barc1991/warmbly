@@ -399,11 +399,11 @@ func (s *service) CancelBatch(ctx context.Context, jobID uuid.UUID) error {
 		return err
 	}
 
-	job.BatchStatus = "cancelling"
-	if job.Error == "" {
-		job.Error = "cancelled by admin"
-	}
-	return s.repo.UpdateGenerationJob(ctx, job)
+	// A conditional write: if the poller finished the job between the read
+	// above and now, its terminal state and counts stand and there is nothing
+	// left to mark.
+	_, err = s.repo.MarkBatchCancelling(ctx, jobID, "cancelled by admin")
+	return err
 }
 
 // firstResultError returns the first non-empty per-line error in a batch's
