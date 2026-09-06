@@ -110,3 +110,4 @@ build-errors.log
 # Xcode per-user state (ios/)
 xcuserdata/
 .DS_Store
+/.worktrees/
