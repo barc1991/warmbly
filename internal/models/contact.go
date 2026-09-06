@@ -63,6 +63,11 @@ type Contact struct {
 	// leads are queued, in progress, replied, bounced, or unsubscribed.
 	CampaignLead *ContactCampaignProgress `json:"campaign_lead,omitempty"`
 
+	// IsNew is set by the upsert write when this call inserted the row rather
+	// than matching an existing contact. Server-side only: it decides whether
+	// a contact.created event fires.
+	IsNew bool `json:"-"`
+
 	UpdatedAt time.Time `json:"updated_at"`
 	CreatedAt time.Time `json:"created_at"`
 }
@@ -661,13 +666,17 @@ const (
 	ContactSourceAPI         ContactSource = "api"
 	ContactSourceAIAssistant ContactSource = "ai_assistant"
 	ContactSourceForm        ContactSource = "form"
+	// ContactSourceAutomation is a contact an automation's "create or update
+	// contact" action wrote; the detail is the automation's name.
+	ContactSourceAutomation ContactSource = "automation"
 )
 
 // Valid reports whether the value is one the database accepts.
 func (s ContactSource) Valid() bool {
 	switch s {
 	case ContactSourceUnknown, ContactSourceManual, ContactSourceCampaign, ContactSourceImport,
-		ContactSourceSheetSync, ContactSourceAPI, ContactSourceAIAssistant, ContactSourceForm:
+		ContactSourceSheetSync, ContactSourceAPI, ContactSourceAIAssistant, ContactSourceForm,
+		ContactSourceAutomation:
 		return true
 	}
 	return false

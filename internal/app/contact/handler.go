@@ -76,6 +76,7 @@ func (s *contactService) Add(ctx context.Context, userID string, orgID uuid.UUID
 	}
 	s.wakeCampaigns(ctx, orgID, attached)
 	s.syncSegmentCampaigns(ctx, orgID)
+	s.emitCreated(ctx, orgID, contacts, created)
 	return created, nil
 }
 

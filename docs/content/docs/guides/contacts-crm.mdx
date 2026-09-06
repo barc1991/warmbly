@@ -100,10 +100,14 @@ Every contact records its first-touch source: how it entered the workspace, with
 | Import | Created by the file import wizard | The file name |
 | Sheet sync | Created by a Google Sheets sync source | The sheet |
 | API | Created through the API with an API key | The key's name |
+| Form | Submitted a hosted [form](/guides/forms/) | The form |
+| Automation | Written by an automation's **Create or update contact** action | The automation |
 | AI assistant | Created by the assistant on your behalf | |
 | Unknown | Created before Warmbly recorded sources | |
 
 Only new contacts get a source. An import or API call that matches an existing contact updates its fields and leaves the original source in place, so an address that arrived by hand and later turned up in a file still reads as manual.
+
+A new contact is also an event. `contact.created` goes to your [webhooks](/guides/webhooks/) and can start an [automation](/guides/automations/#triggers) with the contact's fields and source, except for file imports and sheet syncs, which are bulk arrivals and stay silent.
 
 ## Activity timeline
 

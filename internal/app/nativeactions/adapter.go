@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/warmbly/warmbly/internal/app/advanced"
+	"github.com/warmbly/warmbly/internal/app/contact"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/repository"
 )
@@ -21,6 +22,10 @@ type Adapter struct {
 	Adv      advanced.Service
 	Contacts repository.ContactRepository
 	Orgs     repository.OrganizationRepository
+	// ContactSvc is the contact service behind the lead-intake actions: its
+	// upsert runs the plan check, wakes campaigns and fires contact.created,
+	// which a bare repository write would not.
+	ContactSvc contact.ContactService
 }
 
 func (a Adapter) ResolveContact(ctx context.Context, orgID uuid.UUID, contactID, email string) (*models.Contact, error) {
@@ -94,6 +99,37 @@ func (a Adapter) MoveDealStage(ctx context.Context, orgID, contactID, pipelineID
 func (a Adapter) Unsubscribe(ctx context.Context, campaignID, contactID uuid.UUID) error {
 	if e := a.Adv.Unsubscribe(ctx, campaignID, contactID); e != nil {
 		return e
+	}
+	return nil
+}
+
+// UpsertContact writes one contact through the contact service (upsert by
+// email, tags, campaign and segment links, contact.created for a new row).
+func (a Adapter) UpsertContact(ctx context.Context, orgID, actorID uuid.UUID, in models.AddContact) (*models.Contact, error) {
+	if a.ContactSvc == nil {
+		return nil, fmt.Errorf("contact writes are not available")
+	}
+	created, xerr := a.ContactSvc.Add(ctx, actorID.String(), orgID, []models.AddContact{in})
+	if xerr != nil {
+		return nil, xerr
+	}
+	if len(created) == 0 {
+		return nil, fmt.Errorf("the contact write returned nothing")
+	}
+	return &created[0], nil
+}
+
+// AddToCampaign enrols an existing contact in a campaign through the bulk
+// edit path, which also wakes the campaign's parked send chain.
+func (a Adapter) AddToCampaign(ctx context.Context, orgID, actorID, contactID, campaignID uuid.UUID) error {
+	if a.ContactSvc == nil {
+		return fmt.Errorf("contact writes are not available")
+	}
+	if _, xerr := a.ContactSvc.BulkUpdate(ctx, actorID.String(), orgID, &models.BulkEditContactsData{
+		Contacts:     []string{contactID.String()},
+		AddCampaigns: []string{campaignID.String()},
+	}); xerr != nil {
+		return xerr
 	}
 	return nil
 }

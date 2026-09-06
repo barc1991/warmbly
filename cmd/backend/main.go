@@ -1265,6 +1265,11 @@ func main() {
 		if aware, ok := contactService.(contact.SegmentAware); ok {
 			aware.WireSegments(segmentRepository, segmentService)
 		}
+		// A new contact is an event: customer webhooks and "contact created"
+		// automations hear about it from the one write path every creator uses.
+		if aware, ok := contactService.(contact.WebhookAware); ok {
+			aware.WireWebhooks(webhookServiceForHandler)
+		}
 		formRepository := repository.NewFormRepository(primaryDB)
 		formEventRepository := repository.NewFormEventRepository(primaryDB)
 		formService = form.NewService(formRepository)
@@ -1506,9 +1511,10 @@ func main() {
 		// the advanced/contact/org services exist (the integration service was
 		// constructed earlier).
 		integrationServiceForHandler.SetNativeActions(nativeactions.Adapter{
-			Adv:      advancedService,
-			Contacts: contactRepostory,
-			Orgs:     organizationRepository,
+			Adv:        advancedService,
+			Contacts:   contactRepostory,
+			Orgs:       organizationRepository,
+			ContactSvc: contactService,
 		})
 		integrationServiceForHandler.SetPublisher(streamingPublisher)
 		// AI automation nodes (ai_step / ai_switch) run over the same provider +
