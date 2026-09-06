@@ -143,10 +143,11 @@ func (s *service) GenerateBatch(ctx context.Context, req GenerateRequest) (uuid.
 	return job.ID, nil
 }
 
-// PollBatches reconciles every in-flight batch job against OpenAI. Completed
-// batches are downloaded and ingested (clean, lint, and cache);
-// failed/expired/cancelled batches mark the job failed; otherwise the latest
-// batch status is persisted so the admin UI reflects progress.
+// PollBatches reconciles every in-flight batch job against OpenAI. A batch
+// that stopped running is ingested from whatever file it left (clean, lint,
+// and cache), with an expired or cancelled reason recorded; one that left
+// nothing marks the job failed. Otherwise the latest batch status is
+// persisted so the admin UI reflects progress.
 func (s *service) PollBatches(ctx context.Context) error {
 	if s.gen == nil {
 		return nil
@@ -370,7 +371,9 @@ func themeForCustomID(customID, pinnedTheme string) string {
 	return defaultThemes[n%len(defaultThemes)]
 }
 
-// CancelBatch cancels an in-flight batch job both on OpenAI and locally.
+// CancelBatch asks OpenAI to cancel an in-flight batch. The job stays running
+// so the poller ingests what the batch finished before the cancel landed; the
+// admin's reason is recorded now and survives that ingest.
 func (s *service) CancelBatch(ctx context.Context, jobID uuid.UUID) error {
 	if s.gen == nil {
 		return ErrNotConfigured
@@ -388,15 +391,15 @@ func (s *service) CancelBatch(ctx context.Context, jobID uuid.UUID) error {
 	if job.Status == "completed" || job.Status == "failed" {
 		return fmt.Errorf("job already finished")
 	}
+	if job.BatchStatus == "cancelling" {
+		return fmt.Errorf("cancellation already requested")
+	}
 
 	if err := s.gen.CancelBatch(ctx, job.BatchID); err != nil {
 		return err
 	}
 
-	now := time.Now()
-	job.Status = "failed"
 	job.BatchStatus = "cancelling"
-	job.FinishedAt = &now
 	if job.Error == "" {
 		job.Error = "cancelled by admin"
 	}
