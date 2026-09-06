@@ -119,7 +119,7 @@ const trust = [
 // --- FAQ -----------------------------------------------------------------------
 const faq = [
   ['What can start an automation?',
-   'Nine triggers: a classified reply, a booked, rescheduled or canceled meeting, a bounce, an unsubscribe, a warmup health change, a spam complaint, and a campaign step that launches the automation per contact mid-sequence.'],
+   'Twelve triggers: a classified reply, a new contact, a form submission, a booked, rescheduled or canceled meeting, a bounce, an unsubscribe, a warmup health change, a spam complaint, an inbound webhook from any system, and a campaign step that launches the automation per contact mid-sequence.'],
   ['Do I still need Zapier?',
    'For the common paths, no: Slack, Discord, HubSpot, Salesforce, Pipedrive, Close and the built-in CRM actions are direct. Zapier, Make and n8n still connect with a scoped key when you want them, and the signed webhook action reaches anything else.'],
   ['What happens when a step fails?',
@@ -251,14 +251,14 @@ const faq = [
   </section>
 
   <!-- ============================================================
-       TRIGGERS · nine moments it can fire
+       TRIGGERS · twelve moments it can fire
   ============================================================ -->
   <section class="border-b border-[color:var(--border)] py-20 md:py-28">
     <div class="container-page">
       <div class="max-w-2xl mb-12">
         <div class="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-mono mb-3">Triggers</div>
         <h2 class="text-[28px] md:text-[40px] font-semibold tracking-[-0.025em] leading-[1.06] text-heading">
-          Nine moments it can fire.
+          Twelve moments it can fire.
         </h2>
         <p class="mt-4 text-[15px] text-foreground/70 leading-relaxed">
           Every automation starts from one event. Replies arrive already classified, meetings arrive matched to the contact, and a campaign step can launch an automation for each contact that reaches it.

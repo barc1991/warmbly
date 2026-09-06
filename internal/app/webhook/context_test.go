@@ -20,8 +20,13 @@ func TestAutomationDepth_RoundTrip(t *testing.T) {
 
 func TestStampAutomationDepth_CopiesMapPayloadsOnly(t *testing.T) {
 	data := map[string]any{"contact_email": "a@b.co"}
-	if out := stampAutomationDepth(context.Background(), data); out.(map[string]any)[AutomationDepthKey] != nil {
+	plain := stampAutomationDepth(context.Background(), data).(map[string]any)
+	if plain[AutomationDepthKey] != nil {
 		t.Fatal("no depth outside an automation")
+	}
+	plain["written_by_sink"] = true
+	if _, shared := data["written_by_sink"]; shared {
+		t.Fatal("the sink must get its own copy even without a depth")
 	}
 	ctx := WithAutomationDepth(context.Background(), 3)
 	out, ok := stampAutomationDepth(ctx, data).(map[string]any)

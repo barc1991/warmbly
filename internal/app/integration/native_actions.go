@@ -409,7 +409,11 @@ func (s *service) execNativeAction(ctx context.Context, a models.Automation, n m
 			return berr
 		}
 		if strings.TrimSpace(cfg.IfExists) == upsertIfExistsSkip {
-			if existing, _ := s.native.ResolveContact(ctx, a.OrganizationID, "", in.Email); existing != nil {
+			existing, rerr := s.native.ResolveContact(ctx, a.OrganizationID, "", in.Email)
+			if rerr != nil {
+				return fmt.Errorf("look up the existing contact: %w", rerr)
+			}
+			if existing != nil {
 				data["contact_id"] = existing.ID.String()
 				data["contact_email"] = existing.Email
 				data["contact_created"] = false

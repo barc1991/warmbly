@@ -30,16 +30,26 @@ type Adapter struct {
 
 func (a Adapter) ResolveContact(ctx context.Context, orgID uuid.UUID, contactID, email string) (*models.Contact, error) {
 	// Both lookups are ORG-SCOPED — never resolve a contact id from another org,
-	// even if a stale/crafted id reaches the event data.
+	// even if a stale/crafted id reaches the event data. A failed lookup is an
+	// error, not a miss: "skip if it exists" must not write over a contact it
+	// could not see.
 	if contactID != "" {
 		if id, perr := uuid.Parse(contactID); perr == nil {
-			if cs, e := a.Contacts.GetByIDsAndOrganization(ctx, orgID, []uuid.UUID{id}); e == nil && len(cs) > 0 {
+			cs, e := a.Contacts.GetByIDsAndOrganization(ctx, orgID, []uuid.UUID{id})
+			if e != nil {
+				return nil, e
+			}
+			if len(cs) > 0 {
 				return &cs[0], nil
 			}
 		}
 	}
 	if email != "" {
-		if c, e := a.Contacts.GetByEmailAndOrganization(ctx, orgID, email); e == nil && c != nil {
+		c, e := a.Contacts.GetByEmailAndOrganization(ctx, orgID, email)
+		if e != nil {
+			return nil, e
+		}
+		if c != nil {
 			return c, nil
 		}
 	}

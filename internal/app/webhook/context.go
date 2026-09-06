@@ -27,14 +27,11 @@ func AutomationDepth(ctx context.Context) int {
 	return 0
 }
 
-// stampAutomationDepth returns a copy of a map payload carrying the context's
-// automation depth, or the payload unchanged when there is no depth to carry.
-// The copy keeps the caller's map (and the customer webhook body) untouched.
+// stampAutomationDepth returns a copy of a map payload for the sink, carrying
+// the context's automation depth when there is one. Always a copy: the sink
+// runs automations on a goroutine that writes into the map while this call
+// still marshals the same payload for endpoint delivery.
 func stampAutomationDepth(ctx context.Context, data any) any {
-	depth := AutomationDepth(ctx)
-	if depth == 0 {
-		return data
-	}
 	m, ok := data.(map[string]any)
 	if !ok {
 		return data
@@ -43,6 +40,8 @@ func stampAutomationDepth(ctx context.Context, data any) any {
 	for k, v := range m {
 		out[k] = v
 	}
-	out[AutomationDepthKey] = float64(depth)
+	if depth := AutomationDepth(ctx); depth > 0 {
+		out[AutomationDepthKey] = float64(depth)
+	}
 	return out
 }

@@ -292,9 +292,18 @@ const switchCaseHandle = (name: string) => "label:" + name.trim();
 
 // Fresh config for a newly-created action node: agent mode for the AI step, two
 // starter cases for the AI switch (so its case dots show at once), else empty.
-function defaultConfigForAction(action: string): Record<string, unknown> {
+// The event key that carries the person's address differs per trigger, so a
+// fresh create-or-update-contact node starts from the one this trigger has.
+function defaultEmailTemplate(trigger: string): string {
+    const vars = triggerVariables(trigger);
+    if (vars.includes("contact_email")) return "{{.contact_email}}";
+    if (vars.includes("invitee_email")) return "{{.invitee_email}}";
+    return "{{.email}}";
+}
+
+function defaultConfigForAction(action: string, trigger: string): Record<string, unknown> {
     if (action === "warmbly.ai_step") return { mode: "agent" };
-    if (action === "warmbly.upsert_contact") return { email: "{{.email}}", if_exists: "update" };
+    if (action === "warmbly.upsert_contact") return { email: defaultEmailTemplate(trigger), if_exists: "update" };
     if (action === "warmbly.ai_switch") return { switch_on: "ai", cases: ["interested", "not interested"] };
     return {};
 }
@@ -1009,7 +1018,7 @@ export default function AutomationFlow({
                                     connection_id: undefined,
                                     // A fresh AI step defaults to agent mode; a fresh AI switch
                                     // seeds two cases so its case dots show immediately.
-                                    config: defaultConfigForAction(presetAction),
+                                    config: defaultConfigForAction(presetAction, trigger),
                                     title: actionLabel(presetAction),
                                     sub: presetAction === "warmbly.ai_switch" ? "Routes to one case" : native ? "Built-in action" : "Pick an integration…",
                                     provider: "",
@@ -2510,7 +2519,7 @@ function ActionEditor({
     const pickAction = (action: string) =>
         onAction({
             action,
-            config: defaultConfigForAction(action),
+            config: defaultConfigForAction(action, trigger),
             title: actionLabel(action),
             native: isNativeAction(action),
             ...(isNativeAction(action) ? { connection_id: undefined } : {}),
