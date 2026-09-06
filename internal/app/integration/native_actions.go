@@ -438,7 +438,10 @@ func (s *service) execNativeAction(ctx context.Context, a models.Automation, n m
 	}
 
 	c, err := s.native.ResolveContact(ctx, a.OrganizationID, contactID, email)
-	if err != nil || c == nil {
+	if err != nil {
+		return fmt.Errorf("look up the event's contact: %w", err)
+	}
+	if c == nil {
 		return fmt.Errorf("no contact matched the event (need contact_id or contact_email)")
 	}
 
