@@ -40,6 +40,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/bootstrap"
 	"github.com/warmbly/warmbly/internal/app/campaign"
 	"github.com/warmbly/warmbly/internal/app/cipher"
+	"github.com/warmbly/warmbly/internal/app/cliauth"
 	"github.com/warmbly/warmbly/internal/app/cloudlink"
 	"github.com/warmbly/warmbly/internal/app/compose"
 	"github.com/warmbly/warmbly/internal/app/contact"
@@ -163,6 +164,7 @@ func main() {
 	var emailService email.EmailService
 	var poolLinkService poollink.Service
 	var cloudLinkService cloudlink.Service
+	var cliAuthService cliauth.Service
 	var campaignService campaign.CampaignService
 	var analyticsService analytics.AnalyticsService
 	var rateLimitService ratelimit.RateLimitService
@@ -722,6 +724,13 @@ func main() {
 		// trial start (planRepo + creditService, both already constructed above).
 		trialService = trial.NewService(subscriptionRepository, userRepostory, planRepository, creditService)
 		featureGateService = feature.NewService(subscriptionRepository, planRepository)
+		// An approved daily-send increase must raise what is enforced, not
+		// only what the dashboard shows.
+		if g, ok := featureGateService.(interface {
+			WireLimitOverrides(feature.LimitOverrideReader)
+		}); ok {
+			g.WireLimitOverrides(organizationRepository)
+		}
 		workerAssignmentService = worker.NewAssignmentService(workerRepository, subscriptionRepository, planRepository)
 		subscriptionService = subscription.NewService(subscriptionRepository, planRepository)
 		// dailyThrottleService needs the cache that's constructed
@@ -1194,10 +1203,9 @@ func main() {
 		)
 		// Fan out email-account lifecycle events to customer webhooks.
 		emailService.WireWebhooks(webhookService)
-		// Same wire-after-construct pattern for the daily throttle —
-		// only the prod backend has a real cache; jobs / tests build
-		// emailService without one.
-		emailService.WireThrottle(dailyThrottleService)
+		// Every connect path checks the workspace's mailbox allowance
+		// (fair use for paid plans, the free cap otherwise).
+		emailService.WireMailboxAllowance(organizationService)
 		// Seed Graph delta cursors when the reconciler reloads mailboxes.
 		emailService.WireGraphDelta(repository.NewEmailGraphDeltaRepository(primaryDB))
 		// The Gmail equivalent: without it a reloaded mailbox re-bootstraps its
@@ -1284,6 +1292,9 @@ func main() {
 		leadSyncServiceForHandler = leadsync.NewService(leadSyncRepository, integrationServiceForHandler, contactService)
 
 		apiKeyService = apikey.NewService(cache, apiKeyRepository)
+		// `warmbly auth login`: the browser approval mints an ordinary API key
+		// through the service above, so it has to be built after it.
+		cliAuthService = cliauth.NewService(repository.NewCLIAuthRepository(primaryDB.Pool), apiKeyService, organizationService, userService, organizationRepository)
 		crmService = crm.NewService(crmRepository)
 		teamRepository := repository.NewTeamRepository(primaryDB.Pool)
 		teamService = team.NewService(teamRepository)
@@ -1925,6 +1936,7 @@ func main() {
 
 		PoolLinkService:  poolLinkService,
 		CloudLinkService: cloudLinkService,
+		CLIAuthService:   cliAuthService,
 
 		TokenService:     tokenService,
 		PasskeyService:   passkeyService,
