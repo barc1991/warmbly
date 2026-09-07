@@ -112,6 +112,10 @@ type CampaignRepository interface {
 	MarkIdle(ctx context.Context, campaignID uuid.UUID) (bool, error)
 	// ClearIdle removes the idle mark once there is something to send.
 	ClearIdle(ctx context.Context, campaignID uuid.UUID) error
+	// KeepRunning turns on continuous for one of the organization's campaigns.
+	// Returns true only on the transition; ErrResourceNotFound when the
+	// campaign is not the organization's.
+	KeepRunning(ctx context.Context, orgID, campaignID uuid.UUID) (bool, error)
 
 	// ── Campaign-scoped tracking domain (feature 5) ─────────────────────
 	// SetCampaignTrackingDomainVerified flips the verified flag / timestamp on
@@ -1571,7 +1575,8 @@ func (r *campaignRepository) ValidateCampaignReady(ctx context.Context, campaign
 		return err
 	}
 	if contactCount == 0 && !continuous {
-		return errx.New(errx.BadRequest, "campaign must have at least one contact")
+		return errx.NewWithIdentifier(errx.BadRequest, "no_leads",
+			"campaign has no leads yet; add contacts, or turn on Keep running for new leads to start it empty and send as they arrive")
 	}
 
 	// Sender pool (unified): valid if it has any enabled explicit sender OR any
@@ -2075,6 +2080,32 @@ func (r *campaignRepository) MarkIdle(ctx context.Context, campaignID uuid.UUID)
 		SET idle_since = NOW(), updated_at = NOW()
 		WHERE id = $1 AND status = 'active' AND continuous AND idle_since IS NULL
 	`, campaignID)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+// KeepRunning implements the interface comment: it flips continuous on, scoped
+// to the organization so a foreign campaign id cannot be reached.
+func (r *campaignRepository) KeepRunning(ctx context.Context, orgID, campaignID uuid.UUID) (bool, error) {
+	var continuous bool
+	err := r.DB.QueryRow(ctx, `
+		SELECT continuous FROM campaigns WHERE id = $1 AND organization_id = $2
+	`, campaignID, orgID).Scan(&continuous)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, errx.ErrResourceNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+	if continuous {
+		return false, nil
+	}
+	tag, err := r.DB.Exec(ctx, `
+		UPDATE campaigns SET continuous = true, updated_at = NOW()
+		WHERE id = $1 AND organization_id = $2 AND NOT continuous
+	`, campaignID, orgID)
 	if err != nil {
 		return false, err
 	}

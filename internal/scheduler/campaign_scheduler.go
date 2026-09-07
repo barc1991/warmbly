@@ -133,33 +133,16 @@ type senderMeta struct {
 	hasMeta          bool
 }
 
-// campaignSenders resolves the campaign's sending mailboxes. Explicit strategy
-// uses the campaign_senders pool (carrying per-sender rotation metadata); tags
-// strategy keeps the existing tag-based resolution. An empty explicit pool
-// falls back to tags so a misconfigured campaign still sends.
+// campaignSenders resolves the campaign's sending mailboxes through the shared
+// resolver (explicit pool united with tags, "all" when neither is selected),
+// keeping the explicit pool's rotation metadata for the rotation modes.
 func (s *schedulerService) campaignSenders(ctx context.Context, campaign *models.Campaign) ([]models.Email, map[uuid.UUID]senderMeta, error) {
-	campaignID := campaign.ID
-	accounts := []models.Email{}
-	senderMetaByID := map[uuid.UUID]senderMeta{}
-	seen := map[uuid.UUID]bool{}
-	// UNION of the explicit campaign_senders pool and the tag-resolved mailboxes
-	// (one dropdown picks both — they're no longer mutually exclusive). When the
-	// campaign selects NEITHER tags nor explicit accounts, it sends from ALL of
-	// the active mailboxes in the campaign's tenant ("all").
-	//
-	// Tenancy is the campaign's organization, never its owner: a user who belongs
-	// to two organizations must not have organization A's campaign pick up an
-	// organization B mailbox and burn B's reputation, caps and warmup state. A
-	// campaign with no organization resolves to no mailboxes, the same way the
-	// campaign task halts it rather than sending unchecked.
-	scope := repository.NewAccountScope(campaign.OrganizationID)
-	senders, serr := s.emailRepo.GetByCampaignSenders(ctx, scope, campaignID)
-	if serr != nil {
-		return nil, nil, serr
+	pool, err := repository.ResolveCampaignSenderPool(ctx, s.emailRepo, campaign)
+	if err != nil {
+		return nil, nil, err
 	}
-	for _, snd := range senders {
-		accounts = append(accounts, snd.Account)
-		seen[snd.Account.ID] = true
+	senderMetaByID := make(map[uuid.UUID]senderMeta, len(pool.Explicit))
+	for _, snd := range pool.Explicit {
 		senderMetaByID[snd.Account.ID] = senderMeta{
 			weight:           snd.Weight,
 			rotationPosition: snd.RotationPosition,
@@ -167,26 +150,7 @@ func (s *schedulerService) campaignSenders(ctx context.Context, campaign *models
 			hasMeta:          true,
 		}
 	}
-	if len(campaign.EmailTags) > 0 {
-		tagAccounts, terr := s.emailRepo.GetByTags(ctx, scope, campaign.EmailTags)
-		if terr != nil {
-			return nil, nil, terr
-		}
-		for _, ta := range tagAccounts {
-			if !seen[ta.ID] {
-				accounts = append(accounts, ta)
-				seen[ta.ID] = true
-			}
-		}
-	}
-	if len(senders) == 0 && len(campaign.EmailTags) == 0 {
-		allAccts, aerr := s.emailRepo.GetAllActiveInScope(ctx, scope)
-		if aerr != nil {
-			return nil, nil, aerr
-		}
-		accounts = allAccts
-	}
-	return accounts, senderMetaByID, nil
+	return pool.Accounts, senderMetaByID, nil
 }
 
 // placeCampaignSend runs every hard constraint and pacing rule on one

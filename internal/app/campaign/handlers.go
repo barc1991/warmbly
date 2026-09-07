@@ -152,7 +152,7 @@ func (s *campaignService) rescheduleCampaignWakeup(ctx context.Context, campaign
 			}
 		}
 	}
-	_ = s.enqueueCampaignWakeup(ctx, campaignID)
+	_ = s.enqueueCampaignWakeup(ctx, campaignID, false)
 }
 
 func (s *campaignService) Delete(ctx context.Context, orgID uuid.UUID, campaignID string) (*models.Campaign, *errx.Error) {
@@ -514,7 +514,11 @@ func (s *campaignService) StartCampaign(ctx context.Context, orgID uuid.UUID, ca
 		return errx.InternalError()
 	}
 
-	if xerr := s.enqueueCampaignWakeup(ctx, cID); xerr != nil {
+	// A member pressing play on a campaign with nothing left to send means
+	// "run it for the leads to come", never "finish it again": the campaign
+	// goes active and waits (issue #340). A platform-initiated restart keeps
+	// the campaign's own setting.
+	if xerr := s.enqueueCampaignWakeup(ctx, cID, !opts.Automatic); xerr != nil {
 		return xerr
 	}
 
@@ -613,7 +617,7 @@ func (s *campaignService) WakeCampaigns(ctx context.Context, orgID uuid.UUID, ca
 		for i := range pending {
 			_ = s.taskRepo.DeleteTask(ctx, pending[i].ID)
 		}
-		_ = s.enqueueCampaignWakeup(ctx, id)
+		_ = s.enqueueCampaignWakeup(ctx, id, false)
 	}
 }
 
@@ -649,6 +653,45 @@ func (s *campaignService) restartForNewLeads(ctx context.Context, orgID uuid.UUI
 	})
 }
 
+// ContinuousOnEventType is the activity log entry written when "Keep running
+// for new leads" is turned on by a lead source rather than by hand.
+const ContinuousOnEventType = "continuous_on"
+
+// KeepRunning implements the interface comment on CampaignService.
+func (s *campaignService) KeepRunning(ctx context.Context, orgID, campaignID uuid.UUID, reason string) *errx.Error {
+	transitioned, err := s.campaignRepository.KeepRunning(ctx, orgID, campaignID)
+	if err != nil {
+		if errors.Is(err, errx.ErrResourceNotFound) {
+			return errx.ErrNotFound
+		}
+		sentry.CaptureException(err)
+		return errx.InternalError()
+	}
+	if !transitioned {
+		return nil
+	}
+	if s.campaignLogRepo != nil {
+		s.campaignLogRepo.CreateLog(ctx, &repository.CampaignLogEntry{
+			CampaignID: campaignID,
+			EventType:  ContinuousOnEventType,
+			Message:    "Keep running for new leads turned on: " + reason + ". Out of leads, the campaign waits instead of finishing; turn it off in the campaign's preferences.",
+			Metadata:   map[string]interface{}{"reason": reason},
+		})
+	}
+	if s.streamingPublisher != nil {
+		campaign, gerr := s.campaignRepository.GetByID(ctx, campaignID)
+		if gerr == nil && campaign != nil {
+			s.streamingPublisher.PublishCampaignEvent(ctx, &pubsub.CampaignEvent{
+				BaseEvent:  pubsub.BaseEvent{EventType: pubsub.EventCampaignUpdated, UserID: campaign.UserID},
+				OrgID:      modelOrgID(campaign.OrganizationID),
+				CampaignID: campaignID.String(),
+				Name:       campaign.Name,
+			})
+		}
+	}
+	return nil
+}
+
 // idleContinuousCampaign keeps a continuous campaign active with nothing to
 // send: it waits for leads. Logged and broadcast on the transition only.
 func (s *campaignService) idleContinuousCampaign(ctx context.Context, campaign *models.Campaign) {
@@ -674,7 +717,10 @@ func (s *campaignService) idleContinuousCampaign(ctx context.Context, campaign *
 	}
 }
 
-func (s *campaignService) enqueueCampaignWakeup(ctx context.Context, campaignID uuid.UUID) *errx.Error {
+// enqueueCampaignWakeup seeds the campaign's send chain. keepRunningIfEmpty
+// turns on "Keep running for new leads" instead of finishing the campaign
+// when there is nothing to send, for a start a member asked for.
+func (s *campaignService) enqueueCampaignWakeup(ctx context.Context, campaignID uuid.UUID, keepRunningIfEmpty bool) *errx.Error {
 	if s.scheduler == nil || s.tasksClient == nil || s.taskRepo == nil {
 		return nil
 	}
@@ -711,12 +757,20 @@ func (s *campaignService) enqueueCampaignWakeup(ctx context.Context, campaignID 
 				}
 			}
 			// A continuous campaign starts with nothing to send and waits.
-			if c, gerr := s.campaignRepository.GetByID(ctx, campaignID); gerr == nil && c != nil && c.Continuous {
+			c, gerr := s.campaignRepository.GetByID(ctx, campaignID)
+			if gerr == nil && c != nil && !c.Continuous && keepRunningIfEmpty && c.OrganizationID != nil {
+				if xerr := s.KeepRunning(ctx, *c.OrganizationID, c.ID,
+					"the campaign was started with every lead finished, so it waits for new ones instead of finishing again"); xerr == nil {
+					c.Continuous = true
+				}
+			}
+			if gerr == nil && c != nil && c.Continuous {
 				s.idleContinuousCampaign(ctx, c)
 				return nil
 			}
 			_ = s.campaignRepository.UpdateStatusWithLock(ctx, campaignID, "completed")
-			return errx.New(errx.BadRequest, "campaign has no remaining contacts to send")
+			return errx.NewWithIdentifier(errx.BadRequest, "no_remaining_leads",
+				"campaign has no remaining contacts to send; turn on Keep running for new leads to keep it active for leads that arrive later")
 		case errors.Is(err, scheduler.ErrCampaignEnded):
 			_ = s.campaignRepository.UpdateStatusWithLock(ctx, campaignID, "completed")
 			return errx.New(errx.BadRequest, "campaign is past its end date; extend or clear the end date to keep sending")
