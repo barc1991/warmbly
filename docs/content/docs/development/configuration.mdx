@@ -380,7 +380,10 @@ Delayed sends run through the local poller, so the backend must be running for s
 | Variable | What it does | Default |
 |---|---|---|
 | `SENTRY_DSN` | Error reporting. Optional in every environment, including `prod` | unset |
+| `WARMBLY_SENTRY_DSN` | Browser error reporting for the dashboard container, read at container start like the other `WARMBLY_*` values. Unset means the dashboard initialises no reporting SDK and contacts no Sentry host | unset |
 | `APNS_KEY` or `APNS_KEY_PATH`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_TOPIC` | Mobile push on backend and consumer. Partial configuration disables push with a warning, never a crash | unset |
+
+Error reporting is off by default everywhere. A DSN is the operator's choice, and each of these is read by one process, so pointing the backend at a project does not make the dashboard report too. Both accept Sentry Cloud, a self-hosted Sentry or any Sentry-compatible server.
 
 ## Updates
 
