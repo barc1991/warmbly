@@ -40,6 +40,9 @@ func (w *WMail) Sync(ctx context.Context) *errx.MailError {
 	if err != nil {
 		return err
 	}
+	// Dropped here, not skipped below, so a label view a previous build
+	// baselined falls into the deletion sweep and its cursor is retired.
+	folders = slices.DeleteFunc(folders, func(b models.Mailbox) bool { return imapVirtualFolder(&b) })
 
 	for i := range folders {
 		box := &folders[i]
@@ -405,6 +408,32 @@ func (w *WMail) imapBackfill(ctx context.Context, folders []models.Mailbox, stat
 	return nil
 }
 
+// imapVirtualFolder is a Gmail label view (All Mail, Starred, Important):
+// every message in it also lives in a real folder under a different UID, so
+// syncing it would re-file known mail (All Mail reads as archive) and swap
+// the (mailbox, uid) pair the warmup actions address. Neither lane looks at
+// these; a message archived out of every real folder stays unsynced, which
+// is the ceiling of Gmail-over-IMAP — the OAuth Gmail path has no such gap.
+func imapVirtualFolder(box *models.Mailbox) bool {
+	for _, a := range box.Attrs {
+		switch strings.ToLower(a) {
+		case "\\all", "\\flagged", "\\important":
+			return true
+		}
+	}
+	// Name fallback only inside Gmail's own namespace: a plain IMAP server
+	// can legitimately have a user folder called "Important" or "Starred".
+	name := strings.ToLower(box.Name)
+	if !strings.HasPrefix(name, "[gmail]/") && !strings.HasPrefix(name, "[google mail]/") {
+		return false
+	}
+	switch name[strings.Index(name, "/")+1:] {
+	case "all mail", "starred", "important":
+		return true
+	}
+	return false
+}
+
 // imapBackfillEligible excludes folders whose history is not worth importing:
 // trash, spam and Gmail's virtual "All Mail" (a duplicate of every other
 // folder). Live sync still follows them for placement signals and to file new
@@ -416,6 +445,9 @@ func (w *WMail) imapBackfill(ctx context.Context, folders []models.Mailbox, stat
 // Special-use attributes are authoritative, with a name fallback for servers
 // that do not advertise them.
 func imapBackfillEligible(box *models.Mailbox) bool {
+	if imapVirtualFolder(box) {
+		return false
+	}
 	for _, a := range box.Attrs {
 		switch strings.ToLower(a) {
 		case "\\noselect", "\\nonexistent", "\\trash", "\\junk", "\\all":
@@ -427,7 +459,7 @@ func imapBackfillEligible(box *models.Mailbox) bool {
 		name = name[i+1:]
 	}
 	switch name {
-	case "trash", "junk", "spam", "deleted items", "deleted messages", "junk e-mail", "junk email", "bulk mail":
+	case "trash", "bin", "junk", "spam", "deleted items", "deleted messages", "junk e-mail", "junk email", "bulk mail":
 		return false
 	}
 	return true
@@ -463,7 +495,7 @@ func imapCanonicalFolder(box *models.Mailbox) string {
 		return models.FolderDrafts
 	case "junk", "spam", "junk e-mail", "junk email", "bulk mail":
 		return models.FolderSpam
-	case "trash", "deleted", "deleted items", "deleted messages":
+	case "trash", "bin", "deleted", "deleted items", "deleted messages":
 		return models.FolderTrash
 	case "archive", "archives", "all mail":
 		return models.FolderArchive
