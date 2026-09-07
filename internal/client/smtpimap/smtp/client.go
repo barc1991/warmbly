@@ -338,7 +338,12 @@ func (c *Client) sendRaw(ctx context.Context, from string, to []string, data []b
 		// rejects a blind AUTH PLAIN, and that rejection reads exactly like a
 		// wrong password, so the mailbox was deactivated over credentials
 		// that were correct.
-		auth, aerr := NegotiateAuth(client, c.Credentials.Username, c.Credentials.Password, c.Credentials.Host)
+		// The normalized host, not the stored one: net/smtp records the name
+		// it was handed in NewClient as the server name, and PlainAuth
+		// refuses to authenticate when its own host does not match it. A
+		// bracketed IPv6 literal differs from the normalized form, so the
+		// stored string would fail on the address it is correct about.
+		auth, aerr := NegotiateAuth(client, c.Credentials.Username, c.Credentials.Password, host)
 		if aerr != nil {
 			return errx.ErrMailAuthUnsupported
 		}
