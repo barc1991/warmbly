@@ -391,7 +391,13 @@ func (h *Handler) StartCampaign(c *gin.Context) {
 		h.auditOrg(c, models.AuditActionStart, models.AuditEntityCampaign, &campaignID, nil, nil)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "started"})
+	// waiting_for_leads tells the caller the campaign started with nothing to
+	// send and is active, waiting, so the dashboard can say so at once.
+	resp := gin.H{"status": "started", "waiting_for_leads": false}
+	if campaign, gerr := h.CampaignService.Get(c.Request.Context(), orgID.String(), id); gerr == nil && campaign != nil && campaign.IdleSince != nil {
+		resp["waiting_for_leads"] = true
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // StopCampaign stops a campaign

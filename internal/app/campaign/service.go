@@ -56,6 +56,13 @@ type CampaignService interface {
 	// the caller — the lead was still added.
 	WakeCampaigns(ctx context.Context, orgID uuid.UUID, campaignIDs []string)
 
+	// KeepRunning turns on the campaign's "Keep running for new leads" setting
+	// because a live lead source (a form, an automation) now feeds it, the
+	// same way linking a segment does. reason is written to the campaign's
+	// activity log on the transition; a campaign already continuous is left
+	// alone. Returns ErrNotFound when the campaign is not the organization's.
+	KeepRunning(ctx context.Context, orgID, campaignID uuid.UUID, reason string) *errx.Error
+
 	// Explicit sender pool (feature 1).
 	ListCampaignSenders(ctx context.Context, orgID uuid.UUID, campaignID string) ([]models.CampaignSender, *errx.Error)
 	ReplaceCampaignSenders(ctx context.Context, orgID uuid.UUID, campaignID string, in []models.CampaignSenderInput) ([]models.CampaignSender, *errx.Error)

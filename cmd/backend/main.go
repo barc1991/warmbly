@@ -1393,6 +1393,11 @@ func main() {
 			// Leads tabs refresh through the audit spine.
 			segmentService.SetEnrolmentAuditor(auditService)
 		}
+		// A form that feeds a campaign turns on its "Keep running for new
+		// leads" setting, like a linked segment does.
+		if formService != nil {
+			formService.SetCampaigns(campaignService)
+		}
 		if contactService != nil {
 			contactService.SetCampaignWaker(campaignService)
 			// The contact drawer's "next action" is a read-only pass through
@@ -1512,6 +1517,7 @@ func main() {
 			Contacts:   contactRepostory,
 			Orgs:       organizationRepository,
 			ContactSvc: contactService,
+			Campaigns:  campaignService,
 		})
 		integrationServiceForHandler.SetPublisher(streamingPublisher)
 		// AI automation nodes (ai_step / ai_switch) run over the same provider +

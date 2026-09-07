@@ -2788,7 +2788,7 @@ function NativeActionConfig({
                         />
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Enrols the contact this event is about (by <code>contact_id</code> or <code>contact_email</code>). Sending still runs through the campaign&apos;s mailboxes, daily caps and spacing.
+                        Enrols the contact this event is about (by <code>contact_id</code> or <code>contact_email</code>). Sending still runs through the campaign&apos;s mailboxes, daily caps and spacing, and the campaign keeps running for new leads instead of finishing between runs.
                     </p>
                 </div>
             )}
@@ -2942,7 +2942,7 @@ function UpsertContactFields({
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
                 A blank value never erases what the contact already has. The written contact becomes this event&apos;s contact, so the
-                steps after it (tag, task, deal) act on it.
+                steps after it (tag, task, deal) act on it. A campaign picked here keeps running for new leads instead of finishing between runs.
             </p>
         </div>
     );
