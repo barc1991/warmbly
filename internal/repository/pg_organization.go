@@ -879,6 +879,11 @@ func (r *organizationRepository) SearchOrganizationsForAdmin(ctx context.Context
 	addChannel("utm_source", search.UTMSource)
 	addChannel("utm_medium", search.UTMMedium)
 	addChannel("utm_campaign", search.UTMCampaign)
+	// Presence of a record, not presence of a UTM tag: a signup that came from
+	// a marketing page with no campaign parameters still has a landing path,
+	// and calling that "direct" would be wrong. The admin panel's labels and
+	// its Channel column use the same definition (models.AdminOrgSearch).
+	// Mutually exclusive; both set applies only HasAcquisition.
 	if search.HasAcquisition {
 		where += ` AND oa.organization_id IS NOT NULL`
 	} else if search.NoAcquisition {
