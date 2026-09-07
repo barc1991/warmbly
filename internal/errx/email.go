@@ -120,7 +120,12 @@ func MError(eType MailErrorType, code MailErrorCode, message string, resolveMeth
 }
 
 var (
-	ErrMailFoldersMax      = MError(MailErrorCritical, MailErrorCodeFolderLimit, fmt.Sprintf("You reached the maximum limit of %d folders reached.", config.MaxEmailFolders), MailErrorResolveMethodReload)
+	// ErrMailFoldersOverflow is relayed once per worker session when a
+	// mailbox has more folders than the sync follows. The inbox and the
+	// special folders are always among the ones kept.
+	ErrMailFoldersOverflow = func(left int) *MailError {
+		return MError(MailErrorWarning, MailErrorCodeFolderLimit, fmt.Sprintf("This mailbox has %d more folders than the %d Warmbly follows. The inbox, sent, drafts, spam and trash are always synced; the rest are taken in the server's order.", left, config.MaxEmailFolders), MailErrorResolveMethodNone)
+	}
 	ErrMailUpdateLimit     = MError(MailErrorCritical, MailErrorCodeUpdateLimit, "Your inbox has received an unusually large number of updates. Please reactivate your inbox once the issue is resolved.", MailErrorResolveMethodReload)
 	ErrMailGoogleAuth      = MError(MailErrorCritical, MailErrorCodeGoogleAuth, "Cannot access your Gmail account. Please re-authorize your account to restore mailbox access.", MailErrorResolveMethodReload)
 	ErrMailGooglePayment   = MError(MailErrorCritical, MailErrorCodeGooglePayment, "Gmail access blocked due to unpaid invoices. Please resolve the payment with Google.", MailErrorResolveMethodReload)
@@ -235,6 +240,9 @@ func (e *MailError) GetUserErrorInfo() UserErrorInfo {
 	case MailErrorCodeServerUnreachable:
 		info.Title = "Connection Error"
 		info.ActionRequired = "The email server is temporarily unavailable. We'll retry automatically."
+	case MailErrorCodeFolderLimit:
+		info.Title = "Some folders are not synced"
+		info.ActionRequired = "Move or delete folders you no longer need if one you rely on is missing from the unibox."
 	case MailErrorCodeNotFound:
 		info.Title = "Mailbox Item Missing"
 		info.ActionRequired = "The folder or message is no longer on the mail server. Nothing to do; we'll skip it."

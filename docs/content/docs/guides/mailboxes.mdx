@@ -13,7 +13,7 @@ Open **Accounts** and choose **Add account**.
 |----------|--------|-------|
 | Gmail / Google Workspace | OAuth (`gmail`) | Recommended. No password stored. Sends and syncs over the Gmail API |
 | Outlook / Microsoft 365 | OAuth (`outlook`) | Recommended. No password stored. Runs on Microsoft Graph |
-| Any other server | IMAP + SMTP (`smtp_imap`) | Custom domains, self-hosted, or providers without OAuth |
+| Any other server | IMAP + SMTP (`smtp_imap`) | Custom domains, self-hosted, or providers without OAuth. Any IMAP server works, including Outlook.com, Microsoft 365 over IMAP, Yahoo, Fastmail, Zoho, cPanel and self-hosted Dovecot |
 
 **OAuth** sends you to your provider's consent screen and returns a token instead of a password. Both OAuth providers use the provider's native API, never IMAP or SMTP, so consent asks to send mail and to read and organize your mailbox. It needs no app passwords or server settings. Note that Google revokes Gmail tokens when the account's password changes, so a password change there means [re-authorizing the mailbox](#reconnecting-an-account) once.
 
@@ -34,6 +34,8 @@ Each side also has a **security** setting, which is what decides how the connect
 The form picks the right one from the port as you type, so standard setups need no thought. Change it yourself when your server is unusual: any port from 1 to 65535 works, so a submission relay on `2525` or IMAP on a custom port is fine as long as the security setting matches what the server actually speaks. Encryption itself is not optional; Warmbly will not send credentials over an unencrypted connection.
 
 If a mailbox fails to connect with a server-unreachable error and the host and port are definitely right, the security setting is the first thing to check. A server expecting STARTTLS looks unreachable to a client attempting implicit TLS, and vice versa.
+
+When a mail server goes down or stops answering, the mailbox is not deactivated. Warmbly says so once in the drawer, retries on a widening interval, and picks up where it left off when the server comes back. Nothing that arrived meanwhile is skipped.
 
 With two-factor authentication on, generate an app password in your provider's security settings and use that.
 
@@ -110,6 +112,14 @@ Connecting a mailbox does two things: it imports the mailbox's recent history, a
 **The import** brings in the last `90` days, newest first, up to `5,000` messages per mailbox (the defaults; a self-hosted instance can change both under Instance settings). It reads the inbox, sent mail and archive (plus your own folders on Gmail and IMAP), and skips trash, drafts, spam and Gmail's "All Mail". You can watch it in the mailbox drawer's **Sync** card: a progress bar with a running count while it works, then "Up to date" with what was imported. Because it runs newest first, the mail you would look for is there within the first minute; a large mailbox finishes over the next while at a steady pace.
 
 **Live sync** then follows every folder the provider exposes, including junk (so placement problems are visible) and sent mail (so a conversation shows both sides). Read state, flags, deletions and moves are mirrored too.
+
+Nested folders are followed as well, so mail in a subfolder of the inbox or under a label group arrives like anything else. Up to `100` folders per mailbox are synced. Past that the inbox, sent, drafts, spam, trash and archive are always kept and the rest are taken in the order the server lists them, with a note in the mailbox drawer saying how many were left out.
+
+On IMAP, folders are identified by the standard attributes a server publishes, and by name when it publishes none. The common names are recognized in a dozen languages, so a mailbox whose Sent folder is called "Gesendete Elemente" or "Éléments envoyés" still files sent mail as sent rather than as inbox.
+
+<Callout type="info" title="Read state on older IMAP servers">
+  Some IMAP servers, including Outlook.com, Microsoft 365 over IMAP and Yahoo, cannot tell a client what changed since it last looked. New mail from those servers still arrives within a minute. Reading or flagging a message in another mail client shows up in Warmbly within about ten minutes rather than immediately. Nothing is lost either way, and Gmail, Outlook over OAuth, Fastmail and most self-hosted servers are immediate.
+</Callout>
 
 <Callout type="info" title="Fair use, not a hard cap">
   There is a budget on how much new mail one mailbox stores per day (`2,000` by default) and how much a whole workspace stores per day (`25,000`), plus a short burst limit so a mailing-list storm cannot swamp the workers. Mail over a budget is not dropped: it waits on the server with the sync cursor held, and comes in when the window rolls. Replies to your own outreach have their own budget and are never held behind ordinary inbound mail. The drawer says "Waiting on the sync budget until ..." while this is happening, and the mailbox checks back less often until then.

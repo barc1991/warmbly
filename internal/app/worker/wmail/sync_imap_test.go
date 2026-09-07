@@ -12,6 +12,7 @@ import (
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/repository"
 )
 
 // fakeImapConn is the sync pass's view of a server. Only the methods a pass
@@ -23,9 +24,42 @@ type fakeImapConn struct {
 	changed  []goimap.UID
 	fetches  int
 	released int
+	overflow int
+	// noCondStore drives the UIDNEXT path instead of the mod-sequence one.
+	noCondStore bool
+	flags       map[uint32]imap.FlagState
+	flagScans   int
 }
 
 func (c *fakeImapConn) Folders() ([]models.Mailbox, *errx.MailError) { return c.folders, nil }
+
+func (c *fakeImapConn) FolderOverflow() int { return c.overflow }
+
+// condStore defaults to true: most of these tests exercise the mod-sequence
+// path, and the UIDNEXT path has its own tests.
+func (c *fakeImapConn) HasCondStore() bool { return !c.noCondStore }
+
+func (c *fakeImapConn) SearchNewSince(uidNext uint32) ([]goimap.UID, *errx.MailError) {
+	var out []goimap.UID
+	for _, uid := range c.changed {
+		if uint32(uid) >= uidNext {
+			out = append(out, uid)
+		}
+	}
+	return out, nil
+}
+
+func (c *fakeImapConn) FetchFlags(context.Context, uint32) (map[uint32]imap.FlagState, *errx.MailError) {
+	c.flagScans++
+	// A fresh map per call, like the real client: the scan keeps the result
+	// as its baseline, so handing back the same map would compare it to
+	// itself and never see a change.
+	out := make(map[uint32]imap.FlagState, len(c.flags))
+	for uid, st := range c.flags {
+		out[uid] = st
+	}
+	return out, nil
+}
 
 func (c *fakeImapConn) ReleaseMailbox() { c.released++ }
 
@@ -249,6 +283,8 @@ type backfillImapConn struct {
 }
 
 func (c *backfillImapConn) Folders() ([]models.Mailbox, *errx.MailError) { return c.folders, nil }
+func (c *backfillImapConn) FolderOverflow() int                          { return 0 }
+func (c *backfillImapConn) HasCondStore() bool                           { return true }
 func (c *backfillImapConn) ReleaseMailbox()                              {}
 
 func (c *backfillImapConn) SelectForSync(name string) (uint32, *errx.MailError) {
@@ -342,4 +378,183 @@ func TestImapBackfillRetriesAFolderAfterATransientFailure(t *testing.T) {
 	if !hasEvent(events, models.JobEventTypeNewEmail) {
 		t.Error("no history was imported at all")
 	}
+}
+
+// On a server without CONDSTORE the pass follows UIDNEXT instead of the
+// mod-sequence. Refusing those servers is what left Outlook.com, Microsoft
+// 365 over IMAP and Yahoo mailboxes unable to sync at all.
+func TestImapSyncFollowsUIDNextWithoutCondStore(t *testing.T) {
+	conn := &fakeImapConn{
+		noCondStore: true,
+		folders:     []models.Mailbox{{Name: "INBOX", UIDValidity: 7, UIDNext: 104}},
+		changed:     []goimap.UID{101, 102, 103},
+	}
+	w, events := newIMAPTestMail(conn, &fixedBudget{allow: 10},
+		&models.Mailbox{Name: "INBOX", UIDValidity: 7, UIDNext: 101})
+
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if conn.fetches != 1 {
+		t.Errorf("fetched %d batches, want 1: the new mail above the cursor", conn.fetches)
+	}
+	if got := w.SmtpImapData.Mailboxes[0].UIDNext; got != 104 {
+		t.Errorf("UIDNEXT cursor = %d, want 104 once everything was stored", got)
+	}
+	if !hasEvent(*events, models.JobEventTypeNewEmail) {
+		t.Error("no mail was stored on a server without CONDSTORE")
+	}
+}
+
+// The cursor is held when the budget defers part of the batch, exactly as the
+// mod-sequence is: the held mail is re-offered next pass rather than skipped.
+func TestImapSyncHoldsUIDNextWhenDeferred(t *testing.T) {
+	conn := &fakeImapConn{
+		noCondStore: true,
+		folders:     []models.Mailbox{{Name: "INBOX", UIDValidity: 7, UIDNext: 500}},
+		changed:     uidRange(3 * config.ImapFetchBatchSize),
+	}
+	w, _ := newIMAPTestMail(conn, &fixedBudget{allow: 0},
+		&models.Mailbox{Name: "INBOX", UIDValidity: 7, UIDNext: 1})
+
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if got := w.SmtpImapData.Mailboxes[0].UIDNext; got != 1 {
+		t.Errorf("UIDNEXT advanced to %d with mail still waiting on the server", got)
+	}
+}
+
+// A quiet folder must cost nothing: with the cursor level there is no search
+// and no fetch, which is what keeps a per-minute pass cheap on a big account.
+func TestImapSyncSkipsAQuietFolderWithoutCondStore(t *testing.T) {
+	conn := &fakeImapConn{
+		noCondStore: true,
+		folders:     []models.Mailbox{{Name: "INBOX", UIDValidity: 7, UIDNext: 101}},
+	}
+	w, _ := newIMAPTestMail(conn, &fixedBudget{allow: 10},
+		&models.Mailbox{Name: "INBOX", UIDValidity: 7, UIDNext: 101})
+
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if conn.fetches != 0 {
+		t.Errorf("fetched %d batches from a folder with nothing new", conn.fetches)
+	}
+}
+
+// Read state is mirrored by the periodic scan on a server that cannot say what
+// changed. The first scan only baselines: relaying it would send an update for
+// every message in the window for nothing.
+func TestImapFlagScanBaselinesThenRelaysChanges(t *testing.T) {
+	conn := &fakeImapConn{
+		noCondStore: true,
+		folders:     []models.Mailbox{{Name: "INBOX", UIDValidity: 7, UIDNext: 101}},
+		flags: map[uint32]imap.FlagState{
+			1: {MessageID: "<known@test>", Flags: []string{}},
+		},
+	}
+	w, events := newIMAPTestMail(conn, &fixedBudget{allow: 10},
+		&models.Mailbox{Name: "INBOX", UIDValidity: 7, UIDNext: 101})
+	// The platform already has this message; only a known message can have
+	// its flags mirrored.
+	w.EmailMessageMapRepository = knownMessageMap{id: uuid.New().String()}
+
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if conn.flagScans != 1 {
+		t.Fatalf("ran %d flag scans, want 1", conn.flagScans)
+	}
+	if hasEvent(*events, models.JobEventTypeEmailUpdate) {
+		t.Fatal("the first scan relayed updates; it has nothing to compare against yet")
+	}
+
+	// The message is marked read in the customer's own mail client.
+	conn.flags[1] = imap.FlagState{MessageID: "<known@test>", Flags: []string{"\\Seen"}}
+	w.flagScan[7].at = time.Now().Add(-2 * config.ImapFlagScanInterval)
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("second Sync: %v", err)
+	}
+	if !hasEvent(*events, models.JobEventTypeEmailUpdate) {
+		t.Error("a message marked read elsewhere was never mirrored")
+	}
+}
+
+// The scan is periodic, not per pass: it is a FETCH per folder and read state
+// is not worth one every minute on every folder.
+func TestImapFlagScanIsPeriodic(t *testing.T) {
+	conn := &fakeImapConn{
+		noCondStore: true,
+		folders:     []models.Mailbox{{Name: "INBOX", UIDValidity: 7, UIDNext: 101}},
+		flags:       map[uint32]imap.FlagState{},
+	}
+	w, _ := newIMAPTestMail(conn, &fixedBudget{allow: 10},
+		&models.Mailbox{Name: "INBOX", UIDValidity: 7, UIDNext: 101})
+
+	for i := 0; i < 3; i++ {
+		if err := w.Sync(t.Context()); err != nil {
+			t.Fatalf("Sync: %v", err)
+		}
+	}
+	if conn.flagScans != 1 {
+		t.Errorf("ran %d flag scans over three passes, want 1", conn.flagScans)
+	}
+}
+
+// A CONDSTORE server must not pay for the scan: its mod-sequence already
+// reports flag changes.
+func TestImapFlagScanIsSkippedWithCondStore(t *testing.T) {
+	conn := &fakeImapConn{
+		folders: []models.Mailbox{{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100}},
+		flags:   map[uint32]imap.FlagState{},
+	}
+	w, _ := newIMAPTestMail(conn, &fixedBudget{allow: 10},
+		&models.Mailbox{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100})
+
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if conn.flagScans != 0 {
+		t.Errorf("ran %d flag scans on a CONDSTORE server", conn.flagScans)
+	}
+}
+
+// The overflow warning is reported once, not once a minute: the condition is
+// static until someone reorganizes their mail.
+func TestFolderOverflowIsReportedOnce(t *testing.T) {
+	conn := &fakeImapConn{
+		folders:  []models.Mailbox{{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100}},
+		overflow: 12,
+	}
+	w, events := newIMAPTestMail(conn, &fixedBudget{allow: 10},
+		&models.Mailbox{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100})
+
+	for i := 0; i < 3; i++ {
+		if err := w.Sync(t.Context()); err != nil {
+			t.Fatalf("Sync: %v", err)
+		}
+	}
+	warnings := 0
+	for _, e := range *events {
+		if e.eventType == models.JobEventTypeEmailServerError {
+			warnings++
+		}
+	}
+	if warnings != 1 {
+		t.Errorf("relayed %d folder-overflow warnings over three passes, want 1", warnings)
+	}
+}
+
+// knownMessageMap answers every lookup with the same stored message, which is
+// what lets a flag-scan test exercise the relay rather than the "not ours"
+// early return.
+type knownMessageMap struct{ id string }
+
+func (knownMessageMap) Add(context.Context, repository.EmailMessageData) error { return nil }
+func (m knownMessageMap) Get(_ context.Context, _, _ uuid.UUID, messageID string) (*repository.EmailMessageData, error) {
+	return &repository.EmailMessageData{ID: m.id, MessageID: messageID}, nil
+}
+func (knownMessageMap) Del(context.Context, uuid.UUID, uuid.UUID, string, uuid.UUID) error {
+	return nil
 }
