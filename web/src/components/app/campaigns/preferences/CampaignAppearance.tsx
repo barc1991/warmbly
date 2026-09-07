@@ -180,7 +180,7 @@ export function DeliverabilitySection({
             )}
             <SettingRow
                 title="Unsubscribe header"
-                description="Add a List-Unsubscribe header so mail clients can show their own one-click unsubscribe."
+                description="Add a List-Unsubscribe header so mail clients can show their own one-click unsubscribe. It is a header, not visible copy, so it changes nothing about how the email reads and works on plain-text sends too. This is the opt-out Gmail and Yahoo look for; leave it on."
                 control={
                     <Toggle
                         id="campaign-pref-unsub"
@@ -191,7 +191,20 @@ export function DeliverabilitySection({
             />
             <SettingRow
                 title="Opt-out line"
-                description="The opt-out appended after the signature of every email in this campaign. The workspace default is set under Settings > Sending."
+                description={
+                    <>
+                        The opt-out appended after the signature of every email in this campaign. Reply to opt out reads
+                        as a personal email and is honoured automatically; a link is for lists that need one, and the
+                        header above already covers the bulk-sender rules. The workspace default is set under Settings
+                        &gt; Sending.
+                        {newCampaign.text_only && (
+                            <span className="mt-1 block text-amber-700">
+                                This campaign sends plain text only, where a link has nowhere to hide its address: the
+                                recipient reads the full unsubscribe URL. Prefer the header and the reply line here.
+                            </span>
+                        )}
+                    </>
+                }
                 control={
                     <SelectMenu
                         value={newCampaign.unsubscribe_mode ?? "inherit"}

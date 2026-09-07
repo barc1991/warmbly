@@ -139,6 +139,25 @@ export function renderPreview(s: string, ctx: PreviewCtx = SAMPLE): string {
     return out;
 }
 
+// linkifyUnsubscribe mirrors the send path (internal/tasks/optout.go): the
+// unsubscribe variable resolves to a signed URL a recipient should never have
+// to read, so a loose one in the body becomes an anchor. Only the local
+// fallback preview needs this; a server preview arrives already linkified. An
+// occurrence the author put in their own <a href> sits inside a tag and is
+// left alone, and one used as an anchor's text becomes that anchor's label.
+export function linkifyUnsubscribe(html: string, url: string = SAMPLE.UnsubscribeLink, text = "Unsubscribe"): string {
+    if (!url || !html.includes(url)) return html;
+    let depth = 0;
+    return html.replace(/<[^>]*>|[^<]+/g, (chunk) => {
+        if (chunk.startsWith("<")) {
+            if (/^<a[\s/>]/i.test(chunk)) depth++;
+            else if (/^<\/a[\s>]/i.test(chunk)) depth = Math.max(0, depth - 1);
+            return chunk;
+        }
+        return chunk.split(url).join(depth > 0 ? text : `<a href="${url}">${text}</a>`);
+    });
+}
+
 // templateIssue returns a friendly message when a template is obviously
 // malformed (an {{if}} without a matching {{end}}, or vice versa).
 export function templateIssue(s: string): string | null {
