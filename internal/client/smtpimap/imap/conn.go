@@ -2,7 +2,7 @@ package imap
 
 import (
 	"net"
-	"sync/atomic"
+	"sync"
 	"time"
 )
 
@@ -15,20 +15,35 @@ import (
 // Read the whole time and would otherwise time an idle session out.
 type idleConn struct {
 	net.Conn
-	timeout  time.Duration
-	inflight atomic.Int32
+	timeout time.Duration
+
+	// mu guards inflight together with the deadline calls it drives. A
+	// counter alone races: the sync loop and a warmup action run commands on
+	// one session concurrently, so the last release can clear the deadline
+	// just after another command armed it, leaving that command waiting on a
+	// silent peer forever, which is the failure this type exists to prevent.
+	mu       sync.Mutex
+	inflight int
 }
 
 // arm starts the clock for one command. The returned func stops it; every
 // command path calls it on exit.
 func (c *idleConn) arm() func() {
-	if c.inflight.Add(1) == 1 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.inflight++
+	if c.inflight == 1 {
 		_ = c.Conn.SetReadDeadline(time.Now().Add(c.timeout))
 	}
-	return func() {
-		if c.inflight.Add(-1) == 0 {
-			_ = c.Conn.SetReadDeadline(time.Time{})
-		}
+	return c.release
+}
+
+func (c *idleConn) release() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.inflight--
+	if c.inflight == 0 {
+		_ = c.Conn.SetReadDeadline(time.Time{})
 	}
 }
 
@@ -42,7 +57,9 @@ func (c *idleConn) arm() func() {
 // allows five minutes for a large literal, and cutting that would fail a slow
 // body fetch that is making progress.
 func (c *idleConn) SetReadDeadline(t time.Time) error {
-	if t.IsZero() && c.inflight.Load() > 0 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if t.IsZero() && c.inflight > 0 {
 		t = time.Now().Add(c.timeout)
 	}
 	return c.Conn.SetReadDeadline(t)
@@ -51,9 +68,23 @@ func (c *idleConn) SetReadDeadline(t time.Time) error {
 // Write bounds a send too: a large APPEND to a dead peer blocks once the
 // socket buffer is full, and nothing else would ever fail it.
 func (c *idleConn) Write(p []byte) (int, error) {
-	if c.inflight.Load() > 0 {
+	c.mu.Lock()
+	armed := c.inflight > 0
+	if armed {
 		_ = c.Conn.SetWriteDeadline(time.Now().Add(c.timeout))
-		defer func() { _ = c.Conn.SetWriteDeadline(time.Time{}) }()
 	}
-	return c.Conn.Write(p)
+	c.mu.Unlock()
+
+	n, err := c.Conn.Write(p)
+
+	if armed {
+		c.mu.Lock()
+		// Only clear it if nothing else is mid-command: another writer may
+		// have armed its own deadline while this write was in flight.
+		if c.inflight == 0 {
+			_ = c.Conn.SetWriteDeadline(time.Time{})
+		}
+		c.mu.Unlock()
+	}
+	return n, err
 }

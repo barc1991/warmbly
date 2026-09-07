@@ -68,7 +68,7 @@ func (w *WMail) Sync(ctx context.Context) *errx.MailError {
 		fullyProcessed := true
 		if changed && !stats.aborted {
 			w.SmtpImapData.mailbox = box.UIDValidity
-			w.SmtpImapData.folder = imap.CanonicalFolder(box.Name, box.Attrs)
+			w.SmtpImapData.folder = imapCanonicalFolder(box)
 			done, err := w.imapIncremental(ctx, box, befBox, condStore, stats)
 			if err != nil {
 				return err
@@ -105,7 +105,7 @@ func (w *WMail) Sync(ctx context.Context) *errx.MailError {
 		// the arrivals above so a message stored this pass is already known.
 		if !condStore && !stats.aborted {
 			w.SmtpImapData.mailbox = box.UIDValidity
-			w.SmtpImapData.folder = imap.CanonicalFolder(box.Name, box.Attrs)
+			w.SmtpImapData.folder = imapCanonicalFolder(box)
 			if _, err := w.SmtpImapData.ImapClient.SelectForSync(box.Name); err != nil {
 				return err
 			}
@@ -455,15 +455,15 @@ func (w *WMail) imapBackfill(ctx context.Context, folders []models.Mailbox, stat
 // produces the attributes, so the sync loop and the Sent-folder resolver
 // cannot drift apart.
 func imapVirtualFolder(box *models.Mailbox) bool {
-	return imap.IsVirtualFolder(box.Name, box.Attrs)
+	return imap.IsVirtualFolder(*box)
 }
 
 func imapBackfillEligible(box *models.Mailbox) bool {
-	return imap.BackfillEligible(box.Name, box.Attrs)
+	return imap.BackfillEligible(*box)
 }
 
 func imapCanonicalFolder(box *models.Mailbox) string {
-	return imap.CanonicalFolder(box.Name, box.Attrs)
+	return imap.CanonicalFolder(*box)
 }
 
 // controlPlaneError handles a failed map lookup, body store or event publish

@@ -101,7 +101,7 @@ func (c *Client) sentMailbox() (string, error) {
 		// Match the leaf: plenty of servers namespace folders as
 		// "INBOX.Sent" or "INBOX/Sent", and the name is localized wherever
 		// the server does not advertise \Sent.
-		if matchesFolderName(strings.ToLower(leafWithDelim(f.Mailbox, string(f.Delim))), ImapSent) {
+		if matchesFolderName(strings.ToLower(leafWithDelim(f.Mailbox, delimString(f.Delim))), ImapSent) {
 			byName = f.Mailbox
 		}
 	}

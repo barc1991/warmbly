@@ -66,12 +66,9 @@ func (c *Client) foldersCapped(limit int) ([]models.Mailbox, *errx.MailError) {
 		for i := range f.Attrs {
 			attrs[i] = string(f.Attrs[i])
 		}
-		if !selectableFolder(attrs) || IsVirtualFolder(f.Mailbox, attrs) {
+		box := models.Mailbox{Name: f.Mailbox, Attrs: attrs, Delim: delimString(f.Delim)}
+		if !selectableFolder(attrs) || IsVirtualFolder(box) {
 			continue
-		}
-		box := models.Mailbox{Name: f.Mailbox, Attrs: attrs}
-		if f.Delim != 0 {
-			box.Delim = string(f.Delim)
 		}
 		all = append(all, box)
 		if f.Status != nil {
@@ -169,7 +166,7 @@ func rankFolders(all []models.Mailbox, limit int) ([]models.Mailbox, int) {
 		switch {
 		case strings.EqualFold(box.Name, "INBOX"):
 			return 0
-		case CanonicalFolder(box.Name, box.Attrs) != models.FolderInbox:
+		case CanonicalFolder(*box) != models.FolderInbox:
 			return 1
 		}
 		return 2
@@ -199,8 +196,8 @@ func selectableFolder(attrs []string) bool {
 // the (mailbox, uid) pair the warmup actions address. A message archived out
 // of every real folder stays unsynced, which is the ceiling of
 // Gmail-over-IMAP; the OAuth Gmail path has no such gap.
-func IsVirtualFolder(name string, attrs []string) bool {
-	for _, a := range attrs {
+func IsVirtualFolder(box models.Mailbox) bool {
+	for _, a := range box.Attrs {
 		switch strings.ToLower(a) {
 		case "\\all", "\\flagged", "\\important":
 			return true
@@ -208,7 +205,8 @@ func IsVirtualFolder(name string, attrs []string) bool {
 	}
 	// Name fallback only inside Gmail's own namespace: a plain IMAP server
 	// can legitimately have a user folder called "Important" or "Starred".
-	lower := strings.ToLower(name)
+	// Gmail's delimiter is always "/", so this does not need the server's.
+	lower := strings.ToLower(box.Name)
 	if !strings.HasPrefix(lower, "[gmail]/") && !strings.HasPrefix(lower, "[google mail]/") {
 		return false
 	}
@@ -226,11 +224,11 @@ func IsVirtualFolder(name string, attrs []string) bool {
 // message budget that belongs to real conversations. Drafts IS imported: it is
 // small and a Drafts scope with none of the mailbox's existing drafts in it
 // reads as broken.
-func BackfillEligible(name string, attrs []string) bool {
-	if IsVirtualFolder(name, attrs) || !selectableFolder(attrs) {
+func BackfillEligible(box models.Mailbox) bool {
+	if IsVirtualFolder(box) || !selectableFolder(box.Attrs) {
 		return false
 	}
-	switch CanonicalFolder(name, attrs) {
+	switch CanonicalFolder(box) {
 	case models.FolderTrash, models.FolderSpam:
 		return false
 	}
@@ -241,8 +239,8 @@ func BackfillEligible(name string, attrs []string) bool {
 // Special-use attributes are authoritative, with a name fallback for servers
 // that do not advertise them; unrecognized user folders file as inbox so
 // their mail stays visible.
-func CanonicalFolder(name string, attrs []string) string {
-	for _, a := range attrs {
+func CanonicalFolder(box models.Mailbox) string {
+	for _, a := range box.Attrs {
 		switch strings.ToLower(a) {
 		case "\\sent":
 			return models.FolderSent
@@ -256,7 +254,9 @@ func CanonicalFolder(name string, attrs []string) string {
 			return models.FolderArchive
 		}
 	}
-	leafName := strings.ToLower(leaf(name))
+	// The server reports its own hierarchy delimiter per folder, so a folder
+	// whose name contains a dot on a "/" server is not cut in the middle.
+	leafName := strings.ToLower(leafWithDelim(box.Name, box.Delim))
 	switch {
 	case matchesFolderName(leafName, ImapSent):
 		return models.FolderSent
@@ -270,6 +270,17 @@ func CanonicalFolder(name string, attrs []string) string {
 		return models.FolderArchive
 	}
 	return models.FolderInbox
+}
+
+// delimString renders the delimiter LIST reported. go-imap carries it as a
+// rune and a server that has no hierarchy reports NIL, which arrives as 0;
+// converting that directly would produce a NUL byte and make every name look
+// like it has no separator.
+func delimString(delim rune) string {
+	if delim == 0 {
+		return ""
+	}
+	return string(delim)
 }
 
 // matchesFolderName compares an already-lowercased leaf against one of the

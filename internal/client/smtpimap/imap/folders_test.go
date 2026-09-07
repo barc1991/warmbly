@@ -92,7 +92,7 @@ func TestCanonicalFolderLocalizedNames(t *testing.T) {
 		{"Sent to legal", models.FolderInbox},
 		{"Clients/Acme", models.FolderInbox},
 	} {
-		if got := CanonicalFolder(tc.name, nil); got != tc.want {
+		if got := CanonicalFolder(models.Mailbox{Name: tc.name}); got != tc.want {
 			t.Errorf("CanonicalFolder(%q) = %q, want %q", tc.name, got, tc.want)
 		}
 	}
@@ -139,7 +139,7 @@ func TestIsVirtualFolder(t *testing.T) {
 		{"All Mail", nil, false},
 		{"INBOX", nil, false},
 	} {
-		if got := IsVirtualFolder(tc.name, tc.attrs); got != tc.want {
+		if got := IsVirtualFolder(models.Mailbox{Name: tc.name, Attrs: tc.attrs}); got != tc.want {
 			t.Errorf("IsVirtualFolder(%q, %v) = %v, want %v", tc.name, tc.attrs, got, tc.want)
 		}
 	}
@@ -184,5 +184,43 @@ func TestDedupeByUIDValidityLeavesADistinctListingAlone(t *testing.T) {
 	kept, conflicts := dedupeByUIDValidity(in)
 	if conflicts != 0 || len(kept) != 2 || kept[0].Name != "INBOX" || kept[1].Name != "Sent" {
 		t.Fatalf("a listing with distinct ids was changed: %+v, conflicts %d", kept, conflicts)
+	}
+}
+
+// A server picks its own hierarchy delimiter and reports it on every LIST
+// reply. Splitting on "." and "/" alone leaves a folder under any other
+// separator unclassified, so the customer's sent mail shows up in the inbox
+// scope; a server with no hierarchy at all reports NIL, which must not be
+// read as a NUL separator.
+func TestCanonicalFolderUsesTheServerDelimiter(t *testing.T) {
+	for _, tc := range []struct {
+		box  models.Mailbox
+		want string
+	}{
+		{models.Mailbox{Name: "Parent|Sent Items", Delim: "|"}, models.FolderSent},
+		{models.Mailbox{Name: `Parent\Trash`, Delim: `\`}, models.FolderTrash},
+		{models.Mailbox{Name: "INBOX.Sent", Delim: "."}, models.FolderSent},
+		{models.Mailbox{Name: "INBOX/Sent", Delim: "/"}, models.FolderSent},
+		// No delimiter reported: fall back to the "." and "/" guess.
+		{models.Mailbox{Name: "INBOX.Sent"}, models.FolderSent},
+		{models.Mailbox{Name: "Sent"}, models.FolderSent},
+		// A dot in the name is part of the name on a "/" server.
+		{models.Mailbox{Name: "Q1.Reports", Delim: "/"}, models.FolderInbox},
+	} {
+		if got := CanonicalFolder(tc.box); got != tc.want {
+			t.Errorf("CanonicalFolder(%q delim %q) = %q, want %q", tc.box.Name, tc.box.Delim, got, tc.want)
+		}
+	}
+}
+
+// The delimiter LIST reports is a rune, and a server with no hierarchy sends
+// NIL, which arrives as 0. Converting that straight to a string yields a NUL
+// byte, which matches nothing and hides the fallback.
+func TestDelimString(t *testing.T) {
+	if got := delimString(0); got != "" {
+		t.Errorf("delimString(NIL) = %q, want an empty string", got)
+	}
+	if got := delimString('/'); got != "/" {
+		t.Errorf("delimString('/') = %q", got)
 	}
 }
