@@ -953,46 +953,47 @@ func (s *stripeService) fulfillCreditTopup(ctx context.Context, event *stripe.Ev
 }
 
 func (s *stripeService) handleSubscriptionCreated(ctx context.Context, event *stripe.Event) *errx.Error {
-	if err := s.handleSubscriptionUpdated(ctx, event); err != nil {
-		return err
-	}
-	s.countSubscriptionStarted(ctx, event)
-	return nil
+	return s.handleSubscriptionUpdated(ctx, event)
 }
 
-// countSubscriptionStarted records a new paid subscription in product
-// analytics. It fires from the webhook rather than the browser because this is
-// the money event and it has to be exact: the customer may have closed the tab
-// on Stripe's success page, and an ad blocker would drop the browser's version.
+// countSubscriptionStarted records a workspace starting to pay.
+//
+// It fires from the webhook rather than the browser because this is the money
+// event and it has to be exact: the customer may have closed the tab on
+// Stripe's success page, and an ad blocker would drop the browser's version.
+//
+// It hangs off the trial-to-paid transition rather than off the
+// customer.subscription.created event, so a redelivered or duplicated webhook
+// does not report a second start: by the time it arrives the subscription
+// already carries a Stripe id and the transition no longer reads as new. That
+// is the same guard the paid-worker migration beside it relies on, and it is
+// bounded by the same window, which is far narrower than the webhook
+// idempotency check that runs before either of them.
 //
 // Unlike the signup event there is no browser request to join: Stripe called
 // us, not the customer. So this lands as its own cookieless visitor and is
 // useful as a count and a plan mix, not as the end of a session funnel.
 // Nothing here names the organization or the person.
-func (s *stripeService) countSubscriptionStarted(ctx context.Context, event *stripe.Event) {
-	if s.productAnalytics == nil {
-		return
-	}
-	var stripeSub stripe.Subscription
-	if err := json.Unmarshal(event.Data.Raw, &stripeSub); err != nil {
-		return
-	}
-	if len(stripeSub.Items.Data) == 0 {
+func (s *stripeService) countSubscriptionStarted(ctx context.Context, sub *models.Subscription, plan *models.Plan, stripeSub *stripe.Subscription) {
+	if s.productAnalytics == nil || stripeSub == nil {
 		return
 	}
 
-	item := stripeSub.Items.Data[0]
-	props := map[string]any{
-		"status": string(stripeSub.Status),
-	}
-	if item.Price != nil {
-		props["currency"] = string(item.Price.Currency)
-		props["amount"] = float64(item.Price.UnitAmount) / 100
-		if item.Price.Recurring != nil {
-			props["interval"] = string(item.Price.Recurring.Interval)
+	props := map[string]any{"status": string(stripeSub.Status)}
+	if plan != nil {
+		props["plan"] = plan.Name
+	} else if sub != nil {
+		if p, err := s.planRepo.GetByID(ctx, sub.PlanID); err == nil && p != nil {
+			props["plan"] = p.Name
 		}
-		if plan, err := s.planRepo.GetByStripePriceID(ctx, item.Price.ID); err == nil && plan != nil {
-			props["plan"] = plan.Name
+	}
+	if len(stripeSub.Items.Data) > 0 {
+		if price := stripeSub.Items.Data[0].Price; price != nil {
+			props["currency"] = string(price.Currency)
+			props["amount"] = float64(price.UnitAmount) / 100
+			if price.Recurring != nil {
+				props["interval"] = string(price.Recurring.Interval)
+			}
 		}
 	}
 
@@ -1059,6 +1060,14 @@ func (s *stripeService) handleSubscriptionUpdated(ctx context.Context, event *st
 
 	if err := s.subRepo.Update(ctx, sub); err != nil {
 		return errx.New(errx.Internal, "failed to update subscription")
+	}
+
+	// The workspace has started paying. Reported after the write, so a failed
+	// update never counts as a start, and keyed off the same transition the
+	// premium-worker migration below uses, so a redelivered webhook does not
+	// count a second one.
+	if wasTrialOnly && sub.HasPaidSubscription() {
+		s.countSubscriptionStarted(ctx, sub, newPlan, &stripeSub)
 	}
 
 	// Handle worker migrations if workerAssignment service is available

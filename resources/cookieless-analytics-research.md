@@ -103,16 +103,50 @@ the event once the hash is computed, so the raw values are not retained.
 
 ## The legal position
 
-The CNIL's 2025 guidance on audience-measurement exemptions accepts a salted,
-daily-rotated hash as an identifier that does not require consent, which is
-exactly the construction above. The exemption is narrow, and it does **not**
-cover acquisition-channel or conversion measurement.
+**This section is engineering notes, not legal advice, and it does not
+establish that this deployment may run without a banner. Get a
+deployment-specific assessment before relying on it.**
 
-That is the honest limit of what the exemption buys, and it is why the
-acquisition record below is a deliberate product decision recorded here rather
-than something smuggled in under "analytics": it is kept minimal, first-party,
-written once at signup as part of the account record, and it travels with a
-workspace export like the rest of the customer's data.
+Two separate questions get conflated here, so keep them apart.
+
+**Storing or reading anything on the visitor's device.** This is what the
+ePrivacy rules (in France, Article 82) attach consent to. `cookieless_mode:
+'always'` writes no cookie, no local storage and no session storage, so there
+is nothing stored or read to consent to. That is a claim about the mechanism,
+and it is one we can verify ourselves rather than take on trust: see the
+acceptance checks in the issue.
+
+**Processing the visitor's IP address and user agent server-side.** This is a
+GDPR question and it does not go away because nothing was stored in the
+browser. It needs a lawful basis, and whether the resulting hash counts as
+personal data is contested rather than settled. PostHog's position is that the
+hash cannot be reversed; that is an argument, not a ruling.
+
+The CNIL's audience-measurement exemption is often cited here and it is worth
+being precise about what it actually says, because it is narrower than the
+shorthand suggests. Its published conditions are that the tool is used for a
+purpose *strictly limited* to measuring the audience of the site, produces
+*anonymous statistics only*, does not allow a person to be followed across
+different sites or apps, and does not lead to the data being cross-referenced
+with other processing or passed to third parties. It says **nothing** about
+hashing schemes, salt rotation, or IP-plus-user-agent constructions, and it
+notes that some audience-measurement offerings fall outside the exemption
+regardless of how they are configured.
+
+So: the construction above is *designed* against those conditions — no
+cross-site identifier, because the hash is scoped to the registrable root
+domain; aggregate output only, because `person_profiles: 'never'` makes
+`identify` a no-op; and no other processing to join to. Whether a given
+deployment qualifies is a judgement about that deployment, and this document
+is not that judgement.
+
+What is clear either way is that acquisition-channel and conversion
+measurement are **outside** a "strictly audience measurement" purpose. That is
+why the acquisition record below is written up as a deliberate product decision
+rather than folded into "analytics": it is kept minimal and first-party,
+recorded once at signup as part of the account record, disclosed in the privacy
+policy, and it travels with a workspace export and is deleted with the account
+like the rest of the customer's data.
 
 ## Why a first-party record as well
 
@@ -144,3 +178,4 @@ without a key it is never initialised. See `docs/content/docs/development/data-c
 - PostHog source, `rust/common/cookieless/src/constants.rs` and `manager.rs`
 - PostHog source, `nodejs/src/ingestion/common/cookieless/cookieless-manager.ts`
 - PostHog, "Bot and traffic detection" (on `$raw_user_agent` for server-side capture): <https://posthog.com/docs/web-analytics/bot-detection>
+- CNIL, "Cookies : solutions pour les outils de mesure d'audience" (the exemption conditions quoted above): <https://www.cnil.fr/fr/cookies-solutions-pour-les-outils-de-mesure-daudience>

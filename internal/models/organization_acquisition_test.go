@@ -41,6 +41,41 @@ func TestOrgAcquisitionNormalize(t *testing.T) {
 			in:   OrgAcquisition{UTMSource: "news\nletter\t"},
 			want: OrgAcquisition{UTMSource: "newsletter"},
 		},
+		{
+			// url.Parse reads this as a relative path with an empty Hostname,
+			// so the reduction runs on the raw string and the result has to be
+			// checked rather than trusted.
+			name: "a query string on a bare referrer host is not stored",
+			in:   OrgAcquisition{ReferrerHost: "example.com?email=alice@example.com"},
+			want: OrgAcquisition{ReferrerHost: "example.com"},
+		},
+		{
+			name: "a fragment on a bare referrer host is not stored",
+			in:   OrgAcquisition{ReferrerHost: "example.com#alice@example.com"},
+			want: OrgAcquisition{ReferrerHost: "example.com"},
+		},
+		{
+			name: "userinfo in a bare referrer host is not stored",
+			in:   OrgAcquisition{ReferrerHost: "alice@example.com"},
+			want: OrgAcquisition{ReferrerHost: ""},
+		},
+		{
+			name: "a referrer that is not a hostname is dropped",
+			in:   OrgAcquisition{ReferrerHost: "not a host"},
+			want: OrgAcquisition{},
+		},
+		{
+			// These arrive on a query string anybody can write, and an address
+			// here would be stored on the org and sent as an analytics property.
+			name: "an email address in a UTM value is redacted",
+			in:   OrgAcquisition{UTMSource: "alice@example.com", UTMCampaign: "launch alice@example.com now"},
+			want: OrgAcquisition{UTMSource: "[redacted]", UTMCampaign: "launch [redacted] now"},
+		},
+		{
+			name: "an email in a landing path is redacted too",
+			in:   OrgAcquisition{LandingPath: "/invite/bob@example.com"},
+			want: OrgAcquisition{LandingPath: "/invite/[redacted]"},
+		},
 	}
 
 	for _, tt := range tests {

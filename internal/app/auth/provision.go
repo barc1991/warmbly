@@ -71,8 +71,13 @@ func (s *authService) createAccount(ctx context.Context, address, passwordHash s
 	if attr.Invite != "" && s.organizationService != nil {
 		if _, err := s.organizationService.AcceptInvitation(ctx, attr.Invite, u.ID, u.Email); err == nil {
 			// An invited account finished signing up just as much as a
-			// self-serve one; it simply joined an existing workspace.
+			// self-serve one; it simply joined an existing workspace. It is
+			// counted here rather than at the end because this path returns
+			// early, and the count cannot move above the invitation check: a
+			// failed invitation either refuses or falls through to a
+			// self-serve signup, and only one of those is a signup.
 			s.notifyOperatorSignup(u, "")
+			s.countSignup(attr, origin)
 			return u, nil
 		}
 		if inviteRequired {

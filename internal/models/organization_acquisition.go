@@ -2,6 +2,7 @@ package models
 
 import (
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -53,8 +54,22 @@ func (a OrgAcquisition) Normalize() OrgAcquisition {
 	}
 }
 
+// emailPattern is the one identifier worth catching by shape. These values
+// arrive on a query string anybody can write, and an address in a utm_source
+// would be stored on the organization and sent as an analytics property,
+// breaking the rule that no event names a person.
+//
+// It is a shape check, not a PII scrubber: it cannot catch a name or an
+// account number, and it is not meant to. The defence that carries the weight
+// is that these fields are never joined to anything and are only ever read as
+// a channel name.
+var emailPattern = regexp.MustCompile(`[\w.+-]+@[\w-]+\.[\w.-]+`)
+
 func clampField(v string) string {
 	v = strings.TrimSpace(v)
+	// Redact before truncating, so a value cut mid-address cannot leave a
+	// recognisable fragment behind.
+	v = emailPattern.ReplaceAllString(v, "[redacted]")
 	if len(v) > acquisitionFieldMax {
 		v = v[:acquisitionFieldMax]
 	}
@@ -84,25 +99,40 @@ func normalizePath(v string) string {
 	return ""
 }
 
-// normalizeHost keeps a bare hostname: no scheme, no path, no port, lowercase.
-// A full referrer URL would carry the referring page's own query string, which
-// is somebody else's data and not ours to store.
+// hostPattern is what a stored referrer must look like once reduced. Anything
+// else is dropped rather than stored: the field's whole purpose is to name a
+// site, so a value that is not a hostname has nothing useful in it and might
+// have somebody's data in it.
+var hostPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
+
+// normalizeHost keeps a bare hostname: no scheme, no path, no port, no query,
+// no fragment, lowercase.
+//
+// A full referrer URL carries the referring page's own query string, which is
+// somebody else's data and not ours to store. url.Parse does not help on its
+// own: it reads "example.com?u=alice@example.com" as a relative path with an
+// empty Hostname, so the reduction below runs on the raw string and the result
+// is then checked against hostPattern rather than trusted.
 func normalizeHost(v string) string {
 	v = strings.TrimSpace(v)
 	if v == "" {
 		return ""
 	}
 	if u, err := url.Parse(v); err == nil && u.Hostname() != "" {
-		return strings.ToLower(u.Hostname())
+		return keepHost(u.Hostname())
 	}
-	// Bare host, possibly with a path or port glued on.
+	// Bare host, possibly with a scheme, path, port, query or fragment glued on.
 	v = strings.TrimPrefix(strings.TrimPrefix(v, "https://"), "http://")
-	v, _, _ = strings.Cut(v, "/")
-	if host, _, ok := strings.Cut(v, ":"); ok {
-		v = host
+	for _, sep := range []string{"/", "?", "#", "@", ":"} {
+		v, _, _ = strings.Cut(v, sep)
 	}
-	if strings.ContainsAny(v, " \t") {
+	return keepHost(v)
+}
+
+func keepHost(v string) string {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if !hostPattern.MatchString(v) {
 		return ""
 	}
-	return strings.ToLower(v)
+	return v
 }

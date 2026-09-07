@@ -130,10 +130,13 @@ const columns: Column<AdminOrgListItem>[] = [
         // Where the workspace came from, recorded once at signup. Hidden by
         // default: most signups are direct and the column would read empty.
         defaultHidden: true,
+        // "direct" means no acquisition data at all, which is the same thing
+        // the "No acquisition data" filter selects. A row with only a landing
+        // path is not direct, so it shows the path rather than falling through.
         cell: (o) =>
-            o.utm_source || o.utm_medium || o.landing_path ? (
+            o.utm_source || o.utm_medium || o.utm_campaign || o.landing_path ? (
                 <div className="flex flex-col leading-tight" title={[o.utm_campaign, o.landing_path].filter(Boolean).join(" · ")}>
-                    <span className="text-xs">{o.utm_source || "—"}</span>
+                    <span className="text-xs">{o.utm_source || o.landing_path || "—"}</span>
                     {o.utm_medium && <span className="text-[10px] text-muted-foreground">{o.utm_medium}</span>}
                 </div>
             ) : (
@@ -429,8 +432,19 @@ export default function OrganizationsPage() {
                                 <SearchFilter value={utmMedium} onChange={setUtmMedium} placeholder="utm_medium…" />
                             </div>
                             <div className="mt-2 flex flex-col gap-2">
-                                <ToggleFilter checked={hasAcquisition} onChange={setHasAcquisition} label="Arrived through a tagged link" />
-                                <ToggleFilter checked={noAcquisition} onChange={setNoAcquisition} label="Direct signup" />
+                                {/* Mutually exclusive: the backend resolves both-at-once
+                                    by ignoring one, which would leave a filter switched
+                                    on that is doing nothing. */}
+                                <ToggleFilter
+                                    checked={hasAcquisition}
+                                    onChange={(v) => { setHasAcquisition(v); if (v) setNoAcquisition(false); }}
+                                    label="Has acquisition data"
+                                />
+                                <ToggleFilter
+                                    checked={noAcquisition}
+                                    onChange={(v) => { setNoAcquisition(v); if (v) setHasAcquisition(false); }}
+                                    label="No acquisition data (direct)"
+                                />
                             </div>
                         </FilterGroup>
                         <FilterGroup label="Flags">

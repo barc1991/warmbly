@@ -202,6 +202,7 @@ export default function AddEmailModal() {
                 finishCloudOAuth(data.session).then((inbox) => {
                     qc.invalidateQueries({ queryKey: ["emails", "list"] });
                     qc.invalidateQueries({ queryKey: ["cloud-link"] });
+                    capture("mailbox_connected", { provider: expected.provider, method: "cloud" });
                     user.setAddEmail(false);
                     return inbox;
                 }),
@@ -244,7 +245,7 @@ export default function AddEmailModal() {
             void toast.promise(
                 onboardOAuthFinish(data.code, data.state).then((inbox) => {
                     qc.invalidateQueries({ queryKey: ["emails", "list"] });
-                    capture("mailbox_connected", { provider: pendingState.current?.provider ?? "oauth", method: "oauth" });
+                    capture("mailbox_connected", { provider: expected.provider, method: "oauth" });
                     user.setAddEmail(false);
                     return inbox;
                 }),

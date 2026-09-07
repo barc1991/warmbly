@@ -815,9 +815,15 @@ type AdminOrgSearch struct {
 	UpdatedAfter           *time.Time `form:"updated_after" time_format:"2006-01-02" time_utc:"true"`
 	UpdatedBefore          *time.Time `form:"updated_before" time_format:"2006-01-02" time_utc:"true"`
 
-	// Acquisition channel. UTMSource/UTMMedium/UTMCampaign match exactly;
-	// HasAcquisition selects workspaces that arrived through a tagged link at
-	// all, and its negation the ones that came in directly.
+	// Acquisition channel. UTMSource/UTMMedium/UTMCampaign match exactly.
+	//
+	// HasAcquisition and NoAcquisition select on the presence of an
+	// acquisition record, not on a UTM tag: a signup that came from a
+	// marketing page with no campaign parameters has a landing path and
+	// counts as having acquisition data. "Direct" therefore means "arrived
+	// with nothing at all", which is what the admin list's Channel column
+	// shows too. They are mutually exclusive; setting both applies only
+	// HasAcquisition.
 	UTMSource      string `form:"utm_source"`
 	UTMMedium      string `form:"utm_medium"`
 	UTMCampaign    string `form:"utm_campaign"`
