@@ -53,9 +53,15 @@ func TestImapVirtualFolder(t *testing.T) {
 		{models.Mailbox{Name: "[Gmail]/All Mail", Attrs: []string{"\\All", "\\HasNoChildren"}}, true},
 		{models.Mailbox{Name: "[Gmail]/Starred", Attrs: []string{"\\Flagged"}}, true},
 		{models.Mailbox{Name: "[Gmail]/Important", Attrs: []string{"\\Important"}}, true},
-		// A plain LIST (no SPECIAL-USE) carries only \HasNoChildren.
+		// A plain LIST (no SPECIAL-USE) carries only \HasNoChildren; the name
+		// fallback applies inside Gmail's namespace only.
 		{models.Mailbox{Name: "[Gmail]/All Mail", Attrs: []string{"\\HasNoChildren"}}, true},
 		{models.Mailbox{Name: "[Gmail]/Starred"}, true},
+		{models.Mailbox{Name: "[Google Mail]/Important"}, true},
+		// Ordinary IMAP folders that happen to share the names are real.
+		{models.Mailbox{Name: "Important"}, false},
+		{models.Mailbox{Name: "INBOX.Starred"}, false},
+		{models.Mailbox{Name: "All Mail"}, false},
 		{models.Mailbox{Name: "[Gmail]/Sent Mail", Attrs: []string{"\\Sent"}}, false},
 		{models.Mailbox{Name: "[Gmail]/Bin", Attrs: []string{"\\Trash"}}, false},
 		{models.Mailbox{Name: "INBOX"}, false},

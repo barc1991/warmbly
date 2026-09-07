@@ -63,28 +63,39 @@ type Client struct {
 	// route is used.
 	BindIP *net.TCPAddr
 
-	// reconnectMu serializes ensureConnected between the sync loop (which does
-	// not hold mu) and the send/warmup paths (which do), so a drop seen by both
-	// at once dials one new session, not two.
-	reconnectMu sync.Mutex
+	// lifecycle guards the client field itself. A reconnect holds the write
+	// lock through dial, auth and assignment; every command holds the read
+	// lock for its duration, so a reconnect never swaps the session out from
+	// under a command, and two paths that both see the drop dial once.
+	// Lock order: mu before lifecycle, and never nest a read lock.
+	lifecycle sync.RWMutex
 }
 
 // ensureConnected re-dials after the server has dropped the session. go-imap
 // parks a dead client in the Logout state and fails every later command with
 // net.ErrClosed; nothing re-dialed, so one drop (Gmail closes sessions after a
 // while) left the mailbox a zombie until the worker restarted: no sync, no
-// sent copies. Every entry point that starts a command runs through here.
+// sent copies. Every entry point that starts a command runs through here,
+// before taking its own read lock.
 func (c *Client) ensureConnected() *errx.MailError {
-	c.reconnectMu.Lock()
-	defer c.reconnectMu.Unlock()
+	c.lifecycle.Lock()
+	defer c.lifecycle.Unlock()
 
 	if c.client != nil && c.client.State() != imap.ConnStateLogout {
 		return nil
 	}
-	return c.Connect()
+	return c.connectLocked()
 }
 
 func (c *Client) Connect() *errx.MailError {
+	c.lifecycle.Lock()
+	defer c.lifecycle.Unlock()
+	return c.connectLocked()
+}
+
+// connectLocked dials and authenticates a fresh session. lifecycle must be
+// held for writing.
+func (c *Client) connectLocked() *errx.MailError {
 	var addr, host, security string
 	var port int
 	switch c.AuthType {
@@ -147,6 +158,11 @@ func (c *Client) Connect() *errx.MailError {
 }
 
 func (c *Client) Close() error {
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
+	if c.client == nil {
+		return nil
+	}
 	return c.client.Close()
 }
 
@@ -190,6 +206,8 @@ func (c *Client) Folders() ([]models.Mailbox, *errx.MailError) {
 	if err := c.ensureConnected(); err != nil {
 		return nil, err
 	}
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 
 	// LIST-STATUS: without requesting these, f.Status is nil for every
 	// folder and the sync loop sees an empty account.
@@ -242,6 +260,8 @@ func (c *Client) Folders() ([]models.Mailbox, *errx.MailError) {
 }
 
 func (c *Client) Mailbox(mailbox string, uidvali, opts *imap.SelectOptions) error {
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	if _, err := c.selectMailbox(mailbox, opts); err != nil {
 		return err
 	}
@@ -252,7 +272,7 @@ func (c *Client) Mailbox(mailbox string, uidvali, opts *imap.SelectOptions) erro
 // selectMailbox is the single SELECT funnel: every path that changes the
 // selected mailbox goes through it so ReleaseMailbox knows whether there is
 // one to release. A failed SELECT leaves the session with no mailbox
-// selected (RFC 3501 6.3.1).
+// selected (RFC 3501 6.3.1). The caller holds the lifecycle read lock.
 func (c *Client) selectMailbox(mailbox string, opts *imap.SelectOptions) (*imap.SelectData, error) {
 	data, err := c.client.Select(mailbox, opts).Wait()
 	c.selected.Store(err == nil)
@@ -265,6 +285,8 @@ func (c *Client) selectMailbox(mailbox string, opts *imap.SelectOptions) (*imap.
 // what arms ChangedSince. The count lets the caller skip the fetch entirely
 // for an empty mailbox, where a 1:* set is a server error.
 func (c *Client) SelectForSync(mailbox string) (uint32, *errx.MailError) {
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	data, err := c.selectMailbox(mailbox, &imap.SelectOptions{ReadOnly: true, CondStore: true})
 	if err != nil {
 		return 0, c.handleError(err)
@@ -282,6 +304,8 @@ func (c *Client) SelectForSync(mailbox string) (uint32, *errx.MailError) {
 func (c *Client) ReleaseMailbox() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 
 	if c.client == nil || !c.selected.Load() || !c.client.Caps().Has(imap.CapUnselect) {
 		return
@@ -317,6 +341,8 @@ func (c *Client) SearchChangedSince(modSeq uint64) ([]imap.UID, *errx.MailError)
 }
 
 func (c *Client) uidSearch(criteria *imap.SearchCriteria) ([]imap.UID, *errx.MailError) {
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	data, err := c.client.UIDSearch(criteria, nil).Wait()
 	if err != nil {
 		return nil, c.handleError(err)
@@ -335,6 +361,8 @@ func (c *Client) FetchEnvelopes(ctx context.Context, uids []imap.UID) ([]*Fetche
 	for _, uid := range uids {
 		set.AddNum(uid)
 	}
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	cmd := c.client.Fetch(set, &imap.FetchOptions{
 		UID:      true,
 		Envelope: true,
@@ -417,6 +445,8 @@ func (c *Client) FetchBody(f *Fetched) {
 	if f == nil || f.Email == nil {
 		return
 	}
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	f.Email.BodyPlain, f.Email.BodyHTML = fetchTextParts(c.client, f.uid, f.body)
 }
 

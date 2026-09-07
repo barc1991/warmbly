@@ -34,6 +34,8 @@ func (c *Client) AppendToSent(ctx context.Context, raw []byte, sentAt time.Time)
 		return merr
 	}
 
+	// Resolved before the read lock: sentMailbox takes mu, and mu is ordered
+	// before lifecycle.
 	mailbox, err := c.sentMailbox()
 	if err != nil {
 		return err
@@ -42,6 +44,8 @@ func (c *Client) AppendToSent(ctx context.Context, raw []byte, sentAt time.Time)
 	if sentAt.IsZero() {
 		sentAt = time.Now()
 	}
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	cmd := c.client.Append(mailbox, int64(len(raw)), &imap.AppendOptions{
 		// The sender has, by definition, read what they just sent.
 		Flags: []imap.Flag{imap.FlagSeen},
@@ -71,6 +75,8 @@ func (c *Client) sentMailbox() (string, error) {
 	if c.sentMailboxName != "" {
 		return c.sentMailboxName, nil
 	}
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 
 	// RETURN (SPECIAL-USE) is only legal when the server advertises it; without
 	// the capability the attributes may still arrive on an ordinary LIST.

@@ -421,11 +421,13 @@ func imapVirtualFolder(box *models.Mailbox) bool {
 			return true
 		}
 	}
+	// Name fallback only inside Gmail's own namespace: a plain IMAP server
+	// can legitimately have a user folder called "Important" or "Starred".
 	name := strings.ToLower(box.Name)
-	if i := strings.LastIndexAny(name, "/."); i >= 0 {
-		name = name[i+1:]
+	if !strings.HasPrefix(name, "[gmail]/") && !strings.HasPrefix(name, "[google mail]/") {
+		return false
 	}
-	switch name {
+	switch name[strings.Index(name, "/")+1:] {
 	case "all mail", "starred", "important":
 		return true
 	}
