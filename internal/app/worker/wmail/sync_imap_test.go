@@ -549,6 +549,44 @@ func TestFolderOverflowIsReportedOnce(t *testing.T) {
 	}
 }
 
+// The two reasons a folder goes unsynced need their own codes, because the way
+// out differs: get under the cap, versus rename the folder the server gave a
+// duplicate id. A warning that never reaches the user is the same as no
+// warning, so this checks the event as well as the code.
+func TestFolderProblemsReachTheUserWithTheirOwnCodes(t *testing.T) {
+	conn := &fakeImapConn{
+		folders:   []models.Mailbox{{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100}},
+		overflow:  3,
+		conflicts: 2,
+	}
+	w, events := newIMAPTestMail(conn, &fixedBudget{allow: 10},
+		&models.Mailbox{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100})
+
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+
+	codes := map[string]bool{}
+	for _, e := range *events {
+		if e.eventType != models.JobEventTypeEmailServerError {
+			continue
+		}
+		ev, ok := e.body.(models.EmailErrorEvent)
+		if !ok {
+			t.Fatalf("server error carried %T, want an EmailErrorEvent", e.body)
+		}
+		codes[ev.ErrorCode] = true
+		if ev.ErrorType != string(errx.MailErrorWarning) {
+			t.Errorf("%s was relayed as %q; neither reason deactivates a mailbox", ev.ErrorCode, ev.ErrorType)
+		}
+	}
+	for _, want := range []string{string(errx.MailErrorCodeFolderLimit), string(errx.MailErrorCodeFolderConflict)} {
+		if !codes[want] {
+			t.Errorf("%s never reached the user; the warning would go nowhere", want)
+		}
+	}
+}
+
 // knownMessageMap answers every lookup with the same stored message, which is
 // what lets a flag-scan test exercise the relay rather than the "not ours"
 // early return.

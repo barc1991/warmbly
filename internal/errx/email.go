@@ -30,7 +30,12 @@ const (
 type MailErrorCode string
 
 const (
-	MailErrorCodeFolderLimit     MailErrorCode = "MAX_FOLDERS_REACHED"
+	MailErrorCodeFolderLimit MailErrorCode = "MAX_FOLDERS_REACHED"
+	// MailErrorCodeFolderConflict is two folders on one mailbox reporting
+	// the same UIDVALIDITY, the id a folder is stored under. Kept apart from
+	// the folder limit because the way out is renaming the folder, not
+	// deleting folders to get under a cap.
+	MailErrorCodeFolderConflict  MailErrorCode = "FOLDER_ID_CONFLICT"
 	MailErrorCodeUpdateLimit     MailErrorCode = "MAX_FOLDERS_REACHED"
 	MailErrorCodeGoogleAuth      MailErrorCode = "GOOGLE_AUTHENTICATION_FAILED"
 	MailErrorCodeGooglePayment   MailErrorCode = "GOOGLE_PAYMENT_REQUIRED"
@@ -130,7 +135,7 @@ var (
 	// folders the same UIDVALIDITY, which is the id everything downstream
 	// identifies a folder by. Only one of them can be followed.
 	ErrMailFoldersConflict = func(left int) *MailError {
-		return MError(MailErrorWarning, MailErrorCodeFolderLimit, fmt.Sprintf("%d folder(s) on this mailbox share an internal id with another folder, which their mail server should not do, so only one of each pair is synced. Renaming or recreating the folder usually gives it a new id.", left), MailErrorResolveMethodNone)
+		return MError(MailErrorWarning, MailErrorCodeFolderConflict, fmt.Sprintf("%d folder(s) on this mailbox share an internal id with another folder, so only one of each pair is synced.", left), MailErrorResolveMethodNone)
 	}
 	ErrMailUpdateLimit     = MError(MailErrorCritical, MailErrorCodeUpdateLimit, "Your inbox has received an unusually large number of updates. Please reactivate your inbox once the issue is resolved.", MailErrorResolveMethodReload)
 	ErrMailGoogleAuth      = MError(MailErrorCritical, MailErrorCodeGoogleAuth, "Cannot access your Gmail account. Please re-authorize your account to restore mailbox access.", MailErrorResolveMethodReload)
@@ -249,6 +254,9 @@ func (e *MailError) GetUserErrorInfo() UserErrorInfo {
 	case MailErrorCodeFolderLimit:
 		info.Title = "Some folders are not synced"
 		info.ActionRequired = "Move or delete folders you no longer need if one you rely on is missing from the unibox."
+	case MailErrorCodeFolderConflict:
+		info.Title = "Two folders share an internal id"
+		info.ActionRequired = "Your mail server gave two folders the same id, so only one of them is synced. Renaming the folder that is missing from the unibox, or recreating it, usually gives it a new one."
 	case MailErrorCodeNotFound:
 		info.Title = "Mailbox Item Missing"
 		info.ActionRequired = "The folder or message is no longer on the mail server. Nothing to do; we'll skip it."
