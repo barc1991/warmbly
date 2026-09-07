@@ -443,6 +443,15 @@ func (s *service) Submit(ctx context.Context, publicID string, answers map[strin
 		if contactID != "" {
 			payload["contact_id"] = contactID
 		}
+		// The mapped contact columns ride along flat so an automation can read
+		// {{.contact_email}} or {{.first_name}} without digging into data.
+		if lead != nil {
+			payload["contact_email"] = lead.Email
+			payload["first_name"] = lead.FirstName
+			payload["last_name"] = lead.LastName
+			payload["company"] = lead.Company
+			payload["phone"] = lead.Phone
+		}
 		if sub.CampaignID != nil {
 			payload["campaign_id"] = sub.CampaignID.String()
 		}
