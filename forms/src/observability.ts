@@ -19,6 +19,10 @@ export function initErrorReporting(): void {
         Sentry.init({
             dsn,
             release: meta("wf-release") || undefined,
+            environment: meta("wf-environment") || undefined,
+            // Named so form-page errors are separable from the dashboard's in
+            // a shared project, the same way the Go services set ServerName.
+            initialScope: { tags: { service: "forms" } },
             // A form page carries a stranger's answers. Default PII (their IP,
             // their headers) is not ours to collect, and the dashboard's
             // reasons for sending it do not apply here.

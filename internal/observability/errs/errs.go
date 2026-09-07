@@ -129,11 +129,21 @@ func Flush(timeout time.Duration) bool {
 	return sentry.Flush(timeout)
 }
 
-// Hub returns a hub bound to ctx, cloning the current one when ctx carries
-// none. Middleware that needs a request-scoped scope uses this; everything else
-// should use the Context helpers above.
+// Hub returns the hub bound to ctx, or a clone of the process-wide one when
+// ctx carries none. Middleware that needs a request-scoped scope uses this;
+// everything else should use the Context helpers above.
+//
+// The fallback clones rather than handing back the process-wide hub, because
+// the reason to reach for a hub instead of CaptureExceptionContext is to set
+// scope on it, and setting scope on the shared hub would leak one request's
+// data onto every later event in the process.
 func Hub(ctx context.Context) *sentry.Hub {
-	return hubFrom(ctx)
+	if ctx != nil {
+		if hub := sentry.GetHubFromContext(ctx); hub != nil {
+			return hub
+		}
+	}
+	return sentry.CurrentHub().Clone()
 }
 
 // NewContext returns ctx carrying its own hub, so scope set on one request does

@@ -8,6 +8,7 @@
 //! thread and contacts no host, and the failure is only written to the log.
 
 use sentry::ClientInitGuard;
+use std::time::Duration;
 use tracing::{error, info};
 
 /// Held for the lifetime of the process. Dropping it flushes queued events, so
@@ -49,6 +50,17 @@ pub fn init(env: &str, dsn: Option<&str>, release: &str) -> Guard {
         info!("Issue reporting initialized (env={env}, release={release}, sentry enabled)");
     }
     Guard(guard)
+}
+
+/// Sends anything still queued, up to a couple of seconds.
+///
+/// `std::process::exit` skips destructors, so the guard's own flush on drop
+/// never runs on a fatal path. Without this, the error a fatal path just
+/// reported is exactly the one that never arrives.
+pub fn flush() {
+    if let Some(client) = sentry::Hub::current().client() {
+        client.flush(Some(Duration::from_secs(2)));
+    }
 }
 
 pub fn report_issue(context: &str, details: &str) {

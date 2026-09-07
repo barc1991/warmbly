@@ -63,6 +63,7 @@ func main() {
 		// reporting SDK, which is the self-host default.
 		BrowserSentryDSN: strings.TrimSpace(os.Getenv("WARMBLY_SENTRY_DSN")),
 		Release:          observability.Release(),
+		Environment:      appEnv(),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -85,6 +86,15 @@ func main() {
 		errs.Flush(2 * time.Second)
 		log.Fatal(err)
 	}
+}
+
+// appEnv is the deployment label, matching what InitSentryEnv reports for this
+// process so the browser and the server halves agree.
+func appEnv() string {
+	if env := strings.TrimSpace(os.Getenv("APP_ENV")); env != "" {
+		return env
+	}
+	return "dev"
 }
 
 func splitCSV(v string) []string {
