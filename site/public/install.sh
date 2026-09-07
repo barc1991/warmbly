@@ -2587,6 +2587,11 @@ finale() {
     out "    ${DIM}Back up${R}   docker compose -p warmbly exec backend warmblyctl backup"
     out "    ${DIM}Update${R}    the version pill in the admin panel, or compose pull + up -d"
     out "    ${DIM}Guide${R}     $DOCS/development/first-run/"
+    out "    ${DIM}Mailboxes${R} $DOCS/guides/mailboxes/"
+    say ""
+    note "A mail server on this machine, such as Proton Bridge on 127.0.0.1,"
+    note "connects with Security: None. That mode is offered only here, where"
+    note "the worker and the relay share a host and no password reaches a wire."
     say ""
     if [ "$EXISTING" = 0 ]; then
         out "  ${RED}Keep a copy of $DIR/keys-backup.txt somewhere other than this machine.${R}"
