@@ -56,6 +56,14 @@ const (
 	MailErrorCodeSyncFairUse       MailErrorCode = "SYNC_FAIR_USE"
 	MailErrorCodeSendingTooFast    MailErrorCode = "SENDING_TOO_FAST"
 	MailErrorCodeRecipientRejected MailErrorCode = "RECIPIENT_REJECTED"
+	// MailErrorCodeSendRejected is the receiving server refusing the message
+	// or the sender for good (a 5xx on MAIL FROM or at the end of DATA).
+	// Distinct from RECIPIENT_REJECTED, which is one address, and from
+	// SERVER_UNREACHABLE, which is worth retrying.
+	MailErrorCodeSendRejected MailErrorCode = "SEND_REJECTED"
+	// MailErrorCodeAuthUnsupported is a server whose advertised
+	// authentication mechanisms we do not implement.
+	MailErrorCodeAuthUnsupported MailErrorCode = "AUTH_UNSUPPORTED"
 	// MailErrorCodeDomainAuthRejected is the receiving side refusing the mail
 	// because the SENDING DOMAIN failed its authentication bar (Outlook's
 	// 5.7.515, Gmail's 5.7.26). Not a dead server and not a bad recipient:
@@ -183,11 +191,37 @@ var (
 		"Emails are being sent too quickly. Please wait before sending more emails.",
 		MailErrorResolveMethodRetry,
 	)
-	ErrMailRecipientRejected = MError(
-		MailErrorWarning,
-		MailErrorCodeRecipientRejected,
-		"The recipient email address was rejected by the mail server.",
-		MailErrorResolveMethodNone,
+	// ErrMailRecipientRejected carries the server's own refusal, because
+	// "the address was rejected" alone leaves the user nothing to act on: a
+	// mailbox that no longer exists and one blocked by a policy read
+	// identically without it.
+	ErrMailRecipientRejected = func(detail string) *MailError {
+		if detail == "" {
+			return MError(MailErrorWarning, MailErrorCodeRecipientRejected, "The recipient email address was rejected by the mail server.", MailErrorResolveMethodNone)
+		}
+		return MError(MailErrorWarning, MailErrorCodeRecipientRejected, fmt.Sprintf("The mail server rejected the recipient: %s", detail), MailErrorResolveMethodNone)
+	}
+	// ErrMailSendRejected is a permanent refusal of the message itself. Not
+	// retried: a 5xx means the server will answer the same way next time, so
+	// another attempt only spends the mailbox's daily budget.
+	ErrMailSendRejected = func(detail string) *MailError {
+		return MError(MailErrorWarning, MailErrorCodeSendRejected, fmt.Sprintf("The receiving mail server refused this message: %s", detail), MailErrorResolveMethodNone)
+	}
+	// ErrMailCleartextAuth is our own refusal to put a password on an
+	// unencrypted wire, raised before anything is sent. Not retryable: no
+	// number of attempts encrypts the link, and reporting it as an outage
+	// sent the operator looking at a server that is answering fine.
+	ErrMailCleartextAuth = MError(
+		MailErrorCritical,
+		MailErrorCodeAuthUnsupported,
+		"This mail server offers no encrypted connection, and Warmbly will not send a mailbox password in the clear. Use the server's TLS or STARTTLS port.",
+		MailErrorResolveMethodReload,
+	)
+	ErrMailAuthUnsupported = MError(
+		MailErrorCritical,
+		MailErrorCodeAuthUnsupported,
+		"This mail server asks for a sign-in method Warmbly does not support. Check the server's documentation for an app password or an alternative SMTP host.",
+		MailErrorResolveMethodReload,
 	)
 	ErrMailDomainAuthRejected = MError(
 		MailErrorCritical,
@@ -233,6 +267,33 @@ func (e *MailError) GetUserErrorInfo() UserErrorInfo {
 	case MailErrorCodeServerUnreachable:
 		info.Title = "Connection Error"
 		info.ActionRequired = "The email server is temporarily unavailable. We'll retry automatically."
+	case MailErrorCodeNotFound:
+		info.Title = "Mailbox Item Missing"
+		info.ActionRequired = "The folder or message is no longer on the mail server. Nothing to do; we'll skip it."
+	case MailErrorCodeRateLimitExceeded:
+		info.Title = "Rate Limit Exceeded"
+		info.ActionRequired = "Your account has been temporarily limited due to unusual activity"
+	case MailErrorCodeSyncFlood:
+		info.Title = "Sync stopped: unusual volume"
+		info.ActionRequired = "Check what is delivering mail into this mailbox, then reactivate it under Mailboxes"
+	case MailErrorCodeSyncFairUse:
+		info.Title = "Sync stopped: fair use"
+		info.ActionRequired = "Reduce the volume landing in this mailbox or ask your administrator to raise the sync budget, then reactivate it"
+	case MailErrorCodeSendingTooFast:
+		info.Title = "Sending Too Fast"
+		info.ActionRequired = "Please wait before sending more emails"
+	case MailErrorCodeQuotaExceeded:
+		info.Title = "Quota Exceeded"
+		info.ActionRequired = "Your daily sending limit has been reached"
+	case MailErrorCodeAccountSuspended:
+		info.Title = "Account Suspended"
+		info.ActionRequired = "Contact your email provider to resolve this issue"
+	case MailErrorCodeSendRejected:
+		info.Title = "Message refused"
+		info.ActionRequired = "The receiving server rejected this message outright. The reason it gave is in the message above."
+	case MailErrorCodeAuthUnsupported:
+		info.Title = "Sign-in method not supported"
+		info.ActionRequired = "This server asks for an authentication method Warmbly does not support. An app password, or the provider's documented SMTP host, usually works."
 	case MailErrorCodeRecipientRejected:
 		info.Title = "Recipient Rejected"
 		info.ActionRequired = "The recipient address was not accepted"

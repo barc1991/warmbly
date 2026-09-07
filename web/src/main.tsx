@@ -65,13 +65,9 @@ import NotFound from './app/not-found';
 
 import { Toaster } from '@/components/ui/toaster';
 
-import * as Sentry from "@sentry/react";
+import { initErrorReporting } from "@/lib/observability";
 
-Sentry.init({
-  dsn: "https://412466daced4b1d85ee040eef66efc95@o4510248538472448.ingest.us.sentry.io/4510248563113984",
-  sendDefaultPii: true,
-  environment: import.meta.env.MODE
-})
+initErrorReporting();
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"

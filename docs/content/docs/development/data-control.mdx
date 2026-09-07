@@ -206,6 +206,18 @@ A self-hosted Warmbly makes no outbound call of its own except one, and it is of
 
 Everything else is you: mail through the mailboxes you connect, DNS lookups for the domains you check, and whatever integrations you configure. There is no telemetry, no phone-home, and no license check.
 
+### Error reporting
+
+An instance reports errors nowhere unless you point it somewhere. Every service reads its own DSN and none of them ship with one, so a default install sends no crash, no stack trace and no browser error to anybody, including us.
+
+| Service | Variable |
+|---|---|
+| Backend, consumer, worker | `SENTRY_DSN` |
+| Dashboard container | `WARMBLY_SENTRY_DSN` |
+| Realtime | `SENTRY_DSN` |
+
+Set one and that service reports to whatever Sentry Cloud project, self-hosted Sentry or Sentry-compatible server you name. Leave it unset, which is the default the installer writes, and the SDK is never initialised: there is no host to contact and nothing to opt out of.
+
 ## See also
 
 - [Install](/development/install/): the wizard that asks all of this up front
