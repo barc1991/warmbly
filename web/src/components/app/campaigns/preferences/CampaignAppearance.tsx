@@ -9,6 +9,7 @@ import { Label, NumberInput, TextInput } from "@/components/ui/field";
 import SenderSelector from "./SenderSelector";
 import { SettingRow, Toggle } from "./components/CampaignPreferenceBoolBox";
 import { SelectMenu, type SelectOption } from "@/components/ui/select-menu";
+import { useOutreachSettings } from "@/lib/api/hooks/app/outreach/useOutreachSettings";
 
 const UNSUB_MODES: SelectOption[] = [
     { value: "inherit", label: "Workspace default" },
@@ -115,6 +116,14 @@ export function DeliverabilitySection({
     newCampaign: Campaign;
     setNewCampaign: SetCampaign;
 }) {
+    // The warning below is only true when the opt-out this campaign actually
+    // sends is a link, so "inherit" has to be resolved against the workspace
+    // default rather than assumed.
+    const { data: outreach } = useOutreachSettings();
+    const mode = newCampaign.unsubscribe_mode ?? "inherit";
+    const effectiveMode = mode === "inherit" || !mode ? (outreach?.unsubscribe?.mode ?? "text") : mode;
+    const plainTextLinkOptOut = newCampaign.text_only && effectiveMode === "link";
+
     return (
         <div className="space-y-5">
             <SettingRow
@@ -197,7 +206,7 @@ export function DeliverabilitySection({
                         as a personal email and is honoured automatically; a link is for lists that need one, and the
                         header above already covers the bulk-sender rules. The workspace default is set under Settings
                         &gt; Sending.
-                        {newCampaign.text_only && (
+                        {plainTextLinkOptOut && (
                             <span className="mt-1 block text-amber-700">
                                 This campaign sends plain text only, where a link has nowhere to hide its address: the
                                 recipient reads the full unsubscribe URL. Prefer the header and the reply line here.

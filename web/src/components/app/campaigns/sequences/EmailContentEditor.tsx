@@ -132,7 +132,8 @@ export default function EmailContentEditor({
     // address. Preflight says the same at launch; say it here, while it is
     // still one keystroke to fix.
     const { data: previewCampaign } = useCampaign(campaignId ?? "");
-    const plainTextUnsubLink = !!previewCampaign?.text_only && bodyHtml.includes(UNSUBSCRIBE_TOKEN);
+    const plainTextUnsubLink =
+        !!previewCampaign?.text_only && (bodyHtml.includes(UNSUBSCRIBE_TOKEN) || subject.includes(UNSUBSCRIBE_TOKEN));
 
     // Toolbar: template library, save as template, write with AI.
     const { data: templates } = useTemplates("");

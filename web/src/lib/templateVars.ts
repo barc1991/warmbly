@@ -148,7 +148,7 @@ export function upgradeVariableTokens(html: string): string {
     // Text nodes only. A token can legitimately live in an attribute (an
     // <a href="{{.UnsubscribeLink}}"> the author wrote), and wrapping that one
     // in a span would break the tag.
-    return html.replace(/<[^>]*>|[^<]+/g, (chunk) =>
+    return html.replace(HTML_CHUNK_RE, (chunk) =>
         chunk.startsWith("<")
             ? chunk
             : chunk
@@ -159,3 +159,10 @@ export function upgradeVariableTokens(html: string): string {
                   .replace(FORM_LINK_RE, (tok, publicId: string) => `<span data-form-link="${publicId}">${tok}</span>`),
     );
 }
+
+// HTML_CHUNK_RE splits a body into alternating tags and text runs. A tag ends
+// at the first ">" OUTSIDE a quoted attribute value, so `<a title="x > y"
+// href="…">` stays one tag: reading the quoted ">" as the end split the tag and
+// let the href be treated as text. A stray "<" matches on its own and is left
+// alone rather than swallowing the rest of the body.
+export const HTML_CHUNK_RE = /<(?:"[^"]*"|'[^']*'|[^>"'])*>|[^<]+|</g;

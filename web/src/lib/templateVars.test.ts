@@ -14,6 +14,16 @@ describe("upgradeVariableTokens", () => {
         expect(upgradeVariableTokens(html)).toBe(html);
     });
 
+    it("keeps a tag whose attribute contains a >", () => {
+        // Reading the quoted ">" as the end of the tag split it, and the href
+        // that followed was then wrapped in a chip span.
+        const html = `<p><a title="x > y" href="${UNSUBSCRIBE_TOKEN}">no thanks</a></p>`;
+        expect(upgradeVariableTokens(html)).toBe(html);
+        expect(upgradeVariableTokens(`<p title="a > b">Hi {{.FirstName}}</p>`)).toBe(
+            '<p title="a > b">Hi <span data-var="">{{.FirstName}}</span></p>',
+        );
+    });
+
     it("is a no-op once the content already carries chips", () => {
         const html = '<p><span data-var="">{{.FirstName}}</span> {{.Company}}</p>';
         expect(upgradeVariableTokens(html)).toBe(html);
@@ -34,6 +44,11 @@ describe("linkifyUnsubscribe", () => {
 
     it("labels the URL when it is an anchor's own text", () => {
         expect(linkifyUnsubscribe(`<a href="${url}">${url}</a>`)).toBe(`<a href="${url}">Unsubscribe</a>`);
+    });
+
+    it("does not rewrite an href behind a quoted > in the same tag", () => {
+        const html = `<a title="x > y" href="${url}">read this</a>`;
+        expect(linkifyUnsubscribe(html)).toBe(html);
     });
 
     it("does nothing when the body has no link", () => {

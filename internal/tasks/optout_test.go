@@ -88,6 +88,16 @@ func TestLinkifyUnsubscribeURL(t *testing.T) {
 		t.Fatalf("empty body changed: %q", got)
 	}
 
+	// A ">" inside a quoted attribute closes nothing. Reading one as the end of
+	// the tag turned the href that followed it into a dead link.
+	quoted := `<a title="x > y" href="` + url + `">read this</a>`
+	if got := linkifyUnsubscribeURL(quoted, url, "Unsubscribe"); got != quoted {
+		t.Fatalf("a quoted \">\" broke the tag scan: %s", got)
+	}
+	if got := linkifyUnsubscribeURL(`<p title="a > b">Bye. `+url+`</p>`, url, "Unsubscribe"); got != `<p title="a > b">Bye. <a href="`+url+`">Unsubscribe</a></p>` {
+		t.Fatalf("text after a quoted \">\" should still linkify: %s", got)
+	}
+
 	// A malformed body (unterminated tag) is copied through, never truncated.
 	if got := linkifyUnsubscribeURL("<p>hi<span "+url, url, "Unsubscribe"); got != "<p>hi<span "+url {
 		t.Fatalf("unterminated tag mangled: %s", got)
