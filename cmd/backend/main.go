@@ -329,7 +329,7 @@ func main() {
 		if config.TasksProvider() == "gcloud" {
 			serviceAccount, err = cfg.LoadGoogleServiceAccount(ctx)
 			if err != nil {
-				errs.CaptureException(err)
+				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
 
@@ -338,7 +338,7 @@ func main() {
 				if cfg.Env == "dev" {
 					log.Printf("Warning: Failed to fetch Google OIDC keys: %v", err)
 				} else {
-					errs.CaptureException(err)
+					errs.CaptureFatal(err)
 					log.Fatal(err)
 				}
 			}
@@ -346,7 +346,7 @@ func main() {
 
 		apiCfg, err := cfg.LoadApiConfig(ctx)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
@@ -358,7 +358,7 @@ func main() {
 		if config.AWSNeeded() {
 			awscfg, err = awsconf.LoadDefaultConfig(ctx)
 			if err != nil {
-				errs.CaptureException(err)
+				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
 		}
@@ -370,13 +370,13 @@ func main() {
 
 		kms, err := kms.FromEnv(ctx, awscfg, masterKey)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
 		geoPath, err := cfg.LoadGeoDBPath(ctx)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
@@ -395,40 +395,40 @@ func main() {
 
 		s3, err := storage.NewFromEnv(ctx, awscfg, "main")
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 		s3ForHandler = s3
 
 		primaryDBEndpoint, err := cfg.LoadPrimaryDBEndpoint(ctx)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
 		primaryDB, err := db.New(ctx, primaryDBEndpoint)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
 		// Run database migrations
 		log.Println("Running database migrations...")
 		if err := db.RunMigrations(primaryDBEndpoint); err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal("Failed to run migrations: ", err)
 		}
 		log.Println("Database migrations completed")
 
 		primaryRedis, err := cfg.LoadPrimaryRedisEndpoint(ctx)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
 		cache, err := cache.New(primaryRedis)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
@@ -445,13 +445,13 @@ func main() {
 			}
 			pubsubClient, err := pubsub.NewClient(ctx, gcpProjectID)
 			if err != nil {
-				errs.CaptureException(err)
+				errs.CaptureFatal(err)
 				log.Fatal("Failed to initialize Pub/Sub client: ", err)
 			}
 			// Create the realtime topics + "<topic>-sub" subscriptions if missing,
 			// so the Elixir Broadway consumers always have a subscription to read.
 			if err := pubsubClient.EnsureRealtimeTopology(ctx); err != nil {
-				errs.CaptureException(err)
+				errs.CaptureFatal(err)
 				log.Fatal("Failed to provision Pub/Sub topics/subscriptions: ", err)
 			}
 			streamingPublisher = pubsub.NewStreamingPublisher(pubsubClient)
@@ -464,7 +464,7 @@ func main() {
 
 		emailCfg, err := cfg.LoadEmailConfig(ctx)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
@@ -479,7 +479,7 @@ func main() {
 
 		mailTransport, err = notify.NewTransport(ctx, cfg, emailCfg.EmailName, emailCfg.EmailAddress)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 		emailNotificationService = mailTransport
@@ -498,7 +498,7 @@ func main() {
 
 		authCfg, err := cfg.LoadAuthConfig(ctx)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
@@ -530,25 +530,25 @@ func main() {
 		if config.EventBusProvider() == "kafka" {
 			kafkaBootstrapServers, err = cfg.LoadKafkaBootstrapServers(ctx)
 			if err != nil {
-				errs.CaptureException(err)
+				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
 			kafkaSaslConfig, err = cfg.LoadKafkaConfigSasl(ctx)
 			if err != nil {
-				errs.CaptureException(err)
+				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
 		}
 
 		codecImpl, err := codec.FromEnv()
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
 		bus, err := eventbus.FromEnv(kafkaBootstrapServers, kafkaSaslConfig)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
@@ -581,7 +581,7 @@ func main() {
 		webauthnRepository := repository.NewWebAuthnRepository(primaryDB)
 		credEncrypter, cerr := encrypt.FromEnv()
 		if cerr != nil {
-			errs.CaptureException(cerr)
+			errs.CaptureFatal(cerr)
 			log.Fatal("Invalid CREDENTIALS_ENCRYPTION_KEY: ", cerr)
 		}
 		emailRepostory := repository.NewEmailRepostory(primaryDB, credEncrypter)
@@ -600,7 +600,7 @@ func main() {
 		instanceSettings = instancesettings.NewService(instancesettings.NewStore(primaryDB.Pool))
 		bootstrapInstanceSettings(ctx, instanceSettings)
 		if err != nil {
-			errs.CaptureException(err)
+			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
 
@@ -755,7 +755,7 @@ func main() {
 		if config.BillingProvider() == "stripe" {
 			stripeCfg, err := cfg.LoadStripeConfig(ctx)
 			if err != nil {
-				errs.CaptureException(err)
+				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
 			stripeService = stripe.NewService(stripeCfg, subscriptionRepository, planRepository, workerAssignmentService, discountService)
@@ -972,7 +972,7 @@ func main() {
 			RPOrigins:     authCfg.WebAuthnRPOrigins,
 		})
 		if passkeyErr != nil {
-			errs.CaptureException(passkeyErr)
+			errs.CaptureFatal(passkeyErr)
 			log.Fatal(passkeyErr)
 		}
 		passkeysUsable = passkeysUsableFor(os.Getenv("APP_URL"))
@@ -1324,12 +1324,12 @@ func main() {
 		if config.TasksProvider() == "gcloud" {
 			cloudTasksCfg, err := cfg.LoadCloudTasksConfig(ctx)
 			if err != nil {
-				errs.CaptureException(err)
+				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
 			gclient, err := gtasks.NewClient(ctx, cloudTasksCfg.QueueName, cloudTasksCfg.WebhookURL, serviceAccount, cloudTasksCfg.EmulatorHost)
 			if err != nil {
-				errs.CaptureException(err)
+				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
 			tasksClient = gclient
