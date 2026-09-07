@@ -52,6 +52,9 @@ type Config struct {
 	BrowserSentryDSN string
 	// Release tags those browser events with the build serving them.
 	Release string
+	// Environment is the deployment label those events carry, so staging and
+	// production form pages are separable in one project.
+	Environment string
 	// StaticDir is the built forms app (forms/dist): index.html is the page
 	// shell, assets/ the hashed bundles.
 	StaticDir string
@@ -89,6 +92,7 @@ func New(cfg Config) (*Server, error) {
 	// the placeholder empty and the page loads no reporting SDK at all.
 	shell = stampMeta(shell, "wf-sentry-dsn", cfg.BrowserSentryDSN)
 	shell = stampMeta(shell, "wf-release", cfg.Release)
+	shell = stampMeta(shell, "wf-environment", cfg.Environment)
 	limit := cfg.SubmitLimit
 	if limit <= 0 {
 		limit = submitDefaultLimit
