@@ -40,13 +40,20 @@ func TestRankFoldersPutsInboxAndSpecialFoldersFirst(t *testing.T) {
 	}
 }
 
-// The cap must not reorder a listing that fits, because the order it keeps is
-// the one the folder rows are written in.
+// A listing that fits keeps every folder, and is still ranked: the pass walks
+// folders in this order and can run out of budget partway, so the inbox and
+// the special folders should be the ones that got through.
 func TestRankFoldersKeepsEverythingUnderTheCap(t *testing.T) {
-	all := []models.Mailbox{{Name: "INBOX"}, {Name: "Work"}, {Name: "Sent"}}
+	all := []models.Mailbox{{Name: "Work"}, {Name: "INBOX"}, {Name: "Sent"}}
 	kept, overflow := rankFolders(all, 10)
-	if overflow != 0 || len(kept) != 3 {
-		t.Fatalf("kept %d folders with overflow %d, want all 3 and no overflow", len(kept), overflow)
+	if overflow != 0 {
+		t.Fatalf("overflow = %d with everything under the cap", overflow)
+	}
+	if len(kept) != 3 {
+		t.Fatalf("kept %d folders, want all 3", len(kept))
+	}
+	if kept[0].Name != "INBOX" || kept[1].Name != "Sent" || kept[2].Name != "Work" {
+		t.Fatalf("order = %+v, want the inbox then the special folder then the user folder", kept)
 	}
 }
 

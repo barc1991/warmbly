@@ -157,10 +157,15 @@ func (c *Client) FolderConflicts() int {
 	return int(c.folderConflicts.Load())
 }
 
-// rankFolders keeps INBOX first, then the special folders (sent, drafts,
-// junk, trash, archive), then the rest in the server's order, and cuts the
-// list at cap. The order within each rank is the server's, so the result is
-// stable from one pass to the next.
+// rankFolders orders a listing INBOX first, then the special folders (sent,
+// drafts, junk, trash, archive), then the rest in the server's order, and
+// cuts it at limit. Ties keep the server's order, so the result is stable
+// from one pass to the next.
+//
+// The ranking applies whether or not anything is cut, because the sync pass
+// walks folders in this order and can run out of budget partway: a reply to
+// the customer's own outreach should land before a mailing list in a user
+// folder does, whatever order the server happened to list them in.
 func rankFolders(all []models.Mailbox, limit int) ([]models.Mailbox, int) {
 	rank := func(box *models.Mailbox) int {
 		switch {
