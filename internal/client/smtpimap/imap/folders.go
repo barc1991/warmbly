@@ -112,13 +112,52 @@ func (c *Client) foldersCapped(limit int) ([]models.Mailbox, *errx.MailError) {
 		box.HighestModSeq = st.HighestModSeq
 		resp = append(resp, box)
 	}
+
+	resp, conflicts := dedupeByUIDValidity(resp)
+	c.folderConflicts.Store(int32(conflicts))
 	return resp, nil
+}
+
+// dedupeByUIDValidity keeps one folder per UIDVALIDITY.
+//
+// Everything downstream identifies a folder by that number, including the
+// primary key of the stored folder row, but RFC 3501 only promises UIDs are
+// stable within one folder: Dovecot and others derive UIDVALIDITY from the
+// creation time, so a folder tree created in the same second shares one.
+// Two folders under a single id would advance each other's cursor and delete
+// each other's row, which loses mail. Dropping the later one leaves it
+// unsynced (and says so) but leaves every other folder correct. Input is
+// already ranked, so the inbox and the special folders win any collision.
+func dedupeByUIDValidity(boxes []models.Mailbox) ([]models.Mailbox, int) {
+	seen := make(map[uint32]string, len(boxes))
+	kept := boxes[:0]
+	conflicts := 0
+	for _, box := range boxes {
+		if other, dup := seen[box.UIDValidity]; dup {
+			log.Warn().
+				Str("folder", box.Name).
+				Str("conflicts_with", other).
+				Uint32("uid_validity", box.UIDValidity).
+				Msg("imap: two folders report the same UIDVALIDITY; the second is not synced")
+			conflicts++
+			continue
+		}
+		seen[box.UIDValidity] = box.Name
+		kept = append(kept, box)
+	}
+	return kept, conflicts
 }
 
 // FolderOverflow is how many selectable folders the last Folders call left
 // out because the account has more than config.MaxEmailFolders.
 func (c *Client) FolderOverflow() int {
 	return int(c.folderOverflow.Load())
+}
+
+// FolderConflicts is how many folders the last Folders call left out because
+// another folder reported the same UIDVALIDITY.
+func (c *Client) FolderConflicts() int {
+	return int(c.folderConflicts.Load())
 }
 
 // rankFolders keeps INBOX first, then the special folders (sent, drafts,

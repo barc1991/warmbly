@@ -90,8 +90,10 @@ type Client struct {
 	// incremental sync.
 	condStore atomic.Bool
 
-	// folderOverflow is what the last Folders call had to leave out.
-	folderOverflow atomic.Int32
+	// folderOverflow is what the last Folders call had to leave out for the
+	// cap, folderConflicts what it left out for a duplicate UIDVALIDITY.
+	folderOverflow  atomic.Int32
+	folderConflicts atomic.Int32
 }
 
 // begin starts the idle clock for one command; call the result on exit.

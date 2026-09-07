@@ -126,6 +126,12 @@ var (
 	ErrMailFoldersOverflow = func(left int) *MailError {
 		return MError(MailErrorWarning, MailErrorCodeFolderLimit, fmt.Sprintf("This mailbox has %d more folders than the %d Warmbly follows. The inbox, sent, drafts, spam and trash are always synced; the rest are taken in the server's order.", left, config.MaxEmailFolders), MailErrorResolveMethodNone)
 	}
+	// ErrMailFoldersConflict is relayed when the mail server gives two
+	// folders the same UIDVALIDITY, which is the id everything downstream
+	// identifies a folder by. Only one of them can be followed.
+	ErrMailFoldersConflict = func(left int) *MailError {
+		return MError(MailErrorWarning, MailErrorCodeFolderLimit, fmt.Sprintf("%d folder(s) on this mailbox share an internal id with another folder, which their mail server should not do, so only one of each pair is synced. Renaming or recreating the folder usually gives it a new id.", left), MailErrorResolveMethodNone)
+	}
 	ErrMailUpdateLimit     = MError(MailErrorCritical, MailErrorCodeUpdateLimit, "Your inbox has received an unusually large number of updates. Please reactivate your inbox once the issue is resolved.", MailErrorResolveMethodReload)
 	ErrMailGoogleAuth      = MError(MailErrorCritical, MailErrorCodeGoogleAuth, "Cannot access your Gmail account. Please re-authorize your account to restore mailbox access.", MailErrorResolveMethodReload)
 	ErrMailGooglePayment   = MError(MailErrorCritical, MailErrorCodeGooglePayment, "Gmail access blocked due to unpaid invoices. Please resolve the payment with Google.", MailErrorResolveMethodReload)

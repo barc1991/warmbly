@@ -17,8 +17,10 @@ import (
 type ImapConn interface {
 	// Sync pass.
 	Folders() ([]models.Mailbox, *errx.MailError)
-	// FolderOverflow is how many folders the last listing left out.
+	// FolderOverflow is how many folders the last listing left out for the
+	// cap, FolderConflicts how many it left out for a duplicate UIDVALIDITY.
 	FolderOverflow() int
+	FolderConflicts() int
 	// HasCondStore picks the incremental strategy: mod-sequences when the
 	// server has CONDSTORE, UIDNEXT plus a periodic flag scan when it does not.
 	HasCondStore() bool

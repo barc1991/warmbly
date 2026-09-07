@@ -20,11 +20,12 @@ import (
 // rather than silently pass.
 type fakeImapConn struct {
 	ImapConn
-	folders  []models.Mailbox
-	changed  []goimap.UID
-	fetches  int
-	released int
-	overflow int
+	folders   []models.Mailbox
+	changed   []goimap.UID
+	fetches   int
+	released  int
+	overflow  int
+	conflicts int
 	// noCondStore drives the UIDNEXT path instead of the mod-sequence one.
 	noCondStore bool
 	flags       map[uint32]imap.FlagState
@@ -33,7 +34,8 @@ type fakeImapConn struct {
 
 func (c *fakeImapConn) Folders() ([]models.Mailbox, *errx.MailError) { return c.folders, nil }
 
-func (c *fakeImapConn) FolderOverflow() int { return c.overflow }
+func (c *fakeImapConn) FolderOverflow() int  { return c.overflow }
+func (c *fakeImapConn) FolderConflicts() int { return c.conflicts }
 
 // condStore defaults to true: most of these tests exercise the mod-sequence
 // path, and the UIDNEXT path has its own tests.
@@ -284,6 +286,7 @@ type backfillImapConn struct {
 
 func (c *backfillImapConn) Folders() ([]models.Mailbox, *errx.MailError) { return c.folders, nil }
 func (c *backfillImapConn) FolderOverflow() int                          { return 0 }
+func (c *backfillImapConn) FolderConflicts() int                         { return 0 }
 func (c *backfillImapConn) HasCondStore() bool                           { return true }
 func (c *backfillImapConn) ReleaseMailbox()                              {}
 

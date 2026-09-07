@@ -16,12 +16,21 @@ import (
 // condition is static until someone reorganizes their mail, and a warning a
 // minute would bury every real error in the drawer.
 func (w *WMail) reportFolderOverflow() {
-	left := w.SmtpImapData.ImapClient.FolderOverflow()
-	if left <= 0 || w.SmtpImapData.overflowReported {
+	if w.SmtpImapData.overflowReported {
+		return
+	}
+	client := w.SmtpImapData.ImapClient
+	over, conflicts := client.FolderOverflow(), client.FolderConflicts()
+	if over <= 0 && conflicts <= 0 {
 		return
 	}
 	w.SmtpImapData.overflowReported = true
-	w.CaptureError(errx.ErrMailFoldersOverflow(left))
+	if over > 0 {
+		w.CaptureError(errx.ErrMailFoldersOverflow(over))
+	}
+	if conflicts > 0 {
+		w.CaptureError(errx.ErrMailFoldersConflict(conflicts))
+	}
 }
 
 // imapScanFlags mirrors read state and flag changes on a server without
