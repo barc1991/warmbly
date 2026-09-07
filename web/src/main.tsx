@@ -17,6 +17,7 @@ import FormBuilderPage from './app/app/forms/[id]/page';
 import ContactsLayout from './app/app/contacts/layout';
 import SegmentsPage from './app/app/contacts/segments/page';
 import CategoriesPage from './app/app/contacts/categories/page';
+import SuppressionsPage from './app/app/contacts/suppressions/page';
 import SegmentPage from './app/app/contacts/segments/[id]/page';
 import CampaignsPage from './app/app/campaigns/page';
 import CampaignLayout from './app/app/campaigns/[id]/layout';
@@ -88,6 +89,7 @@ import OnboardingPage from './app/onboarding/page';
 import SelectOrgPage from './app/select-org/page';
 import InviteAcceptPage from './app/invite/page';
 import ConnectPage from './app/connect/page';
+import CLIAuthPage from './app/cli/page';
 import CloudOAuthDonePage from './app/cloud-oauth/done/page';
 import WarmblyCloudSettingsPage from './app/app/settings/warmbly-cloud/page';
 import SetupPage from './app/setup/page';
@@ -209,6 +211,11 @@ const router = createBrowserRouter([
         element: <ConnectPage />,
       },
       {
+        // Where `warmbly auth login` sends the browser to approve its code.
+        path: "cli",
+        element: <CLIAuthPage />,
+      },
+      {
         // Where Warmbly Cloud sends the Google/Microsoft popup back to on a linked instance.
         path: "cloud-oauth/done",
         element: <CloudOAuthDonePage />,
@@ -253,6 +260,7 @@ const router = createBrowserRouter([
                 ],
               },
               { path: "categories", element: <CategoriesPage /> },
+              { path: "suppressions", element: <SuppressionsPage /> },
             ],
           },
           {
