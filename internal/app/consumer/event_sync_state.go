@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -35,7 +36,7 @@ func (s *JobsService) HandleSyncState(ctx context.Context, e *models.JobEventSyn
 	// get that an outage is over, and without it a five-minute blip left a
 	// red "needs attention" on the mailbox for good, because nothing but a
 	// credential reconnect ever resolved an error row.
-	s.resolveTransientMailErrors(ctx, e.EmailID)
+	s.resolveTransientMailErrors(ctx, e.EmailID, e.State.LastSyncedAt)
 
 	if s.StreamingPublisher == nil {
 		return nil
@@ -99,11 +100,18 @@ var transientMailErrorCodes = []string{
 	string(errx.MailErrorCodeNotFound),
 }
 
-func (s *JobsService) resolveTransientMailErrors(ctx context.Context, emailID uuid.UUID) {
+func (s *JobsService) resolveTransientMailErrors(ctx context.Context, emailID uuid.UUID, syncedAt *time.Time) {
 	if s.EmailAccountErrorRepository == nil {
 		return
 	}
-	if err := s.EmailAccountErrorRepository.ResolveByCodes(ctx, emailID, transientMailErrorCodes, "sync recovered"); err != nil {
+	// Only errors raised before this pass ran. The bus can redeliver an older
+	// event after a newer one, and without the bound a stale success would
+	// clear a failure that happened after it, leaving the mailbox looking
+	// healthy while it was not.
+	if syncedAt == nil {
+		return
+	}
+	if err := s.EmailAccountErrorRepository.ResolveByCodesBefore(ctx, emailID, transientMailErrorCodes, *syncedAt, "sync recovered"); err != nil {
 		log.Warn().Str("error", err.Message).Str("email_id", emailID.String()).
 			Msg("could not clear the mailbox's transient errors after a successful sync")
 	}

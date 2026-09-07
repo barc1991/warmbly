@@ -118,13 +118,13 @@ export default function SyncStatusCard({ mailboxId }: { mailboxId: string }) {
             {(state?.folders_skipped_cap ?? 0) > 0 && (
                 <p className="mt-1 text-[11.5px] text-amber-700">
                     {state!.folders_skipped_cap!.toLocaleString()} folder{state!.folders_skipped_cap === 1 ? " is" : "s are"} not synced: this mailbox has more
-                    folders than Warmbly follows. Your inbox, sent, drafts, spam and trash are always included.
+                    folders than Warmbly follows. Your inbox, sent, drafts, archive, spam and trash are always included.
                 </p>
             )}
 
             {(state?.folders_skipped_conflict ?? 0) > 0 && (
                 <p className="mt-1 text-[11.5px] text-amber-700">
-                    {state!.folders_skipped_conflict!.toLocaleString()} folder{state!.folders_skipped_conflict === 1 ? "" : "s"} share an internal id with another
+                    {state!.folders_skipped_conflict!.toLocaleString()} folder{state!.folders_skipped_conflict === 1 ? " shares" : "s share"} an internal id with another
                     folder, so only one of each pair is synced. Renaming the missing folder on your mail server usually gives it a new id.
                 </p>
             )}

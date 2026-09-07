@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/errx"
@@ -25,17 +26,19 @@ func (s *stubSyncStateRepo) Put(_ context.Context, _, _ uuid.UUID, st *models.Sy
 	return nil
 }
 
-// stubErrorRepo records which codes were resolved.
+// stubErrorRepo records which codes were resolved and how far back.
 type stubErrorRepo struct {
 	repository.EmailAccountErrorRepository
-	resolvedCodes []string
-	resolvedBy    string
-	calls         int
+	resolvedCodes  []string
+	resolvedBy     string
+	resolvedBefore time.Time
+	calls          int
 }
 
-func (s *stubErrorRepo) ResolveByCodes(_ context.Context, _ uuid.UUID, codes []string, by string) *errx.Error {
+func (s *stubErrorRepo) ResolveByCodesBefore(_ context.Context, _ uuid.UUID, codes []string, before time.Time, by string) *errx.Error {
 	s.calls++
 	s.resolvedCodes = append(s.resolvedCodes, codes...)
+	s.resolvedBefore = before
 	s.resolvedBy = by
 	return nil
 }
@@ -53,12 +56,17 @@ func TestSyncStateClearsTransientMailErrors(t *testing.T) {
 	}
 	emailID := uuid.New()
 
+	syncedAt := time.Now()
 	if err := s.HandleSyncState(context.Background(), &models.JobEventSyncState{
 		UserID:  uuid.New(),
 		EmailID: emailID,
-		State:   models.SyncState{BackfillStatus: models.SyncBackfillComplete},
+		State:   models.SyncState{BackfillStatus: models.SyncBackfillComplete, LastSyncedAt: &syncedAt},
 	}); err != nil {
 		t.Fatalf("HandleSyncState: %v", err)
+	}
+
+	if !errRepo.resolvedBefore.Equal(syncedAt) {
+		t.Errorf("resolved errors raised before %v, want the pass's own timestamp %v", errRepo.resolvedBefore, syncedAt)
 	}
 
 	if errRepo.calls != 1 {
@@ -86,10 +94,11 @@ func TestSyncStateLeavesActionableErrorsAlone(t *testing.T) {
 		EmailAccountErrorRepository: errRepo,
 	}
 
+	syncedAt := time.Now()
 	if err := s.HandleSyncState(context.Background(), &models.JobEventSyncState{
 		UserID:  uuid.New(),
 		EmailID: uuid.New(),
-		State:   models.SyncState{},
+		State:   models.SyncState{LastSyncedAt: &syncedAt},
 	}); err != nil {
 		t.Fatalf("HandleSyncState: %v", err)
 	}
@@ -102,5 +111,29 @@ func TestSyncStateLeavesActionableErrorsAlone(t *testing.T) {
 	}
 	if errRepo.resolvedBy != "sync recovered" {
 		t.Errorf("resolvedBy = %q, want it to say what cleared the error", errRepo.resolvedBy)
+	}
+}
+
+// The bus redelivers: JetStream is configured with MaxDeliver and no
+// MaxAckPending, so a stale "the sync succeeded" can arrive after a newer
+// failure. Resolution is bounded to errors raised before the pass ran, and a
+// state carrying no timestamp cannot be bounded, so it resolves nothing
+// rather than clearing a failure it knows nothing about.
+func TestSyncStateWithoutATimestampResolvesNothing(t *testing.T) {
+	errRepo := &stubErrorRepo{}
+	s := &JobsService{
+		EmailSyncStateRepository:    &stubSyncStateRepo{},
+		EmailAccountErrorRepository: errRepo,
+	}
+
+	if err := s.HandleSyncState(context.Background(), &models.JobEventSyncState{
+		UserID:  uuid.New(),
+		EmailID: uuid.New(),
+		State:   models.SyncState{},
+	}); err != nil {
+		t.Fatalf("HandleSyncState: %v", err)
+	}
+	if errRepo.calls != 0 {
+		t.Errorf("resolved errors %d times from a state with no timestamp to bound it by", errRepo.calls)
 	}
 }
