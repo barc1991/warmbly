@@ -62,6 +62,26 @@ type Client struct {
 	// When nil, WORKER_BIND_IP is consulted; when still unset, the OS default
 	// route is used.
 	BindIP *net.TCPAddr
+
+	// reconnectMu serializes ensureConnected between the sync loop (which does
+	// not hold mu) and the send/warmup paths (which do), so a drop seen by both
+	// at once dials one new session, not two.
+	reconnectMu sync.Mutex
+}
+
+// ensureConnected re-dials after the server has dropped the session. go-imap
+// parks a dead client in the Logout state and fails every later command with
+// net.ErrClosed; nothing re-dialed, so one drop (Gmail closes sessions after a
+// while) left the mailbox a zombie until the worker restarted: no sync, no
+// sent copies. Every entry point that starts a command runs through here.
+func (c *Client) ensureConnected() *errx.MailError {
+	c.reconnectMu.Lock()
+	defer c.reconnectMu.Unlock()
+
+	if c.client != nil && c.client.State() != imap.ConnStateLogout {
+		return nil
+	}
+	return c.Connect()
 }
 
 func (c *Client) Connect() *errx.MailError {
@@ -167,14 +187,29 @@ func (c *Client) oauth2Auth() *errx.MailError {
 func (c *Client) Folders() ([]models.Mailbox, *errx.MailError) {
 	var resp []models.Mailbox
 
+	if err := c.ensureConnected(); err != nil {
+		return nil, err
+	}
+
 	// LIST-STATUS: without requesting these, f.Status is nil for every
 	// folder and the sync loop sees an empty account.
-	cmd := c.client.List("", "%", &imap.ListOptions{
+	//
+	// "*", not "%": "%" stops at the top level, and on Gmail-over-IMAP every
+	// folder but INBOX lives under "[Gmail]/" (Dovecot commonly under
+	// "INBOX."), so Sent, Spam and Trash were never listed and never synced.
+	opts := &imap.ListOptions{
 		ReturnStatus: &imap.StatusOptions{
 			UIDValidity:   true,
 			HighestModSeq: true,
 		},
-	})
+	}
+	// Gmail attaches \Sent, \Trash, \Junk, \All ... only when asked; on a
+	// plain LIST every folder is just \HasNoChildren and the canonical-folder
+	// mapping is left guessing from names ("Bin" filed as inbox).
+	if c.client.Caps().Has(imap.CapSpecialUse) {
+		opts.ReturnSpecialUse = true
+	}
+	cmd := c.client.List("", "*", opts)
 
 	for f := cmd.Next(); f != nil; f = cmd.Next() {
 		if len(resp) >= config.MaxEmailFolders {

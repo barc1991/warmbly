@@ -30,6 +30,9 @@ func (c *Client) AppendToSent(ctx context.Context, raw []byte, sentAt time.Time)
 	if len(raw) == 0 {
 		return nil
 	}
+	if merr := c.ensureConnected(); merr != nil {
+		return merr
+	}
 
 	mailbox, err := c.sentMailbox()
 	if err != nil {
