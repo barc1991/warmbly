@@ -17,7 +17,7 @@
 //
 // Session replay stays off deliberately: it would record mailbox and contact
 // screens.
-import type { PostHog } from "posthog-js";
+import type { CaptureResult, PostHog } from "posthog-js";
 import { POSTHOG_HOST, POSTHOG_KEY } from "./information";
 
 let client: PostHog | null = null;
@@ -39,15 +39,38 @@ export function initProductAnalytics(): void {
                 // every click would ship contact names and subject lines in
                 // element text; the named events below are deliberate instead.
                 autocapture: false,
-                capture_pageview: true,
+                // The dashboard is a single-page app, so page loads happen
+                // once and every navigation after that is a history change.
+                // Plain `true` would report one pageview per session.
+                capture_pageview: "history_change",
                 disable_session_recording: true,
                 respect_dnt: true,
+                before_send: maskIdsInURLs,
             });
             client = posthog;
         })
         .catch(() => {
             // Blocked or failed: analytics is never a reason the dashboard breaks.
         });
+}
+
+// Dashboard paths carry record ids (/app/campaigns/<uuid>), and a pageview
+// would otherwise ship them as $current_url. They are not personal data, but
+// they are identifiers, and the whole point of cookieless mode is that no such
+// value exists to join on. Every uuid-shaped segment becomes ":id", which is
+// also what makes the pageview report readable: one row per screen instead of
+// one row per record.
+const UUID_SEGMENT = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\/|$)/gi;
+
+function maskIdsInURLs(event: CaptureResult | null): CaptureResult | null {
+    if (!event?.properties) return event;
+    for (const key of ["$current_url", "$pathname", "$referrer"] as const) {
+        const value = event.properties[key];
+        if (typeof value === "string") {
+            event.properties[key] = value.replace(UUID_SEGMENT, "/:id");
+        }
+    }
+    return event;
 }
 
 // Event is the closed set of product events the dashboard reports. Keeping it a
