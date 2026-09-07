@@ -186,7 +186,7 @@ Create a campaign. Only `name` is required, every other field is optional and ap
 | `esp_match_mode` | string | no | `off`, `prefer`, or `strict`. |
 | `max_new_leads_per_day` | integer | no | New-lead throttle, `0` is unlimited. |
 | `prioritize_new_leads` | boolean | no | Prefer new leads in each send window. |
-| `continuous` | boolean | no | Keep running for new leads: out of leads, the campaign stays `active` and waits instead of finishing. Linking a segment turns it on. Default `false`. |
+| `continuous` | boolean | no | Keep running for new leads: out of leads, the campaign stays `active` and waits instead of finishing. Linking a segment, a form or an automation that enrols leads turns it on, and so does starting a campaign whose every lead has finished. Default `false`. |
 | `tracking_domain` | string | no | Campaign-scoped tracking domain (honored only once verified). |
 | `steps` | object[] | no | Initial sequence steps in order (see create sequence input below). They are connected in order: each step routes unconditionally to the next, waiting that step's `wait_after` days. The first step's `wait_after` defaults to `0`, follow-ups to `3`. |
 | `variants` | object[] | no | A/B variants for the first step (same shape as create A/B variant). |
@@ -250,7 +250,7 @@ Patch any subset of campaign fields. Omitted fields are left unchanged. The expl
 
 Every field is optional. Scalar fields use nullable pointers, so any field you send is applied. `start_date` and `end_date` additionally accept an explicit `null` to clear the stored date: a null `start_date` means "start now" and a null `end_date` means "run open-ended". Changing any schedule field (`start_date`, `end_date`, `timezone`, `days`, `start_time`, `end_time`, `schedule_windows`) on an active campaign reschedules its next send immediately, so clearing a future start date takes effect right away. Notable fields: `name`, `description`, `status`, `stop_on_reply`, `open_tracking`, `link_tracking`, `text_only`, `daily_limit`, `unsubscribe_header`, `risky_emails`, `cc`, `bcc`, `start_date`, `end_date`, `timezone`, `days`, `start_time`, `end_time`, `schedule_windows`, `email_tags`, `folders`, `contact_order_by`, `contact_order_dir`, `contact_order_field`, `sender_strategy`, `rotation_mode`, `ramp_enabled`, `ramp_start`, `ramp_increment`, `ramp_ceiling`, `esp_match_mode`, `max_new_leads_per_day`, `prioritize_new_leads`, `continuous`, `tracking_domain`, `utm_tracking`, `utm_source`, `utm_medium`, `utm_campaign`.
 
-A campaign with `continuous` set stays `active` when it runs out of leads and carries `idle_since` while it waits; the timestamp clears once it has something to send. A continuous campaign can be started with no leads at all. Adding a lead to a `completed` campaign by any path (this API, a linked segment, an automation) restarts it through the same launch checks as starting it by hand; a refused restart is written to the campaign's activity log.
+A campaign with `continuous` set stays `active` when it runs out of leads and carries `idle_since` while it waits; the timestamp clears once it has something to send. A continuous campaign can be started with no leads at all; starting one that is not continuous and has never had a lead answers `400` `no_leads`. Starting a campaign that has at least one lead and nothing left to send, because every lead has finished the sequence, turns `continuous` on and waits for leads (see [start a campaign](#start-a-campaign)). Adding a lead to a `completed` campaign by any path (this API, a linked segment, an automation) restarts it through the same launch checks as starting it by hand; a refused restart is written to the campaign's activity log.
 
 ```json
 {
@@ -719,7 +719,7 @@ The mailbox may be any mailbox of the organization, not only one the caller conn
 
 `POST /campaigns/:id/start`
 
-Start (activate) the campaign so it begins sending real mail. Works from `draft`, any paused status, or `completed` (a campaign closed by a passed end date resumes once the date is extended or cleared; one with nothing left to send re-completes with a `400` explaining why, unless it is `continuous`, in which case it starts and waits for leads with `idle_since` set). **Scope** `SEND_CAMPAIGNS` · **Org permission** `send_campaigns`.
+Start (activate) the campaign so it begins sending real mail. Works from `draft`, any paused status, or `completed` (a campaign closed by a passed end date resumes once the date is extended or cleared). A campaign with nothing left to send does not finish again: the start turns `continuous` on if it was off, and the campaign goes `active` and waits for leads with `idle_since` set; the switch is written to its activity log. **Scope** `SEND_CAMPAIGNS` · **Org permission** `send_campaigns`.
 
 | Parameter | In | Type | Description |
 | --- | --- | --- | --- |
@@ -731,8 +731,10 @@ A start refused because every remaining lead was refused by address verification
 ### Response
 
 ```json
-{ "status": "started" }
+{ "status": "started", "waiting_for_leads": false }
 ```
+
+`waiting_for_leads` is `true` when the campaign started with nothing left to send and is now `active` with `idle_since` set.
 
 ## Stop a campaign
 

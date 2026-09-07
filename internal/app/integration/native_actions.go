@@ -180,6 +180,9 @@ type NativeActions interface {
 	UpsertContact(ctx context.Context, orgID, actorID uuid.UUID, in models.AddContact) (*models.Contact, error)
 	// AddToCampaign enrols an existing contact in a campaign and wakes it.
 	AddToCampaign(ctx context.Context, orgID, actorID, contactID, campaignID uuid.UUID) error
+	// KeepCampaignRunning turns on a campaign's "Keep running for new leads"
+	// setting because an automation now feeds it leads.
+	KeepCampaignRunning(ctx context.Context, orgID, campaignID uuid.UUID, reason string) error
 
 	// ListCategories / CreateCategory / ListPipelines back the AI agent step's
 	// argument-based tools: the model picks a tag/label/pipeline by name and the
@@ -301,6 +304,46 @@ func buildUpsertContact(a models.Automation, cfg nativeActionConfig, data map[st
 		in.Campaigns = []string{id}
 	}
 	return in, nil
+}
+
+// fedCampaignIDs lists the campaigns an automation enrols leads in: every
+// add-to-campaign node and every create-or-update-contact node with a campaign.
+func fedCampaignIDs(a *models.Automation) []uuid.UUID {
+	seen := map[uuid.UUID]bool{}
+	out := []uuid.UUID{}
+	for _, n := range a.Graph.Nodes {
+		if n.Type != "action" {
+			continue
+		}
+		if n.Action != models.IntegrationActionAddToCampaign && n.Action != models.IntegrationActionUpsertContact {
+			continue
+		}
+		id, err := uuid.Parse(strings.TrimSpace(parseNativeConfig(n.Config).CampaignID))
+		if err != nil || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
+}
+
+// keepFedCampaignsRunning precedes an automation save: a campaign an
+// automation feeds must wait for leads instead of finishing between runs,
+// exactly as a linked segment or a form does. A failure fails the save, so a
+// campaign that is not this organization's, or a flip that did not land, is
+// never hidden behind a successful response.
+func (s *service) keepFedCampaignsRunning(ctx context.Context, a *models.Automation) error {
+	if s.native == nil || a == nil {
+		return nil
+	}
+	for _, id := range fedCampaignIDs(a) {
+		reason := "the automation \"" + a.Name + "\" adds its leads to this campaign"
+		if err := s.native.KeepCampaignRunning(ctx, a.OrganizationID, id, reason); err != nil {
+			return fmt.Errorf("the campaign this automation adds leads to could not be kept running: %w", err)
+		}
+	}
+	return nil
 }
 
 // uuidStrings keeps the entries of a saved id list that parse, trimmed.

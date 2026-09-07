@@ -8,6 +8,7 @@ import (
 
 	"github.com/warmbly/warmbly/internal/app/advanced"
 	"github.com/warmbly/warmbly/internal/app/contact"
+	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/repository"
 )
@@ -26,6 +27,9 @@ type Adapter struct {
 	// upsert runs the plan check, wakes campaigns and fires contact.created,
 	// which a bare repository write would not.
 	ContactSvc contact.ContactService
+	// Campaigns flips "Keep running for new leads" on a campaign an
+	// automation feeds, so it waits for leads instead of finishing.
+	Campaigns CampaignKeeper
 }
 
 func (a Adapter) ResolveContact(ctx context.Context, orgID uuid.UUID, contactID, email string) (*models.Contact, error) {
@@ -127,6 +131,27 @@ func (a Adapter) UpsertContact(ctx context.Context, orgID, actorID uuid.UUID, in
 		return nil, fmt.Errorf("the contact write returned nothing")
 	}
 	return &created[0], nil
+}
+
+// CampaignKeeper is the campaign service's "Keep running for new leads" switch.
+type CampaignKeeper interface {
+	KeepRunning(ctx context.Context, orgID, campaignID uuid.UUID, reason string) *errx.Error
+}
+
+// KeepCampaignRunning turns on "Keep running for new leads" on a campaign an
+// automation feeds. A campaign that is not the organization's is reported,
+// never touched.
+func (a Adapter) KeepCampaignRunning(ctx context.Context, orgID, campaignID uuid.UUID, reason string) error {
+	if a.Campaigns == nil {
+		return fmt.Errorf("campaign settings are not available")
+	}
+	if xerr := a.Campaigns.KeepRunning(ctx, orgID, campaignID, reason); xerr != nil {
+		if xerr.Code == errx.ErrNotFound.Code {
+			return fmt.Errorf("campaign %s was not found in this workspace", campaignID)
+		}
+		return xerr
+	}
+	return nil
 }
 
 // AddToCampaign enrols an existing contact in a campaign through the bulk

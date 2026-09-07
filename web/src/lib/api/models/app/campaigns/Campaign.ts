@@ -1,5 +1,3 @@
-import type Sequence from "./sequences/Sequence";
-
 export type CampaignKind = "sequence" | "one_time";
 
 export default interface Campaign {
@@ -104,7 +102,6 @@ export default interface Campaign {
 
     // Extra
     analytics: null;
-    sequences: Sequence[] | null;
 }
 
 // One sending window within a day, in minutes since local midnight (end > start).

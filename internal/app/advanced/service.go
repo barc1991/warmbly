@@ -3,6 +3,7 @@ package advanced
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"math/rand"
@@ -10,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/rs/zerolog/log"
 	"github.com/warmbly/warmbly/internal/pkg/emailverify"
@@ -1661,6 +1664,15 @@ func (s *service) ReplayDeadLetter(ctx context.Context, organizationID, deadLett
 	return nil
 }
 
+// capitalize upper-cases the first rune of a validator message for display.
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	r, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[n:]
+}
+
 func (s *service) RunPreflight(ctx context.Context, organizationID, campaignID uuid.UUID) (*models.PreflightReport, *errx.Error) {
 	campaign, err := s.campaignRepo.GetByID(ctx, campaignID)
 	if err != nil || campaign == nil {
@@ -1680,13 +1692,21 @@ func (s *service) RunPreflight(ctx context.Context, organizationID, campaignID u
 
 	readyErr := s.campaignRepo.ValidateCampaignReady(ctx, campaignID)
 	if readyErr != nil {
-		checks = append(checks, models.PreflightCheckResult{
+		// The validator names the missing piece; a generic list of everything
+		// that could be missing sends the owner looking in the wrong place.
+		check := models.PreflightCheckResult{
 			Key:         "campaign_ready",
 			Passed:      false,
 			Severity:    "error",
 			Message:     "Campaign has missing prerequisites (contacts, sequences, or sender accounts).",
 			Remediation: "Add contacts, sequences, and at least one sender account tag match.",
-		})
+		}
+		var bizErr *errx.Error
+		if errors.As(readyErr, &bizErr) && bizErr.Message != "" {
+			check.Message = capitalize(bizErr.Message) + "."
+			check.Remediation = ""
+		}
+		checks = append(checks, check)
 		recommendations = append(recommendations, "Complete core campaign setup before start.")
 	} else {
 		checks = append(checks, models.PreflightCheckResult{
@@ -1755,15 +1775,18 @@ func (s *service) RunPreflight(ctx context.Context, organizationID, campaignID u
 	}
 
 	if settings.Preflight.CheckTrackingDomain && (campaign.OpenTracking || campaign.LinkTracking) {
-		scope := repository.NewAccountScope(campaign.OrganizationID)
-		accounts, err := s.emailRepo.GetByTags(ctx, scope, campaign.EmailTags)
+		// The same pool the scheduler sends from (explicit senders, tags, or
+		// every active mailbox when neither is picked), so a campaign on the
+		// "all" fallback is never told it has no senders (issue #340).
+		pool, err := repository.ResolveCampaignSenderPool(ctx, s.emailRepo, campaign)
+		accounts := pool.Accounts
 		if err != nil || len(accounts) == 0 {
 			checks = append(checks, models.PreflightCheckResult{
 				Key:         "tracking_domain",
 				Passed:      false,
 				Severity:    "error",
-				Message:     "No sender accounts available for tracking validation.",
-				Remediation: "Attach sender accounts to campaign tags.",
+				Message:     "No active sender mailbox is available to this campaign, so tracking cannot be validated.",
+				Remediation: "Connect a mailbox, or pick mailboxes or tags for the campaign that have an active one.",
 			})
 			recommendations = append(recommendations, "Attach at least one sender account with tracking domain.")
 		} else {
