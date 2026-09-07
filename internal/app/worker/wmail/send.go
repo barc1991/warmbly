@@ -108,6 +108,21 @@ type SendResult struct {
 
 const maxSendRetries = 3
 
+// permanentSendFailure is a refusal no retry can turn into a delivery: the
+// receiving server rejected the sender, the recipient or the message itself
+// with a 5xx. Named codes rather than the resolve method, because several
+// warnings carry a non-retry method while still being worth another attempt.
+func permanentSendFailure(err *errx.MailError) bool {
+	if err == nil {
+		return false
+	}
+	switch err.Code {
+	case errx.MailErrorCodeSendRejected, errx.MailErrorCodeRecipientRejected:
+		return true
+	}
+	return false
+}
+
 // Send attempts to send an email with retry for transient failures
 func (w *WMail) Send(ctx context.Context, req *SendRequest) *SendResult {
 	// For warmup emails, ensure HTML is empty
@@ -141,8 +156,14 @@ func (w *WMail) Send(ctx context.Context, req *SendRequest) *SendResult {
 			return result
 		}
 
-		// Don't retry critical/auth errors - only transient ones
+		// Don't retry critical/auth errors - only transient ones.
 		if result.Error != nil && result.Error.Type == errx.MailErrorCritical {
+			return result
+		}
+		// A permanent refusal is not critical but is just as final: the
+		// server answered with a 5xx, so it will answer the same way next
+		// time and another attempt only spends the mailbox's daily budget.
+		if permanentSendFailure(result.Error) {
 			return result
 		}
 
