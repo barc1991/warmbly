@@ -20,8 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/warmbly/warmbly/internal/observability/errs"
@@ -47,6 +49,8 @@ type Client struct {
 	key  string
 	host string
 	http *http.Client
+	// warned bounds the failure log to one line per process; see warnOnce.
+	warned sync.Once
 }
 
 // New returns a client, or nil when no key is configured. Returning nil rather
@@ -137,19 +141,34 @@ func (c *Client) post(body []byte) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.host+capturePath, bytes.NewReader(body))
 	if err != nil {
-		errs.CaptureException(err)
+		c.warnOnce("cannot build a capture request for %s: %v", c.host, err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		// A capture that did not land is worth knowing about but is not worth
-		// an error event per request; the log is enough.
+		c.warnOnce("cannot reach the analytics host %s: %v", c.host, err)
 		return
 	}
 	defer resp.Body.Close()
 	// Drained so the connection can be reused; the response body is of no
 	// interest beyond that.
 	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		c.warnOnce("the analytics host %s rejected a capture with %s (check POSTHOG_KEY)", c.host, resp.Status)
+	}
+}
+
+// warnOnce logs the first failure and nothing after it.
+//
+// A wrong key or an unreachable host fails on every single event, so logging
+// each one would bury the instance's real logs under analytics noise. Logging
+// none of them is worse: a misconfigured key would look exactly like a quiet
+// week. One line, the first time, is the useful amount.
+func (c *Client) warnOnce(format string, args ...any) {
+	c.warned.Do(func() {
+		log.Printf("product analytics disabled for this run: "+format, args...)
+	})
 }
