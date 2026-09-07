@@ -188,29 +188,41 @@ const websiteJsonLd = {
     -->
     <script is:inline>
       (function () {
-        var params = new URLSearchParams(location.search);
-        var carried = new URLSearchParams();
-        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(function (name) {
-          var value = params.get(name);
-          if (value) carried.set(name, value.slice(0, 255));
-        });
-        carried.set('wb_lp', location.pathname.slice(0, 255));
-        if (document.referrer) {
-          try {
-            var host = new URL(document.referrer).hostname;
-            if (host && host !== location.hostname) carried.set('wb_ref', host);
-          } catch (e) { /* an unparseable referrer is simply not recorded */ }
+        // This script sits in <head>, so the anchors it rewrites do not exist
+        // yet. Wait for the parsed document before touching any of them.
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', decorate);
+        } else {
+          decorate();
         }
 
-        document.querySelectorAll('a[href*="/register"]').forEach(function (link) {
-          try {
-            var url = new URL(link.href);
-            carried.forEach(function (value, name) {
-              if (!url.searchParams.has(name)) url.searchParams.set(name, value);
-            });
-            link.href = url.toString();
-          } catch (e) { /* leave a link we cannot parse exactly as it was */ }
-        });
+        function decorate() {
+          var params = new URLSearchParams(location.search);
+          var carried = new URLSearchParams();
+
+          ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(function (name) {
+            var value = params.get(name);
+            if (value) carried.set(name, value.slice(0, 255));
+          });
+          carried.set('wb_lp', location.pathname.slice(0, 255));
+
+          if (document.referrer) {
+            try {
+              var host = new URL(document.referrer).hostname;
+              if (host && host !== location.hostname) carried.set('wb_ref', host);
+            } catch (e) { /* an unparseable referrer is simply not recorded */ }
+          }
+
+          document.querySelectorAll('a[href*="/register"]').forEach(function (link) {
+            try {
+              var url = new URL(link.href);
+              carried.forEach(function (value, name) {
+                if (!url.searchParams.has(name)) url.searchParams.set(name, value);
+              });
+              link.href = url.toString();
+            } catch (e) { /* leave a link we cannot parse exactly as it was */ }
+          });
+        }
       })();
     </script>
     <!-- Phone diagnostics: ?noshell / ?noanim / ?nogl switch heavy subsystems off (global.css, GrainBackdrop). -->
