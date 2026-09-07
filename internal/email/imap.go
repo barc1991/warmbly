@@ -3,7 +3,6 @@ package email
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"time"
 
@@ -16,13 +15,16 @@ import (
 // connects: the caller's security mode decides implicit TLS versus STARTTLS.
 // security may be empty, in which case the port convention decides.
 func VerifyImap(ctx context.Context, host string, port int, user, pass, security string) bool {
-	addr := fmt.Sprintf("%s:%d", host, port)
+	// Brackets belong to the address, not to the host, and JoinHostPort is
+	// what puts them back for an IPv6 literal.
+	host = models.NormalizeMailHost(host)
+	addr := models.MailDialAddress(host, port)
 
 	resolved := models.ResolveIMAPSecurity(security, port)
 	// The unencrypted mode only ever addresses this machine, checked here and
 	// again against the peer below, so a mailbox that could never be dialled
 	// safely fails at connect rather than on the first sync.
-	if resolved == models.MailSecurityNone && !models.LoopbackMailHost(host) {
+	if resolved == models.MailSecurityNone && !models.CleartextMailAllowed(host) {
 		return false
 	}
 

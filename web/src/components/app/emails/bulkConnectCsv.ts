@@ -6,7 +6,7 @@ import type AddEmail from "@/lib/api/models/app/emails/AddEmail";
 import {
     defaultImapSecurity,
     defaultSmtpSecurity,
-    isLoopbackHost,
+    allowsNoEncryption,
     validPort,
     type MailSecurity,
 } from "@/lib/api/models/app/emails/Service";
@@ -86,16 +86,22 @@ function normaliseHeader(h: string): string {
     return ALIASES[key] ?? key;
 }
 
-// "none" is accepted only for a loopback host, matching the backend. The
-// self-hosted half of that rule is not knowable here, so the API answers it;
-// this catches the mistake a CSV actually makes, which is pasting the mode
-// onto a remote server.
-function parseSecurity(raw: string | undefined, port: number, host: string, leg: "smtp" | "imap"): MailSecurity | null {
+// "none" is accepted under the same two conditions the backend checks: a
+// loopback host, and a self-hosted instance. Marking such a row ready on the
+// hosted product would only get it rejected by the API a moment later, with
+// an error against a row the file's author cannot do anything about.
+function parseSecurity(
+    raw: string | undefined,
+    port: number,
+    host: string,
+    selfHosted: boolean,
+    leg: "smtp" | "imap",
+): MailSecurity | null {
     const v = (raw ?? "").trim().toLowerCase();
     if (v === "") return leg === "smtp" ? defaultSmtpSecurity(port) : defaultImapSecurity(port);
     if (v === "tls" || v === "ssl" || v === "ssl/tls" || v === "implicit") return "tls";
     if (v === "starttls" || v === "start_tls" || v === "start-tls") return "starttls";
-    if (v === "none" || v === "plain" || v === "insecure") return isLoopbackHost(host) ? "none" : null;
+    if (v === "none" || v === "plain" || v === "insecure") return allowsNoEncryption(host, selfHosted) ? "none" : null;
     return null;
 }
 
@@ -123,7 +129,7 @@ export interface BulkRow {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function buildRow(line: number, raw: Record<string, string>): BulkRow {
+function buildRow(line: number, raw: Record<string, string>, selfHosted: boolean): BulkRow {
     const get = (k: string) => (raw[k] ?? "").trim();
     const email = get("email");
     const invalid = (problem: string): BulkRow => ({ line, raw, account: null, problem, status: "invalid" });
@@ -153,10 +159,13 @@ function buildRow(line: number, raw: Record<string, string>): BulkRow {
     if (!imapPass) return invalid("Missing imap_password (or a shared password column)");
     if (!smtpPass) return invalid("Missing smtp_password (or a shared password column)");
 
-    const smtpSecurity = parseSecurity(raw.smtp_security, smtpPort, smtpHost, "smtp");
-    const imapSecurity = parseSecurity(raw.imap_security, imapPort, imapHost, "imap");
-    if (!smtpSecurity) return invalid("smtp_security must be tls or starttls (none only for a server on this machine)");
-    if (!imapSecurity) return invalid("imap_security must be tls or starttls (none only for a server on this machine)");
+    const smtpSecurity = parseSecurity(raw.smtp_security, smtpPort, smtpHost, selfHosted, "smtp");
+    const imapSecurity = parseSecurity(raw.imap_security, imapPort, imapHost, selfHosted, "imap");
+    const noneHint = selfHosted
+        ? " (none only for a server on this machine)"
+        : " (none needs a self-hosted instance)";
+    if (!smtpSecurity) return invalid("smtp_security must be tls or starttls" + noneHint);
+    if (!imapSecurity) return invalid("imap_security must be tls or starttls" + noneHint);
 
     return {
         line,
@@ -183,7 +192,7 @@ function buildRow(line: number, raw: Record<string, string>): BulkRow {
     };
 }
 
-export function parseBulkFile(file: File): Promise<{ rows: BulkRow[]; columns: string[] }> {
+export function parseBulkFile(file: File, selfHosted: boolean): Promise<{ rows: BulkRow[]; columns: string[] }> {
     return new Promise((resolve, reject) => {
         Papa.parse<Record<string, string>>(file, {
             header: true,
@@ -195,7 +204,7 @@ export function parseBulkFile(file: File): Promise<{ rows: BulkRow[]; columns: s
                     reject(new Error("The file needs an email column. Download the template to see the expected headers."));
                     return;
                 }
-                const rows = res.data.map((raw, i) => buildRow(i + 2, raw));
+                const rows = res.data.map((raw, i) => buildRow(i + 2, raw, selfHosted));
                 if (rows.length === 0) {
                     reject(new Error("The file has a header but no rows."));
                     return;

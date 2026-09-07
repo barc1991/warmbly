@@ -32,9 +32,9 @@ Each side also has a **security** setting, which is what decides how the connect
 | STARTTLS | Connects in the clear, then upgrades in place before anything sensitive is sent | SMTP `587` or `2525`, IMAP `143` |
 | None | No encryption. Only offered for a mail server on the same machine as the worker | SMTP `1025`, IMAP `1143` |
 
-The form picks the right one from the port as you type, so standard setups need no thought. Change it yourself when your server is unusual: any port from 1 to 65535 works, so a submission relay on `2525` or IMAP on a custom port is fine as long as the security setting matches what the server actually speaks.
+The form picks TLS or STARTTLS from the port as you type, so standard setups need no thought. It never picks **None**, on any port: dropping encryption is always something you ask for. Change the mode yourself when your server is unusual: any port from 1 to 65535 works, so a submission relay on `2525` or IMAP on a custom port is fine as long as the security setting matches what the server actually speaks.
 
-Encryption is not optional over a network. Warmbly will not send credentials over an unencrypted connection to anything but this machine, which is why **None** only appears once the host is `localhost`, `127.0.0.1` or `::1` and only on a [self-hosted instance](/development/install/). See [local mail relays](#local-mail-relays-proton-bridge) below.
+Encryption is not optional over a network. Warmbly will not send credentials over an unencrypted connection to anything but this machine, which is why **None** only appears once the host is `localhost`, an address in `127.0.0.0/8`, or `::1`, and only on a [self-hosted instance](/development/install/). See [local mail relays](#local-mail-relays-proton-bridge) below.
 
 If a mailbox fails to connect with a server-unreachable error and the host and port are definitely right, the security setting is the first thing to check. A server expecting STARTTLS looks unreachable to a client attempting implicit TLS, and vice versa.
 
@@ -100,7 +100,7 @@ Pick **Bulk import from CSV** in the connect dialog to connect any number of SMT
 | `smtp_port`, `imap_port` | `587` and `993` |
 | `smtp_user`, `imap_user` | the address, or a shared `username` column |
 | `smtp_password`, `imap_password` | a shared `password` column |
-| `smtp_security`, `imap_security` | inferred from the port (`465` and `993` are `tls`, `587` and `143` are `starttls`); `none` is accepted only for a loopback host |
+| `smtp_security`, `imap_security` | inferred from the port (`465` and `993` are `tls`, `587` and `143` are `starttls`); `none` is accepted only for a loopback host on a self-hosted instance |
 
 The dialog offers a template with these headers, and accepts the common spellings (`smtp_server`, `app_password`, `login`, and so on).
 

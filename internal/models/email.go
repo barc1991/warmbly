@@ -2,10 +2,12 @@ package models
 
 import (
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/warmbly/warmbly/internal/config"
 	"golang.org/x/oauth2"
 )
 
@@ -184,17 +186,51 @@ func ValidMailSecurity(s string) bool {
 // network could walk out from under. The dialer verifies the peer it actually
 // got as well, which is what closes that gap for good.
 func LoopbackMailHost(host string) bool {
-	host = strings.TrimSpace(host)
+	host = NormalizeMailHost(host)
 	if strings.EqualFold(host, "localhost") {
 		return true
 	}
-	// A bracketed IPv6 literal ("[::1]") is how a host:port string carries
-	// one, and users paste it that way.
-	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
 	if ip := net.ParseIP(host); ip != nil {
 		return ip.IsLoopback()
 	}
 	return false
+}
+
+// NormalizeMailHost is a stored host as the dialer and the TLS layer want it:
+// trimmed, and without the brackets a bare IPv6 literal is usually pasted
+// with. Brackets belong to the host:port form, not to the host, and carrying
+// them into tls.Config.ServerName would fail verification against an address
+// that is otherwise correct.
+func NormalizeMailHost(host string) string {
+	host = strings.TrimSpace(host)
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		return host[1 : len(host)-1]
+	}
+	return host
+}
+
+// CleartextMailAllowed is the whole rule for MailSecurityNone in one place:
+// the host is this machine, and this deployment runs its workers on the
+// operator's own machine.
+//
+// Every place that opens a socket asks it, not just the connect form, because
+// credentials reach a worker by more than the form. An organization archive
+// exported from a self-hosted instance carries its mailboxes, so an import
+// could otherwise hand a hosted worker a mailbox that dials its own loopback
+// in the clear. The dialer additionally checks the peer it actually got,
+// which is the half no hostname can promise.
+func CleartextMailAllowed(host string) bool {
+	return config.SelfHosted() && LoopbackMailHost(host)
+}
+
+// MailDialAddress builds the address to dial a mailbox leg on.
+//
+// net.JoinHostPort, not fmt.Sprintf: an IPv6 literal needs brackets in a
+// host:port string, so "::1" on 1143 has to become "[::1]:1143". Without them
+// the address reads as the host "::1:1143" with no port at all, and every
+// dial to a mailbox on an IPv6 address fails looking like a dead server.
+func MailDialAddress(host string, port int) string {
+	return net.JoinHostPort(NormalizeMailHost(host), strconv.Itoa(port))
 }
 
 // ResolveSMTPSecurity returns the security mode to dial SMTP with: the stored

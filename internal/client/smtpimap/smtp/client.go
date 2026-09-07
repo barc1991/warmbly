@@ -252,7 +252,11 @@ func (c *Client) sendRaw(ctx context.Context, from string, to []string, data []b
 		port = c.Oauth2.Port
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
+	// Normalized before it is used anywhere: brackets belong to the address,
+	// not to the host, and JoinHostPort is what puts them back for an IPv6
+	// literal.
+	host = models.NormalizeMailHost(host)
+	addr := models.MailDialAddress(host, port)
 	tlsConf := &tls.Config{
 		ServerName:         host,
 		InsecureSkipVerify: netbind.InsecureTLS(), //nolint:gosec // MAIL_TLS_INSECURE, local dev only
@@ -276,7 +280,7 @@ func (c *Client) sendRaw(ctx context.Context, from string, to []string, data []b
 	// The unencrypted mode is checked before the dial and again against the
 	// peer we actually got, because only the second one is a fact about this
 	// socket rather than about what DNS said a moment ago.
-	if resolved == models.MailSecurityNone && !models.LoopbackMailHost(host) {
+	if resolved == models.MailSecurityNone && !models.CleartextMailAllowed(host) {
 		return errx.ErrMailInsecureRemoteHost
 	}
 	implicitTLS := resolved == models.MailSecurityTLS

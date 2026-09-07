@@ -102,3 +102,64 @@ func TestLoopbackMailHost(t *testing.T) {
 		}
 	}
 }
+
+// An IPv6 literal needs brackets in a host:port string. Building the address
+// with fmt.Sprintf turned "::1" and 1143 into "::1:1143", which is a host with
+// no port, so every dial to a mailbox on an IPv6 address failed looking like a
+// dead server.
+func TestMailDialAddress(t *testing.T) {
+	for _, tc := range []struct {
+		host string
+		port int
+		want string
+	}{
+		{"imap.example.com", 993, "imap.example.com:993"},
+		{"127.0.0.1", 1143, "127.0.0.1:1143"},
+		{"::1", 1143, "[::1]:1143"},
+		// Already bracketed, as a user pastes it. Not double-bracketed.
+		{"[::1]", 1025, "[::1]:1025"},
+		{"2001:db8::5", 993, "[2001:db8::5]:993"},
+		{" mail.example.com ", 587, "mail.example.com:587"},
+	} {
+		if got := MailDialAddress(tc.host, tc.port); got != tc.want {
+			t.Errorf("MailDialAddress(%q, %d) = %q, want %q", tc.host, tc.port, got, tc.want)
+		}
+	}
+}
+
+// The host that reaches tls.Config.ServerName and the SMTP greeting carries no
+// brackets: they belong to the address, and verification against a bracketed
+// literal fails on an address that is otherwise correct.
+func TestNormalizeMailHost(t *testing.T) {
+	for _, tc := range [][2]string{
+		{"[::1]", "::1"},
+		{" [2001:db8::5] ", "2001:db8::5"},
+		{"127.0.0.1", "127.0.0.1"},
+		{"imap.example.com", "imap.example.com"},
+	} {
+		if got := NormalizeMailHost(tc[0]); got != tc[1] {
+			t.Errorf("NormalizeMailHost(%q) = %q, want %q", tc[0], got, tc[1])
+		}
+	}
+}
+
+// Credentials reach a worker by more than the connect form: an organization
+// archive exported from a self-hosted instance carries its mailboxes, so the
+// deployment half of the rule is checked where the socket is opened too.
+func TestCleartextMailAllowed(t *testing.T) {
+	t.Run("self-hosted", func(t *testing.T) {
+		t.Setenv("DEPLOYMENT_MODE", "self_hosted")
+		if !CleartextMailAllowed("127.0.0.1") {
+			t.Error("a loopback host on a self-hosted instance was refused")
+		}
+		if CleartextMailAllowed("imap.proton.me") {
+			t.Error("a remote host was allowed")
+		}
+	})
+	t.Run("hosted", func(t *testing.T) {
+		t.Setenv("DEPLOYMENT_MODE", "cloud")
+		if CleartextMailAllowed("127.0.0.1") {
+			t.Error("the worker's own loopback was allowed on the hosted product")
+		}
+	})
+}

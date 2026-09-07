@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/textproto"
@@ -150,7 +149,11 @@ func (c *Client) connectLocked() *errx.MailError {
 	case models.AuthOAuth2:
 		host, port = c.Oauth2.Host, c.Oauth2.Port
 	}
-	addr = fmt.Sprintf("%s:%d", host, port)
+	// Normalized before it is used anywhere: brackets belong to the address,
+	// not to the host, and JoinHostPort is what puts them back for an IPv6
+	// literal.
+	host = models.NormalizeMailHost(host)
+	addr = models.MailDialAddress(host, port)
 
 	tlsConf := &tls.Config{
 		ServerName:         host,
@@ -167,7 +170,7 @@ func (c *Client) connectLocked() *errx.MailError {
 	// peer we actually got, because only the second one is a fact about this
 	// socket rather than about what DNS said a moment ago.
 	resolved := models.ResolveIMAPSecurity(security, port)
-	if resolved == models.MailSecurityNone && !models.LoopbackMailHost(host) {
+	if resolved == models.MailSecurityNone && !models.CleartextMailAllowed(host) {
 		return errx.ErrMailInsecureRemoteHost
 	}
 	raw, err := netbind.Dialer(c.BindIP).DialContext(context.Background(), "tcp", addr)
