@@ -98,6 +98,19 @@ func CaptureMessageContext(ctx context.Context, message string, opts ...Option) 
 	capture(hubFrom(ctx), opts, func(hub *sentry.Hub) { hub.CaptureMessage(message) })
 }
 
+// fatalFlushTimeout is how long a process about to exit waits for its last
+// event. Short enough not to stall a crash loop, long enough for one POST.
+const fatalFlushTimeout = 2 * time.Second
+
+// CaptureFatal reports err and waits for it to be sent. Use it instead of
+// CaptureException wherever the next statement ends the process: the SDK sends
+// in the background and os.Exit does not wait for it, so a boot failure — the
+// error most worth having — was the one that never arrived.
+func CaptureFatal(err error, opts ...Option) {
+	CaptureException(err, opts...)
+	Flush(fatalFlushTimeout)
+}
+
 // Recover reports a value from recover(). Call it inside the deferred function
 // that recovered, not after.
 func Recover(r any) {
