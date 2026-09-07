@@ -815,6 +815,15 @@ type AdminOrgSearch struct {
 	UpdatedAfter           *time.Time `form:"updated_after" time_format:"2006-01-02" time_utc:"true"`
 	UpdatedBefore          *time.Time `form:"updated_before" time_format:"2006-01-02" time_utc:"true"`
 
+	// Acquisition channel. UTMSource/UTMMedium/UTMCampaign match exactly;
+	// HasAcquisition selects workspaces that arrived through a tagged link at
+	// all, and its negation the ones that came in directly.
+	UTMSource      string `form:"utm_source"`
+	UTMMedium      string `form:"utm_medium"`
+	UTMCampaign    string `form:"utm_campaign"`
+	HasAcquisition bool   `form:"has_acquisition"`
+	NoAcquisition  bool   `form:"no_acquisition"`
+
 	Cursor   *uuid.UUID `form:"cursor"`
 	Limit    int        `form:"limit"`
 	SortBy   string     `form:"sort_by"` // created_at, name, owner_email, member_count, campaign_count, email_account_count
@@ -846,6 +855,14 @@ type AdminOrgListItem struct {
 	// RiskState is the fused abuse posture, inlined so the table can show
 	// which workspaces a detector has acted on without a call per row.
 	RiskState OrgRiskState `json:"risk_state,omitempty"`
+
+	// Acquisition channel recorded at signup. Inlined so revenue by channel is
+	// readable in the table rather than a separate report. Absent for a direct
+	// signup, which is most of them, and always absent on a self-host.
+	UTMSource   *string `json:"utm_source,omitempty"`
+	UTMMedium   *string `json:"utm_medium,omitempty"`
+	UTMCampaign *string `json:"utm_campaign,omitempty"`
+	LandingPath *string `json:"landing_path,omitempty"`
 
 	// Plan summary (LEFT JOINed via the org's single active subscription).
 	PlanName     *string `json:"plan_name,omitempty"`

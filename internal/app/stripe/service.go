@@ -28,6 +28,7 @@ import (
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/observability/analytics"
 	"github.com/warmbly/warmbly/internal/repository"
 )
 
@@ -86,6 +87,10 @@ type StripeService interface {
 	// referral hooks in the webhook flow are skipped).
 	WireReferral(r ReferralRewarder)
 
+	// WireAnalytics attaches the product-analytics sink (post-construction;
+	// nil = money events are not counted, which is the self-host default).
+	WireAnalytics(a ProductAnalytics)
+
 	// WireCredits attaches the AI-credit granter and an audit logger
 	// (post-construction; nil = the credit grant/reset hooks are skipped).
 	WireCredits(g CreditGranter, a AuditLogger)
@@ -123,6 +128,13 @@ type OperatorNotifier interface {
 	NotifyOperator(key, title, summary string, fields map[string]string)
 }
 
+// ProductAnalytics counts a started subscription. Satisfied by
+// *analytics.Client; nil-safe, so an instance with no POSTHOG_KEY counts
+// nothing. Properties never name an organization or a person.
+type ProductAnalytics interface {
+	Capture(name string, req analytics.Request, properties map[string]any)
+}
+
 type stripeService struct {
 	cfg              *config.StripeConfig
 	subRepo          repository.SubscriptionRepository
@@ -133,12 +145,15 @@ type stripeService struct {
 	credits          CreditGranter
 	audit            AuditLogger
 	opsNotify        OperatorNotifier
+	productAnalytics ProductAnalytics
 }
 
 // WireOperatorNotifier attaches the operator alert channel.
 func (s *stripeService) WireOperatorNotifier(n OperatorNotifier) { s.opsNotify = n }
 
 func (s *stripeService) WireReferral(r ReferralRewarder) { s.referral = r }
+
+func (s *stripeService) WireAnalytics(a ProductAnalytics) { s.productAnalytics = a }
 
 func (s *stripeService) WireCredits(g CreditGranter, a AuditLogger) { s.credits = g; s.audit = a }
 
@@ -938,7 +953,50 @@ func (s *stripeService) fulfillCreditTopup(ctx context.Context, event *stripe.Ev
 }
 
 func (s *stripeService) handleSubscriptionCreated(ctx context.Context, event *stripe.Event) *errx.Error {
-	return s.handleSubscriptionUpdated(ctx, event)
+	if err := s.handleSubscriptionUpdated(ctx, event); err != nil {
+		return err
+	}
+	s.countSubscriptionStarted(ctx, event)
+	return nil
+}
+
+// countSubscriptionStarted records a new paid subscription in product
+// analytics. It fires from the webhook rather than the browser because this is
+// the money event and it has to be exact: the customer may have closed the tab
+// on Stripe's success page, and an ad blocker would drop the browser's version.
+//
+// Unlike the signup event there is no browser request to join: Stripe called
+// us, not the customer. So this lands as its own cookieless visitor and is
+// useful as a count and a plan mix, not as the end of a session funnel.
+// Nothing here names the organization or the person.
+func (s *stripeService) countSubscriptionStarted(ctx context.Context, event *stripe.Event) {
+	if s.productAnalytics == nil {
+		return
+	}
+	var stripeSub stripe.Subscription
+	if err := json.Unmarshal(event.Data.Raw, &stripeSub); err != nil {
+		return
+	}
+	if len(stripeSub.Items.Data) == 0 {
+		return
+	}
+
+	item := stripeSub.Items.Data[0]
+	props := map[string]any{
+		"status": string(stripeSub.Status),
+	}
+	if item.Price != nil {
+		props["currency"] = string(item.Price.Currency)
+		props["amount"] = float64(item.Price.UnitAmount) / 100
+		if item.Price.Recurring != nil {
+			props["interval"] = string(item.Price.Recurring.Interval)
+		}
+		if plan, err := s.planRepo.GetByStripePriceID(ctx, item.Price.ID); err == nil && plan != nil {
+			props["plan"] = plan.Name
+		}
+	}
+
+	s.productAnalytics.Capture("subscription_started", analytics.Request{}, props)
 }
 
 func (s *stripeService) handleSubscriptionUpdated(ctx context.Context, event *stripe.Event) *errx.Error {
