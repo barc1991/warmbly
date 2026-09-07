@@ -126,3 +126,15 @@ func (t *syncTracker) setFolder(key string, c models.SyncFolderCursor) {
 	t.state.BackfillCursor.Folders[key] = c
 	t.dirty = true
 }
+
+// renameFolder moves a folder's backfill floor to its new name, so a rename
+// costs nothing rather than restarting the folder's import from the top.
+func (t *syncTracker) renameFolder(from, to string) {
+	cur, ok := t.state.BackfillCursor.Folders[from]
+	if !ok {
+		return
+	}
+	delete(t.state.BackfillCursor.Folders, from)
+	t.state.BackfillCursor.Folders[to] = cur
+	t.dirty = true
+}
