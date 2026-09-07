@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 
 	"github.com/warmbly/warmbly/internal/models"
 )
@@ -329,19 +328,22 @@ func fedCampaignIDs(a *models.Automation) []uuid.UUID {
 	return out
 }
 
-// keepFedCampaignsRunning follows an automation save: a campaign an automation
-// feeds must wait for leads instead of finishing between runs, exactly as a
-// linked segment or a form does. Best effort; the save already happened.
-func (s *service) keepFedCampaignsRunning(ctx context.Context, a *models.Automation) {
+// keepFedCampaignsRunning precedes an automation save: a campaign an
+// automation feeds must wait for leads instead of finishing between runs,
+// exactly as a linked segment or a form does. A failure fails the save, so a
+// campaign that is not this organization's, or a flip that did not land, is
+// never hidden behind a successful response.
+func (s *service) keepFedCampaignsRunning(ctx context.Context, a *models.Automation) error {
 	if s.native == nil || a == nil {
-		return
+		return nil
 	}
 	for _, id := range fedCampaignIDs(a) {
 		reason := "the automation \"" + a.Name + "\" adds its leads to this campaign"
 		if err := s.native.KeepCampaignRunning(ctx, a.OrganizationID, id, reason); err != nil {
-			log.Warn().Err(err).Str("automation_id", a.ID.String()).Str("campaign_id", id.String()).Msg("could not turn on keep running for the automation's campaign")
+			return fmt.Errorf("the campaign this automation adds leads to could not be kept running: %w", err)
 		}
 	}
+	return nil
 }
 
 // uuidStrings keeps the entries of a saved id list that parse, trimmed.

@@ -146,6 +146,9 @@ func (a Adapter) KeepCampaignRunning(ctx context.Context, orgID, campaignID uuid
 		return fmt.Errorf("campaign settings are not available")
 	}
 	if xerr := a.Campaigns.KeepRunning(ctx, orgID, campaignID, reason); xerr != nil {
+		if xerr.Code == errx.ErrNotFound.Code {
+			return fmt.Errorf("campaign %s was not found in this workspace", campaignID)
+		}
 		return xerr
 	}
 	return nil

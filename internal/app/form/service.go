@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/geo"
@@ -260,18 +259,6 @@ func (s *service) Update(ctx context.Context, orgID, id uuid.UUID, in *models.Fo
 	if in.CampaignID.Set {
 		f.CampaignID = in.CampaignID.Value
 	}
-	// A form is a live lead source, so the campaign it feeds must wait for
-	// leads instead of finishing between submissions (issue #340), exactly as
-	// a linked segment does. Doing it before the write also proves the
-	// campaign is this organization's.
-	if in.CampaignID.Set && in.CampaignID.Value != nil && s.campaigns != nil {
-		if xerr := s.campaigns.KeepRunning(ctx, orgID, *in.CampaignID.Value, "the form \""+f.Name+"\" adds its leads to this campaign"); xerr != nil {
-			if xerr.Code == errx.ErrNotFound.Code {
-				return nil, errx.New(errx.BadRequest, "campaign not found")
-			}
-			log.Warn().Str("form_id", id.String()).Str("campaign_id", in.CampaignID.Value.String()).Msg("could not turn on keep running for the form's campaign")
-		}
-	}
 	if in.CategoryIDs != nil {
 		f.CategoryIDs = *in.CategoryIDs
 	}
@@ -297,6 +284,19 @@ func (s *service) Update(ctx context.Context, orgID, id uuid.UUID, in *models.Fo
 			f.PublishedAt = &now
 		}
 		f.Status = *in.Status
+	}
+	// A form is a live lead source, so the campaign it feeds must wait for
+	// leads instead of finishing between submissions (issue #340), exactly as
+	// a linked segment does. After every validation so a rejected write never
+	// changes the campaign, and before the write so it proves the campaign is
+	// this organization's; a failure here fails the save visibly.
+	if in.CampaignID.Set && in.CampaignID.Value != nil && s.campaigns != nil {
+		if xerr := s.campaigns.KeepRunning(ctx, orgID, *in.CampaignID.Value, "the form \""+f.Name+"\" adds its leads to this campaign"); xerr != nil {
+			if xerr.Code == errx.ErrNotFound.Code {
+				return nil, errx.New(errx.BadRequest, "campaign not found")
+			}
+			return nil, xerr
+		}
 	}
 	return s.repo.Update(ctx, orgID, f)
 }
