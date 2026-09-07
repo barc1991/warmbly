@@ -76,9 +76,17 @@ func FormsBaseURL() string {
 }
 
 // FormsHostname is the bare host this install serves forms on. It is the
-// CNAME target a customer points their own forms subdomain at.
+// CNAME target a customer points their own forms subdomain at, so it never
+// carries a port.
 func FormsHostname() string {
 	return hostWithoutPort(NormalizeTrackingHost(FormsBaseURL()))
+}
+
+// FormsURLHost is the shared host form URLs are built on. Unlike the CNAME
+// target it keeps the port, because dropping it points every share link and
+// embed on a ported install at nothing.
+func FormsURLHost() string {
+	return NormalizeTrackingHost(FormsBaseURL())
 }
 
 // FormURLOn builds the hosted page URL on a specific host, which is how a
