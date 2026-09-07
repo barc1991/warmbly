@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/warmbly/warmbly/internal/config"
 )
 
 type MailErrorLogType string
@@ -30,12 +29,7 @@ const (
 type MailErrorCode string
 
 const (
-	MailErrorCodeFolderLimit MailErrorCode = "MAX_FOLDERS_REACHED"
-	// MailErrorCodeFolderConflict is two folders on one mailbox reporting
-	// the same UIDVALIDITY, the id a folder is stored under. Kept apart from
-	// the folder limit because the way out is renaming the folder, not
-	// deleting folders to get under a cap.
-	MailErrorCodeFolderConflict  MailErrorCode = "FOLDER_ID_CONFLICT"
+	MailErrorCodeFolderLimit     MailErrorCode = "MAX_FOLDERS_REACHED"
 	MailErrorCodeUpdateLimit     MailErrorCode = "MAX_FOLDERS_REACHED"
 	MailErrorCodeGoogleAuth      MailErrorCode = "GOOGLE_AUTHENTICATION_FAILED"
 	MailErrorCodeGooglePayment   MailErrorCode = "GOOGLE_PAYMENT_REQUIRED"
@@ -133,18 +127,6 @@ func MError(eType MailErrorType, code MailErrorCode, message string, resolveMeth
 }
 
 var (
-	// ErrMailFoldersOverflow is relayed once per worker session when a
-	// mailbox has more folders than the sync follows. The inbox and the
-	// special folders are always among the ones kept.
-	ErrMailFoldersOverflow = func(left int) *MailError {
-		return MError(MailErrorWarning, MailErrorCodeFolderLimit, fmt.Sprintf("This mailbox has %d more folders than the %d Warmbly follows. The inbox, sent, drafts, spam and trash are always synced; the rest are taken in the server's order.", left, config.MaxEmailFolders), MailErrorResolveMethodNone)
-	}
-	// ErrMailFoldersConflict is relayed when the mail server gives two
-	// folders the same UIDVALIDITY, which is the id everything downstream
-	// identifies a folder by. Only one of them can be followed.
-	ErrMailFoldersConflict = func(left int) *MailError {
-		return MError(MailErrorWarning, MailErrorCodeFolderConflict, fmt.Sprintf("%d folder(s) on this mailbox share an internal id with another folder, so only one of each pair is synced.", left), MailErrorResolveMethodNone)
-	}
 	ErrMailUpdateLimit     = MError(MailErrorCritical, MailErrorCodeUpdateLimit, "Your inbox has received an unusually large number of updates. Please reactivate your inbox once the issue is resolved.", MailErrorResolveMethodReload)
 	ErrMailGoogleAuth      = MError(MailErrorCritical, MailErrorCodeGoogleAuth, "Cannot access your Gmail account. Please re-authorize your account to restore mailbox access.", MailErrorResolveMethodReload)
 	ErrMailGooglePayment   = MError(MailErrorCritical, MailErrorCodeGooglePayment, "Gmail access blocked due to unpaid invoices. Please resolve the payment with Google.", MailErrorResolveMethodReload)
@@ -285,12 +267,6 @@ func (e *MailError) GetUserErrorInfo() UserErrorInfo {
 	case MailErrorCodeServerUnreachable:
 		info.Title = "Connection Error"
 		info.ActionRequired = "The email server is temporarily unavailable. We'll retry automatically."
-	case MailErrorCodeFolderLimit:
-		info.Title = "Some folders are not synced"
-		info.ActionRequired = "Move or delete folders you no longer need if one you rely on is missing from the unibox."
-	case MailErrorCodeFolderConflict:
-		info.Title = "Two folders share an internal id"
-		info.ActionRequired = "Your mail server gave two folders the same id, so only one of them is synced. Renaming the folder that is missing from the unibox, or recreating it, usually gives it a new one."
 	case MailErrorCodeNotFound:
 		info.Title = "Mailbox Item Missing"
 		info.ActionRequired = "The folder or message is no longer on the mail server. Nothing to do; we'll skip it."
