@@ -81,8 +81,13 @@ func (c *Client) ensureConnected() *errx.MailError {
 	c.lifecycle.Lock()
 	defer c.lifecycle.Unlock()
 
-	if c.client != nil && c.client.State() != imap.ConnStateLogout {
-		return nil
+	// Only a session that got past auth is worth keeping: a failed Login
+	// leaves go-imap in NotAuthenticated, which is just as unusable as Logout.
+	if c.client != nil {
+		switch c.client.State() {
+		case imap.ConnStateAuthenticated, imap.ConnStateSelected:
+			return nil
+		}
 	}
 	return c.connectLocked()
 }
@@ -144,6 +149,9 @@ func (c *Client) connectLocked() *errx.MailError {
 		xerr = c.oauth2Auth()
 	}
 	if xerr != nil {
+		// Drop the half-open session so the next ensureConnected re-dials
+		// instead of reusing an unauthenticated client.
+		_ = client.Close()
 		return xerr
 	}
 
@@ -151,6 +159,7 @@ func (c *Client) connectLocked() *errx.MailError {
 	// Dovecot, ...) typically advertise it only after authentication, so the
 	// check must run post-auth.
 	if !c.client.Caps().Has(imap.CapCondStore) {
+		_ = client.Close()
 		return errx.ErrMailCondStoreNotSupported
 	}
 
@@ -231,6 +240,9 @@ func (c *Client) Folders() ([]models.Mailbox, *errx.MailError) {
 
 	for f := cmd.Next(); f != nil; f = cmd.Next() {
 		if len(resp) >= config.MaxEmailFolders {
+			// Drain the command first: unread LIST results would sit in the
+			// decoder channel and stall the next command on this session.
+			_ = cmd.Close()
 			return nil, errx.ErrMailFoldersMax
 		}
 
