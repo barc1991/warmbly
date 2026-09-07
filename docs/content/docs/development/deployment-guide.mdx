@@ -752,6 +752,8 @@ CI publishes multi-arch images to `ghcr.io/<owner>/warmbly/`, which works on any
 | Push to `main` | backend, consumer, worker, forms, updater, tracking, realtime | `:<sha>`, `:dev` |
 | Tag `vX.Y.Z` | all of the above plus web and admin | `:vX.Y.Z`, `:vX.Y`, `:vX`, `:prod` |
 
+One thing to know if you are running a fork: GHCR creates each package private and does not inherit your repository's visibility, so images published by a green workflow are still unreadable to anyone else until an owner makes each package public by hand under Packages in the org settings. There is no API for it. `make images-check` tells you where a given tag stands, with no credentials, which is the same check the release runs before it publishes.
+
 Every app service in `docker-compose.yml` carries both an `image:` and a `build:` key, so the same file serves both paths. `docker compose pull && docker compose up -d` runs the published images and compiles nothing; `docker compose up --build` still builds this checkout. Pin a release with `WARMBLY_TAG=v1.4.2` in `.env`, or point `WARMBLY_IMAGE_PREFIX` at your own registry.
 
 To move a worker fleet onto a new release, update `WORKER_IMAGE` and use "Pull latest and restart" on each worker. Control-plane migrations are forward-only, so prefer rolling forward over rolling back.

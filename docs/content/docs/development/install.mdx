@@ -22,7 +22,7 @@ curl -fsSL https://warmbly.com/install.sh | sh -s -- --wizard
 | Where | `/opt/warmbly`, or wherever you point `--dir` |
 | What | `docker-compose.yml`, a `.env` at 0600, `keys-backup.txt`, and the data root |
 | Version | The newest release, resolved once and pinned in `.env`. Never `latest` |
-| Images | `ghcr.io/warmbly/warmbly/*`, multi-arch for amd64 and arm64 |
+| Images | `ghcr.io/warmbly/warmbly/*`, multi-arch for amd64 and arm64. Public, so no registry login and no GitHub account |
 | Services | Backend, consumer, worker, dashboard, admin, Postgres, Redis, NATS, and (unless you say core only) tracking, realtime and forms |
 
 Nothing is built on your machine. The clone-and-build path still exists and is still supported; see [self-hosting](/development/deployment-guide/) for when you want it.
@@ -305,6 +305,7 @@ Stops and removes the containers and leaves every byte of data where it is. Addi
 | `Docker is installed but not answering` | The daemon is not running, or your user is not in the `docker` group yet. `sudo systemctl start docker`, then log out and back in |
 | `Something already listens on 3000` | Another self-hosted tool. Change the published port in `docker-compose.yml` before starting |
 | `Could not pull the release images` | The tag does not exist, or this host cannot reach `ghcr.io`. Check [releases](https://github.com/warmbly/warmbly/releases) |
+| `The registry refused to serve the release images` | The images are not readable without an account, which is never how a release is meant to ship. Please [report it](https://github.com/warmbly/warmbly/issues). To get past it now, `docker login ghcr.io` or point `--registry` at a mirror |
 | The API never answers | The first boot applies every migration. `docker compose -p warmbly logs -f backend` |
 | No claim link printed | The database already has accounts, so there is nothing to claim. See [first run](/development/first-run/) |
 
