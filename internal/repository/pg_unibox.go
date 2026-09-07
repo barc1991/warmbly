@@ -27,10 +27,6 @@ type UpdateUniboxEntry struct {
 type UniboxRepository interface {
 	CreateEntry(ctx context.Context, userID uuid.UUID, e *models.EmailMessageStoreData) error
 	UpdateEntry(ctx context.Context, userID, emailID, id uuid.UUID, e *UpdateUniboxEntry) error
-	// MoveFolderPath re-files an account's stored mail when the server renames
-	// a folder, so the messages travel with it instead of being orphaned under
-	// a name that no longer exists.
-	MoveFolderPath(ctx context.Context, emailID uuid.UUID, from, to string) error
 	GetIncoming(ctx context.Context, userID uuid.UUID, limit int, cursor string) (*models.MailSearchResult, error)
 	GetByID(ctx context.Context, userID, id uuid.UUID) (*models.EmailMessageStoreData, error)
 	// GetByIDForOrg is the org-scoped read for the unibox detail view: any
@@ -211,18 +207,6 @@ func (r *uniboxRepository) UpdateEntry(ctx context.Context, userID, emailID, id 
 	`, strings.Join(setClauses, ", "))
 
 	_, err := r.db.Exec(ctx, query, args...)
-	return err
-}
-
-func (r *uniboxRepository) MoveFolderPath(ctx context.Context, emailID uuid.UUID, from, to string) error {
-	if from == "" || to == "" || from == to {
-		return nil
-	}
-	_, err := r.db.Exec(ctx,
-		`UPDATE unibox_emails SET folder_path = $3, updated_at = NOW()
-		 WHERE email_id = $1 AND folder_path = $2`,
-		emailID, from, to,
-	)
 	return err
 }
 

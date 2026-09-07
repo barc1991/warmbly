@@ -155,11 +155,12 @@ func TestLiveFolderIdentityRenameMovesRowAndMail(t *testing.T) {
 		t.Fatalf("CreateEntry(message): %v", err)
 	}
 
-	if err := mailboxes.RenameMailbox(ctx, f.user, f.mailbox, "Clients/Acme", "Clients/Acme Corp"); err != nil {
+	renamed, err := mailboxes.RenameMailbox(ctx, f.user, f.mailbox, "Clients/Acme", "Clients/Acme Corp")
+	if err != nil {
 		t.Fatalf("RenameMailbox: %v", err)
 	}
-	if err := unibox.MoveFolderPath(ctx, f.mailbox, "Clients/Acme", "Clients/Acme Corp"); err != nil {
-		t.Fatalf("MoveFolderPath: %v", err)
+	if !renamed {
+		t.Fatal("RenameMailbox reported nothing moved")
 	}
 
 	moved, err := mailboxes.GetMailbox(ctx, f.user, f.mailbox, "Clients/Acme Corp")
@@ -186,11 +187,24 @@ func TestLiveFolderIdentityRenameMovesRowAndMail(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("CreateEntry(Globex): %v", err)
 	}
-	if err := mailboxes.RenameMailbox(ctx, f.user, f.mailbox, "Clients/Globex", "Clients/Acme Corp"); err != nil {
+	onto, err := mailboxes.RenameMailbox(ctx, f.user, f.mailbox, "Clients/Globex", "Clients/Acme Corp")
+	if err != nil {
 		t.Fatalf("RenameMailbox onto an existing name: %v", err)
+	}
+	if onto {
+		t.Fatal("a rename onto an occupied name reported success")
 	}
 	still, err := mailboxes.GetMailbox(ctx, f.user, f.mailbox, "Clients/Globex")
 	if err != nil || still == nil {
 		t.Fatalf("Clients/Globex was moved onto an occupied name: %+v, %v", still, err)
+	}
+	// The mail must not have moved either: the two halves of a rename travel
+	// together or the messages end up in a folder nothing renamed.
+	stayed, err := unibox.GetByID(ctx, f.user, msg.ID)
+	if err != nil {
+		t.Fatalf("GetByID after the refused rename: %v", err)
+	}
+	if stayed.FolderPath != "Clients/Acme Corp" {
+		t.Errorf("message folder_path = %q; the refused rename moved mail", stayed.FolderPath)
 	}
 }

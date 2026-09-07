@@ -200,3 +200,55 @@ func TestSyncRebaselinesAFolderWhoseUIDValidityChanged(t *testing.T) {
 		t.Errorf("retired %v; the folder is still there", got)
 	}
 }
+
+// A folder's backfill floor goes with the folder. A name is reusable, so a
+// floor left behind is inherited by whatever is created under that name next:
+// a "done" cursor skips the new folder's history entirely, and the messages it
+// skips are not new mail either, so nothing reports them missing.
+func TestSyncForgetsTheBackfillFloorOfADeletedFolder(t *testing.T) {
+	conn := &fakeImapConn{folders: []models.Mailbox{{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100}}}
+	w, events := newIMAPTestMail(conn, &fixedBudget{allow: 10},
+		&models.Mailbox{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100})
+	w.SmtpImapData.Mailboxes = append(w.SmtpImapData.Mailboxes,
+		&models.Mailbox{Name: "Clients/Acme", UIDValidity: 42, HighestModSeq: 100})
+	w.tracker.setFolder("Clients/Acme", models.SyncFolderCursor{UID: 900, Done: true})
+
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+
+	if got := mailboxDeletes(*events); len(got) != 1 || got[0] != "Clients/Acme" {
+		t.Fatalf("retired %v, want the folder that left the listing", got)
+	}
+	if cur := w.tracker.folder("Clients/Acme"); cur.Done || cur.UID != 0 {
+		t.Errorf("backfill floor = %+v, want it gone with the folder", cur)
+	}
+}
+
+// A UIDVALIDITY that names two missing folders and one new one cannot say
+// which was renamed. Picking either moves a folder's mail into a folder it has
+// nothing to do with, so neither is claimed.
+func TestSyncDoesNotGuessARenameWhenTwoStoredFoldersAreMissing(t *testing.T) {
+	conn := &fakeImapConn{folders: []models.Mailbox{
+		{Name: "Clients/Initech", UIDValidity: 42, HighestModSeq: 100},
+	}}
+	w, events := newIMAPTestMail(conn, &fixedBudget{allow: 10},
+		&models.Mailbox{Name: "Clients/Acme", UIDValidity: 42, HighestModSeq: 100})
+	w.SmtpImapData.Mailboxes = append(w.SmtpImapData.Mailboxes,
+		&models.Mailbox{Name: "Clients/Globex", UIDValidity: 42, HighestModSeq: 100})
+
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+
+	if hasEvent(*events, models.JobEventTypeMailboxRename) {
+		t.Fatal("a rename was guessed from a UIDVALIDITY that two missing folders share")
+	}
+	deletes := mailboxDeletes(*events)
+	if len(deletes) != 2 {
+		t.Fatalf("retired %v, want both folders that left the listing", deletes)
+	}
+	if mailboxUpdates(*events)["Clients/Initech"] == nil {
+		t.Error("the new folder was not baselined")
+	}
+}

@@ -79,6 +79,12 @@ func (c *Client) foldersCapped(limit int) ([]models.Mailbox, *errx.MailError) {
 		return nil, c.handleError(err)
 	}
 
+	// Before the cap, not after: a name the server listed twice would
+	// otherwise spend one of the slots the cap allows and cost a real folder
+	// its sync, which is the same failure this whole change is about.
+	all, conflicts := dedupeByName(all)
+	c.folderConflicts.Store(int32(conflicts))
+
 	kept, overflow := rankFolders(all, limit)
 	c.folderOverflow.Store(int32(overflow))
 
@@ -110,8 +116,6 @@ func (c *Client) foldersCapped(limit int) ([]models.Mailbox, *errx.MailError) {
 		resp = append(resp, box)
 	}
 
-	resp, conflicts := dedupeByName(resp)
-	c.folderConflicts.Store(int32(conflicts))
 	return resp, nil
 }
 

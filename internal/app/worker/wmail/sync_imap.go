@@ -162,6 +162,10 @@ outer:
 	if len(deleted) > 0 {
 		for _, name := range deleted {
 			delete(w.flagScan, name)
+			// The backfill floor goes with the folder. A name is reusable,
+			// and a floor left behind would be inherited by whatever is
+			// created under it next.
+			w.tracker.clearFolder(name)
 		}
 		filtered := w.SmtpImapData.Mailboxes[:0]
 		for _, b := range w.SmtpImapData.Mailboxes {
@@ -539,54 +543,65 @@ func (w *WMail) setWalking(box *models.Mailbox) {
 // sighting it would be both, and the mail filed under the old name would be
 // left pointing at a folder that no longer exists.
 //
-// A candidate already known by name is not the target (it is a folder of its
-// own), and two candidates mean the guess is not safe to make: on a server
-// that stamps UIDVALIDITY from a creation time a whole tree shares one
-// number, so an ambiguous match falls back to the delete-and-create path
-// rather than moving mail into the wrong folder.
+// A rename is only claimed when the UIDVALIDITY has exactly one folder on
+// each side of it: one stored folder that is gone, and one listed folder that
+// is new. Anything else is a guess. On a server that stamps UIDVALIDITY from
+// a creation time a whole tree shares one number, so two stored folders can
+// go missing while one arrives, and picking either would move the wrong
+// folder's mail into it. Those fall through to the ordinary delete and
+// first-sight paths, which lose nothing that was not already gone.
 func (w *WMail) imapFollowRenames(folders []models.Mailbox) error {
 	listed := make(map[string]struct{}, len(folders))
 	for i := range folders {
 		listed[folders[i].Name] = struct{}{}
 	}
 
+	// Group both sides by UIDVALIDITY: the stored folders that are no longer
+	// listed, and the listed folders that are not stored.
+	gone := map[uint32][]*models.Mailbox{}
 	for _, before := range w.SmtpImapData.Mailboxes {
 		if _, still := listed[before.Name]; still || before.UIDValidity == 0 {
 			continue
 		}
-		var to *models.Mailbox
-		for i := range folders {
-			f := &folders[i]
-			if f.UIDValidity != before.UIDValidity || w.SmtpImapData.FindPair(f) != nil {
-				continue
-			}
-			if to != nil {
-				to = nil
-				break
-			}
-			to = f
-		}
-		if to == nil {
+		gone[before.UIDValidity] = append(gone[before.UIDValidity], before)
+	}
+	if len(gone) == 0 {
+		return nil
+	}
+
+	arrived := map[uint32][]*models.Mailbox{}
+	for i := range folders {
+		f := &folders[i]
+		if f.UIDValidity == 0 || w.SmtpImapData.FindPair(f) != nil {
 			continue
 		}
+		arrived[f.UIDValidity] = append(arrived[f.UIDValidity], f)
+	}
+
+	for uidValidity, before := range gone {
+		to := arrived[uidValidity]
+		if len(before) != 1 || len(to) != 1 {
+			continue
+		}
+		from := before[0]
 
 		if err := w.onEvent(models.JobEventTypeMailboxRename, &models.JobEventMailboxRename{
 			UserID:  w.UserID,
 			EmailID: w.ID,
-			From:    before.Name,
-			To:      to.Name,
+			From:    from.Name,
+			To:      to[0].Name,
 		}); err != nil {
 			return err
 		}
 		// The worker's own per-folder state is keyed by name too, so it moves
 		// with the folder or the backfill restarts and the flag scan
 		// re-baselines for a change of label.
-		if scan, ok := w.flagScan[before.Name]; ok {
-			delete(w.flagScan, before.Name)
-			w.flagScan[to.Name] = scan
+		if scan, ok := w.flagScan[from.Name]; ok {
+			delete(w.flagScan, from.Name)
+			w.flagScan[to[0].Name] = scan
 		}
-		w.tracker.renameFolder(before.Name, to.Name)
-		before.Name = to.Name
+		w.tracker.renameFolder(from.Name, to[0].Name)
+		from.Name = to[0].Name
 	}
 	return nil
 }
