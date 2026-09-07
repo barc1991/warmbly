@@ -2284,15 +2284,20 @@ pull_failed() {
        grep -Eqi 'unauthorized|denied|authentication required' "$LOGFILE"; then
         _host=${REGISTRY%%/*}
         fail_with "The registry refused to serve the release images." \
-                  "It answered unauthorized, so they are not readable without" \
-                  "an account. The tag ${RESOLVED_TAG} is not the problem." \
+                  "It answered unauthorized rather than 'no such tag', so" \
+                  "${RESOLVED_TAG} is probably fine and the images are simply" \
+                  "not readable without an account." \
                   "" \
-                  "Every Warmbly image is meant to be public. If this is the" \
-                  "published registry, that is our bug, not yours: please tell" \
-                  "us at https://github.com/$REPO/issues" \
+                  "Every Warmbly image is meant to be public. If you did not" \
+                  "pass --registry, that makes this our bug, not yours:" \
+                  "please tell us at https://github.com/$REPO/issues" \
                   "" \
-                  "To get past it now: docker login $_host, or point --registry" \
-                  "at a mirror this host can read."
+                  "If you did pass it, check it for a typo. A namespace that" \
+                  "does not exist is refused in exactly the same way as a" \
+                  "private one." \
+                  "" \
+                  "To get past it now: docker login $_host as someone who can" \
+                  "read these images, or point --registry at a mirror you can."
     fi
     fail_with "Could not pull the release images." \
               "The tag ${RESOLVED_TAG} may not exist, or this host cannot" \

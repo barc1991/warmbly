@@ -274,5 +274,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      # Only what this workflow publishes. web, admin and cli are built at
+      # tag time and have no :dev tag, so checking them here would warn about
+      # something no push to main can fix.
       - name: Pull-test every image anonymously
-        run: ./scripts/check-images-public.sh --prefix "$IMAGE_PREFIX" --tag dev --warn
+        run: |
+          ./scripts/check-images-public.sh --prefix "$IMAGE_PREFIX" --tag dev --warn \
+            backend consumer worker forms updater tracking realtime

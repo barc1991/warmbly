@@ -287,7 +287,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Pull-test every image anonymously
-        run: ./scripts/check-images-public.sh --prefix "$IMAGE_PREFIX" --tag "${{ github.ref_name }}"
+        env:
+          TAG: ${{ github.ref_name }}
+        run: ./scripts/check-images-public.sh --prefix "$IMAGE_PREFIX" --tag "$TAG"
 
   create-release:
     name: Create GitHub Release
