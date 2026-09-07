@@ -209,18 +209,32 @@ var (
 		"Emails are being sent too quickly. Please wait before sending more emails.",
 		MailErrorResolveMethodRetry,
 	)
-	ErrMailRecipientRejected = MError(
-		MailErrorWarning,
-		MailErrorCodeRecipientRejected,
-		"The recipient email address was rejected by the mail server.",
-		MailErrorResolveMethodNone,
-	)
+	// ErrMailRecipientRejected carries the server's own refusal, because
+	// "the address was rejected" alone leaves the user nothing to act on: a
+	// mailbox that no longer exists and one blocked by a policy read
+	// identically without it.
+	ErrMailRecipientRejected = func(detail string) *MailError {
+		if detail == "" {
+			return MError(MailErrorWarning, MailErrorCodeRecipientRejected, "The recipient email address was rejected by the mail server.", MailErrorResolveMethodNone)
+		}
+		return MError(MailErrorWarning, MailErrorCodeRecipientRejected, fmt.Sprintf("The mail server rejected the recipient: %s", detail), MailErrorResolveMethodNone)
+	}
 	// ErrMailSendRejected is a permanent refusal of the message itself. Not
 	// retried: a 5xx means the server will answer the same way next time, so
 	// another attempt only spends the mailbox's daily budget.
 	ErrMailSendRejected = func(detail string) *MailError {
 		return MError(MailErrorWarning, MailErrorCodeSendRejected, fmt.Sprintf("The receiving mail server refused this message: %s", detail), MailErrorResolveMethodNone)
 	}
+	// ErrMailCleartextAuth is our own refusal to put a password on an
+	// unencrypted wire, raised before anything is sent. Not retryable: no
+	// number of attempts encrypts the link, and reporting it as an outage
+	// sent the operator looking at a server that is answering fine.
+	ErrMailCleartextAuth = MError(
+		MailErrorCritical,
+		MailErrorCodeAuthUnsupported,
+		"This mail server offers no encrypted connection, and Warmbly will not send a mailbox password in the clear. Use the server's TLS or STARTTLS port.",
+		MailErrorResolveMethodReload,
+	)
 	ErrMailAuthUnsupported = MError(
 		MailErrorCritical,
 		MailErrorCodeAuthUnsupported,

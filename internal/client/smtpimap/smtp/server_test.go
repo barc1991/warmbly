@@ -22,8 +22,10 @@ type fakeServer struct {
 	// authAdvertised is the AUTH parameter list, e.g. "LOGIN" or "PLAIN LOGIN".
 	// Empty advertises no AUTH extension at all.
 	authAdvertised string
-	// reject, when set, is the reply given to the command whose verb it is
-	// keyed by ("MAIL", "RCPT", "AUTH", "DATA-END").
+	// reject is the reply given to the command whose verb it is keyed by
+	// ("MAIL", "RCPT", "AUTH", "DATA-END"). Fixed before serve starts: a
+	// write afterwards races the session goroutine, and dial-then-accept is
+	// not a happens-before edge the race detector recognises.
 	reject map[string]string
 
 	mu sync.Mutex
@@ -35,12 +37,20 @@ type fakeServer struct {
 }
 
 func newFakeServer(t *testing.T, authAdvertised string) *fakeServer {
+	return newRejectingServer(t, authAdvertised, nil)
+}
+
+// newRejectingServer is newFakeServer with a canned refusal for one command.
+func newRejectingServer(t *testing.T, authAdvertised string, reject map[string]string) *fakeServer {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	s := &fakeServer{ln: ln, authAdvertised: authAdvertised, reject: map[string]string{}}
+	if reject == nil {
+		reject = map[string]string{}
+	}
+	s := &fakeServer{ln: ln, authAdvertised: authAdvertised, reject: reject}
 	t.Cleanup(func() { _ = ln.Close() })
 	go s.serve()
 	return s
@@ -277,8 +287,7 @@ func TestPermanentRefusalsAreNotReportedAsAnOutage(t *testing.T) {
 		{"recipient greylisted", "RCPT", "450 4.2.0 greylisted", "SERVER_UNREACHABLE"},
 		{"message deferred", "DATA-END", "451 4.3.0 try later", "SERVER_UNREACHABLE"},
 	} {
-		srv := newFakeServer(t, "LOGIN")
-		srv.reject[tc.at] = tc.reply
+		srv := newRejectingServer(t, "LOGIN", map[string]string{tc.at: tc.reply})
 		host, port := srv.addr()
 		c := newTestClient(host, port)
 
@@ -297,8 +306,7 @@ func TestPermanentRefusalsAreNotReportedAsAnOutage(t *testing.T) {
 // 5xx. A 4xx is the server declining for now, and deactivating the mailbox
 // over it tells the owner their password is wrong when it is not.
 func TestTransientAuthFailureIsNotACredentialsProblem(t *testing.T) {
-	srv := newFakeServer(t, "LOGIN")
-	srv.reject["AUTH"] = "454 4.7.0 temporary authentication failure"
+	srv := newRejectingServer(t, "LOGIN", map[string]string{"AUTH": "454 4.7.0 temporary authentication failure"})
 	host, port := srv.addr()
 	c := newTestClient(host, port)
 
@@ -386,4 +394,22 @@ func newTestClient(host string, port int) *Client {
 func contextWithDeadline(t *testing.T, d time.Duration) (context.Context, context.CancelFunc) {
 	t.Helper()
 	return context.WithTimeout(t.Context(), d)
+}
+
+// A refused recipient has to carry the server's own words: "the address was
+// rejected" alone cannot tell a mailbox that no longer exists from one a
+// policy blocked, and that is the difference between suppressing an address
+// and fixing a configuration.
+func TestRecipientRejectionCarriesTheServersReason(t *testing.T) {
+	srv := newRejectingServer(t, "LOGIN", map[string]string{"RCPT": "550 5.1.1 no such user here"})
+	host, port := srv.addr()
+	c := newTestClient(host, port)
+
+	err := c.sendRaw(t.Context(), "sender@warmbly.test", []string{"to@example.test"}, []byte("Subject: hi\r\n\r\nbody\r\n"))
+	if err == nil {
+		t.Fatal("send succeeded against a refused recipient")
+	}
+	if !strings.Contains(err.Message, "no such user here") {
+		t.Errorf("message = %q, want the server's own reason in it", err.Message)
+	}
 }

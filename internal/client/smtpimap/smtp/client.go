@@ -327,6 +327,13 @@ func (c *Client) sendRaw(ctx context.Context, from string, to []string, data []b
 		}
 		if auth != nil {
 			if err := client.Auth(auth); err != nil {
+				// Our own refusal to authenticate over an unencrypted link,
+				// raised before anything reaches the server. Retrying cannot
+				// encrypt it, and calling it an outage sends the operator
+				// looking at a server that is answering fine.
+				if errors.Is(err, ErrSMTPCleartextAuth) {
+					return errx.ErrMailCleartextAuth
+				}
 				// A 4xx is the server saying "not now" (rate-limited AUTH, a
 				// backend it cannot reach); only a 5xx means the credentials
 				// themselves are refused.
@@ -380,7 +387,7 @@ func (c *Client) sendRaw(ctx context.Context, from string, to []string, data []b
 			if !permanentReply(err) {
 				return errx.ErrMailServerUnreachable
 			}
-			return errx.ErrMailRecipientRejected
+			return errx.ErrMailRecipientRejected(err.Error())
 		}
 	}
 	w, err := client.Data()
