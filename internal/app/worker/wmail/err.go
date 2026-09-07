@@ -74,12 +74,7 @@ func mailErrorToJobEventType(mailErr *errx.MailError) models.JobEventType {
 	case errx.MailErrorCodeServerUnreachable,
 		errx.MailErrorCodeConnectionLost,
 		errx.MailErrorCodeNotFound,
-		errx.MailErrorCodeImapUnknown,
-		// The mailbox has more folders than the sync follows, or two of them
-		// share an id. Warnings, not failures: the inbox and the special
-		// folders are always among the ones kept, so mail keeps arriving.
-		errx.MailErrorCodeFolderLimit,
-		errx.MailErrorCodeFolderConflict:
+		errx.MailErrorCodeImapUnknown:
 		return models.JobEventTypeEmailServerError
 	}
 	return ""
