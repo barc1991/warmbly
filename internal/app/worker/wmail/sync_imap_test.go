@@ -523,37 +523,10 @@ func TestImapFlagScanIsSkippedWithCondStore(t *testing.T) {
 	}
 }
 
-// The overflow warning is reported once, not once a minute: the condition is
-// static until someone reorganizes their mail.
-func TestFolderOverflowIsReportedOnce(t *testing.T) {
-	conn := &fakeImapConn{
-		folders:  []models.Mailbox{{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100}},
-		overflow: 12,
-	}
-	w, events := newIMAPTestMail(conn, &fixedBudget{allow: 10},
-		&models.Mailbox{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100})
-
-	for i := 0; i < 3; i++ {
-		if err := w.Sync(t.Context()); err != nil {
-			t.Fatalf("Sync: %v", err)
-		}
-	}
-	warnings := 0
-	for _, e := range *events {
-		if e.eventType == models.JobEventTypeEmailServerError {
-			warnings++
-		}
-	}
-	if warnings != 1 {
-		t.Errorf("relayed %d folder-overflow warnings over three passes, want 1", warnings)
-	}
-}
-
-// The two reasons a folder goes unsynced need their own codes, because the way
-// out differs: get under the cap, versus rename the folder the server gave a
-// duplicate id. A warning that never reaches the user is the same as no
-// warning, so this checks the event as well as the code.
-func TestFolderProblemsReachTheUserWithTheirOwnCodes(t *testing.T) {
+// What the listing could not follow is state, not an event: an error row is
+// never withdrawn, so raising one left a red "needs attention" after the user
+// had fixed the problem. The counts ride the sync state and clear themselves.
+func TestFoldersSkippedIsRelayedAsStateAndClears(t *testing.T) {
 	conn := &fakeImapConn{
 		folders:   []models.Mailbox{{Name: "INBOX", UIDValidity: 7, HighestModSeq: 100}},
 		overflow:  3,
@@ -565,25 +538,27 @@ func TestFolderProblemsReachTheUserWithTheirOwnCodes(t *testing.T) {
 	if err := w.Sync(t.Context()); err != nil {
 		t.Fatalf("Sync: %v", err)
 	}
-
-	codes := map[string]bool{}
+	if got := w.tracker.state.FoldersSkippedCap; got != 3 {
+		t.Errorf("FoldersSkippedCap = %d, want 3", got)
+	}
+	if got := w.tracker.state.FoldersSkippedConflict; got != 2 {
+		t.Errorf("FoldersSkippedConflict = %d, want 2", got)
+	}
+	// Never as an error: those are never withdrawn.
 	for _, e := range *events {
-		if e.eventType != models.JobEventTypeEmailServerError {
-			continue
-		}
-		ev, ok := e.body.(models.EmailErrorEvent)
-		if !ok {
-			t.Fatalf("server error carried %T, want an EmailErrorEvent", e.body)
-		}
-		codes[ev.ErrorCode] = true
-		if ev.ErrorType != string(errx.MailErrorWarning) {
-			t.Errorf("%s was relayed as %q; neither reason deactivates a mailbox", ev.ErrorCode, ev.ErrorType)
+		if e.eventType == models.JobEventTypeEmailServerError {
+			t.Error("a folder problem was raised as an error row, which nothing ever resolves")
 		}
 	}
-	for _, want := range []string{string(errx.MailErrorCodeFolderLimit), string(errx.MailErrorCodeFolderConflict)} {
-		if !codes[want] {
-			t.Errorf("%s never reached the user; the warning would go nowhere", want)
-		}
+
+	// The user moves folders until the mailbox fits again.
+	conn.overflow, conn.conflicts = 0, 0
+	if err := w.Sync(t.Context()); err != nil {
+		t.Fatalf("second Sync: %v", err)
+	}
+	if w.tracker.state.FoldersSkippedCap != 0 || w.tracker.state.FoldersSkippedConflict != 0 {
+		t.Errorf("counts stayed at %d/%d after the condition cleared",
+			w.tracker.state.FoldersSkippedCap, w.tracker.state.FoldersSkippedConflict)
 	}
 }
 

@@ -3,7 +3,9 @@ package jobs
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/infrastructure/pubsub"
 	"github.com/warmbly/warmbly/internal/models"
 )
@@ -27,6 +29,13 @@ func (s *JobsService) HandleSyncState(ctx context.Context, e *models.JobEventSyn
 		CaptureError(e.UserID, e.EmailID, err)
 		return err
 	}
+
+	// A relayed state means a pass completed: the worker reached the server,
+	// listed its folders and finished the tick. That is the only signal we
+	// get that an outage is over, and without it a five-minute blip left a
+	// red "needs attention" on the mailbox for good, because nothing but a
+	// credential reconnect ever resolved an error row.
+	s.resolveTransientMailErrors(ctx, e.EmailID)
 
 	if s.StreamingPublisher == nil {
 		return nil
@@ -78,4 +87,24 @@ func (s *JobsService) HandleSyncState(ctx context.Context, e *models.JobEventSyn
 		)
 	}
 	return nil
+}
+
+// transientMailErrorCodes are the errors a completed sync pass disproves.
+// Anything that needs the user to act (credentials, domain authentication,
+// fair-use deactivation) is deliberately absent: those stay until the person
+// fixes them or reconnects the mailbox.
+var transientMailErrorCodes = []string{
+	string(errx.MailErrorCodeServerUnreachable),
+	string(errx.MailErrorCodeConnectionLost),
+	string(errx.MailErrorCodeNotFound),
+}
+
+func (s *JobsService) resolveTransientMailErrors(ctx context.Context, emailID uuid.UUID) {
+	if s.EmailAccountErrorRepository == nil {
+		return
+	}
+	if err := s.EmailAccountErrorRepository.ResolveByCodes(ctx, emailID, transientMailErrorCodes, "sync recovered"); err != nil {
+		log.Warn().Str("error", err.Message).Str("email_id", emailID.String()).
+			Msg("could not clear the mailbox's transient errors after a successful sync")
+	}
 }

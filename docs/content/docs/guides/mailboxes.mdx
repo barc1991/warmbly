@@ -35,7 +35,7 @@ The form picks the right one from the port as you type, so standard setups need 
 
 If a mailbox fails to connect with a server-unreachable error and the host and port are definitely right, the security setting is the first thing to check. A server expecting STARTTLS looks unreachable to a client attempting implicit TLS, and vice versa.
 
-When a mail server goes down or stops answering, the mailbox is not deactivated. Warmbly says so once in the drawer, retries on a widening interval, and picks up where it left off when the server comes back. Nothing that arrived meanwhile is skipped.
+When a mail server goes down or stops answering, the mailbox is not deactivated. Warmbly says so once in the drawer, retries on a widening interval, and picks up where it left off when the server comes back. Nothing that arrived meanwhile is skipped, and the error clears itself on the first pass that reaches the server again.
 
 With two-factor authentication on, generate an app password in your provider's security settings and use that.
 
@@ -113,7 +113,7 @@ Connecting a mailbox does two things: it imports the mailbox's recent history, a
 
 **Live sync** then follows every folder the provider exposes, including junk (so placement problems are visible) and sent mail (so a conversation shows both sides). Read state, flags, deletions and moves are mirrored too.
 
-Nested folders are followed as well, so mail in a subfolder of the inbox or under a label group arrives like anything else. Up to `100` folders per mailbox are synced. Past that the inbox, sent, drafts, spam, trash and archive are always kept and the rest are taken in the order the server lists them, with a note in the mailbox drawer saying how many were left out.
+Nested folders are followed as well, so mail in a subfolder of the inbox or under a label group arrives like anything else. Up to `100` folders per mailbox are synced. Past that the inbox, sent, drafts, spam, trash and archive are always kept and the rest are taken in the order the server lists them, with a note in the mailbox drawer's **Sync** card saying how many were left out. The note goes away by itself once the mailbox is back under the limit.
 
 On IMAP, folders are identified by the standard attributes a server publishes, and by name when it publishes none. The common names are recognized in a dozen languages, so a mailbox whose Sent folder is called "Gesendete Elemente" or "Éléments envoyés" still files sent mail as sent rather than as inbox.
 
