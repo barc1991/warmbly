@@ -272,7 +272,14 @@ func (c *Client) sendRaw(ctx context.Context, from string, to []string, data []b
 	// Implicit TLS (SMTPS) means the server speaks TLS from the first byte, so
 	// a plaintext dial + STARTTLS never gets past the greeting. The mode is
 	// the mailbox's stored choice, falling back to the port convention.
-	implicitTLS := models.ResolveSMTPSecurity(security, port) == models.MailSecurityTLS
+	resolved := models.ResolveSMTPSecurity(security, port)
+	// The unencrypted mode is checked before the dial and again against the
+	// peer we actually got, because only the second one is a fact about this
+	// socket rather than about what DNS said a moment ago.
+	if resolved == models.MailSecurityNone && !models.LoopbackMailHost(host) {
+		return errx.ErrMailInsecureRemoteHost
+	}
+	implicitTLS := resolved == models.MailSecurityTLS
 	if implicitTLS {
 		conn, err = netbind.TLSDialer(c.BindIP, tlsConf).DialContext(ctx, "tcp", addr)
 	} else {
@@ -282,6 +289,9 @@ func (c *Client) sendRaw(ctx context.Context, from string, to []string, data []b
 		return errx.ErrMailServerUnreachable
 	}
 	defer conn.Close()
+	if resolved == models.MailSecurityNone && !netbind.LoopbackPeer(conn) {
+		return errx.ErrMailInsecureRemoteHost
+	}
 	if deadline, ok := ctx.Deadline(); ok {
 		_ = conn.SetDeadline(deadline)
 	}
@@ -301,10 +311,13 @@ func (c *Client) sendRaw(ctx context.Context, from string, to []string, data []b
 		}
 	}
 
-	// TLS is mandatory. The MAIL_TLS_INSECURE dev knob additionally allows a
-	// server with no STARTTLS at all (the local mailpit sink) — never taken in
-	// production, where the env var is unset.
-	if !implicitTLS {
+	// TLS is mandatory everywhere but the loopback mode, which was already
+	// proved to be talking to this machine. STARTTLS is not attempted there
+	// even when the relay advertises it: a self-signed certificate no client
+	// can verify is exactly why the mode was chosen. The MAIL_TLS_INSECURE
+	// dev knob additionally allows a server with no STARTTLS at all (the
+	// local mailpit sink), never taken in production, where it is unset.
+	if !implicitTLS && resolved != models.MailSecurityNone {
 		if ok, _ := client.Extension("STARTTLS"); ok {
 			if err := client.StartTLS(tlsConf); err != nil {
 				return errx.ErrMailServerUnreachable

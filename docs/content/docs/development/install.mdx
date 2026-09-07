@@ -310,6 +310,14 @@ Stops and removes the containers and leaves every byte of data where it is. Addi
 
 More in [troubleshooting](/development/troubleshooting/) and [instance health](/development/instance-health/).
 
+## Mail on the same machine
+
+A self-hosted instance can connect a mailbox that only exists on the machine it runs on. [Proton Bridge](https://proton.me/mail/bridge) is the case that matters: it signs in to Proton Mail locally and re-serves the account as plain IMAP on `127.0.0.1:1143` and SMTP on `127.0.0.1:1025`, speaking no TLS a client can verify because it never listens on a network interface.
+
+Connecting one means choosing the **None** security mode in the connect form, which Warmbly offers only when the host is a loopback literal (`localhost`, `127.0.0.0/8`, `::1`) and only on a self-hosted instance. The credentials never leave the machine, which is the entire reason it is allowed; the worker checks the peer it actually dialled as well, so an edit to the stored host cannot widen it afterwards. Hosted Warmbly runs its workers in our infrastructure and never offers the mode.
+
+The worker has to be the one on that machine. A `docker compose` install puts it there by default; a [dedicated worker](/development/architecture/) on another host cannot reach the Bridge. Full detail in the [mailboxes guide](/guides/mailboxes/#local-mail-relays-proton-bridge).
+
 ## Next
 
 - [First run](/development/first-run/): claiming the instance, the first owner, demo data

@@ -6,6 +6,7 @@ import type AddEmail from "@/lib/api/models/app/emails/AddEmail";
 import {
     defaultImapSecurity,
     defaultSmtpSecurity,
+    isLoopbackHost,
     validPort,
     type MailSecurity,
 } from "@/lib/api/models/app/emails/Service";
@@ -85,11 +86,16 @@ function normaliseHeader(h: string): string {
     return ALIASES[key] ?? key;
 }
 
-function parseSecurity(raw: string | undefined, port: number, leg: "smtp" | "imap"): MailSecurity | null {
+// "none" is accepted only for a loopback host, matching the backend. The
+// self-hosted half of that rule is not knowable here, so the API answers it;
+// this catches the mistake a CSV actually makes, which is pasting the mode
+// onto a remote server.
+function parseSecurity(raw: string | undefined, port: number, host: string, leg: "smtp" | "imap"): MailSecurity | null {
     const v = (raw ?? "").trim().toLowerCase();
     if (v === "") return leg === "smtp" ? defaultSmtpSecurity(port) : defaultImapSecurity(port);
     if (v === "tls" || v === "ssl" || v === "ssl/tls" || v === "implicit") return "tls";
     if (v === "starttls" || v === "start_tls" || v === "start-tls") return "starttls";
+    if (v === "none" || v === "plain" || v === "insecure") return isLoopbackHost(host) ? "none" : null;
     return null;
 }
 
@@ -147,10 +153,10 @@ function buildRow(line: number, raw: Record<string, string>): BulkRow {
     if (!imapPass) return invalid("Missing imap_password (or a shared password column)");
     if (!smtpPass) return invalid("Missing smtp_password (or a shared password column)");
 
-    const smtpSecurity = parseSecurity(raw.smtp_security, smtpPort, "smtp");
-    const imapSecurity = parseSecurity(raw.imap_security, imapPort, "imap");
-    if (!smtpSecurity) return invalid("smtp_security must be tls or starttls");
-    if (!imapSecurity) return invalid("imap_security must be tls or starttls");
+    const smtpSecurity = parseSecurity(raw.smtp_security, smtpPort, smtpHost, "smtp");
+    const imapSecurity = parseSecurity(raw.imap_security, imapPort, imapHost, "imap");
+    if (!smtpSecurity) return invalid("smtp_security must be tls or starttls (none only for a server on this machine)");
+    if (!imapSecurity) return invalid("imap_security must be tls or starttls (none only for a server on this machine)");
 
     return {
         line,

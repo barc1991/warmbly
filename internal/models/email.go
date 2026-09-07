@@ -1,6 +1,8 @@
 package models
 
 import (
+	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -147,10 +149,9 @@ type EmailAuthTransition struct {
 	OrganizationID *uuid.UUID
 }
 
-// Mail connection security modes. TLS is mandatory either way; the difference
-// is whether it is negotiated before the protocol greeting or upgraded in-band
-// after it. Storing the mode explicitly is what lets a mailbox live on any
-// port: inferring it from the port only ever worked for 465/587/993/143.
+// Mail connection security modes. Storing the mode explicitly is what lets a
+// mailbox live on any port: inferring it from the port only ever worked for
+// 465/587/993/143.
 const (
 	// MailSecurityTLS is implicit TLS: the server speaks TLS from the first
 	// byte. SMTP 465 (SMTPS), IMAP 993 (IMAPS).
@@ -158,17 +159,51 @@ const (
 	// MailSecurityStartTLS is a plaintext greeting upgraded in-band with
 	// STARTTLS. SMTP 587/25/2525, IMAP 143.
 	MailSecurityStartTLS = "starttls"
+	// MailSecurityNone is no encryption at all, and is only ever legal
+	// against a loopback host (see LoopbackMailHost). It exists for the
+	// local relays that speak no TLS because they never listen on a network
+	// interface: Proton Bridge on 127.0.0.1:1143/1025, a Dovecot sharing a
+	// host with its worker, a Mailpit-style sink. The credentials never
+	// reach a wire, which is the whole reason this is allowed; anywhere
+	// else it is refused, in validation and again at dial time.
+	MailSecurityNone = "none"
 )
 
-// ValidMailSecurity reports whether s is a known security mode.
+// ValidMailSecurity reports whether s is a known security mode. It does not
+// say whether the mode is legal for a given host: MailSecurityNone also has
+// to pass LoopbackMailHost, which is the caller's job.
 func ValidMailSecurity(s string) bool {
-	return s == MailSecurityTLS || s == MailSecurityStartTLS
+	return s == MailSecurityTLS || s == MailSecurityStartTLS || s == MailSecurityNone
+}
+
+// LoopbackMailHost reports whether host addresses this machine, the only
+// place MailSecurityNone is allowed.
+//
+// Literals only, deliberately: a name that resolves to 127.0.0.1 today can
+// resolve elsewhere at dial time, so accepting one here would be a check the
+// network could walk out from under. The dialer verifies the peer it actually
+// got as well, which is what closes that gap for good.
+func LoopbackMailHost(host string) bool {
+	host = strings.TrimSpace(host)
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	// A bracketed IPv6 literal ("[::1]") is how a host:port string carries
+	// one, and users paste it that way.
+	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // ResolveSMTPSecurity returns the security mode to dial SMTP with: the stored
 // choice when it is set, otherwise the conventional default for the port. The
 // fallback keeps mailboxes connected across the rollout, when the stored value
 // is empty and events from older workers carry no mode at all.
+//
+// MailSecurityNone is never inferred, only obeyed: dropping encryption is
+// always an explicit choice, never something a port number decides.
 func ResolveSMTPSecurity(security string, port int) string {
 	if ValidMailSecurity(security) {
 		return security
@@ -180,7 +215,8 @@ func ResolveSMTPSecurity(security string, port int) string {
 }
 
 // ResolveIMAPSecurity is ResolveSMTPSecurity for IMAP, where implicit TLS is
-// the norm (993) and 143 is the STARTTLS port.
+// the norm (993) and 143 is the STARTTLS port. Like the SMTP resolver it
+// never infers MailSecurityNone.
 func ResolveIMAPSecurity(security string, port int) string {
 	if ValidMailSecurity(security) {
 		return security

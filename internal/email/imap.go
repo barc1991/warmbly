@@ -18,12 +18,23 @@ import (
 func VerifyImap(ctx context.Context, host string, port int, user, pass, security string) bool {
 	addr := fmt.Sprintf("%s:%d", host, port)
 
+	resolved := models.ResolveIMAPSecurity(security, port)
+	// The unencrypted mode only ever addresses this machine, checked here and
+	// again against the peer below, so a mailbox that could never be dialled
+	// safely fails at connect rather than on the first sync.
+	if resolved == models.MailSecurityNone && !models.LoopbackMailHost(host) {
+		return false
+	}
+
 	dialer := &net.Dialer{Timeout: 5 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return false
 	}
 	defer conn.Close()
+	if resolved == models.MailSecurityNone && !netbind.LoopbackPeer(conn) {
+		return false
+	}
 
 	// Matches the sync client's TLS policy: MAIL_TLS_INSECURE is a dev-only
 	// knob for the local self-signed sandbox, never set in production. Without
@@ -35,7 +46,12 @@ func VerifyImap(ctx context.Context, host string, port int, user, pass, security
 
 	var c *imapclient.Client
 
-	if models.ResolveIMAPSecurity(security, port) == models.MailSecurityStartTLS {
+	if resolved == models.MailSecurityNone {
+		if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			return false
+		}
+		c = imapclient.New(conn, nil)
+	} else if resolved == models.MailSecurityStartTLS {
 		// The greeting arrives in cleartext and the upgrade happens in-band.
 		if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			return false

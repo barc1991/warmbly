@@ -163,17 +163,28 @@ func (c *Client) connectLocked() *errx.MailError {
 	if timeout <= 0 {
 		timeout = config.ImapCommandIdleTimeout
 	}
+	// The unencrypted mode is checked before the dial and again against the
+	// peer we actually got, because only the second one is a fact about this
+	// socket rather than about what DNS said a moment ago.
+	resolved := models.ResolveIMAPSecurity(security, port)
+	if resolved == models.MailSecurityNone && !models.LoopbackMailHost(host) {
+		return errx.ErrMailInsecureRemoteHost
+	}
 	raw, err := netbind.Dialer(c.BindIP).DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return errx.ErrMailServerUnreachable
+	}
+	if resolved == models.MailSecurityNone && !netbind.LoopbackPeer(raw) {
+		_ = raw.Close()
+		return errx.ErrMailInsecureRemoteHost
 	}
 	conn := &idleConn{Conn: raw, timeout: timeout}
 
 	var client *imapclient.Client
 	switch {
-	case c.plaintext:
+	case c.plaintext, resolved == models.MailSecurityNone:
 		client = imapclient.New(conn, nil)
-	case models.ResolveIMAPSecurity(security, port) == models.MailSecurityStartTLS:
+	case resolved == models.MailSecurityStartTLS:
 		// Plaintext greeting, upgraded in-band. NewStartTLS closes conn
 		// itself when the upgrade fails.
 		client, err = imapclient.NewStartTLS(conn, &imapclient.Options{TLSConfig: tlsConf})
