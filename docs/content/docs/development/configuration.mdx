@@ -388,8 +388,8 @@ Every runtime in Warmbly can report its errors, and none of them do unless you s
 | `SENTRY_DSN` | tracking service | Rust errors and panics. An invalid DSN disables reporting with a log line rather than stopping the service | unset |
 | `SENTRY_DSN` | realtime service | An empty string is treated as unset on purpose, because the library rejects `""` hard enough to take the node down | unset |
 | `WARMBLY_SENTRY_DSN` | web, admin containers | Browser error reporting, read at container start like the other `WARMBLY_*` values. Unset means the SDK is never initialised and no host is contacted | unset |
-| `WARMBLY_SENTRY_DSN` | forms service | Stamped into the public form page for the form app's browser errors. Separate from the forms service's own `SENTRY_DSN`: one is a Go process, the other is a page a stranger loads | unset |
-| `WARMBLY_SENTRY_ENVIRONMENT` | web, admin containers | The environment label browser events carry. Defaults to the build mode | unset |
+| `WARMBLY_SENTRY_DSN` | forms service | Stamped into the public form page for the form app's browser errors, along with the service's `APP_ENV` as their environment. Separate from the forms service's own `SENTRY_DSN`: one is a Go process, the other is a page a stranger loads | unset |
+| `WARMBLY_SENTRY_ENVIRONMENT` | web, admin containers | The environment label those browser events carry. Defaults to the build mode. Form pages do not read it: the forms service stamps its own `APP_ENV` into the page instead | unset |
 | `APP_ENV` | every server-side service | Doubles as the environment label on the events that service reports. Browser events take theirs from `WARMBLY_SENTRY_ENVIRONMENT` instead, because the container serving the bundle is not the process reporting the error | `dev` |
 | `WARMBLY_RELEASE` | tracking, realtime | The build events are tagged with. The published images set it from the release tag; the Go services and the frontends read the same value from their build stamp instead | `dev` |
 
