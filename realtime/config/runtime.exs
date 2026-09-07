@@ -81,7 +81,19 @@ if config_env() == :prod do
   # hard enough to take the whole node down at boot.
   case System.get_env("SENTRY_DSN") do
     dsn when is_binary(dsn) and dsn != "" ->
-      config :sentry, dsn: dsn, environment_name: :prod
+      # release ties a stack trace to a build, the same value every other
+      # service tags with. The image sets it from the release tag; an
+      # unstamped build reports "dev".
+      release =
+        case System.get_env("WARMBLY_RELEASE") do
+          v when is_binary(v) and v != "" -> String.trim(v)
+          _ -> "dev"
+        end
+
+      config :sentry,
+        dsn: dsn,
+        environment_name: System.get_env("APP_ENV", "prod"),
+        release: release
 
     _ ->
       :ok

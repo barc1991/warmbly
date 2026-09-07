@@ -87,7 +87,8 @@ async fn main() {
             std::process::exit(1);
         }
     };
-    observability::init(&config.env);
+    // Held until main returns so queued events are flushed on shutdown.
+    let _sentry = observability::init(&config.env, Some(&config.sentry_dsn), &config.release);
     info!("Starting tracking service on {}", config.addr());
 
     // Event-bus producer (NATS by default; Kafka when EVENTBUS_PROVIDER=kafka
