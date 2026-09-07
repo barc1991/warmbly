@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 const (
 	DefaultColor = "#c4c8cf"
 	// LimitMin/LimitMax bound every per-mailbox and per-campaign daily send
@@ -32,7 +34,11 @@ const (
 	// HTML newsletters mid-document; 512 KB clears the overwhelming majority
 	// of them while still bounding what one message can cost.
 	MaxEmailBodySize = 512 * 1024 // 512 KB
-	MaxEmailFolders  = 30
+	// MaxEmailFolders bounds how many folders one mailbox's sync follows.
+	// INBOX and the special folders are always kept; past the cap the rest
+	// are taken in the server's order and the overflow is relayed once as a
+	// warning rather than failing the mailbox.
+	MaxEmailFolders = 100
 
 	// MaxSearchBodyText bounds the plain-text copy of a message body kept in
 	// Postgres for full-text search. The body itself lives in object storage;
@@ -42,6 +48,21 @@ const (
 	// ImapFetchBatchSize bounds how many messages one IMAP sync window holds in
 	// memory, so a large folder is never buffered whole before any body is read.
 	ImapFetchBatchSize = 200
+
+	// ImapCommandIdleTimeout is how long an IMAP command may wait for the
+	// server to say anything before the session is declared dead and
+	// re-dialed on the next pass. go-imap bounds the bytes of a response but
+	// not the wait for its first byte, which is where a peer that vanished
+	// without a FIN parks a command forever.
+	ImapCommandIdleTimeout = 2 * time.Minute
+
+	// Servers without CONDSTORE (Outlook.com, Microsoft 365 over IMAP,
+	// Yahoo, many hosted servers) cannot say which messages changed, so read
+	// state and flags are mirrored by re-reading the flags of a folder's
+	// newest window every ImapFlagScanInterval and diffing against the
+	// previous scan. New mail still lands within one pass through UIDNEXT.
+	ImapFlagScanInterval = 10 * time.Minute
+	ImapFlagScanWindow   = 5_000 // newest UIDs per folder the scan covers
 
 	// Mailbox sync fair use. Connecting a mailbox imports its recent history
 	// (the backfill), then follows new mail (live). Every number below is a
