@@ -15,6 +15,11 @@ func (c *Client) MarkAsRead(ctx context.Context, mailboxName string, uid uint32)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if merr := c.ensureConnected(); merr != nil {
+		return merr
+	}
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	if _, err := c.selectMailbox(mailboxName, nil); err != nil {
 		return fmt.Errorf("select %q: %w", mailboxName, err)
 	}
@@ -36,6 +41,11 @@ func (c *Client) MarkImportant(ctx context.Context, mailboxName string, uid uint
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if merr := c.ensureConnected(); merr != nil {
+		return merr
+	}
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	if _, err := c.selectMailbox(mailboxName, nil); err != nil {
 		return fmt.Errorf("select %q: %w", mailboxName, err)
 	}
@@ -67,6 +77,11 @@ func (c *Client) MoveToFolder(ctx context.Context, sourceMailbox, dstFolder stri
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if merr := c.ensureConnected(); merr != nil {
+		return merr
+	}
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	dst := c.qualifyMailboxLocked(dstFolder)
 	if err := c.ensureMailboxExists(dst); err != nil {
 		return err
@@ -107,6 +122,11 @@ func (c *Client) qualifyMailboxLocked(name string) string {
 func (c *Client) moveUID(ctx context.Context, src, dst string, uid uint32) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if merr := c.ensureConnected(); merr != nil {
+		return merr
+	}
+	c.lifecycle.RLock()
+	defer c.lifecycle.RUnlock()
 	return c.moveUIDLocked(src, dst, uid)
 }
 
