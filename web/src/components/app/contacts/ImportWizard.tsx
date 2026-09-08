@@ -896,9 +896,9 @@ export function ResultStep({
                             The contacts are in, but not in the segment
                         </p>
                         <p className="text-[11.5px] text-amber-800/90 leading-relaxed mt-0.5">
-                            The rows imported, and the membership write did not land. The reason is in the notes below.
-                            Select them in your contact list and use <span className="font-medium">Segment</span> to add
-                            them, or run the import again.
+                            The rows imported; the membership write did not. The reason is in the notes below. Select
+                            them in your contact list and use <span className="font-medium">Segment</span> to add them,
+                            or run the import again.
                         </p>
                     </div>
                 </div>
