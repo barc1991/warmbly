@@ -50,10 +50,12 @@ export default function EntryDelayPicker({
     // landing, the Schedule tab's Reset, a teammate's edit arriving live.
     const emitted = React.useRef(value);
     React.useEffect(() => {
-        if (value !== emitted.current) {
-            emitted.current = value;
-            setDraft(splitEntryDelay(value));
-        }
+        if (value === emitted.current) return;
+        emitted.current = value;
+        setDraft(splitEntryDelay(value));
+        // The mode follows too: a Reset from a custom amount back to a preset
+        // (or the other way) must not leave the picker showing the wrong row.
+        setCustom(!ENTRY_DELAY_PRESETS.some((p) => p.minutes === value));
     }, [value]);
 
     const emit = (minutes: number, settled: boolean) => {

@@ -449,17 +449,24 @@ function TriggerNode({ data }: NodeProps) {
     const qc = useQueryClient();
     const minutes = campaign?.entry_delay_minutes ?? 0;
 
+    // Commits are chained rather than fired in parallel: two clicks inside one
+    // request round-trip would otherwise race, and the PATCH has no revision
+    // check, so the older response could land last and win.
+    const inFlight = React.useRef<Promise<unknown>>(Promise.resolve());
     const save = (next: number) => {
         if (next === minutes) return;
         qc.setQueryData(["campaigns", campaignId], (old: unknown) =>
             old ? { ...(old as object), entry_delay_minutes: next } : old,
         );
-        updateCampaign.mutateAsync({ entry_delay_minutes: next }).catch((err) => {
-            toast.error(buildError(err as AppError));
-            // Put the optimistic value back where the server left it, so a
-            // refused save does not leave the card claiming a delay it never got.
-            void qc.invalidateQueries({ queryKey: ["campaigns", campaignId] });
-        });
+        inFlight.current = inFlight.current
+            .catch(() => {})
+            .then(() => updateCampaign.mutateAsync({ entry_delay_minutes: next }))
+            .catch((err) => {
+                toast.error(buildError(err as AppError));
+                // Put the optimistic value back where the server left it, so a
+                // refused save does not leave the card claiming a delay it never got.
+                void qc.invalidateQueries({ queryKey: ["campaigns", campaignId] });
+            });
     };
 
     return (

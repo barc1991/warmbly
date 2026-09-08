@@ -69,7 +69,7 @@ Enrolment is additive. A contact who later falls out of the segment keeps their 
 
 The campaign reacts to growth by status:
 
-- **Active**, including one **waiting for leads**: woken up to schedule the new leads straight away, or after the campaign's [delay before the first email](/guides/campaigns/#delay-before-the-first-email) when it sets one. That delay counts from when each contact entered the campaign, so someone who joins the segment months later still gets the full wait from their own arrival.
+- **Active**, including one **waiting for leads**: woken up to schedule the new leads straight away, or after the campaign's [delay before the first email](/guides/campaigns/#delay-before-the-first-email) when it sets one. That delay counts from the moment the contact is enrolled as a lead, which for a linked segment is when the background check picks them up, not from when they joined the segment or when the campaign started. So someone the segment adds months later still gets the full wait from their own enrolment.
 - **Finished**: restarted automatically, through the same launch checks as pressing play. A refused restart is noted in the campaign's activity log.
 - **Paused** (or draft): the leads accumulate and send when the campaign runs.
 

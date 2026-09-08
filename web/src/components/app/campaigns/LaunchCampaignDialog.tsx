@@ -345,8 +345,9 @@ export default function LaunchCampaignDialog({
                                     ) : null}
 
                                     <p className="px-5 pt-3 text-[11.5px] text-slate-500 leading-relaxed">
-                                        Sending begins immediately, paced to the schedule and your
-                                        mailbox guardrails. You can pause anytime.
+                                        {c.entry_delay_minutes > 0
+                                            ? "The campaign starts now; each contact's first email goes out once their delay is up, paced to the schedule and your mailbox guardrails. You can pause anytime."
+                                            : "Sending begins immediately, paced to the schedule and your mailbox guardrails. You can pause anytime."}
                                         {c.continuous
                                             ? " Out of leads, the campaign stays active and waits for new ones."
                                             : c.status === "completed"

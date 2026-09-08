@@ -114,11 +114,19 @@ func humanizeUntil(t time.Time) string {
 		}
 		return fmt.Sprintf("%d %ss", n, unit)
 	}
+	// Rounding can carry into the next unit (59m40s rounds to 60 minutes), so
+	// promote rather than print a value the unit cannot hold.
 	switch {
 	case d < time.Hour:
-		return plural(int(math.Round(d.Minutes())), "minute")
+		if minutes := int(math.Round(d.Minutes())); minutes < 60 {
+			return plural(minutes, "minute")
+		}
+		return plural(1, "hour")
 	case d < 24*time.Hour:
-		return plural(int(math.Round(d.Hours())), "hour")
+		if hours := int(math.Round(d.Hours())); hours < 24 {
+			return plural(hours, "hour")
+		}
+		return plural(1, "day")
 	default:
 		return plural(int(math.Round(d.Hours()/24)), "day")
 	}
