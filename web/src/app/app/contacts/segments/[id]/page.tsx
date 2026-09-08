@@ -127,7 +127,7 @@ function SegmentDetail() {
 
             {(s.included_count > 0 || s.excluded_count > 0) && <OverridesPanel segment={s} />}
 
-            <ContactsTable key={s.id} segment={{ id: s.id, name: s.name }} />
+            <ContactsTable key={s.id} segment={{ id: s.id, name: s.name, color: s.color }} />
 
             <SegmentEditor open={editorOpen} onClose={() => setEditorOpen(false)} segment={s} />
             <AddSegmentToCampaignDialog open={campaignOpen} onClose={() => setCampaignOpen(false)} segment={s} />
@@ -190,6 +190,10 @@ function OverridesPanel({ segment }: { segment: Segment }) {
     }
 
     const list = overrides.data ?? [];
+    // The API caps one listing, so a segment a big import pinned into shows a
+    // slice of its overrides. Say so rather than implying this is all of them.
+    const pinned = segment.included_count + segment.excluded_count;
+    const truncated = pinned > list.length;
     return (
         <div className="border-b border-slate-200 bg-slate-50/40">
             <button
@@ -232,6 +236,12 @@ function OverridesPanel({ segment }: { segment: Segment }) {
                             </li>
                         );
                     })}
+                    {truncated && (
+                        <li className="px-5 h-9 flex items-center text-[11.5px] text-slate-400">
+                            Showing the newest {list.length.toLocaleString()} of {pinned.toLocaleString()}. Search the member
+                            list below to reach the rest.
+                        </li>
+                    )}
                 </ul>
             )}
         </div>
