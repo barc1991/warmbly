@@ -83,10 +83,14 @@ func (s *schedulerService) CalculateNextCampaignTime(ctx context.Context, campai
 		// without it. In that case defer to the next day so follow-ups keep
 		// progressing and new leads resume tomorrow — do NOT complete.
 		if excludeNewLeads {
-			if again, _, aerr := s.campaignProgressRepo.FindNextRoutedPair(
+			again, againDue, aerr := s.campaignProgressRepo.FindNextRoutedPair(
 				ctx, campaignID, campaign.ContactOrderBy, campaign.ContactOrderDir, orderField,
 				campaign.PrioritizeNewLeads, false,
-			); aerr == nil && again != nil {
+			)
+			switch {
+			case aerr != nil:
+				// Fall through to the ordinary wait/complete decision below.
+			case again != nil:
 				s.logCampaignDecision(ctx, campaignID, "new_lead_cap_reached",
 					"Daily new-lead cap reached; deferring remaining new leads to tomorrow",
 					map[string]interface{}{"max_new_leads_per_day": campaign.MaxNewLeadsPerDay})
@@ -100,6 +104,13 @@ func (s *schedulerService) CalculateNextCampaignTime(ctx context.Context, campai
 				// err for deferrals, so a nil-error here would send a new lead and
 				// blow past the cap. nil pair + sentinel = reschedule, don't send.
 				return deferTime, nil, accounts[0].ID, ErrCampaignDeferred
+			case againDue != nil && (recheckAt == nil || againDue.Before(*recheckAt)):
+				// The excluded pass skips new leads BEFORE routing them, so a new
+				// lead still inside the campaign's entry delay contributes no
+				// re-check time to `recheckAt`. Take the unexcluded pass's, or a
+				// campaign whose only remaining leads are delayed ones completes
+				// while they are still waiting to be sent.
+				recheckAt = againDue
 			}
 		}
 		// Nothing is due yet: every remaining contact is inside a step's wait

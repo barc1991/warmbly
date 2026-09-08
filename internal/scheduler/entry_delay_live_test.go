@@ -85,6 +85,7 @@ func newEntryDelayFixture(t *testing.T, pool *pgxpool.Pool, delayMinutes int) *e
 			{`DELETE FROM campaign_leads WHERE campaign_id = $1`, f.campaign},
 			{`DELETE FROM sequences WHERE campaign_id = $1`, f.campaign},
 			{`DELETE FROM campaign_logs WHERE campaign_id = $1`, f.campaign},
+			{`DELETE FROM campaign_daily_sends WHERE campaign_id = $1`, f.campaign},
 			{`DELETE FROM campaigns WHERE id = $1`, f.campaign},
 			{`DELETE FROM email_account_daily_plan WHERE email_account_id = $1`, f.mailbox},
 			{`DELETE FROM email_account_behavior WHERE email_account_id = $1`, f.mailbox},
@@ -257,6 +258,37 @@ func TestLiveEntryDelayFallsBackToCampaignCreation(t *testing.T) {
 		CalculateNextCampaignTime(context.Background(), f.campaign)
 	if !errors.Is(err, ErrCampaignDeferred) || pair != nil {
 		t.Fatalf("want the delay to hold from a fresh campaign's creation time, got pair=%v err=%v", pair, err)
+	}
+}
+
+// TestLiveEntryDelayOutlivesTodaysNewLeadCap is the completion guard. With the
+// daily new-lead cap already spent, the finder skips new leads BEFORE routing
+// them, so a delayed lead contributes no re-check time to that pass. Without the
+// unexcluded pass handing its own re-check back, a campaign whose only remaining
+// leads are inside the entry delay reports itself COMPLETE and stops.
+func TestLiveEntryDelayOutlivesTodaysNewLeadCap(t *testing.T) {
+	handle, pool := liveDB(t)
+	ctx := context.Background()
+	f := newEntryDelayFixture(t, pool, 2*24*60)
+	entered := time.Now().UTC()
+	f.enteredAt(t, &entered)
+
+	// A cap of one, already spent for today, so the delayed lead is the only
+	// one left and the finder's excluded pass skips it before routing it.
+	if _, err := pool.Exec(ctx, `UPDATE campaigns SET max_new_leads_per_day = 1 WHERE id = $1`, f.campaign); err != nil {
+		t.Fatalf("set cap: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO campaign_daily_sends (campaign_id, send_date, emails_sent, new_leads_started)
+	      VALUES ($1, CURRENT_DATE, 1, 1)`, f.campaign); err != nil {
+		t.Fatalf("spend the cap: %v", err)
+	}
+
+	at, pair, _, err := liveScheduler(t, handle, pool).CalculateNextCampaignTime(ctx, f.campaign)
+	if !errors.Is(err, ErrCampaignDeferred) {
+		t.Fatalf("want a deferral while a delayed lead is still waiting, got pair=%v err=%v", pair, err)
+	}
+	if want := entered.Add(48 * time.Hour); at.Sub(want).Abs() > time.Minute {
+		t.Fatalf("re-check at %s, want the delayed lead's due time %s", at.UTC(), want)
 	}
 }
 
