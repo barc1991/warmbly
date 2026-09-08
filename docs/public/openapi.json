@@ -5873,7 +5873,7 @@
         ],
         "operationId": "contacts_bulk_update",
         "summary": "Bulk update contacts",
-        "description": "Applies one set of edits across up to 1000 contacts: add/remove campaigns and categories, custom-field operations, and subscription. Scope `BULK_CONTACTS`.",
+        "description": "Applies one set of edits across a selection of contacts (up to 1000 by ID, or everything a filter matches, up to 50000): add/remove campaigns and categories, custom-field operations, and subscription. Scope `BULK_CONTACTS`.",
         "security": [
           {
             "bearerAuth": []
@@ -5909,7 +5909,7 @@
             }
           },
           "400": {
-            "description": "No contacts provided or more than 1000.",
+            "description": "A selection that names nothing, an explicit list over 1000, a select-all with no filters, a filter matching no contacts, or a filter matching more than 50000 (`selection_too_large`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -5956,7 +5956,7 @@
         ],
         "operationId": "contacts_bulk_delete",
         "summary": "Bulk delete contacts",
-        "description": "Deletes up to 1000 contacts by ID. Scope `BULK_CONTACTS`.",
+        "description": "Deletes a selection of contacts: up to 1000 by ID, or everything a filter matches (up to 50000). Scope `BULK_CONTACTS`.",
         "security": [
           {
             "bearerAuth": []
@@ -5996,7 +5996,7 @@
             "description": "Contacts deleted."
           },
           "400": {
-            "description": "Empty array or more than 1000 IDs.",
+            "description": "A selection that names nothing, an explicit list over 1000, a select-all with no filters, a filter matching no contacts, or a filter matching more than 50000 (`selection_too_large`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -14920,7 +14920,7 @@
             }
           },
           "400": {
-            "description": "Bad request (no/too many/invalid contact ids).",
+            "description": "A selection that names nothing, or one resolving to more than 500 contacts (`too_many_contacts`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -21937,6 +21937,33 @@
       "ContactSelection": {
         "type": "object",
         "description": "Names the contacts a bulk action applies to: either an explicit id list, or every contact matching a search (all + filters) minus the ids in exclude. The filter form lets one call cover far more contacts than a page, and is refused with selection_too_large past 50000 matches.",
+        "oneOf": [
+          {
+            "required": [
+              "contacts"
+            ],
+            "properties": {
+              "all": {
+                "enum": [
+                  false
+                ]
+              }
+            }
+          },
+          {
+            "required": [
+              "all",
+              "filters"
+            ],
+            "properties": {
+              "all": {
+                "enum": [
+                  true
+                ]
+              }
+            }
+          }
+        ],
         "properties": {
           "contacts": {
             "type": "array",
@@ -21973,6 +22000,33 @@
       "ContactBulkUpdateRequest": {
         "type": "object",
         "description": "One set of edits applied across a selection of contacts.",
+        "oneOf": [
+          {
+            "required": [
+              "contacts"
+            ],
+            "properties": {
+              "all": {
+                "enum": [
+                  false
+                ]
+              }
+            }
+          },
+          {
+            "required": [
+              "all",
+              "filters"
+            ],
+            "properties": {
+              "all": {
+                "enum": [
+                  true
+                ]
+              }
+            }
+          }
+        ],
         "properties": {
           "contacts": {
             "type": "array",
@@ -27400,7 +27454,34 @@
             "description": "Contact ids to drop from the resolved set. Ignored unless all is set."
           }
         },
-        "description": "Contacts to push. The resolved set is capped at 500 whichever form is used: the push calls the CRM once per contact inside the request."
+        "description": "Contacts to push. The resolved set is capped at 500 whichever form is used: the push calls the CRM once per contact inside the request.",
+        "oneOf": [
+          {
+            "required": [
+              "contact_ids"
+            ],
+            "properties": {
+              "all": {
+                "enum": [
+                  false
+                ]
+              }
+            }
+          },
+          {
+            "required": [
+              "all",
+              "filters"
+            ],
+            "properties": {
+              "all": {
+                "enum": [
+                  true
+                ]
+              }
+            }
+          }
+        ]
       },
       "IntegrationPushResult": {
         "type": "object",
