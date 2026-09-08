@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/warmbly/warmbly/internal/app/orgrisk"
+	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/infrastructure/db"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/repository"
@@ -829,5 +830,58 @@ func TestLiveImportPinsRowsIntoSegments(t *testing.T) {
 	}
 	if got := members(); len(got) != 4 {
 		t.Fatalf("segment holds %v after the lenient run, want four rows", got)
+	}
+}
+
+// failingLinker validates segment targets through the real repository but
+// refuses every membership write, which is the only way to reach the pin
+// failure path from a test.
+type failingLinker struct{ repository.SegmentRepository }
+
+func (failingLinker) SetMembers(context.Context, uuid.UUID, uuid.UUID, []uuid.UUID, models.SegmentMemberMode) (int, *errx.Error) {
+	return 0, errx.New(errx.Internal, "segment store unavailable")
+}
+
+// A pin that does not land is reported as segments_pinned=false with one note
+// saying why, and that note survives a file that produced more row errors than
+// the payload cap: it explains the rows that DID import, so it must not be the
+// entry that gets dropped.
+func TestLiveImportReportsAPinThatDidNotLand(t *testing.T) {
+	f := newImportFixture(t)
+	ctx := context.Background()
+
+	seg, xerr := f.segments.Create(ctx, f.org, &f.user, &models.Segment{
+		Name: "Unreachable " + uuid.New().String()[:6], Color: "#0284c7", Match: models.SegmentMatchAll,
+	})
+	if xerr != nil {
+		t.Fatalf("create segment: %v", xerr)
+	}
+	f.svc.(SegmentAware).WireSegments(failingLinker{f.segments}, nil)
+
+	tag := uuid.New().String()[:6]
+	rows := []string{"good-" + tag + "@i381.test"}
+	for i := 0; i < models.MaxContactImportReportedErrors+5; i++ {
+		rows = append(rows, fmt.Sprintf("not-an-email-%d", i))
+	}
+	res, msg := f.commit(t, simpleCSV(rows), &models.ContactImportCommit{
+		Mapping: emailOnlyMapping(), Dedup: models.ContactImportDedupSkip, HasHeader: true,
+		SegmentIDs: []string{seg.ID.String()},
+	})
+	if msg != "" {
+		t.Fatalf("commit: %s", msg)
+	}
+	if res.Imported != 1 {
+		t.Fatalf("imported = %d, want the one valid row", res.Imported)
+	}
+	if res.SegmentsPinned == nil || *res.SegmentsPinned {
+		t.Fatalf("a refused membership write reported segments_pinned=%v", res.SegmentsPinned)
+	}
+	if !res.ErrorsTruncated || len(res.Errors) != models.MaxContactImportReportedErrors {
+		t.Fatalf("errors = %d truncated=%v, want the cap", len(res.Errors), res.ErrorsTruncated)
+	}
+	// First, so the dashboard renders it however many row errors came with it.
+	first := res.Errors[0]
+	if first.Line != 0 || !strings.Contains(first.Reason, "could not be added to a segment") {
+		t.Fatalf("first note = %+v, want the segment-pin reason", first)
 	}
 }

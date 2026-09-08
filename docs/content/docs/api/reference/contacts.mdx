@@ -413,7 +413,7 @@ Send `multipart/form-data` with a `file` field and an `options` field containing
 
 Imports are capped at 50,000 rows. `errors` carries at most the first 1,000 entries; past that `errors_truncated` is `true` and the counters, not the list, are the real totals. Every row lands in exactly one of `imported`, `updated`, `skipped`, or `failed`, so those four always sum to `total`.
 
-`errors` also carries notes about rows that were not failures, so an entry there does not always mean a lost row; a note about the import as a whole rather than one row carries `line: 0`. `segments_pinned` is present only when `segment_ids` was set: `true` when every membership write landed, `false` when one did not, with the reason among the notes.
+`errors` also carries notes about rows that were not failures, so an entry there does not always mean a lost row. A note about the import as a whole rather than one row carries `line: 0` and is listed first, so a file full of bad addresses cannot push it out of a truncated list. `segments_pinned` is present only when `segment_ids` was set: `true` when every membership write landed, `false` when one did not, with the reason among the notes.
 
 A custom-field name may use letters, numbers, underscores, spaces, and dashes (`Company Mobile`, `first-name`, `plan_tier`). Anything else is a `400` on the whole request, raised before any row is written, along with a mapping that names no `email` column or a `custom` column with no `custom_key`. Per-row `errors` are reserved for problems with the data itself.
 

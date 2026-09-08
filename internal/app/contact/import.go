@@ -379,6 +379,18 @@ func (s *contactService) ImportCommit(
 		res.Failed++
 		warn(line, addr, values, reason)
 	}
+	// noteImport records a message about the whole import rather than one row.
+	// It goes to the front and is never dropped by the per-row cap: a file full
+	// of bad addresses must not push out the one note explaining why the rows
+	// that DID import are not in the segment they were imported into, nor bury
+	// it past the entries the dashboard renders.
+	noteImport := func(reason string) {
+		res.Errors = append([]models.ContactImportRowError{{Reason: reason}}, res.Errors...)
+		if len(res.Errors) > models.MaxContactImportReportedErrors {
+			res.Errors = res.Errors[:models.MaxContactImportReportedErrors]
+			res.ErrorsTruncated = true
+		}
+	}
 
 	// Bucket rows by target action. We send fresh inserts through
 	// contactRepository.Add in batches and fall back to per-row
@@ -545,12 +557,21 @@ func (s *contactService) ImportCommit(
 	// is a note, not a failed import: the contacts themselves are in, and the
 	// result says the pin did not land so the UI does not claim it did.
 	if len(segmentIDs) > 0 && len(touched) > 0 {
-		pinned := true
+		pinned, failedPins, firstReason := true, 0, ""
 		for _, segID := range segmentIDs {
 			if _, xerr := s.segmentLinker.SetMembers(ctx, orgID, segID, touched, models.SegmentMemberInclude); xerr != nil {
-				pinned = false
-				warn(0, "", nil, "imported contacts could not be added to a segment: "+xerr.Message)
+				pinned, failedPins = false, failedPins+1
+				if firstReason == "" {
+					firstReason = xerr.Message
+				}
 			}
+		}
+		// One note for the whole pin, however many segments were targeted:
+		// the same failure repeated per segment is noise, not information.
+		if failedPins == 1 {
+			noteImport("imported contacts could not be added to a segment: " + firstReason)
+		} else if failedPins > 1 {
+			noteImport(fmt.Sprintf("imported contacts could not be added to %d segments: %s", failedPins, firstReason))
 		}
 		res.SegmentsPinned = &pinned
 	}
