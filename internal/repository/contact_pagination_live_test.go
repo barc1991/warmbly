@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/utils/paging"
 )
@@ -277,6 +278,27 @@ func TestLiveContactPaginationRejectsAForeignCursor(t *testing.T) {
 	}
 	if _, xerr := repo.Search(ctx, f.org.String(), nil, &paging.SortCursor{Sort: "created_at:desc", ID: cursor.ID}, models.SearchContacts{}, 5); xerr == nil {
 		t.Fatal("a NULL boundary on a NOT NULL column must not be accepted")
+	}
+
+	// A boundary the cast would choke on is the client's mistake, so it has to
+	// be refused before it reaches Postgres and comes back as a 500.
+	for _, tc := range []struct {
+		sort  string
+		value string
+		as    models.SearchContacts
+	}{
+		{"created_at:desc", "yesterday", models.SearchContacts{}},
+		{"created_at:desc", "", models.SearchContacts{}},
+		{"campaign_count:desc", "a lot", models.SearchContacts{SortBy: "campaign_count"}},
+	} {
+		bad := &paging.SortCursor{Sort: tc.sort, Value: &tc.value, ID: cursor.ID}
+		_, xerr := repo.Search(ctx, f.org.String(), nil, bad, tc.as, 5)
+		if xerr == nil {
+			t.Fatalf("%q boundary %q must be refused", tc.sort, tc.value)
+		}
+		if xerr.Code != errx.BadRequest {
+			t.Fatalf("%q boundary %q returned %v, want a bad request", tc.sort, tc.value, xerr.Code)
+		}
 	}
 }
 

@@ -917,16 +917,67 @@ func (r *contactRepository) GetByIDsAndOrganization(ctx context.Context, organiz
 	return out, nil
 }
 
+// contactSortKind decides three things that have to agree: how a row's sort
+// value is written into the cursor, how the cursor's text is cast back for the
+// comparison, and what counts as a well-formed boundary.
+type contactSortKind int
+
+const (
+	sortText contactSortKind = iota
+	sortTimestamp
+	sortNumber
+)
+
+// contactSortTimeLayout mirrors the to_char pattern below, so Go validates
+// exactly the boundaries Postgres will accept.
+const contactSortTimeLayout = "2006-01-02 15:04:05.000000"
+
 // contactSort describes one sortable column of the contacts list: the SQL to
-// order and compare on, the type a cursor's text value casts back to, and
-// whether the column admits NULL (which decides where the NULL block sits in
-// the order). Every column here is currently NOT NULL; flipping `nullable`
-// turns on the NULL-aware keyset branches so a nullable sort cannot silently
-// truncate the list.
+// order and compare on, its kind, and whether the column admits NULL (which
+// decides where the NULL block sits in the order). Every column here is
+// currently NOT NULL; flipping `nullable` turns on the NULL-aware keyset
+// branches so a nullable sort cannot silently truncate the list.
 type contactSort struct {
 	expr     string
-	cast     string
+	kind     contactSortKind
 	nullable bool
+}
+
+// render is the SELECT expression that puts a row's sort value in the cursor.
+// Timestamps get an explicit pattern rather than ::text so a token does not
+// depend on the server's DateStyle.
+func (s contactSort) render() string {
+	if s.kind == sortTimestamp {
+		return fmt.Sprintf("to_char(%s, 'YYYY-MM-DD HH24:MI:SS.US')", s.expr)
+	}
+	return "(" + s.expr + ")::text"
+}
+
+// bound casts a cursor's text boundary back to what expr compares in.
+func (s contactSort) bound(placeholder string) string {
+	switch s.kind {
+	case sortTimestamp:
+		return placeholder + "::text::timestamp"
+	case sortNumber:
+		return placeholder + "::text::bigint"
+	default:
+		return placeholder + "::text"
+	}
+}
+
+// wellFormed rejects a boundary the cast would choke on, so a hand-made cursor
+// is a 400 instead of a database error surfacing as a 500.
+func (s contactSort) wellFormed(v string) bool {
+	switch s.kind {
+	case sortTimestamp:
+		_, err := time.Parse(contactSortTimeLayout, v)
+		return err == nil
+	case sortNumber:
+		_, err := strconv.ParseInt(v, 10, 64)
+		return err == nil
+	default:
+		return true
+	}
 }
 
 // campaignCountLateral counts one contact's campaign memberships, joined only
@@ -938,12 +989,12 @@ const campaignCountLateral = `LEFT JOIN LATERAL (
 		) cl ON TRUE`
 
 var contactSorts = map[string]contactSort{
-	"first_name":     {expr: "c.first_name", cast: "text"},
-	"last_name":      {expr: "c.last_name", cast: "text"},
-	"email":          {expr: "c.email", cast: "text"},
-	"created_at":     {expr: "c.created_at", cast: "timestamp"},
-	"updated_at":     {expr: "c.updated_at", cast: "timestamp"},
-	"campaign_count": {expr: "COALESCE(cl.campaign_count,0)", cast: "bigint"},
+	"first_name":     {expr: "c.first_name", kind: sortText},
+	"last_name":      {expr: "c.last_name", kind: sortText},
+	"email":          {expr: "c.email", kind: sortText},
+	"created_at":     {expr: "c.created_at", kind: sortTimestamp},
+	"updated_at":     {expr: "c.updated_at", kind: sortTimestamp},
+	"campaign_count": {expr: "COALESCE(cl.campaign_count,0)", kind: sortNumber},
 }
 
 func (r *contactRepository) Search(
@@ -1175,7 +1226,10 @@ func (r *contactRepository) Search(
 		if cursor.Value == nil && !spec.nullable {
 			return nil, errx.New(errx.BadRequest, "invalid cursor")
 		}
-		bound := fmt.Sprintf("$%d::%s", argIndex, spec.cast)
+		if cursor.Value != nil && !spec.wellFormed(*cursor.Value) {
+			return nil, errx.New(errx.BadRequest, "invalid cursor")
+		}
+		bound := spec.bound(fmt.Sprintf("$%d", argIndex))
 		args = append(args, cursor.Value)
 		argIndex++
 		idArg := fmt.Sprintf("$%d", argIndex)
@@ -1344,13 +1398,13 @@ func (r *contactRepository) Search(
 				), '[]'::json
 			) AS categories,
 			%s AS lead_progress,
-			(%s)::text AS sort_value
+			%s AS sort_value
 		FROM contacts c
 		%s
 		%s
 		ORDER BY %s %s %s, c.id %s
 		LIMIT $%d
-	`, argIndex, argIndex, leadProgressSelect, sortBy, campaignCountJoin, whereSQL, sortBy, direction, nulls, direction, argIndex+1)
+	`, argIndex, argIndex, leadProgressSelect, spec.render(), campaignCountJoin, whereSQL, sortBy, direction, nulls, direction, argIndex+1)
 
 	args = append(args, orgID, limit+1)
 
