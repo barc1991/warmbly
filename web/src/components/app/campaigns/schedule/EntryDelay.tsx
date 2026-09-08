@@ -44,24 +44,37 @@ export default function EntryDelayPicker({
     // land on a preset, so typing 2 -> 24 hours does not yank the row away.
     const [custom, setCustom] = React.useState(!isPreset);
     const [draft, setDraft] = React.useState(() => splitEntryDelay(value));
-    // Re-seed when the value moves for a reason other than this field: a save
+    // The last value this field itself produced. Re-seeding on our own emission
+    // would normalise it back through splitEntryDelay and flip "60 minutes" to
+    // "1 hours" under the cursor, so only an OUTSIDE move re-seeds: a save
     // landing, the Schedule tab's Reset, a teammate's edit arriving live.
-    React.useEffect(() => setDraft(splitEntryDelay(value)), [value]);
+    const emitted = React.useRef(value);
+    React.useEffect(() => {
+        if (value !== emitted.current) {
+            emitted.current = value;
+            setDraft(splitEntryDelay(value));
+        }
+    }, [value]);
 
-    const clamp = (minutes: number) => Math.max(0, Math.min(ENTRY_DELAY_MAX_MINUTES, minutes));
+    const emit = (minutes: number, settled: boolean) => {
+        emitted.current = minutes;
+        onChange?.(minutes);
+        if (settled) onCommit?.(minutes);
+    };
 
     const pick = (minutes: number) => {
         setCustom(false);
         setDraft(splitEntryDelay(minutes));
-        onChange?.(minutes);
-        onCommit?.(minutes);
+        emit(minutes, true);
     };
 
+    // Bound the AMOUNT rather than the resulting minutes, so switching "45
+    // minutes" to days shows the 90 it is actually worth instead of claiming 45.
     const editCustom = (amount: number, unit: EntryDelayUnit, settled: boolean) => {
-        setDraft({ amount, unit });
-        const minutes = clamp(Math.round(amount) * ENTRY_DELAY_UNIT_MINUTES[unit]);
-        onChange?.(minutes);
-        if (settled) onCommit?.(minutes);
+        const max = ENTRY_DELAY_MAX_MINUTES / ENTRY_DELAY_UNIT_MINUTES[unit];
+        const bounded = Math.max(0, Math.min(max, Math.round(amount)));
+        setDraft({ amount: bounded, unit });
+        emit(bounded * ENTRY_DELAY_UNIT_MINUTES[unit], settled);
     };
 
     const chip = (active: boolean) =>
@@ -98,6 +111,7 @@ export default function EntryDelayPicker({
                             onCommit={(v) => editCustom(v, draft.unit, true)}
                             min={0}
                             max={ENTRY_DELAY_MAX_MINUTES / ENTRY_DELAY_UNIT_MINUTES[draft.unit]}
+                            step={1}
                             disabled={disabled}
                         />
                     </div>
