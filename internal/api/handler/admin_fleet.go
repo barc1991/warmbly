@@ -119,9 +119,9 @@ func (h *Handler) AdminFleetReleaseDedicated(c *gin.Context) {
 		errx.JSON(c, errx.New(errx.Internal, "migrate to shared: "+err.Error()))
 		return
 	}
-	// MigrateOrgToShared swallows its own release error, so release again; the
-	// UPDATE is a no-op when the row is already released.
-	if err := h.WorkerAssignmentService.ReleaseDedicatedWorker(ctx, orgID); err != nil {
+	// MigrateOrgToShared swallows its own release error, so release the exact
+	// row read above by id: a binding created meanwhile is never touched.
+	if _, err := h.WorkerRepo.ReleaseDedicatedAssignmentByID(ctx, assignment.ID); err != nil {
 		errx.JSON(c, errx.New(errx.Internal, "release assignment: "+err.Error()))
 		return
 	}

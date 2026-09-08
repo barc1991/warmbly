@@ -92,15 +92,15 @@ func (r *adminSyncRepository) Search(ctx context.Context, search *models.AdminSy
 		where += " AND (ea.email ILIKE $" + n + " OR o.name ILIKE $" + n + ")"
 	}
 	if search.Cursor != "" {
-		cursor, err := uuid.Parse(search.Cursor)
-		if err != nil {
+		// The token carries the boundary itself, so a row that moves or is
+		// deleted between pages cannot shift or empty the next page.
+		at, id, xerr := paging.DecodeTimeCursor(search.Cursor)
+		if xerr != nil {
 			return nil, ErrAdminSyncBadCursor
 		}
-		args = append(args, cursor)
-		n := itoa(len(args))
-		// Keyset on (updated_at, email_id); the cursor is the last row's id and
-		// its updated_at is looked up so the token stays a plain uuid.
-		where += " AND (s.updated_at, s.email_id) < ((SELECT c.updated_at FROM email_sync_state c WHERE c.email_id = $" + n + "), $" + n + "::uuid)"
+		args = append(args, at, id)
+		n := len(args)
+		where += " AND (s.updated_at, s.email_id) < ($" + itoa(n-1) + "::timestamptz, $" + itoa(n) + "::uuid)"
 	}
 	args = append(args, limit+1)
 
@@ -153,7 +153,7 @@ func (r *adminSyncRepository) Search(ctx context.Context, search *models.AdminSy
 	}
 	if len(items) > limit {
 		result.Data = items[:limit]
-		result.Pagination.NextCursor = paging.UUIDString(items[limit-1].EmailID)
+		result.Pagination.NextCursor = paging.EncodeTime(items[limit-1].UpdatedAt, items[limit-1].EmailID)
 	}
 
 	const summary = `
@@ -186,7 +186,7 @@ func (r *adminSyncRepository) ClearThrottle(ctx context.Context, emailID uuid.UU
 	const q = `
 		UPDATE email_sync_state
 		SET throttled_until = NULL, throttle_reason = '', updated_at = now()
-		WHERE email_id = $1 AND throttled_until IS NOT NULL
+		WHERE email_id = $1 AND throttled_until > now()
 	`
 	tag, err := r.db.Exec(ctx, q, emailID)
 	if err != nil {

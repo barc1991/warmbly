@@ -2,9 +2,8 @@ package jobs
 
 import (
 	"context"
+	"fmt"
 	"time"
-
-	"github.com/warmbly/warmbly/internal/observability/errs"
 
 	"github.com/warmbly/warmbly/internal/app/orgtransfer"
 	"github.com/warmbly/warmbly/internal/jobrun"
@@ -30,13 +29,14 @@ func NewOrgTransferJob(svc orgtransfer.Service) *OrgTransferJob {
 
 // Run performs one tick. Errors are reported and swallowed so the scheduler
 // keeps ticking; the next tick retries whatever did not land.
-func (j *OrgTransferJob) Run(ctx context.Context) {
+func (j *OrgTransferJob) Run(ctx context.Context) error {
 	if j.svc == nil {
-		return
+		return nil
 	}
 	if _, err := j.svc.PurgeExpiredExports(ctx); err != nil {
-		errs.CaptureException(err)
+		return fmt.Errorf("purge expired exports: %w", err)
 	}
+	return nil
 }
 
 // OrgTransferScheduler runs the job on a fixed interval.
@@ -60,10 +60,7 @@ func NewOrgTransferScheduler(job *OrgTransferJob, interval time.Duration) *OrgTr
 func (s *OrgTransferScheduler) Start(ctx context.Context) {
 	ctx, cancel := stopContext(ctx, s.stopCh)
 	defer cancel()
-	jobrun.Loop(ctx, "org_transfer_housekeeping", s.interval, true, func(ctx context.Context) error {
-		s.job.Run(ctx)
-		return nil
-	})
+	jobrun.Loop(ctx, "org_transfer_housekeeping", s.interval, true, s.job.Run)
 }
 
 // Stop halts the scheduler.
