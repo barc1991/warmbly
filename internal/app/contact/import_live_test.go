@@ -761,7 +761,7 @@ func TestLiveImportPinsRowsIntoSegments(t *testing.T) {
 	if res.Imported != 2 {
 		t.Fatalf("imported = %d, want 2", res.Imported)
 	}
-	if !res.SegmentsPinned {
+	if res.SegmentsPinned == nil || !*res.SegmentsPinned {
 		t.Fatalf("result does not report the pin: %+v", res.Errors)
 	}
 
@@ -797,6 +797,17 @@ func TestLiveImportPinsRowsIntoSegments(t *testing.T) {
 		t.Fatalf("segment holds %v, want all three rows", got)
 	}
 
+	// No targets at all leaves the flag absent, so a caller can tell "nothing
+	// to pin" apart from "the pin failed".
+	res, msg = f.commit(t, simpleCSV([]string{"untargeted-" + tag + "@i381.test"}),
+		&models.ContactImportCommit{Mapping: emailOnlyMapping(), Dedup: models.ContactImportDedupSkip, HasHeader: true})
+	if msg != "" {
+		t.Fatalf("untargeted commit: %s", msg)
+	}
+	if res.SegmentsPinned != nil {
+		t.Fatalf("import with no segment targets reported segments_pinned=%v", *res.SegmentsPinned)
+	}
+
 	// A segment id from another organization is refused up front rather than
 	// dropping the pin silently.
 	gone := uuid.NewString()
@@ -813,7 +824,7 @@ func TestLiveImportPinsRowsIntoSegments(t *testing.T) {
 	if msg != "" {
 		t.Fatalf("lenient commit: %s", msg)
 	}
-	if res.Imported != 1 || !res.SegmentsPinned {
+	if res.Imported != 1 || res.SegmentsPinned == nil || !*res.SegmentsPinned {
 		t.Fatalf("lenient run: imported=%d pinned=%v", res.Imported, res.SegmentsPinned)
 	}
 	if got := members(); len(got) != 4 {

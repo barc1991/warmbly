@@ -156,10 +156,12 @@ type ContactImportResult struct {
 	// "showing the first N of M" instead of implying it listed everything.
 	ErrorsTruncated bool `json:"errors_truncated,omitempty"`
 
-	// SegmentsPinned is true when the import had segment targets and every
-	// membership write landed. False with targets set means the reason is in
-	// Errors, so the UI never claims a pin that did not happen.
-	SegmentsPinned bool `json:"segments_pinned,omitempty"`
+	// SegmentsPinned is nil when the import had no segment targets to write.
+	// With targets it is true when every membership write landed and false
+	// when one did not, with the reason among the notes. A plain bool could
+	// not carry that third state: omitempty drops false, so a failed pin
+	// looked exactly like an import that never asked for one.
+	SegmentsPinned *bool `json:"segments_pinned,omitempty"`
 
 	// Quality is what the uploaded addresses look like, measured at import.
 	// Advisory: a bad list is reported here and stopped at launch, never

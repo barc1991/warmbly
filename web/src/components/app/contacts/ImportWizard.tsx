@@ -888,6 +888,22 @@ export function ResultStep({
                 <StatCard label="Failed"    value={result.failed}   accent={result.failed > 0 ? "red" : "slate"} />
             </div>
 
+            {result.segments_pinned === false && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
+                    <AlertTriangleIcon className="w-3.5 h-3.5 mt-px shrink-0 text-amber-600" />
+                    <div className="min-w-0">
+                        <p className="text-[12.5px] font-medium text-amber-900">
+                            The contacts are in, but not in the segment
+                        </p>
+                        <p className="text-[11.5px] text-amber-800/90 leading-relaxed mt-0.5">
+                            The rows imported, and the membership write did not land. The reason is in the notes below.
+                            Select them in your contact list and use <span className="font-medium">Segment</span> to add
+                            them, or run the import again.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {result.quality?.flagged && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
                     <AlertTriangleIcon className="w-3.5 h-3.5 mt-px shrink-0 text-amber-600" />

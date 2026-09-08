@@ -545,13 +545,14 @@ func (s *contactService) ImportCommit(
 	// is a note, not a failed import: the contacts themselves are in, and the
 	// result says the pin did not land so the UI does not claim it did.
 	if len(segmentIDs) > 0 && len(touched) > 0 {
-		res.SegmentsPinned = true
+		pinned := true
 		for _, segID := range segmentIDs {
 			if _, xerr := s.segmentLinker.SetMembers(ctx, orgID, segID, touched, models.SegmentMemberInclude); xerr != nil {
-				res.SegmentsPinned = false
+				pinned = false
 				warn(0, "", nil, "imported contacts could not be added to a segment: "+xerr.Message)
 			}
 		}
+		res.SegmentsPinned = &pinned
 	}
 
 	res.EndedAt = time.Now().UTC()
