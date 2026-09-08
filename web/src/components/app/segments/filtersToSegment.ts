@@ -24,7 +24,7 @@ export function filtersToSegment(f: SearchContacts, campaignID?: string): Segmen
     const conditions: SegmentCondition[] = [];
     const dropped: string[] = [];
 
-    for (const cf of f.filters) {
+    for (const cf of f.custom_field_filters) {
         const name = cf.name.trim();
         const op = TEXT_OPS[cf.type];
         if (!name || !op) continue;
