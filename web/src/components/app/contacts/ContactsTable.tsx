@@ -117,7 +117,7 @@ export default function ContactsTable({
 }: {
     current_campaign?: MiniCampaign;
     // Scope the list to one segment's members (the segment detail page).
-    segment?: { id: string; name: string };
+    segment?: { id: string; name: string; color?: string };
 }) {
     const confirm = useConfirm();
     const segmentMembers = useSetSegmentMembers();
@@ -487,7 +487,7 @@ export default function ContactsTable({
                                         ? "Pick people from your contacts, import a file, or add one by hand. The linked segments could not be loaded."
                                         : "Pick people from your contacts, link a segment, import a file, or add one by hand."
                                 : segment
-                                    ? "Nobody matches its conditions yet. Adjust them or pin contacts in."
+                                    ? "Nothing matches it yet. Pin people in from your contacts, import a file, or add one by hand."
                                     : "Add or upload contacts to get started."
             }
             emptyCta={
@@ -530,6 +530,29 @@ export default function ContactsTable({
                             onClick={() => setImportOpen(true)}
                         >
                             Import file
+                        </TopbarAction>
+                    </div>
+                ) : segment ? (
+                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                        <TopbarAction
+                            icon={<UsersIcon className="w-3 h-3" />}
+                            onClick={() => setFromContactsOpen(true)}
+                        >
+                            Add contacts
+                        </TopbarAction>
+                        <TopbarAction
+                            variant="ghost"
+                            icon={<UploadIcon className="w-3 h-3" />}
+                            onClick={() => setImportOpen(true)}
+                        >
+                            Import file
+                        </TopbarAction>
+                        <TopbarAction
+                            variant="ghost"
+                            icon={<UserPlusIcon className="w-3 h-3" />}
+                            onClick={() => setNewOpen(true)}
+                        >
+                            New contact
                         </TopbarAction>
                     </div>
                 ) : (
@@ -934,8 +957,9 @@ export default function ContactsTable({
             <ImportWizard
                 open={importOpen}
                 onClose={() => setImportOpen(false)}
+                lockedSegment={segment}
             />
-            <SyncSourcesPanel open={syncOpen} onClose={() => setSyncOpen(false)} />
+            <SyncSourcesPanel open={syncOpen} onClose={() => setSyncOpen(false)} segment={segment} />
         </Page>
     );
 }
