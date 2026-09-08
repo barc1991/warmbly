@@ -461,11 +461,14 @@ function TriggerNode({ data }: NodeProps) {
         inFlight.current = inFlight.current
             .catch(() => {})
             .then(() => updateCampaign.mutateAsync({ entry_delay_minutes: next }))
-            .catch((err) => {
+            .catch(async (err) => {
                 toast.error(buildError(err as AppError));
                 // Put the optimistic value back where the server left it, so a
-                // refused save does not leave the card claiming a delay it never got.
-                void qc.invalidateQueries({ queryKey: ["campaigns", campaignId] });
+                // refused save does not leave the card claiming a delay it never
+                // got. Awaited so the recovery refetch stays INSIDE the chain: a
+                // detached one could land after the next commit's optimistic
+                // write and put the stale value back on the card.
+                await qc.invalidateQueries({ queryKey: ["campaigns", campaignId] });
             });
     };
 
