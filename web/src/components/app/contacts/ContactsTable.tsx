@@ -544,6 +544,8 @@ export default function ContactsTable({
             hasNextPage={!!contactsData.hasNextPage}
             isFetchingNextPage={contactsData.isFetchingNextPage}
             onLoadMore={() => contactsData.fetchNextPage()}
+            loadedCount={contacts?.length ?? 0}
+            totalCount={total}
         />
     );
 
@@ -958,6 +960,8 @@ function ContactsTableBody({
     hasNextPage,
     isFetchingNextPage,
     onLoadMore,
+    loadedCount,
+    totalCount,
 }: {
     embedded?: boolean;
     isLoading: boolean;
@@ -999,6 +1003,9 @@ function ContactsTableBody({
     hasNextPage: boolean;
     isFetchingNextPage: boolean;
     onLoadMore: () => void;
+    // How far through the list we are, so "Load more" says how much is left.
+    loadedCount: number;
+    totalCount: number;
 }) {
     if (isLoading) {
         return (
@@ -1015,7 +1022,10 @@ function ContactsTableBody({
             </div>
         );
     }
-    if (isError) {
+    // A page that fails after rows are already on screen is reported in the
+    // footer instead; throwing away 500 loaded leads because page 13 failed is
+    // worse than the failure.
+    if (isError && contacts.length === 0) {
         return (
             <div className="px-5 py-12 text-center">
                 <div className="mx-auto mb-3 size-8 rounded-md bg-red-50 text-red-600 flex items-center justify-center">
@@ -1297,7 +1307,30 @@ function ContactsTableBody({
                     })}
                 </tbody>
             </table>
-            {hasNextPage && (
+            {isError ? (
+                <div className="px-5 py-3 flex flex-col items-center gap-2 border-t border-slate-200/60">
+                    <p className="text-[11.5px] text-slate-500 text-center max-w-[52ch] leading-relaxed">
+                        <AlertTriangleIcon className="w-3 h-3 inline-block mr-1 -mt-px text-red-500" />
+                        {errorMessage}
+                    </p>
+                    <button
+                        type="button"
+                        // Retry the page that failed when there is one; a
+                        // refetch of the whole list otherwise, so the button
+                        // always does something.
+                        onClick={hasNextPage ? onLoadMore : onRetry}
+                        disabled={hasNextPage ? isFetchingNextPage : isRefetching}
+                        className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    >
+                        {(hasNextPage ? isFetchingNextPage : isRefetching) ? (
+                            <Loader2Icon className="w-3 h-3 animate-spin" />
+                        ) : (
+                            <RefreshCcwIcon className="w-3 h-3" />
+                        )}
+                        Try again
+                    </button>
+                </div>
+            ) : hasNextPage ? (
                 <div className="px-5 py-3 flex justify-center border-t border-slate-200/60">
                     <button
                         onClick={onLoadMore}
@@ -1313,11 +1346,16 @@ function ContactsTableBody({
                             <>
                                 <PlusIcon className="w-3 h-3" />
                                 Load more
+                                {totalCount > loadedCount && (
+                                    <span className="text-slate-400">
+                                        · {loadedCount.toLocaleString()} of {totalCount.toLocaleString()}
+                                    </span>
+                                )}
                             </>
                         )}
                     </button>
                 </div>
-            )}
+            ) : null}
         </>
     );
 }
