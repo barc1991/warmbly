@@ -209,6 +209,52 @@ func TestLiveContactPaginationExportsEveryRow(t *testing.T) {
 	assertExactlyOnce(t, ids, f.total)
 }
 
+// The filters that append their own bound parameters sit either side of the
+// cursor's in the argument list, and a segment condition compiles a whole SQL
+// fragment of its own. Page through each of them so a shifted placeholder
+// shows up as a wrong or missing row rather than in production.
+func TestLiveContactPaginationWalksFilteredLists(t *testing.T) {
+	handle, pool := liveContactDB(t)
+	f := newPagedOrgFixture(t, pool, 137)
+	repo := NewContactRepostory(handle)
+	segments := NewSegmentRepository(handle)
+
+	// Every lead is in exactly one campaign and every email carries the org tag,
+	// so each of these scopes the list to the whole fixture.
+	one := 1
+	seg, xerr := segments.Create(context.Background(), f.org, &f.user, &models.Segment{
+		Name:  "Everyone " + f.org.String()[:8],
+		Color: "#0284c7",
+		Match: models.SegmentMatchAll,
+		Conditions: []models.SegmentCondition{
+			{Field: "email", Operator: "contains", Value: "i382-"},
+		},
+	})
+	if xerr != nil {
+		t.Fatalf("create segment: %v", xerr)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), `DELETE FROM segments WHERE organization_id = $1`, f.org); err != nil {
+			t.Errorf("cleanup segments: %v", err)
+		}
+	})
+
+	for name, filters := range map[string]models.SearchContacts{
+		"query":         {CampaignIDs: []string{f.campaign.String()}, Query: "i382-"},
+		"min campaigns": {CampaignIDs: []string{f.campaign.String()}, MinCampaigns: &one},
+		"max campaigns": {CampaignIDs: []string{f.campaign.String()}, MaxCampaigns: &one},
+		"segment":       {SegmentIDs: []string{seg.ID.String()}},
+		"segment sorted by campaign count": {
+			SegmentIDs: []string{seg.ID.String()}, MinCampaigns: &one, SortBy: "campaign_count", Reverse: true,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			seen, _ := pageThrough(t, repo, f.org.String(), filters, 10)
+			assertExactlyOnce(t, seen, f.total)
+		})
+	}
+}
+
 // A token minted under one ordering describes a position that does not exist
 // under another, and a token from the old id-only format is not a position at
 // all. Both are client contract errors, not silently wrong pages.
