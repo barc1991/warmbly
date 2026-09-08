@@ -107,9 +107,17 @@ func (s *schedulerService) CalculateNextCampaignTime(ctx context.Context, campai
 		// and re-check exactly when the soonest one elapses, instead of
 		// marking the campaign complete.
 		if recheckAt != nil {
-			s.logCampaignDecision(ctx, campaignID, "awaiting_next_step",
-				"No step is due yet; re-checking when the next wait elapses",
-				map[string]interface{}{"recheck_at": recheckAt.UTC().Format(time.RFC3339)})
+			// Once per day, not once per pass: a deferred chain re-finds this
+			// every ~15 minutes, and a campaign holding its first emails for two
+			// days would otherwise write two hundred identical activity lines.
+			message := "No step is due yet; re-checking when the next wait elapses"
+			metadata := map[string]interface{}{"recheck_at": recheckAt.UTC().Format(time.RFC3339)}
+			if campaign.EntryDelayMinutes > 0 {
+				message += fmt.Sprintf(" (this campaign holds the first email for %s after a contact enters it)",
+					humanizeMinutes(campaign.EntryDelayMinutes))
+				metadata["entry_delay_minutes"] = campaign.EntryDelayMinutes
+			}
+			s.logCampaignDecisionOnce(ctx, campaignID, "awaiting_next_step", message, metadata)
 			return *recheckAt, nil, accounts[0].ID, ErrCampaignDeferred
 		}
 		return time.Time{}, nil, uuid.Nil, ErrCampaignCompleted
@@ -123,6 +131,25 @@ func (s *schedulerService) CalculateNextCampaignTime(ctx context.Context, campai
 	// already-sent loops drop the contact in the finder. Conditions are evaluated
 	// at schedule time (a known, accepted race vs. last-moment engagement).
 	return s.placeCampaignSend(ctx, campaign, accounts, senderMetaByID, nextPair, false)
+}
+
+// humanizeMinutes renders a delay as the largest whole unit it divides into
+// ("2 days", "4 hours", "90 minutes") for the campaign activity feed.
+func humanizeMinutes(minutes int) string {
+	unit := func(n int, name string) string {
+		if n == 1 {
+			return "1 " + name
+		}
+		return fmt.Sprintf("%d %ss", n, name)
+	}
+	switch {
+	case minutes%(24*60) == 0:
+		return unit(minutes/(24*60), "day")
+	case minutes%60 == 0:
+		return unit(minutes/60, "hour")
+	default:
+		return unit(minutes, "minute")
+	}
 }
 
 // senderMeta is a mailbox's campaign_senders rotation metadata.

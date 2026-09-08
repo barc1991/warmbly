@@ -153,7 +153,7 @@ Within a window Warmbly spreads the day's emails evenly, adds random jitter, and
 
 The spread covers every mailbox on the campaign, not one at a time: the day's remaining capacity across the whole sending pool is paced across the hours left in the window. Adding a second healthy mailbox roughly doubles how fast a campaign works through its leads, while each mailbox still stays inside its own daily cap, hourly ceiling and minimum gap.
 
-When nothing is due (every lead is inside a step's wait, for example), the campaign re-checks itself at least every `15` minutes rather than sleeping until the next step falls due. Leads added to a running campaign start sending straight away, without waiting for the next step or a restart, unless the campaign sets a delay before the first email.
+When nothing is due (every lead is inside a step's wait, for example), the campaign re-checks itself at least every `15` minutes rather than sleeping until the next step falls due; the activity log notes it once a day rather than on every check. Leads added to a running campaign start sending straight away, without waiting for the next step or a restart, unless the campaign sets a delay before the first email.
 
 ### Delay before the first email
 
