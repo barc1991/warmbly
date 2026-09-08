@@ -16,6 +16,7 @@ import {
     CheckIcon,
     EyeIcon,
     GaugeIcon,
+    HourglassIcon,
     ListChecksIcon,
     RocketIcon,
     XIcon,
@@ -29,6 +30,7 @@ import usePreflight from "@/lib/api/hooks/app/campaigns/usePreflight";
 import getSequences from "@/lib/api/client/app/campaigns/sequences/getSequences";
 import { preflightFailures } from "@/lib/api/models/app/campaigns/Preflight";
 import { isIdleCampaign } from "@/components/app/campaigns/status";
+import { entryDelayLabel } from "@/components/app/campaigns/schedule/entryDelay";
 import type { StartCampaignResult } from "@/lib/api/client/app/campaigns/startCampaign";
 
 type Phase = "idle" | "launching" | "done";
@@ -270,6 +272,24 @@ export default function LaunchCampaignDialog({
                                             }
                                         />
                                     </div>
+
+                                    {/* The entry delay makes a launch look like nothing happened:
+                                        say so before it is pressed, not after. */}
+                                    {c.entry_delay_minutes > 0 && (
+                                        <div className="px-5 pt-3">
+                                            <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2">
+                                                <HourglassIcon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" />
+                                                <p className="text-[12px] leading-snug text-slate-600">
+                                                    First emails wait{" "}
+                                                    <span className="font-medium text-slate-900">
+                                                        {entryDelayLabel(c.entry_delay_minutes).toLowerCase()}
+                                                    </span>{" "}
+                                                    after each contact entered the campaign, so the first sends may not
+                                                    go out today.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Pre-send checks */}
                                     {preflight.isFetching ? (

@@ -220,6 +220,13 @@ func (s *schedulerService) placeCampaignSend(ctx context.Context, campaign *mode
 		baseTime = lastSentTime.Add(waitDuration)
 	}
 
+	// Routing's own floor for this pair: the campaign's entry delay for a first
+	// step, a preceding wait node's minutes for a follow-up. Honouring it here
+	// keeps the placer from handing back a slot the router would refuse.
+	if nextPair.NotBefore != nil && nextPair.NotBefore.After(baseTime) {
+		baseTime = *nextPair.NotBefore
+	}
+
 	// STEP 5: Apply campaign schedule constraints
 	// Fall back to UTC if campaign has no timezone set (account timezone checked later)
 	campaignTZName := campaign.Timezone

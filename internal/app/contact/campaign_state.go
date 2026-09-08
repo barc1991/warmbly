@@ -101,6 +101,29 @@ func (s *contactService) fillNextAction(ctx context.Context, st *models.ContactC
 	st.Next = next
 }
 
+// humanizeUntil renders how long is left until t as the drawer's short phrase
+// ("2 days", "4 hours", "a moment"), rounding to the largest whole unit.
+func humanizeUntil(t time.Time) string {
+	d := time.Until(t)
+	if d < time.Minute {
+		return "a moment"
+	}
+	plural := func(n int, unit string) string {
+		if n == 1 {
+			return fmt.Sprintf("1 %s", unit)
+		}
+		return fmt.Sprintf("%d %ss", n, unit)
+	}
+	switch {
+	case d < time.Hour:
+		return plural(int(math.Round(d.Minutes())), "minute")
+	case d < 24*time.Hour:
+		return plural(int(math.Round(d.Hours())), "hour")
+	default:
+		return plural(int(math.Round(d.Hours()/24)), "day")
+	}
+}
+
 // constraintCopy turns the scheduler's gate into the sentence the drawer shows.
 func constraintCopy(c scheduler.ContactSendConstraint, st *models.ContactCampaignState, dueAt *time.Time, current string) string {
 	switch c {
@@ -116,6 +139,11 @@ func constraintCopy(c scheduler.ContactSendConstraint, st *models.ContactCampaig
 			}
 		}
 		return "Waiting for the step's delay after " + current
+	case scheduler.ConstraintEntryDelay:
+		if dueAt != nil {
+			return "Waiting " + humanizeUntil(*dueAt) + " before the first email"
+		}
+		return "Waiting the campaign's delay before the first email"
 	case scheduler.ConstraintConditionWindow:
 		return "Waiting to see how they respond to " + current
 	case scheduler.ConstraintStartDate:
