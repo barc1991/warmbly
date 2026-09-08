@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -23,16 +24,14 @@ func (s *JobsService) StartWorkerHeartbeatSync(ctx context.Context, interval tim
 	jobrun.Loop(ctx, "worker_heartbeat_sync", interval, false, func(ctx context.Context) error {
 		runCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
-		s.syncHeartbeats(runCtx)
-		return nil
+		return s.syncHeartbeats(runCtx)
 	})
 }
 
-func (s *JobsService) syncHeartbeats(ctx context.Context) {
+func (s *JobsService) syncHeartbeats(ctx context.Context) error {
 	workers, err := s.WorkerRepo.GetAllActiveWorkers(ctx)
 	if err != nil {
-		log.Warn().Err(err).Msg("heartbeat sync: list workers failed")
-		return
+		return fmt.Errorf("heartbeat sync: list workers: %w", err)
 	}
 
 	for _, w := range workers {
@@ -52,4 +51,5 @@ func (s *JobsService) syncHeartbeats(ctx context.Context) {
 			log.Warn().Err(err).Str("worker_id", w.ID.String()).Msg("heartbeat sync: update failed")
 		}
 	}
+	return nil
 }

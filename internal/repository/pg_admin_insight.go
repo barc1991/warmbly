@@ -222,7 +222,7 @@ func (r *adminInsightRepository) Acquisition(ctx context.Context, days int) (*mo
 	}
 
 	const totals = cohort + `
-		SELECT COUNT(*)::int, COUNT(*) FILTER (WHERE source <> '')::int, COUNT(*) FILTER (WHERE converted)::int
+		SELECT COUNT(*)::int, COUNT(*) FILTER (WHERE source <> '' OR medium <> '')::int, COUNT(*) FILTER (WHERE converted)::int
 		FROM cohort
 	`
 	if err := r.db.QueryRow(ctx, totals, days).Scan(&out.Signups, &out.WithChannel, &out.Converted); err != nil {

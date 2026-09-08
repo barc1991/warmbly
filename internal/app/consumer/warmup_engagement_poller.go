@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -19,20 +20,16 @@ func (s *JobsService) StartWarmupEngagementPoller(ctx context.Context, interval 
 	if s.WarmupEngagementRepo == nil || s.Publisher == nil {
 		return
 	}
-	jobrun.Loop(ctx, "warmup_engagement_poller", interval, false, func(ctx context.Context) error {
-		s.drainDueEngagements(ctx)
-		return nil
-	})
+	jobrun.Loop(ctx, "warmup_engagement_poller", interval, false, s.drainDueEngagements)
 }
 
-func (s *JobsService) drainDueEngagements(ctx context.Context) {
+func (s *JobsService) drainDueEngagements(ctx context.Context) error {
 	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	due, err := s.WarmupEngagementRepo.ClaimDuePendingEngagements(cctx, 200)
 	if err != nil {
-		log.Warn().Err(err).Msg("warmup engagement poller: claim failed")
-		return
+		return fmt.Errorf("warmup engagement poller: claim: %w", err)
 	}
 
 	for _, p := range due {
@@ -56,4 +53,5 @@ func (s *JobsService) drainDueEngagements(ctx context.Context) {
 		action.DelaySeconds = 0 // dwell already elapsed; run immediately
 		s.Publisher.PublishWarmupAction(cctx, *account.WorkerID, &action)
 	}
+	return nil
 }
