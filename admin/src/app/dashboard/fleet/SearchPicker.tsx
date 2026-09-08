@@ -161,7 +161,7 @@ export function SearchPicker<T>({
                                 key={getKey(t)}
                                 id={`${listId}-${i}`}
                                 role="option"
-                                aria-selected={i === highlight}
+                                aria-selected={false}
                                 type="button"
                                 onMouseEnter={() => setHighlight(i)}
                                 onClick={() => pick(t)}
