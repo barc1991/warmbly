@@ -560,7 +560,9 @@ export default function WorkerDetailPage() {
                             }}
                         >
                             <ArrowRightLeft className="size-4" />
-                            {selected.size > 0 ? `Move ${selected.size} to worker…` : "Move all to worker…"}
+                            {selected.size > 0
+                                ? `Move ${selected.size} to worker…`
+                                : `Move ${mailboxes.length} shown to worker…`}
                         </Button>
                     </CardTitle>
                     <CardDescription>

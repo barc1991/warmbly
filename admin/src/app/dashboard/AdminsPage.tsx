@@ -60,8 +60,11 @@ export default function AdminsPage() {
 
     async function onRevoke(a: AdminInfo) {
         const isSelf = a.id === me.data?.id;
+        // `granters` only covers the current page, so the claim is only safe
+        // when the whole list is on screen.
+        const fullListShown = !pager.canPrev && !adminsQ.data?.pagination.has_more;
         const lastGranter =
-            hasBit(a.admin_permissions, AdminPerm.GrantAdminAccess) && granters.length <= 1 && !adminsQ.data?.pagination.has_more;
+            hasBit(a.admin_permissions, AdminPerm.GrantAdminAccess) && granters.length <= 1 && fullListShown;
         const warnings: string[] = [];
         if (isSelf) warnings.push("This is your own account: you will lose access to this panel immediately.");
         if (lastGranter)

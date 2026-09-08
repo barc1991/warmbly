@@ -3,7 +3,7 @@
 // mousedown stopPropagation cannot swallow it) and on Escape, which it stops
 // from reaching the surrounding dialog so only the innermost layer closes.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Loader2, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ export function SearchPicker<T>({
 }: SearchPickerProps<T>) {
     const [term, setTerm] = useState("");
     const [debounced, setDebounced] = useState("");
+    const listId = useId();
     const [open, setOpen] = useState(false);
     const [highlight, setHighlight] = useState(0);
     const rootRef = useRef<HTMLDivElement>(null);
@@ -134,6 +135,9 @@ export function SearchPicker<T>({
                 className="h-8 pl-8 pr-8 text-[12.5px]"
                 role="combobox"
                 aria-expanded={open}
+                aria-controls={listId}
+                aria-autocomplete="list"
+                aria-activedescendant={open && items[highlight] ? `${listId}-${highlight}` : undefined}
             />
             {isFetching && (
                 <Loader2 className="absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
@@ -141,6 +145,8 @@ export function SearchPicker<T>({
             {open && term.trim().length > 0 && (
                 <div
                     data-floating
+                    id={listId}
+                    role="listbox"
                     className="absolute left-0 right-0 z-40 mt-1 max-h-64 overflow-auto rounded-md border border-border bg-popover p-1 shadow-md"
                 >
                     {!enabled ? (
@@ -153,6 +159,9 @@ export function SearchPicker<T>({
                         items.map((t, i) => (
                             <button
                                 key={getKey(t)}
+                                id={`${listId}-${i}`}
+                                role="option"
+                                aria-selected={i === highlight}
                                 type="button"
                                 onMouseEnter={() => setHighlight(i)}
                                 onClick={() => pick(t)}

@@ -120,7 +120,11 @@ export function WebhooksTab() {
     async function onReclaim() {
         const ok = await confirm({
             title: "Reclaim stuck deliveries?",
-            description: `Deliveries claimed longer ago than the ${data?.lease_minutes ?? ""} minute lease are handed back to the queue so a delivery worker can pick them up again. An endpoint may receive a duplicate if the original attempt did complete after its lease expired.`,
+            description: `${
+                data
+                    ? `Deliveries claimed longer ago than the ${data.lease_minutes} minute lease`
+                    : "Deliveries claimed longer ago than the lease window"
+            } are handed back to the queue so a delivery worker can pick them up again. An endpoint may receive a duplicate if the original attempt did complete after its lease expired.`,
             confirmLabel: "Reclaim",
         });
         if (!ok) return;

@@ -198,6 +198,14 @@ export default function MailboxesPage() {
         setWorkerId(workerParam);
     }, [workerParam]);
 
+    // The page stays mounted when the palette lands here again with another
+    // ?q=, so the search box follows the URL rather than only its first value.
+    const qParam = params.get("q") ?? "";
+    useEffect(() => {
+        setQuery(qParam);
+        if (qParam) setStatus("all");
+    }, [qParam]);
+
     const { data: workersData } = useQuery({ queryKey: ["admin", "workers", "managed"], queryFn: listManagedWorkers, staleTime: 60_000 });
     const workerOptions = [
         { value: "any", label: "Any worker" },

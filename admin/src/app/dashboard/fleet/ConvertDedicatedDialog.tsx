@@ -184,7 +184,14 @@ export function ConvertDedicatedDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
+                    <Button
+                        variant="outline"
+                        onClick={() => {
+                            reset();
+                            onOpenChange(false);
+                        }}
+                        disabled={mutation.isPending}
+                    >
                         Cancel
                     </Button>
                     <Button onClick={() => mutation.mutate()} disabled={!canSubmit || mutation.isPending}>

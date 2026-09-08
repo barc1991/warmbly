@@ -21,6 +21,7 @@ export function StatusSegments<T extends string>({
                     <button
                         key={o.value}
                         type="button"
+                        aria-pressed={active}
                         onClick={() => onChange(o.value)}
                         className={cn(
                             "inline-flex items-center gap-1.5 rounded px-2 py-1 transition-colors",

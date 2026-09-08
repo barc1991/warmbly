@@ -25,6 +25,18 @@ export function MobileNav({ open, onOpenChange }: Props) {
         onOpenChange(false);
     }, [routeKey, onOpenChange]);
 
+    // The sheet body is hidden at md but its overlay is not, so a resize to
+    // desktop with the drawer open would leave an invisible click shield.
+    useEffect(() => {
+        const media = window.matchMedia("(min-width: 768px)");
+        const closeOnDesktop = () => {
+            if (media.matches) onOpenChange(false);
+        };
+        closeOnDesktop();
+        media.addEventListener("change", closeOnDesktop);
+        return () => media.removeEventListener("change", closeOnDesktop);
+    }, [onOpenChange]);
+
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent

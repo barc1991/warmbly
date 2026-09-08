@@ -68,7 +68,9 @@ export default function SyncPage() {
 
     function setParam(key: "state" | "q", value: string) {
         const next = new URLSearchParams(params);
-        if (value && value !== "all") next.set(key, value);
+        // "all" is the state filter's default, not a search term.
+        const isDefault = key === "state" && value === "all";
+        if (value && !isDefault) next.set(key, value);
         else next.delete(key);
         setParams(next, { replace: true });
     }

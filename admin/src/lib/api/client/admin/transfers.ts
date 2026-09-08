@@ -73,12 +73,26 @@ export function expandGroups(
 }
 
 // The selected groups that depend on `key`, so unticking it can explain itself.
+// dependentsOf walks the requirement graph transitively, so unticking a group
+// also drops everything that needs it through another group.
 export function dependentsOf(
     key: OrgDataGroup,
     selected: Set<OrgDataGroup>,
     catalog: OrgDataGroupInfo[] = ORG_DATA_GROUP_CATALOG,
 ): OrgDataGroupInfo[] {
-    return catalog.filter((g) => selected.has(g.key) && (g.requires ?? []).includes(key));
+    const out = new Map<OrgDataGroup, OrgDataGroupInfo>();
+    const queue: OrgDataGroup[] = [key];
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        for (const g of catalog) {
+            if (out.has(g.key) || !selected.has(g.key) || g.key === key) continue;
+            if ((g.requires ?? []).includes(current)) {
+                out.set(g.key, g);
+                queue.push(g.key);
+            }
+        }
+    }
+    return [...out.values()];
 }
 
 export interface OrgArchiveUser {

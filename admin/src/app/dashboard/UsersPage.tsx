@@ -243,7 +243,7 @@ export default function UsersPage() {
 
     return (
         <div>
-            <PageHeader title="Users" description="Every account on the platform. Filter by identity, plan, subscription, account state, usage, and timeline — then drill in to ban, unban, or override limits." />
+            <PageHeader title="Users" description="Every account on the platform. Filter by identity, subscription, account state, usage, and timeline — then drill in to ban, unban, or override limits." />
             <Explorer
                 activeCount={activeCount}
                 onReset={resetAll}

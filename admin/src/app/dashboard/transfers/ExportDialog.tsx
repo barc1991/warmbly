@@ -136,6 +136,8 @@ export function ExportDialog({
                                     </Label>
                                     <Input
                                         id="exp-pass"
+                                        aria-describedby="exp-pass-help"
+                                        aria-invalid={!!passphrase && passphrase.length < MIN_EXPORT_PASSPHRASE}
                                         type="password"
                                         autoComplete="new-password"
                                         value={passphrase}
@@ -149,6 +151,8 @@ export function ExportDialog({
                                     </Label>
                                     <Input
                                         id="exp-pass2"
+                                        aria-describedby="exp-pass-help"
+                                        aria-invalid={!!confirmPass && passphrase !== confirmPass}
                                         type="password"
                                         autoComplete="new-password"
                                         value={confirmPass}
@@ -156,7 +160,7 @@ export function ExportDialog({
                                         className="h-8 text-[12.5px]"
                                     />
                                 </div>
-                                <p className="text-[11px] text-muted-foreground sm:col-span-2">
+                                <p id="exp-pass-help" className="text-[11px] text-muted-foreground sm:col-span-2">
                                     At least {MIN_EXPORT_PASSPHRASE} characters. It is never stored: whoever imports the
                                     archive needs it, and there is no recovery.
                                     {passphrase && passphrase.length < MIN_EXPORT_PASSPHRASE && (

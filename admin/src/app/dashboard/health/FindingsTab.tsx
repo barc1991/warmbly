@@ -3,6 +3,7 @@
 // only checks that are not ok, so an empty response is a real all-clear.
 
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
 import {
     AlertTriangle,
@@ -214,7 +215,7 @@ function SummaryCard({
     iconClass: string;
 }) {
     return (
-        <div className={`rounded-lg border border-border bg-white p-3 ${tone}`}>
+        <div className={cn("rounded-lg border border-border bg-white p-3", tone)}>
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 <Icon className={`size-3.5 ${iconClass}`} />
                 {label}

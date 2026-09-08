@@ -151,6 +151,7 @@ export function OrgTransferTab({ orgId, orgName }: { orgId: string; orgName: str
                                                         className="text-red-700 hover:bg-red-50"
                                                         disabled={isTransferActive(j.status) || del.isPending}
                                                         onClick={() => void onDelete(j)}
+                                                        aria-label="Delete archive"
                                                     >
                                                         <Trash2 className="size-3" />
                                                     </Button>
