@@ -19,27 +19,49 @@ const UNIT_OPTIONS: SelectOption[] = [
 ];
 
 /**
- * Controlled on the value, uncontrolled on which row is showing, so a parent can
- * batch into a Save button (Schedule tab) or persist immediately (canvas).
+ * The amount and unit are held here rather than derived from `value` on every
+ * render, so the field stays responsive for a parent that only listens for the
+ * settled value.
+ *
+ * `onChange` fires on every edit — for a parent batching into a Save button.
+ * `onCommit` fires only when the value settles (a preset, a unit change, blur /
+ * Enter / a stepper click) — for a parent that persists immediately, which must
+ * not send one request per keystroke.
  */
 export default function EntryDelayPicker({
     value,
     onChange,
+    onCommit,
     disabled,
 }: {
     value: number;
-    onChange: (minutes: number) => void;
+    onChange?: (minutes: number) => void;
+    onCommit?: (minutes: number) => void;
     disabled?: boolean;
 }) {
     const isPreset = ENTRY_DELAY_PRESETS.some((p) => p.minutes === value);
     // "Custom" stays open once chosen, even while the typed value happens to
     // land on a preset, so typing 2 -> 24 hours does not yank the row away.
     const [custom, setCustom] = React.useState(!isPreset);
-    const { amount, unit } = splitEntryDelay(value);
+    const [draft, setDraft] = React.useState(() => splitEntryDelay(value));
+    // Re-seed when the value moves for a reason other than this field: a save
+    // landing, the Schedule tab's Reset, a teammate's edit arriving live.
+    React.useEffect(() => setDraft(splitEntryDelay(value)), [value]);
 
-    const setFromCustom = (nextAmount: number, nextUnit: EntryDelayUnit) => {
-        const minutes = Math.round(nextAmount) * ENTRY_DELAY_UNIT_MINUTES[nextUnit];
-        onChange(Math.max(0, Math.min(ENTRY_DELAY_MAX_MINUTES, minutes)));
+    const clamp = (minutes: number) => Math.max(0, Math.min(ENTRY_DELAY_MAX_MINUTES, minutes));
+
+    const pick = (minutes: number) => {
+        setCustom(false);
+        setDraft(splitEntryDelay(minutes));
+        onChange?.(minutes);
+        onCommit?.(minutes);
+    };
+
+    const editCustom = (amount: number, unit: EntryDelayUnit, settled: boolean) => {
+        setDraft({ amount, unit });
+        const minutes = clamp(Math.round(amount) * ENTRY_DELAY_UNIT_MINUTES[unit]);
+        onChange?.(minutes);
+        if (settled) onCommit?.(minutes);
     };
 
     const chip = (active: boolean) =>
@@ -57,10 +79,7 @@ export default function EntryDelayPicker({
                         key={p.minutes}
                         type="button"
                         disabled={disabled}
-                        onClick={() => {
-                            setCustom(false);
-                            onChange(p.minutes);
-                        }}
+                        onClick={() => pick(p.minutes)}
                         className={chip(!custom && value === p.minutes)}
                     >
                         {p.label}
@@ -74,16 +93,17 @@ export default function EntryDelayPicker({
                 <div className="flex items-center gap-2">
                     <div className="w-[110px]">
                         <NumberInput
-                            value={amount}
-                            onChange={(v) => setFromCustom(v, unit)}
+                            value={draft.amount}
+                            onChange={(v) => editCustom(v, draft.unit, false)}
+                            onCommit={(v) => editCustom(v, draft.unit, true)}
                             min={0}
-                            max={unit === "days" ? 90 : unit === "hours" ? 2160 : ENTRY_DELAY_MAX_MINUTES}
+                            max={ENTRY_DELAY_MAX_MINUTES / ENTRY_DELAY_UNIT_MINUTES[draft.unit]}
                             disabled={disabled}
                         />
                     </div>
                     <SelectMenu
-                        value={unit}
-                        onChange={(u) => setFromCustom(amount, u as EntryDelayUnit)}
+                        value={draft.unit}
+                        onChange={(u) => editCustom(draft.amount, u as EntryDelayUnit, true)}
                         options={UNIT_OPTIONS}
                         minWidth={130}
                         disabled={disabled}

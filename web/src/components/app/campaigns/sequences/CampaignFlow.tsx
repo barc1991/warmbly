@@ -499,7 +499,10 @@ function TriggerNode({ data }: NodeProps) {
                             child of this node, so its clicks would otherwise bubble
                             up the React tree into the canvas's node handler. */}
                         <div onClick={(e) => e.stopPropagation()}>
-                            <EntryDelayPicker value={minutes} onChange={save} disabled={!canEdit} />
+                            {/* onCommit, not onChange: this saves at once, so a
+                                typed custom amount must land on blur / Enter
+                                rather than once per keystroke. */}
+                            <EntryDelayPicker value={minutes} onCommit={save} disabled={!canEdit} />
                         </div>
                         <p className="mt-2 text-[11px] leading-snug text-slate-400">
                             Counted from when the contact entered this campaign.
