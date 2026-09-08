@@ -35,6 +35,12 @@ func (s *contactService) ResolveSelection(ctx context.Context, orgID uuid.UUID, 
 			fmt.Sprintf("that selection matches more than %d contacts; narrow it with a filter and try again", models.MaxContactBulkSelection))
 	}
 
+	// The cap above bounds the resolved set, not the request body: an
+	// exclusion list is caller-supplied and sized before anything is read.
+	if len(sel.Exclude) > models.MaxContactBulkSelection {
+		return nil, errx.NewWithIdentifier(errx.BadRequest, "too_many_contacts",
+			fmt.Sprintf("too many exclusions, maximum is %d", models.MaxContactBulkSelection))
+	}
 	excluded := make(map[uuid.UUID]struct{}, len(sel.Exclude))
 	for _, raw := range sel.Exclude {
 		id, err := uuid.Parse(strings.TrimSpace(raw))

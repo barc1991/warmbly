@@ -27,7 +27,9 @@ export function filtersToSegment(f: SearchContacts, campaignID?: string): Segmen
     for (const cf of f.custom_field_filters) {
         const name = cf.name.trim();
         const op = TEXT_OPS[cf.type];
-        if (!name || !op) continue;
+        // A half-filled pill never reaches the search, so it must not reach
+        // the segment either: the two would describe different audiences.
+        if (!name || !cf.value.trim() || !op) continue;
         conditions.push({ field: `custom.${name}`, operator: op, value: cf.value });
     }
     if (f.category_ids && f.category_ids.length > 0) {

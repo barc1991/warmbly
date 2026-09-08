@@ -87,9 +87,23 @@ describe("select all matching", () => {
         expect(sel.isEmpty(s, 1)).toBe(true);
     });
 
-    it("the header checkbox drops out of select-all entirely", () => {
+    it("the header checkbox puts unticked rows back before it clears", () => {
         let s = sel.selectAllMatching();
         s = sel.toggleRow(s, "a", false);
+        // Unchecked because one row on screen is out: click puts it back.
+        expect(sel.allLoadedSelected(s, loaded)).toBe(false);
+        s = sel.toggleLoaded(s, loaded);
+        expect(s.all).toBe(true);
+        expect(s.excluded).toEqual([]);
+        // Checked now, so the next click clears the whole selection.
         expect(sel.toggleLoaded(s, loaded)).toEqual(sel.emptySelection);
+    });
+
+    it("keeps exclusions on rows that are not on screen", () => {
+        let s = sel.selectAllMatching();
+        s = sel.toggleRow(s, "a", false);
+        s = sel.toggleRow(s, "off-screen", false);
+        s = sel.toggleLoaded(s, loaded);
+        expect(s.excluded).toEqual(["off-screen"]);
     });
 });

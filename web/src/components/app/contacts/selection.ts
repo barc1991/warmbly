@@ -47,11 +47,15 @@ export function allLoadedSelected(s: RowSelection, loaded: string[]): boolean {
 }
 
 /**
- * The header checkbox. In select-all mode it clears, since the box covers the
- * loaded rows and there is nothing partial to fall back to.
+ * The header checkbox, which reads the rows on screen. In select-all mode an
+ * unchecked box means some of them were unticked, so it puts those back rather
+ * than dropping a selection the user never asked to lose; a checked one clears.
  */
 export function toggleLoaded(s: RowSelection, loaded: string[]): RowSelection {
-    if (s.all) return emptySelection;
+    if (s.all) {
+        if (allLoadedSelected(s, loaded)) return emptySelection;
+        return { ...s, excluded: s.excluded.filter((id) => !loaded.includes(id)) };
+    }
     if (allLoadedSelected(s, loaded)) {
         return { ...s, ids: s.ids.filter((id) => !loaded.includes(id)) };
     }

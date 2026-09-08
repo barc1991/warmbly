@@ -468,7 +468,7 @@ export default function ContactsTable({
             contacts={rows}
             isRowSelected={isRowSelected}
             onToggle={(id, on) => setRowSel((s) => rowSelection.toggleRow(s, id, on))}
-            isSelectedAll={rowSel.all || loadedAllSelected}
+            isSelectedAll={loadedAllSelected}
             onToggleAll={toggleAll}
             banner={
                 <SelectAllBanner
