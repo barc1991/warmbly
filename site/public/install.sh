@@ -726,6 +726,49 @@ press_enter() {
     return 0
 }
 
+# offer_wizard asks a fresh install whether to configure itself, when nothing
+# already answered that.
+#
+# `curl ... | sh` with no flags used to go straight to defaults, which means
+# localhost URLs and a tracking host on localhost: an instance that installs,
+# starts, and sends campaign mail whose links and opt-out address nobody
+# outside that machine can open. It is a terminal in front of a person, so it
+# can just ask. Declining is a real answer and says what it costs.
+#
+# Skipped whenever something else already decided: --wizard, --assume-yes, a
+# non-interactive shell, a re-run over an existing install (its .env is
+# adopted), and any run that writes nothing.
+offer_wizard() {
+    [ "$WIZARD" = 0 ] || return 0
+    [ "$INTERACTIVE" = 1 ] || return 0
+    [ "$ASSUME_YES" = 0 ] || return 0
+    [ "$EXISTING" = 0 ] || return 0
+    [ "$DEMO" = 0 ] || return 0
+    [ "$DRY_RUN" = 0 ] || return 0
+    [ "$PRINT_ENV" = 0 ] || return 0
+    # An operator who named a host has already answered the question that
+    # matters, by flag or by WARMBLY_HOST.
+    [ -z "${WARMBLY_HOST:-}" ] || return 0
+    [ -z "${HOST_SET:-}" ] || return 0
+
+    say ""
+    note "Nothing has told this install where it will be reached, so it would use"
+    note "localhost: a dashboard, a tracking host and an unsubscribe address that"
+    note "only work from this machine. Campaign mail carries those addresses."
+    say ""
+    if confirm "Answer a few questions to set it up properly?" yes; then
+        WIZARD=1
+        return 0
+    fi
+    say ""
+    warn "Going with the defaults. Every address this instance builds is on"
+    note "localhost, so campaign mail would carry a pixel, links and an opt-out"
+    note "no recipient can open. Fine to look around; edit .env or re-run with"
+    note "--wizard before you send anything real."
+    say ""
+    return 0
+}
+
 # confirm <question> <default yes|no> -> 0 when yes
 confirm() {
     _q=$1; _def=${2:-yes}
@@ -1025,9 +1068,13 @@ derive() {
         REDIS_URL="redis://redis:6379"; BUNDLED_REDIS=1
     fi
 
-    # The component set decides which services exist at all.
+    # The component set decides which services exist at all. A core install
+    # has no tracking and no forms service, so naming a host for either is
+    # worse than leaving it unset: campaign mail would ship links, an opt-out
+    # address and share URLs pointing at a name nothing answers on.
     if [ "$COMPONENTS" = "core" ]; then
         WANT_TRACKING=0; WANT_REALTIME=0; WANT_FORMS=0
+        TRACKING_DOMAIN=""; FORMS_DOMAIN=""
     else
         WANT_TRACKING=1; WANT_REALTIME=1; WANT_FORMS=1
     fi
@@ -1067,7 +1114,9 @@ CORS_ALLOW_ORIGINS=$CORS
 WEBSOCKET_URL=$URL_WS
 PHX_HOST=$PHX_HOST
 CHECK_ORIGIN=$CHECK_ORIGIN
-# Unset means campaign mail ships with no open pixel and unwrapped links.
+# Unset means campaign mail ships with no open pixel and unwrapped links. A
+# workspace that verifies its own domain against this one also serves its
+# recipients' unsubscribe link there; otherwise it stays on API_PUBLIC_URL.
 TRACKING_DOMAIN=$TRACKING_DOMAIN
 FORMS_DOMAIN=$FORMS_DOMAIN
 # CIDRs allowed to set X-Forwarded-For. Empty trusts nothing, which is correct
@@ -1128,6 +1177,21 @@ $(render_env_bootstrap_owner)
 
 # ── Platform mail (login codes, resets, invitations) ─────────────────────
 $(render_env_mail)
+
+# ── Whose instance this is ───────────────────────────────────────────────
+# Unset, this instance claims nothing: the sign-in screen shows no Terms or
+# Privacy link, transactional email carries no company line, and public form
+# pages carry no "powered by". Nothing here points at warmbly.com. Fill these
+# in to put your own name on those surfaces.
+# EMAIL_BRAND_NAME=Acme
+# EMAIL_BRAND_WEBSITE_URL=https://acme.example
+# EMAIL_BRAND_TERMS_URL=https://acme.example/terms
+# EMAIL_BRAND_PRIVACY_URL=https://acme.example/privacy
+# EMAIL_BRAND_SUPPORT_EMAIL=support@acme.example
+# EMAIL_BRAND_LEGAL_ENTITY=Acme Ltd
+# EMAIL_BRAND_COMPANY_NUMBER=
+# EMAIL_BRAND_PLACE_OF_REG=
+# EMAIL_BRAND_ADDRESS=
 
 # ── Updates ──────────────────────────────────────────────────────────────
 # The check is an outbound call to the GitHub releases API and nothing else.
@@ -3049,6 +3113,8 @@ main() {
     fi
 
     ensure_secrets
+
+    offer_wizard
 
     if [ "$WIZARD" = 1 ] && [ "$INTERACTIVE" = 1 ]; then
         # The first step clears the screen, so nothing above it survives being
