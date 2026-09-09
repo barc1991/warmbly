@@ -123,6 +123,10 @@ app.example.com     admin.example.com    api.example.com
 ws.example.com      track.example.com    forms.example.com
 ```
 
+It also gets a certificate for hostnames that do not exist yet. A workspace on this instance can point its own [tracking domain](/guides/mailboxes/#custom-tracking-domain) or [forms domain](/guides/forms/#custom-domain) here months after the install, and a site block cannot name a host nobody has heard of. The generated Caddyfile carries `on_demand_tls` with an `ask` pointed at the backend, so Caddy obtains a certificate the first time such a name is requested, after the backend confirms this instance has verified it. A name nobody here has verified is refused, so pointing a domain at the machine is not enough to get a certificate out of it.
+
+Behind your own proxy this is yours to arrange: the same custom domains need certificates there, and how depends on the proxy. Caddy takes the same `on_demand_tls` block; nginx needs a certificate per domain.
+
 </Step>
 
 <Step>

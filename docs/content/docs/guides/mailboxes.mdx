@@ -199,6 +199,8 @@ Until it verifies, tracking falls back to the shared host, so an unverified doma
 
 A verified domain also serves the [unsubscribe link](/guides/unsubscribe/#which-address-the-link-points-at) in that mailbox's campaign mail, so the opt-out a recipient reads sits on your name like every other link in the message. An unverified one changes nothing: the opt-out stays on the instance's API address, which always serves it.
 
+Verification proves DNS, not HTTPS, and the two are separate steps. That matters more now that the opt-out rides the same host: a certificate the recipient's browser rejects costs a spam complaint, not just a click. On Warmbly Cloud the certificate is handled for you. On a self-hosted instance installed with the bundled Caddy it is handled too: Caddy obtains one for your domain the first time a recipient loads a link on it. Behind an operator's own proxy it depends on that proxy, so a domain that verifies here but serves a certificate warning is something to raise with the operator.
+
 ## Warmup
 
 New mailboxes should warm up before carrying campaign volume. Defaults are `10`/day starting volume, `+1`/day ramp, and a `40`/day ceiling.
