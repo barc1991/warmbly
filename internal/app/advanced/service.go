@@ -24,6 +24,7 @@ import (
 	warmupapp "github.com/warmbly/warmbly/internal/app/warmup"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
 	"github.com/warmbly/warmbly/internal/pkg/warmlint"
 	"github.com/warmbly/warmbly/internal/repository"
 	"github.com/warmbly/warmbly/internal/tasks/proto"
@@ -2101,7 +2102,7 @@ func stepPlacingUnsubscribeLink(seqs []models.Sequence) string {
 		}
 		body := seq.BodyPlain
 		if strings.TrimSpace(body) == "" {
-			body = htmlTagRE.ReplaceAllString(seq.BodyHTML, "")
+			body = mailhtml.ToPlainText(seq.BodyHTML)
 		}
 		if !strings.Contains(seq.Subject, models.UnsubscribeLinkToken) && !strings.Contains(body, models.UnsubscribeLinkToken) {
 			continue
@@ -2113,11 +2114,6 @@ func stepPlacingUnsubscribeLink(seqs []models.Sequence) string {
 	}
 	return ""
 }
-
-// htmlTagRE strips tags to leave the text a plain-text send actually carries.
-// The send path derives its plain part the same way (tasks.ExtractPlainTextFromHTML),
-// which this package cannot call: tasks imports advanced.
-var htmlTagRE = regexp.MustCompile(`(?s)<[^>]*>`)
 
 // plainTextOptOutResult turns "what puts the link in the body", or "" for
 // nothing, into the check. Only called when campaign.TextOnly is set, so it
