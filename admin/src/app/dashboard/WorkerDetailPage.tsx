@@ -263,8 +263,9 @@ export default function WorkerDetailPage() {
                                 <Fact label="Sent today">{statsQ.data.emails_sent_today}</Fact>
                                 <Fact label="Sent this week">{statsQ.data.emails_sent_this_week}</Fact>
                                 <Fact label="Sent total">{statsQ.data.total_emails_sent}</Fact>
+                                {/* Already a percentage in SQL; multiplying again gives 10000%. */}
                                 <Fact label="Success rate">
-                                    {`${Math.round(statsQ.data.success_rate * 100)}%`}
+                                    {`${Math.round(statsQ.data.success_rate)}%`}
                                 </Fact>
                             </div>
                         )}

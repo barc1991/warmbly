@@ -61,10 +61,9 @@ export interface AdminDedicatedAssignment {
     account_count: number;
 }
 
-export interface AdminConvertDedicatedRequest {
+export interface AdminReserveWorkerRequest {
     organization_id: string;
     subscription_id: string;
-    drain_to_worker_id?: string | null;
 }
 
 // Mirrors the /reserve handler. Reserving no longer drains anything: the
@@ -133,7 +132,7 @@ export function releaseDedicatedWorker(orgId: string): Promise<AdminReleaseDedic
 // mailboxes already on it drift away on the rotation loop.
 export function convertWorkerToDedicated(
     workerId: string,
-    body: AdminConvertDedicatedRequest,
+    body: AdminReserveWorkerRequest,
 ): Promise<AdminReserveWorkerResponse> {
     return Request({
         method: "POST",

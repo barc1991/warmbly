@@ -46,7 +46,6 @@ export function ConvertDedicatedDialog({
     const [workerId, setWorkerId] = useState("");
     const [org, setOrg] = useState<PickedOrg | null>(null);
     const [subscriptionId, setSubscriptionId] = useState("");
-    const [drainTo, setDrainTo] = useState("");
 
     const workersQ = useQuery({
         queryKey: ["admin", "workers", "managed"],
@@ -58,18 +57,14 @@ export function ConvertDedicatedDialog({
     // Any worker can be reserved: there is no category to check.
     const shared = workers;
     const worker = workers.find((w) => w.id === workerId) ?? null;
-    const needsDrain = !!worker && (worker.mailbox_count ?? 0) > 0;
-    const drainTargets = workers.filter((w) => w.id !== workerId);
-
     const subOk = UUID_RE.test(subscriptionId.trim());
-    const canSubmit = !!workerId && !!org && subOk && (!needsDrain || !!drainTo);
+    const canSubmit = !!workerId && !!org && subOk;
 
     const mutation = useMutation({
         mutationFn: () =>
             convertWorkerToDedicated(workerId, {
                 organization_id: org!.id,
                 subscription_id: subscriptionId.trim(),
-                drain_to_worker_id: drainTo || null,
             }),
         onSuccess: (res) => {
             toast.success(
@@ -89,7 +84,6 @@ export function ConvertDedicatedDialog({
         setWorkerId("");
         setOrg(null);
         setSubscriptionId("");
-        setDrainTo("");
     }
 
     return (
@@ -117,8 +111,8 @@ export function ConvertDedicatedDialog({
 
                 <div className="space-y-4">
                     <div className="space-y-1.5">
-                        <Label className="text-xs">Shared worker</Label>
-                        <Select value={workerId || undefined} onValueChange={(v) => { setWorkerId(v); setDrainTo(""); }}>
+                        <Label className="text-xs">Worker</Label>
+                        <Select value={workerId || undefined} onValueChange={setWorkerId}>
                             <SelectTrigger className="h-8 w-full text-[12.5px]">
                                 <SelectValue placeholder={workersQ.isLoading ? "Loading workers…" : "Pick a worker"} />
                             </SelectTrigger>
@@ -159,29 +153,11 @@ export function ConvertDedicatedDialog({
                         </p>
                     </div>
 
-                    <div className="space-y-1.5">
-                        <Label className="text-xs">
-                            Drain mailboxes to{" "}
-                            <span className="font-normal text-muted-foreground">
-                                {needsDrain ? `(required: ${worker!.mailbox_count ?? 0} assigned)` : "(optional)"}
-                            </span>
-                        </Label>
-                        <Select value={drainTo || undefined} onValueChange={setDrainTo} disabled={!workerId}>
-                            <SelectTrigger className="h-8 w-full text-[12.5px]">
-                                <SelectValue placeholder={needsDrain ? "Pick where the current mailboxes go" : "Leave as is"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {drainTargets.length === 0 && (
-                                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No other worker in this tier.</div>
-                                )}
-                                {drainTargets.map((w) => (
-                                    <SelectItem key={w.id} value={w.id} className="text-[12.5px]">
-                                        {workerLabel(w)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                        Mailboxes already on this worker are not evicted here. The rotation loop
+                        moves other tenants off it on its own schedule, so the reservation
+                        becomes exclusive without re-authenticating every mailbox at once.
+                    </p>
                 </div>
 
                 <DialogFooter>

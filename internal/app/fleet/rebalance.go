@@ -96,12 +96,22 @@ func (r *Rotator) tick(ctx context.Context) error {
 			continue
 		}
 
-		res, err := r.Assignment.SelectWorkerFor(ctx, workerapp.PlacementLookup{
+		lookup := workerapp.PlacementLookup{
 			EmailAccountID:  state.EmailAccountID,
 			OrgID:           *state.OrganizationID,
 			CurrentWorkerID: state.WorkerID,
 			Region:          state.WorkerRegion,
-		})
+		}
+		// When the mailbox has to LEAVE where it is, the current worker must be
+		// off the table: it is still the incumbent, still carries the
+		// stickiness bonus, and would win its own scoring, so the loop would
+		// bail on "target == current" and the mailbox would never go anywhere.
+		if mustLeave(urgency, state) {
+			lookup.CurrentWorkerID = nil
+			lookup.ExcludeWorkerID = state.WorkerID
+		}
+
+		res, err := r.Assignment.SelectWorkerFor(ctx, lookup)
 		if err != nil || res == nil || res.Worker == nil {
 			continue
 		}
@@ -134,6 +144,15 @@ func (r *Rotator) tick(ctx context.Context) error {
 		log.Info().Int("moved", moved).Int("scanned", len(candidates)).Msg("rotation pass complete")
 	}
 	return nil
+}
+
+// mustLeave reports whether staying put is not an option, as opposed to merely
+// being improvable. A dead or degraded worker cannot do the work, and a worker
+// reserved for someone else must not keep a stranger's mail.
+func mustLeave(urgency workerapp.RotationUrgency, state repository.MailboxPlacementState) bool {
+	return urgency == workerapp.RotationImmediate ||
+		urgency == workerapp.RotationElevated ||
+		state.WorkerReservedForOtherOrg
 }
 
 // DrainWorker moves every mailbox off one worker, ignoring residency. Used by

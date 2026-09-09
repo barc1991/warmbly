@@ -817,8 +817,8 @@ func repairContactVerification(ctx context.Context, pool *pgxpool.Pool) error {
 // an assignment ping-pong that strands mailboxes mid-send.
 func deactivateIdleFixtureWorkers(ctx context.Context, pool *pgxpool.Pool) error {
 	tag, err := pool.Exec(ctx, `
-		UPDATE workers SET active = FALSE, updated_at = NOW()
-		WHERE active AND id <> $1`,
+		UPDATE fleet_nodes SET active = FALSE, updated_at = NOW()
+		WHERE active AND role = 'worker' AND id <> $1`,
 		sandboxWorker)
 	if err != nil {
 		return err

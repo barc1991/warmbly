@@ -182,7 +182,7 @@ func (s *workerAssignmentService) SelectWorkerFor(ctx context.Context, lookup Pl
 	if err != nil || len(rows) == 0 {
 		// A broken or unpopulated capacity view must not take onboarding down.
 		// Fall back to the least-loaded live worker.
-		return s.selectFallback(ctx, req)
+		return s.selectFallback(ctx, req, lookup.ExcludeWorkerID)
 	}
 
 	candidates := make([]PlacementCandidate, 0, len(rows))
@@ -234,7 +234,7 @@ func (s *workerAssignmentService) SelectWorkerFor(ctx context.Context, lookup Pl
 
 	best := SelectPlacement(candidates, req)
 	if best == nil {
-		return s.selectFallback(ctx, req)
+		return s.selectFallback(ctx, req, lookup.ExcludeWorkerID)
 	}
 	return s.buildResult(ctx, *best, req, candidates)
 }
@@ -267,16 +267,27 @@ func (s *workerAssignmentService) buildResult(
 }
 
 // selectFallback is the no-capacity-view path: least-loaded live worker.
-func (s *workerAssignmentService) selectFallback(ctx context.Context, req PlacementRequest) (*PlacementResult, error) {
+//
+// It still refuses an unhealthy one. Without that, draining a quarantined
+// worker could empty the candidate set, fall through here, and place the
+// mailboxes onto another blocked machine, which is the opposite of what the
+// drain was for.
+func (s *workerAssignmentService) selectFallback(ctx context.Context, req PlacementRequest, exclude *uuid.UUID) (*PlacementResult, error) {
 	workers, err := s.workerRepo.ListPlaceableWorkers(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(workers) == 0 {
-		return nil, ErrNoAvailableWorkers
+	for i := range workers {
+		w := workers[i]
+		if exclude != nil && w.ID == *exclude {
+			continue
+		}
+		switch w.HealthState {
+		case models.WorkerHealthHealthy, models.WorkerHealthWatch:
+			return &PlacementResult{Worker: &w}, nil
+		}
 	}
-	w := workers[0]
-	return &PlacementResult{Worker: &w}, nil
+	return nil, ErrNoAvailableWorkers
 }
 
 // warmupPoolFor resolves which warmup pool a mailbox joins. Unrelated to
@@ -286,13 +297,16 @@ func (s *workerAssignmentService) selectFallback(ctx context.Context, req Placem
 // more slowly, where the reverse would put unproven mail in front of paying
 // customers.
 func (s *workerAssignmentService) warmupPoolFor(ctx context.Context, orgID uuid.UUID) string {
-	if s.subRepo == nil {
-		return "free"
-	}
-	// With billing disabled there is no free/paid split to enforce, so every
-	// org gets the premium pool. Mirrors feature.gate's self-host unlock.
+	// Billing first: with it disabled there is no free/paid split to enforce,
+	// so every org gets the premium pool and the subscription is irrelevant.
+	// Checking the repository before this made a self-host install with no
+	// subscription repo wired fall through to "free" and warm every mailbox in
+	// the wrong pool. Mirrors feature.gate's self-host unlock.
 	if config.BillingProvider() == "none" {
 		return "premium"
+	}
+	if s.subRepo == nil {
+		return "free"
 	}
 	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
 	if err != nil || sub == nil || !sub.HasPaidSubscription() {

@@ -174,6 +174,12 @@ write_config() {
   fi
 
   mkdir -p "$CONFIG_DIR" "$STATE_DIR"
+  # The node container runs as uid 1000 (see deploy/docker/worker.Dockerfile),
+  # so the bind-mounted state dir has to be writable by it. Without this the
+  # agent's target-version write fails with EACCES, which it only logs, and
+  # auto-update silently never happens.
+  chown -R 1000:1000 "$STATE_DIR" 2>/dev/null || true
+  chmod 0775 "$STATE_DIR"
   umask 077
   {
     printf '%s\n' "$NODE_ENV"
@@ -256,6 +262,7 @@ fi
 
 sed -i "s|^WARMBLY_VERSION=.*|WARMBLY_VERSION=$target|" "$CONFIG_DIR/node.env"
 printf 'WARMBLY_IMAGE_REF=%s:%s\n' "$image" "$target" > "$STATE_DIR/image-ref"
+chown -R 1000:1000 "$STATE_DIR" 2>/dev/null || true
 echo "warmbly-node-update: $current -> $target"
 systemctl restart "warmbly-$role"
 UPDATER

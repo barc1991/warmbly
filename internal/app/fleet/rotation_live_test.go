@@ -29,6 +29,10 @@ func TestLivePlacementAndRotation(t *testing.T) {
 	if dsn == "" {
 		t.Skip("WARMBLY_TEST_DB unset")
 	}
+	// Billing off is the self-host default and makes the pool assertion below
+	// distinguishable from the column default.
+	t.Setenv("BILLING_PROVIDER", "none")
+
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
@@ -123,14 +127,22 @@ func TestLivePlacementAndRotation(t *testing.T) {
 	// 1b. Placement also settles warmup pool membership. It used to fall out of
 	//     tier placement; with tiers gone it has to be set explicitly, and
 	//     leaving it unset silently warms paying customers in the free pool.
+	//
+	//     The assertion has to distinguish "set" from "left at the default",
+	//     so it runs with billing disabled, where every org resolves to the
+	//     premium pool and the column default ('free') is a visible failure.
 	for i, mb := range mailboxes {
 		var poolType *string
 		if err := pool.QueryRow(ctx,
 			`SELECT warmup_pool_type FROM email_accounts WHERE id = $1`, mb).Scan(&poolType); err != nil {
 			t.Fatalf("mailbox %d: read warmup pool: %v", i, err)
 		}
-		if poolType == nil || *poolType == "" {
-			t.Fatalf("mailbox %d: placement left warmup_pool_type unset", i)
+		if poolType == nil || *poolType != "premium" {
+			got := "<null>"
+			if poolType != nil {
+				got = *poolType
+			}
+			t.Fatalf("mailbox %d: warmup_pool_type is %q, want \"premium\"; placement is not assigning pool membership", i, got)
 		}
 	}
 
