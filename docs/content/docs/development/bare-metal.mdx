@@ -377,7 +377,7 @@ sudo tee /etc/warmbly/worker.env >/dev/null <<EOF
 APP_ENV=prod
 AWS_CONFIG_ENABLED=false
 WORKER_ID=$(uuidgen)
-WORKER_REGION=eu-central
+WARMBLY_NODE_REGION=eu-central
 
 EVENTBUS_PROVIDER=nats
 NATS_URL=nats://127.0.0.1:4222

@@ -239,7 +239,7 @@ func newNodeAgent(workerID uuid.UUID, bindIP string) *nodeagent.Agent {
 		NodeID:  workerID,
 		Role:    models.NodeRoleWorker,
 		Name:    os.Getenv("WARMBLY_NODE_NAME"),
-		Region:  os.Getenv("WORKER_REGION"),
+		Region:  nodeRegion(),
 		Address: reportedIP,
 		Version: buildVersion(),
 		BaseURL: os.Getenv("ENCRYPTED_KEYS_BACKEND_URL"),
@@ -247,6 +247,17 @@ func newNodeAgent(workerID uuid.UUID, bindIP string) *nodeagent.Agent {
 		// Written for the host-side updater installed by `warmbly join`.
 		TargetVersionPath: os.Getenv("WARMBLY_TARGET_VERSION_PATH"),
 	})
+}
+
+// nodeRegion reads the sign-in geography hint. WARMBLY_NODE_REGION is what the
+// join script writes and what every role uses; WORKER_REGION is the older
+// worker-only name, kept as a fallback so a machine configured by hand before
+// the join flow existed keeps reporting its region.
+func nodeRegion() string {
+	if v := os.Getenv("WARMBLY_NODE_REGION"); v != "" {
+		return v
+	}
+	return os.Getenv("WORKER_REGION")
 }
 
 // buildVersion is the image tag this build reports. Set by the join script
