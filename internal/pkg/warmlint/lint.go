@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+
+	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
 )
 
 var (
@@ -15,7 +17,6 @@ var (
 	wordToken    = regexp.MustCompile(`[a-z0-9%]+`)
 	linkPattern  = regexp.MustCompile(`https?://[^\s"'<>)\]]*`)
 	hrefPattern  = regexp.MustCompile(`(?i)href\s*=\s*["']?\s*(https?://[^\s"'<>]*)`)
-	htmlTag      = regexp.MustCompile(`(?i)<[a-z!/][^>]*>`)
 	imgTag       = regexp.MustCompile(`(?i)<img\b[^>]*>`)
 )
 
@@ -171,8 +172,13 @@ func ScoreWithAttachments(subject, bodyHTML, bodyPlain string, attachments int) 
 	return res
 }
 
+// stripTags reduces an HTML body to the words a reader sees, for scoring.
+//
+// It renders rather than strips tags: a regex left a <style> block's CSS
+// behind as body text, so a class named .free-trial-banner cost a designed
+// email eight points for a spam-trigger term nobody would ever read.
 func stripTags(s string) string {
-	return strings.TrimSpace(htmlTag.ReplaceAllString(s, " "))
+	return strings.TrimSpace(mailhtml.ToPlainText(s))
 }
 
 func isAllCaps(s string) bool {

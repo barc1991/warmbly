@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
 )
 
 // EmailPreviewInput is one step's templates plus the context the send path
@@ -68,6 +69,9 @@ func (s *tasksService) PreviewEmail(ctx context.Context, orgID uuid.UUID, in Ema
 
 	out := &EmailPreview{TemplatePreview: previewTemplatesWith(in.Subject, in.BodyHTML, in.BodyPlain, in.Contact, unsubURL)}
 	out.BodyHTML, out.BodyPlain = finishBody(out.BodyHTML, out.BodyPlain, textOnly, in.Account, optOut, unsubURL)
+	// Linted on what the author wrote, sized on what ships: the findings have
+	// to name the markup they can go and fix, but Gmail measures the wire.
+	out.HTMLFindings = mailhtml.Lint(in.BodyHTML, len(out.BodyHTML))
 
 	if in.Account != nil {
 		out.From = &EmailPreviewFrom{Name: strings.TrimSpace(in.Account.Name), Email: in.Account.Email}
@@ -113,6 +117,9 @@ func finishBody(bodyHTML, bodyPlain string, textOnly bool, account *models.Email
 	if optOut != nil {
 		bodyHTML, bodyPlain = appendOptOut(bodyHTML, bodyPlain, *optOut, unsubURL)
 	}
+	// Last, as in the send path, so the preview shows the markup that ships
+	// rather than the markup that was written.
+	bodyHTML = mailhtml.InlineCSS(bodyHTML)
 	return bodyHTML, bodyPlain
 }
 

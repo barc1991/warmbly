@@ -90,6 +90,53 @@ function unwrap(el: Element) {
 // the merge fields, AI blocks, conditions and form links land as literal text.
 const KEEP_SPAN_ATTRS = ["data-var", "data-ai-var", "data-if", "data-form-link"];
 
+// Inline styling worth keeping off a pasted <span>. The schema holds far more
+// than this, but a paste out of Gmail or Word wraps every run of text in the
+// source editor's own font stack and size, and importing those makes a cold
+// email render in Arial 13px in every inbox. A colour or a highlight is a
+// choice someone made; a font-family is the tool they happened to use.
+// The shorthand is normalised to the longhand the schema reads.
+const KEEP_SPAN_STYLES: Record<string, string> = {
+    color: "color",
+    "background-color": "background-color",
+    background: "background-color",
+};
+
+// Near-black is the source's default text colour, not a decision, and a body
+// that pins it renders black on a reader's dark theme.
+const DEFAULT_TEXT_COLOURS = new Set([
+    "black", "#000", "#000000", "#111", "#111111", "#222", "#222222", "#333", "#333333",
+    "rgb(0,0,0)", "rgb(17,17,17)", "rgb(34,34,34)", "rgb(51,51,51)",
+]);
+
+function isDefaultColour(value: string): boolean {
+    return DEFAULT_TEXT_COLOURS.has(value.replace(/\s+/g, "").toLowerCase());
+}
+
+// keptInlineStyle reduces an element's style attribute to the declarations
+// above, or "" when nothing in it was a choice.
+function keptInlineStyle(el: Element): string {
+    const kept = new Map<string, string>();
+    for (const decl of (el.getAttribute("style") ?? "").split(";")) {
+        const at = decl.indexOf(":");
+        if (at < 0) continue;
+        const prop = KEEP_SPAN_STYLES[decl.slice(0, at).trim().toLowerCase()];
+        const value = decl.slice(at + 1).trim();
+        if (!prop || !value) continue;
+        if (prop === "color" && isDefaultColour(value)) continue;
+        // A background shorthand holding an image or a gradient is not a
+        // highlight, and the schema has nowhere to put it.
+        if (prop === "background-color" && /url\(|gradient/i.test(value)) continue;
+        kept.set(prop, value);
+    }
+    // <font color> says the same thing in the older spelling.
+    const fontColour = (el.getAttribute("color") ?? "").trim();
+    if (fontColour && !kept.has("color") && !isDefaultColour(fontColour)) {
+        kept.set("color", fontColour);
+    }
+    return [...kept].map(([prop, value]) => `${prop}: ${value}`).join("; ");
+}
+
 export function normalizePastedHTML(html: string): string {
     if (!html || typeof window === "undefined" || typeof DOMParser === "undefined") return html;
     // A copy from inside a TipTap editor is already a document in our own
@@ -126,11 +173,20 @@ export function normalizePastedHTML(html: string): string {
             if (!isLoadableImage(src)) el.remove();
             continue;
         }
-        // A <font> or <span> carries only styling our schema drops anyway;
-        // unwrapping keeps the text and loses the wrapper.
+        // A <font> or <span> is kept only for the styling that was a choice:
+        // a colour or a highlight becomes a plain <span style>, and a wrapper
+        // holding nothing but the source editor's font stack is unwrapped.
         if (tag === "FONT" || tag === "SPAN" || tag === "CENTER") {
             if (KEEP_SPAN_ATTRS.some((a) => el.hasAttribute(a))) continue;
-            unwrap(el);
+            const style = tag === "CENTER" ? "" : keptInlineStyle(el);
+            if (!style) {
+                unwrap(el);
+                continue;
+            }
+            const span = el.ownerDocument.createElement("span");
+            span.setAttribute("style", style);
+            while (el.firstChild) span.appendChild(el.firstChild);
+            el.replaceWith(span);
         }
     }
 

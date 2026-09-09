@@ -172,6 +172,10 @@ The same tab sets the **display name**, **reply-to** (empty uses the mailbox add
 
 The HTML signature is placed in a block of its own one line below the body, so it arrives without the stack of blank lines above it that Apple Mail and Outlook used to show. Put any extra spacing you want inside the signature itself. The plain-text signature follows the body after a single blank line.
 
+The signature editor has four views. **HTML** is the visual surface with bold, italic, underline, links and images. The `</>` button next to it swaps that for the raw markup, which is sent exactly as written, so a table-based signature from another tool can be pasted in whole. **Preview** renders it the way a mail client will, in its own frame. **Plain** holds the plain-text version, generated from the HTML while **Sync** is on.
+
+A signature carrying a `<style>` block, a whole HTML document, or an event handler is always edited as markup and the visual toggle is greyed out. The visual surface works by putting the markup into the page, and a signature is workspace data your teammates also see, so that markup is never given a live element to run in. Preview is how you look at it. Any `<style>` block in a signature is inlined onto the elements it matches when the email sends, the same as a campaign body.
+
 ### Custom tracking domain
 
 Open pixels and click links go out on a shared tracking host by default, which means their reputation is the sum of everyone else using it. Pointing a subdomain of the domain you send from at that host puts them on your own name instead.
