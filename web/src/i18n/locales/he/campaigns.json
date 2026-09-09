@@ -1,0 +1,47 @@
+{
+  "title": "קמפיינים",
+  "subtitle": "יצירה, תזמון ואופטימיזציה של קמפיינים ופניות קרות",
+  "newCampaign": "קמפיין חדש",
+  "launchCampaign": "הפעלת קמפיין",
+  "pauseCampaign": "השהיית קמפיין",
+  "resumeCampaign": "חידוש קמפיין",
+  "tabs": {
+    "preview": "סקירה כללית",
+    "leads": "לידים",
+    "steps": "רצף הודעות (Sequence)",
+    "schedule": "לוח זמנים",
+    "preferences": "הגדרות"
+  },
+  "metrics": {
+    "sent": "נשלחו",
+    "delivered": "נמסרו",
+    "opened": "נפתחו",
+    "clicked": "הקלקות",
+    "replied": "השיבו",
+    "bounced": "נכשלו (Bounce)",
+    "openRate": "אחוז פתיחה",
+    "replyRate": "אחוז מענה",
+    "clickRate": "אחוז הקלקה"
+  },
+  "sequence": {
+    "addStep": "הוסף שלב",
+    "emailStep": "שליחת אימייל",
+    "delayStep": "המתנה / השהייה",
+    "subject": "נושא ההודעה",
+    "body": "גוף ההודעה",
+    "variables": "הוסף משתנה דינמי",
+    "stepNumber": "שלב {{number}}",
+    "waitFor": "המתן {{time}} לפני השליחה"
+  },
+  "schedule": {
+    "sendingDays": "ימי שליחה",
+    "sendingHours": "שעות שליחה",
+    "timezone": "אזור זמן",
+    "maxLeadsPerDay": "מקסימום לידים חדשים ביום",
+    "entryDelay": "השהיית כניסה"
+  },
+  "empty": {
+    "title": "אין קמפיינים עדיין",
+    "description": "צור את קמפיין הפניות הראשון שלך כדי להתחיל לייצר לידים."
+  }
+}

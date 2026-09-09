@@ -4,6 +4,7 @@
 export interface WriteRequest {
     prompt: string;
     tone?: string;
+    language?: string;
 }
 
 export interface WriteResponse {
@@ -24,6 +25,7 @@ export interface EditRequest {
     instruction: string;
     context?: string;
     tone?: string;
+    language?: string;
 }
 
 export type EditResponse = WriteResponse;
@@ -38,3 +40,15 @@ export const WRITE_TONES: { value: string; label: string }[] = [
     { value: "concise", label: "Concise" },
     { value: "persuasive", label: "Persuasive" },
 ];
+
+export function getWriteTones(isHe: boolean): { value: string; label: string }[] {
+    if (!isHe) return WRITE_TONES;
+    return [
+        { value: "", label: "ברירת מחדל" },
+        { value: "friendly", label: "ידידותי" },
+        { value: "professional", label: "מקצועי" },
+        { value: "casual", label: "קליל" },
+        { value: "concise", label: "תמציתי" },
+        { value: "persuasive", label: "משכנע" },
+    ];
+}

@@ -1,0 +1,38 @@
+{
+  "title": "אנשי קשר",
+  "subtitle": "ניהול לידים, אימות תקינות כתובות וארגון סגמנטים",
+  "addContact": "הוספת איש קשר",
+  "importCsv": "ייבוא מקובץ CSV",
+  "exportContacts": "ייצוא אנשי קשר",
+  "tabs": {
+    "all": "כל אנשי הקשר",
+    "segments": "סגמנטים (פלחים)",
+    "categories": "קטגוריות",
+    "suppressions": "רשימת חסימות"
+  },
+  "fields": {
+    "firstName": "שם פרטי",
+    "lastName": "שם משפחה",
+    "email": "כתובת אימייל",
+    "company": "חברה",
+    "jobTitle": "תפקיד",
+    "phone": "טלפון",
+    "tags": "תגיות",
+    "city": "עיר",
+    "country": "מדינה"
+  },
+  "segments": {
+    "title": "סגמנטים",
+    "createSegment": "יצירת סגמנט",
+    "filterCriteria": "קריטריוני סינון"
+  },
+  "suppressions": {
+    "title": "רשימת חסימות (Suppression)",
+    "addSuppression": "הוסף דומיין או כתובת לחסימה",
+    "reason": "סיבת חסימה"
+  },
+  "empty": {
+    "title": "לא נמצאו אנשי קשר",
+    "description": "ייבא לידים באמצעות CSV או הוסף אנשי קשר ידנית כדי לבנות את קהל היעד שלך."
+  }
+}

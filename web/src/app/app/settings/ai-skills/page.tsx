@@ -4,6 +4,7 @@
 // markdown body. Requires Manage settings.
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -33,6 +34,8 @@ import { SectionShell, Section } from "../_components/SectionShell";
 type DraftSkill = { id?: string; name: string; description: string; content: string; enabled: boolean };
 
 export default function SkillsSettingsPage() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const canManage = usePermission("MANAGE_SETTINGS");
     const skills = useSkills();
     const [editing, setEditing] = React.useState<DraftSkill | null>(null);
@@ -41,8 +44,12 @@ export default function SkillsSettingsPage() {
 
     return (
         <SectionShell
-            title="AI skills"
-            description="Reusable playbooks your AI features follow. Write down how your team qualifies leads, handles objections, or books meetings, and the assistant, research, and reply drafts use them."
+            title={isHe ? "מיומנויות AI" : "AI skills"}
+            description={
+                isHe
+                    ? "ספרי הפעלה לשימוש חוזר שה-AI פועל לפיהם. הגדר כיצד הצוות שלך מאפיין לידים, מתמודד עם התנגדויות או קובע פגישות, ועוזר ה-AI, מחקר והטיוטות ישתמשו בהם."
+                    : "Reusable playbooks your AI features follow. Write down how your team qualifies leads, handles objections, or books meetings, and the assistant, research, and reply drafts use them."
+            }
             actions={
                 canManage ? (
                     <button
@@ -51,17 +58,26 @@ export default function SkillsSettingsPage() {
                         className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                     >
                         <PlusIcon className="w-3 h-3" />
-                        New skill
+                        {isHe ? "מיומנות חדשה" : "New skill"}
                     </button>
                 ) : undefined
             }
         >
-            <Section eyebrow="Playbooks" description="Enabled skills are shown to the AI; the model reads a skill's full content on demand.">
+            <Section
+                eyebrow={isHe ? "ספרי הפעלה" : "Playbooks"}
+                description={
+                    isHe
+                        ? "מיומנויות פעילות מוצגות ל-AI; המודל קורא את תוכן המיומנות המלא לפי הצורך."
+                        : "Enabled skills are shown to the AI; the model reads a skill's full content on demand."
+                }
+            >
                 {skills.isPending ? (
                     <div className="h-16 rounded bg-slate-100 animate-pulse" />
                 ) : rows.length === 0 ? (
                     <p className="text-[12px] text-slate-500 leading-relaxed">
-                        No skills yet. Add one to teach your AI how your team works.
+                        {isHe
+                            ? "אין עדיין מיומנויות. הוסף מיומנות כדי ללמד את ה-AI כיצד הצוות שלך עובד."
+                            : "No skills yet. Add one to teach your AI how your team works."}
                     </p>
                 ) : (
                     <div className="rounded-md border border-slate-200 overflow-hidden divide-y divide-slate-100">
@@ -78,11 +94,14 @@ export default function SkillsSettingsPage() {
 }
 
 function SkillRow({ skill, onOpen }: { skill: AISkill; onOpen: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+
     return (
         <button
             type="button"
             onClick={onOpen}
-            className="w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-slate-50 transition-colors"
+            className="w-full text-start px-3 py-2.5 flex items-center gap-3 hover:bg-slate-50 transition-colors"
         >
             <div className="size-7 rounded-md bg-sky-50 border border-sky-100 text-sky-600 flex items-center justify-center shrink-0">
                 <SparklesIcon className="w-3.5 h-3.5" />
@@ -95,7 +114,7 @@ function SkillRow({ skill, onOpen }: { skill: AISkill; onOpen: () => void }) {
             </div>
             {!skill.enabled && (
                 <span className="text-[10px] uppercase tracking-[0.08em] text-slate-400 border border-slate-200 rounded-sm px-1 py-0.5 shrink-0">
-                    Off
+                    {isHe ? "כבוי" : "Off"}
                 </span>
             )}
         </button>
@@ -103,6 +122,8 @@ function SkillRow({ skill, onOpen }: { skill: AISkill; onOpen: () => void }) {
 }
 
 function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const create = useCreateSkill();
     const update = useUpdateSkill();
     const del = useDeleteSkill();
@@ -123,7 +144,7 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
 
     async function save() {
         if (!name.trim()) {
-            toast.error("A name is required");
+            toast.error(isHe ? "נדרש שם" : "A name is required");
             return;
         }
         try {
@@ -132,7 +153,7 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
             } else {
                 await create.mutateAsync({ name, description, content, enabled });
             }
-            toast.success("Skill saved");
+            toast.success(isHe ? "המיומנות נשמרה" : "Skill saved");
             onClose();
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -141,11 +162,14 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
 
     function remove() {
         if (!draft?.id) return;
-        confirm.show("Delete this skill? The AI will stop using it.", async () => {
-            await del.mutateAsync(draft.id!);
-            toast.success("Skill deleted");
-            onClose();
-        });
+        confirm.show(
+            isHe ? "למחוק מיומנות זו? ה-AI יפסיק להשתמש בה." : "Delete this skill? The AI will stop using it.",
+            async () => {
+                await del.mutateAsync(draft.id!);
+                toast.success(isHe ? "המיומנות נמחקה" : "Skill deleted");
+                onClose();
+            },
+        );
     }
 
     const saving = create.isPending || update.isPending;
@@ -162,41 +186,74 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
                         className="fixed inset-0 z-40 bg-slate-900/30"
                     />
                     <motion.aside
-                        initial={{ x: "100%" }}
+                        dir={isHe ? "rtl" : "ltr"}
+                        initial={{ x: isHe ? "-100%" : "100%" }}
                         animate={{ x: 0 }}
-                        exit={{ x: "100%" }}
+                        exit={{ x: isHe ? "-100%" : "100%" }}
                         transition={{ type: "spring", stiffness: 380, damping: 40 }}
-                        className="fixed right-0 top-0 z-50 h-full w-full sm:w-[520px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col"
+                        className={`fixed ${
+                            isHe ? "left-0 border-r" : "right-0 border-l"
+                        } top-0 z-50 h-full w-full sm:w-[520px] bg-white border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col`}
                     >
                         <div className="shrink-0 px-5 h-14 flex items-center gap-3 border-b border-slate-200">
                             <div className="size-7 rounded-md bg-sky-50 border border-sky-100 text-sky-600 flex items-center justify-center">
                                 <SparklesIcon className="w-4 h-4" />
                             </div>
                             <div className="text-[13px] font-semibold text-slate-900 flex-1">
-                                {draft.id ? "Edit skill" : "New skill"}
+                                {draft.id ? (isHe ? "עריכת מיומנות" : "Edit skill") : isHe ? "מיומנות חדשה" : "New skill"}
                             </div>
-                            <button onClick={onClose} className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors">
+                            <button
+                                onClick={onClose}
+                                className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                            >
                                 <XIcon className="w-4 h-4" />
                             </button>
                         </div>
 
                         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
-                            <Field label="Name" hint="Short and memorable; the AI loads a skill by name.">
-                                <TextInput value={name} onChange={setName} placeholder="Objection handling" className="w-full" />
+                            <Field
+                                label={isHe ? "שם" : "Name"}
+                                hint={isHe ? "קצר וזכיר; ה-AI טוען מיומנות לפי שמה." : "Short and memorable; the AI loads a skill by name."}
+                            >
+                                <TextInput
+                                    value={name}
+                                    onChange={setName}
+                                    placeholder={isHe ? "טיפול בהתנגדויות" : "Objection handling"}
+                                    className="w-full"
+                                />
                             </Field>
-                            <Field label="Description" hint="One line so the AI knows when to use it.">
-                                <TextInput value={description} onChange={setDescription} placeholder="How to respond to common pushback" className="w-full" />
+                            <Field
+                                label={isHe ? "תיאור" : "Description"}
+                                hint={isHe ? "שורה אחת כדי שה-AI יידע מתי להשתמש בה." : "One line so the AI knows when to use it."}
+                            >
+                                <TextInput
+                                    value={description}
+                                    onChange={setDescription}
+                                    placeholder={isHe ? "כיצד להגיב להתנגדויות נפוצות" : "How to respond to common pushback"}
+                                    className="w-full"
+                                />
                             </Field>
-                            <Field label="Enabled" hint="Only enabled skills are shown to the AI.">
+                            <Field
+                                label={isHe ? "פעיל" : "Enabled"}
+                                hint={isHe ? "רק מיומנויות פעילות מוצגות ל-AI." : "Only enabled skills are shown to the AI."}
+                            >
                                 <Toggle on={enabled} onChange={setEnabled} />
                             </Field>
-                            <Field label="Playbook" hint="Markdown. Plain instructions the AI should follow.">
+                            <Field
+                                label={isHe ? "ספר הפעלה" : "Playbook"}
+                                hint={isHe ? "Markdown. הנחיות ברורות שה-AI צריך לפעול לפיהן." : "Markdown. Plain instructions the AI should follow."}
+                            >
                                 <Textarea
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
                                     rows={14}
+                                    dir="auto"
                                     maxLength={32 * 1024}
-                                    placeholder={"When a prospect says it's too expensive:\n- acknowledge the concern\n- ask what they are comparing to\n- ..."}
+                                    placeholder={
+                                        isHe
+                                            ? "כאשר לקוח פוטנציאלי אומר שזה יקר מדי:\n- הכר בחשש שלו\n- שאל למה הוא משווה\n- ..."
+                                            : "When a prospect says it's too expensive:\n- acknowledge the concern\n- ask what they are comparing to\n- ..."
+                                    }
                                     className="w-full font-mono text-[12px]"
                                 />
                             </Field>
@@ -210,16 +267,16 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
                                 className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                             >
                                 {saving ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                                Save
+                                {isHe ? "שמור" : "Save"}
                             </button>
                             {draft.id && (
                                 <button
                                     type="button"
                                     onClick={remove}
-                                    className="h-7 px-2.5 rounded-md text-[12px] text-red-600 hover:text-white hover:bg-red-600 font-medium inline-flex items-center gap-1.5 transition-colors ml-auto"
+                                    className="h-7 px-2.5 rounded-md text-[12px] text-red-600 hover:text-white hover:bg-red-600 font-medium inline-flex items-center gap-1.5 transition-colors ms-auto"
                                 >
                                     <Trash2Icon className="w-3 h-3" />
-                                    Delete
+                                    {isHe ? "מחק" : "Delete"}
                                 </button>
                             )}
                         </div>

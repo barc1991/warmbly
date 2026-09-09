@@ -24,13 +24,14 @@ interface EmailBodyProps {
 const DOCUMENT_CSS = `
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-family: 'Heebo', Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     font-size: 13px;
     line-height: 1.6;
     color: #1e293b;
     background: transparent;
     word-break: break-word;
     overflow-wrap: anywhere;
+    direction: auto;
   }
   /* Containment, not styling: a 600px design must not scroll the drawer
      sideways, so these hold even against the message's own stylesheet. */
@@ -39,11 +40,11 @@ const DOCUMENT_CSS = `
   a { color: #0284c7; }
   blockquote {
     margin: 0.5em 0;
-    padding-left: 0.75em;
-    border-left: 2px solid #e2e8f0;
+    padding-inline-start: 0.75em;
+    border-inline-start: 2px solid #e2e8f0;
     color: #475569;
   }
-  pre { white-space: pre-wrap; }
+  pre { white-space: pre-wrap; direction: ltr; text-align: left; }
 `;
 
 // A body that is already a whole document (a campaign written in HTML mode, a

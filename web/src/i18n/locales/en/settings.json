@@ -1,0 +1,47 @@
+{
+  "title": "Settings",
+  "sections": {
+    "profile": "My profile",
+    "workspace": "Workspace",
+    "members": "Members & roles",
+    "teams": "Teams",
+    "billing": "Billing & plans",
+    "security": "Security & 2FA",
+    "apiKeys": "API Keys",
+    "webhooks": "Webhooks",
+    "limits": "Sending limits",
+    "data": "Data & export",
+    "danger": "Danger zone"
+  },
+  "profile": {
+    "personalInfo": "Personal information",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "passkeys": "Passkeys & biometric logins"
+  },
+  "workspace": {
+    "name": "Workspace name",
+    "domain": "Custom domain",
+    "timezone": "Default timezone",
+    "exportOrg": "Export organization",
+    "importOrg": "Import archive"
+  },
+  "members": {
+    "inviteMember": "Invite team member",
+    "roleOwner": "Owner",
+    "roleAdmin": "Admin",
+    "roleMember": "Member"
+  },
+  "security": {
+    "twoFactor": "Two-factor authentication (2FA)",
+    "enable2fa": "Enable 2FA",
+    "activeSessions": "Active sessions"
+  },
+  "billing": {
+    "currentPlan": "Current plan",
+    "upgradePlan": "Upgrade plan",
+    "manageSubscription": "Manage subscription",
+    "invoices": "Invoices & billing history"
+  }
+}

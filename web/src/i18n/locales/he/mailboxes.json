@@ -1,0 +1,70 @@
+{
+  "title": "תיבות דואר",
+  "subtitle": "חיבור, חימום וניטור של חשבונות שולח",
+  "addMailbox": "הוספת תיבת דואר",
+  "connectProvider": "חיבור ספק דואר",
+  "providers": {
+    "google": "Google Workspace / Gmail",
+    "microsoft": "Microsoft 365 / Outlook",
+    "smtpImap": "הגדרות SMTP / IMAP מותאמות"
+  },
+  "warmup": {
+    "title": "חימום תיבה",
+    "status": "סטטוס חימום",
+    "enabled": "חימום פעיל",
+    "disabled": "חימום מושהה",
+    "dailyRamp": "קצב הגברה יומי",
+    "dailyTarget": "יעד שליחה יומי",
+    "replyRate": "אחוז מענה בחימום",
+    "healthScore": "ציון מוניטין שולח"
+  },
+  "dns": {
+    "spf": "רשומת SPF",
+    "dkim": "רשומת DKIM",
+    "dmarc": "רשומת DMARC",
+    "valid": "תקין",
+    "missing": "חסר",
+    "invalid": "לא תקין"
+  },
+  "limits": {
+    "dailyLimit": "מגבלה יומית",
+    "sentToday": "נשלחו היום",
+    "speedRamp": "קצב העלאה"
+  },
+  "empty": {
+    "title": "אין תיבות דואר מחוברות",
+    "description": "חבר את חשבונות השולח שלך כדי להתחיל בחימום ושליחת אימיילים."
+  },
+  "stats": {
+    "total": "סה״כ",
+    "connected": "מחוברות",
+    "healthy": "תקינות",
+    "sendingNow": "שולחות כעת",
+    "warming": "בחימום",
+    "rampingUp": "בתהליך העלאה",
+    "needsAttention": "דורשות תשומת לב",
+    "pausedOrFailing": "מושהות או בתקלה"
+  },
+  "columns": {
+    "account": "חשבון",
+    "warmup": "חימום",
+    "health": "בריאות"
+  },
+  "actions": {
+    "startWarmup": "הפעל חימום",
+    "pause": "השהה",
+    "pauseWarmup": "השהה חימום",
+    "resumeWarmup": "חדש חימום",
+    "stopReset": "עצור ואפס",
+    "warmupSettings": "הגדרות חימום",
+    "mailboxHealth": "בריאות התיבה",
+    "mailboxSettings": "הגדרות תיבה",
+    "searchPlaceholder": "חיפוש לפי אימייל…",
+    "allAccounts": "כל החשבונות",
+    "manageTags": "ניהול תגיות",
+    "tags": "תגיות",
+    "selected": "נבחרו",
+    "remove": "הסרה",
+    "clear": "נקה"
+  }
+}

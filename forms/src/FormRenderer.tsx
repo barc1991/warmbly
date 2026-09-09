@@ -57,12 +57,12 @@ function defaultsFor(fields: FormField[], prefill?: Record<string, string>): Ans
     return out;
 }
 
-function validateField(f: FormField, v: AnswerValue): string | undefined {
+function validateField(f: FormField, v: AnswerValue, isRtl = false): string | undefined {
     const empty =
         f.type === "checkboxes" ? !Array.isArray(v) || v.length === 0 : f.type === "checkbox" ? v !== true : typeof v !== "string" || v.trim() === "";
-    if (f.required && empty) return `${f.label || "This field"} is required.`;
+    if (f.required && empty) return isRtl ? `${f.label || "שדה זה"} הינו שדה חובה.` : `${f.label || "This field"} is required.`;
     if (f.type === "email" && typeof v === "string" && v.trim() !== "" && !/^\S+@\S+\.\S+$/.test(v.trim())) {
-        return "Enter a valid email address.";
+        return isRtl ? "נא להזין כתובת אימייל תקינה." : "Enter a valid email address.";
     }
     return undefined;
 }
@@ -171,12 +171,12 @@ export function FormRenderer({
                     redirect(res.redirect_url);
                     return;
                 }
-                setDone(res.message || "Thanks!");
+                setDone(res.message || (isRtl ? "תודה רבה!" : "Thanks!"));
             } catch (e) {
                 if (e instanceof StalePageError) {
-                    setServerError("This page has been open for a while. Refresh it and try again.");
+                    setServerError(isRtl ? "דף זה פתוח כבר זמן מה. יש לרענן את הדף ולנסות שוב." : "This page has been open for a while. Refresh it and try again.");
                 } else {
-                    setServerError(e instanceof SubmitRejectedError ? e.message : "Something went wrong. Try again.");
+                    setServerError(e instanceof SubmitRejectedError ? e.message : (isRtl ? "אירעה שגיאה. נסה שוב." : "Something went wrong. Try again."));
                 }
                 resetTurnstile();
                 setCaptchaToken("");
@@ -199,12 +199,22 @@ export function FormRenderer({
         const errs: Record<string, string> = {};
         for (const f of s.fields) {
             if (!isInput(f)) continue;
-            const msg = validateField(f, form.state.values[f.id]);
+            const msg = validateField(f, form.state.values[f.id], isRtl);
             if (msg) errs[f.id] = msg;
         }
         setScreenErrors(errs);
         return Object.keys(errs).length === 0;
     };
+
+    const isRtl = useMemo(() => {
+        if (def.design?.direction === "rtl") return true;
+        const allText = [
+            def.title,
+            def.description,
+            ...def.fields.map((f) => `${f.label || ""} ${f.placeholder || ""} ${f.help_text || ""}`),
+        ].join(" ");
+        return /[\u0590-\u05FF]/.test(allText);
+    }, [def]);
 
     const goNext = () => {
         if (!validateScreen(current) || isLast) return;
@@ -234,6 +244,7 @@ export function FormRenderer({
     return (
         <form
             noValidate
+            dir={isRtl ? "rtl" : "ltr"}
             onFocusCapture={() => tracker.start()}
             onChangeCapture={() => tracker.start()}
             onKeyDown={(e) => {
@@ -314,7 +325,6 @@ export function FormRenderer({
                                     </form.Field>
                                 );
                         }
-                    })}
                     {isLast && def.captcha_site_key && (
                         <Turnstile siteKey={def.captcha_site_key} onToken={setCaptchaToken} />
                     )}
@@ -322,7 +332,7 @@ export function FormRenderer({
                         <div className={screen > 0 ? "wf-pagenav" : "btnrow"}>
                             {screen > 0 && (
                                 <button type="button" className="wf-back" onClick={goBack}>
-                                    Back
+                                    {isRtl ? "חזרה" : "Back"}
                                 </button>
                             )}
                             <form.Subscribe selector={(s) => s.isSubmitting}>
@@ -332,7 +342,9 @@ export function FormRenderer({
                                         type="submit"
                                         disabled={isSubmitting}
                                     >
-                                        {design.btnLabel}
+                                        {isRtl && (!design.btnLabel || design.btnLabel.toLowerCase() === "submit")
+                                            ? "שלח"
+                                            : (design.btnLabel || "Submit")}
                                     </button>
                                 )}
                             </form.Subscribe>
@@ -341,17 +353,17 @@ export function FormRenderer({
                         <div className="wf-pagenav">
                             {screen > 0 ? (
                                 <button type="button" className="wf-back" onClick={goBack}>
-                                    Back
+                                    {isRtl ? "חזרה" : "Back"}
                                 </button>
                             ) : (
                                 <span />
                             )}
                             <button type="button" className="submit" onClick={goNext}>
-                                Next
+                                {isRtl ? "הבא" : "Next"}
                             </button>
                         </div>
                     )}
-                    {focusMode && <p className="wf-hint">Press Enter to continue</p>}
+                    {focusMode && <p className="wf-hint">{isRtl ? "לחץ Enter להמשך" : "Press Enter to continue"}</p>}
                 </div>
             </div>
         </form>

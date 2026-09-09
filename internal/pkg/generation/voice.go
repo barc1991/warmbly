@@ -3,7 +3,30 @@ package generation
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
+
+// ContainsHebrew reports whether s contains any Hebrew runes.
+func ContainsHebrew(s string) bool {
+	for _, r := range s {
+		if unicode.Is(unicode.Hebrew, r) {
+			return true
+		}
+	}
+	return false
+}
+
+// hebrewWritingRules governs output when writing or replying in Hebrew, ensuring
+// natural Israeli phrasing instead of robotic literal translations.
+const hebrewWritingRules = `
+
+HEBREW LANGUAGE RULES (כללי כתיבה בעברית):
+- Write strictly in natural, modern, native Israeli Hebrew (עברית ישראלית מודרנית וזורמת בגובה העיניים).
+- Do NOT use direct literal translations from English idioms (avoid "להושיט יד", "לגעת בבסיס", "אני מקווה שהאימייל מוצא אותך בטוב", "למעשה", "יתרה מכך").
+- Use natural Israeli business phrasing: direct, respectful, concise and friendly ("היי [שם]", "מה קורה?", "שבוע טוב", "רלוונטי אצלכם?", "אשמח לשמוע מה דעתך").
+- Maintain grammatically correct Hebrew with proper gender agreement.
+- Do NOT use em dashes (—). Use a comma, period, or parentheses instead.
+- Preserve merge variables exactly as written (e.g. {{.FirstName}}).`
 
 // humanWritingSystemPrompt encodes concrete, researched human-writing rules so
 // output reads like a real person typed it fast — NOT the vague "be human".
@@ -74,10 +97,20 @@ type VoiceContext struct {
 	ICPNotes string
 	// VoiceProfile is the org's free-form voice/style guide (org settings, M4).
 	VoiceProfile string
+	// Language indicates the requested generation language (e.g. "he" for Hebrew).
+	Language string
 	// AvailableVars are the literal Go-template merge tokens the surface may
 	// insert (e.g. {{.FirstName}}). Empty = no merge-variable block is added, so
 	// a zero VoiceContext stays byte-for-byte unchanged.
 	AvailableVars []string
+}
+
+// isHebrewVoice returns true if the context explicitly asks for Hebrew or contains Hebrew text.
+func isHebrewVoice(vc VoiceContext) bool {
+	return vc.Language == "he" ||
+		ContainsHebrew(vc.Tone) ||
+		ContainsHebrew(vc.ProductDescription) ||
+		ContainsHebrew(vc.VoiceProfile)
 }
 
 // StandardMergeVars is the fixed set of standard contact merge tokens every
@@ -125,6 +158,9 @@ func BuildVoiceRules(vc VoiceContext) string {
 	}
 	if tone := strings.TrimSpace(vc.Tone); tone != "" {
 		fmt.Fprintf(&b, "\n\nTONE: match this tone where it doesn't conflict with the rules above: %s.", tone)
+	}
+	if isHebrewVoice(vc) {
+		b.WriteString(hebrewWritingRules)
 	}
 	b.WriteString(mergeVarsBlock(vc.AvailableVars))
 	return b.String()
@@ -177,6 +213,9 @@ func BuildComposeRules(vc VoiceContext) string {
 	}
 	if tone := strings.TrimSpace(vc.Tone); tone != "" {
 		fmt.Fprintf(&b, "\n\nTONE: %s.", tone)
+	}
+	if isHebrewVoice(vc) {
+		b.WriteString(hebrewWritingRules)
 	}
 	b.WriteString(mergeVarsBlock(vc.AvailableVars))
 	return b.String()
@@ -239,6 +278,9 @@ func BuildAgentVoiceRules(vc VoiceContext) string {
 	if vp := strings.TrimSpace(vc.VoiceProfile); vp != "" {
 		fmt.Fprintf(&b, "\n\nHOUSE VOICE (match where it does not conflict with the rules above): %s", vp)
 	}
+	if isHebrewVoice(vc) {
+		b.WriteString(hebrewWritingRules)
+	}
 	b.WriteString(mergeVarsBlock(vc.AvailableVars))
 	return b.String()
 }
@@ -287,6 +329,9 @@ func BuildInlineSnippetRules(vc VoiceContext) string {
 	if tone := strings.TrimSpace(vc.Tone); tone != "" {
 		fmt.Fprintf(&b, "\n\nTONE: %s.", tone)
 	}
+	if isHebrewVoice(vc) {
+		b.WriteString(hebrewWritingRules)
+	}
 	b.WriteString(mergeVarsBlock(vc.AvailableVars))
 	return b.String()
 }
@@ -307,6 +352,9 @@ func BuildReplyRules(vc VoiceContext) string {
 	}
 	if tone := strings.TrimSpace(vc.Tone); tone != "" {
 		fmt.Fprintf(&b, "\n\nTONE: %s.", tone)
+	}
+	if isHebrewVoice(vc) {
+		b.WriteString(hebrewWritingRules)
 	}
 	b.WriteString(mergeVarsBlock(vc.AvailableVars))
 	return b.String()

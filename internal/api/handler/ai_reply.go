@@ -53,6 +53,7 @@ func (h *Handler) DraftReply(c *gin.Context) {
 	var req struct {
 		ThreadID    string `json:"thread_id" binding:"required"`
 		Instruction string `json:"instruction"`
+		Language    string `json:"language"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		errx.JSON(c, errx.New(errx.BadRequest, "invalid request body"))
@@ -80,6 +81,9 @@ func (h *Handler) DraftReply(c *gin.Context) {
 	paid, _ := h.FeatureGateService.IsPaidOrganization(c.Request.Context(), *orgID)
 	model := h.AIProvider.ModelForTier(paid)
 	voice := h.orgVoice(c.Request.Context(), *orgID, "")
+	if req.Language == "he" || generation.ContainsHebrew(req.Instruction) || generation.ContainsHebrew(history) {
+		voice.Language = "he"
+	}
 
 	// Charge 2 credits up front (idempotent on the client's key); refund on
 	// provider failure. A free/local model (AI_FREE) runs un-metered.

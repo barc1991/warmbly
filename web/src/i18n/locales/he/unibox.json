@@ -1,0 +1,36 @@
+{
+  "title": "תיבת דואר מאוחדת",
+  "subtitle": "תיבת דואר מרכזית לכל החשבונות המחוברים ומענה לפניות",
+  "compose": "כתיבת אימייל",
+  "search": "חיפוש בהודעות...",
+  "folders": {
+    "all": "כל ההודעות",
+    "inbox": "דואר נכנס",
+    "sent": "נשלח",
+    "drafts": "טיוטות",
+    "archived": "ארכיון",
+    "spam": "ספאם",
+    "trash": "אשפה"
+  },
+  "actions": {
+    "reply": "השב",
+    "replyAll": "השב לכולם",
+    "forward": "העבר",
+    "markRead": "סמן כנקרא",
+    "markUnread": "סמן כלא נקרא",
+    "archive": "העבר לארכיון",
+    "moveToSpam": "סמן כספאם",
+    "deleteThread": "מחק שרשור",
+    "aiDraft": "נסח תשובה באמצעות AI"
+  },
+  "sentiment": {
+    "interested": "מעוניין",
+    "meetingBooked": "נקבעה פגישה",
+    "notInterested": "לא מעוניין",
+    "outOfOffice": "מחוץ למשרד"
+  },
+  "empty": {
+    "title": "לא נמצאו הודעות",
+    "description": "כאשר לידים ישיבו לקמפיינים שלך, השיחות יופיעו כאן בזמן אמת."
+  }
+}

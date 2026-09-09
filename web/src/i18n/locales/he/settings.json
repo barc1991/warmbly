@@ -1,0 +1,47 @@
+{
+  "title": "הגדרות",
+  "sections": {
+    "profile": "הפרופיל שלי",
+    "workspace": "סביבת עבודה",
+    "members": "חברי צוות והרשאות",
+    "teams": "צוותים",
+    "billing": "חיוב ומנוי",
+    "security": "אבטחה ואימות דו-שלבי",
+    "apiKeys": "מפתחות API",
+    "webhooks": "Webhooks",
+    "limits": "מגבלות שליחה",
+    "data": "נתונים וייצוא",
+    "danger": "אזור סכנה"
+  },
+  "profile": {
+    "personalInfo": "פרטים אישיים",
+    "changePassword": "שינוי סיסמה",
+    "currentPassword": "סיסמה נוכחית",
+    "newPassword": "סיסמה חדשה",
+    "passkeys": "מפתחות גישה (Passkeys) וזיהוי ביומטרי"
+  },
+  "workspace": {
+    "name": "שם סביבת העבודה",
+    "domain": "דומיין מותאם אישית",
+    "timezone": "אזור זמן ברירת מחדל",
+    "exportOrg": "ייצוא נתוני ארגון",
+    "importOrg": "ייבוא ארכיון נתונים"
+  },
+  "members": {
+    "inviteMember": "הזמנת חבר צוות",
+    "roleOwner": "בעלים",
+    "roleAdmin": "מנהל מערכת",
+    "roleMember": "חבר צוות"
+  },
+  "security": {
+    "twoFactor": "אימות דו-שלבי (2FA)",
+    "enable2fa": "הפעל 2FA",
+    "activeSessions": "הפעלות פעילות (Sessions)"
+  },
+  "billing": {
+    "currentPlan": "תוכנית נוכחית",
+    "upgradePlan": "שדרוג מנוי",
+    "manageSubscription": "ניהול מנוי",
+    "invoices": "חשבוניות והיסטוריית חיובים"
+  }
+}

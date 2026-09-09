@@ -44,6 +44,7 @@ type generationAIVariableRequest struct {
 	// sentence it lands in (matches the send path). Optional.
 	ContextBefore string `json:"context_before"`
 	ContextAfter  string `json:"context_after"`
+	Language      string `json:"language"`
 }
 
 // GenerateAIVariable — POST /generation/ai-variable
@@ -191,6 +192,9 @@ func (h *Handler) GenerateAIVariable(c *gin.Context) {
 	// so preview matches the send path's shared voice rules. The standard five
 	// tokens are enough here; per-contact custom keys are the send path's concern.
 	vc := h.orgVoice(reqCtx, *orgID, req.Tone)
+	if req.Language == "he" || generation.ContainsHebrew(req.Prompt) || generation.ContainsHebrew(req.ContextBefore) || generation.ContainsHebrew(req.ContextAfter) {
+		vc.Language = "he"
+	}
 	vc.AvailableVars = generation.StandardMergeVars
 	system, prompt := tasks.BuildAIVariablePrompt(vc, contact, rendered, web,
 		clampPreviewContext(req.ContextBefore), clampPreviewContext(req.ContextAfter))

@@ -1,5 +1,6 @@
 import RippleProvider from "@/hooks/RippleProvider";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { DirectionProvider } from "@/i18n";
 import { Outlet } from "react-router-dom";
 
 export default function RootLayout() {
@@ -8,8 +9,10 @@ export default function RootLayout() {
   useDocumentTitle();
 
   return (
-    <RippleProvider>
-      <Outlet />
-    </RippleProvider>
+    <DirectionProvider>
+      <RippleProvider>
+        <Outlet />
+      </RippleProvider>
+    </DirectionProvider>
   );
 }

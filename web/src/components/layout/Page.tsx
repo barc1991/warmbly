@@ -81,7 +81,7 @@ export function PageTopbar({
                     </span>
                 </>
             )}
-            {children && <div className="ml-auto flex items-center gap-1.5 min-w-0 flex-wrap justify-end md:flex-nowrap">{children}</div>}
+            {children && <div className="ms-auto flex items-center gap-1.5 min-w-0 flex-wrap justify-end md:flex-nowrap">{children}</div>}
         </div>
     );
 }
@@ -162,9 +162,9 @@ export function StatStrip({ children, cols = 4 }: { children: React.ReactNode; c
         <div
             className={cn(
                 "grid border-b border-slate-200 shrink-0 bg-white",
-                // On the mobile 2-col layout, drop the right-hand hairline on
+                // On the mobile 2-col layout, drop the trailing hairline on
                 // cells that end a row so no stray rule hugs the panel edge.
-                "max-md:[&>*:nth-child(2n)]:border-r-0 max-md:[&>*:last-child]:border-r-0",
+                "max-md:[&>*:nth-child(2n)]:border-e-0 max-md:[&>*:last-child]:border-e-0",
                 gridCls,
             )}
         >
@@ -175,7 +175,7 @@ export function StatStrip({ children, cols = 4 }: { children: React.ReactNode; c
 
 /**
  * Stat — one cell of the StatStrip. `accent` shows a small pulsing sky
- * dot next to the label. Each cell has a right border that compounds into
+ * dot next to the label. Each cell has a trailing border that compounds into
  * the strip's vertical-rule pattern; the last one drops it via `last`.
  */
 export function Stat({
@@ -205,7 +205,7 @@ export function Stat({
                     <span className="size-1.5 rounded-full bg-sky-500 animate-pulse" />
                 )}
                 {(href || onClick) && (
-                    <span className="ml-auto text-[10px] text-slate-300 group-hover:text-slate-500 transition-colors">
+                    <span className="ms-auto text-[10px] text-slate-300 group-hover:text-slate-500 transition-colors inline-block rtl:rotate-180">
                         →
                     </span>
                 )}
@@ -220,7 +220,7 @@ export function Stat({
     );
     const cls = cn(
         "group px-5 py-3 md:py-4 transition-colors",
-        !last && "border-r border-slate-200",
+        !last && "border-e border-slate-200",
         (href || onClick) && "hover:bg-slate-50 cursor-pointer",
     );
     if (href) {
@@ -236,7 +236,7 @@ export function Stat({
     }
     if (onClick) {
         return (
-            <button onClick={onClick} className={cn(cls, "text-left")}>
+            <button onClick={onClick} className={cn(cls, "text-start")}>
                 {inner}
             </button>
         );
@@ -288,7 +288,7 @@ export function SectionBar({
                 </span>
             )}
             {children && (
-                <div className="ml-auto flex items-center gap-1.5 flex-wrap justify-end min-w-0">
+                <div className="ms-auto flex items-center gap-1.5 flex-wrap justify-end min-w-0">
                     {children}
                 </div>
             )}
@@ -324,7 +324,7 @@ export function Row({
             <a href={href} className={cls}>{children}</a>
         );
     }
-    if (onClick) return <button onClick={onClick} className={cn(cls, "w-full text-left")}>{children}</button>;
+    if (onClick) return <button onClick={onClick} className={cn(cls, "w-full text-start")}>{children}</button>;
     return <div className={cls}>{children}</div>;
 }
 

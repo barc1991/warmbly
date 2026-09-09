@@ -10,6 +10,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import type { Editor } from "@tiptap/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpIcon, CheckIcon, PenLineIcon, RefreshCwIcon, SparklesIcon, Undo2Icon } from "lucide-react";
@@ -37,6 +38,8 @@ function plainToHTML(text: string): string {
 type Phase = "idle" | "busy" | "applied";
 
 export default function RichTextAICaret({ editor }: { editor: Editor }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const writeMut = useGenerateWrite();
     const canAI = usePermission("USE_AI");
     const metered = useAiMetered();
@@ -167,11 +170,16 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
             if (pos === null || writeMut.isPending) return;
             const prevHTML = editor.getHTML();
             const before = editor.state.doc.textBetween(Math.max(0, pos - CONTEXT_WINDOW), pos, "\n", " ");
-            const prompt =
+            let prompt =
                 raw +
                 "\n\nYou are writing text to insert into an email draft at the cursor. Return ONLY the text to insert: no preamble, no subject line, no signature, no quotes around it. Match the draft's language and tone." +
-                "\n\nThis is a campaign email template sent to many recipients. To personalize, use merge variables in Go-template form written EXACTLY, with the leading dot and double braces: {{.FirstName}}, {{.LastName}}, {{.Company}}, {{.Email}}, {{.Phone}}. Prefer a merge variable over a placeholder like [Name] or [Company]." +
-                (before.trim() ? `\n\nDraft so far up to the cursor:\n${before}` : "");
+                "\n\nThis is a campaign email template sent to many recipients. To personalize, use merge variables in Go-template form written EXACTLY, with the leading dot and double braces: {{.FirstName}}, {{.LastName}}, {{.Company}}, {{.Email}}, {{.Phone}}. Prefer a merge variable over a placeholder like [Name] or [Company].";
+            if (isHe) {
+                prompt += "\n\nWrite strictly in natural, fluent Israeli Hebrew with correct grammar and gender agreement.";
+            }
+            if (before.trim()) {
+                prompt += `\n\nDraft so far up to the cursor:\n${before}`;
+            }
             setPhase("busy");
             writeMut.mutate(
                 { prompt },
@@ -186,7 +194,11 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                     onError: (e) => {
                         const err = e as unknown as AppError;
                         if (err?.status === 402) {
-                            toast.error("You're out of AI credits. Upgrade or purchase more to keep writing with AI.");
+                            toast.error(
+                                isHe
+                                    ? "נגמרו לך נקודות ה-AI. שדרג או רכוש נקודות נוספות כדי להמשיך לכתוב עם AI."
+                                    : "You're out of AI credits. Upgrade or purchase more to keep writing with AI.",
+                            );
                         } else {
                             toast.error(buildError(err));
                         }
@@ -195,7 +207,7 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                 },
             );
         },
-        [editor, writeMut],
+        [editor, isHe, writeMut],
     );
 
     const undo = React.useCallback(() => {
@@ -232,8 +244,8 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                         exit={{ opacity: 0, scale: 0.9 }}
                         transition={{ duration: 0.12 }}
                         style={{ position: "fixed", top: companion.top - 1, left: companion.left, zIndex: 55 }}
-                        title="Write with AI (⌘J)"
-                        aria-label="Write with AI"
+                        title={isHe ? "כתוב עם AI (⌘J)" : "Write with AI (⌘J)"}
+                        aria-label={isHe ? "כתוב עם AI" : "Write with AI"}
                         className="inline-flex size-[22px] items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-sky-50 hover:text-sky-600"
                         onMouseDown={(e) => {
                             e.preventDefault();
@@ -254,6 +266,7 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                             localRef.current = el;
                             setFloating(el);
                         }}
+                        dir={isHe ? "rtl" : "ltr"}
                         data-floating=""
                         style={floatingStyle}
                         initial={{ opacity: 0 }}
@@ -265,13 +278,15 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                         {phase === "busy" ? (
                             <div className="flex items-center gap-2 px-3 py-2.5">
                                 <SparklesIcon className="h-3.5 w-3.5 shrink-0 animate-pulse text-sky-500" />
-                                <span className="text-[12px] font-medium text-slate-600">Writing…</span>
+                                <span className="text-[12px] font-medium text-slate-600">
+                                    {isHe ? "כותב…" : "Writing…"}
+                                </span>
                             </div>
                         ) : phase === "applied" ? (
                             <div className="flex items-center gap-1.5 px-2.5 py-2">
                                 <span className="mr-auto inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-900">
                                     <CheckIcon className="h-3.5 w-3.5 text-emerald-600" />
-                                    Inserted
+                                    {isHe ? "הוכנס" : "Inserted"}
                                     {usage && formatUsage(usage.charged, usage.tokens) && (
                                         <span className="text-[10.5px] font-normal text-slate-400">
                                             · {formatUsage(usage.charged, usage.tokens)}
@@ -283,21 +298,21 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                                     onClick={undo}
                                     className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11.5px] text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                                 >
-                                    <Undo2Icon className="h-3 w-3" /> Undo
+                                    <Undo2Icon className="h-3 w-3" /> {isHe ? "בטל" : "Undo"}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={retry}
                                     className="inline-flex h-6 items-center gap-1 rounded px-1.5 text-[11.5px] text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                                 >
-                                    <RefreshCwIcon className="h-3 w-3" /> Again
+                                    <RefreshCwIcon className="h-3 w-3" /> {isHe ? "שוב" : "Again"}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setOpen(false)}
                                     className="h-6 rounded bg-slate-900 px-2 text-[11.5px] font-medium text-white transition-colors hover:bg-slate-800"
                                 >
-                                    Done
+                                    {isHe ? "סיום" : "Done"}
                                 </button>
                             </div>
                         ) : (
@@ -314,7 +329,7 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                                                 submit();
                                             }
                                         }}
-                                        placeholder="Ask AI to write…"
+                                        placeholder={isHe ? "בקש מ-AI לכתוב…" : "Ask AI to write…"}
                                         maxLength={2000}
                                         className="h-7 min-w-0 flex-1 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
                                     />
@@ -322,7 +337,7 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                                         type="button"
                                         onClick={submit}
                                         disabled={!instruction.trim()}
-                                        aria-label="Write at the cursor"
+                                        aria-label={isHe ? "כתוב במיקום הסמן" : "Write at the cursor"}
                                         className="inline-flex size-6 items-center justify-center rounded-md bg-sky-600 text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
                                     >
                                         <ArrowUpIcon className="h-3.5 w-3.5" />
@@ -332,14 +347,22 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                                     <button
                                         type="button"
                                         onClick={() =>
-                                            run("Continue the draft naturally from the cursor, adding the next sentence or two.")
+                                            run(
+                                                isHe
+                                                    ? "המשך את הטיוטה באופן טבעי ממיקום הסמן, והוסף משפט אחד או שניים נוספים."
+                                                    : "Continue the draft naturally from the cursor, adding the next sentence or two.",
+                                            )
                                         }
                                         disabled={!editor.getText().trim()}
                                         className="flex h-8 w-full items-center gap-2 px-2.5 text-[12px] text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-40"
                                     >
                                         <PenLineIcon className="h-3.5 w-3.5 text-slate-400" />
-                                        Continue writing
-                                        {metered && <span className="ml-auto text-[10px] text-slate-300">from 1 credit</span>}
+                                        {isHe ? "המשך בכתיבה" : "Continue writing"}
+                                        {metered && (
+                                            <span className="ml-auto text-[10px] text-slate-300">
+                                                {isHe ? "מ-1 נקודה" : "from 1 credit"}
+                                            </span>
+                                        )}
                                     </button>
                                 </div>
                             </div>

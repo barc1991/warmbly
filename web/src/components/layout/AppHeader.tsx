@@ -26,6 +26,8 @@ import { OrgSwitcher } from "./OrgSwitcher";
 import { PlanPill } from "./PlanPill";
 import { VersionPill } from "./VersionPill";
 import { CreditsMeter } from "./CreditsMeter";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 
 // Pretty labels for path segments. Anything missing falls back to the
 // raw segment with its first letter capitalised.
@@ -57,6 +59,28 @@ const labelMap: Record<string, string> = {
     steps: "Steps",
 };
 
+const segToI18n: Record<string, string> = {
+    emails: "nav.items.mailboxes",
+    unibox: "nav.items.unibox",
+    contacts: "nav.items.contacts",
+    campaigns: "nav.items.campaigns",
+    analytics: "nav.items.analytics",
+    crm: "nav.items.pipelines",
+    pipelines: "nav.items.pipelines",
+    deals: "nav.items.deals",
+    tasks: "nav.items.tasks",
+    meetings: "nav.items.meetings",
+    templates: "nav.items.templates",
+    "api-keys": "nav.items.apiKeys",
+    settings: "nav.items.settings",
+    billing: "nav.userNav.billing",
+    audit: "nav.items.auditLog",
+    forms: "nav.items.forms",
+    integrations: "nav.items.integrations",
+    automations: "nav.items.automations",
+    deliverability: "nav.items.deliverability",
+};
+
 function pretty(segment: string): string {
     return labelMap[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
 }
@@ -64,6 +88,13 @@ function pretty(segment: string): string {
 export function AppHeader({ onMenu }: { onMenu?: () => void }) {
     const { pathname } = useLocation();
     const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
+    const { t } = useTranslation();
+
+    const getCrumbTitle = (seg: string) => {
+        const i18nKey = segToI18n[seg];
+        if (i18nKey) return t(i18nKey, pretty(seg));
+        return pretty(seg);
+    };
 
     // Path under /app — first segment is the section ("emails", "admin", ...),
     // subsequent ones are subpages. Don't show UUID-looking segments verbatim
@@ -90,25 +121,15 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
                 type="button"
                 onClick={onMenu}
                 aria-label="Open menu"
-                className="md:hidden ml-1.5 w-9 h-9 rounded-md flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors shrink-0"
+                className="md:hidden ms-1.5 w-9 h-9 rounded-md flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors shrink-0"
             >
                 <Menu className="w-5 h-5" />
             </button>
             <Link
                 to="/app/emails"
-                className="h-full flex items-center gap-2.5 shrink-0 group pl-2 pr-3 md:w-64 md:px-5"
+                className="h-full flex items-center gap-2.5 shrink-0 group ps-2 pe-3 md:w-64 md:px-5"
             >
-                {/* Cool blue-leaning gray at rest; deeper blue-gray on hover.
-                    Light enough to read as neutral chrome, but with a clear
-                    blue lean so the brand sneaks in. */}
-                {/* Logo color tuned to read as a real brand mark, not
-                    a washed-out accent. Deep slate (#0f172a) at rest +
-                    slight warm shift on hover. The earlier blue-gray
-                    was too pale and competed with the chrome rather
-                    than anchoring it. */}
                 <Logo className="w-7 text-slate-900 group-hover:text-slate-700 transition-colors duration-150" />
-                {/* Wordmark hides on mobile — the mark + the drawer's own brand
-                    header carry it there, leaving room for the workspace pill. */}
                 <span
                     style={{ fontFamily: "var(--font-display)" }}
                     className="hidden md:inline font-extrabold text-[15.5px] tracking-tight text-slate-900"
@@ -120,23 +141,23 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
             {/* Breadcrumb: org switcher (always) > section > subpages. The
                 section crumbs are redundant with each page's own title on a
                 phone, so they only show on >=md. */}
-            <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2 md:pr-4">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 pe-2 md:pe-4">
                 <Crumb>
                     <OrgSwitcher />
                 </Crumb>
                 {crumbs.map(({ seg, to }) => (
                     <div key={to} className="hidden md:flex items-center gap-2 min-w-0">
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0 rtl:rotate-180" />
                         {to === currentPath ? (
                             <span className="text-[13px] font-medium text-slate-900 truncate">
-                                {pretty(seg)}
+                                {getCrumbTitle(seg)}
                             </span>
                         ) : (
                             <Link
                                 to={to}
                                 className="text-[13px] text-slate-500 hover:text-slate-900 truncate transition-colors"
                             >
-                                {pretty(seg)}
+                                {getCrumbTitle(seg)}
                             </Link>
                         )}
                     </div>
@@ -155,13 +176,14 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
                 <ConnectionIndicator />
                 <NotificationBell />
                 <AssistantButton />
+                <LanguageSwitcher compact />
                 <button
                     onClick={() => setCommandPaletteOpen(true)}
                     className="flex items-center gap-2 px-2 h-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors text-[12.5px]"
                 >
                     <Search className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Search</span>
-                    <kbd className="hidden md:inline-flex h-4 items-center px-1 rounded border border-slate-300/70 bg-white/60 font-mono text-[10px] text-slate-500 ml-0.5">
+                    <span className="hidden sm:inline">{t("actions.search", "Search")}</span>
+                    <kbd className="hidden md:inline-flex h-4 items-center px-1 rounded border border-slate-300/70 bg-white/60 font-mono text-[10px] text-slate-500 ms-0.5">
                         ⌘K
                     </kbd>
                 </button>

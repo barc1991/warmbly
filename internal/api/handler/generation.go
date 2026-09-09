@@ -36,8 +36,9 @@ const creditsPerWrite = 1
 const writeMaxPromptLen = 8000
 
 type generationWriteRequest struct {
-	Prompt string `json:"prompt"`
-	Tone   string `json:"tone"`
+	Prompt   string `json:"prompt"`
+	Tone     string `json:"tone"`
+	Language string `json:"language"`
 }
 
 // paymentRequiredJSON emits the standard error envelope with a 402 status.
@@ -141,6 +142,9 @@ func (h *Handler) GenerateWriting(c *gin.Context) {
 	// free/local path). The refund is best-effort; a failed refund is logged via
 	// the audit trail rather than surfaced.
 	voice := h.orgVoice(c.Request.Context(), *orgID, req.Tone)
+	if req.Language == "he" || generation.ContainsHebrew(req.Prompt) {
+		voice.Language = "he"
+	}
 	result, gerr := h.WritingGenerator.GenerateWriting(c.Request.Context(), model, req.Prompt, voice)
 	if gerr != nil {
 		if !local {

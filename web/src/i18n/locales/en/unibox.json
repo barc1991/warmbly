@@ -1,0 +1,36 @@
+{
+  "title": "Unibox",
+  "subtitle": "Unified inbox for all connected accounts and campaign replies",
+  "compose": "Compose email",
+  "search": "Search in messages...",
+  "folders": {
+    "all": "All messages",
+    "inbox": "Inbox",
+    "sent": "Sent",
+    "drafts": "Drafts",
+    "archived": "Archived",
+    "spam": "Spam",
+    "trash": "Trash"
+  },
+  "actions": {
+    "reply": "Reply",
+    "replyAll": "Reply all",
+    "forward": "Forward",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "archive": "Archive",
+    "moveToSpam": "Mark as spam",
+    "deleteThread": "Delete thread",
+    "aiDraft": "Draft response with AI"
+  },
+  "sentiment": {
+    "interested": "Interested",
+    "meetingBooked": "Meeting booked",
+    "notInterested": "Not interested",
+    "outOfOffice": "Out of office"
+  },
+  "empty": {
+    "title": "No messages found",
+    "description": "When prospects reply to your campaigns, conversations will show up here."
+  }
+}

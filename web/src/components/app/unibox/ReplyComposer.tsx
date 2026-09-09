@@ -14,6 +14,7 @@
 // with send_mode="scheduled" plus the concrete scheduled_at.
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     CheckIcon,
@@ -168,6 +169,8 @@ function deriveDefaults(replyTo: UniboxEmail, mode: ReplyMode) {
 }
 
 export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyComposerProps) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const accounts = useAppStore((s) => s.emails);
     const { user } = useUserProfile();
     const addOutbox = useOutboxStore((s) => s.add);
@@ -197,9 +200,10 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             draftReplyMut.mutateAsync({
                 thread_id: threadId,
                 instruction,
+                language: isHe ? "he" : undefined,
                 idempotency_key: crypto.randomUUID(),
             }),
-        [draftReplyMut, threadId],
+        [draftReplyMut, isHe, threadId],
     );
     const aiDraft = useAIDraft({
         value: body,
@@ -436,7 +440,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 <HeaderRow label="To">
                     <ContactRecipientField value={to} onChange={setTo} placeholder="name@example.com" />
                     {(!showCc || !showBcc) && (
-                        <div className="ml-auto flex items-center gap-0.5 shrink-0 self-start pt-px">
+                        <div className="ms-auto flex items-center gap-0.5 shrink-0 self-start pt-px">
                             {!showCc && (
                                 <button
                                     type="button"
@@ -503,6 +507,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <input
                         type="text"
                         value={subject}
+                        dir="auto"
                         onChange={(e) => setSubject(e.target.value)}
                         placeholder="Subject"
                         className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none"
@@ -517,6 +522,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             <textarea
                 ref={bodyRef}
                 value={body}
+                dir="auto"
                 onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY_LEN))}
                 placeholder={
                     mode === "forward"
@@ -533,17 +539,35 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     }
                 }}
                 className="w-full min-h-[120px] max-h-72 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-y focus:outline-none"
+                placeholder={
+                    isHe
+                        ? mode === "forward"
+                            ? "הוסף הערה לפני ההעברה…"
+                            : "כתוב תשובה…"
+                        : mode === "forward"
+                          ? "Add a note before forwarding…"
+                          : "Write a reply…"
+                }
+                dir="auto"
             />
             {aiDraft.phase === "busy" && (
                 <div className="ai-sheen pointer-events-none absolute inset-0" aria-hidden />
             )}
             <AIDraftBar
                 ctrl={aiDraft}
-                busyLabels={[
-                    "Reading the thread…",
-                    mode === "forward" ? "Writing your note…" : "Writing your reply…",
-                    "Polishing…",
-                ]}
+                busyLabels={
+                    isHe
+                        ? [
+                              "קורא את השרשור…",
+                              mode === "forward" ? "כותב את ההערה להעברה…" : "כותב את התשובה…",
+                              "מלטש ומסיים…",
+                          ]
+                        : [
+                              "Reading the thread…",
+                              mode === "forward" ? "Writing your note…" : "Writing your reply…",
+                              "Polishing…",
+                          ]
+                }
             />
             </div>
 
@@ -564,7 +588,13 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 value={body}
                 onChange={(next) => setBody(next.slice(0, MAX_BODY_LEN))}
                 onDraftReply={() => aiDraft.start()}
-                contextHint={`It is a ${mode === "forward" ? "forward note" : "reply"} with the subject "${subject}".`}
+                draftLabel={isHe ? "נסח תשובה עם AI" : undefined}
+                draftCost={isHe ? "מ-2 נקודות" : undefined}
+                contextHint={
+                    isHe
+                        ? `זהו ${mode === "forward" ? "מכתב העברה" : "מענה"} עם הנושא "${subject}".`
+                        : `It is a ${mode === "forward" ? "forward note" : "reply"} with the subject "${subject}".`
+                }
                 maxLen={MAX_BODY_LEN}
             />
 
@@ -579,7 +609,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             Signature appended on send
                         </span>
                         <span
-                            className="ml-auto inline-flex items-center gap-1 text-[10px] text-emerald-700/80"
+                            className="ms-auto inline-flex items-center gap-1 text-[10px] text-emerald-700/80"
                             title="Manage this in mailbox settings"
                         >
                             <InfoIcon className="w-2.5 h-2.5" />
@@ -765,7 +795,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
 
                 <span
                     className={cn(
-                        "ml-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
+                        "ms-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
                         signatureState.kind === "on" &&
                             "bg-emerald-50 text-emerald-700",
                         signatureState.kind === "off" &&

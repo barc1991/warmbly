@@ -91,7 +91,7 @@ export function SearchInput({
 }) {
     return (
         <div className={cn(
-            "h-7 pl-2 pr-1 rounded-md border border-slate-200 bg-white flex items-center gap-1.5 focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-100 transition-colors min-w-0",
+            "h-7 ps-2 pe-1 rounded-md border border-slate-200 bg-white flex items-center gap-1.5 focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-100 transition-colors min-w-0",
             className,
         )}>
             <SearchIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -104,7 +104,7 @@ export function SearchInput({
                     if (e.key === "Enter") onSubmit?.(value);
                     onKeyDown?.(e);
                 }}
-                className="flex-1 min-w-0 h-full bg-transparent outline-none text-[16px] md:text-[12.5px] text-slate-900 placeholder:text-slate-400"
+                className="flex-1 min-w-0 h-full bg-transparent outline-none text-[16px] md:text-[12.5px] text-slate-900 placeholder:text-slate-400 text-start"
             />
             {value && (
                 <button
@@ -228,16 +228,16 @@ export function NumberInput({
                 )}
             />
             {suffix ? (
-                <span className="pr-2 text-[11px] text-slate-400 whitespace-nowrap select-none">{suffix}</span>
+                <span className="pe-2 text-[11px] text-slate-400 whitespace-nowrap select-none">{suffix}</span>
             ) : null}
-            <div className="flex flex-col self-stretch border-l border-slate-200 shrink-0">
+            <div className="flex flex-col self-stretch border-s border-slate-200 shrink-0">
                 <button
                     type="button"
                     tabIndex={-1}
                     aria-label="Increase"
                     disabled={disabled || atMax}
                     onClick={() => bump(1)}
-                    className="flex-1 px-1 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors rounded-tr-md"
+                    className="flex-1 px-1 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors rounded-te-md"
                 >
                     <ChevronUpIcon className="w-3 h-3" />
                 </button>
@@ -247,7 +247,7 @@ export function NumberInput({
                     aria-label="Decrease"
                     disabled={disabled || atMin}
                     onClick={() => bump(-1)}
-                    className="flex-1 px-1 flex items-center justify-center border-t border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors rounded-br-md"
+                    className="flex-1 px-1 flex items-center justify-center border-t border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors rounded-be-md"
                 >
                     <ChevronDownIcon className="w-3 h-3" />
                 </button>

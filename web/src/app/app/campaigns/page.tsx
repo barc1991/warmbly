@@ -20,6 +20,7 @@ import type Folder from "@/lib/api/models/app/Folder";
 import { cn, hexToRgba } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
     AlertTriangleIcon,
     CalendarIcon,
@@ -76,6 +77,12 @@ const KIND_LABEL: Record<KindFilter, string> = {
     all: "All types",
     sequence: "Sequences",
     one_time: "One-time emails",
+};
+
+const KIND_LABEL_HE: Record<KindFilter, string> = {
+    all: "כל הסוגים",
+    sequence: "רצפי הודעות",
+    one_time: "אימיילים חד-פעמיים",
 };
 
 // Per-state label + leading mark for a campaign row. "active" renders the
@@ -249,6 +256,7 @@ function CampaignFolderMenu({ campaign, folders }: { campaign: Campaign; folders
 }
 
 export default function CampaignsPage() {
+    const { t, i18n } = useTranslation(["campaigns", "common"]);
     const p = useUserProfile();
     const confirm = useConfirm();
     const canView = usePermission("VIEW_CAMPAIGNS");
@@ -331,13 +339,13 @@ export default function CampaignsPage() {
     return (
         <Page>
             <PageTopbar
-                eyebrow="Campaigns"
+                eyebrow={t("campaigns:title", "Campaigns")}
                 subtitle={
                     campaignsData.isPending
-                        ? "Loading…"
+                        ? t("common:states.loading", "Loading…")
                         : campaignsData.isError
-                            ? "Failed to load"
-                            : `${campaigns.length} ${campaigns.length === 1 ? "campaign" : "campaigns"}`
+                            ? t("common:states.error", "Failed to load")
+                            : `${campaigns.length} ${campaigns.length === 1 ? (i18n.language === "he" ? "קמפיין" : "campaign") : (i18n.language === "he" ? "קמפיינים" : "campaigns")}`
                 }
             >
                 <TopbarAction
@@ -345,46 +353,46 @@ export default function CampaignsPage() {
                     icon={<Settings2Icon className="w-3 h-3" />}
                     onClick={() => p.setFoldersEdit(true)}
                 >
-                    Folders
+                    {i18n.language === "he" ? "תיקיות" : "Folders"}
                 </TopbarAction>
                 <TopbarAction
                     icon={<PlusIcon className="w-3 h-3" />}
                     onClick={() => setNewOpen(true)}
                 >
-                    New campaign
+                    {t("campaigns:newCampaign", "New campaign")}
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={5}>
                 <Stat
-                    label="All"
+                    label={t("common:states.all", "All")}
                     value={counts.total}
-                    sub="campaigns"
+                    sub={i18n.language === "he" ? "קמפיינים" : "campaigns"}
                     onClick={() => setStatus("all")}
                 />
                 <Stat
-                    label="Active"
+                    label={t("common:states.active", "Active")}
                     value={counts.active}
-                    sub="sending now"
+                    sub={i18n.language === "he" ? "שולחים כעת" : "sending now"}
                     accent={counts.active > 0}
                     onClick={() => setStatus("active")}
                 />
                 <Stat
-                    label="Paused"
+                    label={t("common:states.paused", "Paused")}
                     value={counts.paused}
-                    sub="resumable"
+                    sub={i18n.language === "he" ? "ניתנים לחידוש" : "resumable"}
                     onClick={() => setStatus("paused")}
                 />
                 <Stat
-                    label="Draft"
+                    label={t("common:states.draft", "Draft")}
                     value={counts.draft}
-                    sub="not started"
+                    sub={i18n.language === "he" ? "טרם הופעלו" : "not started"}
                     onClick={() => setStatus("draft")}
                 />
                 <Stat
-                    label="Done"
+                    label={t("common:states.done", "Done")}
                     value={counts.completed}
-                    sub="finished"
+                    sub={i18n.language === "he" ? "הסתיימו" : "finished"}
                     last
                     onClick={() => setStatus("completed")}
                 />
@@ -397,7 +405,7 @@ export default function CampaignsPage() {
                 <SearchInput
                     value={query}
                     onChange={setQuery}
-                    placeholder="Search campaigns…"
+                    placeholder={i18n.language === "he" ? "חיפוש קמפיינים…" : "Search campaigns…"}
                     className="w-full sm:w-56"
                 />
 
@@ -405,16 +413,16 @@ export default function CampaignsPage() {
                     <PopoverMenuTrigger asChild>
                         <SelectButton
                             icon={<FolderIcon className="w-3.5 h-3.5" />}
-                            label={activeFolder?.title ?? "All folders"}
+                            label={activeFolder?.title ?? (i18n.language === "he" ? "כל התיקיות" : "All folders")}
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={200}>
-                        <PopoverMenuLabel>Folders</PopoverMenuLabel>
+                        <PopoverMenuLabel>{i18n.language === "he" ? "תיקיות" : "Folders"}</PopoverMenuLabel>
                         <PopoverMenuItem
                             onSelect={() => setFolder("")}
                             selected={!folder}
                         >
-                            All folders
+                            {i18n.language === "he" ? "כל התיקיות" : "All folders"}
                         </PopoverMenuItem>
                         {folders.map((f) => (
                             <PopoverMenuItem
@@ -431,7 +439,7 @@ export default function CampaignsPage() {
                             onSelect={() => p.setFoldersEdit(true)}
                             icon={<Settings2Icon className="w-3 h-3" />}
                         >
-                            Manage folders
+                            {i18n.language === "he" ? "ניהול תיקיות" : "Manage folders"}
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -440,14 +448,14 @@ export default function CampaignsPage() {
                     <PopoverMenuTrigger asChild>
                         <SelectButton
                             icon={<SendIcon className="w-3.5 h-3.5" />}
-                            label={KIND_LABEL[kind]}
+                            label={i18n.language === "he" ? KIND_LABEL_HE[kind] : KIND_LABEL[kind]}
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={180}>
-                        <PopoverMenuLabel>Type</PopoverMenuLabel>
+                        <PopoverMenuLabel>{i18n.language === "he" ? "סוג" : "Type"}</PopoverMenuLabel>
                         {(Object.keys(KIND_LABEL) as KindFilter[]).map((k) => (
                             <PopoverMenuItem key={k} selected={kind === k} onSelect={() => setKind(k)}>
-                                {KIND_LABEL[k]}
+                                {i18n.language === "he" ? KIND_LABEL_HE[k] : KIND_LABEL[k]}
                             </PopoverMenuItem>
                         ))}
                     </PopoverMenuContent>
@@ -573,13 +581,13 @@ export default function CampaignsPage() {
                                             {c.description}
                                         </span>
                                     )}
-                                    <span className={cn("ml-auto text-[10px] uppercase tracking-[0.1em] font-medium shrink-0", campaignDisplayTone(c))}>
+                                    <span className={cn("ms-auto text-[10px] uppercase tracking-[0.1em] font-medium shrink-0", campaignDisplayTone(c))}>
                                         {stateLabel}
                                     </span>
                                     <span className="font-mono text-[10.5px] text-slate-400 tabular-nums items-center gap-1 shrink-0 hidden sm:flex">
                                         <CalendarIcon className="w-3 h-3" />
                                         {c.created_at
-                                            ? new Date(c.created_at).toLocaleDateString("en-US", {
+                                            ? new Date(c.created_at).toLocaleDateString(i18n.language === "he" ? "he-IL" : "en-US", {
                                                 month: "short",
                                                 day: "numeric",
                                             })

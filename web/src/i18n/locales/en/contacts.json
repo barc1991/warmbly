@@ -1,0 +1,38 @@
+{
+  "title": "Contacts",
+  "subtitle": "Manage leads, verify deliverability and organize segments",
+  "addContact": "Add contact",
+  "importCsv": "Import CSV",
+  "exportContacts": "Export contacts",
+  "tabs": {
+    "all": "All contacts",
+    "segments": "Segments",
+    "categories": "Categories",
+    "suppressions": "Suppressions"
+  },
+  "fields": {
+    "firstName": "First name",
+    "lastName": "Last name",
+    "email": "Email address",
+    "company": "Company",
+    "jobTitle": "Job title",
+    "phone": "Phone",
+    "tags": "Tags",
+    "city": "City",
+    "country": "Country"
+  },
+  "segments": {
+    "title": "Segments",
+    "createSegment": "Create segment",
+    "filterCriteria": "Filter criteria"
+  },
+  "suppressions": {
+    "title": "Suppression list",
+    "addSuppression": "Add domain or email",
+    "reason": "Reason"
+  },
+  "empty": {
+    "title": "No contacts found",
+    "description": "Import leads via CSV or add contacts manually to build your audience."
+  }
+}

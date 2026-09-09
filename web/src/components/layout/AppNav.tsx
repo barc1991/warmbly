@@ -59,6 +59,34 @@ import type { AdvisorSurface } from "@/lib/api/models/app/advisor/Advisor";
 import { UserNav } from "./UserNav";
 import { Logo } from "@/components/svg";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+
+const navItemI18n: Record<string, string> = {
+    "/app/unibox": "nav.items.unibox",
+    "/app/emails": "nav.items.mailboxes",
+    "/app/campaigns": "nav.items.campaigns",
+    "/app/contacts": "nav.items.contacts",
+    "/app/forms": "nav.items.forms",
+    "/app/analytics": "nav.items.analytics",
+    "/app/deliverability": "nav.items.deliverability",
+    "/app/crm/pipelines": "nav.items.pipelines",
+    "/app/crm/deals": "nav.items.deals",
+    "/app/crm/tasks": "nav.items.tasks",
+    "/app/crm/meetings": "nav.items.meetings",
+    "/app/templates": "nav.items.templates",
+    "/app/integrations": "nav.items.integrations",
+    "/app/automations": "nav.items.automations",
+    "/app/api-keys": "nav.items.apiKeys",
+    "/app/audit": "nav.items.auditLog",
+    "/app/settings": "nav.items.settings",
+};
+
+const navSectionI18n: Record<string, string> = {
+    Email: "nav.groups.outreach",
+    CRM: "nav.groups.crm",
+    Resources: "nav.groups.resources",
+    Settings: "nav.groups.settings",
+};
 
 // Stable (module-level) empty contacts search so the sidebar's contact-count
 // query key never changes identity between renders (which would refetch-loop).
@@ -176,6 +204,8 @@ function NavRow({ item }: { item: NavItem }) {
     const hasItemPermission = usePermission(item.permission ?? "VIEW_CAMPAIGNS");
     const [deniedOpen, setDeniedOpen] = useState(false);
     const upgradeDialog = useUpgradeDialog();
+    const { t } = useTranslation();
+    const title = navItemI18n[item.url] ? t(navItemI18n[item.url], item.title) : item.title;
     const active =
         pathname === item.url || pathname.startsWith(item.url + "/");
     const badge = item.badgeStoreKey === "unseenCount" ? unseen : undefined;
@@ -195,16 +225,16 @@ function NavRow({ item }: { item: NavItem }) {
                 <button
                     type="button"
                     onClick={() => setDeniedOpen(true)}
-                    title={`${item.title} · no access`}
+                    title={`${title} · no access`}
                     className="group w-[calc(100%-1rem)] mx-2 flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] text-slate-400 hover:text-slate-600 hover:bg-slate-200/40 transition-colors duration-100"
                 >
                     <LockIcon className="w-[13px] h-[13px] shrink-0 text-slate-300 group-hover:text-slate-500" strokeWidth={1.8} />
-                    <span className="truncate flex-1 min-w-0 text-left">{item.title}</span>
+                    <span className="truncate flex-1 min-w-0 text-start">{title}</span>
                 </button>
                 <AccessLockedDialog
                     open={deniedOpen}
                     onClose={() => setDeniedOpen(false)}
-                    feature={item.title}
+                    feature={title}
                     permissionLabel={item.permissionLabel ?? "the required"}
                 />
             </>
@@ -230,12 +260,12 @@ function NavRow({ item }: { item: NavItem }) {
         return (
             <button
                 type="button"
-                onClick={() => upgradeDialog.open({ feature: item.title, minPlan })}
-                title={`${item.title} · ${planBadge.label} plan`}
+                onClick={() => upgradeDialog.open({ feature: title, minPlan })}
+                title={`${title} · ${planBadge.label} plan`}
                 className="group w-[calc(100%-1rem)] mx-2 flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] text-slate-400 hover:text-slate-700 hover:bg-slate-200/40 transition-colors duration-100"
             >
                 <LockIcon className="w-[13px] h-[13px] shrink-0 text-slate-300 group-hover:text-slate-500" strokeWidth={1.8} />
-                <span className="truncate flex-1 min-w-0 text-left">{item.title}</span>
+                <span className="truncate flex-1 min-w-0 text-start">{title}</span>
                 <span
                     className={cn(
                         "h-4 px-1.5 rounded text-[9.5px] font-semibold uppercase tracking-[0.06em] border inline-flex items-center",
@@ -251,7 +281,7 @@ function NavRow({ item }: { item: NavItem }) {
     return (
         <Link
             to={item.url}
-            title={planBadge ? `${item.title} · ${planBadge.label} plan` : undefined}
+            title={planBadge ? `${title} · ${planBadge.label} plan` : undefined}
             className={cn(
                 "group mx-2 flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] transition-colors duration-100",
                 active
@@ -275,7 +305,7 @@ function NavRow({ item }: { item: NavItem }) {
             {/* min-w-0 lets the label shrink/truncate so the count cluster (and its
                 separator) is never pushed off the row — longer labels like
                 "Campaigns"/"Accounts" used to clip it at narrower widths. */}
-            <span className="truncate flex-1 min-w-0">{item.title}</span>
+            <span className="truncate flex-1 min-w-0 text-start">{title}</span>
             {item.advisorSurface && !locked && <AdvisorNavBadge surface={item.advisorSurface} />}
             {item.indicator === "campaigns" && !locked && <CampaignActivity />}
             {item.indicator === "accounts" && !locked && <MailboxActivity />}
@@ -342,7 +372,7 @@ function TabStat({
     // count instead of going blank — it just tweens up as the query resolves.
     return (
         <span
-            className="ml-auto inline-flex items-center gap-1.5 shrink-0"
+            className="ms-auto inline-flex items-center gap-1.5 shrink-0"
             title={title}
         >
             {glyph}
@@ -371,7 +401,7 @@ function TabDualStat({
 }) {
     return (
         <span
-            className="ml-auto inline-flex items-center gap-2.5 shrink-0"
+            className="ms-auto inline-flex items-center gap-2.5 shrink-0"
             title={title}
         >
             <AnimatedNumber value={total} format={compactN} className={COUNT_LIGHT} />
@@ -580,11 +610,13 @@ function IntegrationsActivity() {
 }
 
 function Section({ section, first = false }: { section: NavSection; first?: boolean }) {
+    const { t } = useTranslation();
+    const sectionLabel = navSectionI18n[section.label] ? t(navSectionI18n[section.label], section.label) : section.label;
     return (
         <div className={first ? "" : "mt-4 pt-4 border-t border-slate-200/50"}>
-            <div className="px-4 mb-1.5">
+            <div className="px-4 mb-1.5 text-start">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    {section.label}
+                    {sectionLabel}
                 </span>
             </div>
             <div className="space-y-px">
@@ -738,7 +770,7 @@ function LivePanel() {
                 )}
                 <span
                     className={cn(
-                        "ml-auto inline-flex items-center gap-1",
+                        "ms-auto inline-flex items-center gap-1",
                         unseenCount > 0 ? "text-sky-600" : "text-slate-400",
                     )}
                     title={`${unseenCount} unread in inbox`}
@@ -930,9 +962,9 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
 
             <aside
                 className={cn(
-                    // Mobile: off-canvas drawer that slides in from the left.
-                    "fixed inset-y-0 left-0 z-50 w-64 flex flex-col text-slate-900 bg-white shadow-2xl transition-transform duration-300 ease-out",
-                    open ? "translate-x-0" : "-translate-x-full",
+                    // Mobile: off-canvas drawer that slides in from the start (left in LTR, right in RTL).
+                    "fixed inset-y-0 start-0 z-50 w-64 flex flex-col text-slate-900 bg-white shadow-2xl transition-transform duration-300 ease-out",
+                    open ? "translate-x-0" : "-translate-x-full rtl:translate-x-full",
                     // >=md: static sidebar column over the chrome, no transform/shadow.
                     "md:static md:z-auto md:translate-x-0 md:bg-transparent md:shadow-none md:transition-none shrink-0",
                 )}
@@ -953,7 +985,7 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
                         type="button"
                         onClick={onClose}
                         aria-label="Close menu"
-                        className="w-8 h-8 -mr-1 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                        className="w-8 h-8 -me-1 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
                         <XIcon className="w-4 h-4" />
                     </button>

@@ -75,7 +75,7 @@ export function AppShell() {
                         corner is softened (rounded-tl-2xl) only on >=md, where
                         the sidebar sits beside it; on mobile the panel is
                         full-bleed with just a top hairline. */}
-                    <main className="flex-1 min-w-0 bg-white overflow-hidden border-t border-slate-200/70 md:rounded-tl-2xl md:border-l">
+                    <main className="flex-1 min-w-0 bg-white overflow-hidden border-t border-slate-200/70 md:rounded-tl-2xl md:border-l rtl:md:rounded-tl-none rtl:md:rounded-tr-2xl rtl:md:border-l-0 rtl:md:border-r">
                         <GlobalCursorsProvider scrollRef={scrollRef}>
                             <div ref={scrollRef} className="h-full overflow-auto">
                                 <RouteBoundary>

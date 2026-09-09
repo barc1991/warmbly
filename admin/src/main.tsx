@@ -205,6 +205,12 @@ export { Outlet };
 // Before the first render, so a boot failure is reported too.
 initErrorReporting();
 
+// Initialize direction and language based on shared warmbly_locale
+const savedLocale = typeof localStorage !== "undefined" ? (localStorage.getItem("warmbly_locale") || "en") : "en";
+const isRtl = savedLocale === "he";
+document.documentElement.dir = isRtl ? "rtl" : "ltr";
+document.documentElement.lang = savedLocale;
+
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
         <QueryClientProvider client={queryClient}>

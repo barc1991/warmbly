@@ -59,6 +59,7 @@ func (h *Handler) DraftCompose(c *gin.Context) {
 		To          string `json:"to"`
 		Subject     string `json:"subject"`
 		Instruction string `json:"instruction"`
+		Language    string `json:"language"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		errx.JSON(c, errx.New(errx.BadRequest, "invalid request body"))
@@ -78,6 +79,9 @@ func (h *Handler) DraftCompose(c *gin.Context) {
 	paid, _ := h.FeatureGateService.IsPaidOrganization(c.Request.Context(), *orgID)
 	model := h.AIProvider.ModelForTier(paid)
 	voice := h.orgVoice(c.Request.Context(), *orgID, "")
+	if req.Language == "he" || generation.ContainsHebrew(req.Instruction) || generation.ContainsHebrew(req.Subject) || generation.ContainsHebrew(historyBlock) {
+		voice.Language = "he"
+	}
 	hasVoice := strings.TrimSpace(voice.ProductDescription) != "" ||
 		strings.TrimSpace(voice.ICPNotes) != "" ||
 		strings.TrimSpace(voice.VoiceProfile) != ""

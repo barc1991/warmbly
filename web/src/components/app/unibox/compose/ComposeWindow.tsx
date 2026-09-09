@@ -14,6 +14,7 @@
 //   - Suppressed recipients are flagged before send, not bounced after.
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -161,6 +162,8 @@ function ComposeWindowInner({
     prefillTo: string | null;
     seed: ComposeDraft | null;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const closeCompose = useComposeStore((s) => s.closeCompose);
     const minimized = useComposeStore((s) => s.minimized);
     const setMinimized = useComposeStore((s) => s.setMinimized);
@@ -251,9 +254,10 @@ function ComposeWindowInner({
                 to: primary || undefined,
                 subject: subject.trim() || undefined,
                 instruction,
+                language: isHe ? "he" : undefined,
                 idempotency_key: crypto.randomUUID(),
             }),
-        [draftMut, primary, subject],
+        [draftMut, isHe, primary, subject],
     );
     const aiDraft = useAIDraft({
         value: body,
@@ -267,14 +271,25 @@ function ComposeWindowInner({
     const suggestSubject = async () => {
         if (!body.trim() || subjectMut.isPending) return;
         try {
+            const prompt =
+                isHe || /[\u0590-\u05FF]/.test(body)
+                    ? `כתוב שורת נושא אחת קצרה לאימייל (עד 8 מילים) בעברית עבור האימייל הבא. החזר אך ורק את טקסט הנושא, ללא מרכאות וללא הקדמות.\n\n${body.trim().slice(0, 2000)}`
+                    : `Write ONE short email subject line (max 8 words) for the email below. Return only the subject text, no quotes.\n\n${body.trim().slice(0, 2000)}`;
             const res = await subjectMut.mutateAsync({
-                prompt: `Write ONE short email subject line (max 8 words) for the email below. Return only the subject text, no quotes.\n\n${body.trim().slice(0, 2000)}`,
+                prompt,
+                language: isHe ? "he" : undefined,
             });
             const line = res.text.trim().split("\n")[0].replace(/^["']|["']$/g, "");
             if (line) setSubject(line);
         } catch (e) {
             const err = e as AppError;
-            toast.error(err?.status === 402 ? "You're out of AI credits." : buildError(err));
+            toast.error(
+                err?.status === 402
+                    ? isHe
+                        ? "נגמרו לך נקודות ה-AI."
+                        : "You're out of AI credits."
+                    : buildError(err),
+            );
         }
     };
 
@@ -602,13 +617,17 @@ function ComposeWindowInner({
                                 type="button"
                                 onClick={suggestSubject}
                                 disabled={subjectMut.isPending}
-                                title="Suggest a subject from the body (from 1 credit)"
+                                title={
+                                    isHe
+                                        ? "הצע שורת נושא מתוכן ההודעה (מ-1 נקודה)"
+                                        : "Suggest a subject from the body (from 1 credit)"
+                                }
                                 className="shrink-0 h-5 px-1.5 rounded inline-flex items-center gap-1 text-[10.5px] text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
                             >
                                 {subjectMut.isPending && (
                                     <Loader2Icon className="w-2.5 h-2.5 animate-spin" />
                                 )}
-                                Suggest
+                                {isHe ? "הצע" : "Suggest"}
                             </button>
                         )}
                     </div>
@@ -630,7 +649,8 @@ function ComposeWindowInner({
                         ref={bodyRef}
                         value={body}
                         onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY_LEN))}
-                        placeholder="Write your email…"
+                        placeholder={isHe ? "כתוב את האימייל שלך…" : "Write your email…"}
+                        dir="auto"
                         onKeyDown={(e) => {
                             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                                 e.preventDefault();
@@ -644,13 +664,23 @@ function ComposeWindowInner({
                     )}
                     <AIDraftBar
                         ctrl={aiDraft}
-                        busyLabels={[
-                            contactDisplay
-                                ? `Thinking about ${contactDisplay}…`
-                                : "Thinking about your recipient…",
-                            "Writing your email…",
-                            "Polishing…",
-                        ]}
+                        busyLabels={
+                            isHe
+                                ? [
+                                      contactDisplay
+                                          ? `חושב על ${contactDisplay}…`
+                                          : "חושב על הנמען שלך…",
+                                      "כותב את האימייל…",
+                                      "מלטש ומסיים…",
+                                  ]
+                                : [
+                                      contactDisplay
+                                          ? `Thinking about ${contactDisplay}…`
+                                          : "Thinking about your recipient…",
+                                      "Writing your email…",
+                                      "Polishing…",
+                                  ]
+                        }
                     />
                 </div>
                 <TextareaAIEdit
@@ -665,9 +695,13 @@ function ComposeWindowInner({
                     value={body}
                     onChange={(next) => setBody(next.slice(0, MAX_BODY_LEN))}
                     onDraftReply={() => aiDraft.start()}
-                    draftLabel="Draft this email with AI"
-                    draftCost="from 2 credits"
-                    contextHint={`It is a new outbound email${contactDisplay ? ` to ${contactDisplay}` : ""}${subject.trim() ? ` with the subject "${subject.trim()}"` : ""}.`}
+                    draftLabel={isHe ? "נסח אימייל זה עם AI" : "Draft this email with AI"}
+                    draftCost={isHe ? "מ-2 נקודות" : "from 2 credits"}
+                    contextHint={
+                        isHe
+                            ? `זהו אימייל יוצא חדש${contactDisplay ? ` אל ${contactDisplay}` : ""}${subject.trim() ? ` עם הנושא "${subject.trim()}"` : ""}.`
+                            : `It is a new outbound email${contactDisplay ? ` to ${contactDisplay}` : ""}${subject.trim() ? ` with the subject "${subject.trim()}"` : ""}.`
+                    }
                     maxLen={MAX_BODY_LEN}
                 />
 

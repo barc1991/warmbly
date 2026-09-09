@@ -1,0 +1,47 @@
+{
+  "title": "Campaigns",
+  "subtitle": "Create, schedule and optimize cold email campaigns",
+  "newCampaign": "New campaign",
+  "launchCampaign": "Launch campaign",
+  "pauseCampaign": "Pause campaign",
+  "resumeCampaign": "Resume campaign",
+  "tabs": {
+    "preview": "Overview",
+    "leads": "Leads",
+    "steps": "Sequence",
+    "schedule": "Schedule",
+    "preferences": "Settings"
+  },
+  "metrics": {
+    "sent": "Sent",
+    "delivered": "Delivered",
+    "opened": "Opened",
+    "clicked": "Clicked",
+    "replied": "Replied",
+    "bounced": "Bounced",
+    "openRate": "Open rate",
+    "replyRate": "Reply rate",
+    "clickRate": "Click rate"
+  },
+  "sequence": {
+    "addStep": "Add step",
+    "emailStep": "Send email",
+    "delayStep": "Wait delay",
+    "subject": "Subject",
+    "body": "Email body",
+    "variables": "Insert variable",
+    "stepNumber": "Step {{number}}",
+    "waitFor": "Wait {{time}} before sending"
+  },
+  "schedule": {
+    "sendingDays": "Sending days",
+    "sendingHours": "Sending hours",
+    "timezone": "Timezone",
+    "maxLeadsPerDay": "Max new leads per day",
+    "entryDelay": "Entry delay"
+  },
+  "empty": {
+    "title": "No campaigns yet",
+    "description": "Create your first outreach campaign to start generating leads."
+  }
+}

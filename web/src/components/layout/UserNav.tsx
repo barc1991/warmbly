@@ -9,6 +9,7 @@
 
 import { useNavigate } from "react-router-dom";
 import {
+    LanguagesIcon,
     LogOutIcon,
     SettingsIcon,
 } from "lucide-react";
@@ -21,11 +22,15 @@ import {
     PopoverMenuSeparator,
     PopoverMenuTrigger,
 } from "@/components/ui/popover-menu";
+import { useTranslation } from "react-i18next";
+import { useDirection } from "@/i18n";
 
 export function UserNav() {
     const navigate = useNavigate();
     const user = useAppStore((s) => s.user);
     const logoutMutation = useLogout();
+    const { t } = useTranslation();
+    const { language, setLanguage } = useDirection();
 
     if (!user) return null;
 
@@ -57,7 +62,7 @@ export function UserNav() {
                             </span>
                         )}
                     </div>
-                    <div className="flex-1 min-w-0 text-left">
+                    <div className="flex-1 min-w-0 text-start">
                         <div className="text-[13px] text-slate-900 truncate">
                             {displayName}
                         </div>
@@ -72,7 +77,7 @@ export function UserNav() {
                 {/* Identity block — same name/email row but inside the
                     PopoverMenu chrome so it inherits the consistent
                     hairline border + shadow. */}
-                <div className="px-3 py-2">
+                <div className="px-3 py-2 text-start">
                     <div className="text-[12.5px] font-medium text-slate-900 truncate">
                         {displayName}
                     </div>
@@ -85,7 +90,13 @@ export function UserNav() {
                     onSelect={() => navigate("/app/settings")}
                     icon={<SettingsIcon className="w-3 h-3" />}
                 >
-                    Settings
+                    {t("nav.items.settings", "Settings")}
+                </PopoverMenuItem>
+                <PopoverMenuItem
+                    onSelect={() => setLanguage(language.startsWith("he") ? "en" : "he")}
+                    icon={<LanguagesIcon className="w-3 h-3" />}
+                >
+                    {language.startsWith("he") ? "English (אנגלית)" : "עברית (Hebrew)"}
                 </PopoverMenuItem>
                 <PopoverMenuSeparator />
                 <PopoverMenuItem
@@ -94,7 +105,7 @@ export function UserNav() {
                     disabled={logoutMutation.isPending}
                     danger
                 >
-                    {logoutMutation.isPending ? "Signing out…" : "Log out"}
+                    {logoutMutation.isPending ? t("common.actions.signingOut", "Signing out…") : t("nav.userNav.logout", "Log out")}
                 </PopoverMenuItem>
             </PopoverMenuContent>
         </PopoverMenu>

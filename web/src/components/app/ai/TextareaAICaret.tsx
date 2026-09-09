@@ -21,6 +21,7 @@ import {
     Undo2Icon,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import useGenerateWrite from "@/lib/api/hooks/app/generation/useGenerateWrite";
 import { usePermission } from "@/hooks/usePermission";
 import useAiMetered from "@/hooks/useAiMetered";
@@ -55,12 +56,16 @@ function buildInsertPrompt(
     value: string,
     caret: number,
     contextHint?: string,
+    isHe?: boolean,
 ): string {
     const before = value.slice(Math.max(0, caret - CONTEXT_WINDOW), caret);
     const after = value.slice(caret, caret + Math.floor(CONTEXT_WINDOW / 3));
     let p =
         instruction +
         "\n\nYou are writing text to insert into an email draft at the cursor. Return ONLY the text to insert: no preamble, no subject line, no signature, no quotes around it. Match the draft's language and tone.";
+    if (isHe) {
+        p += "\n\nWrite strictly in natural, fluent Israeli Hebrew with correct grammar and gender agreement.";
+    }
     if (contextHint) p += `\n\n${contextHint}`;
     if (before.trim() || after.trim()) {
         p += `\n\nDraft so far, cursor marked with [[CURSOR]]:\n${before}[[CURSOR]]${after}`;
@@ -75,11 +80,16 @@ export default function TextareaAICaret({
     value,
     onChange,
     onDraftReply,
-    draftLabel = "Draft a reply from this thread",
-    draftCost = "from 2 credits",
+    draftLabel,
+    draftCost,
     contextHint,
     maxLen,
 }: TextareaAICaretProps) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+
+    const resolvedDraftLabel = draftLabel ?? (isHe ? "נסח מענה משרשור זה" : "Draft a reply from this thread");
+    const resolvedDraftCost = draftCost ?? (isHe ? "החל מ-2 קרדיטים" : "from 2 credits");
     const writeMut = useGenerateWrite();
     const typewriter = useTypewriter();
     // Single choke point for all AI drafting affordances: members without the
@@ -261,7 +271,7 @@ export default function TextareaAICaret({
             const prevValue = baseValue ?? value;
             setPhase("busy");
             writeMut.mutate(
-                { prompt: buildInsertPrompt(rawInstruction, prevValue, pos, contextHint) },
+                { prompt: buildInsertPrompt(rawInstruction, prevValue, pos, contextHint, isHe) },
                 {
                     onSuccess: (res) => {
                         if (!openRef.current) return;
@@ -361,7 +371,7 @@ export default function TextareaAICaret({
             )}
             <AnimatePresence>
                 {showCompanion && rect && (
-                    <ShortcutTooltip key="ai-caret-companion" label="Write with AI" combo="mod+J">
+                    <ShortcutTooltip key="ai-caret-companion" label={isHe ? "כתוב עם AI" : "Write with AI"} combo="mod+J">
                         <motion.button
                             type="button"
                             initial={{ opacity: 0, scale: 0.8 }}
@@ -374,7 +384,7 @@ export default function TextareaAICaret({
                                 left: taRight - 30,
                                 zIndex: 115,
                             }}
-                            aria-label="Write with AI"
+                            aria-label={isHe ? "כתוב עם AI" : "Write with AI"}
                             className="size-[22px] rounded-md inline-flex items-center justify-center text-slate-300 hover:text-sky-600 hover:bg-sky-50 transition-colors"
                             onMouseDown={(e) => {
                                 // Keep the textarea focused and the caret in place.
@@ -393,6 +403,7 @@ export default function TextareaAICaret({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.97, y: popAbove ? 2 : -2 }}
                         transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+                        dir={isHe ? "rtl" : "ltr"}
                         style={{
                             position: "fixed",
                             left: popLeft,
@@ -406,16 +417,16 @@ export default function TextareaAICaret({
                         {phase === "busy" ? (
                             <div className="px-3 py-2.5 flex items-center gap-2">
                                 <SparklesIcon className="w-3.5 h-3.5 text-sky-500 animate-pulse shrink-0" />
-                                <span className="ai-shimmer-text text-[12px] font-medium">Writing…</span>
-                                <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-slate-400">
-                                    <Kbd combo="esc" variant="light" /> cancel
+                                <span className="ai-shimmer-text text-[12px] font-medium">{isHe ? "כותב…" : "Writing…"}</span>
+                                <span className="mr-auto rtl:mr-auto rtl:ml-0 ltr:ml-auto inline-flex items-center gap-1 text-[10px] text-slate-400">
+                                    <Kbd combo="esc" variant="light" /> {isHe ? "ביטול" : "cancel"}
                                 </span>
                             </div>
                         ) : phase === "applied" ? (
                             <div className="px-2.5 py-2 flex items-center gap-1.5">
-                                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-900 mr-auto">
+                                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-900 mr-auto rtl:mr-0 rtl:ml-auto">
                                     <CheckIcon className="w-3.5 h-3.5 text-emerald-600" />
-                                    Inserted
+                                    {isHe ? "הוכנס לטקסט" : "Inserted"}
                                     {usage && formatUsage(usage.charged, usage.tokens) && (
                                         <span className="text-[10.5px] font-normal text-slate-400">
                                             · {formatUsage(usage.charged, usage.tokens)}
@@ -428,7 +439,7 @@ export default function TextareaAICaret({
                                     className="h-6 px-1.5 rounded inline-flex items-center gap-1 text-[11.5px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                                 >
                                     <Undo2Icon className="w-3 h-3" />
-                                    Undo
+                                    {isHe ? "בטל" : "Undo"}
                                 </button>
                                 <button
                                     type="button"
@@ -436,14 +447,14 @@ export default function TextareaAICaret({
                                     className="h-6 px-1.5 rounded inline-flex items-center gap-1 text-[11.5px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                                 >
                                     <RefreshCwIcon className="w-3 h-3" />
-                                    Again
+                                    {isHe ? "שוב" : "Again"}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={closeAll}
                                     className="h-6 px-2 rounded bg-slate-900 text-white text-[11.5px] font-medium hover:bg-slate-700 transition-colors"
                                 >
-                                    Done
+                                    {isHe ? "סיום" : "Done"}
                                 </button>
                             </div>
                         ) : (
@@ -452,6 +463,7 @@ export default function TextareaAICaret({
                                     <SparklesIcon className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                                     <input
                                         ref={inputRef}
+                                        dir="auto"
                                         value={instruction}
                                         onChange={(e) => setInstruction(e.target.value)}
                                         onKeyDown={(e) => {
@@ -460,7 +472,7 @@ export default function TextareaAICaret({
                                                 submit();
                                             }
                                         }}
-                                        placeholder="Ask AI to write…"
+                                        placeholder={isHe ? "בקש מ-AI לכתוב…" : "Ask AI to write…"}
                                         maxLength={2000}
                                         className="flex-1 min-w-0 h-7 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
                                     />
@@ -468,8 +480,8 @@ export default function TextareaAICaret({
                                         type="button"
                                         onClick={submit}
                                         disabled={!instruction.trim()}
-                                        aria-label="Write at the cursor"
-                                        className="size-6 rounded-md bg-sky-600 text-white inline-flex items-center justify-center hover:bg-sky-700 transition-colors disabled:opacity-40"
+                                        aria-label={isHe ? "כתוב במיקום הסמן" : "Write at the cursor"}
+                                        className="size-6 rounded-md bg-sky-600 text-white inline-flex items-center justify-center hover:bg-sky-700 transition-colors disabled:opacity-40 shrink-0"
                                     >
                                         <ArrowUpIcon className="w-3.5 h-3.5" />
                                     </button>
@@ -485,31 +497,33 @@ export default function TextareaAICaret({
                                             className="w-full px-2.5 h-8 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors"
                                         >
                                             <CornerUpLeftIcon className="w-3.5 h-3.5 text-slate-400" />
-                                            {draftLabel}
-                                            {metered && <span className="ml-auto text-[10px] text-slate-300">{draftCost}</span>}
+                                            {resolvedDraftLabel}
+                                            {metered && <span className="mr-auto rtl:mr-auto rtl:ml-0 ltr:ml-auto text-[10px] text-slate-300">{resolvedDraftCost}</span>}
                                         </button>
                                     )}
                                     <button
                                         type="button"
                                         onClick={() =>
                                             run(
-                                                "Continue the draft naturally from the cursor, adding the next sentence or two.",
+                                                isHe
+                                                    ? "המשך את הטקסט בעברית באופן טבעי ממיקום הסמן, והוסף את המשפט או שניים הבאים."
+                                                    : "Continue the draft naturally from the cursor, adding the next sentence or two.",
                                             )
                                         }
                                         disabled={!value.trim()}
                                         className="w-full px-2.5 h-8 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-40"
                                     >
                                         <PenLineIcon className="w-3.5 h-3.5 text-slate-400" />
-                                        Continue writing
-                                        {metered && <span className="ml-auto text-[10px] text-slate-300">from 1 credit</span>}
+                                        {isHe ? "המשך בכתיבה" : "Continue writing"}
+                                        {metered && <span className="mr-auto rtl:mr-auto rtl:ml-0 ltr:ml-auto text-[10px] text-slate-300">{isHe ? "החל מקרדיט 1" : "from 1 credit"}</span>}
                                     </button>
                                 </div>
                                 <div className="px-2.5 pb-2 pt-1 flex items-center gap-2.5 text-[10px] text-slate-400 border-t border-slate-100">
                                     <span className="inline-flex items-center gap-1">
-                                        <Kbd combo="enter" variant="light" /> write
+                                        <Kbd combo="enter" variant="light" /> {isHe ? "כתוב" : "write"}
                                     </span>
                                     <span className="inline-flex items-center gap-1">
-                                        <Kbd combo="esc" variant="light" /> close
+                                        <Kbd combo="esc" variant="light" /> {isHe ? "סגור" : "close"}
                                     </span>
                                 </div>
                             </div>

@@ -1,8 +1,10 @@
 import Request from "../../Request";
+import i18n from "@/i18n";
 
 export interface DraftReplyInput {
     thread_id: string;
     instruction?: string;
+    language?: string;
     // Per-attempt key so a network retry of the SAME draft never double-charges
     // credits (the backend keys the consume on it).
     idempotency_key?: string;
@@ -23,10 +25,14 @@ export default async function draftReply(
     data: DraftReplyInput,
 ): Promise<DraftReplyResult> {
     const { idempotency_key, ...body } = data;
+    const payload = {
+        ...body,
+        language: body.language ?? (i18n.language === "he" ? "he" : "en"),
+    };
     return await Request<DraftReplyResult>({
         method: "POST",
         url: `/unibox/reply/draft`,
-        data: body,
+        data: payload,
         authorization: true,
         headers: idempotency_key ? { "Idempotency-Key": idempotency_key } : undefined,
     });

@@ -15,6 +15,7 @@
 import React from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ChevronLeftIcon, InboxIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { ConversationList } from "@/components/app/unibox/ConversationList";
 import { ScheduledList } from "@/components/app/unibox/ScheduledList";
@@ -44,6 +45,7 @@ function startOfWeek(): Date {
 }
 
 export default function UniboxPage() {
+  const { t, i18n } = useTranslation(["unibox", "common"]);
   const access = useFeatureAccess();
   const canAccess = usePermission("ACCESS_UNIBOX");
   const overview = useUniboxOverview();
@@ -248,42 +250,43 @@ export default function UniboxPage() {
 
   // ── Scope label for header chip ────────────────────────────────
   const overviewData = overview.data;
+  const isHe = i18n.language === "he";
   const scopeLabel = React.useMemo(() => {
     switch (scope.kind) {
       case "unread":
-        return "Unread";
+        return isHe ? "לא נקראו" : "Unread";
       case "today":
-        return "Today";
+        return isHe ? "היום" : "Today";
       case "week":
-        return "This week";
+        return isHe ? "השבוע" : "This week";
       case "awaiting":
-        return "Awaiting reply";
+        return isHe ? "ממתין למענה" : "Awaiting reply";
       case "agent_drafts":
-        return "Agent drafts";
+        return isHe ? "טיוטות סוכן" : "Agent drafts";
       case "snoozed":
-        return "Snoozed";
+        return isHe ? "בנודניק" : "Snoozed";
       case "scheduled":
-        return "Scheduled";
+        return isHe ? "מתוזמן" : "Scheduled";
       case "folder":
         return scope.folder.charAt(0).toUpperCase() + scope.folder.slice(1);
       case "mailbox": {
         const m = overviewData?.mailboxes.find((x) => x.id === scope.mailboxId);
-        return m ? m.email : "Mailbox";
+        return m ? m.email : (isHe ? "תיבת דואר" : "Mailbox");
       }
       case "tag": {
         const t = overviewData?.tags.find((x) => x.id === scope.tagId);
-        return t ? `Tag · ${t.title}` : "Tag";
+        return t ? `${isHe ? "תגית" : "Tag"} · ${t.title}` : (isHe ? "תגית" : "Tag");
       }
       case "category": {
         const c = overviewData?.categories?.find(
           (x) => x.id === scope.categoryId,
         );
-        return c ? `Label · ${c.title}` : "Label";
+        return c ? `${isHe ? "תווית" : "Label"} · ${c.title}` : (isHe ? "תווית" : "Label");
       }
       default:
-        return "All";
+        return isHe ? "הכל" : "All";
     }
-  }, [scope, overviewData]);
+  }, [scope, overviewData, isHe]);
 
   if (!canAccess) {
     return <NoAccess feature="the unified inbox" permissionLabel="Use unified inbox" />;
@@ -324,14 +327,14 @@ export default function UniboxPage() {
           {scope.kind === "scheduled" ? (
             // Scheduled scope takes the full right side — a
             // queued send has no thread context to load.
-            <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-l border-slate-200">
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-s border-slate-200">
               <ScheduledList />
             </div>
           ) : (
             <>
               <div
                 className={cn(
-                  "w-full md:w-[360px] shrink-0 border-r border-slate-200 overflow-hidden flex-col",
+                  "w-full md:w-[360px] shrink-0 border-e border-slate-200 overflow-hidden flex-col",
                   urlThread ? "hidden md:flex" : "flex",
                 )}
               >
@@ -356,8 +359,8 @@ export default function UniboxPage() {
                       onClick={() => goTo({ threadId: null })}
                       className="md:hidden flex items-center gap-1 px-3 h-10 shrink-0 border-b border-slate-200 text-[13px] font-medium text-slate-600 hover:text-slate-900 active:bg-slate-50"
                     >
-                      <ChevronLeftIcon className="w-4 h-4" />
-                      Inbox
+                      <ChevronLeftIcon className="w-4 h-4 rtl:rotate-180" />
+                      {isHe ? "תיבת דואר" : "Inbox"}
                     </button>
                     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                       {/* Keyed: the list is what has to survive a thread
@@ -374,11 +377,12 @@ export default function UniboxPage() {
                         <InboxIcon className="w-4 h-4" />
                       </div>
                       <p className="text-[12.5px] font-medium text-slate-700">
-                        Select a conversation
+                        {isHe ? "בחר שיחה מהרשימה" : "Select a conversation"}
                       </p>
                       <p className="text-[11.5px] text-slate-400 mt-1 max-w-[34ch] leading-relaxed">
-                        Pick a thread from the list. It opens in the URL path so
-                        you can share or refresh.
+                        {isHe
+                          ? "בחר שרשור מהרשימה כדי לצפות בו, להשיב או לתזמן."
+                          : "Pick a thread from the list. It opens in the URL path so you can share or refresh."}
                       </p>
                     </div>
                   </div>

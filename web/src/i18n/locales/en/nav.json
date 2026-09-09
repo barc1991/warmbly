@@ -1,0 +1,50 @@
+{
+  "groups": {
+    "outreach": "Outreach",
+    "intelligence": "Intelligence",
+    "crm": "CRM",
+    "resources": "Resources",
+    "settings": "Settings"
+  },
+  "items": {
+    "mailboxes": "Mailboxes",
+    "campaigns": "Campaigns",
+    "contacts": "Contacts",
+    "unibox": "Unibox",
+    "forms": "Forms",
+    "pipelines": "Pipelines",
+    "deals": "Deals",
+    "tasks": "Tasks",
+    "meetings": "Meetings",
+    "templates": "Templates",
+    "integrations": "Integrations",
+    "automations": "Automations",
+    "apiKeys": "API Keys",
+    "auditLog": "Audit log",
+    "analytics": "Analytics",
+    "deliverability": "Deliverability",
+    "settings": "Settings"
+  },
+  "userNav": {
+    "profile": "Profile",
+    "workspace": "Workspace settings",
+    "members": "Members & roles",
+    "billing": "Billing & plans",
+    "language": "Language",
+    "hebrew": "עברית (Hebrew)",
+    "english": "English",
+    "logout": "Log out",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System"
+  },
+  "telemetry": {
+    "live": "Live Telemetry",
+    "sendingActive": "Sending active",
+    "mailboxesHealthy": "Mailboxes healthy",
+    "warmupActive": "Warmup active",
+    "inboxMonitoring": "Inbox monitoring",
+    "commandPalette": "Search or jump to... (⌘K)"
+  }
+}

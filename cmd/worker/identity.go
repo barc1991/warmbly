@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 
 	"github.com/google/uuid"
 )
@@ -62,7 +62,7 @@ func claimStateID(dir string) (uuid.UUID, bool) {
 		log.Printf("cannot persist worker id to %q (%v), falling back", path, err)
 		return uuid.Nil, false
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := lockIDFile(f); err != nil {
 		f.Close()
 		return uuid.Nil, false
 	}
@@ -89,11 +89,11 @@ func tryClaimIDFile(path string) (uuid.UUID, bool) {
 	if err != nil {
 		return uuid.Nil, false
 	}
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := lockIDFile(f); err != nil {
 		f.Close()
 		return uuid.Nil, false
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := io.ReadAll(f)
 	if err != nil {
 		f.Close()
 		return uuid.Nil, false

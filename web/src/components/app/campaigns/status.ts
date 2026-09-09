@@ -12,7 +12,9 @@ export function campaignStatusBucket(s?: string): "active" | "paused" | "complet
     return "draft";
 }
 
-export const CAMPAIGN_STATUS_LABEL: Record<string, string> = {
+import i18next from "i18next";
+
+export const CAMPAIGN_STATUS_LABEL_EN: Record<string, string> = {
     active: "running",
     paused: "paused",
     paused_no_accounts: "no accounts",
@@ -22,6 +24,19 @@ export const CAMPAIGN_STATUS_LABEL: Record<string, string> = {
     completed: "finished",
     draft: "draft",
 };
+
+export const CAMPAIGN_STATUS_LABEL_HE: Record<string, string> = {
+    active: "פעיל",
+    paused: "מושהה",
+    paused_no_accounts: "ללא חשבונות שולח",
+    paused_trial_expired: "תקופת ניסיון הסתיימה",
+    paused_guardrail: "הושהה אוטומטית",
+    paused_undeliverable: "נדרש אימות כתובות",
+    completed: "הסתיים",
+    draft: "טיוטה",
+};
+
+export const CAMPAIGN_STATUS_LABEL = CAMPAIGN_STATUS_LABEL_EN;
 
 // Single source of truth for a status's color — drives BOTH the leading mark
 // and the right-side text label so they always agree. emerald = live/done,
@@ -40,8 +55,10 @@ const CAMPAIGN_STATUS_TONE: Record<string, string> = {
 // An unmapped status still has to read as words, not an enum: underscores
 // become spaces rather than surfacing "PAUSED_NO_ACCOUNTS".
 export function campaignStatusLabel(status?: string): string {
-    if (!status) return CAMPAIGN_STATUS_LABEL.draft;
-    return CAMPAIGN_STATUS_LABEL[status] ?? status.replace(/_/g, " ");
+    const isHe = i18next.language === "he";
+    const dict = isHe ? CAMPAIGN_STATUS_LABEL_HE : CAMPAIGN_STATUS_LABEL_EN;
+    if (!status) return dict.draft;
+    return dict[status] ?? status.replace(/_/g, " ");
 }
 
 export function campaignStatusTone(status: string): string {
@@ -79,14 +96,15 @@ export function isOneTimeCampaign(c: Pick<CampaignStatusSubject, "kind">): boole
 // (active but waiting on its start date), sending, sent. Paused variants keep
 // their sequence wording since the reasons are the same.
 export function campaignDisplayLabel(c: CampaignStatusSubject): string {
+    const isHe = i18next.language === "he";
     const status = c.status ?? "draft";
-    if (isIdleCampaign(c)) return CAMPAIGN_IDLE_LABEL;
+    if (isIdleCampaign(c)) return isHe ? "ממתין ללידים" : CAMPAIGN_IDLE_LABEL;
     if (!isOneTimeCampaign(c)) return campaignStatusLabel(status);
-    if (status === "completed") return "sent";
+    if (status === "completed") return isHe ? "נשלח" : "sent";
     if (status === "active") {
         const start = c.start_date ? new Date(c.start_date) : null;
-        if (start && !Number.isNaN(start.getTime()) && start.getTime() > Date.now()) return "scheduled";
-        return "sending";
+        if (start && !Number.isNaN(start.getTime()) && start.getTime() > Date.now()) return isHe ? "מתוזמן" : "scheduled";
+        return isHe ? "בשליחה" : "sending";
     }
     return campaignStatusLabel(status);
 }

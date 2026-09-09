@@ -1,0 +1,36 @@
+{
+  "title": "CRM",
+  "pipelines": {
+    "title": "Pipelines",
+    "createPipeline": "Create pipeline",
+    "stage": "Stage",
+    "stages": "Stages",
+    "addStage": "Add stage"
+  },
+  "deals": {
+    "title": "Deals",
+    "newDeal": "New deal",
+    "dealName": "Deal name",
+    "value": "Value",
+    "expectedClose": "Expected close date",
+    "probability": "Probability",
+    "contact": "Contact",
+    "owner": "Owner",
+    "totalPipelineValue": "Total pipeline value"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "newTask": "New task",
+    "dueDate": "Due date",
+    "priority": "Priority",
+    "completed": "Completed",
+    "markCompleted": "Mark as completed"
+  },
+  "meetings": {
+    "title": "Meetings",
+    "newMeeting": "Schedule meeting",
+    "time": "Time",
+    "attendees": "Attendees",
+    "link": "Meeting link"
+  }
+}

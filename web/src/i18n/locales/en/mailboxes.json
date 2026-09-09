@@ -1,0 +1,70 @@
+{
+  "title": "Mailboxes",
+  "subtitle": "Connect, warm up and monitor email sender accounts",
+  "addMailbox": "Add mailbox",
+  "connectProvider": "Connect email provider",
+  "providers": {
+    "google": "Google Workspace / Gmail",
+    "microsoft": "Microsoft 365 / Outlook",
+    "smtpImap": "Custom SMTP / IMAP"
+  },
+  "warmup": {
+    "title": "Warmup",
+    "status": "Warmup status",
+    "enabled": "Warmup active",
+    "disabled": "Warmup paused",
+    "dailyRamp": "Daily ramp-up",
+    "dailyTarget": "Daily target emails",
+    "replyRate": "Warmup reply rate",
+    "healthScore": "Sender reputation score"
+  },
+  "dns": {
+    "spf": "SPF record",
+    "dkim": "DKIM record",
+    "dmarc": "DMARC record",
+    "valid": "Valid",
+    "missing": "Missing",
+    "invalid": "Invalid"
+  },
+  "limits": {
+    "dailyLimit": "Daily limit",
+    "sentToday": "Sent today",
+    "speedRamp": "Ramp-up speed"
+  },
+  "empty": {
+    "title": "No mailboxes connected",
+    "description": "Connect your sender accounts to start warming up and sending emails."
+  },
+  "stats": {
+    "total": "Total",
+    "connected": "connected",
+    "healthy": "Healthy",
+    "sendingNow": "sending now",
+    "warming": "Warming",
+    "rampingUp": "ramping up",
+    "needsAttention": "Needs attention",
+    "pausedOrFailing": "paused or failing"
+  },
+  "columns": {
+    "account": "Account",
+    "warmup": "Warmup",
+    "health": "Health"
+  },
+  "actions": {
+    "startWarmup": "Start warmup",
+    "pause": "Pause",
+    "pauseWarmup": "Pause warmup",
+    "resumeWarmup": "Resume warmup",
+    "stopReset": "Stop & reset",
+    "warmupSettings": "Warmup settings",
+    "mailboxHealth": "Mailbox health",
+    "mailboxSettings": "Mailbox settings",
+    "searchPlaceholder": "Search by email…",
+    "allAccounts": "All accounts",
+    "manageTags": "Manage tags",
+    "tags": "Tags",
+    "selected": "selected",
+    "remove": "Remove",
+    "clear": "Clear"
+  }
+}

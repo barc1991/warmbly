@@ -15,6 +15,7 @@ export interface AIVariableGenerateRequest {
     // the sentence it lands in (matches the send path).
     context_before?: string;
     context_after?: string;
+    language?: string;
 }
 
 export type AIVariableGenerateResponse = WriteResponse;

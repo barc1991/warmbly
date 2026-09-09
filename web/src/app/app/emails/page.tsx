@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import useEmails from "@/lib/api/hooks/app/emails/useEmails";
 import { NoAccess } from "@/components/layout/NoAccess";
 import { usePermission } from "@/hooks/usePermission";
@@ -92,6 +93,7 @@ import { useAdvisorEntityIndex } from "@/lib/api/hooks/app/advisor/useAdvisor";
 import type { AdvisorFinding } from "@/lib/api/models/app/advisor/Advisor";
 
 export default function AddressesPage() {
+    const { t } = useTranslation(["mailboxes", "common"]);
     const p = useUserProfile();
     const confirm = useConfirm();
     const canView = usePermission("MANAGE_EMAILS");
@@ -257,33 +259,33 @@ export default function AddressesPage() {
     return (
         <Page>
             <PageTopbar
-                eyebrow="Accounts"
+                eyebrow={t("mailboxes:title", "Accounts")}
                 subtitle={
                     emailsData.emails
-                        ? `${stats.total} mailboxes`
-                        : "Loading…"
+                        ? `${stats.total} ${t("mailboxes:title", "mailboxes")}`
+                        : t("common:states.loading", "Loading…")
                 }
             >
                 <TopbarAction
                     onClick={() => p?.setAddEmail(true)}
                     icon={<PlusIcon className="w-3 h-3" />}
                 >
-                    Add account
+                    {t("mailboxes:addMailbox", "Add account")}
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={4}>
-                <Stat label="Total" value={<AnimatedNumber value={stats.total} />} sub="connected" />
-                <Stat label="Healthy" value={<AnimatedNumber value={stats.healthy} />} sub="sending now" accent={stats.healthy > 0} />
-                <Stat label="Warming" value={<AnimatedNumber value={stats.warming} />} sub="ramping up" />
-                <Stat label="Needs attention" value={<AnimatedNumber value={stats.issues} />} sub="paused or failing" last />
+                <Stat label={t("mailboxes:stats.total", "Total")} value={<AnimatedNumber value={stats.total} />} sub={t("mailboxes:stats.connected", "connected")} />
+                <Stat label={t("mailboxes:stats.healthy", "Healthy")} value={<AnimatedNumber value={stats.healthy} />} sub={t("mailboxes:stats.sendingNow", "sending now")} accent={stats.healthy > 0} />
+                <Stat label={t("mailboxes:stats.warming", "Warming")} value={<AnimatedNumber value={stats.warming} />} sub={t("mailboxes:stats.rampingUp", "ramping up")} />
+                <Stat label={t("mailboxes:stats.needsAttention", "Needs attention")} value={<AnimatedNumber value={stats.issues} />} sub={t("mailboxes:stats.pausedOrFailing", "paused or failing")} last />
             </StatStrip>
 
-            <SectionBar label="Mailboxes" count={emailsData.emails?.length ?? 0}>
+            <SectionBar label={t("mailboxes:title", "Mailboxes")} count={emailsData.emails?.length ?? 0}>
                 <SearchInput
                     value={query}
                     onChange={setQuery}
-                    placeholder="Search by email…"
+                    placeholder={t("mailboxes:actions.searchPlaceholder", "Search by email…")}
                     className="w-full sm:w-56"
                 />
                 <PopoverMenu align="end">
@@ -294,12 +296,12 @@ export default function AddressesPage() {
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={200}>
-                        <PopoverMenuLabel>Tags</PopoverMenuLabel>
+                        <PopoverMenuLabel>{t("mailboxes:actions.tags", "Tags")}</PopoverMenuLabel>
                         <PopoverMenuItem
                             onSelect={() => setTag("")}
                             selected={!tag}
                         >
-                            All accounts
+                            {t("mailboxes:actions.allAccounts", "All accounts")}
                         </PopoverMenuItem>
                         {(p?.user.tags ?? []).map((t) => (
                             <PopoverMenuItem
@@ -316,7 +318,7 @@ export default function AddressesPage() {
                             onSelect={() => p?.setTagsEdit(true)}
                             icon={<Settings2Icon className="w-3 h-3" />}
                         >
-                            Manage tags
+                            {t("mailboxes:actions.manageTags", "Manage tags")}
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -370,16 +372,16 @@ export default function AddressesPage() {
                     />
                     ) : null
                 ) : (
-                    <table className="w-full text-left">
+                    <table className="w-full text-start">
                         <thead className="sticky top-0 bg-white z-[1]">
                             <tr className="border-b border-slate-200">
-                                <th className="pl-5 pr-2 py-2 w-9">
+                                <th className="ps-5 pe-2 py-2 w-9">
                                     <input
                                         type="checkbox"
                                         className="w-3.5 h-3.5 rounded accent-sky-600"
                                         checked={isSelectedAll()}
                                         onChange={() => {
-                                            if (isSelectedAll()) {
+                                             if (isSelectedAll()) {
                                                 setSelected((bef) =>
                                                     bef.filter((e) => !emailsData.emails.map((em) => em.id).includes(e)),
                                                 );
@@ -394,9 +396,9 @@ export default function AddressesPage() {
                                         }}
                                     />
                                 </th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Account</th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-24 text-right">Warmup</th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-10 md:w-32"><span className="hidden md:inline">Health</span></th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">{t("mailboxes:columns.account", "Account")}</th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-24 text-end">{t("mailboxes:columns.warmup", "Warmup")}</th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-10 md:w-32"><span className="hidden md:inline">{t("mailboxes:columns.health", "Health")}</span></th>
                                 <th className="px-3 py-2 w-16"></th>
                             </tr>
                         </thead>
@@ -428,7 +430,7 @@ export default function AddressesPage() {
                     <div className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex flex-wrap justify-center max-w-[calc(100vw-1rem)] items-center gap-1.5 rounded-md border border-slate-200 bg-white shadow-[0_6px_20px_-4px_rgba(15,23,42,0.12),0_2px_4px_rgba(15,23,42,0.04)] px-2 py-1.5">
                         <div className="inline-flex items-center gap-1.5 px-2 h-7 rounded bg-sky-50 text-sky-700 text-[12px] font-medium">
                             <CheckIcon className="w-3 h-3" />
-                            <span>{selected.length} selected</span>
+                            <span>{selected.length} {t("mailboxes:actions.selected", "selected")}</span>
                         </div>
                         {canWarmup && (
                             <button
@@ -437,7 +439,7 @@ export default function AddressesPage() {
                                 className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-orange-600 hover:bg-orange-50 transition-colors"
                             >
                                 <PlayIcon className="w-3.5 h-3.5" />
-                                Start warmup
+                                {t("mailboxes:actions.startWarmup", "Start warmup")}
                             </button>
                         )}
                         <button
@@ -446,7 +448,7 @@ export default function AddressesPage() {
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors"
                         >
                             <PauseIcon className="w-3.5 h-3.5" />
-                            Pause
+                            {t("mailboxes:actions.pause", "Pause")}
                         </button>
                         <BulkTagPopover ids={selected} />
                         <div className="w-px h-4 bg-slate-200 mx-0.5" />
@@ -457,7 +459,7 @@ export default function AddressesPage() {
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
                         >
                             <Trash2Icon className="w-3.5 h-3.5" />
-                            Remove
+                            {t("mailboxes:actions.remove", "Remove")}
                         </button>
                         <button
                             type="button"
@@ -465,7 +467,7 @@ export default function AddressesPage() {
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] text-slate-500 hover:bg-slate-100 transition-colors"
                         >
                             <XIcon className="w-3.5 h-3.5" />
-                            Clear
+                            {t("mailboxes:actions.clear", "Clear")}
                         </button>
                     </div>
                 )}
@@ -516,6 +518,7 @@ function MailboxRow({
 }) {
     const life = useWarmupLifecycle(box.id);
     const confirm = useConfirm();
+    const { t } = useTranslation(["mailboxes", "common"]);
 
     // Resolve the row's tag ids against the user's tag registry; cap the chips
     // so long tag lists don't crowd the email out of the cell.
@@ -603,7 +606,7 @@ function MailboxRow({
             onClick={() => onOpen(box.id)}
             className="border-b border-slate-200/60 hover:bg-slate-50/80 transition-colors group h-11 cursor-pointer"
         >
-            <td className="pl-5 pr-2">
+            <td className="ps-5 pe-2">
                 <input
                     type="checkbox"
                     className="w-3.5 h-3.5 rounded accent-sky-600"
@@ -616,7 +619,7 @@ function MailboxRow({
                 {/* The flag is a sibling of the open-row button, not a child:
                     it has its own trigger and nesting buttons is invalid. */}
                 <div className="flex w-full min-w-0 items-center gap-2">
-                <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(box.id); }} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(box.id); }} className="flex min-w-0 flex-1 items-center gap-2.5 text-start">
                     <div className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center shrink-0">
                         <span className="text-[9.5px] font-semibold text-sky-700">
                             {box.email.slice(0, 2).toUpperCase()}
@@ -655,7 +658,7 @@ function MailboxRow({
                 <AdvisorRowFlag findings={findings} subject={box.email} />
                 </div>
             </td>
-            <td className={`px-3 text-[12px] tabular-nums text-right font-mono ${warmupTone}`}>
+            <td className={`px-3 text-[12px] tabular-nums text-end font-mono ${warmupTone}`}>
                 {inCloud ? (
                     <span className="inline-flex items-center justify-end gap-1.5">
                         <CloudIcon className="w-3 h-3 shrink-0" />

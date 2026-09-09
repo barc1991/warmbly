@@ -22,7 +22,7 @@ export function Topbar() {
                 <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="md:hidden -ml-1"
+                    className="md:hidden -ms-1"
                     aria-label="Open navigation"
                     onClick={() => setMobileOpen(true)}
                 >
@@ -44,7 +44,7 @@ export function Topbar() {
                     >
                         <Search className="size-3.5 shrink-0" />
                         <span className="hidden sm:inline truncate">Search or go to</span>
-                        <kbd className="ml-auto hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 font-mono text-[10px] leading-4 text-muted-foreground">
+                        <kbd className="ms-auto hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 font-mono text-[10px] leading-4 text-muted-foreground">
                             {IS_MAC ? "⌘" : "Ctrl"}
                             <span>K</span>
                         </kbd>

@@ -4,12 +4,14 @@
 // returns a clarifying `question` instead of inventing a draft.
 
 import Request from "../../Request";
+import i18n from "@/i18n";
 import type { AIDraftGrounding } from "@/components/app/ai/AIDraftBar";
 
 export interface ComposeDraftInput {
     to?: string;
     subject?: string;
     instruction?: string;
+    language?: string;
     // Per-attempt key so a network retry of the SAME draft never double-charges
     // credits (the backend keys the consume on it).
     idempotency_key?: string;
@@ -30,10 +32,14 @@ export default async function composeDraft(
     data: ComposeDraftInput,
 ): Promise<ComposeDraftResult> {
     const { idempotency_key, ...body } = data;
+    const payload = {
+        ...body,
+        language: body.language ?? (i18n.language === "he" ? "he" : "en"),
+    };
     return await Request<ComposeDraftResult>({
         method: "POST",
         url: "/unibox/compose/draft",
-        data: body,
+        data: payload,
         authorization: true,
         headers: idempotency_key ? { "Idempotency-Key": idempotency_key } : undefined,
     });

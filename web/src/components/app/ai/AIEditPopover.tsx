@@ -5,6 +5,7 @@
 // review row (undo / try again).
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Kbd } from "@/components/ui/shortcut-tooltip";
 import formatUsage from "./usage";
 import {
@@ -68,6 +69,46 @@ export const AI_QUICK_ACTIONS: AIQuickAction[] = [
     },
 ];
 
+export const AI_QUICK_ACTIONS_HE: AIQuickAction[] = [
+    {
+        key: "improve",
+        label: "שפר",
+        icon: <WandSparklesIcon className="w-3 h-3" />,
+        instruction:
+            "שפר את הכתיבה בעברית: בהירה יותר, זורמת ומנוסחת טוב יותר. שמור על המשמעות ועל האורך.",
+    },
+    {
+        key: "shorten",
+        label: "קצר",
+        icon: <MinusIcon className="w-3 h-3" />,
+        instruction: "קצר ותמצת את הטקסט בעברית. הסר מילים מיותרות ושמור על המסר העיקרי.",
+    },
+    {
+        key: "expand",
+        label: "הרחב",
+        icon: <PlusIcon className="w-3 h-3" />,
+        instruction: "הרחב מעט את הטקסט בעברית עם עוד עומק ודיוק ענייני, בלי מריחות.",
+    },
+    {
+        key: "grammar",
+        label: "תקן לשון",
+        icon: <SpellCheckIcon className="w-3 h-3" />,
+        instruction: "תקן שגיאות כתיב, דקדוק ופיסוק בעברית בלבד. אל תשנה שום דבר אחר.",
+    },
+    {
+        key: "friendlier",
+        label: "חם ואישי",
+        icon: <SmileIcon className="w-3 h-3" />,
+        instruction: "שכתב בנימה חמה, ידידותית ונגישה יותר בעברית בגובה העיניים.",
+    },
+    {
+        key: "formal",
+        label: "מקצועי",
+        icon: <BriefcaseIcon className="w-3 h-3" />,
+        instruction: "שכתב בנימה עסקית, מקצועית ומלוטשת יותר בעברית.",
+    },
+];
+
 export type AIEditPhase = "idle" | "busy" | "applied";
 
 interface AIEditPopoverProps {
@@ -88,6 +129,10 @@ export default function AIEditPopover({
     onRetry,
     onDone,
 }: AIEditPopoverProps) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+    const quickActions = isHe ? AI_QUICK_ACTIONS_HE : AI_QUICK_ACTIONS;
+
     const [instruction, setInstruction] = React.useState("");
     const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -103,11 +148,11 @@ export default function AIEditPopover({
 
     if (phase === "busy") {
         return (
-            <div className="w-[300px] px-3 py-2.5 flex items-center gap-2">
+            <div dir={isHe ? "rtl" : "ltr"} className="w-[300px] px-3 py-2.5 flex items-center gap-2">
                 <SparklesIcon className="w-3.5 h-3.5 text-sky-500 animate-pulse shrink-0" />
-                <span className="ai-shimmer-text text-[12px] font-medium">Rewriting…</span>
-                <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-slate-400">
-                    <Kbd combo="esc" variant="light" /> cancel
+                <span className="ai-shimmer-text text-[12px] font-medium">{isHe ? "משכתב…" : "Rewriting…"}</span>
+                <span className="mr-auto rtl:mr-auto rtl:ml-0 ltr:ml-auto inline-flex items-center gap-1 text-[10px] text-slate-400">
+                    <Kbd combo="esc" variant="light" /> {isHe ? "ביטול" : "cancel"}
                 </span>
             </div>
         );
@@ -116,10 +161,10 @@ export default function AIEditPopover({
     if (phase === "applied") {
         const usageText = usage ? formatUsage(usage.charged, usage.tokens) : "";
         return (
-            <div className="w-[300px] px-2.5 py-2 flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-900 mr-auto">
+            <div dir={isHe ? "rtl" : "ltr"} className="w-[300px] px-2.5 py-2 flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-900 mr-auto rtl:mr-0 rtl:ml-auto">
                     <CheckIcon className="w-3.5 h-3.5 text-emerald-600" />
-                    Rewritten
+                    {isHe ? "שוכתב" : "Rewritten"}
                     {usageText && (
                         <span className="text-[10.5px] font-normal text-slate-400">
                             · {usageText}
@@ -132,7 +177,7 @@ export default function AIEditPopover({
                     className="h-6 px-1.5 rounded inline-flex items-center gap-1 text-[11.5px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 >
                     <Undo2Icon className="w-3 h-3" />
-                    Undo
+                    {isHe ? "בטל" : "Undo"}
                 </button>
                 <button
                     type="button"
@@ -140,25 +185,26 @@ export default function AIEditPopover({
                     className="h-6 px-1.5 rounded inline-flex items-center gap-1 text-[11.5px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 >
                     <RefreshCwIcon className="w-3 h-3" />
-                    Again
+                    {isHe ? "שוב" : "Again"}
                 </button>
                 <button
                     type="button"
                     onClick={onDone}
                     className="h-6 px-2 rounded bg-slate-900 text-white text-[11.5px] font-medium hover:bg-slate-700 transition-colors"
                 >
-                    Done
+                    {isHe ? "סיום" : "Done"}
                 </button>
             </div>
         );
     }
 
     return (
-        <div className="w-[300px]">
+        <div dir={isHe ? "rtl" : "ltr"} className="w-[300px]">
             <div className="flex items-center gap-1.5 px-2.5 pt-2.5">
                 <SparklesIcon className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                 <input
                     ref={inputRef}
+                    dir="auto"
                     value={instruction}
                     onChange={(e) => setInstruction(e.target.value)}
                     onKeyDown={(e) => {
@@ -167,7 +213,7 @@ export default function AIEditPopover({
                             run();
                         }
                     }}
-                    placeholder="Tell AI how to change it…"
+                    placeholder={isHe ? "הסבר ל-AI כיצד לערוך…" : "Tell AI how to change it…"}
                     maxLength={2000}
                     className="flex-1 min-w-0 h-7 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
                 />
@@ -175,14 +221,14 @@ export default function AIEditPopover({
                     type="button"
                     onClick={run}
                     disabled={!instruction.trim()}
-                    aria-label="Rewrite selection"
-                    className="size-6 rounded-md bg-sky-600 text-white inline-flex items-center justify-center hover:bg-sky-700 transition-colors disabled:opacity-40"
+                    aria-label={isHe ? "שכתב בחירה" : "Rewrite selection"}
+                    className="size-6 rounded-md bg-sky-600 text-white inline-flex items-center justify-center hover:bg-sky-700 transition-colors disabled:opacity-40 shrink-0"
                 >
                     <ArrowUpIcon className="w-3.5 h-3.5" />
                 </button>
             </div>
             <div className="px-2.5 pb-2 pt-2 flex flex-wrap gap-1">
-                {AI_QUICK_ACTIONS.map((a) => (
+                {quickActions.map((a) => (
                     <button
                         key={a.key}
                         type="button"
@@ -196,10 +242,10 @@ export default function AIEditPopover({
             </div>
             <div className="px-2.5 pb-2 flex items-center gap-2.5 text-[10px] text-slate-400">
                 <span className="inline-flex items-center gap-1">
-                    <Kbd combo="enter" variant="light" /> rewrite
+                    <Kbd combo="enter" variant="light" /> {isHe ? "שכתב" : "rewrite"}
                 </span>
                 <span className="inline-flex items-center gap-1">
-                    <Kbd combo="esc" variant="light" /> close
+                    <Kbd combo="esc" variant="light" /> {isHe ? "סגור" : "close"}
                 </span>
             </div>
         </div>

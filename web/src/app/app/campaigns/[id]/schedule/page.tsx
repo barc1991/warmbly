@@ -4,7 +4,7 @@ import { ArrowRightIcon, CalendarClockIcon, CalendarRangeIcon, GlobeIcon, Hourgl
 import { addDays, differenceInCalendarDays, format } from "date-fns";
 import DateSelect from "@/components/app/campaigns/schedule/ScheduleDateSelect";
 import WeekScheduleGrid, { type Interval } from "@/components/app/campaigns/schedule/WeekScheduleGrid";
-import EntryDelayPicker from "@/components/app/campaigns/schedule/EntryDelay";
+import EntryDelayPicker from "@/components/app/campaigns/schedule/EntryDelayPicker";
 import { entryDelayLabel } from "@/components/app/campaigns/schedule/entryDelay";
 import { Loading } from "@/components/loader";
 import {
@@ -244,7 +244,7 @@ export default function CampaignSchedule() {
                 </div>
                 <EntryDelayPicker
                     value={newData.entry_delay_minutes}
-                    onChange={(v) => setNewData((b) => ({ ...b, entry_delay_minutes: v }))}
+                    onChange={(v: number) => setNewData((b) => ({ ...b, entry_delay_minutes: v }))}
                 />
                 <p className="text-[11px] text-slate-400 mt-3">
                     Counted from the moment a contact enters this campaign, so a contact who joins a linked segment next

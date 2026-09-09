@@ -184,6 +184,9 @@ func (s *service) draft(ctx context.Context, r models.InboxAgentReply) {
 		ICPNotes:           org.ICPNotes,
 		VoiceProfile:       org.VoiceProfile,
 	}
+	if generation.ContainsHebrew(history) || generation.ContainsHebrew(r.Subject) {
+		voice.Language = "he"
+	}
 	system := generation.BuildReplyRules(voice)
 	if s.skills != nil {
 		if pre := s.skills.EnabledPreamble(ctx, r.OrganizationID); pre != "" {

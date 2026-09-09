@@ -95,7 +95,7 @@ import { SelectMenu, type SelectOption } from "@/components/ui/select-menu";
 import { PopoverMenu, PopoverMenuContent, PopoverMenuTrigger } from "@/components/ui/popover-menu";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
-import EntryDelayPicker from "@/components/app/campaigns/schedule/EntryDelay";
+import EntryDelayPicker from "@/components/app/campaigns/schedule/EntryDelayPicker";
 import { entryDelayLabel } from "@/components/app/campaigns/schedule/entryDelay";
 import StepEmailArms from "./StepEmailArms";
 import CategoryPicker from "@/components/app/contacts/CategoryPicker";

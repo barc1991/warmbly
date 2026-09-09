@@ -1,0 +1,36 @@
+{
+  "title": "CRM",
+  "pipelines": {
+    "title": "צינורות מכירה",
+    "createPipeline": "יצירת צינור מכירה",
+    "stage": "שלב",
+    "stages": "שלבים",
+    "addStage": "הוסף שלב"
+  },
+  "deals": {
+    "title": "עסקאות",
+    "newDeal": "עסקה חדשה",
+    "dealName": "שם העסקה",
+    "value": "שווי עסקה",
+    "expectedClose": "תאריך סגירה צפוי",
+    "probability": "הסתברות",
+    "contact": "איש קשר",
+    "owner": "אחראי עסקה",
+    "totalPipelineValue": "סך שווי הצינור"
+  },
+  "tasks": {
+    "title": "משימות",
+    "newTask": "משימה חדשה",
+    "dueDate": "תאריך יעד",
+    "priority": "עדיפות",
+    "completed": "הושלמה",
+    "markCompleted": "סמן כהושלמה"
+  },
+  "meetings": {
+    "title": "פגישות",
+    "newMeeting": "קביעת פגישה",
+    "time": "שעה",
+    "attendees": "משתתפים",
+    "link": "קישור לפגישה"
+  }
+}

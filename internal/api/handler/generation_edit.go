@@ -40,6 +40,7 @@ type generationEditRequest struct {
 	Instruction string `json:"instruction"`
 	Context     string `json:"context"`
 	Tone        string `json:"tone"`
+	Language    string `json:"language"`
 }
 
 // GenerateEdit — POST /generation/edit
@@ -130,6 +131,9 @@ func (h *Handler) GenerateEdit(c *gin.Context) {
 	}
 
 	voice := h.orgVoice(c.Request.Context(), *orgID, req.Tone)
+	if req.Language == "he" || generation.ContainsHebrew(req.Text) || generation.ContainsHebrew(req.Instruction) {
+		voice.Language = "he"
+	}
 	result, gerr := h.WritingGenerator.GenerateWriting(c.Request.Context(), model, buildEditPrompt(req), voice)
 	if gerr != nil {
 		if !local {
@@ -187,6 +191,9 @@ func buildEditPrompt(req generationEditRequest) string {
 		b.WriteString(editFenceEnd)
 	}
 	b.WriteString("\n\nMatch the language of the passage. Keep template variables like {{.FirstName}} and spintax like {option a|option b} intact unless the instruction says otherwise.")
+	if req.Language == "he" || generation.ContainsHebrew(req.Text) || generation.ContainsHebrew(req.Instruction) {
+		b.WriteString("\n\nHEBREW LANGUAGE: The rewritten text must be in natural, fluent Israeli Hebrew with correct grammar and gender agreement. Do not use em dashes.")
+	}
 	return b.String()
 }
 

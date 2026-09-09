@@ -39,7 +39,7 @@ import { SelectMenu, type SelectOption } from "@/components/ui/select-menu";
 import { TimePicker } from "@/components/ui/TimePicker";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import WeekdayBitmask from "@/components/app/campaigns/schedule/WeekdayBitmask";
-import EntryDelayPicker from "@/components/app/campaigns/schedule/EntryDelay";
+import EntryDelayPicker from "@/components/app/campaigns/schedule/EntryDelayPicker";
 import { entryDelayLabel } from "@/components/app/campaigns/schedule/entryDelay";
 import TagSelector from "@/components/app/popup/select/TagSelector";
 import { SegmentMultiPicker } from "@/components/app/segments/SegmentPickers";
@@ -967,7 +967,7 @@ function ScheduleStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
                     <div className="mt-1">
                         <EntryDelayPicker
                             value={draft.entryDelayMinutes}
-                            onChange={(v) => patch({ entryDelayMinutes: v })}
+                            onChange={(v: number) => patch({ entryDelayMinutes: v })}
                         />
                     </div>
                     <p className="mt-2 text-[11.5px] leading-relaxed text-slate-500">

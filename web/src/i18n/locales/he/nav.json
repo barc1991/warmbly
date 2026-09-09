@@ -1,0 +1,50 @@
+{
+  "groups": {
+    "outreach": "פניות וקמפיינים",
+    "intelligence": "מודיעין ואנליטיקה",
+    "crm": "ניהול לקוחות (CRM)",
+    "resources": "משאבים",
+    "settings": "הגדרות"
+  },
+  "items": {
+    "mailboxes": "תיבות דואר",
+    "campaigns": "קמפיינים",
+    "contacts": "אנשי קשר",
+    "unibox": "תיבת דואר מאוחדת (Unibox)",
+    "forms": "טפסים",
+    "pipelines": "צינורות מכירה",
+    "deals": "עסקאות",
+    "tasks": "משימות",
+    "meetings": "פגישות",
+    "templates": "תבניות",
+    "integrations": "אינטגרציות",
+    "automations": "אוטומציות",
+    "apiKeys": "מפתחות API",
+    "auditLog": "יומן פעולות (Audit)",
+    "analytics": "אנליטיקה",
+    "deliverability": "עבירות (Deliverability)",
+    "settings": "הגדרות"
+  },
+  "userNav": {
+    "profile": "הפרופיל שלי",
+    "workspace": "הגדרות סביבת עבודה",
+    "members": "חברי צוות והרשאות",
+    "billing": "חיוב ומנוי",
+    "language": "שפה",
+    "hebrew": "עברית",
+    "english": "English (אנגלית)",
+    "logout": "התנתקות",
+    "theme": "ערכת נושא",
+    "themeLight": "בהיר",
+    "themeDark": "כהה",
+    "themeSystem": "מערכת"
+  },
+  "telemetry": {
+    "live": "טלמטריה חיה",
+    "sendingActive": "שליחה פעילה",
+    "mailboxesHealthy": "תיבות תקינות",
+    "warmupActive": "חימום פועל",
+    "inboxMonitoring": "ניטור תיבות",
+    "commandPalette": "חיפוש או ניווט מהיר... (⌘K)"
+  }
+}

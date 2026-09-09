@@ -135,7 +135,7 @@ export function Sidebar() {
         <aside
             className={cn(
                 "hidden md:flex md:w-64 lg:w-72 shrink-0 flex-col",
-                "border-r border-sidebar-border bg-sidebar admin-sidebar-pattern",
+                "border-e border-sidebar-border bg-sidebar admin-sidebar-pattern",
             )}
         >
             {/* h-14 matches the Topbar so the two headers sit on one line. */}
@@ -241,11 +241,11 @@ function SidebarLink({
                     "group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
                     "text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent",
                     isActive &&
-                        // Active state uses the admin accent on the left edge and a
+                        // Active state uses the admin accent on the leading edge and a
                         // soft amber wash. Distinct from the dashboard's blue active
                         // state without losing the same shape.
                         "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-strong)] font-medium relative " +
-                            "before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r before:bg-[var(--admin-accent)]",
+                            "before:absolute before:start-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-e before:bg-[var(--admin-accent)]",
                 )
             }
         >
@@ -254,7 +254,7 @@ function SidebarLink({
             {badge && (
                 <span
                     className={cn(
-                        "ml-auto shrink-0 rounded-full px-1.5 text-[10px] font-semibold leading-4 tabular-nums",
+                        "ms-auto shrink-0 rounded-full px-1.5 text-[10px] font-semibold leading-4 tabular-nums",
                         BADGE_TONES[badge.severity ?? "info"],
                     )}
                 >

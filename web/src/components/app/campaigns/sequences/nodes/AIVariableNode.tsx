@@ -14,6 +14,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Node as TiptapNode, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -25,7 +26,7 @@ import useGenerateAIVariable from "@/lib/api/hooks/app/generation/useGenerateAIV
 import useTypewriter from "@/components/app/ai/useTypewriter";
 import formatUsage from "@/components/app/ai/usage";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { WRITE_TONES } from "@/lib/api/models/app/generation/Write";
+import { WRITE_TONES, getWriteTones } from "@/lib/api/models/app/generation/Write";
 import { VARIABLES } from "@/lib/templateVars";
 import RichTextEditor from "@/components/app/campaigns/sequences/RichTextEditor";
 import { htmlToPlain, promptToHtml, renderPreview, SAMPLE } from "@/components/app/campaigns/sequences/emailPreview";
@@ -116,6 +117,8 @@ function truncate(s: string, n: number): string {
 // auto-opens only for a just-inserted block (consumeJustInserted), so toggling
 // the Edit/Preview tabs — which remounts every node view — never reopens it.
 function AIVariableChip({ node, updateAttributes, deleteNode, selected, editor }: NodeViewProps) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const config: AIVariableConfig = node.attrs.config || DEFAULT_AI_CONFIG;
     const [open, setOpen] = React.useState(() => consumeJustInserted(node.attrs.id));
 
@@ -134,7 +137,10 @@ function AIVariableChip({ node, updateAttributes, deleteNode, selected, editor }
         }
     }, [editor, node.attrs.id]);
 
-    const label = config.name?.trim() || (config.prompt ? truncate(config.prompt, 44) : "") || "Set up AI block";
+    const label =
+        config.name?.trim() ||
+        (config.prompt ? truncate(config.prompt, 44) : "") ||
+        (isHe ? "הגדר בלוק AI" : "Set up AI block");
 
     return (
         <NodeViewWrapper as="span" className="tpl-ai-wrap">
@@ -146,7 +152,7 @@ function AIVariableChip({ node, updateAttributes, deleteNode, selected, editor }
                 transition={{ type: "spring", stiffness: 640, damping: 30 }}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setOpen(true)}
-                title={config.prompt ? `AI: ${config.prompt}` : "Configure this AI block"}
+                title={config.prompt ? `AI: ${config.prompt}` : isHe ? "הגדר בלוק AI זה" : "Configure this AI block"}
                 className={`tpl-ai ${selected || open ? "tpl-ai-active" : ""} ${config.prompt ? "" : "tpl-ai-empty"}`}
             >
                 <SparklesIcon className="h-2.5 w-2.5 shrink-0" />
@@ -204,6 +210,8 @@ function AIVariableConfigBody({
     onRemove: () => void;
     onClose: () => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const gen = useGenerateAIVariable();
     const typewriter = useTypewriter();
 
@@ -240,6 +248,7 @@ function AIVariableConfigBody({
                 prompt: draft.prompt,
                 tone: draft.tone || undefined,
                 web_search: draft.web_search,
+                language: isHe ? "he" : undefined,
                 context_before: ctx.before,
                 context_after: ctx.after,
             },
@@ -251,7 +260,11 @@ function AIVariableConfigBody({
                 onError: (e) => {
                     const err = e as unknown as AppError;
                     if (err?.status === 402) {
-                        toast.error("You're out of AI credits. Upgrade or purchase more to preview AI blocks.");
+                        toast.error(
+                            isHe
+                                ? "נגמרו לך נקודות ה-AI. שדרג או רכוש נקודות נוספות לתצוגה מקדימה של בלוקי AI."
+                                : "You're out of AI credits. Upgrade or purchase more to preview AI blocks.",
+                        );
                     } else {
                         toast.error(buildError(err));
                     }
@@ -261,7 +274,7 @@ function AIVariableConfigBody({
     };
 
     return (
-        <div className="flex flex-col md:flex-row max-h-[calc(100dvh-4rem)] min-h-[340px]">
+        <div dir={isHe ? "rtl" : "ltr"} className="flex flex-col md:flex-row max-h-[calc(100dvh-4rem)] min-h-[340px]">
             {/* LEFT — the instruction, in the same editor used everywhere else */}
             <div className="flex min-w-0 flex-1 flex-col">
                 <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-4 pt-5">
@@ -269,21 +282,27 @@ function AIVariableConfigBody({
                         {/* opening clause — bare sparkle, no badge */}
                         <div className="mb-2 flex items-center gap-1.5 leading-none">
                             <SparklesIcon className="h-3.5 w-3.5 shrink-0 text-sky-500" />
-                            <span className="text-[13px] text-slate-500">For each recipient, write…</span>
+                            <span className="text-[13px] text-slate-500">
+                                {isHe ? "עבור כל נמען, כתוב…" : "For each recipient, write…"}
+                            </span>
                         </div>
                         <RichTextEditor
                             minimal
                             html={initialHtml}
                             onChange={(html) => patch({ prompt: htmlToPlain(html) })}
                             variables={VARIABLES}
-                            placeholder="a warm one-line opener for {{.FirstName}} at {{.Company}}"
+                            placeholder={
+                                isHe
+                                    ? "משפט פתיחה חם עבור {{.FirstName}} מ-{{.Company}}"
+                                    : "a warm one-line opener for {{.FirstName}} at {{.Company}}"
+                            }
                         />
                     </div>
 
                     {/* tone — quiet chips, all visible */}
                     <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="mr-1 text-[11px] text-slate-500">Tone</span>
-                        {WRITE_TONES.map((t) => {
+                        <span className="mr-1 text-[11px] text-slate-500">{isHe ? "טון" : "Tone"}</span>
+                        {getWriteTones(isHe).map((t) => {
                             const active = (draft.tone || "") === t.value;
                             return (
                                 <button
@@ -308,13 +327,17 @@ function AIVariableConfigBody({
                         role="switch"
                         aria-checked={draft.web_search}
                         onClick={() => patch({ web_search: !draft.web_search })}
-                        className="flex w-full items-center gap-2.5 text-left"
+                        className="flex w-full items-center gap-2.5 text-start"
                     >
                         <GlobeIcon className="h-4 w-4 shrink-0 text-slate-400" />
                         <span className="min-w-0 flex-1">
-                            <span className="block text-[12.5px] font-medium text-slate-700">Web search</span>
+                            <span className="block text-[12.5px] font-medium text-slate-700">
+                                {isHe ? "חיפוש באינטרנט" : "Web search"}
+                            </span>
                             <span className="block text-[11px] leading-snug text-slate-400">
-                                Look the contact up on the web before writing.
+                                {isHe
+                                    ? "חפש מידע על איש הקשר באינטרנט לפני הכתיבה."
+                                    : "Look the contact up on the web before writing."}
                             </span>
                         </span>
                         <span
@@ -326,7 +349,7 @@ function AIVariableConfigBody({
                                 layout
                                 transition={{ type: "spring", stiffness: 560, damping: 34 }}
                                 className={`absolute top-0.5 size-3.5 rounded-full bg-white shadow ${
-                                    draft.web_search ? "right-0.5" : "left-0.5"
+                                    draft.web_search ? (isHe ? "left-0.5" : "right-0.5") : (isHe ? "right-0.5" : "left-0.5")
                                 }`}
                             />
                         </span>
@@ -334,8 +357,9 @@ function AIVariableConfigBody({
 
                     {/* cost — honest: it's metered by usage, not a flat number */}
                     <p className="text-[11px] leading-snug text-slate-400">
-                        Billed by usage — the tokens each snippet uses{draft.web_search ? ", plus the web search" : ""}.
-                        Preview to see a real example.
+                        {isHe
+                            ? `חיוב לפי שימוש — כמות האסימונים שכל מקטע צורך${draft.web_search ? ", בתוספת החיפוש באינטרנט" : ""}. בצע תצוגה מקדימה כדי לראות דוגמה חיה.`
+                            : `Billed by usage — the tokens each snippet uses${draft.web_search ? ", plus the web search" : ""}. Preview to see a real example.`}
                     </p>
                 </div>
 
@@ -346,24 +370,22 @@ function AIVariableConfigBody({
                         onClick={onRemove}
                         className="inline-flex items-center gap-1.5 text-[12px] text-slate-500 transition-colors hover:text-rose-600"
                     >
-                        <TrashIcon className="h-3.5 w-3.5" /> Remove
+                        <TrashIcon className="h-3.5 w-3.5" /> {isHe ? "הסר" : "Remove"}
                     </button>
                     <button
                         type="button"
                         onClick={onClose}
                         className="h-7 rounded-md bg-slate-900 px-4 text-[12.5px] font-medium text-white transition-colors hover:bg-slate-700"
                     >
-                        Done
+                        {isHe ? "סיום" : "Done"}
                     </button>
                 </div>
             </div>
 
             {/* RIGHT — the live sample */}
-            {/* The sample sits beside the form on desktop and under it on a
-                phone, where a 300px column would leave the form no room. */}
-            <div className="flex w-full max-h-[32dvh] md:max-h-none md:w-[300px] shrink-0 flex-col border-t md:border-t-0 md:border-l border-slate-200 bg-slate-50/60 p-4">
+            <div className="flex w-full max-h-[32dvh] md:max-h-none md:w-[300px] shrink-0 flex-col border-t md:border-t-0 md:border-s border-slate-200 bg-slate-50/60 p-4">
                 <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                    Sample for Alex Rivera at Acme
+                    {isHe ? "דוגמה עבור אלכס ריברה ב-Acme" : "Sample for Alex Rivera at Acme"}
                 </span>
 
                 <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
@@ -377,12 +399,11 @@ function AIVariableConfigBody({
                                 className="flex items-center gap-2"
                             >
                                 <SparklesIcon className="h-3.5 w-3.5 shrink-0 animate-pulse text-sky-500" />
-                                <span className="ai-shimmer-text text-[12px] font-medium">Writing a sample…</span>
+                                <span className="ai-shimmer-text text-[12px] font-medium">
+                                    {isHe ? "כותב דוגמה…" : "Writing a sample…"}
+                                </span>
                             </motion.div>
                         ) : preview ? (
-                            // Show the WHOLE message with the generated fragment in place, so
-                            // you can see it actually fits. Surrounding text renders with the
-                            // sample contact's values; the AI part is highlighted.
                             <motion.p
                                 key="text"
                                 initial={{ opacity: 0 }}
@@ -402,7 +423,9 @@ function AIVariableConfigBody({
                                 )}
                             </motion.p>
                         ) : (
-                            <p className="text-[12.5px] leading-relaxed text-slate-400">Your snippet appears here.</p>
+                            <p className="text-[12.5px] leading-relaxed text-slate-400">
+                                {isHe ? "המקטע שלך יופיע כאן." : "Your snippet appears here."}
+                            </p>
                         )}
                     </AnimatePresence>
                     {usage && preview && formatUsage(usage.charged, usage.tokens) && (
@@ -417,7 +440,17 @@ function AIVariableConfigBody({
                     className="mt-3 inline-flex h-7 items-center gap-1.5 self-start rounded-md bg-sky-600 px-3 text-[12px] font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
                 >
                     <SparklesIcon className="h-3 w-3" />
-                    {gen.isPending ? "Writing…" : preview ? "Try again" : "Preview"}
+                    {gen.isPending
+                        ? isHe
+                            ? "כותב…"
+                            : "Writing…"
+                        : preview
+                          ? isHe
+                              ? "נסה שוב"
+                              : "Try again"
+                          : isHe
+                            ? "תצוגה מקדימה"
+                            : "Preview"}
                 </button>
             </div>
         </div>
