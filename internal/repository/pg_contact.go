@@ -65,7 +65,12 @@ type ContactRepository interface {
 	// to the caller's category IDs, creating the ones that don't exist yet.
 	// Keys of the returned map are the lowercased titles.
 	ResolveCategoryNames(ctx context.Context, userID uuid.UUID, names []string) (map[string]uuid.UUID, *errx.Error)
-	Search(ctx context.Context, userID string, category, cursor *string, filters models.SearchContacts, limit int32) (*models.ContactsResult, *errx.Error)
+	Search(ctx context.Context, userID string, category *string, cursor *paging.SortCursor, filters models.SearchContacts, limit int32) (*models.ContactsResult, *errx.Error)
+	// SearchIDs returns the ids of every contact matching the same request
+	// Search runs, capped at max+1 rows so the caller can tell "exactly max"
+	// from "more than max". Backs the dashboard's "select all matching" bulk
+	// actions, which name a filter instead of listing ids.
+	SearchIDs(ctx context.Context, orgID string, filters models.SearchContacts, max int) ([]uuid.UUID, *errx.Error)
 	// SearchCounts returns org-wide contact facet totals for the browse
 	// sidebar (independent of any search filters), mirroring campaigns-overview.
 	SearchCounts(ctx context.Context, orgID string) (*models.ContactsCounts, *errx.Error)
@@ -917,14 +922,100 @@ func (r *contactRepository) GetByIDsAndOrganization(ctx context.Context, organiz
 	return out, nil
 }
 
-func (r *contactRepository) Search(
-	ctx context.Context,
-	orgID string,
-	category,
-	cursor *string,
-	filters models.SearchContacts,
-	limit int32,
-) (*models.ContactsResult, *errx.Error) {
+// contactSortKind decides three things that have to agree: how a row's sort
+// value is written into the cursor, how the cursor's text is cast back for the
+// comparison, and what counts as a well-formed boundary.
+type contactSortKind int
+
+const (
+	sortText contactSortKind = iota
+	sortTimestamp
+	sortNumber
+)
+
+// contactSortTimeLayout mirrors the to_char pattern below, so Go validates
+// exactly the boundaries Postgres will accept.
+const contactSortTimeLayout = "2006-01-02 15:04:05.000000"
+
+// contactSort describes one sortable column of the contacts list: the SQL to
+// order and compare on, its kind, and whether the column admits NULL (which
+// decides where the NULL block sits in the order). Every column here is
+// currently NOT NULL; flipping `nullable` turns on the NULL-aware keyset
+// branches so a nullable sort cannot silently truncate the list.
+type contactSort struct {
+	expr     string
+	kind     contactSortKind
+	nullable bool
+}
+
+// render is the SELECT expression that puts a row's sort value in the cursor.
+// Timestamps get an explicit pattern rather than ::text so a token does not
+// depend on the server's DateStyle.
+func (s contactSort) render() string {
+	if s.kind == sortTimestamp {
+		return fmt.Sprintf("to_char(%s, 'YYYY-MM-DD HH24:MI:SS.US')", s.expr)
+	}
+	return "(" + s.expr + ")::text"
+}
+
+// bound casts a cursor's text boundary back to what expr compares in.
+func (s contactSort) bound(placeholder string) string {
+	switch s.kind {
+	case sortTimestamp:
+		return placeholder + "::text::timestamp"
+	case sortNumber:
+		return placeholder + "::text::bigint"
+	default:
+		return placeholder + "::text"
+	}
+}
+
+// wellFormed rejects a boundary the cast would choke on, so a hand-made cursor
+// is a 400 instead of a database error surfacing as a 500.
+func (s contactSort) wellFormed(v string) bool {
+	switch s.kind {
+	case sortTimestamp:
+		_, err := time.Parse(contactSortTimeLayout, v)
+		return err == nil
+	case sortNumber:
+		_, err := strconv.ParseInt(v, 10, 64)
+		return err == nil
+	default:
+		return true
+	}
+}
+
+// campaignCountLateral counts one contact's campaign memberships, joined only
+// when a filter or the sort actually needs it.
+const campaignCountLateral = `LEFT JOIN LATERAL (
+			SELECT COUNT(*) AS campaign_count
+			FROM campaign_leads cl1
+			WHERE cl1.contact_id = c.id
+		) cl ON TRUE`
+
+var contactSorts = map[string]contactSort{
+	"first_name":     {expr: "c.first_name", kind: sortText},
+	"last_name":      {expr: "c.last_name", kind: sortText},
+	"email":          {expr: "c.email", kind: sortText},
+	"created_at":     {expr: "c.created_at", kind: sortTimestamp},
+	"updated_at":     {expr: "c.updated_at", kind: sortTimestamp},
+	"campaign_count": {expr: "COALESCE(cl.campaign_count,0)", kind: sortNumber},
+}
+
+// contactFilter is a compiled contact search: the WHERE terms, the args they
+// bind, the next free placeholder, and (single-campaign Leads view only) the
+// placeholder the lead-progress subquery reuses.
+type contactFilter struct {
+	clauses        []string
+	args           []any
+	nextArg        int
+	singleCampaign string
+}
+
+// buildContactFilter compiles a search request into WHERE terms. Search and
+// SearchIDs share it so a "select all" bulk action resolves exactly the rows
+// the list was showing, filter for filter.
+func (r *contactRepository) buildContactFilter(ctx context.Context, orgID string, filters models.SearchContacts) (*contactFilter, *errx.Error) {
 	var whereClauses []string
 	var args []any
 	argIndex := 1
@@ -1041,16 +1132,14 @@ func (r *contactRepository) Search(
 		if len(filters.CampaignIDs) == 1 {
 			singleCampaignPlaceholder = placeholders[0]
 		}
-		campaignClause := fmt.Sprintf(`
-			c.id IN (
-				SELECT contact_id
-				FROM campaign_leads
-				WHERE campaign_id IN (%s)
-				GROUP BY contact_id
-				HAVING COUNT(DISTINCT campaign_id) = %d
-			)
-		`, strings.Join(placeholders, ","), len(filters.CampaignIDs))
-		whereClauses = append(whereClauses, campaignClause)
+		// One EXISTS per campaign ("in ALL of them"), each a primary-key probe
+		// the planner can run either way round: driving from the ordered
+		// contacts index for a broad campaign, or from the leads for a narrow
+		// one. A GROUP BY/HAVING over campaign_leads forces the second.
+		for _, ph := range placeholders {
+			whereClauses = append(whereClauses, fmt.Sprintf(
+				"EXISTS (SELECT 1 FROM campaign_leads cle WHERE cle.campaign_id = %s AND cle.contact_id = c.id)", ph))
+		}
 	}
 
 	// -----------------------------
@@ -1084,16 +1173,10 @@ func (r *contactRepository) Search(
 			args = append(args, id)
 			argIndex++
 		}
-		categoryClause := fmt.Sprintf(`
-			c.id IN (
-				SELECT contact_id
-				FROM contact_categories
-				WHERE category_id IN (%s)
-				GROUP BY contact_id
-				HAVING COUNT(DISTINCT category_id) = %d
-			)
-		`, strings.Join(placeholders, ","), len(filters.CategoryIDs))
-		whereClauses = append(whereClauses, categoryClause)
+		for _, ph := range placeholders {
+			whereClauses = append(whereClauses, fmt.Sprintf(
+				"EXISTS (SELECT 1 FROM contact_categories cce WHERE cce.category_id = %s AND cce.contact_id = c.id)", ph))
+		}
 	}
 
 	// -----------------------------
@@ -1121,67 +1204,111 @@ func (r *contactRepository) Search(
 	}
 
 	// -----------------------------
-	// Sort logic
-	// -----------------------------
-	sortBy := "c.created_at"
-	direction := "DESC"
-	allowedSorts := map[string]bool{
-		"first_name":     true,
-		"last_name":      true,
-		"email":          true,
-		"created_at":     true,
-		"updated_at":     true,
-		"campaign_count": true,
-	}
-
-	if filters.SortBy != "" && allowedSorts[filters.SortBy] {
-		if filters.SortBy == "campaign_count" {
-			sortBy = "campaign_count"
-		} else {
-			sortBy = "c." + filters.SortBy
-		}
-	}
-	if filters.Reverse {
-		direction = "ASC"
-	} else {
-		direction = "DESC"
-	}
-
-	// -----------------------------
-	// Cursor pagination
-	// -----------------------------
-	if cursor != nil && *cursor != "" {
-		cursorOp := ">"
-		if direction == "DESC" {
-			cursorOp = "<"
-		}
-		sortSub := fmt.Sprintf("(SELECT %s FROM contacts WHERE id = $%d)", sortBy, argIndex)
-		args = append(args, *cursor)
-		argIndex++
-
-		whereClauses = append(whereClauses, fmt.Sprintf(`
-			(
-				(%s %s %s)
-				OR (%s = %s AND c.id >= $%d)
-			)
-		`, sortBy, cursorOp, sortSub, sortBy, sortSub, argIndex))
-		args = append(args, *cursor)
-		argIndex++
-	}
-
-	// -----------------------------
 	// Campaign count filters (min/max)
 	// -----------------------------
-	campaignCountClauses := []string{}
 	if filters.MinCampaigns != nil {
-		campaignCountClauses = append(campaignCountClauses, fmt.Sprintf("COALESCE(cl.campaign_count,0) >= $%d", argIndex))
+		whereClauses = append(whereClauses, fmt.Sprintf("COALESCE(cl.campaign_count,0) >= $%d", argIndex))
 		args = append(args, *filters.MinCampaigns)
 		argIndex++
 	}
 	if filters.MaxCampaigns != nil {
-		campaignCountClauses = append(campaignCountClauses, fmt.Sprintf("COALESCE(cl.campaign_count,0) <= $%d", argIndex))
+		whereClauses = append(whereClauses, fmt.Sprintf("COALESCE(cl.campaign_count,0) <= $%d", argIndex))
 		args = append(args, *filters.MaxCampaigns)
 		argIndex++
+	}
+
+	return &contactFilter{
+		clauses:        whereClauses,
+		args:           args,
+		nextArg:        argIndex,
+		singleCampaign: singleCampaignPlaceholder,
+	}, nil
+}
+
+func (r *contactRepository) Search(
+	ctx context.Context,
+	orgID string,
+	category *string,
+	cursor *paging.SortCursor,
+	filters models.SearchContacts,
+	limit int32,
+) (*models.ContactsResult, *errx.Error) {
+	fq, ferr := r.buildContactFilter(ctx, orgID, filters)
+	if ferr != nil {
+		return nil, ferr
+	}
+	whereClauses := fq.clauses
+	args := fq.args
+	argIndex := fq.nextArg
+	singleCampaignPlaceholder := fq.singleCampaign
+
+	// -----------------------------
+	// Sort logic
+	// -----------------------------
+	// campaign_count is a computed column, so the cursor compares against the
+	// expression rather than the SELECT alias, which WHERE cannot see.
+	sortName := "created_at"
+	if _, ok := contactSorts[filters.SortBy]; ok {
+		sortName = filters.SortBy
+	}
+	spec := contactSorts[sortName]
+	direction := "DESC"
+	nulls := "NULLS FIRST"
+	if filters.Reverse {
+		direction = "ASC"
+		nulls = "NULLS LAST"
+	}
+	sortBy := spec.expr
+	// The ordering the cursor is taken under. A token minted under a different
+	// one points at a position that does not exist here.
+	sortKey := sortName + ":" + strings.ToLower(direction)
+
+	// -----------------------------
+	// Cursor pagination
+	// -----------------------------
+	// Keyset, not offset: the token carries the boundary row's own sort value
+	// alongside its id, so a row deleted or re-sorted between pages cannot move
+	// the boundary.
+	if cursor != nil {
+		if cursor.Sort != sortKey {
+			return nil, errx.New(errx.BadRequest, "invalid cursor")
+		}
+		if cursor.Value == nil && !spec.nullable {
+			return nil, errx.New(errx.BadRequest, "invalid cursor")
+		}
+		if cursor.Value != nil && !spec.wellFormed(*cursor.Value) {
+			return nil, errx.New(errx.BadRequest, "invalid cursor")
+		}
+		bound := spec.bound(fmt.Sprintf("$%d", argIndex))
+		args = append(args, cursor.Value)
+		argIndex++
+		idArg := fmt.Sprintf("$%d", argIndex)
+		args = append(args, cursor.ID)
+		argIndex++
+
+		// The tiebreak follows the sort direction, so one index serves both ways
+		// round; the boundary row itself is included because it is this page's
+		// first row.
+		cmp, tie := "<", "<="
+		if direction == "ASC" {
+			cmp, tie = ">", ">="
+		}
+		after := fmt.Sprintf("(%[1]s %[2]s %[3]s OR (%[1]s = %[3]s AND c.id %[5]s %[4]s))", sortBy, cmp, bound, idArg, tie)
+		if spec.nullable {
+			switch {
+			case cursor.Value == nil:
+				// The boundary sits in the NULL block: the rest of that block by
+				// id, plus every non-NULL row when NULLs come first.
+				after = fmt.Sprintf("(%s IS NULL AND c.id %s %s)", sortBy, tie, idArg)
+				if nulls == "NULLS FIRST" {
+					after += fmt.Sprintf(" OR %s IS NOT NULL", sortBy)
+				}
+			case nulls == "NULLS LAST":
+				// Past the non-NULL rows, the NULL block still follows.
+				after += fmt.Sprintf(" OR %s IS NULL", sortBy)
+			}
+		}
+		whereClauses = append(whereClauses, "("+after+")")
 	}
 
 	// -----------------------------
@@ -1190,13 +1317,6 @@ func (r *contactRepository) Search(
 	whereSQL := ""
 	if len(whereClauses) > 0 {
 		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
-	}
-	if len(campaignCountClauses) > 0 {
-		if whereSQL == "" {
-			whereSQL = "WHERE " + strings.Join(campaignCountClauses, " AND ")
-		} else {
-			whereSQL += " AND " + strings.Join(campaignCountClauses, " AND ")
-		}
 	}
 
 	// Per-campaign lead progress. Only computed in the single-campaign (Leads
@@ -1264,6 +1384,16 @@ func (r *contactRepository) Search(
 		)`, singleCampaignPlaceholder, config.CampaignSendMaxAttempts, undeliverableClause(singleCampaignPlaceholder))
 	}
 
+	// campaign_count is only ever read by the min/max filters and the
+	// campaign_count sort; the response carries the campaign list itself. So the
+	// count is a lateral computed for the rows that survive, and it is left out
+	// entirely when nothing asks for it. Aggregating the whole campaign_leads
+	// table on every search was the list's dominant cost.
+	campaignCountJoin := ""
+	if filters.MinCampaigns != nil || filters.MaxCampaigns != nil || sortName == "campaign_count" {
+		campaignCountJoin = campaignCountLateral
+	}
+
 	// Main query.
 	//
 	// Both the `campaigns` and `categories` agg subqueries need the
@@ -1277,7 +1407,6 @@ func (r *contactRepository) Search(
 			c.custom_fields, c.subscribed, c.updated_at, c.created_at,
 			c.verification_status, c.verification_reason, c.is_catch_all, c.verification_checked_at,
 			c.verification_source, c.verification_provider, c.verification_sub_status, c.verification_confidence,
-			COALESCE(cl.campaign_count,0) AS campaign_count,
 			COALESCE(
 				(
 					SELECT json_agg(json_build_object('id', cam.id, 'name', cam.name))
@@ -1296,33 +1425,30 @@ func (r *contactRepository) Search(
 					AND cat.user_id = $%d
 				), '[]'::json
 			) AS categories,
-			%s AS lead_progress
+			%s AS lead_progress,
+			%s AS sort_value
 		FROM contacts c
-		LEFT JOIN (
-			SELECT contact_id, COUNT(campaign_id) AS campaign_count
-			FROM campaign_leads
-			GROUP BY contact_id
-		) cl ON c.id = cl.contact_id
 		%s
-		ORDER BY %s %s, c.id ASC
+		%s
+		ORDER BY %s %s %s, c.id %s
 		LIMIT $%d
-	`, argIndex, argIndex, leadProgressSelect, whereSQL, sortBy, direction, argIndex+1)
+	`, argIndex, argIndex, leadProgressSelect, spec.render(), campaignCountJoin, whereSQL, sortBy, direction, nulls, direction, argIndex+1)
 
 	args = append(args, orgID, limit+1)
 
 	// Skip total count if cursor exists
 	var totalCount *int64
-	if cursor == nil || *cursor == "" {
+	if cursor == nil {
+		countJoin := ""
+		if filters.MinCampaigns != nil || filters.MaxCampaigns != nil {
+			countJoin = campaignCountLateral
+		}
 		countQuery := fmt.Sprintf(`
 			SELECT COUNT(*)
 			FROM contacts c
-			LEFT JOIN (
-				SELECT contact_id, COUNT(campaign_id) AS campaign_count
-				FROM campaign_leads
-				GROUP BY contact_id
-			) cl ON c.id = cl.contact_id
 			%s
-		`, whereSQL)
+			%s
+		`, countJoin, whereSQL)
 		var tmp int64
 		if err := r.DB.QueryRow(ctx, countQuery, args[:argIndex-1]...).Scan(&tmp); err != nil {
 			db.CaptureError(err, "countQuery", args, "queryrow")
@@ -1346,12 +1472,15 @@ func (r *contactRepository) Search(
 	// then produces [null], which crashes any downstream `.subscribed`
 	// access. Always return an array.
 	contacts := make([]models.Contact, 0, limit+1)
+	// The sort value of each row, kept alongside so the next cursor carries the
+	// boundary instead of re-reading it from a row that may be gone by then.
+	sortValues := make([]*string, 0, limit+1)
 	for rows.Next() {
 		var c models.Contact
-		var campaignCount int
 		var campaignsJSON []byte
 		var categoriesJSON []byte
 		var leadProgressJSON []byte
+		var sortValue *string
 
 		if err := rows.Scan(
 			&c.ID, &c.FirstName, &c.LastName, &c.Email,
@@ -1359,7 +1488,8 @@ func (r *contactRepository) Search(
 			&c.UpdatedAt, &c.CreatedAt,
 			&c.VerificationStatus, &c.VerificationReason, &c.IsCatchAll, &c.VerificationCheckedAt,
 			&c.VerificationSource, &c.VerificationProvider, &c.VerificationSubStatus, &c.VerificationConfidence,
-			&campaignCount, &campaignsJSON, &categoriesJSON, &leadProgressJSON,
+			&campaignsJSON, &categoriesJSON, &leadProgressJSON,
+			&sortValue,
 		); err != nil {
 			db.CaptureError(err, "", nil, "scan")
 			return nil, errx.InternalError()
@@ -1458,15 +1588,16 @@ func (r *contactRepository) Search(
 		}
 
 		contacts = append(contacts, c)
+		sortValues = append(sortValues, sortValue)
 	}
 
-	// Next cursor
+	// Next cursor. The (limit+1)-th row is the first row of the NEXT page, so
+	// its position is the boundary and the id comparison is inclusive.
 	var nextCursor *string
 	var hasMore bool
 	if len(contacts) > int(limit) {
 		hasMore = true
-		nextID := contacts[limit].ID
-		nextCursor = paging.EncodeUUID(nextID)
+		nextCursor = paging.EncodeSort(sortKey, sortValues[limit], contacts[limit].ID)
 		contacts = contacts[:limit]
 	}
 
@@ -1485,6 +1616,80 @@ func (r *contactRepository) Search(
 // campaign membership derived from the campaign_leads count), and per-category
 // contact counts joined through the org's contacts. Independent of any search
 // filter, like the campaigns-overview drawer counts.
+// SearchIDs resolves a search request to the matching contact ids. It shares
+// buildContactFilter with Search, so the set is exactly the one the list
+// showed; ordering follows the same sort so a capped result is the first max
+// rows the user was looking at rather than an arbitrary slice.
+func (r *contactRepository) SearchIDs(ctx context.Context, orgID string, filters models.SearchContacts, max int) ([]uuid.UUID, *errx.Error) {
+	if _, err := uuid.Parse(orgID); err != nil {
+		return nil, errx.ErrUuid
+	}
+	if max <= 0 {
+		max = models.MaxContactBulkSelection
+	}
+
+	fq, ferr := r.buildContactFilter(ctx, orgID, filters)
+	if ferr != nil {
+		return nil, ferr
+	}
+	args := fq.args
+
+	sortName := "created_at"
+	if _, ok := contactSorts[filters.SortBy]; ok {
+		sortName = filters.SortBy
+	}
+	spec := contactSorts[sortName]
+	direction, nulls := "DESC", "NULLS FIRST"
+	if filters.Reverse {
+		direction, nulls = "ASC", "NULLS LAST"
+	}
+	// Same rule as Search: the count lateral costs a scan, so it is joined only
+	// when a filter or the sort actually reads it.
+	campaignCountJoin := ""
+	if filters.MinCampaigns != nil || filters.MaxCampaigns != nil || sortName == "campaign_count" {
+		campaignCountJoin = campaignCountLateral
+	}
+
+	whereSQL := ""
+	if len(fq.clauses) > 0 {
+		whereSQL = "WHERE " + strings.Join(fq.clauses, " AND ")
+	}
+
+	// max+1 so the caller can report "more than max match" instead of silently
+	// acting on a truncated set.
+	query := fmt.Sprintf(`
+		SELECT c.id
+		FROM contacts c
+		%s
+		%s
+		ORDER BY %s %s %s, c.id %s
+		LIMIT $%d
+	`, campaignCountJoin, whereSQL, spec.expr, direction, nulls, direction, fq.nextArg)
+	args = append(args, max+1)
+
+	rows, err := r.DB.Query(ctx, query, args...)
+	if err != nil {
+		db.CaptureError(err, query, args, "query")
+		return nil, errx.InternalError()
+	}
+	defer rows.Close()
+
+	ids := make([]uuid.UUID, 0, 256)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			db.CaptureError(err, "", nil, "scan")
+			return nil, errx.InternalError()
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		db.CaptureError(err, query, args, "rows")
+		return nil, errx.InternalError()
+	}
+	return ids, nil
+}
+
 func (r *contactRepository) SearchCounts(ctx context.Context, orgID string) (*models.ContactsCounts, *errx.Error) {
 	counts := &models.ContactsCounts{Categories: []models.ContactCategoryCount{}}
 
@@ -2664,7 +2869,7 @@ func (r *contactRepository) ExportAll(ctx context.Context, orgID string, filters
 	}
 
 	out := make([]models.Contact, 0, 256)
-	var cursor *string
+	var cursor *paging.SortCursor
 	pageSize := int32(500)
 	for {
 		page, xerr := r.Search(ctx, orgID, nil, cursor, search, pageSize)
@@ -2685,14 +2890,13 @@ func (r *contactRepository) ExportAll(ctx context.Context, orgID string, filters
 		if !page.Pagination.HasMore || page.Pagination.NextCursor == nil {
 			break
 		}
-		// NextCursor is now an opaque token; decode it back to the id the next
-		// Search call keys on.
-		id, derr := paging.DecodeUUID(*page.Pagination.NextCursor)
-		if derr != nil {
+		// NextCursor is an opaque token; decode it back to the keyset boundary
+		// the next Search call resumes from.
+		next, derr := paging.DecodeSortCursor(*page.Pagination.NextCursor)
+		if derr != nil || next == nil {
 			break
 		}
-		s := id.String()
-		cursor = &s
+		cursor = next
 	}
 	return out, nil
 }
