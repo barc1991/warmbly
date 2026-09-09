@@ -120,6 +120,10 @@ export default function EmailContentEditor({
         // notes below the editor come from it, and an author writing markup
         // is exactly who needs them while they write.
         if (tab !== "preview" && !code) return;
+        // Switching to Preview is a deliberate act and should feel immediate.
+        // Writing markup is not: the request carries the whole body, which for
+        // a designed email is tens of kilobytes, so it waits for a real pause.
+        const settle = tab === "preview" ? 250 : 800;
         // Responses can land out of order; only the newest request may paint.
         let active = true;
         const t = setTimeout(() => {
@@ -140,7 +144,7 @@ export default function EmailContentEditor({
                 .catch(() => {
                     if (active) setServerPreview(null);
                 });
-        }, 250);
+        }, settle);
         return () => {
             active = false;
             clearTimeout(t);

@@ -34,6 +34,12 @@ describe("detectPastedEmail", () => {
         expect(detectPastedEmail(clipboard({ "text/plain": "<table without a close" }))).toBeNull();
     });
 
+    // A saved email opens with the tool that wrote it before its doctype.
+    it("adopts a document behind a leading comment", () => {
+        const doc = "<!-- saved from Mailchimp --><!DOCTYPE html><html><body><p>Hi</p></body></html>";
+        expect(detectPastedEmail(clipboard({ "text/html": doc }))).toBe(doc);
+    });
+
     it("is null for an empty clipboard", () => {
         expect(detectPastedEmail(null)).toBeNull();
         expect(detectPastedEmail(clipboard({}))).toBeNull();
@@ -44,6 +50,10 @@ describe("isDocumentBody", () => {
     it("is true for markup no schema can hold faithfully", () => {
         expect(isDocumentBody("<!doctype html><html><body>x</body></html>")).toBe(true);
         expect(isDocumentBody('<style>.x{color:red}</style><p class="x">x</p>')).toBe(true);
+    });
+
+    it("sees a document behind a leading comment", () => {
+        expect(isDocumentBody("<!-- saved from Mailchimp --><!doctype html><html><body>x</body></html>")).toBe(true);
     });
 
     it("is false for an ordinary campaign body", () => {

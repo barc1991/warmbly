@@ -14,7 +14,10 @@
 // a live selection was copied out of a rendered page, not a file of markup.
 const FRAGMENT_MARKER = /<!--\s*StartFragment\s*-->/i;
 
-const DOCUMENT_ROOT = /^\s*(?:<!doctype\s+html|<html[\s>])/i;
+// Leading comments are skipped: a saved email opens with the tool that wrote
+// it ("<!-- saved from ... -->") before its doctype, and treating that as an
+// ordinary fragment would nest one document inside another.
+const DOCUMENT_ROOT = /^\s*(?:<!--[\s\S]*?-->\s*)*(?:<!doctype\s+html|<html[\s>])/i;
 const STYLE_BLOCK = /<style[\s>]/i;
 
 // Tags that open a paste which is markup someone copied as text: the source of

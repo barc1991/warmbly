@@ -50,7 +50,7 @@ const DOCUMENT_CSS = `
 // designed newsletter) must not be nested inside another one: the doctype and
 // the <head> would land in the body, and the frame would preview something the
 // recipient will never see. Its own <head> gets our shell instead.
-const DOCUMENT_ROOT = /^\s*(?:<!doctype\s+html|<html[\s>])/i;
+const DOCUMENT_ROOT = /^\s*(?:<!--[\s\S]*?-->\s*)*(?:<!doctype\s+html|<html[\s>])/i;
 const HEAD_OPEN = /<head\b[^>]*>/i;
 const HTML_OPEN = /<html\b[^>]*>/i;
 
