@@ -44,6 +44,13 @@ pub struct AppState {
     pub hits: Arc<HitForwarder>,
     /// Tighter per-source budget for page views than for pixels
     pub hit_rate_limiter: Arc<RateLimiter>,
+    /// Opt-out pages get a budget of their own rather than sharing the pixel
+    /// and click one. A single NAT or mail gateway can spend that shared
+    /// counter on tracking alone, and the recipient behind it who then opens
+    /// the unsubscribe link would be refused: the one request that must never
+    /// be turned away. Same size, separate bucket; a source loading opt-out
+    /// pages this fast is probing, not opting out.
+    pub unsubscribe_rate_limiter: Arc<RateLimiter>,
     /// Proxies whose forwarded-IP header is believed, and which header
     pub trusted_proxies: Arc<Vec<ipnet::IpNet>>,
     pub client_ip_header: Arc<String>,
@@ -78,6 +85,7 @@ impl AppState {
                 config.internal_api_token.clone(),
             )),
             hit_rate_limiter: Arc::new(RateLimiter::new(config.pagehit_rate_limit_per_min)),
+            unsubscribe_rate_limiter: Arc::new(RateLimiter::new(config.rate_limit_per_min)),
             trusted_proxies: Arc::new(config.trusted_proxies.clone()),
             client_ip_header: Arc::new(config.client_ip_header.clone()),
             ip_hash_key: Arc::new(config.ip_hash_key.clone()),
@@ -335,9 +343,10 @@ pub async fn unsubscribe_undo(
         .await
 }
 
-/// Charges one request against the source's budget, returning the refusal when
-/// it is spent. A recipient opts out once; a source burning the pixel budget on
-/// opt-out pages is spraying tokens.
+/// Charges one request against the source's opt-out budget, returning the
+/// refusal when it is spent. A recipient opts out once, so this budget is
+/// never reached by real traffic; it exists to cap token spraying, and it is
+/// deliberately not the counter that pixels and clicks spend.
 async fn spend_unsubscribe_budget(
     state: &AppState,
     peer: SocketAddr,
@@ -350,7 +359,7 @@ async fn spend_unsubscribe_budget(
         &state.client_ip_header,
     );
     let source = hash_ip(&state.ip_hash_key, &ip);
-    if state.rate_limiter.allow(&source).await {
+    if state.unsubscribe_rate_limiter.allow(&source).await {
         return None;
     }
     Some((StatusCode::TOO_MANY_REQUESTS, "Slow down").into_response())
