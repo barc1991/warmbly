@@ -29,8 +29,13 @@ type EmailImage struct {
 // what /public/*key and the org-archive blob collector both match on.
 const EmailImageKeyPrefix = "email-images/"
 
-// EmailImageObjectKey is where an email-body image's bytes live. The nonce
-// keeps two uploads of the same filename from sharing an immutably cached URL.
-func EmailImageObjectKey(orgID uuid.UUID, filename string) string {
-	return EmailImageKeyPrefix + orgID.String() + "/" + uuid.NewString() + "-" + filename
+// EmailImageObjectKey is where an email-body image's bytes live.
+//
+// The uploader's filename is deliberately NOT part of it. This key becomes a
+// URL inside an email, so a name like "acme-q3-pricing-internal.png" would be
+// read by every recipient; and a name is free text, so one holding ".." would
+// produce a key the public route refuses to serve. The name is kept on the row
+// instead, where the library lists it and the alt text defaults to it.
+func EmailImageObjectKey(orgID uuid.UUID, ext string) string {
+	return EmailImageKeyPrefix + orgID.String() + "/" + uuid.NewString() + ext
 }

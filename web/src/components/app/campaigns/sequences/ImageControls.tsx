@@ -76,7 +76,9 @@ export function ImageMenu({ editor }: { editor: Editor }) {
 
     const applyUrl = () => {
         const u = url.trim();
-        if (!/^https?:\/\//i.test(u)) {
+        // https only: the dashboard is served over TLS, so a http:// image is
+        // blocked as mixed content in the preview the author is looking at.
+        if (!/^https:\/\//i.test(u)) {
             toast.error("Enter a full https:// image address.");
             return;
         }

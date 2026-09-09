@@ -11,6 +11,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/warmbly/warmbly/internal/api/middleware"
 	"github.com/warmbly/warmbly/internal/errx"
+	"github.com/warmbly/warmbly/internal/infrastructure/storage"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/utils/paging"
 )
@@ -123,7 +125,7 @@ func (h *Handler) UploadEmailImage(c *gin.Context) {
 	}
 
 	filename := emailImageFilename(fh.Filename, ext)
-	key := models.EmailImageObjectKey(*orgID, filename)
+	key := models.EmailImageObjectKey(*orgID, ext)
 	stored, xerr := putPublicObject(c.Request.Context(), h.Storage, key, body, mimeType)
 	if xerr != nil {
 		errx.JSON(c, xerr)
@@ -250,12 +252,20 @@ func (h *Handler) DeleteEmailImage(c *gin.Context) {
 		errx.JSON(c, errx.ErrNotFound)
 		return
 	}
+	// The object goes first. Deleting the row first and then failing here would
+	// leave a public URL that still loads while nothing counts its bytes
+	// against the quota and nothing remembers the key. This way a failure
+	// changes nothing and the caller can retry; the delete is idempotent, so a
+	// retry after the object is already gone still removes the row.
+	if h.Storage != nil {
+		if err := h.Storage.Delete(c.Request.Context(), img.StorageKey); err != nil && !errors.Is(err, storage.ErrNotFound) {
+			errx.JSON(c, errx.New(errx.ServiceUnavailable, "the image could not be removed from storage; try again"))
+			return
+		}
+	}
 	if err := h.EmailImageRepo.Delete(c.Request.Context(), id); err != nil {
 		errx.JSON(c, errx.InternalError())
 		return
-	}
-	if h.Storage != nil {
-		_ = h.Storage.Delete(c.Request.Context(), img.StorageKey)
 	}
 	h.auditOrg(c, models.AuditActionDelete, models.AuditEntityEmailImage, &id, nil, map[string]string{
 		"filename": img.Filename,
@@ -274,9 +284,10 @@ func absolutePublicURL(c *gin.Context, stored string) string {
 	return publicAPIBaseURL(c) + "/" + strings.TrimPrefix(stored, "/")
 }
 
-// emailImageFilename keeps the uploaded name (it is what the library lists and
-// what the alt text defaults to) but forces the extension to match the sniffed
-// type, so the public object is served as what it actually is.
+// emailImageFilename is the display name kept on the row: what the library
+// lists and what the alt text defaults to. The extension is forced to match
+// the sniffed type so the name never claims to be something the bytes are not.
+// It never reaches an object key, which is generated independently.
 func emailImageFilename(raw, ext string) string {
 	name := sanitizeFilename(raw)
 	name = strings.TrimSpace(strings.TrimSuffix(name, path.Ext(name)))

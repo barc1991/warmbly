@@ -203,13 +203,25 @@ export default function RichTextEditor({
     // HTML source view. null = the visual editor; a string = the source the
     // textarea holds, which is the value being saved while it is open.
     const [source, setSource] = React.useState<string | null>(null);
+    // The last value the source view emitted, so an incoming html prop can be
+    // told apart from the echo of our own keystroke.
+    const emittedSource = React.useRef<string | null>(null);
 
     // Keep the editor in sync when the value changes from outside (template
     // applied, step switched, reset) without clobbering the user's caret on
-    // their own edits. The source view owns the value while it is open, so the
-    // editor is left alone until it closes.
+    // their own edits.
     React.useEffect(() => {
-        if (!editor || source !== null) return;
+        if (!editor) return;
+        // While the source view is open it owns the value, so its own echo is
+        // ignored. A template applied over it is not an echo, and adopting it
+        // is the only way the textarea does not silently discard it.
+        if (source !== null) {
+            if (html !== emittedSource.current) {
+                emittedSource.current = html;
+                setSource(prettyHTML(html || ""));
+            }
+            return;
+        }
         const current = editor.getHTML();
         const incoming = upgradeVariableTokens(html || "");
         if (incoming !== current) {
@@ -223,11 +235,13 @@ export default function RichTextEditor({
     const toggleSource = () => {
         if (!editor) return;
         if (source === null) {
+            emittedSource.current = html;
             setSource(prettyHTML(editor.getHTML()));
             return;
         }
         const apply = () => {
             editor.commands.setContent(upgradeVariableTokens(source), { emitUpdate: true });
+            emittedSource.current = null;
             setSource(null);
         };
         const dropped = unsupportedTags(source);
@@ -278,6 +292,7 @@ export default function RichTextEditor({
                 <HTMLSource
                     value={source}
                     onChange={(value) => {
+                        emittedSource.current = value;
                         setSource(value);
                         onChange(value);
                     }}
