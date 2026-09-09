@@ -228,6 +228,16 @@ blob_provider() {
   printf '%s\n' "$NODE_ENV" | sed -n 's/^BLOB_PROVIDER=//p' | head -n 1
 }
 
+# blobs_are_local matches what storage.NewFromEnv accepts, which is both
+# "filesystem" and the "fs" alias. Testing only the long form left an fs
+# instance with no mount and no warning.
+blobs_are_local() {
+  case "$(blob_provider)" in
+    filesystem|fs) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 blob_root() {
   printf '%s\n' "$NODE_ENV" | sed -n 's/^BLOB_FS_ROOT=//p' | head -n 1
 }
@@ -241,19 +251,51 @@ blob_root() {
 # that restart loop after the script has printed "Done".
 ensure_blob_root() {
   root="$1"
+  if [ ! -d "$root" ]; then
+    # 0022 for the duration: write_config sets umask 077, which would create
+    # every missing PARENT 0700 and leave a co-located backend unable to
+    # traverse in. The explicit chmod below only covers the leaf.
+    ( umask 022 && mkdir -p "$root" ) || die "could not create BLOB_FS_ROOT '$root'"
+    chmod 0755 "$root" || die "could not set permissions on '$root'"
+    chown 1000:1000 "$root" 2>/dev/null || true
+    return 0
+  fi
+
+  # It already existed, so it belongs to something else - most likely a
+  # co-located backend. Re-owning it would break that backend, so check
+  # whether the node could write there and say so if not. Mounting an
+  # unwritable directory boots cleanly and then fails on the first send.
+  owner=$(stat -c '%u' "$root" 2>/dev/null || echo "")
+  mode=$(stat -c '%a' "$root" 2>/dev/null || echo "")
+  if [ "$owner" != "1000" ]; then
+    case "$mode" in
+      *7|*6|*3|*2) ;; # world-writable, so uid 1000 can still write
+      *)
+        warn ""
+        warn "WARNING: $root already exists, owned by uid $owner with mode $mode."
+        warn "         The node runs as uid 1000 and will not be able to write there,"
+        warn "         so sends will fail once it tries to store a message body."
+        warn "         Give uid 1000 access to that directory, or switch the instance"
+        warn "         to BLOB_PROVIDER=s3."
+        warn ""
+        ;;
+    esac
+  fi
+  return 0
+}
+
+# validate_blob_root rejects a value docker could never mount, right after
+# enrolment and before anything is written.
+validate_blob_root() {
+  blobs_are_local || return 0
+  root=$(blob_root)
+  [ -n "$root" ] || return 0
   case "$root" in
     /*) ;;
     *) die "BLOB_FS_ROOT is '$root', which is not an absolute path. Docker cannot mount a relative path; fix it on the backend and re-run." ;;
   esac
   if [ -e "$root" ] && [ ! -d "$root" ]; then
     die "BLOB_FS_ROOT '$root' exists but is not a directory."
-  fi
-  if [ ! -d "$root" ]; then
-    mkdir -p "$root" || die "could not create BLOB_FS_ROOT '$root'"
-    # 0755, not the 0700 the caller's umask would give: a co-located backend
-    # runs as its own system user and still has to read what is in here.
-    chmod 0755 "$root" || die "could not set permissions on '$root'"
-    chown 1000:1000 "$root" 2>/dev/null || true
   fi
   return 0
 }
@@ -263,7 +305,7 @@ ensure_blob_root() {
 # continuations and hand docker a stray token as the image name.
 docker_mounts() {
   mounts="-v $AGENT_DIR:$AGENT_DIR"
-  if [ "$(blob_provider)" = "filesystem" ]; then
+  if blobs_are_local; then
     root=$(blob_root)
     if [ -n "$root" ]; then
       ensure_blob_root "$root"
@@ -278,7 +320,7 @@ docker_mounts() {
 # shares a directory it may have no permission on. Both fail at send time, long
 # after this script has printed "Done".
 warn_shared_blobs() {
-  [ "$(blob_provider)" = "filesystem" ] || return 0
+  blobs_are_local || return 0
   warn ""
   warn "WARNING: this instance stores blobs on local disk (BLOB_PROVIDER=filesystem,"
   warn "         BLOB_FS_ROOT=$(blob_root))."
@@ -420,6 +462,9 @@ main() {
   require_args
   check_deps
   enrol
+  # Validate the config we were handed before writing any of it: failing later
+  # leaves an enrolled node with files on disk and no service.
+  validate_blob_root
   write_config
   install_units
   start_node

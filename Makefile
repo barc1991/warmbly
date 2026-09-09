@@ -82,7 +82,7 @@ cli-check:
 fmt:
 	gofmt -w ./cmd ./internal
 
-lint: check-migrations
+lint: check-migrations join-check
 	./scripts/check-forms-mirror.sh
 	$(GO_BIN)/golangci-lint run --timeout=5m
 
@@ -702,6 +702,13 @@ installer-sha:
 # --print-env, a compose file per answer shape, and the checksum.
 installer-check:
 	@./scripts/check-installer.sh
+
+# The fleet join script is served verbatim from the backend at GET /join.sh and
+# is what a stranger pipes into a root shell to add a machine. Nothing covered
+# it, and a systemd unit that could never start shipped as a result. Part of
+# `make lint`, like check-migrations.
+join-check:
+	@./scripts/check-join-script.sh
 
 # Every published image has to be pullable by a stranger, and nothing else we
 # run proves it: a package on GHCR is created private, does not inherit the

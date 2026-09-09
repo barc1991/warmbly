@@ -361,6 +361,13 @@ Auto-update:
 
 The join script is `internal/api/handler/nodescript/join.sh`, embedded and served at `GET /join.sh` by the instance itself, so a self-hosted fleet never depends on a vendor host and always gets a script matching its backend. There is exactly one copy: do not add a mirror under `scripts/` or `site/public/`. All the POSIX-sh rules for published scripts apply to it (`sh -n`, `shellcheck -s sh`, everything in a function, `main "$@"` last).
 
+Run `make join-check` before pushing a change to it; it is a prerequisite of `make lint`. It exists because nothing covered the script and three separate defects shipped into the branch as a result: a systemd unit built with `$(cat ...)`, which systemd never expands, so the machine restart-looped while the script printed "Done"; a missing bind mount, so the node wrote its update target inside the container and auto-update silently never ran; and an env file assembled by picking a multi-line value back out of JSON with sed, which appended a stray fragment. Assert on what the shell *renders*, not on the source text — every one of those parsed fine.
+
+Two rules that follow from those:
+
+- **systemd runs no shell.** No `$(...)`, no globbing, no word splitting in a unit. A value that has to vary comes from an `EnvironmentFile` as `${VAR}`, which expands to exactly one argument
+- **What the node may write and what root reads are different directories.** The container runs as uid 1000; it gets `/var/lib/warmbly/node` and nothing else. `image-ref` lives one level up, root-owned, because systemd feeds it to a root `docker run --network host` and a node that could rewrite it would choose the image root executes
+
 The env the join endpoint hands a node is rendered from the backend's own environment (`nodeEnvKeys` in `internal/api/handler/fleet_nodes.go`). `PRIMARY_DB` is deliberately absent: a worker reaches relational data through the internal API and nothing else, and shipping a DSN here would quietly undo that boundary.
 
 Operator surface: `warmblyctl fleet` (join-token, list, show, remove, pin, version, channel) and the admin panel's Fleet section. There is no install, restart, logs or reboot action anywhere, because nothing reaches into a machine.
