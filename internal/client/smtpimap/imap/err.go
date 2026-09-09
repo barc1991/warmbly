@@ -21,7 +21,14 @@ func (c *Client) handleError(err error) *errx.MailError {
 		case imap.ResponseCodeAuthorizationFailed:
 			return errx.ErrMailAuthorizationFailed
 		default:
-			return errx.ErrMailUnknownImapError(string(imapErr.Code))
+			// A NO/BAD without a response code (Gmail's "NO System Error")
+			// has only its text; an empty code rendered as "Something went
+			// wrong: " in the mailbox's error list.
+			detail := string(imapErr.Code)
+			if detail == "" {
+				detail = imapErr.Text
+			}
+			return errx.ErrMailUnknownImapError(detail)
 		}
 	}
 

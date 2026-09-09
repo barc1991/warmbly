@@ -160,14 +160,11 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
   const threadLabels = useThreadLabels(threadId);
   const [labelMenuOpen, setLabelMenuOpen] = React.useState(false);
 
-  // CRM context rail (right side). Open by default on wide screens (lg+),
-  // where it renders as a static rail. Below lg it renders as an overlay
-  // drawer, so it starts closed and is opened from the header toggle.
-  const [crmOpen, setCrmOpen] = React.useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(min-width: 1024px)").matches,
-  );
+  // CRM context rail (right side). Starts closed at every width and is
+  // opened from the header toggle: on wide screens it renders as a static
+  // rail, below lg as an overlay drawer. It used to open by itself on lg+,
+  // which put the contact form in front of every thread the reader opened.
+  const [crmOpen, setCrmOpen] = React.useState(false);
 
   // `c` opens the label menu while a thread is open — ignored while
   // typing into the composer / any input so it never eats keystrokes.
