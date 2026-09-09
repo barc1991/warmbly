@@ -14920,7 +14920,7 @@
             }
           },
           "400": {
-            "description": "A selection that names nothing, an exclusion list over 50000, or one resolving to more than 500 contacts (`too_many_contacts`).",
+            "description": "A selection that names nothing, an exclusion list over 50000 or one resolving to more than 500 contacts (`too_many_contacts`), a select-all with no filters, a filter matching no contacts, or a filter matching more than 50000 (`selection_too_large`).",
             "content": {
               "application/json": {
                 "schema": {
