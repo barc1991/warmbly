@@ -24,20 +24,28 @@ ok()   { printf '  ok  %s\n' "$*"; }
 
 [ -f "$SCRIPT" ] || fail "$SCRIPT not found (run from the repository root)"
 
-# POSIX parse. sh -n under a non-POSIX shell proves nothing about dash.
+# POSIX parse. sh -n under a non-POSIX shell proves nothing about dash, which
+# is /bin/sh on Debian and Ubuntu, so dash is used when it is there.
+parse_check() {
+  if command -v dash >/dev/null 2>&1; then
+    dash -n "$1" || fail "dash -n failed on $1"
+  else
+    sh -n "$1" || fail "sh -n failed on $1"
+  fi
+}
+
+parse_check "$SCRIPT"
+# The checker too: its own shellcheck-disable directives are load-bearing.
+parse_check "$0"
 if command -v dash >/dev/null 2>&1; then
-  dash -n "$SCRIPT" || fail "dash -n failed"
-  ok "dash -n"
+  ok "dash -n (script and checker)"
 else
-  sh -n "$SCRIPT" || fail "sh -n failed"
-  printf '  --  dash not installed; used sh -n instead\n'
+  printf '  --  dash not installed; parsed with sh -n instead\n'
 fi
 
 if command -v shellcheck >/dev/null 2>&1; then
   shellcheck -s sh "$SCRIPT" || fail "shellcheck failed on $SCRIPT"
-  # This file too: its own disable directives are load-bearing.
   shellcheck -s sh "$0" || fail "shellcheck failed on $0"
-  sh -n "$0" || fail "sh -n failed on $0"
   ok "shellcheck -s sh (script and checker)"
 else
   printf '  --  shellcheck not installed; skipped\n'
@@ -50,6 +58,12 @@ ok "--help"
 # Everything below asserts on what the script RENDERS, never on its source
 # text. A previous version of this file checked a heredoc copied in here, which
 # meant putting the original `$(cat ...)` bug back left it passing green.
+# The render variants, defined once. Both loops below read this, so adding a
+# third here extends every per-render assertion rather than only the first.
+RENDER_VARIANTS='
+BLOB_PROVIDER=fs
+BLOB_FS_ROOT=/var/lib/warmbly/blobs'
+
 unit=$(sh "$SCRIPT" --print-unit) || fail "--print-unit failed"
 
 # shellcheck disable=SC2016  # the pattern is literal on purpose; it must not expand
@@ -69,8 +83,7 @@ ok "rendered unit (no blob mount)"
 
 # With local blobs the root has to be mounted too, and the line must still be
 # one line: a multi-line mount list is how the continuation collapsed before.
-unit=$(NODE_ENV="BLOB_PROVIDER=fs
-BLOB_FS_ROOT=/var/lib/warmbly/blobs" sh "$SCRIPT" --print-unit) || fail "--print-unit with blobs failed"
+unit=$(NODE_ENV="$RENDER_VARIANTS" sh "$SCRIPT" --print-unit) || fail "--print-unit with blobs failed"
 printf '%s\n' "$unit" | grep -q 'ExecStart=.*-v /var/lib/warmbly/blobs:/var/lib/warmbly/blobs' \
   || fail "BLOB_FS_ROOT must be mounted (the fs alias counts as filesystem)"
 [ "$(printf '%s\n' "$unit" | grep -c '^ExecStart=')" = "1" ] \
@@ -91,8 +104,7 @@ ok "relative BLOB_FS_ROOT refused"
 # vary with NODE_ENV today, but the point of this assertion is what someone
 # changes tomorrow, and "today it is redundant" is exactly the reasoning that
 # already dropped this guard once. One extra subshell is a fair price.
-for variant_env in "" "BLOB_PROVIDER=fs
-BLOB_FS_ROOT=/var/lib/warmbly/blobs"; do
+for variant_env in "" "$RENDER_VARIANTS"; do
   v_unit=$(NODE_ENV="$variant_env" sh "$SCRIPT" --print-unit) || fail "--print-unit failed"
   if printf '%s\n' "$v_unit" | grep '^EnvironmentFile=' | grep -q '/var/lib/warmbly/node'; then
     fail "an EnvironmentFile points into the node-writable mount; the node could choose the image root runs"
