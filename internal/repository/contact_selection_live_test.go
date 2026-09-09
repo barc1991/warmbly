@@ -121,7 +121,7 @@ func TestLiveContactSearchIDsMatchesSearch(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Page through Search the way the table does, five rows at a time.
 			var walked []uuid.UUID
-			var cursor *string
+			var cursor *paging.SortCursor
 			for {
 				page, xerr := repo.Search(ctx, org, nil, cursor, tc.filters, 5)
 				if xerr != nil {
@@ -133,13 +133,11 @@ func TestLiveContactSearchIDsMatchesSearch(t *testing.T) {
 				if !page.Pagination.HasMore || page.Pagination.NextCursor == nil {
 					break
 				}
-				// NextCursor is an opaque token; Search keys on the raw id.
-				id, derr := paging.DecodeUUID(*page.Pagination.NextCursor)
+				next, derr := paging.DecodeSortCursor(*page.Pagination.NextCursor)
 				if derr != nil {
 					t.Fatalf("decode cursor: %v", derr)
 				}
-				next := id.String()
-				cursor = &next
+				cursor = next
 			}
 
 			ids, xerr := repo.SearchIDs(ctx, org, tc.filters, models.MaxContactBulkSelection)
