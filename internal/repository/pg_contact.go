@@ -3117,6 +3117,11 @@ func (r *contactRepository) GetDetail(ctx context.Context, userID uuid.UUID, org
 // We deliberately scope by the contact's owning user via the
 // campaign join — this keeps multi-tenant safety even though the
 // tasks table itself has no user_id column.
+//
+// opened_at is a person's open, as it is in campaign analytics and the
+// contact's engagement summary: a fetch by a mail client's prefetch or a
+// security gateway is reported separately as machine_opened_at, so this list
+// never claims a recipient read mail they never opened (issue #392).
 func (r *contactRepository) ListSentEmails(ctx context.Context, userID, contactID uuid.UUID, limit int, beforeSentAt *time.Time, beforeTaskID *uuid.UUID) (*models.ContactSentEmailsResult, *errx.Error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
@@ -3137,7 +3142,9 @@ func (r *contactRepository) ListSentEmails(ctx context.Context, userID, contactI
 			cam.id, cam.name,
 			seq.id, seq.name,
 			COALESCE(et.subject, seq.subject, '') AS subject,
-			ccp.opened_at, ccp.clicked_at, ccp.replied_at, ccp.bounced_at
+			CASE WHEN ccp.opened_machine THEN NULL ELSE ccp.opened_at END AS opened_at,
+			CASE WHEN ccp.opened_machine THEN ccp.opened_at END AS machine_opened_at,
+			ccp.clicked_at, ccp.replied_at, ccp.bounced_at
 		FROM tasks t
 		JOIN campaign_tasks ct ON ct.task_id = t.id
 		LEFT JOIN email_accounts ea ON ea.id = t.email_account_id
@@ -3171,7 +3178,7 @@ func (r *contactRepository) ListSentEmails(ctx context.Context, userID, contactI
 			&e.CampaignID, &e.CampaignName,
 			&e.SequenceID, &e.SequenceName,
 			&e.Subject,
-			&e.OpenedAt, &e.ClickedAt, &e.RepliedAt, &e.BouncedAt,
+			&e.OpenedAt, &e.MachineOpenedAt, &e.ClickedAt, &e.RepliedAt, &e.BouncedAt,
 		); err != nil {
 			db.CaptureError(err, "", nil, "ListSentEmails scan")
 			return nil, errx.InternalError()
@@ -3294,7 +3301,11 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			WHERE  ct.campaign_id = ccp.campaign_id
 			  AND  ct.contact_id  = ccp.contact_id
 			  AND  ct.sequence_id = ccp.sequence_id
-			ORDER  BY t.created_at DESC
+			-- The task holding the step's reservation is the one that put the
+			-- email on the wire; a step can carry several task rows (a retry, a
+			-- tick that skipped as a duplicate) and only that one names the
+			-- mailbox the recipient saw.
+			ORDER  BY COALESCE(t.id = ccp.dispatch_task_id, false) DESC, t.created_at DESC
 			LIMIT  1
 		) ea ON TRUE
 		WHERE ccp.contact_id = $1
