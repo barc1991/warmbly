@@ -58,13 +58,17 @@ ok "--help"
 # Everything below asserts on what the script RENDERS, never on its source
 # text. A previous version of this file checked a heredoc copied in here, which
 # meant putting the original `$(cat ...)` bug back left it passing green.
-# The render variants, defined once. Both loops below read this, so adding a
-# third here extends every per-render assertion rather than only the first.
-RENDER_VARIANTS='
-BLOB_PROVIDER=fs
+# The one non-default environment the unit is rendered under. Named for what
+# it is rather than dressed up as a list: sh has no clean way to iterate blocks
+# that themselves contain newlines, so a third variant means adding it to the
+# `for` below by hand.
+FS_BLOB_ENV='BLOB_PROVIDER=fs
 BLOB_FS_ROOT=/var/lib/warmbly/blobs'
 
-unit=$(sh "$SCRIPT" --print-unit) || fail "--print-unit failed"
+# NODE_ENV is forced empty rather than inherited: this repo exports NODE_ENV in
+# several trees, and an inherited value would render a unit this check did not
+# choose, or fail validate_blob_root for an unrelated reason.
+unit=$(NODE_ENV="" sh "$SCRIPT" --print-unit) || fail "--print-unit failed"
 
 # shellcheck disable=SC2016  # the pattern is literal on purpose; it must not expand
 printf '%s\n' "$unit" | grep -q 'ExecStart=.*\${WARMBLY_IMAGE_REF}$' \
@@ -83,7 +87,7 @@ ok "rendered unit (no blob mount)"
 
 # With local blobs the root has to be mounted too, and the line must still be
 # one line: a multi-line mount list is how the continuation collapsed before.
-unit=$(NODE_ENV="$RENDER_VARIANTS" sh "$SCRIPT" --print-unit) || fail "--print-unit with blobs failed"
+unit=$(NODE_ENV="$FS_BLOB_ENV" sh "$SCRIPT" --print-unit) || fail "--print-unit with blobs failed"
 printf '%s\n' "$unit" | grep -q 'ExecStart=.*-v /var/lib/warmbly/blobs:/var/lib/warmbly/blobs' \
   || fail "BLOB_FS_ROOT must be mounted (the fs alias counts as filesystem)"
 [ "$(printf '%s\n' "$unit" | grep -c '^ExecStart=')" = "1" ] \
@@ -104,7 +108,7 @@ ok "relative BLOB_FS_ROOT refused"
 # vary with NODE_ENV today, but the point of this assertion is what someone
 # changes tomorrow, and "today it is redundant" is exactly the reasoning that
 # already dropped this guard once. One extra subshell is a fair price.
-for variant_env in "" "$RENDER_VARIANTS"; do
+for variant_env in "" "$FS_BLOB_ENV"; do
   v_unit=$(NODE_ENV="$variant_env" sh "$SCRIPT" --print-unit) || fail "--print-unit failed"
   if printf '%s\n' "$v_unit" | grep '^EnvironmentFile=' | grep -q '/var/lib/warmbly/node'; then
     fail "an EnvironmentFile points into the node-writable mount; the node could choose the image root runs"
