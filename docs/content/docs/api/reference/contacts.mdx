@@ -696,6 +696,10 @@ Returns a `data` array plus a `pagination` envelope.
 }
 ```
 
+`email_account_id`, `email_account_email` and `email_account_name` are the mailbox the email was actually sent from, which is what a campaign rotating across several mailboxes needs: the row names the mailbox that sent this email, not the campaign's pool or the one that sent the previous step.
+
+`opened_at` is a person's open, as it is in `engagement` and in campaign analytics. A fetch by a mail client's prefetch or a security gateway is reported as `machine_opened_at` instead, so a row is never presented as read by the recipient when only a machine touched it. At most one of the two is present.
+
 ## List a contact's timeline
 
 `GET /contacts/:id/timeline`
@@ -839,7 +843,7 @@ Auth: **Scope** `READ_CONTACTS` · **Org permission** `view_contacts`
 }
 ```
 
-`lead_status` uses the same values as the campaign Leads view: `pending`, `active`, `completed`, `replied`, `bounced`, `failed`, `unsubscribed`, or `undeliverable`. Each step carries whichever of `sent_at`, `opened_at`, `clicked_at`, `replied_at`, `bounced_at` and `failed_at` apply, plus `attempts` and `in_flight` (reserved for a worker whose result has not come back). While a branch condition is undecided, `next.step_id` is absent and `next.step_label` says the step depends on the contact's response.
+`lead_status` uses the same values as the campaign Leads view: `pending`, `active`, `completed`, `replied`, `bounced`, `failed`, `unsubscribed`, or `undeliverable`. Each step carries whichever of `sent_at`, `opened_at`, `clicked_at`, `replied_at`, `bounced_at` and `failed_at` apply, plus `attempts` and `in_flight` (reserved for a worker whose result has not come back). `opened_at` is a person's open, as it is in the Leads view: a step a mail client prefetched or a security gateway scanned carries no `opened_at`. While a branch condition is undecided, `next.step_id` is absent and `next.step_label` says the step depends on the contact's response.
 
 ## List a contact's activities
 
