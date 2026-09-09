@@ -83,7 +83,7 @@ The suppression list is available over the API as `GET /suppressions`, `POST /su
 
 ## Self-hosting
 
-Unsubscribe links are served by the API process on the origin in `API_PUBLIC_URL`, so that variable must be set to the address recipients can reach. Without it Warmbly cannot mint links: the header is left off, and the link mode falls back to the reply-to-opt-out sentence. Links are signed under `AUTH_SECRET`; rotating it invalidates links in emails already sent.
+Unsubscribe links are served by the API process on the origin in `API_PUBLIC_URL`, so that variable must be set to an address recipients can reach. Leaving it unset does not disable the link: the backend falls back to its own listen address, which on a container is `http://localhost:8080`, and every opt-out in every campaign email points somewhere only that container can open. Links are signed under `AUTH_SECRET`; rotating it invalidates links in emails already sent.
 
 Nothing in a campaign email points at warmbly.com. The opt-out address, the tracking pixel and every wrapped link are built from your own `API_PUBLIC_URL` and `TRACKING_DOMAIN`, and a workspace on your instance that verifies its own tracking domain gets the opt-out on that domain instead. A workspace's verified domain is a CNAME to your `TRACKING_DOMAIN`, so the tracking service serves the unsubscribe routes as well as the pixel and click tickets: an install running [core only](/development/install/) has no tracking service, keeps `TRACKING_DOMAIN` unset, and serves every opt-out from the API address.
 

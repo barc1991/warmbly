@@ -557,3 +557,38 @@ func TestBusinessConstantsOnSelfHost(t *testing.T) {
 		}
 	}
 }
+
+// A rebranded install must not leak the product's own name into copy a
+// recipient reads. Every template that names the product reads it from
+// EMAIL_BRAND_NAME, so a half-rebrand (an Acme header over Warmbly prose) is
+// the failure this covers.
+func TestTemplatesUseTheConfiguredName(t *testing.T) {
+	t.Setenv("DEPLOYMENT_MODE", "self_hosted")
+	t.Setenv("EMAIL_BRAND_NAME", "Acme")
+	t.Setenv("APP_URL", "https://app.acme.example")
+
+	cases := map[string]func() (string, error){
+		"welcome":           func() (string, error) { return GenerateWelcomeHTML("Jane") },
+		"digest":            func() (string, error) { return GenerateDigestHTML(3, []DigestItem{{Title: "One"}}) },
+		"trial expired":     func() (string, error) { return GenerateTrialExpiredHTML() },
+		"invitation":        func() (string, error) { return GenerateInvitationHTML("Jane", "Acme Inc", "https://x/invite") },
+		"notification":      func() (string, error) { return GenerateNotificationHTML("Hi", "Body", "https://x", "") },
+		"registration code": func() (string, error) { return GenerateRegistrationCodeHTML("123456") },
+		"user deletion":     func() (string, error) { return GenerateUserDeletionScheduledHTML("Jane", previewTime, 30, "https://x") },
+	}
+
+	for name, gen := range cases {
+		t.Run(name, func(t *testing.T) {
+			html, err := gen()
+			if err != nil {
+				t.Fatalf("render: %v", err)
+			}
+			if strings.Contains(html, "Warmbly") {
+				t.Error("rebranded install still renders the product's own name")
+			}
+			if !strings.Contains(html, "Acme") {
+				t.Error("expected the configured name in the copy")
+			}
+		})
+	}
+}

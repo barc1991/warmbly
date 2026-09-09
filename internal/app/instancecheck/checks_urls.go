@@ -49,18 +49,24 @@ func checkAppURLUnset(ctx context.Context, d Deps, in Input) *Finding {
 		docsAddresses)
 }
 
+// Checks the URL links are actually built from, not only the one that was
+// configured. An install that set no APP_URL still mails reset and invitation
+// tokens, against a base inferred from CORS_ALLOW_ORIGINS or PUBLIC_HOST, and
+// that base is as capable of being plain http as a configured one.
 func checkAppURLInsecure(ctx context.Context, d Deps, in Input) *Finding {
-	raw := appURL()
-	if !appURLConfigured() {
-		return nil
-	}
+	raw := config.AppBaseURL()
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme != "http" || isLoopbackHost(u.Hostname()) {
 		return nil
 	}
+	source := "APP_URL is"
+	if !appURLConfigured() {
+		source = "APP_URL is not set, so emailed links are being built against"
+	}
 	return result(CategoryURLs, SeverityWarning, "The dashboard is not behind HTTPS",
-		fmt.Sprintf("APP_URL is %s. Browsers refuse WebAuthn outside a secure context, so passkeys are disabled, "+
-			"and session cookies are sent in the clear. Put the dashboard behind HTTPS.", raw),
+		fmt.Sprintf("%s %s. Browsers refuse WebAuthn outside a secure context, so passkeys are disabled, and session "+
+			"cookies and the reset and invitation tokens in emailed links all travel in the clear. Put the dashboard "+
+			"behind HTTPS.", source, raw),
 		docsAddresses)
 }
 
