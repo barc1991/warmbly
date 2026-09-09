@@ -174,7 +174,7 @@ export function ConvertDedicatedDialog({
                         Cancel
                     </Button>
                     <Button onClick={() => mutation.mutate()} disabled={!canSubmit || mutation.isPending}>
-                        {mutation.isPending ? "Converting…" : "Convert to dedicated"}
+                        {mutation.isPending ? "Reserving…" : "Reserve worker"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

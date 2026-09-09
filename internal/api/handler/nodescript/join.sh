@@ -189,6 +189,19 @@ write_config() {
   # systemd hands to a root `docker run --network host`.
   chown 1000:1000 "$AGENT_DIR" 2>/dev/null || true
   chmod 0700 "$AGENT_DIR"
+  # uid 1000 needs traverse on the parent to reach it. Readable and executable,
+  # never writable: image-ref lives here and systemd feeds it to a root
+  # `docker run`, so the node must not be able to replace it.
+  chmod 0755 "$STATE_DIR"
+  # Converge a machine joined by an earlier version of this script, which
+  # chowned the whole tree to uid 1000 and so left image-ref rewritable by the
+  # node. Re-owning is idempotent and cheap.
+  chown root:root "$STATE_DIR" 2>/dev/null || true
+  for f in image image-ref target-version; do
+    [ -e "$STATE_DIR/$f" ] || continue
+    chown root:root "$STATE_DIR/$f" 2>/dev/null || true
+    chmod 0644 "$STATE_DIR/$f"
+  done
   umask 077
   {
     printf '%s\n' "$NODE_ENV"
@@ -208,10 +221,24 @@ write_config() {
   log "Wrote $CONFIG_DIR/node.env"
 }
 
+# blob_mount emits an extra -v line when blobs are on local disk, because
+# narrowing the state mount to AGENT_DIR would otherwise hide a BLOB_FS_ROOT
+# that lives under it.
+blob_mount() {
+  provider=$(sed -n 's/^BLOB_PROVIDER=//p' "$CONFIG_DIR/node.env" | head -n 1)
+  [ "$provider" = "filesystem" ] || return 0
+  root=$(sed -n 's/^BLOB_FS_ROOT=//p' "$CONFIG_DIR/node.env" | head -n 1)
+  [ -n "$root" ] || return 0
+  mkdir -p "$root"
+  chown -R 1000:1000 "$root" 2>/dev/null || true
+  printf '  -v %s:%s \\\n' "$root" "$root"
+}
+
 install_units() {
   [ "$DRY_RUN" = "false" ] || return 0
 
   service="warmbly-$WARMBLY_ROLE"
+  BLOB_MOUNT=$(blob_mount)
   cat > "/etc/systemd/system/$service.service" <<UNIT
 [Unit]
 Description=Warmbly $WARMBLY_ROLE
@@ -233,7 +260,7 @@ ExecStart=/usr/bin/docker run --rm --name $service \\
   --env-file $CONFIG_DIR/node.env \\
   --network host \\
   -v $AGENT_DIR:$AGENT_DIR \\
-  \${WARMBLY_IMAGE_REF}
+$BLOB_MOUNT  \${WARMBLY_IMAGE_REF}
 ExecStop=/usr/bin/docker stop $service
 
 [Install]
