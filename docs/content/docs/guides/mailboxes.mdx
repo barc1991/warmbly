@@ -193,6 +193,8 @@ Press **Check again** any time to re-resolve without changing the value. Warmbly
 
 Until it verifies, tracking falls back to the shared host, so an unverified domain never breaks sending: links keep working, they just are not on your name yet. Links already sent keep working after a change; new sends pick up the new domain.
 
+Verification proves DNS, not HTTPS, and the two are separate steps. On Warmbly Cloud the certificate is handled for you. On a self-hosted instance installed with the bundled Caddy it is handled too: Caddy obtains a certificate for your domain the first time a recipient loads a link on it. Behind an operator's own proxy it depends on that proxy, so if a domain verifies here but its links fail with a certificate warning, that is the thing to ask the operator about.
+
 ## Warmup
 
 New mailboxes should warm up before carrying campaign volume. Defaults are `10`/day starting volume, `+1`/day ramp, and a `40`/day ceiling.

@@ -1489,8 +1489,17 @@ render_caddyfile() {
 #
 # Every hostname here must resolve to this machine's public IP before Caddy can
 # obtain a certificate for it. Check with:  dig +short $H_APP
+#
+# on_demand_tls covers the hostnames that are not knowable at install time: a
+# workspace can point its own tracking or forms domain here later, and Caddy
+# asks the backend whether it has verified that name before obtaining a
+# certificate for it. Without the ask, Caddy would issue for anything anyone
+# aimed at this machine.
 {
 	email ${CADDY_EMAIL:-admin@$HOSTNAME_ANSWER}
+	on_demand_tls {
+		ask http://backend:8080/tls/authorize
+	}
 }
 
 $H_APP {
@@ -1523,6 +1532,54 @@ $H_FORMS {
 	reverse_proxy forms:8090
 }
 CADDYFILE
+    render_caddy_custom_domains
+    return 0
+}
+
+# The catch-all for customer-owned domains. A named site block above always
+# wins over it, so this only ever sees a hostname the install was not told
+# about, and `tls { on_demand }` is what makes the certificate for that name
+# appear. Every request through here has already passed the ask endpoint.
+#
+# Forms and tracking share the block because they share the door: the two
+# services have disjoint paths, so the path decides which one answers rather
+# than a hostname list this file cannot know.
+render_caddy_custom_domains() {
+    [ "$WANT_TRACKING" = 1 ] || [ "$WANT_FORMS" = 1 ] || return 0
+
+    cat <<'CADDYFILE'
+
+# Custom tracking and forms domains a workspace points here (CNAME). Caddy
+# obtains the certificate on the first request, after /tls/authorize confirms
+# this instance has verified the name.
+https:// {
+	tls {
+		on_demand
+	}
+CADDYFILE
+
+    if [ "$WANT_FORMS" = 1 ] && [ "$WANT_TRACKING" = 1 ]; then
+        cat <<'CADDYFILE'
+	@forms path /f/* /forms.js /api/forms/*
+	handle @forms {
+		reverse_proxy forms:8090
+	}
+	handle {
+		reverse_proxy tracking:3000
+	}
+}
+CADDYFILE
+    elif [ "$WANT_FORMS" = 1 ]; then
+        cat <<'CADDYFILE'
+	reverse_proxy forms:8090
+}
+CADDYFILE
+    else
+        cat <<'CADDYFILE'
+	reverse_proxy tracking:3000
+}
+CADDYFILE
+    fi
     return 0
 }
 
