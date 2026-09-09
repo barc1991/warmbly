@@ -379,6 +379,9 @@ install_units() {
   if blobs_are_local; then
     root=$(blob_root)
     if [ -n "$root" ]; then
+      # Keep this a standalone statement: make join-check asserts on it by
+      # first field, because a looser match was satisfied by the name
+      # appearing inside a warn string.
       ensure_blob_root "$root"
     fi
   fi

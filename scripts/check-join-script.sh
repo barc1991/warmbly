@@ -49,8 +49,10 @@ ok "--help"
 # meant putting the original `$(cat ...)` bug back left it passing green.
 unit=$(sh "$SCRIPT" --print-unit) || fail "--print-unit failed"
 
+# shellcheck disable=SC2016  # the pattern is literal on purpose; it must not expand
 printf '%s\n' "$unit" | grep -q 'ExecStart=.*\${WARMBLY_IMAGE_REF}$' \
   || fail "ExecStart must end with the systemd variable \${WARMBLY_IMAGE_REF}"
+# shellcheck disable=SC2016  # literal on purpose
 if printf '%s\n' "$unit" | grep -q 'ExecStart=.*\$('; then
   fail "ExecStart contains a command substitution; systemd never expands one"
 fi
@@ -79,13 +81,18 @@ BLOB_FS_ROOT=data/blobs" sh "$SCRIPT" --print-unit >/dev/null 2>&1; then
 fi
 ok "relative BLOB_FS_ROOT refused"
 
-# NO EnvironmentFile may point into the node-writable mount. Asserting only
-# that the right one exists is not enough: an extra one under AGENT_DIR would
-# let the container choose the image root's `docker run --network host` runs.
-if printf '%s\n' "$unit" | grep '^EnvironmentFile=' | grep -q '/var/lib/warmbly/node'; then
-  fail "an EnvironmentFile points into the node-writable mount; the node could choose the image root runs"
-fi
-ok "no EnvironmentFile is node-writable"
+# NO EnvironmentFile may point into the node-writable mount, in either variant.
+# Asserting only that the right one exists is not enough: an extra one under
+# AGENT_DIR would let the container choose the image root's
+# `docker run --network host` executes.
+for variant_env in "" "BLOB_PROVIDER=fs
+BLOB_FS_ROOT=/var/lib/warmbly/blobs"; do
+  v_unit=$(NODE_ENV="$variant_env" sh "$SCRIPT" --print-unit) || fail "--print-unit failed"
+  if printf '%s\n' "$v_unit" | grep '^EnvironmentFile=' | grep -q '/var/lib/warmbly/node'; then
+    fail "an EnvironmentFile points into the node-writable mount; the node could choose the image root runs"
+  fi
+done
+ok "no EnvironmentFile is node-writable (both variants)"
 
 # Two invariants that leave no trace in the rendered unit and so cannot be
 # caught above: both were real defects, so they are asserted at their call
@@ -117,13 +124,14 @@ printf '%s\n' "$main_body" | awk '
   || fail "main must call validate_blob_root between enrol and write_config"
 ok "config is validated before anything is written"
 
-# Comments stripped first, then matched in command position: a commented-out
-# call must not satisfy this, but a one-liner like `[ -n "$x" ] && ensure_... `
-# or `if ...; then ensure_... ` must, or reformatting fails the build.
-install_body=$(body_of install_units | sed 's/#.*//')
-printf '%s\n' "$install_body" \
-  | grep -Eq '(^|[;&|]|&&|\|\||[[:space:]](then|do|else))[[:space:]]*ensure_blob_root([[:space:]]|$)' \
-  || fail "install_units must call ensure_blob_root, or a filesystem-blob node restart-loops"
+# Field match on the first word, which cannot be fooled by the name appearing
+# inside a string or a comment. That does mean the call has to stay a
+# standalone statement; join.sh says so at the call site. A looser regex was
+# tried and was satisfied by `warn "... ensure_blob_root ..."`, which is a much
+# worse failure than a reformat that reports itself clearly.
+install_body=$(body_of install_units)
+printf '%s\n' "$install_body" | awk '$1 == "ensure_blob_root" { found = 1 } END { exit !found }' \
+  || fail "install_units must call ensure_blob_root as a standalone statement, or a filesystem-blob node restart-loops"
 ok "blob root is prepared before the unit is installed"
 
 printf 'check-join-script: all checks passed\n'
