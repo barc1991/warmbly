@@ -221,52 +221,67 @@ write_config() {
   log "Wrote $CONFIG_DIR/node.env"
 }
 
-# docker_mounts is every -v argument, on ONE line. Command substitution strips
-# trailing newlines, so a multi-line value would collapse the unit's
-# continuations and hand docker a stray token as the image name.
-#
-# BLOB_FS_ROOT needs a mount whatever happens: the node's storage layer does
-# MkdirAll on it at boot and the process exits if that fails, so leaving the
-# path unmounted means docker creates it root-owned and the container, running
-# as uid 1000, restart-loops. Creating and owning it here is the only branch
-# that reliably starts.
-#
-# Sharing it with a co-located backend is a different problem and not one this
-# script can solve: the backend writes objects 0600 as its own system user, so
-# a node cannot read them without matching ids. warn_shared_blobs says so
-# rather than pretending otherwise; object storage is the supported shape for a
-# fleet.
-docker_mounts() {
-  mounts="-v $AGENT_DIR:$AGENT_DIR"
-  [ "$(blob_provider)" = "filesystem" ] || { printf '%s' "$mounts"; return 0; }
-  root=$(blob_root)
-  [ -n "$root" ] || { printf '%s' "$mounts"; return 0; }
-  if [ ! -d "$root" ]; then
-    mkdir -p "$root" 2>/dev/null || true
-    chown 1000:1000 "$root" 2>/dev/null || true
-  fi
-  [ -d "$root" ] && mounts="$mounts -v $root:$root"
-  printf '%s' "$mounts"
-}
-
+# Blob handling. All of it reads the env in memory rather than the file on
+# disk, so --dry-run reports the same thing a real join would do instead of
+# reading a previous join's leftovers or failing on a file that is not there.
 blob_provider() {
-  sed -n 's/^BLOB_PROVIDER=//p' "$CONFIG_DIR/node.env" | head -n 1
+  printf '%s\n' "$NODE_ENV" | sed -n 's/^BLOB_PROVIDER=//p' | head -n 1
 }
 
 blob_root() {
-  sed -n 's/^BLOB_FS_ROOT=//p' "$CONFIG_DIR/node.env" | head -n 1
+  printf '%s\n' "$NODE_ENV" | sed -n 's/^BLOB_FS_ROOT=//p' | head -n 1
+}
+
+# ensure_blob_root prepares the directory the node's storage layer will open.
+# It has to exist and be writable by uid 1000 before the container starts: the
+# storage layer does MkdirAll and the process exits if that fails, and an
+# unmounted path is created root-owned by docker, so the node restart-loops.
+#
+# Failures are reported, never swallowed: a silent skip here produces exactly
+# that restart loop after the script has printed "Done".
+ensure_blob_root() {
+  root="$1"
+  case "$root" in
+    /*) ;;
+    *) die "BLOB_FS_ROOT is '$root', which is not an absolute path. Docker cannot mount a relative path; fix it on the backend and re-run." ;;
+  esac
+  if [ -e "$root" ] && [ ! -d "$root" ]; then
+    die "BLOB_FS_ROOT '$root' exists but is not a directory."
+  fi
+  if [ ! -d "$root" ]; then
+    mkdir -p "$root" || die "could not create BLOB_FS_ROOT '$root'"
+    # 0755, not the 0700 the caller's umask would give: a co-located backend
+    # runs as its own system user and still has to read what is in here.
+    chmod 0755 "$root" || die "could not set permissions on '$root'"
+    chown 1000:1000 "$root" 2>/dev/null || true
+  fi
+  return 0
+}
+
+# docker_mounts is every -v argument, on ONE line. Command substitution strips
+# trailing newlines, so a multi-line value would collapse the unit's
+# continuations and hand docker a stray token as the image name.
+docker_mounts() {
+  mounts="-v $AGENT_DIR:$AGENT_DIR"
+  if [ "$(blob_provider)" = "filesystem" ]; then
+    root=$(blob_root)
+    if [ -n "$root" ]; then
+      ensure_blob_root "$root"
+      mounts="$mounts -v $root:$root"
+    fi
+  fi
+  printf '%s' "$mounts"
 }
 
 # warn_shared_blobs is loud on purpose. A node on filesystem blobs either has
-# its own copy (and cannot read the bodies the backend asked it to send) or
-# shares a directory it has no permission on. Both fail at send time, long
+# its own copy, and cannot read the bodies the backend asked it to send, or
+# shares a directory it may have no permission on. Both fail at send time, long
 # after this script has printed "Done".
 warn_shared_blobs() {
   [ "$(blob_provider)" = "filesystem" ] || return 0
-  root=$(blob_root)
   warn ""
   warn "WARNING: this instance stores blobs on local disk (BLOB_PROVIDER=filesystem,"
-  warn "         BLOB_FS_ROOT=$root)."
+  warn "         BLOB_FS_ROOT=$(blob_root))."
   warn ""
   warn "         A node needs the SAME storage the backend writes to, with"
   warn "         permissions it can read. That only holds when the node shares a"
