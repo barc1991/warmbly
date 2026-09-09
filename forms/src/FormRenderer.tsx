@@ -15,7 +15,7 @@ import type { Tracker } from "./events";
 import { visitorKey } from "./events";
 import type { AnswerValue } from "./fields";
 import { FieldControl } from "./fields";
-import { Turnstile } from "./Turnstile";
+import { Turnstile } from "./Turnstile.tsx";
 import { resetTurnstile } from "./turnstile";
 
 type Answers = Record<string, AnswerValue>;
@@ -325,6 +325,7 @@ export function FormRenderer({
                                     </form.Field>
                                 );
                         }
+                    })}
                     {isLast && def.captcha_site_key && (
                         <Turnstile siteKey={def.captcha_site_key} onToken={setCaptchaToken} />
                     )}
