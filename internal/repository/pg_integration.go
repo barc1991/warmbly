@@ -353,13 +353,19 @@ func (r *integrationRepository) UpdateConnectionTokens(ctx context.Context, id u
 
 // ClearConnectionHealth marks a connection healthy again, and only writes when
 // it is not already, so a per-pass recovery check does not churn the row.
+//
+// A disconnected connection is left alone. The health check that calls this
+// makes a network round trip first, and the member can disconnect during it;
+// without the guard, an answer about a connection the member has since turned
+// off would put it back to connected.
 func (r *integrationRepository) ClearConnectionHealth(ctx context.Context, id uuid.UUID) error {
 	now := time.Now().UTC()
 	_, err := r.db.Exec(ctx, `
 		UPDATE integration_connections
 		SET status = $1, health = $2, health_detail = NULL, health_checked_at = $3, updated_at = $3
-		WHERE id = $4 AND (status <> $1 OR health <> $2)`,
-		string(models.IntegrationStatusConnected), string(models.IntegrationHealthHealthy), now, id)
+		WHERE id = $4 AND status <> $5 AND (status <> $1 OR health <> $2)`,
+		string(models.IntegrationStatusConnected), string(models.IntegrationHealthHealthy), now, id,
+		string(models.IntegrationStatusDisconnected))
 	return err
 }
 

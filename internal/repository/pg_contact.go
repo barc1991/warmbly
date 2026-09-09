@@ -682,6 +682,9 @@ type VerificationCandidate struct {
 // verdicts older than their shelf life: an unknown verdict is retried after
 // config.VerificationUnknownRecheckDays, everything else after
 // config.VerificationRecheckDays. Manual verdicts are never re-checked.
+//
+// A built-in verdict that predates a connected verifier is reopened once, so
+// connecting one actually reaches the addresses it was connected for.
 func (r *contactRepository) ListVerificationCandidates(ctx context.Context, limit int) ([]VerificationCandidate, *errx.Error) {
 	if limit <= 0 {
 		limit = 100
@@ -697,14 +700,21 @@ func (r *contactRepository) ListVerificationCandidates(ctx context.Context, limi
 		    c.verification_checked_at IS NULL
 		    OR (c.verification_status = 'unknown' AND c.verification_checked_at < NOW() - make_interval(days => $2))
 		    OR c.verification_checked_at < NOW() - make_interval(days => $3)
-		    -- A verdict reached before the workspace connected a verifier was
-		    -- reached without it; re-check once rather than after the shelf life.
-		    OR EXISTS (
-		      SELECT 1 FROM integration_connections ic
-		      WHERE ic.organization_id = c.organization_id
-		        AND ic.provider = ANY($5)
-		        AND ic.status <> 'disconnected'
-		        AND c.verification_checked_at < ic.created_at
+		    -- A built-in verdict reached before the workspace connected a
+		    -- verifier was reached without it; re-check once rather than after
+		    -- the shelf life. Only the built-in probe's verdicts: one a paid
+		    -- verifier already produced is a real answer, and re-checking it
+		    -- because another verifier was connected spends a credit for
+		    -- nothing.
+		    OR (
+		      c.verification_provider = $6
+		      AND EXISTS (
+		        SELECT 1 FROM integration_connections ic
+		        WHERE ic.organization_id = c.organization_id
+		          AND ic.provider = ANY($5)
+		          AND ic.status <> 'disconnected'
+		          AND c.verification_checked_at < ic.created_at
+		      )
 		    )
 		  )
 		ORDER BY c.verification_checked_at ASC NULLS FIRST, c.created_at ASC
@@ -714,7 +724,10 @@ func (r *contactRepository) ListVerificationCandidates(ctx context.Context, limi
 	for _, p := range models.VerificationProviders {
 		providers = append(providers, string(p))
 	}
-	params := []any{limit, config.VerificationUnknownRecheckDays, config.VerificationRecheckDays, config.VerificationEvidenceFreshDays, providers}
+	params := []any{
+		limit, config.VerificationUnknownRecheckDays, config.VerificationRecheckDays,
+		config.VerificationEvidenceFreshDays, providers, emailverify.ProviderBuiltin,
+	}
 	rows, err := r.DB.Query(ctx, query, params...)
 	if err != nil {
 		db.CaptureError(err, query, params, "query")
