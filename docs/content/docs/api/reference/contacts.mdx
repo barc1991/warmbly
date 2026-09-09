@@ -210,7 +210,7 @@ Every endpoint that acts on a set of contacts (`PATCH /contacts`, `DELETE /conta
 | `contacts` | string[] | Yes, unless `all` | Contact ids, up to 1000. |
 | `all` | boolean | No | Resolve the selection from `filters` instead of `contacts`. |
 | `filters` | object | Yes when `all` | A [contact search](#search-contacts) body. The action applies to everything it matches. |
-| `exclude` | string[] | No | Contact ids to drop from the resolved set. Ignored unless `all`. |
+| `exclude` | string[] | No | Contact ids to drop from the resolved set, up to 50,000 (`too_many_contacts` past that). Ignored unless `all`. |
 
 ```json
 {
