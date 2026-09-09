@@ -56,8 +56,8 @@ if printf '%s\n' "$unit" | grep -q 'ExecStart=.*\$('; then
 fi
 [ "$(printf '%s\n' "$unit" | grep -c '^ExecStart=')" = "1" ] \
   || fail "ExecStart must be exactly one line"
-printf '%s\n' "$unit" | grep -q '^EnvironmentFile=.*/image-ref$' \
-  || fail "the unit must read the image reference from an EnvironmentFile"
+printf '%s\n' "$unit" | grep -q '^EnvironmentFile=/var/lib/warmbly/image-ref$' \
+  || fail "image-ref must stay in the root-owned state dir; the node must not be able to rewrite it"
 printf '%s\n' "$unit" | grep -q 'ExecStart=.*-v /var/lib/warmbly/node:/var/lib/warmbly/node' \
   || fail "the agent directory must always be mounted, or auto-update stops silently"
 ok "rendered unit (no blob mount)"
@@ -78,5 +78,33 @@ BLOB_FS_ROOT=data/blobs" sh "$SCRIPT" --print-unit >/dev/null 2>&1; then
   fail "a relative BLOB_FS_ROOT must be refused, not mounted"
 fi
 ok "relative BLOB_FS_ROOT refused"
+
+# image-ref feeds a root `docker run --network host`, so it must never live in
+# the directory the container can write.
+printf '%s\n' "$unit" | grep -q 'EnvironmentFile=/var/lib/warmbly/node' \
+  && fail "image-ref is inside the agent mount; the node could choose the image root runs"
+ok "image reference is outside the node-writable mount"
+
+# Two invariants that produce no observable difference in the rendered unit and
+# so cannot be caught above: both were real defects, so they are asserted on
+# the call sites directly. Scoped to the enclosing function rather than matched
+# on exact text, so reformatting does not fail the build.
+body_of() {
+  awk -v fn="$1" 'index($0, fn "() {") == 1 {inside=1} inside {print} inside && $0 == "}" {exit}' "$SCRIPT"
+}
+
+# Match the call lines themselves, not any line mentioning the word: "enrol"
+# also appears inside the word "enrolment" in a comment.
+body_of main | awk '
+  $1 == "enrol"              { e = NR }
+  $1 == "validate_blob_root" { v = NR }
+  $1 == "write_config"       { w = NR }
+  END { exit !(e && v && w && e < v && v < w) }' \
+  || fail "main must call validate_blob_root between enrol and write_config"
+ok "config is validated before anything is written"
+
+body_of install_units | grep -q 'ensure_blob_root' \
+  || fail "install_units must call ensure_blob_root, or a filesystem-blob node restart-loops"
+ok "blob root is prepared before the unit is installed"
 
 printf 'check-join-script: all checks passed\n'
