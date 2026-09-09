@@ -3,6 +3,7 @@ package mailhtml
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // A designed email: a stylesheet with classes, a media query, a :hover rule,
@@ -277,5 +278,48 @@ func TestLintNamesWhatClientsDo(t *testing.T) {
 func TestLintIsQuietOnAnOrdinaryBody(t *testing.T) {
 	if f := Lint(`<p>Hi Ana, do you have ten minutes on Thursday?</p>`, 400); len(f) != 0 {
 		t.Errorf("a plain cold email should raise nothing, got %v", f)
+	}
+}
+
+// Lowercasing a copy of the body and indexing into the original is off by
+// however much the case fold changed the length. Turkish "İ" grows a byte and
+// the Kelvin sign shrinks two, so a body that merely says "İstanbul" put the
+// signature at the wrong offset, inside a character or past the end.
+func TestInsertBeforeBodyEndWithCaseFoldingCharacters(t *testing.T) {
+	for _, body := range []string{
+		"<html><body><p>İstanbul</p></body></html>",
+		"<html><body><p>İİİİİİ</p></body></html>",
+		"<html><body><p>2 K of it</p></body></html>",
+		"<html><body><p>ẞ</p></body></html>",
+	} {
+		out := InsertBeforeBodyEnd(body, "[F]")
+		if !strings.HasSuffix(out, "[F]</body></html>") {
+			t.Errorf("insert landed at the wrong offset for %q:\n%s", body, out)
+		}
+		if !utf8.ValidString(out) {
+			t.Errorf("insert split a character in %q:\n%q", body, out)
+		}
+	}
+}
+
+// A body is valid UTF-8 coming out of Postgres, but nothing downstream should
+// be able to crash a send if that ever stops being true.
+func TestInsertBeforeBodyEndSurvivesInvalidUTF8(t *testing.T) {
+	out := InsertBeforeBodyEnd("\xa4\xa4\xa4\xa4</BodY>", "[F]")
+	if !strings.Contains(out, "[F]") {
+		t.Errorf("fragment was dropped: %q", out)
+	}
+}
+
+// CSS the parser cannot read is passed through, never rewritten from the
+// fraction of it that was understood.
+func TestInlineCSSKeepsAStylesheetItCannotParse(t *testing.T) {
+	body := `<style>@weird-at-rule-we-do-not-know</style><p>hi</p>`
+	out := InlineCSS(body)
+	if !strings.Contains(out, "@weird-at-rule-we-do-not-know") {
+		t.Errorf("unparsed CSS was deleted:\n%s", out)
+	}
+	if !strings.Contains(out, "hi") {
+		t.Errorf("the body was lost:\n%s", out)
 	}
 }

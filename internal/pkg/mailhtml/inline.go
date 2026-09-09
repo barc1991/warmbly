@@ -85,6 +85,11 @@ func InlineCSS(body string) string {
 			continue
 		}
 		items := parseStylesheet(textOf(sheet))
+		// Set once a rule has actually moved onto an element. Until then the
+		// sheet is left byte for byte as written: rewriting it from what the
+		// parser understood would delete anything it did not, which for CSS
+		// we cannot read is silent loss of the author's design.
+		movedAny := false
 		var kept []string
 		for _, item := range items {
 			if item.atRule != "" {
@@ -107,6 +112,7 @@ func InlineCSS(body string) string {
 					}
 					stage(pending, node, item.decls, compiled.Specificity(), order)
 					inlined = true
+					movedAny = true
 				}
 				order++
 			}
@@ -114,7 +120,9 @@ func InlineCSS(body string) string {
 				kept = append(kept, item.selectors+" {"+declString(item.decls)+"}")
 			}
 		}
-		setText(sheet, strings.Join(kept, "\n"))
+		if movedAny {
+			setText(sheet, strings.Join(kept, "\n"))
+		}
 	}
 
 	applyStaged(doc, pending)
@@ -122,6 +130,11 @@ func InlineCSS(body string) string {
 
 	out, rerr := renderTo(doc, fragment)
 	if rerr != nil {
+		return body
+	}
+	// A last net under the whole pass: whatever went wrong, a message that
+	// ships as the author wrote it beats one this pass emptied.
+	if strings.TrimSpace(out) == "" && strings.TrimSpace(body) != "" {
 		return body
 	}
 	return out

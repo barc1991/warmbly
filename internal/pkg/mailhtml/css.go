@@ -94,11 +94,11 @@ func parseDeclarations(block string) []cssDecl {
 		if prop == "" || value == "" {
 			continue
 		}
+		// Matched on the value itself, never on a lowercased copy: ToLower can
+		// change a string's length, so an index taken from one does not point
+		// at the same place in the other (see hasPrefixFold in document.go).
 		important := false
-		if lower := strings.ToLower(value); strings.HasSuffix(lower, "!important") {
-			important = true
-			value = strings.TrimSpace(value[:len(value)-len("!important")])
-		} else if idx := strings.LastIndex(lower, "!important"); idx >= 0 && strings.TrimSpace(lower[idx+10:]) == "" {
+		if idx := lastIndexFold(value, "!important"); idx >= 0 && strings.TrimSpace(value[idx+len("!important"):]) == "" {
 			important = true
 			value = strings.TrimSpace(value[:idx])
 		}
@@ -235,4 +235,14 @@ func declString(decls []cssDecl) string {
 		}
 	}
 	return b.String()
+}
+
+// lastIndexFold is strings.LastIndex with ASCII case folding.
+func lastIndexFold(s, sub string) int {
+	for i := len(s) - len(sub); i >= 0; i-- {
+		if hasPrefixFold(s[i:], sub) {
+			return i
+		}
+	}
+	return -1
 }

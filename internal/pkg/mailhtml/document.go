@@ -49,25 +49,30 @@ func InsertBeforeBodyEnd(body, fragment string) string {
 // lastRealTag returns the offset of the last closing tag with the given name
 // that is genuine markup, skipping any inside a comment, <script> or <style>.
 // -1 when there is none.
+//
+// It scans the body itself and folds case per byte. Lowercasing a copy first
+// and indexing into the original is the obvious way to write this and it is
+// wrong: strings.ToLower can change a string's length, so every offset it
+// yields is off. Turkish "İ" grows by a byte, the Kelvin sign shrinks by two,
+// and an invalid byte becomes a three-byte replacement rune, which slid the
+// insertion point into the middle of a character or past the end of the body.
 func lastRealTag(body, name string) int {
 	found := -1
-	lower := strings.ToLower(body)
-	for i := 0; i < len(lower); {
+	for i := 0; i < len(body); {
 		switch {
-		case strings.HasPrefix(lower[i:], "<!--"):
-			end := strings.Index(lower[i+4:], "-->")
+		case hasPrefixFold(body[i:], "<!--"):
+			end := strings.Index(body[i+4:], "-->")
 			if end < 0 {
 				return found
 			}
 			i += 4 + end + 3
-		case strings.HasPrefix(lower[i:], "<script"):
-			i = skipRawText(lower, i, "</script")
-		case strings.HasPrefix(lower[i:], "<style"):
-			i = skipRawText(lower, i, "</style")
-		case strings.HasPrefix(lower[i:], "</"+name):
-			rest := lower[i+2+len(name):]
-			trimmed := strings.TrimLeft(rest, " \t\r\n\f")
-			if strings.HasPrefix(trimmed, ">") {
+		case hasPrefixFold(body[i:], "<script"):
+			i = skipRawText(body, i, "</script")
+		case hasPrefixFold(body[i:], "<style"):
+			i = skipRawText(body, i, "</style")
+		case hasPrefixFold(body[i:], "</"+name):
+			rest := body[i+2+len(name):]
+			if strings.HasPrefix(strings.TrimLeft(rest, " \t\r\n\f"), ">") {
 				found = i
 			}
 			i += 2 + len(name)
@@ -78,12 +83,35 @@ func lastRealTag(body, name string) int {
 	return found
 }
 
-func skipRawText(lower string, i int, closer string) int {
-	end := strings.Index(lower[i:], closer)
-	if end < 0 {
-		return len(lower)
+func skipRawText(body string, i int, closer string) int {
+	for j := i; j <= len(body)-len(closer); j++ {
+		if hasPrefixFold(body[j:], closer) {
+			return j + len(closer)
+		}
 	}
-	return i + end + len(closer)
+	return len(body)
+}
+
+// hasPrefixFold is strings.HasPrefix with ASCII case folding. Tag names are
+// ASCII, so nothing else needs folding, and doing it per byte keeps every
+// offset an offset into the caller's own string.
+func hasPrefixFold(s, prefix string) bool {
+	if len(s) < len(prefix) {
+		return false
+	}
+	for i := 0; i < len(prefix); i++ {
+		if lowerASCII(s[i]) != lowerASCII(prefix[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func lowerASCII(b byte) byte {
+	if 'A' <= b && b <= 'Z' {
+		return b + ('a' - 'A')
+	}
+	return b
 }
 
 func attrOf(n *html.Node, key string) string {
