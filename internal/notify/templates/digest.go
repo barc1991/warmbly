@@ -64,7 +64,7 @@ func GenerateDigestHTML(count int, items []DigestItem) (string, error) {
 		Count  int
 		Items  []DigestItem
 		AppURL string
-	}{Count: count, Items: items, AppURL: AppURL}
+	}{Count: count, Items: items, AppURL: AppURL()}
 	var buf bytes.Buffer
 	if err := digestTmpl.Execute(&buf, data); err != nil {
 		errs.CaptureException(err)

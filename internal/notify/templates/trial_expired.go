@@ -58,7 +58,7 @@ var trialExpiredTmpl = template.Must(template.New("trial_expired_content").Parse
 // GenerateTrialExpiredHTML renders the trial-ended notice through the
 // shared base shell. The billing CTA points at the app's billing page.
 func GenerateTrialExpiredHTML() (string, error) {
-	data := struct{ BillingURL string }{BillingURL: AppURL + "/settings/billing"}
+	data := struct{ BillingURL string }{BillingURL: AppURL() + "/settings/billing"}
 	var buf bytes.Buffer
 	if err := trialExpiredTmpl.Execute(&buf, data); err != nil {
 		errs.CaptureException(err)

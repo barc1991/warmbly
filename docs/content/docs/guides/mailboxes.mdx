@@ -193,6 +193,8 @@ Press **Check again** any time to re-resolve without changing the value. Warmbly
 
 Until it verifies, tracking falls back to the shared host, so an unverified domain never breaks sending: links keep working, they just are not on your name yet. Links already sent keep working after a change; new sends pick up the new domain.
 
+A verified domain also serves the [unsubscribe link](/guides/unsubscribe/#which-address-the-link-points-at) in that mailbox's campaign mail, so the opt-out a recipient reads sits on your name like every other link in the message. An unverified one changes nothing: the opt-out stays on the instance's API address, which always serves it.
+
 ## Warmup
 
 New mailboxes should warm up before carrying campaign volume. Defaults are `10`/day starting volume, `+1`/day ramp, and a `40`/day ceiling.

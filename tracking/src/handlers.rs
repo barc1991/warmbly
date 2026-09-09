@@ -17,6 +17,7 @@ use crate::events::TrackingEvent;
 use crate::hits::{ForwardedHit, HitForwarder, HitPayload, Outcome};
 use crate::links::{LinkResolver, Resolution};
 use crate::producer::Producer;
+use crate::unsubscribe::{body_content_type, invalid_token, valid_token, UnsubscribeProxy};
 
 // 1x1 transparent GIF (43 bytes)
 const TRANSPARENT_GIF: &[u8] = &[
@@ -48,6 +49,8 @@ pub struct AppState {
     pub client_ip_header: Arc<String>,
     /// Key for the source-address token (see `hash_ip`)
     pub ip_hash_key: Arc<String>,
+    /// Recipient opt-out, proxied to the backend that owns the pages
+    pub unsubscribe: Arc<UnsubscribeProxy>,
 }
 
 impl AppState {
@@ -78,6 +81,7 @@ impl AppState {
             trusted_proxies: Arc::new(config.trusted_proxies.clone()),
             client_ip_header: Arc::new(config.client_ip_header.clone()),
             ip_hash_key: Arc::new(config.ip_hash_key.clone()),
+            unsubscribe: Arc::new(UnsubscribeProxy::new(config.backend_internal_url.clone())),
         }
     }
 
@@ -271,6 +275,85 @@ pub async fn track_click(
     });
 
     Redirect::temporary(&target).into_response()
+}
+
+/// Recipient opt-out, served here because a workspace's verified tracking
+/// domain is the host its campaign mail carries. The backend owns the pages
+/// and the suppression; these three only shape-check the token, spend the
+/// source's budget and hand the request on.
+///
+/// GET /unsubscribe/{token}
+pub async fn unsubscribe_page(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Path(token): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    if !valid_token(&token) {
+        return invalid_token();
+    }
+    if let Some(limited) = spend_unsubscribe_budget(&state, peer, &headers).await {
+        return limited;
+    }
+    state.unsubscribe.get(&token).await
+}
+
+/// POST /unsubscribe/{token} — the confirm button, or a provider's RFC 8058
+/// one-click. Never rate limited: a provider POSTing an opt-out is the one
+/// request that must not be refused, and a refusal here is a spam complaint.
+pub async fn unsubscribe_submit(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !valid_token(&token) {
+        return invalid_token();
+    }
+    let content_type = body_content_type(&headers);
+    state.unsubscribe.post(&token, body, content_type).await
+}
+
+/// POST /unsubscribe/{token}/resubscribe — the "unsubscribed by mistake" button.
+pub async fn unsubscribe_undo(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Path(token): Path<String>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !valid_token(&token) {
+        return invalid_token();
+    }
+    if let Some(limited) = spend_unsubscribe_budget(&state, peer, &headers).await {
+        return limited;
+    }
+    let content_type = body_content_type(&headers);
+    state
+        .unsubscribe
+        .resubscribe(&token, body, content_type)
+        .await
+}
+
+/// Charges one request against the source's budget, returning the refusal when
+/// it is spent. A recipient opts out once; a source burning the pixel budget on
+/// opt-out pages is spraying tokens.
+async fn spend_unsubscribe_budget(
+    state: &AppState,
+    peer: SocketAddr,
+    headers: &HeaderMap,
+) -> Option<Response> {
+    let ip = client_ip(
+        peer,
+        headers,
+        &state.trusted_proxies,
+        &state.client_ip_header,
+    );
+    let source = hash_ip(&state.ip_hash_key, &ip);
+    if state.rate_limiter.allow(&source).await {
+        return None;
+    }
+    Some((StatusCode::TOO_MANY_REQUESTS, "Slow down").into_response())
 }
 
 /// Query parameter the click redirect appends and the snippet strips.

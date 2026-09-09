@@ -190,7 +190,11 @@ func mailTransportKind(t *notify.Transport) string {
 // only as a failure in the browser.
 func warnDeploymentURLs(ctx context.Context, appURL string) {
 	if appURL == "" {
-		log.Printf("Warning: APP_URL is not set. Password reset and team invitation emails will link to %s, which is almost certainly not this deployment.", config.AppBaseURL())
+		if guess := config.AppBaseURL(); guess != "" {
+			log.Printf("Warning: APP_URL is not set. Password reset and team invitation emails will link to %s, guessed from CORS_ALLOW_ORIGINS or PUBLIC_HOST. Set APP_URL if that is not where the dashboard is served.", guess)
+			return
+		}
+		log.Printf("Warning: APP_URL is not set and nothing else names this deployment's dashboard, so password reset and team invitation emails carry links with no host and nobody can open them. Set APP_URL.")
 		return
 	}
 	if !passkeysUsableFor(appURL) {

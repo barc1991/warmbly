@@ -61,13 +61,13 @@ func GenerateWelcomeHTML(firstName string) (string, error) {
 	data := struct {
 		FirstName string
 		AppURL    string
-	}{FirstName: firstName, AppURL: AppURL}
+	}{FirstName: firstName, AppURL: AppURL()}
 	var buf bytes.Buffer
 	if err := welcomeTmpl.Execute(&buf, data); err != nil {
 		errs.CaptureException(err)
 		return "", err
 	}
-	return renderEmail("Welcome to "+CompanyName, buf.String())
+	return renderEmail("Welcome to "+CompanyName(), buf.String())
 }
 
 // WelcomeTemplate / WelcomeHTMLTMPL retained as deprecated exports so
