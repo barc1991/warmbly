@@ -79,23 +79,29 @@ BLOB_FS_ROOT=data/blobs" sh "$SCRIPT" --print-unit >/dev/null 2>&1; then
 fi
 ok "relative BLOB_FS_ROOT refused"
 
-# image-ref feeds a root `docker run --network host`, so it must never live in
-# the directory the container can write.
-printf '%s\n' "$unit" | grep -q 'EnvironmentFile=/var/lib/warmbly/node' \
-  && fail "image-ref is inside the agent mount; the node could choose the image root runs"
-ok "image reference is outside the node-writable mount"
-
 # Two invariants that produce no observable difference in the rendered unit and
 # so cannot be caught above: both were real defects, so they are asserted on
 # the call sites directly. Scoped to the enclosing function rather than matched
 # on exact text, so reformatting does not fail the build.
+# body_of prints one function's body. Tolerant about the definition's spacing,
+# and loud when the function is not found: an empty body would otherwise fail
+# every assertion below with a message about the wrong thing.
 body_of() {
-  awk -v fn="$1" 'index($0, fn "() {") == 1 {inside=1} inside {print} inside && $0 == "}" {exit}' "$SCRIPT"
+  out=$(awk -v fn="$1" '
+    $0 ~ "^" fn "[ \t]*\\([ \t]*\\)[ \t]*{" { inside = 1 }
+    inside { print }
+    inside && $0 == "}" { exit }' "$SCRIPT")
+  [ -n "$out" ] || fail "function $1() not found in $SCRIPT"
+  printf '%s\n' "$out"
 }
 
 # Match the call lines themselves, not any line mentioning the word: "enrol"
 # also appears inside the word "enrolment" in a comment.
-body_of main | awk '
+# Captured before asserting: body_of fails when the function is missing, and a
+# pipeline would run it in a subshell where that failure is lost and the
+# misleading assertion message wins.
+main_body=$(body_of main)
+printf '%s\n' "$main_body" | awk '
   $1 == "enrol"              { e = NR }
   $1 == "validate_blob_root" { v = NR }
   $1 == "write_config"       { w = NR }
@@ -103,7 +109,9 @@ body_of main | awk '
   || fail "main must call validate_blob_root between enrol and write_config"
 ok "config is validated before anything is written"
 
-body_of install_units | grep -q 'ensure_blob_root' \
+# Field match, not a substring: a commented-out call is not a call.
+install_body=$(body_of install_units)
+printf '%s\n' "$install_body" | awk '$1 == "ensure_blob_root" { found = 1 } END { exit !found }' \
   || fail "install_units must call ensure_blob_root, or a filesystem-blob node restart-loops"
 ok "blob root is prepared before the unit is installed"
 

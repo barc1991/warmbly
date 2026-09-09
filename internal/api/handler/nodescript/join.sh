@@ -313,7 +313,9 @@ docker_mounts() {
   mounts="-v $AGENT_DIR:$AGENT_DIR"
   if blobs_are_local; then
     root=$(blob_root)
-    [ -n "$root" ] && mounts="$mounts -v $root:$root"
+    if [ -n "$root" ]; then
+      mounts="$mounts -v $root:$root"
+    fi
   fi
   printf '%s' "$mounts"
 }
@@ -376,7 +378,9 @@ install_units() {
   service="warmbly-$WARMBLY_ROLE"
   if blobs_are_local; then
     root=$(blob_root)
-    [ -n "$root" ] && ensure_blob_root "$root"
+    if [ -n "$root" ]; then
+      ensure_blob_root "$root"
+    fi
   fi
   render_unit > "/etc/systemd/system/$service.service"
 
