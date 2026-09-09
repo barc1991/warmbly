@@ -88,20 +88,20 @@ func TestHotWorkerIsOpportunisticAndNeedsAMateriallyBetterHome(t *testing.T) {
 	}
 
 	// A marginal improvement is not worth the provider-trust cost.
-	if WorthMoving(urgency, 1.0, 1.0+RotationMinScoreGain/2) {
+	if WorthMoving(urgency, 1.0, 1.0+RotationMinScoreGain/2, false) {
 		t.Fatal("a marginal score gain must not justify a migration")
 	}
-	if !WorthMoving(urgency, 1.0, 1.0+RotationMinScoreGain) {
+	if !WorthMoving(urgency, 1.0, 1.0+RotationMinScoreGain, false) {
 		t.Fatal("a material score gain should justify a migration")
 	}
 }
 
 func TestUrgentMovesTakeAnythingEligible(t *testing.T) {
 	// Staying is not an option, so a worse-scoring destination still wins.
-	if !WorthMoving(RotationImmediate, 5.0, 0.1) {
+	if !WorthMoving(RotationImmediate, 5.0, 0.1, false) {
 		t.Fatal("an immediate move must accept any eligible destination")
 	}
-	if !WorthMoving(RotationElevated, 5.0, 0.1) {
+	if !WorthMoving(RotationElevated, 5.0, 0.1, false) {
 		t.Fatal("an elevated move must accept any eligible destination")
 	}
 }
@@ -129,11 +129,27 @@ func TestUnknownResidencyIsTreatedAsSettled(t *testing.T) {
 	}
 }
 
+// A reserved worker usually scores lower than the incumbent, because the
+// incumbent carries the stickiness bonus. Weighing the two would refuse the
+// move on every tick and an isolated-egress organization would never arrive on
+// the worker it is paying for.
+func TestMandatedTargetIgnoresTheScoreComparison(t *testing.T) {
+	if WorthMoving(RotationOpportunistic, 5.0, 0.1, false) {
+		t.Fatal("an ordinary opportunistic move must not accept a worse target")
+	}
+	if !WorthMoving(RotationOpportunistic, 5.0, 0.1, true) {
+		t.Fatal("an entitlement-chosen target must move regardless of score")
+	}
+	if WorthMoving(RotationStay, 0, 100, true) {
+		t.Fatal("mandated must not override RotationStay")
+	}
+}
+
 func TestStayNeverMoves(t *testing.T) {
 	if MayMove(RotationStay, RotationMinResidency*10) {
 		t.Fatal("RotationStay must never permit a move")
 	}
-	if WorthMoving(RotationStay, 0, 100) {
+	if WorthMoving(RotationStay, 0, 100, false) {
 		t.Fatal("RotationStay must never be worth moving")
 	}
 }

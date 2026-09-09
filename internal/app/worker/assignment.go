@@ -89,6 +89,13 @@ type PlacementResult struct {
 	// IncumbentEligible is false when the current worker could not host the
 	// mailbox at all, in which case IncumbentScore is meaningless.
 	IncumbentEligible bool
+	// Mandated is set when the worker was chosen by an entitlement rather than
+	// by scoring, which today means an isolated-egress reservation. Callers
+	// must not weigh it against the incumbent's score: the reserved worker
+	// usually scores LOWER, because the incumbent carries the stickiness
+	// bonus, so comparing them would refuse the move forever and the
+	// organization would never converge onto the worker it is paying for.
+	Mandated bool
 }
 
 type workerAssignmentService struct {
@@ -199,7 +206,11 @@ func (s *workerAssignmentService) SelectWorkerFor(ctx context.Context, lookup Pl
 		if reserved, rerr := s.workerRepo.GetDedicatedWorkerByOrgID(ctx, lookup.OrgID); rerr == nil && reserved != nil {
 			for _, c := range candidates {
 				if c.WorkerID == reserved.ID && c.Eligible(req) {
-					return s.buildResult(ctx, c, req, candidates)
+					res, err := s.buildResult(ctx, c, req, candidates)
+					if res != nil {
+						res.Mandated = true
+					}
+					return res, err
 				}
 			}
 		}

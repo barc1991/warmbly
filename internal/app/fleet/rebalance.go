@@ -108,7 +108,7 @@ func (r *Rotator) tick(ctx context.Context) error {
 		if res.Worker.ID == *state.WorkerID {
 			continue
 		}
-		if !workerapp.WorthMoving(urgency, res.IncumbentScore, res.Score) {
+		if !workerapp.WorthMoving(urgency, res.IncumbentScore, res.Score, res.Mandated) {
 			continue
 		}
 

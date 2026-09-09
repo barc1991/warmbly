@@ -131,16 +131,23 @@ func MayMove(urgency RotationUrgency, residency time.Duration) bool {
 	}
 }
 
-// WorthMoving decides whether a chosen target justifies the move. Urgent moves
-// take anything eligible, because staying is not an option. Opportunistic
-// moves have to clear RotationMinScoreGain on top of the incumbent's own
-// stickiness bonus, which is what keeps the fleet from churning.
-func WorthMoving(urgency RotationUrgency, incumbentScore, targetScore float64) bool {
+// WorthMoving decides whether a chosen target justifies the move.
+//
+// Urgent moves take anything eligible, because staying is not an option.
+// Opportunistic moves have to clear RotationMinScoreGain on top of the
+// incumbent's own stickiness bonus, which is what keeps the fleet from
+// churning.
+//
+// A mandated target skips the comparison entirely. It was chosen by an
+// entitlement rather than by scoring, and it usually scores lower than the
+// incumbent precisely because the incumbent is the incumbent; weighing the two
+// would refuse the move on every tick and the mailbox would never arrive.
+func WorthMoving(urgency RotationUrgency, incumbentScore, targetScore float64, mandated bool) bool {
 	switch urgency {
 	case RotationImmediate, RotationElevated:
 		return true
 	case RotationOpportunistic:
-		return targetScore-incumbentScore >= RotationMinScoreGain
+		return mandated || targetScore-incumbentScore >= RotationMinScoreGain
 	default:
 		return false
 	}
