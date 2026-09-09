@@ -54,7 +54,7 @@ func checkAppURLUnset(ctx context.Context, d Deps, in Input) *Finding {
 // tokens, against a base inferred from CORS_ALLOW_ORIGINS or PUBLIC_HOST, and
 // that base is as capable of being plain http as a configured one.
 func checkAppURLInsecure(ctx context.Context, d Deps, in Input) *Finding {
-	raw := config.AppBaseURL()
+	raw := appURL()
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme != "http" || isLoopbackHost(u.Hostname()) {
 		return nil
