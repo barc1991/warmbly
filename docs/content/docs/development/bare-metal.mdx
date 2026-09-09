@@ -559,9 +559,9 @@ tls {
 }
 ```
 
-Then set `NATS_URL=tls://<token>@nats.yourdomain.com:4222` in `warmbly.env` and `worker.env`; the token in the URL is what every service authenticates with. Redis gets `requirepass` and `REDIS=redis://:<password>@redis.yourdomain.com:6379`, ideally over a private network or a tunnel. Restrict both ports at the firewall to the worker's address as well. Use `BLOB_PROVIDER=s3` with a bucket both sides can reach; a remote worker on the filesystem provider writes to its own disk. The [self-hosting guide](/development/deployment-guide/#remote-workers) has the same caveats in more detail.
+Then set `NATS_URL=tls://<token>@nats.yourdomain.com:4222` in `warmbly.env` and `worker.env`; the token in the URL is what every service authenticates with. Redis gets `requirepass` and `REDIS=redis://:<password>@redis.yourdomain.com:6379`, ideally over a private network or a tunnel. Restrict both ports at the firewall to the worker's address as well. Use `BLOB_PROVIDER=s3` with a bucket both sides can reach: a worker reads the message body the backend wrote, so the filesystem provider only works when the two share storage and the permissions line up. The [self-hosting guide](/development/deployment-guide/#adding-a-machine) has the same caveats in more detail.
 
-Because the worker is not in a container, the admin panel's SSH-driven day-two actions (pull image, restart container) do not apply to it. Manage it with `systemctl` and the update steps below.
+Because the worker is not in a container, the join script's systemd service and update timer do not apply to it. Manage it with `systemctl` and the update steps below, and set its version by hand rather than through `warmblyctl fleet version`.
 
 ## Upgrading
 

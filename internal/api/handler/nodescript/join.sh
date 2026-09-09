@@ -222,24 +222,60 @@ write_config() {
 }
 
 # docker_mounts is every -v argument, on ONE line. Command substitution strips
-# trailing newlines, so a multi-line value here would collapse the unit's
+# trailing newlines, so a multi-line value would collapse the unit's
 # continuations and hand docker a stray token as the image name.
 #
-# BLOB_FS_ROOT is mounted only when it already exists: it is copied from the
-# backend's environment and may name a path that belongs to a co-located
-# bare-metal install, so this neither creates it nor changes its ownership. A
-# node on another host writes blobs to its own disk regardless, which is why
-# the docs tell you to use object storage for a distributed fleet.
+# BLOB_FS_ROOT needs a mount whatever happens: the node's storage layer does
+# MkdirAll on it at boot and the process exits if that fails, so leaving the
+# path unmounted means docker creates it root-owned and the container, running
+# as uid 1000, restart-loops. Creating and owning it here is the only branch
+# that reliably starts.
+#
+# Sharing it with a co-located backend is a different problem and not one this
+# script can solve: the backend writes objects 0600 as its own system user, so
+# a node cannot read them without matching ids. warn_shared_blobs says so
+# rather than pretending otherwise; object storage is the supported shape for a
+# fleet.
 docker_mounts() {
   mounts="-v $AGENT_DIR:$AGENT_DIR"
-  provider=$(sed -n 's/^BLOB_PROVIDER=//p' "$CONFIG_DIR/node.env" | head -n 1)
-  if [ "$provider" = "filesystem" ]; then
-    root=$(sed -n 's/^BLOB_FS_ROOT=//p' "$CONFIG_DIR/node.env" | head -n 1)
-    if [ -n "$root" ] && [ -d "$root" ]; then
-      mounts="$mounts -v $root:$root"
-    fi
+  [ "$(blob_provider)" = "filesystem" ] || { printf '%s' "$mounts"; return 0; }
+  root=$(blob_root)
+  [ -n "$root" ] || { printf '%s' "$mounts"; return 0; }
+  if [ ! -d "$root" ]; then
+    mkdir -p "$root" 2>/dev/null || true
+    chown 1000:1000 "$root" 2>/dev/null || true
   fi
+  [ -d "$root" ] && mounts="$mounts -v $root:$root"
   printf '%s' "$mounts"
+}
+
+blob_provider() {
+  sed -n 's/^BLOB_PROVIDER=//p' "$CONFIG_DIR/node.env" | head -n 1
+}
+
+blob_root() {
+  sed -n 's/^BLOB_FS_ROOT=//p' "$CONFIG_DIR/node.env" | head -n 1
+}
+
+# warn_shared_blobs is loud on purpose. A node on filesystem blobs either has
+# its own copy (and cannot read the bodies the backend asked it to send) or
+# shares a directory it has no permission on. Both fail at send time, long
+# after this script has printed "Done".
+warn_shared_blobs() {
+  [ "$(blob_provider)" = "filesystem" ] || return 0
+  root=$(blob_root)
+  warn ""
+  warn "WARNING: this instance stores blobs on local disk (BLOB_PROVIDER=filesystem,"
+  warn "         BLOB_FS_ROOT=$root)."
+  warn ""
+  warn "         A node needs the SAME storage the backend writes to, with"
+  warn "         permissions it can read. That only holds when the node shares a"
+  warn "         filesystem with the backend and the ids line up. Otherwise sends"
+  warn "         fail when the worker cannot read the message body."
+  warn ""
+  warn "         Set BLOB_PROVIDER=s3 on the backend before running nodes off-host,"
+  warn "         then re-run this command."
+  warn ""
 }
 
 install_units() {
@@ -372,6 +408,7 @@ main() {
   write_config
   install_units
   start_node
+  warn_shared_blobs
   return 0
 }
 
