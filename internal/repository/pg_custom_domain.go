@@ -29,7 +29,7 @@ func NewCustomDomainRepository(db *pgxpool.Pool) CustomDomainRepository {
 // domain that has not passed it is never built into a link, which makes it a
 // name nothing legitimate will ever ask for.
 //
-// Each arm is a partial-index hit (migration 000143) and the query stops at
+// Each arm is a partial-index hit (migration 000144) and the query stops at
 // the first match.
 func (r *customDomainRepository) IsVerified(ctx context.Context, host string) (bool, error) {
 	if host == "" {
