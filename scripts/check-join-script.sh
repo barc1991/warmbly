@@ -34,8 +34,10 @@ else
 fi
 
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck -s sh "$SCRIPT" || fail "shellcheck failed"
-  ok "shellcheck -s sh"
+  shellcheck -s sh "$SCRIPT" || fail "shellcheck failed on $SCRIPT"
+  # This file too: its own disable directives are load-bearing.
+  shellcheck -s sh "$0" || fail "shellcheck failed on $0"
+  ok "shellcheck -s sh (script and checker)"
 else
   printf '  --  shellcheck not installed; skipped\n'
 fi
@@ -81,18 +83,16 @@ BLOB_FS_ROOT=data/blobs" sh "$SCRIPT" --print-unit >/dev/null 2>&1; then
 fi
 ok "relative BLOB_FS_ROOT refused"
 
-# NO EnvironmentFile may point into the node-writable mount, in either variant.
-# Asserting only that the right one exists is not enough: an extra one under
-# AGENT_DIR would let the container choose the image root's
-# `docker run --network host` executes.
-for variant_env in "" "BLOB_PROVIDER=fs
-BLOB_FS_ROOT=/var/lib/warmbly/blobs"; do
-  v_unit=$(NODE_ENV="$variant_env" sh "$SCRIPT" --print-unit) || fail "--print-unit failed"
-  if printf '%s\n' "$v_unit" | grep '^EnvironmentFile=' | grep -q '/var/lib/warmbly/node'; then
-    fail "an EnvironmentFile points into the node-writable mount; the node could choose the image root runs"
-  fi
-done
-ok "no EnvironmentFile is node-writable (both variants)"
+# NO EnvironmentFile may point into the node-writable mount. Asserting only
+# that the right one exists is not enough: an extra one under AGENT_DIR would
+# let the container choose the image root's `docker run --network host` runs.
+# One render is enough here, because EnvironmentFile does not vary with
+# NODE_ENV - only the mount list on ExecStart does, and that is covered above.
+default_unit=$(sh "$SCRIPT" --print-unit) || fail "--print-unit failed"
+if printf '%s\n' "$default_unit" | grep '^EnvironmentFile=' | grep -q '/var/lib/warmbly/node'; then
+  fail "an EnvironmentFile points into the node-writable mount; the node could choose the image root runs"
+fi
+ok "no EnvironmentFile is node-writable"
 
 # Two invariants that leave no trace in the rendered unit and so cannot be
 # caught above: both were real defects, so they are asserted at their call

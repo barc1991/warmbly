@@ -481,6 +481,9 @@ start_node() {
 }
 
 main() {
+  # The calls below are asserted on by `make join-check`, matched on their
+  # first field, so each stays a standalone statement. Reformatting one into
+  # `if ! x; then` fails the build with a message about ordering.
   parse_args "$@"
   if [ "$PRINT_UNIT" = "true" ]; then
     # No enrolment, no network, no files. NODE_ENV is whatever the caller
