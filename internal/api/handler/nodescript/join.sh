@@ -24,6 +24,10 @@ WARMBLY_NAME=""
 WARMBLY_IMAGE_REPO="ghcr.io/warmbly/warmbly"
 CONFIG_DIR="/etc/warmbly"
 STATE_DIR="/var/lib/warmbly"
+# What the container may write. Kept separate from STATE_DIR because STATE_DIR
+# also holds image-ref, which systemd feeds to a root `docker run`: anything
+# the node can rewrite there would choose the image root then executes.
+AGENT_DIR="/var/lib/warmbly/node"
 DRY_RUN="false"
 
 log()  { printf '%s\n' "$*"; }
@@ -173,23 +177,29 @@ write_config() {
     return 0
   fi
 
-  mkdir -p "$CONFIG_DIR" "$STATE_DIR"
-  # The node container runs as uid 1000 (see deploy/docker/worker.Dockerfile),
-  # so the bind-mounted state dir has to be writable by it. Without this the
-  # agent's target-version write fails with EACCES, which it only logs, and
-  # auto-update silently never happens.
-  chown -R 1000:1000 "$STATE_DIR" 2>/dev/null || true
-  chmod 0775 "$STATE_DIR"
+  mkdir -p "$CONFIG_DIR" "$STATE_DIR" "$AGENT_DIR"
+  # The node container runs as uid 1000 (deploy/docker/worker.Dockerfile), so
+  # the directory it writes into has to be owned by that uid, or its
+  # target-version write fails with EACCES, which it only logs, and auto-update
+  # silently never happens.
+  #
+  # Only this subdirectory, never STATE_DIR itself: a recursive chown there
+  # would re-own a bare-metal install's BLOB_FS_ROOT, and making STATE_DIR
+  # container-writable would let the node rewrite the image reference that
+  # systemd hands to a root `docker run --network host`.
+  chown 1000:1000 "$AGENT_DIR" 2>/dev/null || true
+  chmod 0700 "$AGENT_DIR"
   umask 077
   {
     printf '%s\n' "$NODE_ENV"
     printf 'WARMBLY_VERSION=%s\n' "$DESIRED_VERSION"
-    printf 'WARMBLY_TARGET_VERSION_PATH=%s/target-version\n' "$STATE_DIR"
+    printf 'WARMBLY_TARGET_VERSION_PATH=%s/target-version\n' "$AGENT_DIR"
     printf 'WARMBLY_NODE_NAME=%s\n' "$WARMBLY_NAME"
   } > "$CONFIG_DIR/node.env"
   chmod 600 "$CONFIG_DIR/node.env"
 
-  printf '%s\n' "$DESIRED_VERSION" > "$STATE_DIR/target-version"
+  printf '%s\n' "$DESIRED_VERSION" > "$AGENT_DIR/target-version"
+  chown 1000:1000 "$AGENT_DIR/target-version" 2>/dev/null || true
   printf '%s\n' "$WARMBLY_IMAGE_REPO/$WARMBLY_ROLE" > "$STATE_DIR/image"
   # systemd performs no command substitution, so the image reference has to
   # reach the unit as an environment variable it can expand itself.
@@ -222,7 +232,7 @@ ExecStartPre=-/usr/bin/docker rm -f $service
 ExecStart=/usr/bin/docker run --rm --name $service \\
   --env-file $CONFIG_DIR/node.env \\
   --network host \\
-  -v $STATE_DIR:$STATE_DIR \\
+  -v $AGENT_DIR:$AGENT_DIR \\
   \${WARMBLY_IMAGE_REF}
 ExecStop=/usr/bin/docker stop $service
 
@@ -239,16 +249,24 @@ UNIT
 #!/bin/sh
 set -eu
 STATE_DIR="/var/lib/warmbly"
+AGENT_DIR="/var/lib/warmbly/node"
 CONFIG_DIR="/etc/warmbly"
-[ -f "$STATE_DIR/target-version" ] || exit 0
+[ -f "$AGENT_DIR/target-version" ] || exit 0
 [ -f "$STATE_DIR/image" ] || exit 0
 
-target="$(cat "$STATE_DIR/target-version")"
+target="$(cat "$AGENT_DIR/target-version")"
 image="$(cat "$STATE_DIR/image")"
 current="$(sed -n 's/^WARMBLY_VERSION=//p' "$CONFIG_DIR/node.env" | head -n 1)"
 
 [ -n "$target" ] || exit 0
 [ "$target" != "$current" ] || exit 0
+
+# The node writes this file, and root runs whatever image it names, so the
+# value is validated rather than trusted: tag characters only, no registry or
+# path separators that could redirect the pull somewhere else.
+case "$target" in
+  *[!A-Za-z0-9._-]*) echo "warmbly-node-update: refusing malformed target '$target'"; exit 0 ;;
+esac
 
 role="$(sed -n 's/^WARMBLY_NODE_ROLE=//p' "$CONFIG_DIR/node.env" | head -n 1)"
 [ -n "$role" ] || exit 0
@@ -262,7 +280,6 @@ fi
 
 sed -i "s|^WARMBLY_VERSION=.*|WARMBLY_VERSION=$target|" "$CONFIG_DIR/node.env"
 printf 'WARMBLY_IMAGE_REF=%s:%s\n' "$image" "$target" > "$STATE_DIR/image-ref"
-chown -R 1000:1000 "$STATE_DIR" 2>/dev/null || true
 echo "warmbly-node-update: $current -> $target"
 systemctl restart "warmbly-$role"
 UPDATER

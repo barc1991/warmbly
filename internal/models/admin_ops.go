@@ -253,13 +253,6 @@ type AdminDedicatedAssignment struct {
 	AccountCount     int        `json:"account_count"`
 }
 
-// AdminConvertDedicatedRequest is the body of POST /admin/workers/:id/convert-dedicated.
-type AdminConvertDedicatedRequest struct {
-	OrganizationID  string  `json:"organization_id"`
-	SubscriptionID  string  `json:"subscription_id"`
-	DrainToWorkerID *string `json:"drain_to_worker_id"`
-}
-
 // ---- workspace transfers ----
 
 // AdminTransferJob is an export or import job with its workspace attached.

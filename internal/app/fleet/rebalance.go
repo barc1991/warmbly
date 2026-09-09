@@ -106,8 +106,10 @@ func (r *Rotator) tick(ctx context.Context) error {
 		// off the table: it is still the incumbent, still carries the
 		// stickiness bonus, and would win its own scoring, so the loop would
 		// bail on "target == current" and the mailbox would never go anywhere.
-		if mustLeave(urgency, state) {
-			lookup.CurrentWorkerID = nil
+		// CurrentWorkerID stays set so the decision log still records what the
+		// mailbox was leaving; only the candidate list drops it.
+		leaving := mustLeave(urgency, state)
+		if leaving {
 			lookup.ExcludeWorkerID = state.WorkerID
 		}
 
@@ -131,11 +133,10 @@ func (r *Rotator) tick(ctx context.Context) error {
 
 		mailboxID := state.EmailAccountID
 		_ = r.Decisions.Insert(ctx, &repository.DecisionLog{
-			Kind:      "rotate",
-			WorkerID:  &from,
-			MailboxID: &mailboxID,
-			Reason: fmt.Sprintf("%s; moved to %s (score %.2f vs %.2f)",
-				reason, res.Worker.ID, res.Score, res.IncumbentScore),
+			Kind:        "rotate",
+			WorkerID:    &from,
+			MailboxID:   &mailboxID,
+			Reason:      rotationReason(reason, res, leaving),
 			TriggeredBy: "auto:rotate",
 		})
 	}
@@ -144,6 +145,18 @@ func (r *Rotator) tick(ctx context.Context) error {
 		log.Info().Int("moved", moved).Int("scanned", len(candidates)).Msg("rotation pass complete")
 	}
 	return nil
+}
+
+// rotationReason is the decision-log line. An urgent move is not a comparison
+// - the mailbox had to go - so it does not pretend to be one; printing a score
+// against an incumbent that was never a candidate reads as "the incumbent
+// scored zero" rather than "the incumbent was not scored".
+func rotationReason(reason string, res *workerapp.PlacementResult, leaving bool) string {
+	if leaving {
+		return fmt.Sprintf("%s; moved to %s", reason, res.Worker.ID)
+	}
+	return fmt.Sprintf("%s; moved to %s (score %.2f vs %.2f)",
+		reason, res.Worker.ID, res.Score, res.IncumbentScore)
 }
 
 // mustLeave reports whether staying put is not an option, as opposed to merely

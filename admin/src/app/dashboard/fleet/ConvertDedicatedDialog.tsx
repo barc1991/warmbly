@@ -1,7 +1,9 @@
-// Reserve a worker for one workspace, so it authenticates to its mailbox
-// providers from an address nobody else uses. The
-// backend refuses a worker that still holds mailboxes unless a drain target
-// is named, so the dialog requires one whenever the chosen worker is loaded.
+// Reserve a worker for one workspace, so its mailboxes authenticate to their
+// providers from an address nobody else uses.
+//
+// Reserving only writes the binding. Mailboxes already on the worker are not
+// evicted here: the rotation loop moves other tenants off on its own schedule,
+// which is why there is no drain step to fill in.
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -56,7 +58,6 @@ export function ConvertDedicatedDialog({
     const workers = workersQ.data?.data ?? [];
     // Any worker can be reserved: there is no category to check.
     const shared = workers;
-    const worker = workers.find((w) => w.id === workerId) ?? null;
     const subOk = UUID_RE.test(subscriptionId.trim());
     const canSubmit = !!workerId && !!org && subOk;
 
@@ -102,10 +103,11 @@ export function ConvertDedicatedDialog({
                 }}
             >
                 <DialogHeader>
-                    <DialogTitle>Convert a worker to dedicated</DialogTitle>
+                    <DialogTitle>Reserve a worker</DialogTitle>
                     <DialogDescription>
-                        The worker leaves the shared pool and only this workspace's mailboxes are placed on it.
-                        Its existing mailboxes must be drained to another worker of the same tier first.
+                        This workspace&apos;s mailboxes will sign in from an address no other
+                        tenant uses. Placement prefers the reserved worker for them, and moves
+                        other tenants off it over the following passes.
                     </DialogDescription>
                 </DialogHeader>
 
