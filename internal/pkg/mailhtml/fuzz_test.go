@@ -15,6 +15,13 @@ func FuzzInlineCSS(f *testing.F) {
 	f.Add(`<style>.a{content:"}"}</style><p class="a">x</p>`)
 	f.Add(`<style>@media screen{.a{color:red}}</style>`)
 	f.Add("<style>" + `\` + "</style>")
+	// The two inputs that found real bugs. Seeds run on every `go test`, so
+	// they guard the fixes even where the fuzzer itself is not run: a sheet
+	// the parser cannot read must not be deleted, and a body whose case fold
+	// changes its length must not move the insertion point.
+	f.Add("<style>@weird-at-rule</style><p>hi</p>")
+	f.Add("\xa4\xa4\xa4\xa4</BodY>")
+	f.Add("<html><body><p>\u0130stanbul</p></body></html>")
 
 	f.Fuzz(func(t *testing.T, body string) {
 		out := InlineCSS(body)
