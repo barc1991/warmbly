@@ -51,7 +51,7 @@ func (s *JobsService) HandleEmailAuthError(ctx context.Context, event models.Ema
 			TaskID:         taskID,
 		}
 
-		if _, xerr := s.EmailAccountErrorRepository.Create(ctx, errorRecord); xerr != nil {
+		if _, xerr := s.EmailAccountErrorRepository.CreateOnce(ctx, errorRecord); xerr != nil {
 			log.Error().Str("error", xerr.Message).Msg("Failed to store email auth error")
 		}
 	}
@@ -116,7 +116,7 @@ func (s *JobsService) HandleEmailDisabled(ctx context.Context, event models.Emai
 			TaskID:         taskID,
 		}
 
-		if _, xerr := s.EmailAccountErrorRepository.Create(ctx, errorRecord); xerr != nil {
+		if _, xerr := s.EmailAccountErrorRepository.CreateOnce(ctx, errorRecord); xerr != nil {
 			log.Error().Str("error", xerr.Message).Msg("Failed to store email disabled error")
 		}
 	}
@@ -181,7 +181,7 @@ func (s *JobsService) HandleEmailRateLimited(ctx context.Context, event models.E
 			TaskID:         taskID,
 		}
 
-		if _, xerr := s.EmailAccountErrorRepository.Create(ctx, errorRecord); xerr != nil {
+		if _, xerr := s.EmailAccountErrorRepository.CreateOnce(ctx, errorRecord); xerr != nil {
 			log.Error().Str("error", xerr.Message).Msg("Failed to store rate limit error")
 		}
 	}

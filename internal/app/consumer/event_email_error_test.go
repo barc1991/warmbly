@@ -13,14 +13,8 @@ import (
 // stubCreateRepo counts which of the two write paths the handler took.
 type stubCreateRepo struct {
 	repository.EmailAccountErrorRepository
-	created     int
 	createdOnce int
 	suppress    bool
-}
-
-func (s *stubCreateRepo) Create(context.Context, *repository.CreateEmailAccountError) (*repository.EmailAccountError, *errx.Error) {
-	s.created++
-	return &repository.EmailAccountError{}, nil
 }
 
 func (s *stubCreateRepo) CreateOnce(_ context.Context, in *repository.CreateEmailAccountError) (*repository.EmailAccountError, *errx.Error) {
@@ -53,9 +47,6 @@ func TestServerErrorRecordsOnePerUnresolvedCode(t *testing.T) {
 		}
 	}
 
-	if repo.created != 0 {
-		t.Errorf("took the unconditional Create path %d times; a repeating server error must not stack rows", repo.created)
-	}
 	if repo.createdOnce != 3 {
 		t.Errorf("CreateOnce called %d times, want one per relayed failure", repo.createdOnce)
 	}

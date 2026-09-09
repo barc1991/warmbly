@@ -45,10 +45,11 @@ type CreateEmailAccountError struct {
 
 // EmailAccountErrorRepository defines operations for email account errors
 type EmailAccountErrorRepository interface {
-	Create(ctx context.Context, err *CreateEmailAccountError) (*EmailAccountError, *errx.Error)
-	// CreateOnce is Create for an error that repeats until someone fixes it:
-	// it records nothing, and returns a nil record, while the account already
-	// has an unresolved error with the same code.
+	// CreateOnce records an error unless the account already has an unresolved
+	// one with the same code, in which case it writes nothing and returns a
+	// nil record. It is the only write path: migration 000145 makes a second
+	// unresolved row for one code impossible, so an unconditional insert would
+	// only turn a repeat into a constraint violation.
 	CreateOnce(ctx context.Context, err *CreateEmailAccountError) (*EmailAccountError, *errx.Error)
 	GetByAccountID(ctx context.Context, accountID uuid.UUID, unresolvedOnly bool) ([]EmailAccountError, *errx.Error)
 	GetByUserID(ctx context.Context, userID uuid.UUID, limit int) ([]EmailAccountError, *errx.Error)
@@ -76,53 +77,20 @@ func NewEmailAccountErrorRepository(database *db.DB) EmailAccountErrorRepository
 }
 
 // Create stores a new email account error
-func (r *emailAccountErrorRepository) Create(ctx context.Context, data *CreateEmailAccountError) (*EmailAccountError, *errx.Error) {
-	query := `
-		INSERT INTO email_account_errors (
-			email_account_id, user_id, error_code, severity, resolve_method,
-			title, message, user_message, action_required, task_id
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		RETURNING id, email_account_id, user_id, error_code, severity, resolve_method,
-		          title, message, user_message, action_required, task_id,
-		          resolved_at, resolved_by, created_at
-	`
-
-	params := []any{
-		data.EmailAccountID,
-		data.UserID,
-		data.ErrorCode,
-		data.Severity,
-		data.ResolveMethod,
-		data.Title,
-		data.Message,
-		data.UserMessage,
-		data.ActionRequired,
-		data.TaskID,
-	}
-
-	var e EmailAccountError
-	err := r.DB.QueryRow(ctx, query, params...).Scan(
-		&e.ID, &e.EmailAccountID, &e.UserID, &e.ErrorCode, &e.Severity, &e.ResolveMethod,
-		&e.Title, &e.Message, &e.UserMessage, &e.ActionRequired, &e.TaskID,
-		&e.ResolvedAt, &e.ResolvedBy, &e.CreatedAt,
-	)
-	if err != nil {
-		db.CaptureError(err, query, params, "queryrow")
-		return nil, errx.InternalError()
-	}
-
-	return &e, nil
-}
-
 // CreateOnce records the error unless the account already has an unresolved
 // one carrying the same code, and returns (nil, nil) when it declined.
 //
 // A mail server that refuses the same command every pass is not a new problem
 // every pass. The sync loop retries about once a minute and reports what it
 // got, so one IMAP_UNKNOWN that nobody can fix wrote 1440 identical rows a day
-// into the mailbox's error list (issue #405). The insert is conditional in SQL
-// rather than a read followed by a write, because several workers can relay
-// the same failure at once.
+// into the mailbox's error list (issue #405).
+//
+// Both guards are load-bearing. WHERE NOT EXISTS answers the ordinary repeat
+// without touching the index, and ON CONFLICT answers the race it cannot see:
+// two workers relaying the same failure in the same instant both find no row.
+// The unique index behind it is partial on the unresolved rows (migration
+// 000145), so resolved history is untouched and a problem that returns after
+// it was fixed is recorded again.
 func (r *emailAccountErrorRepository) CreateOnce(ctx context.Context, data *CreateEmailAccountError) (*EmailAccountError, *errx.Error) {
 	query := `
 		INSERT INTO email_account_errors (
@@ -138,6 +106,7 @@ func (r *emailAccountErrorRepository) CreateOnce(ctx context.Context, data *Crea
 			SELECT 1 FROM email_account_errors
 			WHERE email_account_id = $1 AND error_code = $3 AND resolved_at IS NULL
 		)
+		ON CONFLICT DO NOTHING
 		RETURNING id, email_account_id, user_id, error_code, severity, resolve_method,
 		          title, message, user_message, action_required, task_id,
 		          resolved_at, resolved_by, created_at
