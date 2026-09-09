@@ -488,7 +488,10 @@ func (s *tasksService) HandleCampaignTask(task *proto.ProcessTask) *errx.Error {
 	optOut := s.resolveOptOut(ctx, orgID, campaign)
 	var unsubscribeURL string
 	if s.unsubLinks != nil && s.unsubLinks.Enabled() {
-		unsubscribeURL = s.unsubLinks.URL(orgID, campaign.ID, contact.ID, time.Now())
+		// On the workspace's own verified tracking domain when it has one, so
+		// the opt-out address sits on the sender's domain like every other link
+		// in the email rather than naming the platform.
+		unsubscribeURL = s.unsubLinks.URLOn(resolveOptOutOrigin(account, campaign), orgID, campaign.ID, contact.ID, time.Now())
 	}
 	extra := map[string]string{UnsubscribeLinkVar: unsubscribeURL}
 

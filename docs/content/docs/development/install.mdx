@@ -15,6 +15,8 @@ Add `--wizard` and it asks the questions a config reference cannot ask for you.
 curl -fsSL https://warmbly.com/install.sh | sh -s -- --wizard
 ```
 
+You do not have to remember the flag. A fresh install with a terminal in front of it and no hostname given asks whether to configure itself before it writes anything, because the alternative is an instance on `localhost`: a dashboard, a tracking host and an unsubscribe address that work from that machine and nowhere else, all of which end up inside campaign mail. Answer no and it says so plainly and carries on. `--assume-yes`, `--host`, `WARMBLY_HOST` and a re-run over an existing install all skip the question, because each of them already answered it.
+
 ## What it installs
 
 | | |
@@ -197,7 +199,9 @@ The first owner, either as a printed claim link or unattended from `WARMBLY_BOOT
 
 ### Footprint
 
-Everything, or core only (no tracking pixel, no websockets, no hosted forms). Ports are checked for collisions before anything is written. Last, the update check, which is one outbound call to the GitHub releases API and the only outbound call this instance makes on its own. There is no telemetry in Warmbly.
+Everything, or core only (no tracking pixel, no websockets, no hosted forms). Core only leaves `TRACKING_DOMAIN` and `FORMS_DOMAIN` unset, because naming a host nothing answers on is worse than naming none: campaign mail would ship links and an opt-out address pointing at a name that does not resolve. Sending still works, without open and click tracking, and every [unsubscribe link](/guides/unsubscribe/) is served from `API_PUBLIC_URL`.
+
+Ports are checked for collisions before anything is written. Last, the update check, which is one outbound call to the GitHub releases API and the only outbound call this instance makes on its own. There is no telemetry in Warmbly.
 
 </Step>
 
