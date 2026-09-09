@@ -667,7 +667,6 @@ consumer:
 worker:
 	$(WORKER_DEV_ENV) \
 	WORKER_ID=10c8f5e4-1c39-5b2a-9c8b-3d2f0a8b1a01 \
-	WORKER_TIER=shared \
 	ENCRYPTED_KEYS_PROVIDER=http \
 	ENCRYPTED_KEYS_BACKEND_URL=http://localhost:8080 \
 	ENCRYPTED_KEYS_WORKER_TOKEN=local-dev-internal-token \

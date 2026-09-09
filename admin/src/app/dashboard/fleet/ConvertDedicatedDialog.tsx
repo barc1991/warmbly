@@ -1,4 +1,5 @@
-// Convert a shared worker into a dedicated one bound to a workspace. The
+// Reserve a worker for one workspace, so it authenticates to its mailbox
+// providers from an address nobody else uses. The
 // backend refuses a worker that still holds mailboxes unless a drain target
 // is named, so the dialog requires one whenever the chosen worker is loaded.
 
@@ -24,14 +25,14 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { convertWorkerToDedicated } from "@/lib/api/client/admin/fleet";
-import { listManagedWorkers } from "@/lib/api/client/admin/workers";
-import type { ManagedWorker } from "@/lib/api/models/admin";
+import { listFleetNodes, nodeState, type FleetNode } from "@/lib/api/client/admin/fleetNodes";
 import { OrgPicker, type PickedOrg } from "./OrgPicker";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function workerLabel(w: ManagedWorker): string {
-    return `${w.name || w.id.slice(0, 8)} · ${w.free_tier ? "free" : "premium"} · ${w.health_state} · ${w.account_count} mailbox${w.account_count === 1 ? "" : "es"}`;
+function workerLabel(w: FleetNode): string {
+    const region = w.region ? ` · ${w.region}` : "";
+    return `${w.name || w.id.slice(0, 8)}${region} · ${nodeState(w)} · ${(w.mailbox_count ?? 0)} mailbox${(w.mailbox_count ?? 0) === 1 ? "" : "es"}`;
 }
 
 export function ConvertDedicatedDialog({
@@ -49,16 +50,16 @@ export function ConvertDedicatedDialog({
 
     const workersQ = useQuery({
         queryKey: ["admin", "workers", "managed"],
-        queryFn: listManagedWorkers,
+        queryFn: () => listFleetNodes("worker"),
         enabled: open,
         staleTime: 30_000,
     });
     const workers = workersQ.data?.data ?? [];
-    const shared = workers.filter((w) => w.worker_type === "shared");
+    // Any worker can be reserved: there is no category to check.
+    const shared = workers;
     const worker = workers.find((w) => w.id === workerId) ?? null;
-    const needsDrain = !!worker && worker.account_count > 0;
-    // Mailboxes keep their tier when drained, so the target must match it.
-    const drainTargets = workers.filter((w) => w.id !== workerId && (!worker || w.free_tier === worker.free_tier));
+    const needsDrain = !!worker && (worker.mailbox_count ?? 0) > 0;
+    const drainTargets = workers.filter((w) => w.id !== workerId);
 
     const subOk = UUID_RE.test(subscriptionId.trim());
     const canSubmit = !!workerId && !!org && subOk && (!needsDrain || !!drainTo);
@@ -119,11 +120,11 @@ export function ConvertDedicatedDialog({
                         <Label className="text-xs">Shared worker</Label>
                         <Select value={workerId || undefined} onValueChange={(v) => { setWorkerId(v); setDrainTo(""); }}>
                             <SelectTrigger className="h-8 w-full text-[12.5px]">
-                                <SelectValue placeholder={workersQ.isLoading ? "Loading workers…" : "Pick a shared worker"} />
+                                <SelectValue placeholder={workersQ.isLoading ? "Loading workers…" : "Pick a worker"} />
                             </SelectTrigger>
                             <SelectContent>
                                 {shared.length === 0 && (
-                                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No shared workers.</div>
+                                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No workers.</div>
                                 )}
                                 {shared.map((w) => (
                                     <SelectItem key={w.id} value={w.id} className="text-[12.5px]">
@@ -162,7 +163,7 @@ export function ConvertDedicatedDialog({
                         <Label className="text-xs">
                             Drain mailboxes to{" "}
                             <span className="font-normal text-muted-foreground">
-                                {needsDrain ? `(required: ${worker!.account_count} assigned)` : "(optional)"}
+                                {needsDrain ? `(required: ${worker!.mailbox_count ?? 0} assigned)` : "(optional)"}
                             </span>
                         </Label>
                         <Select value={drainTo || undefined} onValueChange={setDrainTo} disabled={!workerId}>

@@ -1,0 +1,139 @@
+package worker
+
+import (
+	"testing"
+	"time"
+
+	"github.com/warmbly/warmbly/internal/models"
+)
+
+func healthyInput() RotationInput {
+	return RotationInput{
+		WorkerActive: true,
+		WorkerLive:   true,
+		WorkerHealth: models.WorkerHealthHealthy,
+		Residency:    30 * 24 * time.Hour,
+	}
+}
+
+func TestHealthyWorkerNeverRotates(t *testing.T) {
+	urgency, reason := EvaluateRotation(healthyInput())
+	if urgency != RotationStay {
+		t.Fatalf("a settled mailbox on a healthy worker must stay, got %v (%s)", urgency, reason)
+	}
+}
+
+func TestDeadOrBlockedWorkerIsImmediate(t *testing.T) {
+	cases := map[string]func(RotationInput) RotationInput{
+		"inactive": func(in RotationInput) RotationInput { in.WorkerActive = false; return in },
+		"no heartbeat": func(in RotationInput) RotationInput {
+			in.WorkerLive = false
+			return in
+		},
+		"blocked": func(in RotationInput) RotationInput {
+			in.WorkerHealth = models.WorkerHealthBlocked
+			return in
+		},
+		"quarantined": func(in RotationInput) RotationInput {
+			in.WorkerHealth = models.WorkerHealthQuarantined
+			return in
+		},
+	}
+	for name, mutate := range cases {
+		in := mutate(healthyInput())
+		in.Residency = time.Minute // fresh: residency must not hold it back
+		urgency, reason := EvaluateRotation(in)
+		if urgency != RotationImmediate {
+			t.Fatalf("%s: expected immediate, got %v", name, urgency)
+		}
+		if reason == "" {
+			t.Fatalf("%s: urgent rotations must carry a reason", name)
+		}
+		if !MayMove(urgency, in.Residency) {
+			t.Fatalf("%s: residency must not block an immediate move", name)
+		}
+	}
+}
+
+func TestThrottledWorkerWaitsOutTheShortResidency(t *testing.T) {
+	in := healthyInput()
+	in.WorkerHealth = models.WorkerHealthThrottled
+	in.Residency = time.Hour
+
+	urgency, _ := EvaluateRotation(in)
+	if urgency != RotationElevated {
+		t.Fatalf("throttled should be elevated, got %v", urgency)
+	}
+	if MayMove(urgency, time.Hour) {
+		t.Fatal("an elevated move must respect the short residency floor")
+	}
+	if !MayMove(urgency, RotationElevatedResidency) {
+		t.Fatal("an elevated move should be allowed once the short floor passes")
+	}
+}
+
+func TestHotWorkerIsOpportunisticAndNeedsAMateriallyBetterHome(t *testing.T) {
+	in := healthyInput()
+	in.WorkerUtilization = RotationHotUtilization + 0.05
+
+	urgency, _ := EvaluateRotation(in)
+	if urgency != RotationOpportunistic {
+		t.Fatalf("an over-capacity worker should be opportunistic, got %v", urgency)
+	}
+	if MayMove(urgency, time.Hour) {
+		t.Fatal("an opportunistic move must respect the full residency floor")
+	}
+	if !MayMove(urgency, RotationMinResidency) {
+		t.Fatal("an opportunistic move should be allowed after full residency")
+	}
+
+	// A marginal improvement is not worth the provider-trust cost.
+	if WorthMoving(urgency, 1.0, 1.0+RotationMinScoreGain/2) {
+		t.Fatal("a marginal score gain must not justify a migration")
+	}
+	if !WorthMoving(urgency, 1.0, 1.0+RotationMinScoreGain) {
+		t.Fatal("a material score gain should justify a migration")
+	}
+}
+
+func TestUrgentMovesTakeAnythingEligible(t *testing.T) {
+	// Staying is not an option, so a worse-scoring destination still wins.
+	if !WorthMoving(RotationImmediate, 5.0, 0.1) {
+		t.Fatal("an immediate move must accept any eligible destination")
+	}
+	if !WorthMoving(RotationElevated, 5.0, 0.1) {
+		t.Fatal("an elevated move must accept any eligible destination")
+	}
+}
+
+func TestReservedWorkerDriftRotatesBothWays(t *testing.T) {
+	stranger := healthyInput()
+	stranger.OnSomeoneElsesReservedWorker = true
+	if urgency, _ := EvaluateRotation(stranger); urgency != RotationOpportunistic {
+		t.Fatal("a mailbox on someone else's reserved worker should be moved off")
+	}
+
+	owner := healthyInput()
+	owner.AwayFromOwnReservedWorker = true
+	if urgency, _ := EvaluateRotation(owner); urgency != RotationOpportunistic {
+		t.Fatal("a mailbox away from its own reserved worker should be pulled back")
+	}
+}
+
+func TestUnknownResidencyIsTreatedAsSettled(t *testing.T) {
+	// worker_assigned_at was backfilled at migration time, so a zero value
+	// means an old assignment, not a brand new one. Reading it as "brand new"
+	// would freeze every pre-migration mailbox in place.
+	if !MayMove(RotationOpportunistic, 0) {
+		t.Fatal("unknown residency must not block an opportunistic move")
+	}
+}
+
+func TestStayNeverMoves(t *testing.T) {
+	if MayMove(RotationStay, RotationMinResidency*10) {
+		t.Fatal("RotationStay must never permit a move")
+	}
+	if WorthMoving(RotationStay, 0, 100) {
+		t.Fatal("RotationStay must never be worth moving")
+	}
+}

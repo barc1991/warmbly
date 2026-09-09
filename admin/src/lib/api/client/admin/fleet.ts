@@ -1,25 +1,17 @@
 // /admin/fleet/* — placement as the operator sees it: every worker against
 // its capacity row, the decision log the control loops write, and the
-// dedicated bindings. Shapes mirror the fleet section of
+// isolated-egress reservations. Shapes mirror the fleet section of
 // internal/models/admin_ops.go (snake_case, as the backend serializes them).
 
 import { Request } from "@/lib/api/client";
-import type {
-    WorkerEgressKind,
-    WorkerHealthState,
-    WorkerRiskPool,
-    WorkerType,
-} from "@/lib/api/models/admin";
+import type { WorkerHealthState } from "@/lib/api/models/admin";
 
 export interface AdminFleetWorkerRow {
     worker_id: string;
     name: string;
     ip_addr: string;
     active: boolean;
-    free_tier: boolean;
-    worker_type: WorkerType;
-    risk_pool: WorkerRiskPool;
-    egress_kind: WorkerEgressKind;
+    region: string;
     health_state: WorkerHealthState;
     install_state: string;
     last_seen_at?: string | null;
@@ -32,7 +24,7 @@ export interface AdminFleetWorkerRow {
     health_multiplier: number;
     age_multiplier: number;
     effective_capacity: number;
-    /** Load over effective capacity; the rebalancer calls a worker hot above 0.8 and cold below 0.5. */
+    /** Load over effective capacity; the rotation loop calls a worker hot above 0.85. */
     utilization: number;
     sends_attempted_1h: number;
     sends_succeeded_1h: number;
@@ -84,9 +76,7 @@ export interface AdminConvertDedicatedResponse {
 export interface AdminReleaseDedicatedResponse {
     ok: boolean;
     worker_id: string;
-    accounts_moved: number;
     accounts_remaining: number;
-    returned_to_shared: boolean;
 }
 
 export interface FleetDecisionsParams {
@@ -126,8 +116,9 @@ export function listDedicatedAssignments(): Promise<{ data: AdminDedicatedAssign
     });
 }
 
-// Moves the workspace's mailboxes back to shared premium workers, releases the
-// binding, and returns the worker to the shared pool when nothing else binds it.
+// Releases the reservation. Nothing migrates: the worker carries no category to
+// reset, and the workspace's mailboxes stay put until the rotation loop finds
+// them a better home on its own schedule.
 export function releaseDedicatedWorker(orgId: string): Promise<AdminReleaseDedicatedResponse> {
     return Request({
         method: "POST",
