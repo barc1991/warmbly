@@ -79,10 +79,18 @@ BLOB_FS_ROOT=data/blobs" sh "$SCRIPT" --print-unit >/dev/null 2>&1; then
 fi
 ok "relative BLOB_FS_ROOT refused"
 
-# Two invariants that produce no observable difference in the rendered unit and
-# so cannot be caught above: both were real defects, so they are asserted on
-# the call sites directly. Scoped to the enclosing function rather than matched
-# on exact text, so reformatting does not fail the build.
+# NO EnvironmentFile may point into the node-writable mount. Asserting only
+# that the right one exists is not enough: an extra one under AGENT_DIR would
+# let the container choose the image root's `docker run --network host` runs.
+if printf '%s\n' "$unit" | grep '^EnvironmentFile=' | grep -q '/var/lib/warmbly/node'; then
+  fail "an EnvironmentFile points into the node-writable mount; the node could choose the image root runs"
+fi
+ok "no EnvironmentFile is node-writable"
+
+# Two invariants that leave no trace in the rendered unit and so cannot be
+# caught above: both were real defects, so they are asserted at their call
+# sites. Comments are stripped and the call is matched in command position, so
+# a commented-out call fails while reformatting does not.
 # body_of prints one function's body. Tolerant about the definition's spacing,
 # and loud when the function is not found: an empty body would otherwise fail
 # every assertion below with a message about the wrong thing.
@@ -109,9 +117,12 @@ printf '%s\n' "$main_body" | awk '
   || fail "main must call validate_blob_root between enrol and write_config"
 ok "config is validated before anything is written"
 
-# Field match, not a substring: a commented-out call is not a call.
-install_body=$(body_of install_units)
-printf '%s\n' "$install_body" | awk '$1 == "ensure_blob_root" { found = 1 } END { exit !found }' \
+# Comments stripped first, then matched in command position: a commented-out
+# call must not satisfy this, but a one-liner like `[ -n "$x" ] && ensure_... `
+# or `if ...; then ensure_... ` must, or reformatting fails the build.
+install_body=$(body_of install_units | sed 's/#.*//')
+printf '%s\n' "$install_body" \
+  | grep -Eq '(^|[;&|]|&&|\|\||[[:space:]](then|do|else))[[:space:]]*ensure_blob_root([[:space:]]|$)' \
   || fail "install_units must call ensure_blob_root, or a filesystem-blob node restart-loops"
 ok "blob root is prepared before the unit is installed"
 
