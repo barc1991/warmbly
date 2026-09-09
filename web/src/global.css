@@ -442,6 +442,16 @@ svg.loading circle {
 .tiptap-body strong { font-weight: 600; }
 .tiptap-body:focus { outline: none; }
 
+/* Body images. The sent markup carries its own inline width/margins (mail
+   clients ignore stylesheets), so these rules only cover the editing surface:
+   a sensible ceiling, and a visible ring while the image is the selection the
+   floating size/alignment bar acts on. */
+.tiptap-body img { max-width: 100%; height: auto; border-radius: 2px; }
+.tiptap-body img.ProseMirror-selectednode {
+  outline: 2px solid #38bdf8; /* sky-400 */
+  outline-offset: 1px;
+}
+
 /* Merge-tag chips shown inside the composer editor. Only the node-view button
    carries .tpl-var; the resolved `<span data-var>` in the Preview pane is left
    unstyled on purpose so it reads as the plain value it will send as. */
