@@ -27,6 +27,10 @@ var (
 	ErrNoJoinToken = errors.New("no join token has been issued for this instance")
 	ErrBadToken    = errors.New("join token is not valid")
 	ErrBadRole     = errors.New("unknown node role")
+	// ErrRoleChanged is a node claiming an id that is already registered under
+	// the other role. Silently accepting it would leave a worker's mailboxes
+	// assigned to a machine that has stopped doing worker work.
+	ErrRoleChanged = errors.New("that node id is already registered under a different role")
 )
 
 type Service struct {
@@ -89,6 +93,12 @@ func (s *Service) Heartbeat(ctx context.Context, beat models.NodeHeartbeat) (*mo
 	}
 	if beat.NodeID == uuid.Nil {
 		return nil, errors.New("node_id required")
+	}
+
+	// A node may not change what it does under the same id. Checked before the
+	// upsert so the row is never half-migrated between roles.
+	if existing, err := s.nodes.Get(ctx, beat.NodeID); err == nil && existing != nil && existing.Role != beat.Role {
+		return nil, ErrRoleChanged
 	}
 
 	if beat.Stopping {

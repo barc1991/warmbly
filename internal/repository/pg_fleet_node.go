@@ -91,7 +91,12 @@ func (r *fleetNodeRepository) UpsertOnHeartbeat(ctx context.Context, beat models
 			cpu_percent, memory_mb, goroutines, uptime_seconds, last_error
 		) VALUES ($1, $2, $3, $4, $5, $6, TRUE, now(), $7, $8, $9, $10, $11)
 		ON CONFLICT (id) DO UPDATE SET
-			role         = EXCLUDED.role,
+			-- Role is NOT updated. A node that re-registers under a different
+			-- role would keep its workers row and the mailboxes assigned to
+			-- it, while no longer doing worker work: the mail would sit on a
+			-- machine that never sends it. Changing what a machine does means
+			-- removing the node and joining again, which releases the
+			-- mailboxes properly.
 			region       = CASE WHEN EXCLUDED.region  <> '' THEN EXCLUDED.region  ELSE fleet_nodes.region  END,
 			address      = CASE WHEN EXCLUDED.address <> '' THEN EXCLUDED.address ELSE fleet_nodes.address END,
 			version      = CASE WHEN EXCLUDED.version <> '' THEN EXCLUDED.version ELSE fleet_nodes.version END,

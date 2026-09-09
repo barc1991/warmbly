@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -40,10 +42,15 @@ type fleetJoinRequest struct {
 type fleetJoinResponse struct {
 	NodeID uuid.UUID `json:"node_id"`
 	Role   string    `json:"role"`
-	// Env is the complete environment file the node should write. It is
-	// rendered from the backend's own configuration, so a node always gets
-	// exactly the infrastructure the control plane is using.
-	Env string `json:"env"`
+	// EnvB64 is the complete environment file the node should write, base64
+	// encoded. Rendered from the backend's own configuration, so a node always
+	// gets exactly the infrastructure the control plane is using.
+	//
+	// Base64 rather than a raw JSON string because the join script is POSIX sh
+	// with no JSON parser: pulling a multi-line value containing quotes and
+	// backslashes back out with sed is guesswork, and got it wrong. One
+	// `base64 -d` is exact.
+	EnvB64 string `json:"env_b64"`
 	// DesiredVersion is what to run right now, so the first start is already
 	// on the right version instead of starting stale and updating a beat later.
 	DesiredVersion string `json:"desired_version,omitempty"`
@@ -113,6 +120,11 @@ func (h *Handler) FleetJoin(c *gin.Context) {
 	}
 	reply, err := h.FleetNodes.Heartbeat(ctx, beat)
 	if err != nil {
+		if errors.Is(err, fleetnode.ErrRoleChanged) {
+			errx.JSON(c, errx.New(errx.BadRequest,
+				"that machine is already enrolled as the other role. Remove the node first, which releases anything assigned to it, then join again."))
+			return
+		}
 		errx.JSON(c, errx.New(errx.Internal, "enrol node: "+err.Error()))
 		return
 	}
@@ -120,7 +132,7 @@ func (h *Handler) FleetJoin(c *gin.Context) {
 	c.JSON(http.StatusOK, fleetJoinResponse{
 		NodeID:           nodeID,
 		Role:             string(role),
-		Env:              renderNodeEnv(nodeID, role, req.Region),
+		EnvB64:           base64.StdEncoding.EncodeToString([]byte(renderNodeEnv(nodeID, role, req.Region))),
 		DesiredVersion:   reply.DesiredVersion,
 		HeartbeatSeconds: nodeHeartbeatSeconds(reply.LivenessSeconds),
 	})
@@ -141,9 +153,11 @@ func (h *Handler) FleetHeartbeat(c *gin.Context) {
 	}
 	reply, err := h.FleetNodes.Heartbeat(c.Request.Context(), beat)
 	if err != nil {
-		switch err {
-		case fleetnode.ErrBadRole:
+		switch {
+		case errors.Is(err, fleetnode.ErrBadRole):
 			c.JSON(http.StatusBadRequest, gin.H{"error": "role must be worker or consumer"})
+		case errors.Is(err, fleetnode.ErrRoleChanged):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}

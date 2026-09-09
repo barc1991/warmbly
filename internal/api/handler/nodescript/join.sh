@@ -104,6 +104,16 @@ json_field() {
   sed -n 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
 }
 
+# b64decode reads base64 on stdin. coreutils is the norm; openssl is the
+# fallback for the images that ship without it.
+b64decode() {
+  if command -v base64 >/dev/null 2>&1; then
+    base64 -d
+  else
+    openssl base64 -d -A
+  fi
+}
+
 existing_node_id() {
   if [ -f "$CONFIG_DIR/node.env" ]; then
     sed -n 's/^WARMBLY_NODE_ID=//p' "$CONFIG_DIR/node.env" | head -n 1
@@ -141,16 +151,14 @@ enrol() {
 
   NODE_ID=$(json_field node_id < "$tmp")
   DESIRED_VERSION=$(json_field desired_version < "$tmp")
-  # The env file is a JSON string with escaped newlines; unescape it.
-  NODE_ENV=$(sed -n 's/.*"env"[[:space:]]*:[[:space:]]*"\(.*\)","desired_version.*/\1/p' "$tmp" \
-    | sed 's/\\n/\n/g; s/\\"/"/g' )
-  if [ -z "$NODE_ENV" ]; then
-    NODE_ENV=$(sed -n 's/.*"env"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' "$tmp" \
-      | sed 's/\\n/\n/g; s/\\"/"/g')
-  fi
+  # The env file arrives base64 encoded, so a shell with no JSON parser can
+  # recover it exactly. Decoding is one command; picking a multi-line,
+  # quote-bearing value back out of JSON with sed is guesswork.
+  NODE_ENV=$(json_field env_b64 < "$tmp" | b64decode)
   rm -f "$tmp"
 
   [ -n "$NODE_ID" ] || die "the control plane did not return a node id"
+  [ -n "$NODE_ENV" ] || die "the control plane returned no configuration for this node"
   [ -n "$DESIRED_VERSION" ] || DESIRED_VERSION="latest"
   log "Enrolled as $WARMBLY_ROLE node $NODE_ID"
 }
