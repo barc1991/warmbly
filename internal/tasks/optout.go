@@ -6,6 +6,7 @@ import (
 
 	"github.com/warmbly/warmbly/internal/app/unsublink"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
 )
 
 // UnsubscribeLinkVar is the template variable a step can place by hand
@@ -52,11 +53,7 @@ func appendOptOut(bodyHTML, bodyPlain string, settings models.UnsubscribeSetting
 		return bodyHTML, bodyPlain
 	}
 	if bodyHTML != "" {
-		if strings.Contains(bodyHTML, "</body>") {
-			bodyHTML = strings.Replace(bodyHTML, "</body>", htmlPart+"</body>", 1)
-		} else {
-			bodyHTML += htmlPart
-		}
+		bodyHTML = mailhtml.InsertBeforeBodyEnd(bodyHTML, htmlPart)
 	}
 	if bodyPlain != "" {
 		bodyPlain += "\n\n" + plainPart
