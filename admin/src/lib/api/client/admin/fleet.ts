@@ -67,10 +67,12 @@ export interface AdminConvertDedicatedRequest {
     drain_to_worker_id?: string | null;
 }
 
-export interface AdminConvertDedicatedResponse {
+// Mirrors the /reserve handler. Reserving no longer drains anything: the
+// rotation loop moves other tenants off on its own schedule.
+export interface AdminReserveWorkerResponse {
     ok: boolean;
-    accounts_drained: number;
-    new_assignment: boolean;
+    worker_id: string;
+    new_reservation: boolean;
 }
 
 export interface AdminReleaseDedicatedResponse {
@@ -127,15 +129,15 @@ export function releaseDedicatedWorker(orgId: string): Promise<AdminReleaseDedic
     });
 }
 
-// The backend refuses a worker that still carries mailboxes unless
-// drain_to_worker_id names where they go first.
+// Reserves a worker for one organization. It only writes the binding; the
+// mailboxes already on it drift away on the rotation loop.
 export function convertWorkerToDedicated(
     workerId: string,
     body: AdminConvertDedicatedRequest,
-): Promise<AdminConvertDedicatedResponse> {
+): Promise<AdminReserveWorkerResponse> {
     return Request({
         method: "POST",
-        url: `/admin/workers/${workerId}/convert-dedicated`,
+        url: `/admin/workers/${workerId}/reserve`,
         authorization: true,
         data: body,
     });

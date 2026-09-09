@@ -22,12 +22,16 @@ export function getWorkerEmails(
     });
 }
 
+// Mirrors models.WorkerStats. Renaming a field here does not rename it on the
+// wire; it just renders blank.
 export interface WorkerStats {
+    worker_id: string;
+    total_emails_sent: number;
     emails_sent_today: number;
-    emails_sent_total: number;
-    active_campaigns: number;
-    connected_emails: number;
-    warmup_emails: number;
+    emails_sent_this_week: number;
+    average_delivery_time_ms: number;
+    success_rate: number;
+    queue_depth: number;
 }
 
 export function getWorkerStats(id: string): Promise<WorkerStats> {
@@ -48,7 +52,9 @@ export function reassignWorkerEmails(
     return Request({
         method: "POST",
         url: `/admin/workers/${targetWorkerId}/reassign`,
-        data: { email_ids: emailIds },
+        // The target is in the URL and in the body: models.ReassignEmailsRequest
+        // marks new_worker_id required, so omitting it is a 400.
+        data: { email_ids: emailIds, new_worker_id: targetWorkerId },
         authorization: true,
     });
 }

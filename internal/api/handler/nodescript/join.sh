@@ -185,6 +185,10 @@ write_config() {
 
   printf '%s\n' "$DESIRED_VERSION" > "$STATE_DIR/target-version"
   printf '%s\n' "$WARMBLY_IMAGE_REPO/$WARMBLY_ROLE" > "$STATE_DIR/image"
+  # systemd performs no command substitution, so the image reference has to
+  # reach the unit as an environment variable it can expand itself.
+  printf 'WARMBLY_IMAGE_REF=%s/%s:%s\n' \
+    "$WARMBLY_IMAGE_REPO" "$WARMBLY_ROLE" "$DESIRED_VERSION" > "$STATE_DIR/image-ref"
   log "Wrote $CONFIG_DIR/node.env"
 }
 
@@ -201,6 +205,10 @@ Requires=docker.service
 [Service]
 Restart=always
 RestartSec=5
+# systemd does not run a shell, so the image reference comes from a file it
+# reads as environment rather than from a command substitution. \${VAR} expands
+# to exactly one argument, which is what an image:tag needs.
+EnvironmentFile=$STATE_DIR/image-ref
 # The container is replaced rather than reconfigured, so start always removes
 # any previous one first: a name collision after an unclean stop would
 # otherwise wedge the service in a restart loop.
@@ -208,7 +216,8 @@ ExecStartPre=-/usr/bin/docker rm -f $service
 ExecStart=/usr/bin/docker run --rm --name $service \\
   --env-file $CONFIG_DIR/node.env \\
   --network host \\
-  \$(cat $STATE_DIR/image):\$(cat $STATE_DIR/target-version)
+  -v $STATE_DIR:$STATE_DIR \\
+  \${WARMBLY_IMAGE_REF}
 ExecStop=/usr/bin/docker stop $service
 
 [Install]
@@ -246,6 +255,7 @@ if ! docker pull "$image:$target" >/dev/null 2>&1; then
 fi
 
 sed -i "s|^WARMBLY_VERSION=.*|WARMBLY_VERSION=$target|" "$CONFIG_DIR/node.env"
+printf 'WARMBLY_IMAGE_REF=%s:%s\n' "$image" "$target" > "$STATE_DIR/image-ref"
 echo "warmbly-node-update: $current -> $target"
 systemctl restart "warmbly-$role"
 UPDATER

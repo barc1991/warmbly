@@ -102,7 +102,12 @@ func EvaluateRotation(in RotationInput) (RotationUrgency, string) {
 	}
 
 	if in.OnSomeoneElsesReservedWorker {
-		return RotationOpportunistic, "worker is reserved for another organization"
+		// Elevated, not opportunistic: this mailbox has to leave for the
+		// reservation to mean anything, and an opportunistic move would be
+		// weighed against the incumbent's stickiness bonus and refused every
+		// tick, so the stranger would never go and the row would re-enter the
+		// scan budget forever.
+		return RotationElevated, "worker is reserved for another organization"
 	}
 	if in.AwayFromOwnReservedWorker {
 		return RotationOpportunistic, "organization has a reserved worker elsewhere"

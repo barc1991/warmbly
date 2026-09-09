@@ -107,16 +107,29 @@ func TestUrgentMovesTakeAnythingEligible(t *testing.T) {
 }
 
 func TestReservedWorkerDriftRotatesBothWays(t *testing.T) {
+	// A stranger has to leave for the reservation to mean anything, and the
+	// destination does not have to be better than where it is. Weighing it
+	// against the incumbent's stickiness bonus would refuse the move forever.
 	stranger := healthyInput()
 	stranger.OnSomeoneElsesReservedWorker = true
-	if urgency, _ := EvaluateRotation(stranger); urgency != RotationOpportunistic {
-		t.Fatal("a mailbox on someone else's reserved worker should be moved off")
+	urgency, _ := EvaluateRotation(stranger)
+	if urgency != RotationElevated {
+		t.Fatalf("a mailbox on someone else's reserved worker must be evicted, got %v", urgency)
+	}
+	if !WorthMoving(urgency, 5.0, 0.1, false) {
+		t.Fatal("evicting a stranger must accept any eligible destination")
 	}
 
+	// Pulling the owner back is opportunistic, but the placer marks the
+	// reserved worker as mandated so the score comparison does not block it.
 	owner := healthyInput()
 	owner.AwayFromOwnReservedWorker = true
-	if urgency, _ := EvaluateRotation(owner); urgency != RotationOpportunistic {
-		t.Fatal("a mailbox away from its own reserved worker should be pulled back")
+	urgency, _ = EvaluateRotation(owner)
+	if urgency != RotationOpportunistic {
+		t.Fatalf("a mailbox away from its own reserved worker should be pulled back, got %v", urgency)
+	}
+	if !WorthMoving(urgency, 5.0, 0.1, true) {
+		t.Fatal("the reserved worker is mandated, so the move must not be score-gated")
 	}
 }
 

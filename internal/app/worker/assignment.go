@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/repository"
 )
@@ -73,6 +74,10 @@ type PlacementLookup struct {
 	// CurrentWorkerID is the incumbent, if any. Present means the caller is
 	// considering a move and the incumbent should get its stickiness bonus.
 	CurrentWorkerID *uuid.UUID
+	// ExcludeWorkerID drops one worker from consideration entirely. Set when
+	// draining: without it the drained worker is still the incumbent, wins on
+	// stickiness, and the drain is a silent no-op.
+	ExcludeWorkerID *uuid.UUID
 	// Region is where the mailbox signs in from today. Supplied on a
 	// re-placement so a move keeps the sign-in geography its provider has
 	// already seen; empty on first placement, which scores neutral.
@@ -137,6 +142,14 @@ func (s *workerAssignmentService) AssignWorkerToEmail(ctx context.Context, email
 	if err := s.workerRepo.AddLoadScore(ctx, res.Worker.ID, s.resolveMailboxWeight(ctx, emailAccountID)); err != nil {
 		log.Warn().Err(err).Str("worker_id", res.Worker.ID.String()).Msg("placement: load score bump failed")
 	}
+
+	// Warmup pool membership still follows the subscription. It used to be a
+	// by-product of tier placement; with tiers gone it has to be set
+	// explicitly, or every new mailbox keeps the column default and paid
+	// customers silently warm in the free pool.
+	if err := s.workerRepo.UpdateEmailAccountWarmupPoolType(ctx, emailAccountID, s.warmupPoolFor(ctx, orgID)); err != nil {
+		log.Warn().Err(err).Str("account_id", emailAccountID.String()).Msg("placement: warmup pool assignment failed")
+	}
 	return &res.Worker.ID, nil
 }
 
@@ -174,6 +187,9 @@ func (s *workerAssignmentService) SelectWorkerFor(ctx context.Context, lookup Pl
 
 	candidates := make([]PlacementCandidate, 0, len(rows))
 	for _, row := range rows {
+		if lookup.ExcludeWorkerID != nil && row.WorkerID == *lookup.ExcludeWorkerID {
+			continue
+		}
 		candidates = append(candidates, PlacementCandidate{
 			WorkerID: row.WorkerID,
 			Region:   row.Region,
@@ -261,6 +277,28 @@ func (s *workerAssignmentService) selectFallback(ctx context.Context, req Placem
 	}
 	w := workers[0]
 	return &PlacementResult{Worker: &w}, nil
+}
+
+// warmupPoolFor resolves which warmup pool a mailbox joins. Unrelated to
+// placement: it is a property of the organization's subscription, and workers
+// no longer carry a tier to infer it from. Anything unknown answers "free",
+// which is the conservative direction - a paid mailbox in the free pool warms
+// more slowly, where the reverse would put unproven mail in front of paying
+// customers.
+func (s *workerAssignmentService) warmupPoolFor(ctx context.Context, orgID uuid.UUID) string {
+	if s.subRepo == nil {
+		return "free"
+	}
+	// With billing disabled there is no free/paid split to enforce, so every
+	// org gets the premium pool. Mirrors feature.gate's self-host unlock.
+	if config.BillingProvider() == "none" {
+		return "premium"
+	}
+	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
+	if err != nil || sub == nil || !sub.HasPaidSubscription() {
+		return "free"
+	}
+	return "premium"
 }
 
 // hasIsolatedEgress reports whether the org's plan entitles it to a worker
@@ -413,9 +451,10 @@ func (s *workerAssignmentService) MigrateEmailsFromWorker(ctx context.Context, w
 			continue
 		}
 		res, err := s.SelectWorkerFor(ctx, PlacementLookup{
-			EmailAccountID: accountID,
-			OrgID:          *state.OrganizationID,
-			Region:         state.WorkerRegion,
+			EmailAccountID:  accountID,
+			OrgID:           *state.OrganizationID,
+			Region:          state.WorkerRegion,
+			ExcludeWorkerID: &workerID,
 		})
 		if err != nil || res == nil || res.Worker == nil || res.Worker.ID == workerID {
 			continue

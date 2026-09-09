@@ -120,6 +120,20 @@ func TestLivePlacementAndRotation(t *testing.T) {
 		}
 	}
 
+	// 1b. Placement also settles warmup pool membership. It used to fall out of
+	//     tier placement; with tiers gone it has to be set explicitly, and
+	//     leaving it unset silently warms paying customers in the free pool.
+	for i, mb := range mailboxes {
+		var poolType *string
+		if err := pool.QueryRow(ctx,
+			`SELECT warmup_pool_type FROM email_accounts WHERE id = $1`, mb).Scan(&poolType); err != nil {
+			t.Fatalf("mailbox %d: read warmup pool: %v", i, err)
+		}
+		if poolType == nil || *poolType == "" {
+			t.Fatalf("mailbox %d: placement left warmup_pool_type unset", i)
+		}
+	}
+
 	// 2. Gather them onto this test's own worker, so the rotation assertions
 	//    below are about this test's fleet and not whatever else is running.
 	placed := map[uuid.UUID]uuid.UUID{}

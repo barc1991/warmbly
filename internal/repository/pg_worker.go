@@ -211,13 +211,14 @@ func (r *workerRepository) GetAllActiveWorkers(ctx context.Context) ([]models.Wo
 func (r *workerRepository) GetIdleUnboundWorker(ctx context.Context) (*models.Worker, error) {
 	w, err := scanWorker(r.db.QueryRow(ctx, workerSelect+`
 		 WHERE n.active
+		   AND n.last_seen_at > now() - $1::interval
 		   AND w.account_count = 0
 		   AND NOT EXISTS (
 		       SELECT 1 FROM dedicated_worker_assignments dwa
 		        WHERE dwa.worker_id = w.id AND dwa.released_at IS NULL
 		   )
 		 ORDER BY w.created_at ASC
-		 LIMIT 1`))
+		 LIMIT 1`, WorkerLivenessWindow))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

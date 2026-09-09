@@ -73,9 +73,9 @@ export function ConvertDedicatedDialog({
             }),
         onSuccess: (res) => {
             toast.success(
-                res.new_assignment
-                    ? `Worker is now dedicated to ${org?.name}${res.accounts_drained ? ` (${res.accounts_drained} mailboxes drained)` : ""}`
-                    : "Binding already existed; worker type set to dedicated",
+                res.new_reservation
+                    ? `Worker reserved for ${org?.name}. Other tenants drift off it on the rotation loop.`
+                    : "That workspace already had this worker reserved.",
             );
             qc.invalidateQueries({ queryKey: ["admin", "workers"] });
             qc.invalidateQueries({ queryKey: ["admin", "fleet"] });

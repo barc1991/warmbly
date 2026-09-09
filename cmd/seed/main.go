@@ -406,16 +406,22 @@ func upsertOrg(ctx context.Context, pool *pgxpool.Pool, id uuid.UUID, name, slug
 }
 
 func upsertWorker(ctx context.Context, pool *pgxpool.Pool, id uuid.UUID, name, ip, region string, active bool) error {
-	_, err := pool.Exec(ctx, `
-		INSERT INTO workers (id, name, ip_addr, region, active)
-		VALUES ($1, $2, $3, $4, $5)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO fleet_nodes (id, role, name, address, region, active, last_seen_at)
+		VALUES ($1, 'worker', $2, $3, $4, $5, now())
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
-			ip_addr = EXCLUDED.ip_addr,
+			address = EXCLUDED.address,
 			region = EXCLUDED.region,
 			active = EXCLUDED.active,
-			updated_at = NOW()`,
-		id, name, ip, region, active)
+			last_seen_at = now(),
+			updated_at = now()`,
+		id, name, ip, region, active); err != nil {
+		return err
+	}
+	_, err := pool.Exec(ctx, `
+		INSERT INTO workers (id, account_count) VALUES ($1, 0)
+		ON CONFLICT (id) DO NOTHING`, id)
 	return err
 }
 

@@ -406,11 +406,16 @@ func seedIdentity(ctx context.Context, pool *pgxpool.Pool) error {
 // placement and the reconciler treat it as live; the real worker process adopts
 // the row on its first heartbeat.
 func seedWorker(ctx context.Context, pool *pgxpool.Pool) error {
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO fleet_nodes (id, role, name, notes, address, active, last_seen_at)
+		VALUES ($1, 'worker', 'worker-sandbox-1', 'Sandbox worker (make sandbox / make worker)', '127.0.0.1', TRUE, now())
+		ON CONFLICT (id) DO UPDATE SET active = TRUE, last_seen_at = now(), updated_at = now()`,
+		sandboxWorker); err != nil {
+		return err
+	}
 	_, err := pool.Exec(ctx, `
-		INSERT INTO workers (id, name, notes, ip_addr, active, account_count)
-		VALUES ($1, 'worker-sandbox-1', 'Sandbox worker (make sandbox / make worker)', '127.0.0.1', TRUE, 0)
-		ON CONFLICT (id) DO UPDATE SET active = TRUE, updated_at = NOW()`,
-		sandboxWorker)
+		INSERT INTO workers (id, account_count) VALUES ($1, 0)
+		ON CONFLICT (id) DO NOTHING`, sandboxWorker)
 	return err
 }
 

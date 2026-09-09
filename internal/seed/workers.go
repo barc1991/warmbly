@@ -23,18 +23,26 @@ func seedWorkers(ctx context.Context, pool *pgxpool.Pool, r *Result) error {
 	}
 
 	for _, w := range workers {
-		_, err := pool.Exec(ctx, `
-			INSERT INTO workers (id, name, notes, ip_addr, active, region, account_count, created_at, updated_at)
-			VALUES ($1,$2,$3,$4,TRUE,$5,0,$6,$6)
+		// A worker is a node (the machine) plus a placement row (the mail it
+		// carries). Seeding both is what an enrolling node does.
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO fleet_nodes (id, role, name, notes, address, active, region, last_seen_at, created_at, updated_at)
+			VALUES ($1,'worker',$2,$3,$4,TRUE,$5,now(),$6,$6)
 			ON CONFLICT (id) DO UPDATE SET
 				name = EXCLUDED.name,
 				notes = EXCLUDED.notes,
-				ip_addr = EXCLUDED.ip_addr,
+				address = EXCLUDED.address,
 				active = TRUE,
 				region = EXCLUDED.region,
-				updated_at = NOW()
-		`, w.id, w.name, w.notes, w.ipAddr, w.region, time.Now())
-		if err != nil {
+				last_seen_at = now(),
+				updated_at = now()
+		`, w.id, w.name, w.notes, w.ipAddr, w.region, time.Now()); err != nil {
+			return err
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO workers (id, account_count) VALUES ($1, 0)
+			ON CONFLICT (id) DO NOTHING
+		`, w.id); err != nil {
 			return err
 		}
 		r.Workers = append(r.Workers, SeededWorker{Name: w.name, Region: w.region, ID: w.id.String()})

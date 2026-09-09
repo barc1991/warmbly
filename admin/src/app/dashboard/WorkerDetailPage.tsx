@@ -261,9 +261,11 @@ export default function WorkerDetailPage() {
                         {statsQ.data && (
                             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                                 <Fact label="Sent today">{statsQ.data.emails_sent_today}</Fact>
-                                <Fact label="Sent total">{statsQ.data.emails_sent_total}</Fact>
-                                <Fact label="Active campaigns">{statsQ.data.active_campaigns}</Fact>
-                                <Fact label="Warmup mailboxes">{statsQ.data.warmup_emails}</Fact>
+                                <Fact label="Sent this week">{statsQ.data.emails_sent_this_week}</Fact>
+                                <Fact label="Sent total">{statsQ.data.total_emails_sent}</Fact>
+                                <Fact label="Success rate">
+                                    {`${Math.round(statsQ.data.success_rate * 100)}%`}
+                                </Fact>
                             </div>
                         )}
 
