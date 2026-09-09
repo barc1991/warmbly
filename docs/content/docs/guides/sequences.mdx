@@ -7,7 +7,7 @@ A campaign sends a sequence of steps to each contact: the first email, then foll
 
 ## The flow canvas
 
-Steps lay out top to bottom, the first marked `Start`.
+Steps lay out top to bottom, the first marked `Start`. Above it sits the **Trigger** card, `Contact enters`: every contact starts there, and it carries how long their first email waits after they entered. Click its control to change that (the same setting as **Schedule** > **Before the first email**; see [the campaign guide](/guides/campaigns/#delay-before-the-first-email)). The trigger card is not a step: it cannot be moved, deleted or connected from.
 
 - Steps never connect themselves on the canvas. You drag a connector dot from one card to another. The only exception is the campaign wizard: follow-ups written there arrive already connected in order, with their waits set.
 - A step with no outgoing line ends the sequence for that contact (`Ends here`; unconnected paths show `Stop`).
@@ -55,7 +55,7 @@ Switch steps always run on the normal schedule, so an instant reply branch leadi
 
 ## Wait and spacing
 
-Spacing belongs to the **target** step, not a separate node, so there is no wait block on the canvas. Click the connection leading into a step and set "wait N days before it" (0 to 60). The line shows a `wait 3d` label.
+Spacing belongs to the **target** step, not a separate node, so there is no wait block on the canvas. The one delay that is not a step's own is the wait before the *first* email, which lives on the Trigger card. Click the connection leading into a step and set "wait N days before it" (0 to 60). The line shows a `wait 3d` label.
 
 Because the wait belongs to the target, every path into that step uses the same wait. Spacing follow-ups out keeps your sending pattern natural; see [Deliverability](/guides/deliverability/).
 
