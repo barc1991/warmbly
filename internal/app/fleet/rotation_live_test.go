@@ -96,22 +96,18 @@ func TestLivePlacementAndRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 1. Every mailbox places on SOME live worker, and is stamped so rotation
-	//    can enforce residency. Which worker is not asserted: the database may
-	//    already hold a fleet, and any live worker is a legitimate answer.
+	// 1. Every mailbox places, and is stamped so rotation can enforce residency.
+	//
+	//    Which worker it lands on is deliberately NOT asserted. The database
+	//    may already hold a fleet, any live worker is a legitimate answer, and
+	//    live tests in other packages create and delete their own workers
+	//    concurrently - re-reading the chosen worker here raced with one of
+	//    those deletes. That placement only ever picks a live worker is
+	//    covered by the placement unit tests, which need no database.
 	for i, mb := range mailboxes {
 		got, err := svc.AssignWorkerToEmail(ctx, mb, orgID)
 		if err != nil || got == nil {
 			t.Fatalf("mailbox %d did not place: %v", i, err)
-		}
-		var live bool
-		if err := pool.QueryRow(ctx, `
-			SELECT active AND last_seen_at > now() - interval '5 minutes'
-			  FROM fleet_nodes WHERE id = $1`, *got).Scan(&live); err != nil {
-			t.Fatalf("mailbox %d landed on %s, which has no node row: %v", i, *got, err)
-		}
-		if !live {
-			t.Fatalf("mailbox %d placed on %s, which is not live", i, *got)
 		}
 
 		var assigned *string
