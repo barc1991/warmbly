@@ -143,6 +143,10 @@ export default function RichTextEditor({
     uploadRef.current = uploadImage;
     const minimalRef = React.useRef(minimal);
     minimalRef.current = minimal;
+    // Declared with the other paste-time refs, above the editor that closes
+    // over it: a const referenced before its declaration runs would throw, and
+    // only the fact that a paste happens after render keeps that hypothetical.
+    const adoptRef = React.useRef<((markup: string) => void) | null>(null);
 
     // Uploads an image file dropped or pasted into the body and places it,
     // optionally at a document position (where it was dropped).
@@ -236,7 +240,6 @@ export default function RichTextEditor({
     // HTML mode is the step's own persisted state, so a body written as markup
     // is still markup when the step is reopened. While it is on, the textarea
     // holds the body and the editor is not the source of truth.
-    const adoptRef = React.useRef<((markup: string) => void) | null>(null);
     adoptRef.current = onCodeChange
         ? (markup: string) => {
               onChange(prettyHTML(markup));

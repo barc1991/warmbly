@@ -323,3 +323,33 @@ func TestInlineCSSKeepsAStylesheetItCannotParse(t *testing.T) {
 		t.Errorf("the body was lost:\n%s", out)
 	}
 }
+
+// A selector list is only partly ours: the half that inlines must not take the
+// declaration the other half still needs with it.
+func TestInlineCSSKeepsTheHalfOfAListItCannotInline(t *testing.T) {
+	out := InlineCSS(`<style>.btn, .other:hover { color: red }</style><p class="btn">x</p>`)
+	if !strings.Contains(out, ".other:hover") {
+		t.Errorf("the stateful half of the list was dropped:\n%s", out)
+	}
+	if !strings.Contains(out, `style="color: red"`) {
+		t.Errorf("the half that could inline did not:\n%s", out)
+	}
+}
+
+// Commas inside an attribute value or :is() belong to the selector. Splitting
+// on them and rejoining would write a selector that matches something else, so
+// a rule with a piece we cannot read is left exactly as the author wrote it.
+func TestInlineCSSDoesNotRewriteASelectorItCannotSplit(t *testing.T) {
+	out := InlineCSS(`<style>.btn, [title="a,b"] { color: red }</style><p class="btn">x</p>`)
+	if !strings.Contains(out, `[title="a,b"]`) {
+		t.Errorf("the selector was rewritten or dropped:\n%s", out)
+	}
+}
+
+// A rule matching nothing today is still the author's; it stays in the sheet.
+func TestInlineCSSKeepsARuleThatMatchesNothing(t *testing.T) {
+	out := InlineCSS(`<style>.absent { color: red }</style><p>x</p>`)
+	if !strings.Contains(out, ".absent") {
+		t.Errorf("a rule matching nothing was deleted:\n%s", out)
+	}
+}

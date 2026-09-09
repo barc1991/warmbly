@@ -96,28 +96,58 @@ func InlineCSS(body string) string {
 				kept = append(kept, item.atRule)
 				continue
 			}
-			inlined := false
-			for _, sel := range strings.Split(item.selectors, ",") {
-				sel = strings.TrimSpace(sel)
-				if sel == "" || isStateful(sel) {
-					continue
-				}
-				compiled, perr := cascadia.Parse(sel)
+			// A selector list is split on commas, which is only safe once
+			// every piece parses: a comma inside :is(...) or an attribute
+			// value belongs to the selector, and rejoining the pieces would
+			// write a different one. If any piece fails, the whole rule is
+			// left alone with its selectors exactly as the author wrote them.
+			pieces := splitSelectorList(item.selectors)
+			compiled := make([]cascadia.Sel, len(pieces))
+			readable := len(pieces) > 0
+			for i, sel := range pieces {
+				c, perr := cascadia.Parse(sel)
 				if perr != nil {
+					readable = false
+					break
+				}
+				compiled[i] = c
+			}
+			if !readable {
+				kept = append(kept, item.selectors+" {"+declString(item.decls)+"}")
+				continue
+			}
+
+			// Selectors this pass could not take over: a stateful one, or one
+			// that matched nothing. They keep the rule, restricted to
+			// themselves, because a list like ".btn, .other:hover" inlines its
+			// first half and would otherwise take the declaration the second
+			// half still needs with it.
+			var unhandled []string
+			for i, sel := range pieces {
+				if isStateful(sel) {
+					unhandled = append(unhandled, sel)
 					continue
 				}
-				for _, node := range cascadia.QueryAll(doc, compiled) {
+				matched := false
+				for _, node := range cascadia.QueryAll(doc, compiled[i]) {
 					if noInlineTarget[node.Data] {
 						continue
 					}
-					stage(pending, node, item.decls, compiled.Specificity(), order)
-					inlined = true
+					stage(pending, node, item.decls, compiled[i].Specificity(), order)
+					matched = true
 					movedAny = true
+				}
+				if !matched {
+					unhandled = append(unhandled, sel)
 				}
 				order++
 			}
-			if !inlined {
+			switch {
+			case len(unhandled) == len(pieces):
+				// Nothing moved, so the author's own text is kept.
 				kept = append(kept, item.selectors+" {"+declString(item.decls)+"}")
+			case len(unhandled) > 0:
+				kept = append(kept, strings.Join(unhandled, ", ")+" {"+declString(item.decls)+"}")
 			}
 		}
 		if movedAny {
@@ -267,4 +297,42 @@ func dropEmptyStyles(sheets []*html.Node) {
 		}
 		s.Parent.RemoveChild(s)
 	}
+}
+
+// splitSelectorList breaks "a, b" into its selectors, ignoring commas inside
+// parentheses, brackets and strings, where they belong to the selector rather
+// than separating two.
+func splitSelectorList(list string) []string {
+	var out []string
+	depth := 0
+	quote := byte(0)
+	start := 0
+	for i := 0; i < len(list); i++ {
+		c := list[i]
+		switch {
+		case quote != 0:
+			if c == '\\' {
+				i++
+			} else if c == quote {
+				quote = 0
+			}
+		case c == '"' || c == '\'':
+			quote = c
+		case c == '(' || c == '[':
+			depth++
+		case c == ')' || c == ']':
+			if depth > 0 {
+				depth--
+			}
+		case c == ',' && depth == 0:
+			if sel := strings.TrimSpace(list[start:i]); sel != "" {
+				out = append(out, sel)
+			}
+			start = i + 1
+		}
+	}
+	if sel := strings.TrimSpace(list[start:]); sel != "" {
+		out = append(out, sel)
+	}
+	return out
 }
