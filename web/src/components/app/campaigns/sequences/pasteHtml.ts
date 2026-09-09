@@ -109,6 +109,21 @@ const DEFAULT_TEXT_COLOURS = new Set([
     "rgb(0,0,0)", "rgb(17,17,17)", "rgb(34,34,34)", "rgb(51,51,51)",
 ]);
 
+// isColourValue accepts a single colour token: a name, a hex code, or one
+// functional form. Anything with a second top-level token is a shorthand
+// carrying more than a colour.
+function isColourValue(value: string): boolean {
+    const v = value.trim();
+    if (!v || /url\(|gradient/i.test(v)) return false;
+    let depth = 0;
+    for (const ch of v) {
+        if (ch === "(") depth++;
+        else if (ch === ")") depth = Math.max(0, depth - 1);
+        else if (/\s/.test(ch) && depth === 0) return false;
+    }
+    return true;
+}
+
 function isDefaultColour(value: string): boolean {
     return DEFAULT_TEXT_COLOURS.has(value.replace(/\s+/g, "").toLowerCase());
 }
@@ -124,9 +139,11 @@ function keptInlineStyle(el: Element): string {
         const value = decl.slice(at + 1).trim();
         if (!prop || !value) continue;
         if (prop === "color" && isDefaultColour(value)) continue;
-        // A background shorthand holding an image or a gradient is not a
-        // highlight, and the schema has nowhere to put it.
-        if (prop === "background-color" && /url\(|gradient/i.test(value)) continue;
+        // The background shorthand is only a highlight when it is nothing but
+        // a colour. Word and Outlook paste "background: yellow none repeat
+        // scroll 0% 0%", and copying that whole value into the longhand writes
+        // a declaration every client drops, losing the highlight entirely.
+        if (prop === "background-color" && !isColourValue(value)) continue;
         kept.set(prop, value);
     }
     // <font color> says the same thing in the older spelling.

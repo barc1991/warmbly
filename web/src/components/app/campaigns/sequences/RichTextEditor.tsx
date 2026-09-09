@@ -381,14 +381,18 @@ function prettyHTML(html: string): string {
 
 // The tags the visual editor's schema can hold. Anything else in HTML mode is
 // dropped the moment the editor parses it, so the user is told which ones
-// before that happens rather than after. Tables, divs and styled spans are in
-// the schema now; what is left is the machinery of a whole document, which no
-// editor schema can be faithful to.
+// before that happens rather than after.
+//
+// This list has to match the extensions actually mounted above, or the warning
+// stays silent while the switch destroys something. Headings are configured to
+// levels 2 and 3, so h1 and h4-h6 become paragraphs. Nothing mounted parses
+// font or center. The table extensions know only table, tr, td and th: thead
+// and tfoot lose their section, colgroup and col are dropped, and a caption
+// comes back as an extra row.
 const SCHEMA_TAGS = new Set([
     "p", "br", "strong", "b", "em", "i", "u", "s", "strike", "del",
-    "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "a", "img",
-    "span", "div", "font", "center",
-    "table", "thead", "tbody", "tfoot", "tr", "td", "th", "caption", "colgroup", "col",
+    "h2", "h3", "ul", "ol", "li", "a", "img", "span", "div",
+    "table", "tbody", "tr", "td", "th",
 ]);
 
 function unsupportedTags(html: string): string[] {

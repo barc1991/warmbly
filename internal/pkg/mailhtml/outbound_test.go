@@ -353,3 +353,38 @@ func TestInlineCSSKeepsARuleThatMatchesNothing(t *testing.T) {
 		t.Errorf("a rule matching nothing was deleted:\n%s", out)
 	}
 }
+
+// The sheet is rewritten from parsed items as soon as one rule inlines, so
+// anything the parser could not read has to survive as an item of its own or
+// it is deleted from the author's stylesheet by an unrelated rule matching.
+func TestInlineCSSKeepsUnreadableTextBesideARuleThatInlines(t *testing.T) {
+	out := InlineCSS("<style>.a{color:red}\n@weird-at-rule-we-do-not-know</style><p class=\"a\">hi</p>")
+	if !strings.Contains(out, "@weird-at-rule-we-do-not-know") {
+		t.Errorf("unreadable text was deleted once another rule inlined:\n%s", out)
+	}
+	if !strings.Contains(out, `style="color: red"`) {
+		t.Errorf("the readable rule did not inline:\n%s", out)
+	}
+}
+
+// The editor promises inlining from this finding, so it must not claim it for
+// a sheet InlineCSS will leave exactly as written.
+func TestLintPromisesInliningOnlyForSheetsThatGetIt(t *testing.T) {
+	has := func(html string) bool {
+		for _, f := range Lint(html, 500) {
+			if f.Code == "stylesheet_inlined" {
+				return true
+			}
+		}
+		return false
+	}
+	if !has(`<style>.a{color:red}</style><p class="a">x</p>`) {
+		t.Error("an ordinary stylesheet is inlined and should say so")
+	}
+	if has(`<style media="print">.a{color:red}</style><p class="a">x</p>`) {
+		t.Error("a print stylesheet is never inlined")
+	}
+	if has(`<style data-warmbly-inline="false">.a{color:red}</style><p class="a">x</p>`) {
+		t.Error("an opted-out stylesheet is never inlined")
+	}
+}

@@ -107,13 +107,15 @@ func Lint(bodyHTML string, wireBytes int) []Finding {
 					externalSheet = true
 				}
 			case atom.Style:
-				hasStyle = true
+				// Only a sheet this send will actually inline; promising it
+				// for one that ships as written would be a lie in the editor.
+				hasStyle = hasStyle || sheetEligible(n)
 				for _, item := range parseStylesheet(textOf(n)) {
-					if item.atRule == "" {
+					if item.verbatim == "" {
 						noteUnsupported(unsupported, item.decls)
 						continue
 					}
-					lower := strings.ToLower(item.atRule)
+					lower := strings.ToLower(item.verbatim)
 					if strings.HasPrefix(lower, "@font-face") {
 						webFont = true
 					}

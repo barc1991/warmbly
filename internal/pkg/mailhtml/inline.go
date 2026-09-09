@@ -75,13 +75,7 @@ func InlineCSS(body string) string {
 	pending := map[*html.Node]map[string]staged{}
 	order := 0
 	for _, sheet := range sheets {
-		if mediaAttr(sheet) != "" {
-			// A print or device-scoped sheet is not what this reader sees.
-			continue
-		}
-		// The author's opt out, per stylesheet rather than per campaign: a
-		// sheet marked this way ships exactly as written.
-		if strings.EqualFold(attrOf(sheet, "data-warmbly-inline"), "false") {
+		if !sheetEligible(sheet) {
 			continue
 		}
 		items := parseStylesheet(textOf(sheet))
@@ -92,8 +86,8 @@ func InlineCSS(body string) string {
 		movedAny := false
 		var kept []string
 		for _, item := range items {
-			if item.atRule != "" {
-				kept = append(kept, item.atRule)
+			if item.verbatim != "" {
+				kept = append(kept, item.verbatim)
 				continue
 			}
 			// A selector list is split on commas, which is only safe once
@@ -168,6 +162,15 @@ func InlineCSS(body string) string {
 		return body
 	}
 	return out
+}
+
+// sheetEligible reports whether a <style> block is one this pass will take
+// rules out of. A print or device-scoped sheet is not what the reader sees,
+// and data-warmbly-inline="false" is the author's opt out, per stylesheet
+// rather than per campaign. Shared with Lint so the editor never promises
+// inlining for a sheet that will ship exactly as written.
+func sheetEligible(sheet *html.Node) bool {
+	return mediaAttr(sheet) == "" && !strings.EqualFold(attrOf(sheet, "data-warmbly-inline"), "false")
 }
 
 // staged is the winning declaration for one property on one element, with the

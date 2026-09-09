@@ -92,6 +92,16 @@ export default function EmailContentEditor({
     const code = onBodyCodeChange ? bodyCode : localCode;
     const setCode = onBodyCodeChange ?? setLocalCode;
 
+    // A body can also become a document after mount: applying a template
+    // replaces it wholesale. Whichever mode the step is in, it has to switch
+    // before the editor parses that markup through its schema, or the next
+    // visual edit saves the gutted version. The visual editor cannot produce
+    // document markup itself, so this only ever fires on a body from outside.
+    React.useEffect(() => {
+        if (!code && isDocumentBody(bodyHtml)) setCode(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bodyHtml, code]);
+
     // Preview context: null contact = the built-in sample; the mailbox defaults
     // to the campaign's first enabled sender once the pool has loaded.
     const [previewContact, setPreviewContact] = React.useState<Contact | null>(null);

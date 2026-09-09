@@ -7,9 +7,14 @@ import "strings"
 // @font-face, @keyframes, @supports, @import) has no single element to attach
 // to and can only stay in the <style> block.
 type cssItem struct {
-	// atRule holds the whole rule verbatim, prelude and block, when this item
-	// is an at-rule. Empty for a plain rule.
-	atRule string
+	// verbatim holds text that is carried through exactly as written: an
+	// at-rule, or a stretch the parser could not read. Empty for a plain rule.
+	//
+	// Unreadable text has to become an item rather than being dropped. The
+	// sheet is rewritten from these items as soon as one rule moves onto an
+	// element, so anything not represented here is deleted from the author's
+	// stylesheet the moment any other rule inlines.
+	verbatim string
 	// selectors is the raw selector list of a plain rule ("h1, .lead > p").
 	selectors string
 	decls     []cssDecl
@@ -35,20 +40,22 @@ func parseStylesheet(css string) []cssItem {
 			start := i
 			prelude := scanCSSUntil(css, i, "{;")
 			if prelude >= len(css) {
+				items = appendVerbatim(items, css[start:])
 				break
 			}
 			if css[prelude] == ';' {
-				items = append(items, cssItem{atRule: strings.TrimSpace(css[start : prelude+1])})
+				items = append(items, cssItem{verbatim: strings.TrimSpace(css[start : prelude+1])})
 				i = prelude + 1
 				continue
 			}
 			end := scanCSSBlock(css, prelude)
-			items = append(items, cssItem{atRule: strings.TrimSpace(css[start:end])})
+			items = append(items, cssItem{verbatim: strings.TrimSpace(css[start:end])})
 			i = end
 			continue
 		}
 		selEnd := scanCSSUntil(css, i, "{")
 		if selEnd >= len(css) {
+			items = appendVerbatim(items, css[i:])
 			break
 		}
 		blockEnd := scanCSSBlock(css, selEnd)
@@ -60,12 +67,25 @@ func parseStylesheet(css string) []cssItem {
 			innerEnd--
 		}
 		inner := css[selEnd+1 : innerEnd]
-		if selectors != "" {
-			if decls := parseDeclarations(inner); len(decls) > 0 {
-				items = append(items, cssItem{selectors: selectors, decls: decls})
-			}
+		decls := parseDeclarations(inner)
+		switch {
+		case selectors != "" && len(decls) > 0:
+			items = append(items, cssItem{selectors: selectors, decls: decls})
+		default:
+			// A rule with no selector, or one whose declarations we could not
+			// read: kept as written rather than dropped.
+			items = appendVerbatim(items, css[i:blockEnd])
 		}
 		i = blockEnd
+	}
+	return items
+}
+
+// appendVerbatim adds a stretch of unreadable stylesheet text, ignoring one
+// that is only whitespace.
+func appendVerbatim(items []cssItem, text string) []cssItem {
+	if t := strings.TrimSpace(text); t != "" {
+		items = append(items, cssItem{verbatim: t})
 	}
 	return items
 }
