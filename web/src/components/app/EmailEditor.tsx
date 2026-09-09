@@ -9,6 +9,10 @@
 //     document, an event handler) forces the source view. The visual surface
 //     works by assigning innerHTML, and a signature is org data a teammate
 //     wrote, so an <img onerror> there would run in someone else's dashboard.
+//     Inline styles are allowed through, because almost every real signature
+//     has them, so the surface is paint-contained instead: that makes it the
+//     containing block for a positioned descendant, and a signature saying
+//     position:fixed can no longer lay itself over a teammate's dashboard.
 //   - the preview renders in the inbox's sandboxed frame, never in the
 //     dashboard DOM, for the same reason.
 
@@ -359,7 +363,7 @@ export default function EmailEditor({
                         commitHtml(adopted);
                         setCode(true);
                     }}
-                    className="min-h-[120px] px-3 py-2.5 text-[13px] text-slate-800 outline-none prose prose-sm max-w-none"
+                    className="email-signature-surface min-h-[120px] px-3 py-2.5 text-[13px] text-slate-800 outline-none prose prose-sm max-w-none"
                 />
             )}
         </div>
