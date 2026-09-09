@@ -29,6 +29,7 @@ STATE_DIR="/var/lib/warmbly"
 # the node can rewrite there would choose the image root then executes.
 AGENT_DIR="/var/lib/warmbly/node"
 DRY_RUN="false"
+PRINT_UNIT="false"
 
 log()  { printf '%s\n' "$*"; }
 warn() { printf '%s\n' "$*" >&2; }
@@ -50,6 +51,9 @@ Join a machine to a Warmbly fleet.
                      ghcr.io/warmbly/warmbly.
   --config-dir <d>   Where to write the env file. Default /etc/warmbly.
   --dry-run          Enrol and print what would be written, change nothing.
+  --print-unit       Print the systemd unit that would be installed and exit.
+                     Contacts nothing and writes nothing; used by
+                     `make join-check`.
   -h, --help         This text.
 
 A second run re-enrols the same machine: it keeps the existing node id, so the
@@ -68,6 +72,7 @@ parse_args() {
       --image-repo)  WARMBLY_IMAGE_REPO="${2:-}"; shift 2 ;;
       --config-dir)  CONFIG_DIR="${2:-}"; shift 2 ;;
       --dry-run)     DRY_RUN="true"; shift ;;
+      --print-unit)  PRINT_UNIT="true"; shift ;;
       -h|--help)     usage; exit 0 ;;
       *)             die "unknown option: $1 (try --help)" ;;
     esac
@@ -262,24 +267,21 @@ ensure_blob_root() {
   fi
 
   # It already existed, so it belongs to something else - most likely a
-  # co-located backend. Re-owning it would break that backend, so check
-  # whether the node could write there and say so if not. Mounting an
-  # unwritable directory boots cleanly and then fails on the first send.
+  # co-located backend. Re-owning it would break that backend, so this only
+  # reports: guessing at writability from the mode bits got both directions
+  # wrong (a 0666 root has no search bit, a root:1000 0775 root is fine), and a
+  # wrong guess is worse than saying plainly what to check.
   owner=$(stat -c '%u' "$root" 2>/dev/null || echo "")
-  mode=$(stat -c '%a' "$root" 2>/dev/null || echo "")
-  if [ "$owner" != "1000" ]; then
-    case "$mode" in
-      *7|*6|*3|*2) ;; # world-writable, so uid 1000 can still write
-      *)
-        warn ""
-        warn "WARNING: $root already exists, owned by uid $owner with mode $mode."
-        warn "         The node runs as uid 1000 and will not be able to write there,"
-        warn "         so sends will fail once it tries to store a message body."
-        warn "         Give uid 1000 access to that directory, or switch the instance"
-        warn "         to BLOB_PROVIDER=s3."
-        warn ""
-        ;;
-    esac
+  if [ -n "$owner" ] && [ "$owner" != "1000" ]; then
+    warn ""
+    warn "NOTE: $root already exists and is owned by uid $owner."
+    warn "      The node runs as uid 1000. If it cannot write there, sends fail"
+    warn "      when the worker tries to store a message body. Check with:"
+    warn ""
+    warn "        sudo -u '#1000' test -w $root && echo writable || echo NOT writable"
+    warn ""
+    warn "      Give uid 1000 access, or switch the instance to BLOB_PROVIDER=s3."
+    warn ""
   fi
   return 0
 }
@@ -303,14 +305,15 @@ validate_blob_root() {
 # docker_mounts is every -v argument, on ONE line. Command substitution strips
 # trailing newlines, so a multi-line value would collapse the unit's
 # continuations and hand docker a stray token as the image name.
+#
+# Pure: it computes the list and creates nothing. Preparing the directories is
+# ensure_blob_root's job, called from install_units, so the unit can be
+# rendered and asserted on without touching the filesystem.
 docker_mounts() {
   mounts="-v $AGENT_DIR:$AGENT_DIR"
   if blobs_are_local; then
     root=$(blob_root)
-    if [ -n "$root" ]; then
-      ensure_blob_root "$root"
-      mounts="$mounts -v $root:$root"
-    fi
+    [ -n "$root" ] && mounts="$mounts -v $root:$root"
   fi
   printf '%s' "$mounts"
 }
@@ -322,7 +325,7 @@ docker_mounts() {
 warn_shared_blobs() {
   blobs_are_local || return 0
   warn ""
-  warn "WARNING: this instance stores blobs on local disk (BLOB_PROVIDER=filesystem,"
+  warn "WARNING: this instance stores blobs on local disk (BLOB_PROVIDER=$(blob_provider),"
   warn "         BLOB_FS_ROOT=$(blob_root))."
   warn ""
   warn "         A node needs the SAME storage the backend writes to, with"
@@ -335,12 +338,14 @@ warn_shared_blobs() {
   warn ""
 }
 
-install_units() {
-  [ "$DRY_RUN" = "false" ] || return 0
-
+# render_unit prints the systemd service exactly as install_units writes it.
+# Separate so it can be asserted on without root, Docker, or a real join:
+# `make join-check` renders this and checks the result, because every defect
+# this file has had parsed cleanly and only showed up in what it produced.
+render_unit() {
   service="warmbly-$WARMBLY_ROLE"
   MOUNTS=$(docker_mounts)
-  cat > "/etc/systemd/system/$service.service" <<UNIT
+  cat <<UNIT
 [Unit]
 Description=Warmbly $WARMBLY_ROLE
 After=docker.service network-online.target
@@ -363,6 +368,17 @@ ExecStop=/usr/bin/docker stop $service
 [Install]
 WantedBy=multi-user.target
 UNIT
+}
+
+install_units() {
+  [ "$DRY_RUN" = "false" ] || return 0
+
+  service="warmbly-$WARMBLY_ROLE"
+  if blobs_are_local; then
+    root=$(blob_root)
+    [ -n "$root" ] && ensure_blob_root "$root"
+  fi
+  render_unit > "/etc/systemd/system/$service.service"
 
   # The updater is what makes auto-update work without anything reaching into
   # this machine. The node writes the version the control plane wants into
@@ -459,6 +475,15 @@ start_node() {
 
 main() {
   parse_args "$@"
+  if [ "$PRINT_UNIT" = "true" ]; then
+    # No enrolment, no network, no files. NODE_ENV is whatever the caller
+    # supplied, so the blob branches can be exercised from a test.
+    WARMBLY_ROLE="${WARMBLY_ROLE:-worker}"
+    NODE_ENV="${NODE_ENV:-}"
+    validate_blob_root
+    render_unit
+    return 0
+  fi
   require_args
   check_deps
   enrol

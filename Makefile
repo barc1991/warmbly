@@ -37,7 +37,7 @@ PROTOC_GEN_GO_GRPC_VERSION ?= v1.6.1
 PROTO_DIR := internal/tasks/proto
 PROTO_GEN_FILES := $(PROTO_DIR)/tasks.pb.go
 
-.PHONY: poollink-dev poollink-dev-down poollink-dev-reset setup-tools fmt lint check-migrations proto check-proto \
+.PHONY: poollink-dev poollink-dev-down poollink-dev-reset setup-tools fmt lint check-migrations join-check proto check-proto \
         up upgrade claim doctor cli seed-demo seed seed-plan sandbox sandbox-seed sandbox-simulate reset logs status stop down test-seed \
         restart restart-go restart-all infra infra-down app app-down app-logs \
         backend forms forms-web consumer worker run dev tracking realtime web \
