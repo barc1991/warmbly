@@ -221,24 +221,32 @@ write_config() {
   log "Wrote $CONFIG_DIR/node.env"
 }
 
-# blob_mount emits an extra -v line when blobs are on local disk, because
-# narrowing the state mount to AGENT_DIR would otherwise hide a BLOB_FS_ROOT
-# that lives under it.
-blob_mount() {
+# docker_mounts is every -v argument, on ONE line. Command substitution strips
+# trailing newlines, so a multi-line value here would collapse the unit's
+# continuations and hand docker a stray token as the image name.
+#
+# BLOB_FS_ROOT is mounted only when it already exists: it is copied from the
+# backend's environment and may name a path that belongs to a co-located
+# bare-metal install, so this neither creates it nor changes its ownership. A
+# node on another host writes blobs to its own disk regardless, which is why
+# the docs tell you to use object storage for a distributed fleet.
+docker_mounts() {
+  mounts="-v $AGENT_DIR:$AGENT_DIR"
   provider=$(sed -n 's/^BLOB_PROVIDER=//p' "$CONFIG_DIR/node.env" | head -n 1)
-  [ "$provider" = "filesystem" ] || return 0
-  root=$(sed -n 's/^BLOB_FS_ROOT=//p' "$CONFIG_DIR/node.env" | head -n 1)
-  [ -n "$root" ] || return 0
-  mkdir -p "$root"
-  chown -R 1000:1000 "$root" 2>/dev/null || true
-  printf '  -v %s:%s \\\n' "$root" "$root"
+  if [ "$provider" = "filesystem" ]; then
+    root=$(sed -n 's/^BLOB_FS_ROOT=//p' "$CONFIG_DIR/node.env" | head -n 1)
+    if [ -n "$root" ] && [ -d "$root" ]; then
+      mounts="$mounts -v $root:$root"
+    fi
+  fi
+  printf '%s' "$mounts"
 }
 
 install_units() {
   [ "$DRY_RUN" = "false" ] || return 0
 
   service="warmbly-$WARMBLY_ROLE"
-  BLOB_MOUNT=$(blob_mount)
+  MOUNTS=$(docker_mounts)
   cat > "/etc/systemd/system/$service.service" <<UNIT
 [Unit]
 Description=Warmbly $WARMBLY_ROLE
@@ -256,11 +264,7 @@ EnvironmentFile=$STATE_DIR/image-ref
 # any previous one first: a name collision after an unclean stop would
 # otherwise wedge the service in a restart loop.
 ExecStartPre=-/usr/bin/docker rm -f $service
-ExecStart=/usr/bin/docker run --rm --name $service \\
-  --env-file $CONFIG_DIR/node.env \\
-  --network host \\
-  -v $AGENT_DIR:$AGENT_DIR \\
-$BLOB_MOUNT  \${WARMBLY_IMAGE_REF}
+ExecStart=/usr/bin/docker run --rm --name $service --env-file $CONFIG_DIR/node.env --network host $MOUNTS \${WARMBLY_IMAGE_REF}
 ExecStop=/usr/bin/docker stop $service
 
 [Install]

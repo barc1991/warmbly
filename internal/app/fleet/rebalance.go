@@ -106,11 +106,13 @@ func (r *Rotator) tick(ctx context.Context) error {
 		// off the table: it is still the incumbent, still carries the
 		// stickiness bonus, and would win its own scoring, so the loop would
 		// bail on "target == current" and the mailbox would never go anywhere.
-		// CurrentWorkerID stays set for the incumbent bookkeeping in
-		// buildResult; the decision log takes the worker it left from
-		// state.WorkerID, not from the lookup.
+		// Both fields are cleared together: with the incumbent excluded from
+		// the candidate list there is nothing left for the stickiness bonus or
+		// the incumbent score to apply to. The decision log still names what
+		// the mailbox left, because that comes from state.WorkerID.
 		leaving := mustLeave(urgency, state)
 		if leaving {
+			lookup.CurrentWorkerID = nil
 			lookup.ExcludeWorkerID = state.WorkerID
 		}
 
