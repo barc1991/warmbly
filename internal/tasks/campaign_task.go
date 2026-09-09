@@ -15,6 +15,7 @@ import (
 	"github.com/warmbly/warmbly/internal/infrastructure/pubsub"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/observability/errs"
+	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
 	"github.com/warmbly/warmbly/internal/repository"
 	"github.com/warmbly/warmbly/internal/scheduler"
 	"github.com/warmbly/warmbly/internal/tasks/proto"
@@ -632,6 +633,13 @@ func (s *tasksService) HandleCampaignTask(task *proto.ProcessTask) *errx.Error {
 	// STEP 12.5: Opt-out footer, after the signature and after click tracking
 	// so the link is never rewritten into a tracked ticket.
 	bodyHTML, bodyPlain = appendOptOut(bodyHTML, bodyPlain, optOut, unsubscribeURL)
+
+	// STEP 12.75: Copy any embedded stylesheet onto the elements it matches.
+	// Outlook.com, Yahoo and Gmail's mobile clients drop <style> blocks, so a
+	// design written with classes arrives unstyled without this. Last, so the
+	// signature and footer are inlined with the body; a no-op for a body with
+	// no <style>, which is every campaign written in the visual editor.
+	bodyHTML = mailhtml.InlineCSS(bodyHTML)
 
 	// STEP 13: Warm the organization DEK so the publisher's encrypt pass (the
 	// one whose ciphertext is actually sent) fails fast here if KMS is down.
