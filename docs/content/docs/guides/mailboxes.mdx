@@ -217,11 +217,13 @@ A mailbox can be set inactive (`PATCH /emails/{id}` with `status`) when you want
 
 Switching it off takes effect immediately: the machine syncing it is told to drop it, so it stops importing mail and stops being picked for campaign sends and warmup within seconds rather than at that machine's next restart. Warmup pool membership is dropped, and any warmup chain it had winds down on its next step. A campaign email already handed over is answered as a failure and the step is retried later on a mailbox that is still active, so nobody receives it twice and no lead is stranded.
 
+Leads mid-sequence on that mailbox move to another one in their campaign as they reach their next step, rather than going silent waiting for it. Each campaign's activity log records the change. See [senders and rotation](/guides/campaigns/) for how a lead's mailbox is chosen and when it changes.
+
 It keeps its worker assignment while off, so switching it back on puts it back on the same machine, sending from the same IP, and it resumes syncing from where it stopped instead of re-importing.
 
 **Disconnecting** removes the mailbox for good, from the Accounts selection bar. The machine syncing it is told to drop it before the record is removed, because afterwards there is nothing left to tell. If that instruction cannot be delivered, the disconnect fails with a `503` and nothing is removed, so retry it in a moment rather than assuming it worked.
 
-Everything belonging to that mailbox goes with it: its imported mail in the unibox, its warmup history and pool membership, its credentials, its sender links, and any send still scheduled for it. A campaign that was using it keeps running on its remaining senders. Export the workspace first if you want a copy. Disable the mailbox instead when you only want it to stop.
+Everything belonging to that mailbox goes with it: its imported mail in the unibox, its warmup history and pool membership, its credentials, its sender links, and any send still scheduled for it. A campaign that was using it keeps running on its remaining senders, and the leads it had been writing to move onto them at their next step. Export the workspace first if you want a copy. Disable the mailbox instead when you only want it to stop.
 
 ## Worker assignment
 
@@ -252,7 +254,7 @@ A mailbox now has a cold-rotation state, separate from its health:
 | State | Meaning |
 |-------|---------|
 | `active` | In cold rotation. The default, and where every mailbox starts |
-| `resting` | Out of cold rotation to recover. Warmup keeps running, so its reputation stays alive |
+| `resting` | Out of cold rotation to recover. Warmup keeps running, so its reputation stays alive. Leads mid-sequence on it move to another mailbox at their next step |
 | `reserve` | Held back by you. Never entered or left automatically |
 
 A mailbox rests when its warmup health reaches `throttled` or worse, and returns on its own once it is healthy again **and** has held steady for three days. One good hour does not put it back at full cold volume.
