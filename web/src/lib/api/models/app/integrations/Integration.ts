@@ -163,6 +163,7 @@ export type IntegrationAction =
     | "pipedrive.upsert_person"
     | "salesforce.upsert_contact"
     | "close.upsert_lead"
+    | "frappe_crm.upsert_lead"
     | "webhook.ping"
     // Native (Warmbly built-in) automation actions — no external connection.
     | "warmbly.add_tag"
@@ -338,6 +339,8 @@ export function defaultActionForProvider(provider: IntegrationProvider): Integra
             return "salesforce.upsert_contact";
         case "close":
             return "close.upsert_lead";
+        case "frappe_crm":
+            return "frappe_crm.upsert_lead";
         default:
             return "webhook.ping";
     }
@@ -349,6 +352,7 @@ export const PUSHABLE_PROVIDERS: IntegrationProvider[] = [
     "pipedrive",
     "salesforce",
     "close",
+    "frappe_crm",
 ];
 
 // Display names for providers, used by contextual menus that list connections.
@@ -357,6 +361,7 @@ export const PROVIDER_LABELS: Record<IntegrationProvider, string> = {
     salesforce: "Salesforce",
     pipedrive: "Pipedrive",
     close: "Close",
+    frappe_crm: "Frappe CRM",
     zapier: "Zapier",
     make: "Make",
     n8n: "n8n",
