@@ -27,7 +27,7 @@ export function DateTimePicker({
     stepMinutes = 30,
     defaultTime = "09:00",
     disabled = false,
-    datePlaceholder = "Pick a date",
+    datePlaceholder = "בחר תאריך",
 }: {
     /** "yyyy-MM-ddTHH:mm" (local), or "" when unset. */
     value: string;
@@ -54,7 +54,7 @@ export function DateTimePicker({
     return (
         <div className={cn("inline-flex items-center gap-1.5", className)}>
             <DatePicker value={date} onChange={setDate} placeholder={datePlaceholder} clearable={false} disabled={disabled} />
-            <TimePicker value={time} onChange={setTime} stepMinutes={stepMinutes} disabled={disabled} placeholder="Time" />
+            <TimePicker value={time} onChange={setTime} stepMinutes={stepMinutes} disabled={disabled} placeholder="שעה" />
         </div>
     );
 }

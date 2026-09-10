@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import {
     Page,
     PageBody,
@@ -70,6 +71,8 @@ function colorForHex(hex: string) {
 }
 
 export default function PipelinesPage() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const pipelines = usePipelines();
     const [newPipelineOpen, setNewPipelineOpen] = React.useState(false);
 
@@ -85,25 +88,25 @@ export default function PipelinesPage() {
     return (
         <Page>
             <PageTopbar
-                eyebrow="Pipelines"
-                subtitle="Stages a deal moves through · custom per workflow"
+                eyebrow={isHe ? "צינורות מכירה" : "Pipelines"}
+                subtitle={isHe ? "שלבים שעסקה מתקדמת דרכם · מותאם אישית לפי תהליך עבודה" : "Stages a deal moves through · custom per workflow"}
             >
                 <TopbarAction
                     icon={<PlusIcon className="w-3 h-3" />}
                     onClick={() => setNewPipelineOpen(true)}
                 >
-                    New pipeline
+                    {isHe ? "צינור חדש" : "New pipeline"}
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={4}>
-                <Stat label="Pipelines" value={list.length} sub="defined" />
-                <Stat label="Stages" value={totalStages} sub="across pipelines" />
-                <Stat label="Avg stages" value={list.length ? Math.round(totalStages / list.length) : 0} sub="per pipeline" />
-                <Stat label="Last modified" value={lastModified(list)} sub="any pipeline" last />
+                <Stat label={isHe ? "צינורות" : "Pipelines"} value={list.length} sub={isHe ? "מוגדרים" : "defined"} />
+                <Stat label={isHe ? "שלבים" : "Stages"} value={totalStages} sub={isHe ? "בכל הצינורות" : "across pipelines"} />
+                <Stat label={isHe ? "ממוצע שלבים" : "Avg stages"} value={list.length ? Math.round(totalStages / list.length) : 0} sub={isHe ? "לצינור" : "per pipeline"} />
+                <Stat label={isHe ? "עודכן לאחרונה" : "Last modified"} value={lastModified(list, isHe)} sub={isHe ? "בכל צינור" : "any pipeline"} last />
             </StatStrip>
 
-            <SectionBar label={pipelines.isPending ? "Loading…" : `${list.length} pipelines`} />
+            <SectionBar label={pipelines.isPending ? (isHe ? "טוען…" : "Loading…") : `${list.length} ${isHe ? "צינורות" : "pipelines"}`} />
             <PageBody className="px-5 py-5">
                 {pipelines.isPending ? (
                     <SkeletonStrip />
@@ -123,14 +126,14 @@ export default function PipelinesPage() {
     );
 }
 
-function lastModified(list: Pipeline[]) {
+function lastModified(list: Pipeline[], isHe: boolean) {
     if (list.length === 0) return "—";
     const max = list.reduce(
         (acc, p) => Math.max(acc, new Date(p.updated_at).getTime()),
         0,
     );
     if (!max) return "—";
-    return new Date(max).toLocaleDateString("en-US", {
+    return new Date(max).toLocaleDateString(isHe ? "he-IL" : "en-US", {
         month: "short",
         day: "numeric",
     });
@@ -147,15 +150,20 @@ function SkeletonStrip() {
 }
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     return (
         <div className="rounded-md border border-dashed border-slate-300 bg-slate-50/40 p-8 text-center">
             <div className="mx-auto size-9 rounded-md bg-white border border-slate-200 flex items-center justify-center mb-3">
                 <Settings2Icon className="w-4 h-4 text-slate-400" />
             </div>
-            <h3 className="text-[13px] font-semibold text-slate-900 mb-1">No pipelines yet</h3>
+            <h3 className="text-[13px] font-semibold text-slate-900 mb-1">
+                {isHe ? "אין עדיין צינורות מכירה" : "No pipelines yet"}
+            </h3>
             <p className="text-[12px] text-slate-500 max-w-md mx-auto mb-4 leading-relaxed">
-                A pipeline is a named sequence of stages a deal moves through. Start
-                with one and add stages as you go.
+                {isHe
+                    ? "צינור מכירה הוא רצף שלבים מוגדר שעסקה עוברת דרכו. התחל עם אחד והוסף שלבים בהמשך."
+                    : "A pipeline is a named sequence of stages a deal moves through. Start with one and add stages as you go."}
             </p>
             <button
                 type="button"
@@ -163,13 +171,15 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
                 className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
             >
                 <PlusIcon className="w-3 h-3" />
-                Create pipeline
+                {isHe ? "צור צינור מכירה" : "Create pipeline"}
             </button>
         </div>
     );
 }
 
 function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const updatePipeline = useUpdatePipeline();
     const deletePipeline = useDeletePipeline();
     const createStage = useCreateStage();
@@ -191,8 +201,8 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
             await toast.promise(
                 updatePipeline.mutateAsync({ id: pipeline.id, data: { name: name.trim() } }),
                 {
-                    loading: "Renaming…",
-                    success: "Pipeline renamed",
+                    loading: isHe ? "משנה שם…" : "Renaming…",
+                    success: isHe ? "שם הצינור עודכן" : "Pipeline renamed",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -203,17 +213,22 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
     }
 
     function doDelete() {
-        confirm?.show(`Delete pipeline "${pipeline.name}"? All stages will be removed.`, async () => {
-            try {
-                await toast.promise(deletePipeline.mutateAsync(pipeline.id), {
-                    loading: "Deleting…",
-                    success: "Pipeline deleted",
-                    error: (e: AppError) => buildError(e),
-                });
-            } catch {
-                /* surfaced */
+        confirm?.show(
+            isHe
+                ? `למחוק את הצינור "${pipeline.name}"? כל השלבים יוסרו.`
+                : `Delete pipeline "${pipeline.name}"? All stages will be removed.`,
+            async () => {
+                try {
+                    await toast.promise(deletePipeline.mutateAsync(pipeline.id), {
+                        loading: isHe ? "מוחק…" : "Deleting…",
+                        success: isHe ? "הצינור נמחק" : "Pipeline deleted",
+                        error: (e: AppError) => buildError(e),
+                    });
+                } catch {
+                    /* surfaced */
+                }
             }
-        });
+        );
     }
 
     const sorted = [...(pipeline.stages ?? [])].sort((a, b) => a.position - b.position);
@@ -241,7 +256,7 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
                             type="button"
                             onClick={saveRename}
                             disabled={updatePipeline.isPending}
-                            aria-label="Save name"
+                            aria-label={isHe ? "שמור שם" : "Save name"}
                             className="size-6 rounded text-emerald-600 hover:bg-emerald-50 inline-flex items-center justify-center"
                         >
                             <CheckIcon className="w-3 h-3" />
@@ -252,7 +267,7 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
                                 setName(pipeline.name);
                                 setRenaming(false);
                             }}
-                            aria-label="Cancel rename"
+                            aria-label={isHe ? "בטל שינוי שם" : "Cancel rename"}
                             className="size-6 rounded text-slate-400 hover:bg-slate-100 inline-flex items-center justify-center"
                         >
                             <XIcon className="w-3 h-3" />
@@ -268,22 +283,22 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
                     </button>
                 )}
                 <span className="text-[10.5px] font-mono text-slate-400 tabular-nums">
-                    {sorted.length} {sorted.length === 1 ? "stage" : "stages"}
+                    {sorted.length} {isHe ? (sorted.length === 1 ? "שלב" : "שלבים") : (sorted.length === 1 ? "stage" : "stages")}
                 </span>
-                <div className="ml-auto flex items-center gap-1">
+                <div className="ltr:ml-auto rtl:mr-auto flex items-center gap-1">
                     <button
                         type="button"
                         onClick={() => setAddStageOpen(true)}
                         className="h-6 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-[11px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1 transition-colors"
                     >
                         <PlusIcon className="w-2.5 h-2.5" />
-                        Stage
+                        {isHe ? "שלב" : "Stage"}
                     </button>
                     <PopoverMenu open={menuOpen} onOpenChange={setMenuOpen} align="end">
                         <PopoverMenuTrigger asChild>
                             <button
                                 type="button"
-                                aria-label="Pipeline menu"
+                                aria-label={isHe ? "תפריט צינור מכירות" : "Pipeline menu"}
                                 className="size-6 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center"
                             >
                                 <MoreHorizontalIcon className="w-3 h-3" />
@@ -294,14 +309,14 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
                                 onSelect={() => setRenaming(true)}
                                 icon={<PencilIcon className="w-3 h-3" />}
                             >
-                                Rename
+                                {isHe ? "שנה שם" : "Rename"}
                             </PopoverMenuItem>
                             <PopoverMenuItem
                                 onSelect={doDelete}
                                 icon={<TrashIcon className="w-3 h-3" />}
                                 danger
                             >
-                                Delete pipeline
+                                {isHe ? "מחק צינור" : "Delete pipeline"}
                             </PopoverMenuItem>
                         </PopoverMenuContent>
                     </PopoverMenu>
@@ -310,7 +325,9 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
             <div className="p-3 flex flex-wrap items-stretch gap-2">
                 {sorted.length === 0 ? (
                     <div className="w-full text-[11.5px] text-slate-400 italic text-center py-3">
-                        No stages yet — add the first one to start tracking deals.
+                        {isHe
+                            ? "אין עדיין שלבים: הוסף את השלב הראשון כדי להתחיל לעקוב אחר עסקאות."
+                            : "No stages yet — add the first one to start tracking deals."}
                     </div>
                 ) : (
                     sorted.map((s, idx) => (
@@ -318,7 +335,7 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
                             <StageCell stage={s} pipelineId={pipeline.id} />
                             {idx < sorted.length - 1 && (
                                 <div className="flex items-center text-slate-300">
-                                    <ArrowRightIcon className="w-3 h-3" />
+                                    <ArrowRightIcon className="w-3 h-3 rtl:rotate-180" />
                                 </div>
                             )}
                         </React.Fragment>
@@ -338,8 +355,8 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
                                 data: { name: data.name, color: data.color, position: nextPos },
                             }),
                             {
-                                loading: "Adding stage…",
-                                success: "Stage added",
+                                loading: isHe ? "מוסיף שלב…" : "Adding stage…",
+                                success: isHe ? "שלב נוסף" : "Stage added",
                                 error: (e: AppError) => buildError(e),
                             },
                         );
@@ -355,6 +372,8 @@ function PipelineCard({ pipeline }: { pipeline: Pipeline }) {
 }
 
 function StageCell({ stage, pipelineId: _pipelineId }: { stage: Stage; pipelineId: string }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const updateStage = useUpdateStage();
     const deleteStage = useDeleteStage();
     const confirm = useConfirm();
@@ -374,8 +393,8 @@ function StageCell({ stage, pipelineId: _pipelineId }: { stage: Stage; pipelineI
             await toast.promise(
                 updateStage.mutateAsync({ pipelineId: _pipelineId, stageId: stage.id, data: { name: name.trim() } }),
                 {
-                    loading: "Saving…",
-                    success: "Stage updated",
+                    loading: isHe ? "שומר…" : "Saving…",
+                    success: isHe ? "השלב עודכן" : "Stage updated",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -389,7 +408,11 @@ function StageCell({ stage, pipelineId: _pipelineId }: { stage: Stage; pipelineI
         try {
             await toast.promise(
                 updateStage.mutateAsync({ pipelineId: _pipelineId, stageId: stage.id, data: { color: hex } }),
-                { loading: "Saving…", success: "Stage recolored", error: (e: AppError) => buildError(e) },
+                {
+                    loading: isHe ? "שומר…" : "Saving…",
+                    success: isHe ? "צבע השלב עודכן" : "Stage recolored",
+                    error: (e: AppError) => buildError(e),
+                },
             );
         } finally {
             setColorOpen(false);
@@ -397,17 +420,20 @@ function StageCell({ stage, pipelineId: _pipelineId }: { stage: Stage; pipelineI
     }
 
     function doDelete() {
-        confirm?.show(`Delete stage "${stage.name}"?`, async () => {
-            try {
-                await toast.promise(deleteStage.mutateAsync({ pipelineId: _pipelineId, stageId: stage.id }), {
-                    loading: "Deleting…",
-                    success: "Stage deleted",
-                    error: (e: AppError) => buildError(e),
-                });
-            } catch {
-                /* surfaced */
+        confirm?.show(
+            isHe ? `למחוק את השלב "${stage.name}"?` : `Delete stage "${stage.name}"?`,
+            async () => {
+                try {
+                    await toast.promise(deleteStage.mutateAsync({ pipelineId: _pipelineId, stageId: stage.id }), {
+                        loading: isHe ? "מוחק…" : "Deleting…",
+                        success: isHe ? "השלב נמחק" : "Stage deleted",
+                        error: (e: AppError) => buildError(e),
+                    });
+                } catch {
+                    /* surfaced */
+                }
             }
-        });
+        );
     }
 
     return (
@@ -417,7 +443,7 @@ function StageCell({ stage, pipelineId: _pipelineId }: { stage: Stage; pipelineI
                     <PopoverMenuTrigger asChild>
                         <button
                             type="button"
-                            aria-label="Change color"
+                            aria-label={isHe ? "שנה צבע" : "Change color"}
                             className={`size-1.5 rounded-full ${color.bg} relative max-md:after:absolute max-md:after:-inset-2.5 max-md:after:content-['']`}
                         />
                     </PopoverMenuTrigger>
@@ -458,7 +484,7 @@ function StageCell({ stage, pipelineId: _pipelineId }: { stage: Stage; pipelineI
                     <button
                         type="button"
                         onDoubleClick={() => setEditing(true)}
-                        className="text-[11.5px] font-medium text-slate-900 truncate text-left"
+                        className="text-[11.5px] font-medium text-slate-900 truncate text-start rtl:text-right"
                     >
                         {stage.name}
                     </button>
@@ -467,7 +493,7 @@ function StageCell({ stage, pipelineId: _pipelineId }: { stage: Stage; pipelineI
                     <button
                         type="button"
                         onClick={() => setEditing(true)}
-                        aria-label="Rename stage"
+                        aria-label={isHe ? "שנה שם שלב" : "Rename stage"}
                         className="md:hidden size-4 rounded text-slate-300 hover:text-slate-600 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
                     >
                         <PencilIcon className="w-2.5 h-2.5" />
@@ -476,49 +502,52 @@ function StageCell({ stage, pipelineId: _pipelineId }: { stage: Stage; pipelineI
                 <button
                     type="button"
                     onClick={doDelete}
-                    aria-label="Delete stage"
-                    className="ml-auto size-4 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                    aria-label={isHe ? "מחק שלב" : "Delete stage"}
+                    className="ltr:ml-auto rtl:mr-auto size-4 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                 >
                     <XIcon className="w-2.5 h-2.5" />
                 </button>
             </div>
             <div className="text-[10px] text-slate-400 tabular-nums font-mono">
-                {stage.deal_count ?? 0} {stage.deal_count === 1 ? "deal" : "deals"}
+                {stage.deal_count ?? 0} {isHe ? (stage.deal_count === 1 ? "עסקה" : "עסקאות") : (stage.deal_count === 1 ? "deal" : "deals")}
             </div>
         </div>
     );
 }
 
 function NewPipelineDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const create = useCreatePipeline();
     const createStage = useCreateStage();
     const [name, setName] = React.useState("");
-    const [stages, setStages] = React.useState<{ name: string; color: string }[]>([
-        { name: "Open",       color: STAGE_COLORS[0].hex },
-        { name: "Qualified",  color: STAGE_COLORS[1].hex },
-        { name: "Won",        color: STAGE_COLORS[4].hex },
-    ]);
+
+    const defaultStages = React.useMemo(() => [
+        { name: isHe ? "פתוח" : "Open", color: STAGE_COLORS[0].hex },
+        { name: isHe ? "מוסמך" : "Qualified", color: STAGE_COLORS[1].hex },
+        { name: isHe ? "נסגר בהצלחה" : "Won", color: STAGE_COLORS[4].hex },
+    ], [isHe]);
+
+    const [stages, setStages] = React.useState<{ name: string; color: string }[]>(defaultStages);
 
     React.useEffect(() => {
         if (!open) {
             setName("");
-            setStages([
-                { name: "Open",       color: STAGE_COLORS[0].hex },
-                { name: "Qualified",  color: STAGE_COLORS[1].hex },
-                { name: "Won",        color: STAGE_COLORS[4].hex },
-            ]);
+            setStages(defaultStages);
+        } else {
+            setStages(defaultStages);
         }
-    }, [open]);
+    }, [open, defaultStages]);
 
     async function submit() {
         if (!name.trim()) {
-            toast.error("Name required");
+            toast.error(isHe ? "נדרש שם" : "Name required");
             return;
         }
         try {
             const p = await toast.promise(create.mutateAsync({ name: name.trim() }), {
-                loading: "Creating pipeline…",
-                success: "Pipeline created",
+                loading: isHe ? "יוצר צינור מכירה…" : "Creating pipeline…",
+                success: isHe ? "צינור המכירה נוצר" : "Pipeline created",
                 error: (e: AppError) => buildError(e),
             });
             // Create stages serially after the pipeline exists.
@@ -561,16 +590,18 @@ function NewPipelineDialog({ open, onClose }: { open: boolean; onClose: () => vo
                             <div className="size-5 rounded bg-slate-100 text-slate-600 flex items-center justify-center">
                                 <Settings2Icon className="w-3 h-3" />
                             </div>
-                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                New
+                            <span className="text-[10px] uppercase tracking-normal text-slate-400 font-medium">
+                                {isHe ? "חדש" : "New"}
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-900 font-medium">Pipeline</span>
+                            <span className="text-[12.5px] text-slate-900 font-medium">
+                                {isHe ? "צינור מכירה" : "Pipeline"}
+                            </span>
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label={isHe ? "סגור" : "Close"}
+                                className="ltr:ml-auto rtl:mr-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -578,11 +609,11 @@ function NewPipelineDialog({ open, onClose }: { open: boolean; onClose: () => vo
 
                         <div className="px-4 py-4 space-y-3 max-h-[60vh] overflow-y-auto">
                             <div>
-                                <Label>Pipeline name</Label>
+                                <Label>{isHe ? "שם הצינור" : "Pipeline name"}</Label>
                                 <TextInput
                                     value={name}
                                     onChange={setName}
-                                    placeholder="Outbound · Sales"
+                                    placeholder={isHe ? "יוצא · מכירות" : "Outbound · Sales"}
                                     autoFocus
                                     className="w-full"
                                 />
@@ -590,7 +621,7 @@ function NewPipelineDialog({ open, onClose }: { open: boolean; onClose: () => vo
 
                             <div>
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <Label className="!mb-0">Initial stages</Label>
+                                    <Label className="!mb-0">{isHe ? "שלבים ראשוניים" : "Initial stages"}</Label>
                                     <button
                                         type="button"
                                         onClick={() =>
@@ -602,7 +633,7 @@ function NewPipelineDialog({ open, onClose }: { open: boolean; onClose: () => vo
                                         className="h-6 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-[11px] text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 transition-colors"
                                     >
                                         <PlusIcon className="w-3 h-3" />
-                                        Add stage
+                                        {isHe ? "הוסף שלב" : "Add stage"}
                                     </button>
                                 </div>
                                 <div className="space-y-1.5">
@@ -619,7 +650,7 @@ function NewPipelineDialog({ open, onClose }: { open: boolean; onClose: () => vo
                                                 onChange={(v) =>
                                                     setStages((cur) => cur.map((c, ii) => (ii === i ? { ...c, name: v } : c)))
                                                 }
-                                                placeholder="Stage name"
+                                                placeholder={isHe ? "שם השלב" : "Stage name"}
                                                 className="flex-1"
                                             />
                                             <button
@@ -627,7 +658,7 @@ function NewPipelineDialog({ open, onClose }: { open: boolean; onClose: () => vo
                                                 onClick={() =>
                                                     setStages((cur) => cur.filter((_, ii) => ii !== i))
                                                 }
-                                                aria-label="Remove stage"
+                                                aria-label={isHe ? "הסר שלב" : "Remove stage"}
                                                 className="size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors shrink-0"
                                             >
                                                 <TrashIcon className="w-3 h-3" />
@@ -642,9 +673,9 @@ function NewPipelineDialog({ open, onClose }: { open: boolean; onClose: () => vo
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="ltr:ml-auto rtl:mr-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
-                                Cancel
+                                {isHe ? "ביטול" : "Cancel"}
                             </button>
                             <button
                                 type="button"
@@ -655,7 +686,7 @@ function NewPipelineDialog({ open, onClose }: { open: boolean; onClose: () => vo
                                 {(create.isPending || createStage.isPending) && (
                                     <Loader2Icon className="w-3 h-3 animate-spin" />
                                 )}
-                                Create
+                                {isHe ? "צור" : "Create"}
                             </button>
                         </div>
                     </motion.div>
@@ -676,6 +707,8 @@ function AddStageDialog({
     onConfirm: (data: { name: string; color: string }) => Promise<void>;
     pending: boolean;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const [name, setName] = React.useState("");
     const [color, setColor] = React.useState(STAGE_COLORS[0].hex);
 
@@ -708,32 +741,35 @@ function AddStageDialog({
                         className="w-full max-w-[400px] rounded-lg bg-white border border-slate-200 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.18)]"
                     >
                         <div className="h-11 px-4 border-b border-slate-200 flex items-center gap-2">
-                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                New
+                            <span className="text-[10px] uppercase tracking-normal text-slate-400 font-medium">
+                                {isHe ? "חדש" : "New"}
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-900 font-medium">Stage</span>
+                            <span className="text-[12.5px] text-slate-900 font-medium">
+                                {isHe ? "שלב" : "Stage"}
+                            </span>
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label={isHe ? "סגור" : "Close"}
+                                className="ltr:ml-auto rtl:mr-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
                         </div>
                         <div className="px-4 py-4 space-y-3">
                             <div>
-                                <Label>Stage name</Label>
+                                <Label>{isHe ? "שם השלב" : "Stage name"}</Label>
                                 <TextInput
                                     value={name}
                                     onChange={setName}
-                                    placeholder="e.g. Demo set"
+                                    placeholder={isHe ? "לדוגמה: נקבעה הדגמה" : "e.g. Demo set"}
                                     autoFocus
                                     className="w-full"
                                 />
                             </div>
                             <div>
-                                <Label>Color</Label>
+                                <Label>{isHe ? "צבע" : "Color"}</Label>
                                 <div className="flex gap-1.5">
                                     {STAGE_COLORS.map((c) => (
                                         <button
@@ -753,9 +789,9 @@ function AddStageDialog({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="ltr:ml-auto rtl:mr-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
-                                Cancel
+                                {isHe ? "ביטול" : "Cancel"}
                             </button>
                             <button
                                 type="button"
@@ -764,7 +800,7 @@ function AddStageDialog({
                                 className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 {pending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                                Add stage
+                                {isHe ? "הוסף שלב" : "Add stage"}
                             </button>
                         </div>
                     </motion.div>
@@ -782,7 +818,7 @@ function ColorDot({ hex, onChange }: { hex: string; onChange: (hex: string) => v
             <PopoverMenuTrigger asChild>
                 <button
                     type="button"
-                    aria-label="Color"
+                    aria-label="צבע"
                     className={`shrink-0 size-7 rounded-md border border-slate-200 hover:border-slate-300 transition-colors flex items-center justify-center bg-white`}
                 >
                     <span className={`size-3 rounded-full ${color.bg}`} />

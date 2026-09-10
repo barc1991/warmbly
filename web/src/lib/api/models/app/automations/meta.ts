@@ -36,28 +36,28 @@ export function triggerIsInboundWebhook(ev: string): boolean {
 
 // Human labels for the provider action handlers (the action a step performs).
 export const ACTION_LABELS: Record<string, string> = {
-    "slack.notify": "Send a Slack message",
-    "discord.notify": "Send a Discord message",
-    "hubspot.upsert_contact": "Create / update HubSpot contact",
-    "pipedrive.upsert_person": "Create / update Pipedrive person",
-    "salesforce.upsert_contact": "Create / update Salesforce contact",
-    "close.upsert_lead": "Create / update Close lead",
-    "webhook.ping": "Send a webhook",
+    "slack.notify": "שלח הודעה ב-Slack",
+    "discord.notify": "שלח הודעה ב-Discord",
+    "hubspot.upsert_contact": "צור / עדכן איש קשר ב-HubSpot",
+    "pipedrive.upsert_person": "צור / עדכן אדם ב-Pipedrive",
+    "salesforce.upsert_contact": "צור / עדכן איש קשר ב-Salesforce",
+    "close.upsert_lead": "צור / עדכן ליד ב-Close",
+    "webhook.ping": "שלח Webhook",
     // Native (Warmbly built-in) actions — no external connection needed.
-    "warmbly.add_tag": "Add a tag",
-    "warmbly.remove_tag": "Remove a tag",
-    "warmbly.create_task": "Create a task",
-    "warmbly.create_deal": "Create a deal",
-    "warmbly.move_deal_stage": "Move the deal stage",
-    "warmbly.unsubscribe": "Unsubscribe the contact",
-    "warmbly.run_automation": "Run another automation",
-    "warmbly.label_email": "Label the email",
-    "warmbly.set_variables": "Set variables",
-    "warmbly.fire_event": "Fire event",
-    "warmbly.upsert_contact": "Create or update contact",
-    "warmbly.add_to_campaign": "Add to campaign",
-    "warmbly.ai_step": "AI step",
-    "warmbly.ai_switch": "AI switch",
+    "warmbly.add_tag": "הוסף תגית",
+    "warmbly.remove_tag": "הסר תגית",
+    "warmbly.create_task": "צור משימה",
+    "warmbly.create_deal": "צור עסקה",
+    "warmbly.move_deal_stage": "העבר שלב בעסקה",
+    "warmbly.unsubscribe": "בטל הרשמת איש קשר",
+    "warmbly.run_automation": "הפעל אוטומציה אחרת",
+    "warmbly.label_email": "הוסף תווית לאימייל",
+    "warmbly.set_variables": "הגדר משתנים",
+    "warmbly.fire_event": "הפעל אירוע",
+    "warmbly.upsert_contact": "צור או עדכן איש קשר",
+    "warmbly.add_to_campaign": "הוסף לקמפיין",
+    "warmbly.ai_step": "שלב AI",
+    "warmbly.ai_switch": "פיצול מבוסס AI",
 };
 
 export function actionLabel(a: string): string {
@@ -207,11 +207,11 @@ export const EXPRESSION_FIELD_KEY = "__expression__";
 export const AI_FIELD_KEY = "__ai__";
 
 export const WARMUP_STATES = [
-    { value: "healthy", label: "Healthy" },
-    { value: "watch", label: "Watch" },
-    { value: "throttled", label: "Throttled" },
-    { value: "quarantined", label: "Quarantined" },
-    { value: "blocked", label: "Blocked" },
+    { value: "healthy", label: "תקין" },
+    { value: "watch", label: "במעקב" },
+    { value: "throttled", label: "מוגבל" },
+    { value: "quarantined", label: "בהסגר" },
+    { value: "blocked", label: "חסום" },
 ];
 
 const MEETING_FIELDS: TriggerFieldDef[] = [
@@ -230,12 +230,12 @@ const DELIVERABILITY_FIELDS: TriggerFieldDef[] = [
 ];
 
 export const CONTACT_SOURCES = [
-    { value: "manual", label: "Added manually" },
-    { value: "campaign", label: "Added from a campaign" },
+    { value: "manual", label: "הוסף ידנית" },
+    { value: "campaign", label: "הוסף מקמפיין" },
     { value: "api", label: "API" },
-    { value: "form", label: "Form submission" },
-    { value: "automation", label: "Automation" },
-    { value: "ai_assistant", label: "AI assistant" },
+    { value: "form", label: "שליחת טופס" },
+    { value: "automation", label: "אוטומציה" },
+    { value: "ai_assistant", label: "עוזר AI" },
 ];
 
 export const TRIGGER_FIELDS: Record<string, TriggerFieldDef[]> = {
@@ -293,14 +293,14 @@ const GENERIC_FIELDS: TriggerFieldDef[] = [
 
 const RANDOM_FIELD: TriggerFieldDef = {
     key: RANDOM_FIELD_KEY,
-    label: "Random split",
+    label: "פיצול אקראי",
     type: "number",
     defaultOperator: "chance",
 };
 
 const EXPRESSION_FIELD: TriggerFieldDef = {
     key: EXPRESSION_FIELD_KEY,
-    label: "Advanced expression",
+    label: "ביטוי מתקדם",
     type: "string",
     defaultOperator: "",
 };
@@ -309,7 +309,7 @@ const EXPRESSION_FIELD: TriggerFieldDef = {
 // event data (true edge = yes). Costs 1 credit per evaluation.
 const AI_FIELD: TriggerFieldDef = {
     key: AI_FIELD_KEY,
-    label: "Ask AI (yes/no)",
+    label: "שאל AI (כן/לא)",
     type: "string",
     defaultOperator: "",
 };
@@ -350,14 +350,14 @@ export function conditionFieldKey(c: AutomationCondition): string {
 }
 
 export const OPERATOR_LABELS: Record<string, string> = {
-    equals: "is",
-    not_equals: "is not",
-    contains: "contains",
+    equals: "שווה ל-",
+    not_equals: "אינו שווה ל-",
+    contains: "מכיל",
     gte: "≥",
     lte: "≤",
-    exists: "is present",
-    is_true: "is true",
-    chance: "% of the time",
+    exists: "קיים",
+    is_true: "מתקיים",
+    chance: "% מהזמן",
 };
 
 // Which operators make sense for each value type.

@@ -399,7 +399,19 @@ export default function CampaignsPage() {
             </StatStrip>
 
             <SectionBar
-                label={status === "all" ? "All campaigns" : `${status[0].toUpperCase()}${status.slice(1)}`}
+                label={
+                    i18n.language === "he"
+                        ? (status === "all"
+                            ? "כל הקמפיינים"
+                            : status === "active"
+                            ? "קמפיינים פעילים"
+                            : status === "paused"
+                            ? "קמפיינים מושהים"
+                            : status === "draft"
+                            ? "טיוטות"
+                            : "קמפיינים שהסתיימו")
+                        : (status === "all" ? "All campaigns" : `${status[0].toUpperCase()}${status.slice(1)}`)
+                }
                 count={filtered.length}
             >
                 <SearchInput
@@ -466,33 +478,31 @@ export default function CampaignsPage() {
                         <SelectButton
                             icon={<FilterIcon className="w-3.5 h-3.5" />}
                             label={
-                                sort === "newest"
-                                    ? "Newest"
-                                    : sort === "oldest"
-                                        ? "Oldest"
-                                        : "Name"
+                                i18n.language === "he"
+                                    ? (sort === "newest" ? "הכי חדש" : sort === "oldest" ? "הכי ישן" : "לפי שם")
+                                    : (sort === "newest" ? "Newest" : sort === "oldest" ? "Oldest" : "Name")
                             }
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent>
-                        <PopoverMenuLabel>Sort</PopoverMenuLabel>
+                        <PopoverMenuLabel>{i18n.language === "he" ? "מיון" : "Sort"}</PopoverMenuLabel>
                         <PopoverMenuItem
                             selected={sort === "newest"}
                             onSelect={() => setSort("newest")}
                         >
-                            Newest first
+                            {i18n.language === "he" ? "הכי חדש תחילה" : "Newest first"}
                         </PopoverMenuItem>
                         <PopoverMenuItem
                             selected={sort === "oldest"}
                             onSelect={() => setSort("oldest")}
                         >
-                            Oldest first
+                            {i18n.language === "he" ? "הכי ישן תחילה" : "Oldest first"}
                         </PopoverMenuItem>
                         <PopoverMenuItem
                             selected={sort === "name"}
                             onSelect={() => setSort("name")}
                         >
-                            Name (A–Z)
+                            {i18n.language === "he" ? "לפי שם (א–ת)" : "Name (A–Z)"}
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -511,7 +521,9 @@ export default function CampaignsPage() {
                     <ErrorState
                         message={
                             campaignsData.error?.message ||
-                            "The request failed. The backend may be down or returning an error."
+                            (i18n.language === "he"
+                                ? "הבקשה נכשלה. ייתכן שהשרת אינו זמין או שהחזיר שגיאה."
+                                : "The request failed. The backend may be down or returning an error.")
                         }
                         onRetry={() => campaignsData.refetch()}
                         isRefetching={campaignsData.isFetching}
@@ -519,24 +531,32 @@ export default function CampaignsPage() {
                 ) : filtered.length === 0 ? (
                     campaigns.length === 0 ? (
                         <EmptyBlock
-                            title="No campaigns yet"
-                            body="Create your first sequence to start reaching prospects."
+                            title={i18n.language === "he" ? "אין קמפיינים עדיין" : "No campaigns yet"}
+                            body={i18n.language === "he" ? "צור את הרצף הראשון שלך כדי להתחיל להגיע לנמענים." : "Create your first sequence to start reaching prospects."}
                             cta={
                                 <TopbarAction
                                     icon={<PlusIcon className="w-3 h-3" />}
                                     onClick={() => setNewOpen(true)}
                                 >
-                                    New campaign
+                                    {t("campaigns:newCampaign", "קמפיין חדש")}
                                 </TopbarAction>
                             }
                         />
                     ) : (
                         <EmptyBlock
-                            title={`No ${status} campaigns`}
-                            body={`Switch to “All” to see every sequence.`}
+                            title={
+                                i18n.language === "he"
+                                    ? `אין קמפיינים ${status === "active" ? "פעילים" : status === "paused" ? "מושהים" : status === "draft" ? "בטיוטה" : "שהסתיימו"}`
+                                    : `No ${status} campaigns`
+                            }
+                            body={
+                                i18n.language === "he"
+                                    ? "עבור למצב \"הכל\" כדי לצפות בכל הרצפים."
+                                    : "Switch to “All” to see every sequence."
+                            }
                             cta={
                                 <TopbarAction onClick={() => setStatus("all")} variant="ghost">
-                                    Show all
+                                    {i18n.language === "he" ? "הצג הכל" : "Show all"}
                                 </TopbarAction>
                             }
                         />
@@ -648,7 +668,7 @@ function ErrorState({
             <div className="mx-auto mb-3 size-8 rounded-md bg-red-50 text-red-600 flex items-center justify-center">
                 <AlertTriangleIcon className="w-4 h-4" />
             </div>
-            <p className="text-[12.5px] text-slate-900 font-medium">Couldn't load campaigns</p>
+            <p className="text-[12.5px] text-slate-900 font-medium">לא ניתן לטעון קמפיינים</p>
             <p className="text-[11.5px] text-slate-500 mt-1 max-w-[44ch] mx-auto leading-relaxed">
                 {message}
             </p>
@@ -664,14 +684,14 @@ function ErrorState({
                     ) : (
                         <RefreshCcwIcon className="w-3 h-3" />
                     )}
-                    Try again
+                    נסה שוב
                 </button>
                 <button
                     type="button"
                     onClick={() => window.location.reload()}
                     className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] font-medium transition-colors"
                 >
-                    Reload page
+                    רענן דף
                 </button>
             </div>
         </div>

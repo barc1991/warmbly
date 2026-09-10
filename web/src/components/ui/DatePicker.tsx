@@ -21,11 +21,11 @@ function parseISODate(v: string): Date | null {
 export function DatePicker({
     value,
     onChange,
-    placeholder = "Any date",
+    placeholder = "כל תאריך",
     className,
     clearable = true,
     disabled = false,
-    display = "MMM d, yyyy",
+    display = "yyyy-MM-dd",
 }: {
     /** "yyyy-MM-dd", or "" when unset. */
     value: string;
@@ -69,14 +69,14 @@ export function DatePicker({
                 )}
             >
                 <CalendarIcon className="w-3 h-3 text-slate-400 shrink-0" />
-                <span className={cn("truncate flex-1 text-left", selected ? "text-slate-900" : "text-slate-400")}>
+                <span className={cn("truncate flex-1 text-start rtl:text-right ltr:text-left", selected ? "text-slate-900" : "text-slate-400")}>
                     {selected ? format(selected, display) : placeholder}
                 </span>
                 {clearable && value && (
                     <span
                         role="button"
                         tabIndex={-1}
-                        aria-label="Clear date"
+                        aria-label="נקה תאריך"
                         onClick={(e) => {
                             e.stopPropagation();
                             onChange("");

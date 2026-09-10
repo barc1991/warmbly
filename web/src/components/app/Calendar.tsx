@@ -48,12 +48,17 @@ export default function Calendar({
     close();
   };
 
+const HEBREW_MONTHS = [
+  "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+  "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
+];
+
   const generateCalendarDays = () => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
 
-    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
 
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   };
@@ -138,32 +143,32 @@ export default function Calendar({
                 <div className="flex items-center justify-between px-3 h-11 border-b border-slate-200/70">
                   <button
                     type="button"
-                    aria-label="Previous month"
+                    aria-label="חודש קודם"
                     onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                     className="size-7 rounded-md inline-flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                   >
-                    <ChevronLeftIcon className="w-4 h-4" />
+                    <ChevronLeftIcon className="w-4 h-4 rtl:rotate-180" />
                   </button>
                   <span className="text-[12.5px] font-medium text-slate-900 tabular-nums">
-                    {format(currentMonth, "MMMM yyyy")}
+                    {HEBREW_MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
                   </span>
                   <button
                     type="button"
-                    aria-label="Next month"
+                    aria-label="חודש הבא"
                     onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                     className="size-7 rounded-md inline-flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                   >
-                    <ChevronRightIcon className="w-4 h-4" />
+                    <ChevronRightIcon className="w-4 h-4 rtl:rotate-180" />
                   </button>
                 </div>
 
                 <div className="p-3">
                   {/* weekday labels */}
                   <div className="grid grid-cols-7 gap-1 mb-1">
-                    {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((day) => (
+                    {["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"].map((day) => (
                       <div
                         key={day}
-                        className="text-center text-[10px] font-medium uppercase tracking-[0.06em] text-slate-400 py-1"
+                        className="text-center text-[11px] font-medium text-slate-500 py-1"
                       >
                         {day}
                       </div>
@@ -216,7 +221,7 @@ export default function Calendar({
                     }}
                     className="text-[11.5px] text-slate-500 hover:text-slate-900 transition-colors"
                   >
-                    Clear
+                    נקה
                   </button>
                   <button
                     type="button"
@@ -226,7 +231,7 @@ export default function Calendar({
                     }}
                     className="text-[11.5px] font-medium text-sky-600 hover:text-sky-700 transition-colors"
                   >
-                    Today
+                    היום
                   </button>
                 </div>
               </motion.div>

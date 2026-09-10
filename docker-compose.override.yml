@@ -1,0 +1,10 @@
+# Warmbly Docker Compose Override
+# This file ensures that local Hebrew/RTL modifications to the web frontend
+# are preserved and never overwritten by 'docker compose pull'.
+
+services:
+  web:
+    image: warmbly-web-local:latest
+    build:
+      context: ./web
+      dockerfile: Dockerfile

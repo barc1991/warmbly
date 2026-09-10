@@ -45,6 +45,8 @@ import { Drawer, SectionLabel } from "./ConnectDrawer";
 import FieldMapEditor from "./FieldMapEditor";
 import StatusPill, { HealthDot } from "./StatusPill";
 
+import { useTranslation } from "react-i18next";
+
 // Providers whose deliveries we can test (notify + generic webhook). Automation
 // tools additionally expose an HMAC signing secret for verification.
 const WEBHOOK_TOOL_PROVIDERS = ["slack", "discord", "zapier", "make", "n8n"];
@@ -63,6 +65,9 @@ export default function ConnectionDetail({
     entry?: IntegrationCatalogEntry;
     onClose: () => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+
     const detail = useConnectionDetail(connection.id);
     const disconnect = useDisconnectIntegration();
     const reauth = useReauthIntegration();
@@ -103,31 +108,36 @@ export default function ConnectionDetail({
             const { url } = await reauth.mutateAsync(conn.id);
             const { code, state } = await openOAuthPopup(url);
             await finishOAuth.mutateAsync({ code, state });
-            toast.success("Reconnected");
+            toast.success(isHe ? "החיבור אומת מחדש" : "Reconnected");
             detail.refetch();
         } catch (err: unknown) {
-            toast.error(msg(err) ?? "Reconnect failed");
+            toast.error(msg(err) ?? (isHe ? "האימות מחדש נכשל" : "Reconnect failed"));
         } finally {
             setBusy(false);
         }
     }
 
     function handleDisconnect() {
-        confirm.show(`Disconnect ${conn.label}? Automations using it will stop.`, async () => {
-            try {
-                await disconnect.mutateAsync(conn.id);
-                toast.success("Disconnected");
-                onClose();
-            } catch {
-                toast.error("Disconnect failed");
-            }
-        });
+        confirm.show(
+            isHe
+                ? `לנתק את ${conn.label}? אוטומציות המשתמשות בחיבור זה יפסיקו לפעול.`
+                : `Disconnect ${conn.label}? Automations using it will stop.`,
+            async () => {
+                try {
+                    await disconnect.mutateAsync(conn.id);
+                    toast.success(isHe ? "החיבור נותק" : "Disconnected");
+                    onClose();
+                } catch {
+                    toast.error(isHe ? "הניתוק נכשל" : "Disconnect failed");
+                }
+            },
+        );
     }
 
 
     return (
         <Drawer
-            title="Manage"
+            title={isHe ? "ניהול" : "Manage"}
             name={conn.label}
             provider={conn.provider}
             onClose={onClose}
@@ -145,14 +155,28 @@ export default function ConnectionDetail({
                         <StatusPill status={conn.status} />
                         <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
                             <HealthDot health={conn.health} />
-                            {conn.health}
+                            {conn.health === "healthy"
+                                ? isHe
+                                    ? "תקין"
+                                    : "healthy"
+                                : conn.health === "degraded"
+                                  ? isHe
+                                      ? "מוגבל"
+                                      : "degraded"
+                                  : conn.health}
                         </div>
                     </div>
-                    {conn.external_account_name && <Row label="Account" value={conn.external_account_name} />}
-                    <Row label="Auth" value={conn.auth_method.replace("_", " ")} mono />
+                    {conn.external_account_name && <Row label={isHe ? "חשבון" : "Account"} value={conn.external_account_name} />}
+                    <Row label={isHe ? "אימות" : "Auth"} value={conn.auth_method.replace("_", " ")} mono />
                     <Row
-                        label="Last sync"
-                        value={conn.last_synced_at ? new Date(conn.last_synced_at).toLocaleString() : "never"}
+                        label={isHe ? "סנכרון אחרון" : "Last sync"}
+                        value={
+                            conn.last_synced_at
+                                ? new Date(conn.last_synced_at).toLocaleString(isHe ? "he-IL" : undefined)
+                                : isHe
+                                  ? "אף פעם"
+                                  : "never"
+                        }
                     />
                     {conn.last_error && (
                         <div className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 flex items-start gap-2">
@@ -168,7 +192,7 @@ export default function ConnectionDetail({
                             className="w-full h-8 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-[12px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors"
                         >
                             {busy ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <RefreshCwIcon className="w-3.5 h-3.5" />}
-                            Reconnect to fix
+                            {isHe ? "התחבר מחדש לתיקון" : "Reconnect to fix"}
                         </button>
                     )}
                 </div>
@@ -176,7 +200,7 @@ export default function ConnectionDetail({
                 {/* Granted access */}
                 {conn.granted_scopes && conn.granted_scopes.length > 0 && (
                     <div className="px-5 py-4 border-b border-slate-200 space-y-2">
-                        <SectionLabel>Granted access</SectionLabel>
+                        <SectionLabel>{isHe ? "הרשאות שהוענקו" : "Granted access"}</SectionLabel>
                         <div className="flex flex-wrap gap-1">
                             {conn.granted_scopes.map((s) => (
                                 <span
@@ -193,7 +217,7 @@ export default function ConnectionDetail({
                 {/* Field mapping — control exactly what each CRM record gets */}
                 {crmObject && (
                     <div className="px-5 py-4 border-b border-slate-200 space-y-2.5">
-                        <SectionLabel>Field mapping</SectionLabel>
+                        <SectionLabel>{isHe ? "מיפוי שדות" : "Field mapping"}</SectionLabel>
                         <FieldMappingsBlock connectionId={conn.id} object={crmObject} />
                     </div>
                 )}
@@ -201,7 +225,7 @@ export default function ConnectionDetail({
                 {/* Booking link — for scheduling providers (Calendly / Cal.com) */}
                 {capability?.supports_booking_link && (
                     <div className="px-5 py-4 border-b border-slate-200 space-y-2">
-                        <SectionLabel>Booking link</SectionLabel>
+                        <SectionLabel>{isHe ? "קישור לקביעת פגישות" : "Booking link"}</SectionLabel>
                         <BookingLinkBlock connection={conn} onSaved={() => detail.refetch()} />
                     </div>
                 )}
@@ -209,7 +233,7 @@ export default function ConnectionDetail({
                 {/* Webhook delivery — test wiring + (automation tools) signature */}
                 {isWebhookTool && (
                     <div className="px-5 py-4 border-b border-slate-200 space-y-3">
-                        <SectionLabel>Webhook delivery</SectionLabel>
+                        <SectionLabel>{isHe ? "שליחת Webhook" : "Webhook delivery"}</SectionLabel>
                         <WebhookToolsBlock
                             connectionId={conn.id}
                             provider={conn.provider}
@@ -220,9 +244,9 @@ export default function ConnectionDetail({
 
                 {/* Activity */}
                 <div className="px-5 py-4 space-y-2">
-                    <SectionLabel>Recent activity</SectionLabel>
+                    <SectionLabel>{isHe ? "פעילות אחרונה" : "Recent activity"}</SectionLabel>
                     {runs.length === 0 ? (
-                        <p className="text-[11.5px] text-slate-400">Nothing yet.</p>
+                        <p className="text-[11.5px] text-slate-400">{isHe ? "אין פעילות עדיין." : "Nothing yet."}</p>
                     ) : (
                         <div className="space-y-1">
                             {runs.map((r) => (
@@ -239,7 +263,7 @@ export default function ConnectionDetail({
                                         {r.detail ? ` · ${r.detail}` : ""}
                                     </span>
                                     <span className="text-slate-400 tabular-nums shrink-0">
-                                        {new Date(r.started_at).toLocaleTimeString()}
+                                        {new Date(r.started_at).toLocaleTimeString(isHe ? "he-IL" : undefined)}
                                     </span>
                                 </div>
                             ))}
@@ -255,7 +279,7 @@ export default function ConnectionDetail({
                     className="h-7 px-3 rounded-md text-[12px] text-rose-600 hover:bg-rose-50 inline-flex items-center gap-1.5 transition-colors"
                 >
                     <UnplugIcon className="w-3.5 h-3.5" />
-                    Disconnect
+                    {isHe ? "נתק חיבור" : "Disconnect"}
                 </button>
                 {isOAuth && !needsReauth && (
                     <button
@@ -265,7 +289,7 @@ export default function ConnectionDetail({
                         className="h-7 px-3 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:border-slate-300 inline-flex items-center gap-1.5 transition-colors"
                     >
                         {busy ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <RefreshCwIcon className="w-3.5 h-3.5" />}
-                        Reauthorize
+                        {isHe ? "אמת מחדש" : "Reauthorize"}
                     </button>
                 )}
             </div>
@@ -275,9 +299,11 @@ export default function ConnectionDetail({
 
 // FieldMappingsBlock loads the connection's field maps and renders the editor.
 function FieldMappingsBlock({ connectionId, object }: { connectionId: string; object: CapabilityObject }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const mappings = useFieldMappings(connectionId);
     if (mappings.isPending) {
-        return <p className="text-[11.5px] text-slate-400 inline-flex items-center gap-1.5"><Loader2Icon className="w-3 h-3 animate-spin" /> Loading…</p>;
+        return <p className="text-[11.5px] text-slate-400 inline-flex items-center gap-1.5"><Loader2Icon className="w-3 h-3 animate-spin" /> {isHe ? "טוען…" : "Loading…"}</p>;
     }
     return (
         <FieldMapEditor
@@ -291,6 +317,8 @@ function FieldMappingsBlock({ connectionId, object }: { connectionId: string; ob
 // BookingLinkBlock lets the user set the public scheduling URL surfaced by the
 // contextual "Book a call" buttons across the dashboard.
 function BookingLinkBlock({ connection, onSaved }: { connection: IntegrationConnection; onSaved: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const update = useUpdateConnectionConfig();
     const stored =
         (connection.config_capabilities?.scheduling_url as string) ||
@@ -302,7 +330,7 @@ function BookingLinkBlock({ connection, onSaved }: { connection: IntegrationConn
     async function save() {
         const v = url.trim();
         if (v && !/^https?:\/\//i.test(v)) {
-            toast.error("Enter a full https:// booking link");
+            toast.error(isHe ? "הזן קישור פגישות מלא הכולל https://" : "Enter a full https:// booking link");
             return;
         }
         await toast.promise(
@@ -310,7 +338,9 @@ function BookingLinkBlock({ connection, onSaved }: { connection: IntegrationConn
                 connectionId: connection.id,
                 config_capabilities: { ...(connection.config_capabilities ?? {}), scheduling_url: v },
             }),
-            { loading: "Saving…", success: "Booking link saved", error: "Could not save" },
+            isHe
+                ? { loading: "שומר…", success: "קישור הפגישות נשמר", error: "לא ניתן לשמור" }
+                : { loading: "Saving…", success: "Booking link saved", error: "Could not save" },
         );
         onSaved();
     }
@@ -318,8 +348,9 @@ function BookingLinkBlock({ connection, onSaved }: { connection: IntegrationConn
     return (
         <div className="space-y-1.5">
             <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                Paste your public scheduling link. A “Book a call” button appears on contacts and inbox
-                threads, prefilled with the contact’s email.
+                {isHe
+                    ? "הדבק את הקישור הציבורי שלך לקביעת פגישות. לחצן ”קבע שיחה” יופיע באנשי קשר ובשיחות בתיבת הדואר, עם כתובת האימייל של איש הקשר במילוי אוטומטי."
+                    : "Paste your public scheduling link. A “Book a call” button appears on contacts and inbox threads, prefilled with the contact’s email."}
             </p>
             <TextInput value={url} onChange={setUrl} placeholder="https://calendly.com/you/intro" className="font-mono" />
             {dirty && (
@@ -334,7 +365,7 @@ function BookingLinkBlock({ connection, onSaved }: { connection: IntegrationConn
                         )}
                     >
                         {update.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                        Save link
+                        {isHe ? "שמור קישור" : "Save link"}
                     </button>
                 </div>
             )}
@@ -345,7 +376,7 @@ function BookingLinkBlock({ connection, onSaved }: { connection: IntegrationConn
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
     return (
         <div className="flex items-center justify-between gap-3">
-            <span className="text-[10.5px] uppercase tracking-[0.1em] text-slate-400 shrink-0">{label}</span>
+            <span className="text-[10.5px] uppercase tracking-normal text-slate-400 shrink-0">{label}</span>
             <span className={cn("text-[12px] text-slate-700 truncate min-w-0", mono && "font-mono")}>{value}</span>
         </div>
     );
@@ -367,32 +398,38 @@ function WebhookToolsBlock({
     provider: string;
     hasAutomations: boolean;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const test = useTestConnection();
     const reveal = useRevealWebhookSecret();
     const [secret, setSecret] = React.useState<string | null>(null);
 
     const runTest = () =>
         test.mutate(connectionId, {
-            onSuccess: (r) => toast.success(`Sent ${r.sent} test event${r.sent === 1 ? "" : "s"}`),
-            onError: (e) => toast.error(msg(e) ?? "Test failed"),
+            onSuccess: (r) => toast.success(isHe ? `נשלחו ${r.sent} אירועי בדיקה` : `Sent ${r.sent} test event${r.sent === 1 ? "" : "s"}`),
+            onError: (e) => toast.error(msg(e) ?? (isHe ? "הבדיקה נכשלה" : "Test failed")),
         });
 
     const showSecret = () =>
         reveal.mutate(connectionId, {
             onSuccess: (r) => setSecret(r.signing_secret),
-            onError: (e) => toast.error(msg(e) ?? "Could not load secret"),
+            onError: (e) => toast.error(msg(e) ?? (isHe ? "לא ניתן לטעון את המפתח" : "Could not load secret")),
         });
 
     const copy = () => {
-        if (secret) void navigator.clipboard.writeText(secret).then(() => toast.success("Copied"));
+        if (secret) void navigator.clipboard.writeText(secret).then(() => toast.success(isHe ? "הועתק ללוח" : "Copied"));
     };
 
     return (
         <div className="space-y-2.5">
             <p className="text-[11.5px] text-slate-400 leading-relaxed">
                 {hasAutomations
-                    ? "Send a sample event to confirm your automation is wired correctly."
-                    : "Build an automation that uses this integration first, then send a test event to confirm it's wired."}
+                    ? isHe
+                        ? "שלח אירוע לדוגמה כדי לוודא שהאוטומציה שלך מחוברת כהלכה."
+                        : "Send a sample event to confirm your automation is wired correctly."
+                    : isHe
+                      ? "בנה תחילה אוטומציה שמשתמשת באינטגרציה זו, ולאחר מכן שלח אירוע בדיקה."
+                      : "Build an automation that uses this integration first, then send a test event to confirm it's wired."}
             </p>
             <button
                 type="button"
@@ -403,20 +440,30 @@ function WebhookToolsBlock({
                 {test.isPending ? (
                     <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                    <SendIcon className="w-3.5 h-3.5" />
+                    <SendIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                 )}
-                Send test event
+                {isHe ? "שלח אירוע בדיקה" : "Send test event"}
             </button>
 
             {SIGNING_PROVIDERS.includes(provider) && (
                 <div className="pt-1.5 space-y-1.5">
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                        Signing secret
+                    <div className="text-[10px] uppercase tracking-normal text-slate-400 font-medium">
+                        {isHe ? "מפתח חתימה סודי" : "Signing secret"}
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Every delivery is signed with{" "}
-                        <span className="font-mono">X-Warmbly-Signature: t=&lt;unix&gt;,v1=&lt;hmac&gt;</span> (HMAC-SHA256
-                        of <span className="font-mono">{"{t}.{body}"}</span>). Use this secret to verify it.
+                        {isHe ? (
+                            <>
+                                כל שליחה נחתמת באמצעות{" "}
+                                <span className="font-mono">X-Warmbly-Signature: t=&lt;unix&gt;,v1=&lt;hmac&gt;</span> (HMAC-SHA256
+                                של <span className="font-mono">{"{t}.{body}"}</span>). השתמש במפתח זה לאימות.
+                            </>
+                        ) : (
+                            <>
+                                Every delivery is signed with{" "}
+                                <span className="font-mono">X-Warmbly-Signature: t=&lt;unix&gt;,v1=&lt;hmac&gt;</span> (HMAC-SHA256
+                                of <span className="font-mono">{"{t}.{body}"}</span>). Use this secret to verify it.
+                            </>
+                        )}
                     </p>
                     {secret ? (
                         <div className="flex items-center gap-1.5">
@@ -426,7 +473,7 @@ function WebhookToolsBlock({
                             <button
                                 type="button"
                                 onClick={copy}
-                                title="Copy"
+                                title={isHe ? "העתק" : "Copy"}
                                 className="h-7 w-7 rounded-md border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-900 inline-flex items-center justify-center"
                             >
                                 <CopyIcon className="w-3.5 h-3.5" />
@@ -444,7 +491,7 @@ function WebhookToolsBlock({
                             ) : (
                                 <EyeIcon className="w-3.5 h-3.5" />
                             )}
-                            Reveal signing secret
+                            {isHe ? "חשוף מפתח חתימה" : "Reveal signing secret"}
                         </button>
                     )}
                 </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import PermissionButton from "@/components/ui/PermissionButton";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import {
     ArrowLeftIcon,
     BarChart3Icon,
@@ -37,6 +38,14 @@ const TABS = [
     { label: "Settings", path: "/preferences", Icon: Settings2Icon },
 ] as const;
 
+const TAB_LABEL_HE: Record<string, string> = {
+    "": "סקירה כללית",
+    "/leads": "לידים",
+    "/steps": "שלבים",
+    "/schedule": "תזמון",
+    "/preferences": "הגדרות",
+};
+
 const STATUS_PILL: Record<string, string> = {
     active: "bg-emerald-50 text-emerald-700 border-emerald-200",
     paused: "bg-amber-50 text-amber-700 border-amber-200",
@@ -50,6 +59,8 @@ export default function CampaignLayout() {
     const { pathname } = useLocation();
     const { id } = useParams();
     const navigate = useNavigate();
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const campaignData = useCampaign(id ?? "");
     const confirm = useConfirm();
     const startCampaign = useStartCampaign();
@@ -67,12 +78,12 @@ export default function CampaignLayout() {
         const onDeleted = (e: Event) => {
             const detail = (e as CustomEvent<CampaignDeletedDetail>).detail;
             if (detail?.id !== id) return;
-            toast(`"${detail.name || "This campaign"}" was deleted by a teammate`);
+            toast(`"${detail.name || (isHe ? "קמפיין זה" : "This campaign")}" ${isHe ? "נמחק על ידי חבר צוות" : "was deleted by a teammate"}`);
             navigate("/app/campaigns", { replace: true });
         };
         window.addEventListener(CAMPAIGN_DELETED_EVENT, onDeleted);
         return () => window.removeEventListener(CAMPAIGN_DELETED_EVENT, onDeleted);
-    }, [id, navigate]);
+    }, [id, navigate, isHe]);
 
     if (campaignData.isLoading) {
         return (
@@ -93,15 +104,15 @@ export default function CampaignLayout() {
     if (campaignData.isError || !campaignData.data) {
         return (
             <div className="flex flex-col items-center justify-center py-24 text-center">
-                <p className="text-[13px] font-medium text-slate-900">Couldn't load this campaign</p>
+                <p className="text-[13px] font-medium text-slate-900">{isHe ? "לא ניתן לטעון קמפיין זה" : "Couldn't load this campaign"}</p>
                 <p className="text-[12px] text-slate-400 mt-1 max-w-[34ch]">
-                    It may have been deleted, or you don't have access in this workspace.
+                    {isHe ? "ייתכן שהוא נמחק, או שאין לך הרשאות גישה בסביבת עבודה זו." : "It may have been deleted, or you don't have access in this workspace."}
                 </p>
                 <Link
                     to="/app/campaigns"
                     className="mt-4 inline-flex items-center h-8 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors"
                 >
-                    Back to campaigns
+                    {isHe ? "חזרה לקמפיינים" : "Back to campaigns"}
                 </Link>
             </div>
         );
@@ -118,7 +129,7 @@ export default function CampaignLayout() {
 
     const onToggle = () => {
         if (isActive) {
-            confirm?.show(`Pause ${campaign.name}?`, () => {
+            confirm?.show(isHe ? `להשהות את ${campaign.name}?` : `Pause ${campaign.name}?`, () => {
                 stopCampaign.mutate(campaign.id);
             });
         } else {
@@ -133,10 +144,10 @@ export default function CampaignLayout() {
                     <div className="min-w-0">
                         <Link
                             to="/app/campaigns"
-                            className="inline-flex items-center gap-1 h-6 -ml-1.5 px-1.5 mb-1 rounded-md text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            className="inline-flex items-center gap-1 h-6 -ml-1.5 rtl:-mr-1.5 rtl:ml-0 px-1.5 mb-1 rounded-md text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                         >
-                            <ArrowLeftIcon className="w-3 h-3" />
-                            Campaigns
+                            <ArrowLeftIcon className="w-3 h-3 rtl:rotate-180" />
+                            {isHe ? "קמפיינים" : "Campaigns"}
                         </Link>
                         {/* min-w-0 lets the name truncate instead of pushing the
                             pills off a narrow screen; the pills wrap under it. */}
@@ -149,11 +160,11 @@ export default function CampaignLayout() {
                             </span>
                             {isOneTimeCampaign(campaign) && (
                                 <span
-                                    title="One-time email: a single message, no follow-ups"
+                                    title={isHe ? "אימייל חד-פעמי: הודעה בודדת, ללא מעקבים" : "One-time email: a single message, no follow-ups"}
                                     className="shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-md bg-sky-50 text-sky-700 text-[10px] uppercase tracking-[0.12em] font-medium"
                                 >
                                     <SendIcon className="w-2.5 h-2.5" />
-                                    One-time
+                                    {isHe ? "חד-פעמי" : "One-time"}
                                 </span>
                             )}
                             <ResourceViewers resource={`campaign:${campaign.id}`} className="shrink-0" />
@@ -161,7 +172,7 @@ export default function CampaignLayout() {
                         <p className="text-[11px] text-slate-400 font-mono mt-1 truncate">{campaign.id}</p>
                     </div>
 
-                    <div className="ml-auto shrink-0 flex items-center gap-1.5">
+                    <div className="ms-auto shrink-0 flex items-center gap-1.5">
                         {canToggle && (
                             <PermissionButton
                                 permission="SEND_CAMPAIGNS"
@@ -177,7 +188,7 @@ export default function CampaignLayout() {
                                 ) : (
                                     <PlayIcon className="w-3.5 h-3.5" />
                                 )}
-                                {isActive ? "Pause" : "Start"}
+                                {isActive ? (isHe ? "השהה" : "Pause") : (isHe ? "הפעל" : "Start")}
                             </PermissionButton>
                         )}
                         <CampaignActionsMenu
@@ -206,7 +217,7 @@ export default function CampaignLayout() {
                                 }`}
                             >
                                 <Icon className="w-3.5 h-3.5" />
-                                {label}
+                                {isHe ? (TAB_LABEL_HE[path] ?? label) : label}
                                 {isTabActive && (
                                     <motion.span
                                         layoutId="campaign-tab-underline"

@@ -56,11 +56,11 @@ export default function PasskeyEnrollPrompt() {
         setBusy(true);
         try {
             await registerPasskey();
-            toast.success("Passkey added — use it to sign in next time.");
+            toast.success("מפתח גישה נוסף בהצלחה — תוכל להשתמש בו בהתחברות הבאה.");
             setOpen(false);
         } catch (e) {
             if (!(e instanceof PasskeyCancelled)) {
-                toast.error((e as Error)?.message || "Couldn't create a passkey.");
+                toast.error((e as Error)?.message || "לא ניתן היה ליצור מפתח גישה.");
             }
         } finally {
             setBusy(false);
@@ -83,20 +83,12 @@ export default function PasskeyEnrollPrompt() {
                     <div className="mx-auto sm:mx-0 w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center mb-1">
                         <KeyRound className="w-6 h-6 text-sky-500" />
                     </div>
-                    <DialogTitle>Sign in faster with a passkey</DialogTitle>
+                    <DialogTitle>התחבר מהר יותר עם מפתח גישה</DialogTitle>
                     <DialogDescription>
-                        Next time, use Touch ID, Face ID, or your device PIN to sign in instantly — no password,
-                        no email code. Your passkey stays on your device.
+                        בפעם הבאה תוכל להשתמש ב-Touch ID, Face ID או ב-PIN של המכשיר שלך כדי להתחבר מיידית, ללא צורך בסיסמה או בקוד אימייל. מפתח הגישה נשמר במכשירך בלבד.
                     </DialogDescription>
                 </DialogHeader>
-                <DialogFooter className="mt-2">
-                    <button
-                        type="button"
-                        onClick={dismissForever}
-                        className="h-9 px-3 rounded-md text-[13px] font-medium text-slate-500 hover:bg-slate-100 transition-colors"
-                    >
-                        Not now
-                    </button>
+                <DialogFooter className="mt-2 flex-row-reverse sm:justify-start gap-2">
                     <button
                         type="button"
                         onClick={handleCreate}
@@ -104,7 +96,14 @@ export default function PasskeyEnrollPrompt() {
                         className="h-9 px-4 rounded-md text-[13px] font-semibold text-white bg-gradient-to-b from-sky-500 to-sky-600 hover:from-sky-500 hover:to-sky-700 shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:pointer-events-none"
                     >
                         {busy && <Loading className="!w-4 h-4 text-white" />}
-                        Set up passkey
+                        הגדר מפתח גישה
+                    </button>
+                    <button
+                        type="button"
+                        onClick={dismissForever}
+                        className="h-9 px-3 rounded-md text-[13px] font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+                    >
+                        לא עכשיו
                     </button>
                 </DialogFooter>
             </DialogContent>

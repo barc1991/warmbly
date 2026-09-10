@@ -439,7 +439,7 @@ function ComposeWindowInner({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 480, damping: 38 }}
-            className="fixed z-[70] inset-x-2 bottom-2 sm:inset-x-auto sm:right-4 sm:bottom-4 flex items-stretch rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden max-h-[min(660px,calc(100dvh-1rem))]"
+            className="fixed z-[70] inset-x-2 bottom-2 sm:inset-x-auto sm:right-4 rtl:sm:right-auto rtl:sm:left-4 sm:bottom-4 flex items-stretch rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden max-h-[min(660px,calc(100dvh-1rem))]"
             onKeyDown={(e) => {
                 if (e.key === "Escape") {
                     // Floating AI layers portal to <body> and stop their own
@@ -460,21 +460,21 @@ function ComposeWindowInner({
                 >
                     <MailPlusIcon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                     <span className="min-w-0 flex-1 text-[11.5px] text-slate-500 truncate">
-                        <span className="font-semibold text-slate-800">New email</span>
+                        <span className="font-semibold text-slate-800">{isHe ? "הודעה חדשה" : "New email"}</span>
                         {contact ? (
                             <>
                                 {" "}
-                                to {contactDisplay}
+                                {isHe ? "אל" : "to"} {contactDisplay}
                                 {contact.company ? `, ${contact.company}` : ""}
                             </>
                         ) : primary ? (
-                            <> to {primary}</>
+                            <> {isHe ? "אל" : "to"} {primary}</>
                         ) : null}
                     </span>
                     <div className="flex items-center gap-0.5 shrink-0">
                         {!minimized && dirty && (
-                            <span className="mr-1 text-[10px] text-slate-400 select-none">
-                                {saveMut.isPending ? "Saving…" : saved ? "Saved" : ""}
+                            <span className="mr-1 rtl:mr-0 rtl:ml-1 text-[10px] text-slate-400 select-none">
+                                {saveMut.isPending ? (isHe ? "שומר…" : "Saving…") : saved ? (isHe ? "נשמר" : "Saved") : ""}
                             </span>
                         )}
                         {!minimized && (
@@ -537,22 +537,22 @@ function ComposeWindowInner({
                     between rows, no label lane or divider column, subject
                     unlabelled and slightly heavier. */}
                 <div className="shrink-0">
-                    <ComposeRow label="To">
+                    <ComposeRow label={isHe ? "אל" : "To"}>
                         <ContactRecipientField
                             value={to}
                             onChange={setTo}
-                            placeholder="Search contacts or type an email"
+                            placeholder={isHe ? "חפש אנשי קשר או הקלד כתובת אימייל" : "Search contacts or type an email"}
                             autoFocus={!prefillTo}
                         />
                         {(!showCc || !showBcc) && (
-                            <div className="ml-auto flex items-center gap-0.5 shrink-0 self-start pt-px">
+                            <div className="ms-auto flex items-center gap-0.5 shrink-0 self-start pt-px">
                                 {!showCc && (
                                     <button
                                         type="button"
                                         onClick={() => setShowCc(true)}
                                         className="h-5 px-1 rounded text-[11px] text-slate-400 hover:text-slate-700 transition-colors"
                                     >
-                                        Cc
+                                        {isHe ? "עותק" : "Cc"}
                                     </button>
                                 )}
                                 {!showBcc && (
@@ -561,7 +561,7 @@ function ComposeWindowInner({
                                         onClick={() => setShowBcc(true)}
                                         className="h-5 px-1 rounded text-[11px] text-slate-400 hover:text-slate-700 transition-colors"
                                     >
-                                        Bcc
+                                        {isHe ? "עותק מוסתר" : "Bcc"}
                                     </button>
                                 )}
                             </div>
@@ -570,28 +570,28 @@ function ComposeWindowInner({
 
                     {showCc && (
                         <ComposeRow
-                            label="Cc"
+                            label={isHe ? "עותק" : "Cc"}
                             onRemove={() => {
                                 setCc([]);
                                 setShowCc(false);
                             }}
                         >
-                            <ContactRecipientField value={cc} onChange={setCc} placeholder="Add Cc recipients" />
+                            <ContactRecipientField value={cc} onChange={setCc} placeholder={isHe ? "הוסף נמעני עותק" : "Add Cc recipients"} />
                         </ComposeRow>
                     )}
                     {showBcc && (
                         <ComposeRow
-                            label="Bcc"
+                            label={isHe ? "עותק מוסתר" : "Bcc"}
                             onRemove={() => {
                                 setBcc([]);
                                 setShowBcc(false);
                             }}
                         >
-                            <ContactRecipientField value={bcc} onChange={setBcc} placeholder="Add Bcc recipients" />
+                            <ContactRecipientField value={bcc} onChange={setBcc} placeholder={isHe ? "הוסף נמעני עותק מוסתר" : "Add Bcc recipients"} />
                         </ComposeRow>
                     )}
 
-                    <ComposeRow label="From">
+                    <ComposeRow label={isHe ? "מאת" : "From"}>
                         <MailboxPicker
                             value={accountSel}
                             autoTag={autoTagId}
@@ -609,8 +609,8 @@ function ComposeWindowInner({
                             type="text"
                             value={subject}
                             onChange={(e) => setSubject(e.target.value)}
-                            placeholder="Subject"
-                            className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none"
+                            placeholder={isHe ? "נושא" : "Subject"}
+                            className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none text-start"
                         />
                         {body.trim() && !subject.trim() && (
                             <button
@@ -650,14 +650,14 @@ function ComposeWindowInner({
                         value={body}
                         onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY_LEN))}
                         placeholder={isHe ? "כתוב את האימייל שלך…" : "Write your email…"}
-                        dir="auto"
+                        dir={isHe ? "rtl" : "auto"}
                         onKeyDown={(e) => {
                             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                                 e.preventDefault();
                                 void send();
                             }
                         }}
-                        className="w-full flex-1 min-h-[160px] px-3.5 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-none focus:outline-none"
+                        className="w-full flex-1 min-h-[160px] px-3.5 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-none focus:outline-none text-start rtl:text-right ltr:text-left"
                     />
                     {aiDraft.phase === "busy" && (
                         <div className="ai-sheen pointer-events-none absolute inset-0" aria-hidden />
@@ -726,15 +726,15 @@ function ComposeWindowInner({
                         type="button"
                         onClick={() => void send()}
                         disabled={!canSend}
-                        title="Send now (⌘Enter)"
+                        title={isHe ? "שלח כעת (⌘Enter)" : "Send now (⌘Enter)"}
                         className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isSending ? (
                             <Loader2Icon className="w-3 h-3 animate-spin" />
                         ) : (
-                            <SendIcon className="w-3 h-3" />
+                            <SendIcon className="w-3 h-3 rtl:-scale-x-100" />
                         )}
-                        {isSending ? "Sending" : "Send"}
+                        {isSending ? (isHe ? "שולח…" : "Sending") : (isHe ? "שלח" : "Send")}
                         {!isSending && <Kbd combo="mod+enter" />}
                     </button>
 
@@ -751,18 +751,18 @@ function ComposeWindowInner({
                             <button
                                 type="button"
                                 disabled={!canSend}
-                                title="Send later, up to 29 days out"
+                                title={isHe ? "שלח מאוחר יותר, עד 29 ימים מראש" : "Send later, up to 29 days out"}
                                 className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <ClockIcon className="w-3 h-3" />
-                                Schedule
+                                {isHe ? "תזמון" : "Schedule"}
                                 <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                             </button>
                         </PopoverMenuTrigger>
                         <PopoverMenuContent minWidth={240}>
                             {customMode ? (
                                 <div className="px-1 py-1 w-[260px]">
-                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
+                                    <PopoverMenuLabel>{isHe ? "שליחה במועד" : "Send at"}</PopoverMenuLabel>
                                     <div className="mt-1">
                                         <DateTimePicker value={customValue} onChange={setCustomValue} stepMinutes={15} />
                                     </div>
@@ -774,28 +774,36 @@ function ComposeWindowInner({
                                             className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                                         >
                                             <CheckIcon className="w-3 h-3" />
-                                            Schedule
+                                            {isHe ? "תזמן" : "Schedule"}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setCustomMode(false)}
                                             className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
                                         >
-                                            Back
+                                            {isHe ? "חזרה" : "Back"}
                                         </button>
                                     </div>
                                 </div>
                             ) : (
                                 <>
-                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
-                                    {SCHEDULE_PRESETS.map((p) => (
+                                    <PopoverMenuLabel>{isHe ? "שליחה במועד" : "Send at"}</PopoverMenuLabel>
+                                    {(isHe
+                                        ? [
+                                              { label: "בעוד שעה", at: () => offsetHours(1) },
+                                              { label: "בעוד 3 שעות", at: () => offsetHours(3) },
+                                              { label: "מחר ב-09:00", at: () => atHour(1, 9) },
+                                              { label: "מחר ב-17:00", at: () => atHour(1, 17) },
+                                          ]
+                                        : SCHEDULE_PRESETS
+                                    ).map((p) => (
                                         <PopoverMenuItem key={p.label} onSelect={() => handleSchedule(p.at())}>
                                             {p.label}
                                         </PopoverMenuItem>
                                     ))}
                                     <PopoverMenuSeparator />
                                     <PopoverMenuItem onSelect={() => setCustomMode(true)} closeOnSelect={false}>
-                                        Pick a time
+                                        {isHe ? "בחר מועד אחר" : "Pick a time"}
                                     </PopoverMenuItem>
                                 </>
                             )}
@@ -806,11 +814,11 @@ function ComposeWindowInner({
                         <PopoverMenuTrigger asChild>
                             <button
                                 type="button"
-                                title="Drop a saved template into the email"
+                                title={isHe ? "הכנס תבנית שמורה לאימייל" : "Drop a saved template into the email"}
                                 className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors"
                             >
                                 <FileTextIcon className="w-3 h-3" />
-                                Template
+                                {isHe ? "תבנית" : "Template"}
                                 <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                             </button>
                         </PopoverMenuTrigger>
@@ -836,27 +844,27 @@ function ComposeWindowInner({
                             onClick={() => setBody("")}
                             className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
                         >
-                            Discard
+                            {isHe ? "מחק טיוטה" : "Discard"}
                         </button>
                     )}
 
                     <span
                         className={cn(
-                            "ml-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
+                            "ms-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
                             resolvedAccount?.signature_sync && resolvedAccount.signature_plain?.trim()
                                 ? "bg-emerald-50 text-emerald-700"
                                 : "bg-slate-100 text-slate-500",
                         )}
                         title={
                             resolvedAccount?.signature_sync && resolvedAccount.signature_plain?.trim()
-                                ? `The ${resolvedAccount.email} signature is appended on send.`
-                                : "No signature will be appended for the sending mailbox."
+                                ? (isHe ? `חתימת ${resolvedAccount.email} תצורף בעת השליחה.` : `The ${resolvedAccount.email} signature is appended on send.`)
+                                : (isHe ? "לא תצורף חתימה עבור תיבת דואר זו." : "No signature will be appended for the sending mailbox.")
                         }
                     >
                         <PenLineIcon className="w-2.5 h-2.5" />
                         {resolvedAccount?.signature_sync && resolvedAccount.signature_plain?.trim()
-                            ? "Signature on"
-                            : "No signature"}
+                            ? (isHe ? "חתימה פעילה" : "Signature on")
+                            : (isHe ? "ללא חתימה" : "No signature")}
                     </span>
                     <span className="font-mono text-[10px] text-slate-400 tabular-nums">
                         {body.length}/{MAX_BODY_LEN}

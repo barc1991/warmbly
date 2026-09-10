@@ -176,10 +176,15 @@ export function PopoverMenuContent({
             // taller than the space above would otherwise be clipped with no
             // way to scroll to it); the panel's max-height handles the rest.
             if (top < 8) top = 8;
+            const isRtl = document.documentElement.dir === "rtl" || document.body.dir === "rtl";
             let left: number;
-            if (align === "end") left = r.right - cw;
-            else if (align === "center") left = r.left + r.width / 2 - cw / 2;
-            else left = r.left;
+            if (align === "end") {
+                left = isRtl ? r.left : r.right - cw;
+            } else if (align === "center") {
+                left = r.left + r.width / 2 - cw / 2;
+            } else {
+                left = isRtl ? r.right - cw : r.left;
+            }
             if (left + cw > window.innerWidth - 8) left = window.innerWidth - 8 - cw;
             if (left < 8) left = 8;
             setPos({ top, left, width: r.width });
@@ -232,9 +237,18 @@ export function PopoverMenuContent({
 
     // Anchor the animation origin to the side the menu opens from so
     // the scale + lift feels like it's growing out of the trigger
-    // rather than floating in from nowhere. `align="end"` opens
-    // top-right, `center` opens top-center, default opens top-left.
-    const originX = align === "end" ? "right" : align === "center" ? "center" : "left";
+    // rather than floating in from nowhere. In RTL, "start" anchors to the right.
+    const isRtl = typeof document !== "undefined" && (document.documentElement.dir === "rtl" || document.body.dir === "rtl");
+    const originX =
+        align === "center"
+            ? "center"
+            : align === "end"
+            ? isRtl
+                ? "left"
+                : "right"
+            : isRtl
+            ? "right"
+            : "left";
     const originY = side === "bottom" ? "top" : "bottom";
     const transformOrigin = `${originY} ${originX}`;
 
@@ -311,7 +325,7 @@ export function PopoverMenuContent({
 
 export function PopoverMenuLabel({ children }: { children: React.ReactNode }) {
     return (
-        <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
+        <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium text-start rtl:text-right ltr:text-left">
             {children}
         </div>
     );
@@ -351,7 +365,7 @@ export function PopoverMenuItem({
                 if (closeOnSelect) setOpen(false);
             }}
             className={cn(
-                "w-full h-7 px-3 flex items-center gap-2 text-[12.5px] text-left transition-colors",
+                "w-full h-7 px-3 flex items-center gap-2 text-[12.5px] text-start rtl:text-right ltr:text-left transition-colors",
                 danger
                     ? "text-red-600 hover:bg-red-50"
                     : "text-slate-700 hover:bg-slate-50 hover:text-slate-900",
@@ -360,7 +374,7 @@ export function PopoverMenuItem({
             )}
         >
             {icon && <span className="shrink-0 text-slate-400 group-hover:text-slate-600">{icon}</span>}
-            <span className="flex-1 truncate">{children}</span>
+            <span className="flex-1 truncate text-start rtl:text-right ltr:text-left">{children}</span>
             {trailing !== undefined ? (
                 <span className="shrink-0">{trailing}</span>
             ) : selected ? (
@@ -376,7 +390,7 @@ export function PopoverMenuSeparator() {
 
 export function PopoverMenuKbd({ children }: { children: React.ReactNode }) {
     return (
-        <span className="ml-auto font-mono text-[10px] text-slate-400 tabular-nums shrink-0">
+        <span className="ms-auto font-mono text-[10px] text-slate-400 tabular-nums shrink-0">
             {children}
         </span>
     );

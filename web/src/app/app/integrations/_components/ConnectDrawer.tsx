@@ -45,6 +45,8 @@ import { cn } from "@/lib/utils";
 
 import ProviderGlyph from "./ProviderGlyph";
 
+import { useTranslation } from "react-i18next";
+
 interface FieldDef {
     key: string;
     label: string;
@@ -75,10 +77,6 @@ const FIELDS_BY_PROVIDER: Record<string, FieldDef[]> = {
             helper: "Settings → Developer → API Keys in Close.",
         },
     ],
-    // Zapier / Make / n8n need no credential to connect — see the note in the
-    // overview step. We fan events to a per-automation webhook URL, and the
-    // reverse direction authenticates with a Warmbly API key created in the
-    // API-keys page (pasted into the tool, not here).
     discord: [
         { key: "server", label: "Server name", placeholder: "Acme" },
         {
@@ -87,6 +85,38 @@ const FIELDS_BY_PROVIDER: Record<string, FieldDef[]> = {
             type: "password",
             required: true,
             helper: "Edit Channel → Integrations → Webhooks → New Webhook → Copy URL.",
+        },
+    ],
+};
+
+const FIELDS_BY_PROVIDER_HE: Record<string, FieldDef[]> = {
+    millionverifier: [
+        {
+            key: "api_key",
+            label: "מפתח API של MillionVerifier",
+            type: "password",
+            required: true,
+            helper: "API ← מפתח API בחשבון MillionVerifier שלך. המפתח נבדק לפני השמירה; נקודה אחת מנוצלת עבור כל כתובת שנבדקת.",
+        },
+    ],
+    close: [
+        { key: "workspace", label: "ארגון", placeholder: "Acme" },
+        {
+            key: "api_token",
+            label: "מפתח API של Close",
+            type: "password",
+            required: true,
+            helper: "הגדרות ← מפתחים ← מפתחות API ב-Close.",
+        },
+    ],
+    discord: [
+        { key: "server", label: "שם השרת", placeholder: "Acme" },
+        {
+            key: "webhook_url",
+            label: "כתובת Webhook של הערוץ",
+            type: "password",
+            required: true,
+            helper: "ערוך ערוץ ← אינטגרציות ← Webhooks ← Webhook חדש ← העתק כתובת URL.",
         },
     ],
 };
@@ -100,6 +130,9 @@ export default function ConnectDrawer({
     onClose: () => void;
     onConnected: (c: IntegrationConnection) => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+
     const [label, setLabel] = React.useState("");
     const [config, setConfig] = React.useState<Record<string, string>>({});
     const [step, setStep] = React.useState<"overview" | "credentials">("overview");
@@ -113,7 +146,8 @@ export default function ConnectDrawer({
     const isInbound = entry.provider === "calendly" || entry.provider === "cal_com";
     const isAutomation =
         entry.provider === "zapier" || entry.provider === "make" || entry.provider === "n8n";
-    const fields = FIELDS_BY_PROVIDER[entry.provider] ?? [];
+    const fieldsMap = isHe ? FIELDS_BY_PROVIDER_HE : FIELDS_BY_PROVIDER;
+    const fields = fieldsMap[entry.provider] ?? [];
     // Only providers with real credential fields take the extra credentials step.
     const needsCredentials = !isOAuth && !isInbound && fields.length > 0;
 
@@ -127,11 +161,11 @@ export default function ConnectDrawer({
             const { url } = await startOAuth.mutateAsync({ provider: entry.provider, label: label.trim() });
             const { code, state } = await openOAuthPopup(url);
             const conn = await finishOAuth.mutateAsync({ code, state });
-            toast.success(`Connected to ${entry.name}`);
+            toast.success(isHe ? `התחברת בהצלחה אל ${entry.name}` : `Connected to ${entry.name}`);
             onConnected(conn);
             onClose();
         } catch (err: unknown) {
-            toast.error(errMessage(err) ?? "Connection failed");
+            toast.error(errMessage(err) ?? (isHe ? "החיבור נכשל" : "Connection failed"));
         } finally {
             setBusy(false);
         }
@@ -141,7 +175,7 @@ export default function ConnectDrawer({
         e.preventDefault();
         for (const f of fields) {
             if (f.required && !config[f.key]?.trim()) {
-                toast.error(`${f.label} is required`);
+                toast.error(isHe ? `שדה ${f.label} נדרש` : `${f.label} is required`);
                 return;
             }
         }
@@ -152,11 +186,11 @@ export default function ConnectDrawer({
                 label: label.trim() || entry.name,
                 config,
             });
-            toast.success(`Connected to ${entry.name}`);
+            toast.success(isHe ? `התחברת בהצלחה אל ${entry.name}` : `Connected to ${entry.name}`);
             onConnected(conn);
             onClose();
         } catch (err: unknown) {
-            toast.error(errMessage(err) ?? "Connect failed");
+            toast.error(errMessage(err) ?? (isHe ? "החיבור נכשל" : "Connect failed"));
         } finally {
             setBusy(false);
         }
@@ -165,7 +199,7 @@ export default function ConnectDrawer({
     const notConfigured = isOAuth && !entry.configured;
 
     return (
-        <Drawer title="Connect" name={entry.name} provider={entry.provider} onClose={onClose}>
+        <Drawer title={isHe ? "חיבור" : "Connect"} name={entry.name} provider={entry.provider} onClose={onClose}>
             {step === "overview" && (
                 <>
                     <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
@@ -173,7 +207,7 @@ export default function ConnectDrawer({
 
                         {entry.highlights && entry.highlights.length > 0 && (
                             <div className="space-y-2">
-                                <SectionLabel>What you get</SectionLabel>
+                                <SectionLabel>{isHe ? "מה מקבלים" : "What you get"}</SectionLabel>
                                 <ul className="space-y-1.5">
                                     {entry.highlights.map((h) => (
                                         <li key={h} className="flex items-start gap-2 text-[12.5px] text-slate-700">
@@ -187,7 +221,7 @@ export default function ConnectDrawer({
 
                         {isOAuth && entry.scopes && entry.scopes.length > 0 && (
                             <div className="space-y-2">
-                                <SectionLabel>Permissions requested</SectionLabel>
+                                <SectionLabel>{isHe ? "הרשאות מבוקשות" : "Permissions requested"}</SectionLabel>
                                 <div className="rounded-md border border-slate-200 bg-slate-50/70 divide-y divide-slate-200">
                                     {entry.scopes.map((s) => (
                                         <div key={s} className="flex items-center gap-2 px-2.5 py-1.5">
@@ -197,8 +231,10 @@ export default function ConnectDrawer({
                                     ))}
                                 </div>
                                 <p className="text-[10.5px] text-slate-400 leading-relaxed flex items-center gap-1">
-                                    <LockIcon className="w-3 h-3" />
-                                    Tokens are encrypted at rest with your organization key. We never store your password.
+                                    <LockIcon className="w-3 h-3 shrink-0" />
+                                    {isHe
+                                        ? "הטוקנים מוצפנים במנוחה באמצעות מפתח הארגון שלך. איננו שומרים את הסיסמה שלך לעולם."
+                                        : "Tokens are encrypted at rest with your organization key. We never store your password."}
                                 </p>
                             </div>
                         )}
@@ -206,34 +242,37 @@ export default function ConnectDrawer({
                         {isAutomation && (
                             <div className="rounded-md border border-sky-200 bg-sky-50/50 px-3 py-2.5 space-y-1.5">
                                 <p className="text-[12px] text-slate-700 leading-relaxed">
-                                    No key needed to connect. After connecting, add an automation that
-                                    sends Warmbly events to your {entry.name} webhook URL.
+                                    {isHe
+                                        ? `אין צורך במפתח כדי להתחבר. לאחר החיבור, הוסף אוטומציה ששולחת אירועי Warmbly לכתובת ה-Webhook של ${entry.name}.`
+                                        : `No key needed to connect. After connecting, add an automation that sends Warmbly events to your ${entry.name} webhook URL.`}
                                 </p>
                                 <p className="text-[11px] text-slate-500 leading-relaxed">
-                                    Want {entry.name} to call Warmbly back (e.g. create a contact)? Create a
-                                    scoped key under Settings → API keys and paste it into {entry.name}.
+                                    {isHe
+                                        ? `רוצה ש-${entry.name} יקרא בחזרה ל-Warmbly (למשל יצירת איש קשר)? צור מפתח מוגדר תחת הגדרות ← מפתחות API והדבק אותו ב-${entry.name}.`
+                                        : `Want ${entry.name} to call Warmbly back (e.g. create a contact)? Create a scoped key under Settings → API keys and paste it into ${entry.name}.`}
                                 </p>
                             </div>
                         )}
 
                         <div>
-                            <Label>Connection label (optional)</Label>
+                            <Label>{isHe ? "תווית חיבור (אופציונלי)" : "Connection label (optional)"}</Label>
                             <TextInput value={label} onChange={setLabel} placeholder={entry.name} />
                             <p className="text-[10.5px] text-slate-400 mt-1">
-                                Useful if you connect more than one {entry.name} account.
+                                {isHe ? `שימושי אם אתה מחבר יותר מחשבון ${entry.name} אחד.` : `Useful if you connect more than one ${entry.name} account.`}
                             </p>
                         </div>
 
                         {notConfigured && (
                             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
                                 <p className="text-[12px] text-amber-800 leading-relaxed">
-                                    {entry.name} OAuth isn’t enabled on this workspace yet. An admin needs to add the{" "}
-                                    {entry.name} app credentials. Reach out and we’ll switch it on.
+                                    {isHe
+                                        ? `אימות OAuth של ${entry.name} עדיין אינו מופעל בסביבה זו. מנהל מערכת צריך להגדיר את פרטי האפליקציה של ${entry.name}. פנה אלינו ונפעיל זאת עבורך.`
+                                        : `${entry.name} OAuth isn’t enabled on this workspace yet. An admin needs to add the ${entry.name} app credentials. Reach out and we’ll switch it on.`}
                                 </p>
                             </div>
                         )}
                     </div>
-                    <DrawerFooter onClose={onClose}>
+                    <DrawerFooter onClose={onClose} cancelLabel={isHe ? "ביטול" : "Cancel"}>
                         {isOAuth ? (
                             <button
                                 type="button"
@@ -242,7 +281,7 @@ export default function ConnectDrawer({
                                 className={cn(primaryBtn, (busy || notConfigured) && "opacity-60 cursor-not-allowed")}
                             >
                                 {busy ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <ZapIcon className="w-3.5 h-3.5" />}
-                                {busy ? "Connecting…" : `Connect with ${entry.name}`}
+                                {busy ? (isHe ? "מתחבר…" : "Connecting…") : (isHe ? `התחבר עם ${entry.name}` : `Connect with ${entry.name}`)}
                             </button>
                         ) : isInbound ? (
                             <button
@@ -251,13 +290,13 @@ export default function ConnectDrawer({
                                 onClick={() => void submitCredentials(new Event("submit") as unknown as React.FormEvent)}
                                 className={cn(primaryBtn, busy && "opacity-60")}
                             >
-                                {busy ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <ArrowRightIcon className="w-3.5 h-3.5" />}
-                                {busy ? "Creating…" : "Create inbound URL"}
+                                {busy ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />}
+                                {busy ? (isHe ? "יוצר…" : "Creating…") : (isHe ? "צור כתובת נכנסת" : "Create inbound URL")}
                             </button>
                         ) : needsCredentials ? (
                             <button type="button" onClick={() => setStep("credentials")} className={primaryBtn}>
                                 <KeyRoundIcon className="w-3.5 h-3.5" />
-                                Continue
+                                {isHe ? "המשך" : "Continue"}
                             </button>
                         ) : (
                             <button
@@ -266,8 +305,8 @@ export default function ConnectDrawer({
                                 onClick={() => void submitCredentials(new Event("submit") as unknown as React.FormEvent)}
                                 className={cn(primaryBtn, busy && "opacity-60")}
                             >
-                                {busy ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <ArrowRightIcon className="w-3.5 h-3.5" />}
-                                {busy ? "Connecting…" : `Connect ${entry.name}`}
+                                {busy ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />}
+                                {busy ? (isHe ? "מתחבר…" : "Connecting…") : (isHe ? `חבר את ${entry.name}` : `Connect ${entry.name}`)}
                             </button>
                         )}
                     </DrawerFooter>
@@ -281,7 +320,7 @@ export default function ConnectDrawer({
                             <div key={f.key}>
                                 <Label>
                                     {f.label}
-                                    {f.required && <span className="text-rose-500 ml-0.5">*</span>}
+                                    {f.required && <span className="text-rose-500 ms-0.5">*</span>}
                                 </Label>
                                 <TextInput
                                     type={f.type ?? "text"}
@@ -303,14 +342,14 @@ export default function ConnectDrawer({
                                 className="inline-flex items-center gap-1 text-[11px] text-sky-700 hover:underline"
                             >
                                 <ExternalLinkIcon className="w-3 h-3" />
-                                {entry.name} docs
+                                {isHe ? `תיעוד ${entry.name}` : `${entry.name} docs`}
                             </a>
                         )}
                     </div>
-                    <DrawerFooter onClose={() => setStep("overview")} cancelLabel="Back">
+                    <DrawerFooter onClose={() => setStep("overview")} cancelLabel={isHe ? "חזרה" : "Back"}>
                         <button type="submit" disabled={busy} className={cn(primaryBtn, busy && "opacity-60")}>
                             {busy ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2Icon className="w-3.5 h-3.5" />}
-                            {busy ? "Connecting…" : "Connect"}
+                            {busy ? (isHe ? "מתחבר…" : "Connecting…") : (isHe ? "התחבר" : "Connect")}
                         </button>
                     </DrawerFooter>
                 </form>
@@ -336,6 +375,9 @@ export function Drawer({
     headerExtra?: React.ReactNode;
     children: React.ReactNode;
 }) {
+    const { i18n } = useTranslation();
+    const isRtl = i18n.dir() === "rtl";
+
     return (
         <div className="fixed inset-0 z-40 flex">
             <motion.button
@@ -348,10 +390,10 @@ export function Drawer({
                 className="absolute inset-0 bg-slate-900/30 backdrop-blur-[2px]"
             />
             <motion.div
-                initial={{ x: 28, opacity: 0 }}
+                initial={{ x: isRtl ? -28 : 28, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                className="ml-auto h-full w-full sm:w-[480px] sm:max-w-[92vw] bg-white shadow-xl flex flex-col z-10 relative"
+                className="ltr:ml-auto rtl:mr-auto h-full w-full sm:w-[480px] sm:max-w-[92vw] bg-white shadow-xl flex flex-col z-10 relative"
             >
                 <div className="h-12 px-5 border-b border-slate-200 flex items-center gap-3 shrink-0">
                     <ProviderGlyph provider={provider} name={name} size={7} />
@@ -400,7 +442,7 @@ export function DrawerFooter({
 
 export function SectionLabel({ children }: { children: React.ReactNode }) {
     return (
-        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">{children}</div>
+        <div className="text-[10px] uppercase tracking-normal font-medium text-slate-400">{children}</div>
     );
 }
 

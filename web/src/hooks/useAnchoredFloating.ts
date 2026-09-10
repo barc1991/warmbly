@@ -42,12 +42,22 @@ export function useAnchoredFloating(open: boolean, opts: AnchoredFloatingOptions
         visibility: "hidden",
     });
 
+    const isRtl = typeof document !== "undefined" && (document.documentElement.dir === "rtl" || document.body.dir === "rtl");
+    const resolvedPlacement: Placement = React.useMemo(() => {
+        if (!isRtl) return placement;
+        if (placement.endsWith("-start")) return placement.replace("-start", "-end") as Placement;
+        if (placement.endsWith("-end")) return placement.replace("-end", "-start") as Placement;
+        if (placement === "left") return "right";
+        if (placement === "right") return "left";
+        return placement;
+    }, [placement, isRtl]);
+
     React.useLayoutEffect(() => {
         if (!open || !reference || !floating) return;
         const update = () => {
             computePosition(reference, floating, {
                 strategy: "fixed",
-                placement,
+                placement: resolvedPlacement,
                 middleware: [
                     offset(gap),
                     flip({ padding }),

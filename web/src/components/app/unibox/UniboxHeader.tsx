@@ -35,24 +35,24 @@ export function UniboxHeader({
                 <button
                     type="button"
                     onClick={onOpenScopeSheet}
-                    aria-label="Switch scope"
-                    className="lg:hidden sticky left-0 z-10 bg-white inline-flex items-center gap-1 h-6 px-1.5 rounded-md border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-[11.5px] font-medium transition-colors shrink-0"
+                    aria-label="החלף תצוגה"
+                    className="lg:hidden sticky start-0 z-10 bg-white inline-flex items-center gap-1 h-6 px-1.5 rounded-md border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-[11.5px] font-medium transition-colors shrink-0"
                 >
                     <LayoutGridIcon className="w-3 h-3" />
-                    Scope
+                    תצוגה
                 </button>
             )}
 
             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold shrink-0 hidden sm:inline">
-                Inbox
+                תיבת דואר
             </span>
 
-            {scopeLabel !== "All" && (
+            {scopeLabel !== "All" && scopeLabel !== "הכל" && (
                 <button
                     type="button"
                     onClick={onClearScope}
                     className="inline-flex items-center gap-1 h-5 pl-1.5 pr-1 rounded bg-sky-50 text-sky-700 text-[11px] font-medium hover:bg-sky-100 transition-colors shrink-0"
-                    aria-label="Clear scope"
+                    aria-label="נקה תצוגה"
                 >
                     <span className="truncate max-w-[45vw] md:max-w-none">{scopeLabel}</span>
                     <XIcon className="w-2.5 h-2.5 shrink-0" />
@@ -63,46 +63,46 @@ export function UniboxHeader({
 
             <div className="flex items-center gap-3.5 min-w-0">
                 <Stat
-                    label="unread"
+                    label="לא נקרא"
                     value={data?.unread ?? 0}
                     tone={data && data.unread > 0 ? "accent" : "default"}
                     muted={!data || data.unread === 0}
                 />
-                <Stat label="awaiting" value={data?.awaiting_reply ?? 0} />
-                <Stat label="today" value={data?.today ?? 0} />
-                <Stat label="week" value={data?.week ?? 0} />
+                <Stat label="ממתין" value={data?.awaiting_reply ?? 0} />
+                <Stat label="היום" value={data?.today ?? 0} />
+                <Stat label="השבוע" value={data?.week ?? 0} />
                 <Stat
-                    label="snoozed"
+                    label="בנודניק"
                     value={data?.snoozed ?? 0}
                     muted
                     className="hidden sm:inline-flex"
                 />
                 <Stat
-                    label="mailboxes"
+                    label="תיבות"
                     value={data?.mailboxes.length ?? 0}
                     muted
                     className="hidden sm:inline-flex"
                 />
             </div>
 
-            <div className="ml-auto flex items-center gap-2.5 shrink-0">
+            <div className="ms-auto flex items-center gap-2.5 shrink-0">
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 font-medium">
                     <span className="relative flex size-1.5">
                         <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
                         <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
                     </span>
-                    live
+                    פעיל
                 </span>
                 {/* Desktop gets the rail's Compose button; this is the
                     phone/tablet entry where the rail is hidden. */}
-                <ShortcutTooltip label="New email" combo="n">
+                <ShortcutTooltip label="הודעה חדשה" combo="n">
                     <button
                         type="button"
                         onClick={() => useComposeStore.getState().openCompose()}
                         className="lg:hidden inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[11.5px] font-medium shadow-sm shadow-sky-600/20 transition-colors"
                     >
                         <PenLineIcon className="w-3 h-3" />
-                        Compose
+                        הודעה חדשה
                     </button>
                 </ShortcutTooltip>
             </div>

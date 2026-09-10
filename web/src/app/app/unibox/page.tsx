@@ -267,8 +267,17 @@ export default function UniboxPage() {
         return isHe ? "בנודניק" : "Snoozed";
       case "scheduled":
         return isHe ? "מתוזמן" : "Scheduled";
-      case "folder":
-        return scope.folder.charAt(0).toUpperCase() + scope.folder.slice(1);
+      case "folder": {
+        const folderNames: Record<string, string> = {
+          inbox: "דואר נכנס",
+          drafts: "טיוטות",
+          sent: "נשלח",
+          archive: "ארכיון",
+          spam: "ספאם",
+          trash: "אשפה",
+        };
+        return isHe ? (folderNames[scope.folder] ?? scope.folder) : scope.folder.charAt(0).toUpperCase() + scope.folder.slice(1);
+      }
       case "mailbox": {
         const m = overviewData?.mailboxes.find((x) => x.id === scope.mailboxId);
         return m ? m.email : (isHe ? "תיבת דואר" : "Mailbox");

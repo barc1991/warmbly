@@ -38,8 +38,16 @@ const ACTIVITY_META: Record<ActivityItem["type"], { icon: LucideIcon; tone: stri
     failed: { icon: XCircleIcon, tone: "text-rose-600" },
 };
 
+const STATUS_HE: Record<string, string> = {
+    active: "פעיל",
+    paused: "מושהה",
+    completed: "הושלם",
+    draft: "טיוטה",
+    idle: "ממתין ללידים",
+};
+
 function statusLabel(s: string): string {
-    return s.charAt(0).toUpperCase() + s.slice(1);
+    return STATUS_HE[s] ?? s;
 }
 
 function initials(name?: string, email?: string): string {
@@ -53,11 +61,11 @@ function initials(name?: string, email?: string): string {
 function relativeTime(date: Date): string {
     const diff = Date.now() - date.getTime();
     const sec = Math.round(diff / 1000);
-    if (sec < 5) return "just now";
-    if (sec < 60) return `${sec}s ago`;
+    if (sec < 5) return "הרגע";
+    if (sec < 60) return `לפני ${sec} שניות`;
     const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m ago`;
-    return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    if (min < 60) return `לפני ${min} דקות`;
+    return date.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function ActivityRow({ activity }: { activity: ActivityItem }) {
@@ -88,10 +96,10 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
     const isIdle = isActive && !!idle;
 
     const connectionLabel = isConnected
-        ? "Connected"
+        ? "מחובר"
         : channelState === "joining"
-          ? "Connecting…"
-          : "Disconnected";
+          ? "מתחבר…"
+          : "מנותק";
 
     const showNowSending = !!taskProgress && isActive && taskProgress.status === "active";
 
@@ -104,10 +112,10 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
         if (!taskProgress || total <= 0) return null;
         const remaining = total - processed;
         if (remaining <= 0) return null;
-        if (remaining < 60) return `~${remaining} min left`;
+        if (remaining < 60) return `~${remaining} דק' נותרו`;
         const hours = Math.floor(remaining / 60);
         const mins = remaining % 60;
-        return mins > 0 ? `~${hours}h ${mins}m left` : `~${hours}h left`;
+        return mins > 0 ? `~${hours} שע' ${mins} דק' נותרו` : `~${hours} שע' נותרו`;
     }, [taskProgress, total, processed]);
 
     const recentLogs = useMemo(() => {
@@ -130,16 +138,16 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
             {/* ── Header ─────────────────────────────────────────────── */}
             <div className="shrink-0 px-4 h-11 border-b border-slate-200 flex items-center gap-3">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    Live activity
+                    פעילות בזמן אמת
                 </span>
                 <span
                     className={`inline-flex items-center px-1.5 h-5 rounded-md text-[10.5px] font-medium ${
                         isIdle ? STATUS_TONE.idle : (STATUS_TONE[currentStatus] ?? STATUS_TONE.draft)
                     }`}
                 >
-                    {isIdle ? "Waiting for leads" : statusLabel(currentStatus)}
+                    {isIdle ? "ממתין ללידים" : statusLabel(currentStatus)}
                 </span>
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="ms-auto flex items-center gap-1.5">
                     <span className="relative flex size-2">
                         {isConnected && (
                             <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
@@ -163,7 +171,7 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-[12.5px] font-medium text-slate-900 truncate">
-                                {taskProgress.contact_name || taskProgress.contact_email || "Unknown contact"}
+                                {taskProgress.contact_name || taskProgress.contact_email || "איש קשר לא ידוע"}
                             </p>
                             {taskProgress.contact_name && (
                                 <p className="text-[11px] text-slate-500 truncate">
@@ -173,13 +181,13 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
                             {taskProgress.step_name && (
                                 <p className="text-[11px] text-sky-700 truncate mt-0.5">
                                     {taskProgress.step_name}
-                                    {taskProgress.step_index > 0 && ` · Step ${taskProgress.step_index}`}
+                                    {taskProgress.step_index > 0 && ` · שלב ${taskProgress.step_index}`}
                                 </p>
                             )}
                         </div>
                         <span className="shrink-0 inline-flex items-center gap-1.5 px-1.5 h-5 rounded-md bg-sky-50 text-sky-700 ring-1 ring-sky-200 text-[10.5px] font-medium">
                             <span className="size-1.5 rounded-full bg-sky-500 animate-pulse" />
-                            Sending…
+                            שולח…
                         </span>
                     </div>
                 </div>
@@ -190,14 +198,14 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
                 <div className="shrink-0 px-4 py-3 border-b border-slate-200">
                     <div className="flex items-center justify-between mb-1.5">
                         <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                            Progress
+                            התקדמות
                         </span>
                         <span className="font-mono text-[11px] text-slate-700 tabular-nums">{progress}%</span>
                     </div>
                     <DitherMeter frac={progress / 100} height={6} />
                     <div className="flex items-center justify-between mt-1.5">
                         <span className="font-mono text-[10.5px] text-slate-400 tabular-nums">
-                            {processed.toLocaleString()} of {total.toLocaleString()} contacts
+                            {processed.toLocaleString()} מתוך {total.toLocaleString()} אנשי קשר
                         </span>
                         {remainingHint && (
                             <span className="text-[10.5px] text-slate-400">{remainingHint}</span>
@@ -210,7 +218,7 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
             {issueLogs.length > 0 && (
                 <div className="shrink-0 border-b border-rose-200 bg-rose-50/60">
                     <div className="px-4 pt-2.5 pb-1 text-[10px] uppercase tracking-[0.14em] text-rose-500 font-medium">
-                        Needs attention
+                        דורש התייחסות
                     </div>
                     <div className="divide-y divide-rose-200/50">
                         {issueLogs.map((log, i) => (
@@ -239,7 +247,7 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
                 ) : recentLogs.length > 0 ? (
                     <>
                         <div className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                            Recent log
+                            יומן פעילות לאחרונה
                         </div>
                         <div className="divide-y divide-slate-200/60">
                             {recentLogs.map((log, i) => (
@@ -267,25 +275,25 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
                     <div className="px-5 py-16 text-center">
                         <p className="text-[12.5px] text-slate-700 font-medium mb-1">
                             {currentStatus === "completed"
-                                ? "All caught up — sending complete"
+                                ? "השליחה הושלמה במלואה"
                                 : currentStatus === "paused"
-                                  ? "Campaign paused"
+                                  ? "הקמפיין מושהה"
                                   : isIdle
-                                    ? "Waiting for new leads"
+                                    ? "ממתין ללידים חדשים"
                                     : isActive
-                                      ? "Waiting for the next send…"
-                                      : "Nothing sending yet"}
+                                      ? "ממתין לשליחה הבאה…"
+                                      : "אין שליחה עדיין"}
                         </p>
                         <p className="text-[11.5px] text-slate-400 max-w-[34ch] mx-auto leading-relaxed">
                             {currentStatus === "completed"
-                                ? "Every lead has finished the sequence. Replies and clicks still stream in here as they arrive."
+                                ? "כל הלידים סיימו את רצף השלבים. תשובות ולחיצות ימשיכו להופיע כאן בזמן אמת."
                                 : currentStatus === "paused"
-                                  ? "Resume the campaign to keep sending. Replies and clicks still stream in here."
+                                  ? "הפעל מחדש את הקמפיין כדי להמשיך בשליחה. תשובות ולחיצות ממשיכות להופיע כאן."
                                   : isIdle
-                                    ? "Every lead has finished the sequence. The campaign stays active and sends to new leads as they arrive."
+                                    ? "כל הלידים סיימו את הרצף. הקמפיין נשאר פעיל וישלח ללידים חדשים ברגע שיתווספו."
                                     : isActive
-                                    ? "Opens, clicks, replies and bounces will stream in here live as your campaign sends."
-                                    : "Start the campaign to watch it send live."}
+                                    ? "פתיחות, לחיצות, מענים ושגיאות מסירה יוזרמו לכאן בזמן אמת במהלך השליחה."
+                                    : "הפעל את הקמפיין כדי לצפות בשליחה בזמן אמת."}
                         </p>
                     </div>
                 )}

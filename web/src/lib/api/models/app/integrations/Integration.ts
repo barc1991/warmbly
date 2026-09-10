@@ -280,11 +280,11 @@ export interface CreateMeetingInput {
 
 export const CATEGORY_LABELS: Record<IntegrationCategory, string> = {
     crm: "CRM",
-    automation: "Automation",
-    notifications: "Notifications",
-    meetings: "Meetings",
-    data: "Data",
-    verification: "Verification",
+    automation: "אוטומציה",
+    notifications: "התראות",
+    meetings: "פגישות",
+    data: "נתונים",
+    verification: "אימות",
 };
 
 export const CATEGORY_ORDER: IntegrationCategory[] = [
@@ -299,27 +299,27 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
 // Reply-intent classifier buckets, used to filter reply automations
 // ("only notify me on positive replies"). Mirrors models.ReplyIntentType.
 export const REPLY_INTENT_OPTIONS: { value: string; label: string }[] = [
-    { value: "positive", label: "Positive" },
-    { value: "question", label: "Question" },
-    { value: "neutral", label: "Neutral" },
-    { value: "negative", label: "Negative" },
-    { value: "out_of_office", label: "Out of office" },
+    { value: "positive", label: "חיובי" },
+    { value: "question", label: "שאלה" },
+    { value: "neutral", label: "ניטרלי" },
+    { value: "negative", label: "שלילי" },
+    { value: "out_of_office", label: "מחוץ למשרד" },
 ];
 
 // Human labels for the Warmbly event vocabulary (subset surfaced as triggers).
 export const EVENT_LABELS: Record<string, string> = {
-    "campaign.reply_received": "Prospect replies",
-    "contact.created": "Contact created",
-    "form.submitted": "Form submitted",
-    "campaign.email_bounced": "Email bounces",
-    "campaign.unsubscribed": "Contact unsubscribes",
-    "warmup.health_changed": "Warmup health changes",
-    "deliverability.complaint": "Spam complaint",
-    "meeting.booked": "Meeting booked",
-    "meeting.rescheduled": "Meeting rescheduled",
-    "meeting.canceled": "Meeting canceled",
-    "campaign.action": "Launched by a campaign step",
-    "inbound.webhook": "Inbound webhook",
+    "campaign.reply_received": "ליד משיב",
+    "contact.created": "איש קשר נוצר",
+    "form.submitted": "טופס נשלח",
+    "campaign.email_bounced": "אימייל נדחה (Bounce)",
+    "campaign.unsubscribed": "איש קשר הסיר הרשמה",
+    "warmup.health_changed": "בריאות החימום השתנתה",
+    "deliverability.complaint": "תלונת ספאם",
+    "meeting.booked": "פגישה נקבעה",
+    "meeting.rescheduled": "פגישה נדחתה למועד אחר",
+    "meeting.canceled": "פגישה בוטלה",
+    "campaign.action": "הופעל על ידי שלב בקמפיין",
+    "inbound.webhook": "וובהוק נכנס",
 };
 
 // Which action a provider performs for an event subscription.

@@ -2,12 +2,12 @@ import { cn } from "@/lib/utils";
 import type { IntegrationHealth, IntegrationStatus } from "@/lib/api/models/app/integrations/Integration";
 
 const TONES: Record<string, { bg: string; text: string; dot: string; label: string }> = {
-    connected: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", label: "connected" },
-    authorizing: { bg: "bg-sky-50", text: "text-sky-700", dot: "bg-sky-500", label: "authorizing" },
-    pending: { bg: "bg-sky-50", text: "text-sky-700", dot: "bg-sky-500", label: "pending" },
-    degraded: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500", label: "degraded" },
-    reauth_required: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500", label: "reconnect" },
-    disconnected: { bg: "bg-slate-100", text: "text-slate-500", dot: "bg-slate-400", label: "not connected" },
+    connected: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", label: "מחובר" },
+    authorizing: { bg: "bg-sky-50", text: "text-sky-700", dot: "bg-sky-500", label: "מאמת" },
+    pending: { bg: "bg-sky-50", text: "text-sky-700", dot: "bg-sky-500", label: "ממתין" },
+    degraded: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500", label: "מוגבל" },
+    reauth_required: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500", label: "חבר מחדש" },
+    disconnected: { bg: "bg-slate-100", text: "text-slate-500", dot: "bg-slate-400", label: "לא מחובר" },
 };
 
 export default function StatusPill({ status }: { status: IntegrationStatus | string }) {
@@ -15,7 +15,7 @@ export default function StatusPill({ status }: { status: IntegrationStatus | str
     return (
         <span
             className={cn(
-                "inline-flex items-center gap-1 h-5 px-1.5 rounded text-[9.5px] uppercase tracking-[0.08em] font-medium",
+                "inline-flex items-center gap-1 h-5 px-1.5 rounded text-[9.5px] uppercase tracking-normal font-medium",
                 tone.bg,
                 tone.text,
             )}

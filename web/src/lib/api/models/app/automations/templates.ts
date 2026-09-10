@@ -16,8 +16,8 @@ export interface AutomationTemplate {
 export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     {
         id: "tag-hot-replies",
-        name: "Tag hot replies",
-        description: "When a prospect replies positively, add a tag to the contact.",
+        name: "תיוג תשובות חמות",
+        description: "כאשר ליד משיב בחיוב, הוסף תגית לאיש הקשר.",
         trigger_event: "campaign.reply_received",
         graph: {
             nodes: [
@@ -33,8 +33,8 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     },
     {
         id: "deal-on-meeting",
-        name: "Deal on meeting booked",
-        description: "When a meeting is booked, open a CRM deal for the contact.",
+        name: "פתיחת עסקה בעת קביעת פגישה",
+        description: "כאשר פגישה נקבעת, פתח עסקת CRM עבור איש הקשר.",
         trigger_event: "meeting.booked",
         graph: {
             nodes: [
@@ -46,8 +46,8 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     },
     {
         id: "unsubscribe-on-bounce",
-        name: "Unsubscribe on bounce",
-        description: "When an email hard-bounces, unsubscribe the contact to protect deliverability.",
+        name: "ביטול הרשמה בעת שגיאת מסירה (Bounce)",
+        description: "כאשר אימייל נדחה סופית, בטל את הרשמת איש הקשר להגנה על עבירות המסירה.",
         trigger_event: "campaign.email_bounced",
         graph: {
             nodes: [
@@ -59,14 +59,14 @@ export const AUTOMATION_TEMPLATES: AutomationTemplate[] = [
     },
     {
         id: "slack-positive-reply",
-        name: "Slack on positive reply",
-        description: "Ping a Slack channel when a prospect replies positively. (Pick your Slack connection.)",
+        name: "התראה ב-Slack על תשובה חיובית",
+        description: "שלח התראה לערוץ Slack כאשר ליד משיב בחיוב (בחר את חיבור ה-Slack שלך).",
         trigger_event: "campaign.reply_received",
         graph: {
             nodes: [
                 { id: "trigger", type: "trigger", x: 0, y: 0 },
                 { id: "c1", type: "condition", x: 0, y: 150, condition: { field: "field", key: "intent", operator: "equals", value: "positive" } },
-                { id: "a1", type: "action", x: 0, y: 300, action: "slack.notify", config: { message_template: "🔥 Positive reply from {{.contact_email}}" } },
+                { id: "a1", type: "action", x: 0, y: 300, action: "slack.notify", config: { message_template: "🔥 תשובה חיובית מאת {{.contact_email}}" } },
             ],
             edges: [
                 { id: "e1", source: "trigger", target: "c1", when: "" },

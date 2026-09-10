@@ -31,7 +31,7 @@ export function SelectMenu({
     value,
     onChange,
     options,
-    placeholder = "Select…",
+    placeholder = "בחר…",
     className,
     minWidth = 220,
     align = "start",
@@ -73,7 +73,7 @@ export function SelectMenu({
                     className={`h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 bg-white text-[12px] text-slate-700 ${fullWidth ? "flex w-full" : "inline-flex"} items-center gap-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${className ?? ""}`}
                 >
                     {current?.icon && <span className="inline-flex shrink-0 items-center">{current.icon}</span>}
-                    <span className={`truncate flex-1 text-left ${current ? "" : "text-slate-400"}`}>
+                    <span className={`truncate flex-1 text-start rtl:text-right ltr:text-left ${current ? "" : "text-slate-400"}`}>
                         {current?.label ?? placeholder}
                     </span>
                     <ChevronDownIcon className="w-3 h-3 text-slate-400 shrink-0" />
@@ -83,7 +83,7 @@ export function SelectMenu({
                 {groups.map((grp, gi) => (
                     <React.Fragment key={gi}>
                         {grp.group && (
-                            <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
+                            <div className="px-2 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400 text-start rtl:text-right ltr:text-left">
                                 {grp.group}
                             </div>
                         )}

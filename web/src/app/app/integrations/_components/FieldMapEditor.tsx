@@ -17,6 +17,7 @@ import type {
     CapabilityObject,
     IntegrationFieldMapping,
 } from "@/lib/api/models/app/integrations/Integration";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 const CUSTOM = "__custom__";
@@ -27,6 +28,14 @@ const TRANSFORMS: SelectOption[] = [
     { value: "lowercase", label: "Lowercase" },
     { value: "trim", label: "Trim spaces" },
     { value: "static", label: "Static value" },
+];
+
+const TRANSFORMS_HE: SelectOption[] = [
+    { value: "none", label: "העתק ערך" },
+    { value: "uppercase", label: "אותיות גדולות" },
+    { value: "lowercase", label: "אותיות קטנות" },
+    { value: "trim", label: "הסר רווחים" },
+    { value: "static", label: "ערך קבוע" },
 ];
 
 interface Row {
@@ -46,6 +55,8 @@ export default function FieldMapEditor({
     object: CapabilityObject;
     mappings: IntegrationFieldMapping[];
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const replace = useReplaceFieldMappings();
 
     const initial = React.useMemo<Row[]>(
@@ -70,8 +81,9 @@ export default function FieldMapEditor({
     const warmblyOptions: SelectOption[] = object.warmbly_fields.map((f) => ({ value: f.key, label: f.label }));
     const externalOptions: SelectOption[] = [
         ...object.external_fields.map((f) => ({ value: f.key, label: f.label })),
-        { value: CUSTOM, label: "Custom field…" },
+        { value: CUSTOM, label: isHe ? "שדה מותאם אישית…" : "Custom field…" },
     ];
+    const transforms = isHe ? TRANSFORMS_HE : TRANSFORMS;
 
     function patch(i: number, p: Partial<Row>) {
         setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...p } : row)));
@@ -93,11 +105,11 @@ export default function FieldMapEditor({
             if (!ext) continue; // skip incomplete rows silently
             if (row.transform === "static") {
                 if (!row.static_value.trim()) {
-                    toast.error(`The static mapping for "${ext}" needs a value`);
+                    toast.error(isHe ? `המיפוי הקבוע עבור "${ext}" דורש ערך` : `The static mapping for "${ext}" needs a value`);
                     return;
                 }
             } else if (!row.warmbly_field.trim()) {
-                toast.error(`The mapping for "${ext}" needs a Warmbly field`);
+                toast.error(isHe ? `המיפוי עבור "${ext}" דורש שדה Warmbly` : `The mapping for "${ext}" needs a Warmbly field`);
                 return;
             }
             out.push({
@@ -107,18 +119,20 @@ export default function FieldMapEditor({
                 static_value: row.transform === "static" ? row.static_value : "",
             });
         }
-        await toast.promise(replace.mutateAsync({ connectionId, object: object.name, mappings: out }), {
-            loading: "Saving field mapping…",
-            success: "Field mapping saved",
-            error: "Could not save mapping",
-        });
+        await toast.promise(
+            replace.mutateAsync({ connectionId, object: object.name, mappings: out }),
+            isHe
+                ? { loading: "שומר מיפוי שדות…", success: "מיפוי השדות נשמר", error: "לא ניתן לשמור מיפוי" }
+                : { loading: "Saving field mapping…", success: "Field mapping saved", error: "Could not save mapping" },
+        );
     }
 
     return (
         <div className="space-y-2.5">
             <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                Email, name, company and phone map automatically. Add rows to send more Warmbly data
-                into {object.label.toLowerCase()} fields, or override a default.
+                {isHe
+                    ? `אימייל, שם, חברה וטלפון ממופים אוטומטית. הוסף שורות כדי לשלוח נתוני Warmbly נוספים לשדות ${object.label}, או לדרוס ברירת מחדל.`
+                    : `Email, name, company and phone map automatically. Add rows to send more Warmbly data into ${object.label.toLowerCase()} fields, or override a default.`}
             </p>
 
             {rows.length > 0 && (
@@ -131,7 +145,7 @@ export default function FieldMapEditor({
                                         <TextInput
                                             value={row.static_value}
                                             onChange={(v) => patch(i, { static_value: v })}
-                                            placeholder="Static value"
+                                            placeholder={isHe ? "ערך קבוע" : "Static value"}
                                         />
                                     ) : (
                                         <SelectMenu
@@ -139,11 +153,11 @@ export default function FieldMapEditor({
                                             onChange={(v) => patch(i, { warmbly_field: v })}
                                             options={warmblyOptions}
                                             className="w-full"
-                                            aria-label="Warmbly field"
+                                            aria-label={isHe ? "שדה Warmbly" : "Warmbly field"}
                                         />
                                     )}
                                 </div>
-                                <span className="text-slate-400 text-[11px] shrink-0 self-center rotate-90 sm:rotate-0 sm:self-auto">→</span>
+                                <span className="text-slate-400 text-[11px] shrink-0 self-center rotate-90 sm:rotate-0 sm:rtl:rotate-180 sm:self-auto">→</span>
                                 <div className="flex-1 min-w-0">
                                     <SelectMenu
                                         value={row.external_custom ? CUSTOM : row.external_field}
@@ -171,16 +185,16 @@ export default function FieldMapEditor({
                                     <TextInput
                                         value={row.external_field}
                                         onChange={(v) => patch(i, { external_field: v })}
-                                        placeholder="Provider field API name"
+                                        placeholder={isHe ? "שם API של שדה הספק" : "Provider field API name"}
                                         className="w-full sm:flex-1 font-mono"
                                     />
                                 )}
                                 <SelectMenu
                                     value={row.transform}
                                     onChange={(v) => patch(i, { transform: v })}
-                                    options={TRANSFORMS}
+                                    options={transforms}
                                     className={row.external_custom ? "w-full sm:w-36" : "w-full"}
-                                    aria-label="Transform"
+                                    aria-label={isHe ? "המרה" : "Transform"}
                                 />
                             </div>
                         </div>
@@ -195,7 +209,7 @@ export default function FieldMapEditor({
                     className="h-6 px-2 rounded text-[11px] text-sky-700 hover:bg-sky-50 inline-flex items-center gap-1 transition-colors"
                 >
                     <PlusIcon className="w-3 h-3" />
-                    Add field
+                    {isHe ? "הוסף שדה" : "Add field"}
                 </button>
                 {dirty && (
                     <div className="flex items-center gap-2">
@@ -204,7 +218,7 @@ export default function FieldMapEditor({
                             onClick={() => setRows(initial)}
                             className="h-6 px-2.5 rounded text-[11.5px] text-slate-600 hover:text-slate-900"
                         >
-                            Reset
+                            {isHe ? "איפוס" : "Reset"}
                         </button>
                         <button
                             type="button"
@@ -216,7 +230,7 @@ export default function FieldMapEditor({
                             )}
                         >
                             {replace.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                            Save mapping
+                            {isHe ? "שמור מיפוי" : "Save mapping"}
                         </button>
                     </div>
                 )}

@@ -31,6 +31,8 @@ import { AUTOMATION_TEMPLATES, type AutomationTemplate } from "@/lib/api/models/
 import { cn } from "@/lib/utils";
 import ProviderGlyph from "@/app/app/integrations/_components/ProviderGlyph";
 
+import { useTranslation } from "react-i18next";
+
 function toWrite(a: Automation): AutomationWrite {
     return {
         name: a.name,
@@ -47,6 +49,8 @@ function actionCount(a: Automation): number {
 }
 
 export default function AutomationsPage() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const navigate = useNavigate();
     const { data, isLoading } = useAutomations();
     const create = useCreateAutomation();
@@ -58,14 +62,14 @@ export default function AutomationsPage() {
     const newAutomation = () => {
         create.mutate(
             {
-                name: "New automation",
+                name: isHe ? "אוטומציה חדשה" : "New automation",
                 enabled: false,
                 trigger_event: "meeting.booked",
                 graph: { nodes: [{ id: "trigger", type: "trigger", x: 0, y: 0 }], edges: [] },
             },
             {
                 onSuccess: (res) => navigate(`/app/automations/${res.automation.id}`),
-                onError: () => toast.error("Could not create automation"),
+                onError: () => toast.error(isHe ? "לא ניתן ליצור אוטומציה" : "Could not create automation"),
             },
         );
     };
@@ -75,54 +79,67 @@ export default function AutomationsPage() {
             { name: t.name, enabled: false, trigger_event: t.trigger_event, graph: t.graph },
             {
                 onSuccess: (res) => navigate(`/app/automations/${res.automation.id}`),
-                onError: () => toast.error("Could not create automation"),
+                onError: () => toast.error(isHe ? "לא ניתן ליצור אוטומציה" : "Could not create automation"),
             },
         );
     };
 
     return (
         <Page>
-            <PageTopbar eyebrow="Automations" subtitle="When something happens in Warmbly, do this across your integrations">
+            <PageTopbar
+                eyebrow={isHe ? "אוטומציות" : "Automations"}
+                subtitle={isHe ? "כשמשהו קורה ב-Warmbly, בצע פעולות אלו בכל האינטגרציות שלך" : "When something happens in Warmbly, do this across your integrations"}
+            >
                 <TopbarAction
                     onClick={newAutomation}
                     icon={create.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <PlusIcon className="w-3.5 h-3.5" />}
                 >
-                    New automation
+                    {isHe ? "אוטומציה חדשה" : "New automation"}
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={3}>
-                <Stat label="Automations" value={automations.length} accent={enabledCount > 0} />
-                <Stat label="Active" value={enabledCount} sub={`${automations.length - enabledCount} off`} />
-                <Stat label="Action steps" value={stepCount} last />
+                <Stat label={isHe ? "אוטומציות" : "Automations"} value={automations.length} accent={enabledCount > 0} />
+                <Stat label={isHe ? "פעילות" : "Active"} value={enabledCount} sub={isHe ? `${automations.length - enabledCount} כבויות` : `${automations.length - enabledCount} off`} />
+                <Stat label={isHe ? "שלבי פעולה" : "Action steps"} value={stepCount} last />
             </StatStrip>
 
             <PageBody>
-                <SectionBar label="Your automations" count={automations.length || undefined} />
+                <SectionBar label={isHe ? "האוטומציות שלך" : "Your automations"} count={automations.length || undefined} />
                 {isLoading ? (
                     <div className="px-5 py-16 flex justify-center">
                         <Loader2Icon className="w-5 h-5 text-slate-300 animate-spin" />
                     </div>
                 ) : automations.length === 0 ? (
                     <EmptyBlock
-                        title="No automations yet"
-                        body="Build a flow: pick a trigger like “meeting booked”, then connect what should happen — ping Slack, create a deal, push to your CRM, or fire a webhook."
+                        title={isHe ? "אין עדיין אוטומציות" : "No automations yet"}
+                        body={
+                            isHe
+                                ? "בנה תהליך עבודה: בחר טריגר כמו ”פגישה נקבעה”, ואז חבר מה יקרה — שלח הודעה ב-Slack, צור עסקה, עדכן את ה-CRM או שלח Webhook."
+                                : "Build a flow: pick a trigger like “meeting booked”, then connect what should happen — ping Slack, create a deal, push to your CRM, or fire a webhook."
+                        }
                         cta={
                             <TopbarAction onClick={newAutomation} icon={<PlusIcon className="w-3.5 h-3.5" />}>
-                                New automation
+                                {isHe ? "אוטומציה חדשה" : "New automation"}
                             </TopbarAction>
                         }
                     />
                 ) : (
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-slate-200/60 border-b border-slate-200/60">
                         {automations.map((a, i) => (
-                            <AutomationCard key={a.id} index={i} automation={a} onOpen={() => navigate(`/app/automations/${a.id}`)} />
+                            <AutomationCard
+                                key={a.id}
+                                index={i}
+                                automation={a}
+                                onOpen={() => navigate(`/app/automations/${a.id}`)}
+                                isHe={isHe}
+                            />
                         ))}
                     </div>
                 )}
 
                 <div className="mt-8">
-                    <SectionBar label="Start from a template" />
+                    <SectionBar label={isHe ? "התחל מתבנית" : "Start from a template"} />
                     <TemplateGallery onPick={newFromTemplate} busy={create.isPending} />
                 </div>
             </PageBody>
@@ -140,7 +157,7 @@ function TemplateGallery({ onPick, busy }: { onPick: (t: AutomationTemplate) => 
                     type="button"
                     disabled={busy}
                     onClick={() => onPick(t)}
-                    className="text-left bg-white p-4 hover:bg-slate-50/60 transition-colors disabled:opacity-60"
+                    className="text-start rtl:text-right ltr:text-left bg-white p-4 hover:bg-slate-50/60 transition-colors disabled:opacity-60"
                 >
                     <div className="flex items-center gap-2">
                         <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200/60">
@@ -149,7 +166,7 @@ function TemplateGallery({ onPick, busy }: { onPick: (t: AutomationTemplate) => 
                         <span className="text-[12.5px] font-medium text-slate-800">{t.name}</span>
                     </div>
                     <p className="mt-1.5 text-[11.5px] text-slate-500 leading-relaxed">{t.description}</p>
-                    <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-slate-400">{triggerLabel(t.trigger_event)}</div>
+                    <div className="mt-2 text-[10px] uppercase tracking-normal text-slate-400">{triggerLabel(t.trigger_event)}</div>
                 </button>
             ))}
         </div>
@@ -160,10 +177,12 @@ function AutomationCard({
     automation,
     onOpen,
     index,
+    isHe = false,
 }: {
     automation: Automation;
     onOpen: () => void;
     index: number;
+    isHe?: boolean;
 }) {
     const confirm = useConfirm();
     const del = useDeleteAutomation();
@@ -193,18 +212,20 @@ function AutomationCard({
 
     const remove = (e: React.MouseEvent) => {
         e.stopPropagation();
-        confirm.show(`Delete "${a.name}"? Its steps will stop running.`, async () => {
-            try {
-                await del.mutateAsync(a.id);
-                toast.success("Automation deleted");
-            } catch (err) {
-                // e.g. 409 when the automation is still used by campaign "Run
-                // automation" steps — surface the server's actionable message and
-                // keep the dialog open (re-throw) so the user can cancel.
-                toast.error((err as { message?: string })?.message || "Could not delete automation");
-                throw err;
-            }
-        });
+        confirm.show(
+            isHe
+                ? `למחוק את "${a.name}"? השלבים שלה יפסיקו לפעול.`
+                : `Delete "${a.name}"? Its steps will stop running.`,
+            async () => {
+                try {
+                    await del.mutateAsync(a.id);
+                    toast.success(isHe ? "האוטומציה נמחקה" : "Automation deleted");
+                } catch (err) {
+                    toast.error((err as { message?: string })?.message || (isHe ? "לא ניתן למחוק את האוטומציה" : "Could not delete automation"));
+                    throw err;
+                }
+            },
+        );
     };
 
     return (
@@ -214,7 +235,7 @@ function AutomationCard({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1], delay: Math.min(index, 12) * 0.03 }}
-            className="text-left bg-white p-5 flex flex-col min-h-[140px] hover:bg-slate-50/60 transition-colors group"
+            className="text-start rtl:text-right ltr:text-left bg-white p-5 flex flex-col min-h-[140px] hover:bg-slate-50/60 transition-colors group"
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2 min-w-0">
@@ -231,18 +252,18 @@ function AutomationCard({
                             : "bg-slate-100 text-slate-500 border-slate-200",
                     )}
                 >
-                    {a.enabled ? "Active" : "Off"}
+                    {a.enabled ? (isHe ? "פעיל" : "Active") : (isHe ? "כבוי" : "Off")}
                 </span>
             </div>
 
             <div className="mt-3 text-[12px] text-slate-600">
-                <span className="text-slate-400">When </span>
+                <span className="text-slate-400">{isHe ? "כאשר " : "When "}</span>
                 <span className="font-medium text-slate-800">{triggerLabel(a.trigger_event)}</span>
             </div>
 
             <div className="mt-2 flex items-center gap-2">
                 <span className="text-[11px] text-slate-400">
-                    {steps} action{steps === 1 ? "" : "s"}
+                    {steps} {isHe ? (steps === 1 ? "פעולה" : "פעולות") : (steps === 1 ? "action" : "actions")}
                 </span>
                 <div className="flex -space-x-1">
                     {providers.slice(0, 5).map((p) => (
@@ -260,14 +281,14 @@ function AutomationCard({
                     onClick={toggle}
                     className="text-[11px] text-slate-500 hover:text-slate-900 underline decoration-dotted underline-offset-2"
                 >
-                    {a.enabled ? "Turn off" : "Turn on"}
+                    {a.enabled ? (isHe ? "כבה" : "Turn off") : (isHe ? "הפעל" : "Turn on")}
                 </span>
                 <span
                     role="button"
                     tabIndex={-1}
                     onClick={remove}
                     className="opacity-100 md:opacity-0 md:group-hover:opacity-100 h-6 w-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                    title="Delete automation"
+                    title={isHe ? "מחק אוטומציה" : "Delete automation"}
                 >
                     <Trash2Icon className="w-3.5 h-3.5" />
                 </span>

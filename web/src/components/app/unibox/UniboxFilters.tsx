@@ -15,7 +15,7 @@ export function UniboxFilters({ value, onChange }: UniboxFiltersProps) {
         onClick={() => onChange('all')}
         className={cn(value === 'all' && 'font-medium')}
       >
-        All
+        הכל
       </Button>
       <Button
         variant={value === 'unread' ? 'secondary' : 'ghost'}
@@ -23,7 +23,7 @@ export function UniboxFilters({ value, onChange }: UniboxFiltersProps) {
         onClick={() => onChange('unread')}
         className={cn(value === 'unread' && 'font-medium')}
       >
-        Unread
+        לא נקרא
       </Button>
     </div>
   )

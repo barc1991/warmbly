@@ -20,18 +20,18 @@ import CampaignFormsPanel from "@/components/app/campaigns/CampaignFormsPanel";
 import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import AdvisorStrip from "@/components/app/advisor/AdvisorStrip";
 
-const AUTO_OPENS_TIP = "Auto-opens: pixel fetches from privacy proxies (e.g. Apple Mail) or within seconds of sending, not a person reading";
-const AUTO_CLICKS_TIP = "Auto-clicks: links followed by a security gateway scanning the email, not a person; not counted as clicks";
+const AUTO_OPENS_TIP = "פתיחות אוטומטיות: טעינת פיקסל מפרוקסי פרטיות (כגון Apple Mail) או תוך שניות מהשליחה, לא קריאה של אדם אמיתי";
+const AUTO_CLICKS_TIP = "לחיצות אוטומטיות: קישורים שנסרקו על ידי שער אבטחה הסורק את האימייל; אינן נספרות כלחיצות של אדם אמיתי";
 
 const pctFmt = (v: number) => `${v.toFixed(1)}%`;
 
 type Metric = "sent" | "opens" | "clicks" | "replies";
 
 const METRICS: { key: Metric; label: string; tone: DitherTone }[] = [
-    { key: "sent", label: "Sent", tone: "sky" },
-    { key: "opens", label: "Opens", tone: "emerald" },
-    { key: "clicks", label: "Clicks", tone: "violet" },
-    { key: "replies", label: "Replies", tone: "amber" },
+    { key: "sent", label: "נשלחו", tone: "sky" },
+    { key: "opens", label: "פתיחות", tone: "emerald" },
+    { key: "clicks", label: "לחיצות", tone: "violet" },
+    { key: "replies", label: "מענים", tone: "amber" },
 ];
 
 function pct(v: number | undefined): string {
@@ -77,13 +77,13 @@ export default function CampaignOverview() {
     const hasSends = (summary?.emails_sent ?? 0) > 0;
 
     const shareData = {
-        title: campaign?.name ?? "Campaign",
-        subtitle: "Campaign",
+        title: campaign?.name ?? "קמפיין",
+        subtitle: "קמפיין",
         metrics: [
-            { label: "Sent", value: num(summary?.emails_sent), sub: "emails" },
-            { label: "Open rate", value: pct(summary?.open_rate) },
-            { label: "Reply rate", value: pct(summary?.reply_rate) },
-            { label: "Bounce rate", value: pct(summary?.bounce_rate) },
+            { label: "נשלחו", value: num(summary?.emails_sent), sub: "הודעות" },
+            { label: "אחוז פתיחה", value: pct(summary?.open_rate) },
+            { label: "אחוז מענה", value: pct(summary?.reply_rate) },
+            { label: "אחוז החזרות", value: pct(summary?.bounce_rate) },
         ],
         daily: dailyStats.map((d) => ({ label: d.date, value: d.sent })),
     };
@@ -102,11 +102,11 @@ export default function CampaignOverview() {
     }
 
     const breakdown = [
-        { label: "Sent", value: summary?.emails_sent, icon: SendIcon, dot: "bg-slate-400" },
-        { label: "Opens", value: summary?.unique_opens, icon: MailCheckIcon, dot: "bg-emerald-500", note: summary?.machine_opens ? `${summary.machine_opens} auto` : undefined, noteTitle: AUTO_OPENS_TIP },
-        { label: "Clicks", value: summary?.unique_clicks, icon: MousePointerClickIcon, dot: "bg-violet-500", note: summary?.machine_clicks ? `${summary.machine_clicks} auto` : undefined, noteTitle: AUTO_CLICKS_TIP },
-        { label: "Replies", value: summary?.replies, icon: ReplyIcon, dot: "bg-amber-500" },
-        { label: "Bounces", value: summary?.bounces, icon: TriangleAlertIcon, dot: "bg-rose-500" },
+        { label: "נשלחו", value: summary?.emails_sent, icon: SendIcon, dot: "bg-slate-400" },
+        { label: "פתיחות", value: summary?.unique_opens, icon: MailCheckIcon, dot: "bg-emerald-500", note: summary?.machine_opens ? `${summary.machine_opens} אוטומטי` : undefined, noteTitle: AUTO_OPENS_TIP },
+        { label: "לחיצות", value: summary?.unique_clicks, icon: MousePointerClickIcon, dot: "bg-violet-500", note: summary?.machine_clicks ? `${summary.machine_clicks} אוטומטי` : undefined, noteTitle: AUTO_CLICKS_TIP },
+        { label: "מענים", value: summary?.replies, icon: ReplyIcon, dot: "bg-amber-500" },
+        { label: "החזרות", value: summary?.bounces, icon: TriangleAlertIcon, dot: "bg-rose-500" },
     ];
 
     return (
@@ -119,14 +119,14 @@ export default function CampaignOverview() {
                 {/* Main analytics column */}
                 <div className="space-y-5 min-w-0">
                     <div className="rounded-md border border-slate-200 overflow-hidden bg-white">
-                        <SectionBar label="Performance">
+                        <SectionBar label="ביצועים">
                             {campaign.status === "active" && (
-                                <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-600 mr-1">
+                                <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-600 me-1">
                                     <span className="relative flex size-1.5">
                                         <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
                                         <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
                                     </span>
-                                    Live
+                                    פעיל עכשיו
                                 </span>
                             )}
                             <AnalyticsShareButton
@@ -136,30 +136,30 @@ export default function CampaignOverview() {
                         </SectionBar>
                         <StatStrip cols={5}>
                             <Stat
-                                label="Sent"
+                                label="נשלחו"
                                 value={loading ? "—" : <AnimatedNumber value={summary?.emails_sent ?? 0} />}
-                                sub="emails"
+                                sub="הודעות"
                                 accent={hasSends}
                             />
                             <Stat
-                                label="Open rate"
+                                label="אחוז פתיחה"
                                 value={loading ? "—" : <AnimatedNumber value={summary?.open_rate ?? 0} format={pctFmt} />}
-                                sub="after delivery"
+                                sub="לאחר מסירה"
                             />
                             <Stat
-                                label="Click rate"
+                                label="אחוז לחיצה"
                                 value={loading ? "—" : <AnimatedNumber value={summary?.click_rate ?? 0} format={pctFmt} />}
-                                sub="of delivered"
+                                sub="מהנמסרות"
                             />
                             <Stat
-                                label="Reply rate"
+                                label="אחוז מענה"
                                 value={loading ? "—" : <AnimatedNumber value={summary?.reply_rate ?? 0} format={pctFmt} />}
-                                sub="incl. positive"
+                                sub="כולל חיובי"
                             />
                             <Stat
-                                label="Bounce rate"
+                                label="אחוז החזרות"
                                 value={loading ? "—" : <AnimatedNumber value={summary?.bounce_rate ?? 0} format={pctFmt} />}
-                                sub="hard + soft"
+                                sub="קשות ורכות"
                                 last
                             />
                         </StatStrip>
@@ -167,12 +167,12 @@ export default function CampaignOverview() {
 
                     {analytics.isError ? (
                         <div className="rounded-md border border-rose-200 bg-rose-50/40 px-5 py-8 text-center">
-                            <p className="text-[12.5px] text-slate-900 font-medium">Couldn't load analytics</p>
-                            <p className="text-[11.5px] text-slate-500 mt-1">The request failed — try refreshing.</p>
+                            <p className="text-[12.5px] text-slate-900 font-medium">לא ניתן לטעון נתוני ניתוח</p>
+                            <p className="text-[11.5px] text-slate-500 mt-1">הבקשה נכשלה — נסה לרענן את העמוד.</p>
                         </div>
                     ) : (
                         <div className="rounded-md border border-slate-200 overflow-hidden bg-white">
-                            <SectionBar label="Daily performance">
+                            <SectionBar label="ביצועים יומיים">
                                 <div className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5">
                                     {METRICS.map((m) => {
                                         const visible = !hiddenMetrics.includes(m.key);
@@ -204,8 +204,8 @@ export default function CampaignOverview() {
                                         height={280}
                                         emptyLabel={
                                             hasSends
-                                                ? "No activity in this window yet"
-                                                : "No sends yet — start the campaign to see performance"
+                                                ? "אין פעילות בחלון זמנים זה עדיין"
+                                                : "אין שליחות עדיין — הפעל את הקמפיין כדי לצפות בביצועים"
                                         }
                                     />
                                 )}
@@ -214,34 +214,34 @@ export default function CampaignOverview() {
                     )}
 
                     <div className="rounded-md border border-slate-200 overflow-hidden bg-white">
-                        <SectionBar label="Step performance" count={sequences.length || undefined} />
+                        <SectionBar label="ביצועי שלבים" count={sequences.length || undefined} />
                         {loading ? (
                             <div className="divide-y divide-slate-200/60">
                                 {[...Array(2)].map((_, i) => (
                                     <div key={i} className="h-11 px-5 flex items-center gap-3">
                                         <div className="size-1.5 rounded-full bg-slate-200" />
                                         <div className="h-3 w-40 bg-slate-100 rounded animate-pulse" />
-                                        <div className="ml-auto h-3 w-48 bg-slate-100 rounded animate-pulse" />
+                                        <div className="ms-auto h-3 w-48 bg-slate-100 rounded animate-pulse" />
                                     </div>
                                 ))}
                             </div>
                         ) : sequences.length === 0 ? (
                             <div className="px-5 py-10 text-center">
-                                <p className="text-[12.5px] text-slate-700 font-medium mb-1">No step data yet</p>
+                                <p className="text-[12.5px] text-slate-700 font-medium mb-1">אין נתוני שלבים עדיין</p>
                                 <p className="text-[11.5px] text-slate-400 max-w-[34ch] mx-auto leading-relaxed">
-                                    Once steps start sending, per-step opens, clicks, and replies show up here.
+                                    ברגע שהשלבים יתחילו לשלוח, פתיחות, לחיצות ומענים לפי שלב יוצגו כאן.
                                 </p>
                             </div>
                         ) : (
                             <div className="divide-y divide-slate-200/60">
                                 {/* header row */}
                                 <div className="h-8 px-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
-                                    <span className="flex-1 min-w-0">Step</span>
-                                    <span className="w-14 text-right">Sent</span>
-                                    <span className="w-14 text-right">Opens</span>
-                                    <span className="w-14 text-right hidden md:block">Clicks</span>
-                                    <span className="w-14 text-right">Replies</span>
-                                    <span className="w-16 text-right hidden md:block">Bounces</span>
+                                    <span className="flex-1 min-w-0">שלב</span>
+                                    <span className="w-14 text-end">נשלחו</span>
+                                    <span className="w-14 text-end">פתיחות</span>
+                                    <span className="w-14 text-end hidden md:block">לחיצות</span>
+                                    <span className="w-14 text-end">מענים</span>
+                                    <span className="w-16 text-end hidden md:block">החזרות</span>
                                 </div>
                                 {sequences.map((s) => (
                                     <div key={s.step_id} className="h-11 px-5 flex items-center gap-3">
@@ -251,19 +251,19 @@ export default function CampaignOverview() {
                                             </span>
                                             <span className="text-[12.5px] text-slate-900 truncate">{s.name}</span>
                                         </span>
-                                        <span className="w-14 text-right font-mono text-[11.5px] text-slate-700 tabular-nums">
+                                        <span className="w-14 text-end font-mono text-[11.5px] text-slate-700 tabular-nums">
                                             <AnimatedNumber value={s.emails_sent ?? 0} />
                                         </span>
-                                        <span className="w-14 text-right font-mono text-[11.5px] text-emerald-600 tabular-nums">
+                                        <span className="w-14 text-end font-mono text-[11.5px] text-emerald-600 tabular-nums">
                                             <AnimatedNumber value={s.opens ?? 0} />
                                         </span>
-                                        <span className="w-14 text-right font-mono text-[11.5px] text-violet-600 tabular-nums hidden md:block">
+                                        <span className="w-14 text-end font-mono text-[11.5px] text-violet-600 tabular-nums hidden md:block">
                                             <AnimatedNumber value={s.clicks ?? 0} />
                                         </span>
-                                        <span className="w-14 text-right font-mono text-[11.5px] text-amber-600 tabular-nums">
+                                        <span className="w-14 text-end font-mono text-[11.5px] text-amber-600 tabular-nums">
                                             <AnimatedNumber value={s.replies ?? 0} />
                                         </span>
-                                        <span className="w-16 text-right font-mono text-[11.5px] text-rose-600 tabular-nums hidden md:block">
+                                        <span className="w-16 text-end font-mono text-[11.5px] text-rose-600 tabular-nums hidden md:block">
                                             <AnimatedNumber value={s.bounces ?? 0} />
                                         </span>
                                     </div>
@@ -278,7 +278,7 @@ export default function CampaignOverview() {
 
                     {/* quick breakdown strip below sequence table, mobile-friendly summary */}
                     <div className="rounded-md border border-slate-200 overflow-hidden bg-white lg:hidden">
-                        <SectionBar label="Totals" />
+                        <SectionBar label="סיכומים" />
                         <div className="divide-y divide-slate-200/60">
                             {breakdown.map((q) => (
                                 <div key={q.label} className="h-9 px-5 flex items-center gap-2">
@@ -292,7 +292,7 @@ export default function CampaignOverview() {
                                             {q.note}
                                         </span>
                                     )}
-                                    <span className="ml-auto font-mono text-[11px] text-slate-500 tabular-nums">
+                                    <span className="ms-auto font-mono text-[11px] text-slate-500 tabular-nums">
                                         {loading ? "—" : <AnimatedNumber value={q.value ?? 0} />}
                                     </span>
                                 </div>
@@ -306,7 +306,7 @@ export default function CampaignOverview() {
                     <TaskPreview campaignId={campaign.id} campaignStatus={campaign.status} idle={!!campaign.idle_since} />
 
                     <div className="rounded-md border border-slate-200 overflow-hidden bg-white hidden lg:block">
-                        <SectionBar label="Totals" />
+                        <SectionBar label="סיכומים" />
                         <div className="divide-y divide-slate-200/60">
                             {breakdown.map((q) => (
                                 <div key={q.label} className="h-9 px-5 flex items-center gap-2">
@@ -320,7 +320,7 @@ export default function CampaignOverview() {
                                             {q.note}
                                         </span>
                                     )}
-                                    <span className="ml-auto font-mono text-[11px] text-slate-500 tabular-nums">
+                                    <span className="ms-auto font-mono text-[11px] text-slate-500 tabular-nums">
                                         {loading ? "—" : <AnimatedNumber value={q.value ?? 0} />}
                                     </span>
                                 </div>
@@ -337,14 +337,14 @@ export default function CampaignOverview() {
 // fallback for anything it does not know.
 const REGION_NAMES = (() => {
     try {
-        return new Intl.DisplayNames(undefined, { type: "region" });
+        return new Intl.DisplayNames(["he", "en"], { type: "region" });
     } catch {
         return null;
     }
 })();
 
 function countryName(code: string): string {
-    if (!code) return "Unknown";
+    if (!code) return "לא ידוע";
     try {
         return REGION_NAMES?.of(code.toUpperCase()) ?? code;
     } catch {
@@ -354,7 +354,7 @@ function countryName(code: string): string {
 
 function bucketLabel(kind: "countries" | "clients" | "devices", key: string): string {
     if (kind === "countries") return countryName(key);
-    if (!key) return "Unknown";
+    if (!key) return "לא ידוע";
     if (kind === "devices") return key.charAt(0).toUpperCase() + key.slice(1);
     return key;
 }
@@ -370,34 +370,34 @@ function EngagementAudience({
     loading: boolean;
 }) {
     const columns: { kind: "countries" | "clients" | "devices"; label: string; rows: EngagementBucket[] }[] = [
-        { kind: "countries", label: "Country", rows: breakdown?.countries ?? [] },
-        { kind: "clients", label: "Mail client", rows: breakdown?.clients ?? [] },
-        { kind: "devices", label: "Device", rows: breakdown?.devices ?? [] },
+        { kind: "countries", label: "מדינה", rows: breakdown?.countries ?? [] },
+        { kind: "clients", label: "תוכנת דואר", rows: breakdown?.clients ?? [] },
+        { kind: "devices", label: "מכשיר", rows: breakdown?.devices ?? [] },
     ];
     const empty = columns.every((c) => c.rows.length === 0);
     return (
         <div className="rounded-md border border-slate-200 overflow-hidden bg-white">
-            <SectionBar label="Who engaged, and from where" />
+            <SectionBar label="מי הגיב ומהיכן" />
             {loading ? (
                 <div className="h-24 animate-pulse bg-slate-50" />
             ) : empty ? (
                 <div className="px-5 py-8 text-center">
-                    <p className="text-[12.5px] text-slate-700 font-medium mb-1">No opens or clicks yet</p>
+                    <p className="text-[12.5px] text-slate-700 font-medium mb-1">אין פתיחות או לחיצות עדיין</p>
                     <p className="text-[11.5px] text-slate-400 max-w-[36ch] mx-auto leading-relaxed">
-                        Once people open and click, this shows which countries, mail clients and devices they did it from.
+                        ברגע שנמענים יפתחו וילחצו, כאן יוצגו המדינות, תוכנות הדואר והמכשירים שמהם הם פעלו.
                     </p>
                 </div>
             ) : (
-                <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-200/60">
+                <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x rtl:md:divide-x-reverse divide-slate-200/60">
                     {columns.map((c) => (
                         <div key={c.kind} className="min-w-0">
                             <div className="h-8 px-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
                                 <span className="flex-1 min-w-0">{c.label}</span>
-                                <span className="w-12 text-right">Opens</span>
-                                <span className="w-12 text-right">Clicks</span>
+                                <span className="w-12 text-end">פתיחות</span>
+                                <span className="w-12 text-end">לחיצות</span>
                             </div>
                             {c.rows.length === 0 ? (
-                                <div className="px-5 py-3 text-[11.5px] text-slate-400">Nothing yet</div>
+                                <div className="px-5 py-3 text-[11.5px] text-slate-400">אין עדיין נתונים</div>
                             ) : (
                                 <div className="divide-y divide-slate-200/60">
                                     {c.rows.map((r) => (
@@ -405,10 +405,10 @@ function EngagementAudience({
                                             <span className="flex-1 min-w-0 text-[12px] text-slate-700 truncate" title={r.key || undefined}>
                                                 {bucketLabel(c.kind, r.key)}
                                             </span>
-                                            <span className="w-12 text-right font-mono text-[11.5px] text-emerald-600 tabular-nums">
+                                            <span className="w-12 text-end font-mono text-[11.5px] text-emerald-600 tabular-nums">
                                                 {r.opens}
                                             </span>
-                                            <span className="w-12 text-right font-mono text-[11.5px] text-violet-600 tabular-nums">
+                                            <span className="w-12 text-end font-mono text-[11.5px] text-violet-600 tabular-nums">
                                                 {r.clicks}
                                             </span>
                                         </div>

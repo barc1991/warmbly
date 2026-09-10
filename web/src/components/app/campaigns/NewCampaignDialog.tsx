@@ -211,12 +211,10 @@ function daysLabel(mask: number): string {
     return on.length === 0 ? "אף יום" : on.join(", ");
 }
 
-// "14:30" -> "2:30 PM"
 function fmt12(hhmm: string): string {
     const [h, m] = hhmm.split(":").map(Number);
     if (Number.isNaN(h) || Number.isNaN(m)) return hhmm;
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return `${h12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 function fmtDate(d: Date): string {

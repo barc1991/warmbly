@@ -34,7 +34,7 @@ export default function TemplatePickerContent({
         <div className="w-[340px] max-w-[92vw]">
             <div className="px-3 pt-2.5 pb-1 flex items-center justify-between gap-2">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold">
-                    Templates
+                    תבניות
                 </span>
                 {all.length > 0 && (
                     <span className="font-mono text-[10px] text-slate-400 tabular-nums">
@@ -53,16 +53,16 @@ export default function TemplatePickerContent({
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search templates"
+                            placeholder="חיפוש תבניות..."
                             autoFocus
-                            className="flex-1 min-w-0 h-6 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
+                            className="flex-1 min-w-0 h-6 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
                         />
                         {search && (
                             <button
                                 type="button"
                                 onClick={() => setSearch("")}
                                 className="size-4 inline-flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 shrink-0"
-                                aria-label="Clear search"
+                                aria-label="נקה חיפוש"
                             >
                                 <XIcon className="w-2.5 h-2.5" />
                             </button>
@@ -82,21 +82,21 @@ export default function TemplatePickerContent({
                 </div>
             ) : query.isError ? (
                 <div className="px-3 py-3 flex items-start gap-2 text-[11.5px] text-rose-600 bg-rose-50/60 mx-2 mb-2 rounded-md border border-rose-200/60">
-                    <span>Couldn&apos;t load templates. Try again in a moment.</span>
+                    <span>לא ניתן לטעון תבניות. נסה שוב בעוד רגע.</span>
                 </div>
             ) : all.length === 0 ? (
                 <TemplatePickerEmpty onClose={onClose} />
             ) : filtered.length === 0 ? (
                 <div className="px-3 py-6 text-center">
                     <p className="text-[12px] text-slate-500">
-                        No templates match &ldquo;{search}&rdquo;.
+                        לא נמצאו תבניות התואמות ל-&ldquo;{search}&rdquo;.
                     </p>
                     <button
                         type="button"
                         onClick={() => setSearch("")}
                         className="mt-2 text-[11.5px] text-sky-700 hover:text-sky-900 font-medium"
                     >
-                        Clear search
+                        נקה חיפוש
                     </button>
                 </div>
             ) : (
@@ -122,10 +122,10 @@ export default function TemplatePickerContent({
                         className="inline-flex items-center gap-1.5 h-6 px-1.5 rounded text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
                         <SettingsIcon className="w-3 h-3" />
-                        Manage templates
+                        ניהול תבניות
                     </Link>
                     <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-slate-400">
-                        Click to insert
+                        לחץ להוספה
                     </span>
                 </div>
             )}
@@ -153,7 +153,7 @@ function TemplateRow({
         <button
             type="button"
             onClick={onPick}
-            className="w-full text-left rounded-md px-2.5 py-1.5 flex flex-col gap-0.5 hover:bg-slate-50 active:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200"
+            className="w-full text-start rounded-md px-2.5 py-1.5 flex flex-col gap-0.5 hover:bg-slate-50 active:bg-slate-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200"
         >
             <span className="text-[12.5px] font-medium text-slate-900 truncate">
                 {template.name}
@@ -177,11 +177,10 @@ function TemplatePickerEmpty({ onClose }: { onClose: () => void }) {
                 <FileTextIcon className="w-4 h-4" />
             </div>
             <p className="text-[12.5px] font-medium text-slate-900">
-                No templates yet
+                אין תבניות עדיין
             </p>
             <p className="text-[11px] text-slate-500 mt-1 leading-relaxed max-w-[34ch] mx-auto">
-                Save your most-used replies once and drop them into any
-                conversation with two clicks.
+                שמור תשובות נפוצות מראש והוסף אותן לכל שיחה בשתי לחיצות בלבד.
             </p>
             <Link
                 to="/app/templates"
@@ -189,7 +188,7 @@ function TemplatePickerEmpty({ onClose }: { onClose: () => void }) {
                 className="inline-flex items-center gap-1.5 h-7 px-2.5 mt-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors"
             >
                 <SettingsIcon className="w-3 h-3" />
-                Create a template
+                צור תבנית
             </Link>
         </div>
     );

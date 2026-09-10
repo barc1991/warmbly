@@ -143,6 +143,8 @@ export function UniboxFilterSheet({
     setDraft({ sortBy: "newest" });
   };
 
+  const isRtl = typeof document !== "undefined" && (document.documentElement.dir === "rtl" || document.body.dir === "rtl");
+
   return (
     <AnimatePresence>
       {open && (
@@ -153,63 +155,69 @@ export function UniboxFilterSheet({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-[100] flex justify-end bg-slate-900/30 backdrop-blur-[2px]"
+          className={cn(
+            "fixed inset-0 z-[100] flex bg-slate-900/30 backdrop-blur-[2px]",
+            isRtl ? "justify-start" : "justify-end"
+          )}
         >
           <motion.aside
             key="panel"
-            initial={{ x: "100%" }}
+            initial={{ x: isRtl ? "-100%" : "100%" }}
             animate={{ x: 0 }}
-            exit={{ x: "100%" }}
+            exit={{ x: isRtl ? "-100%" : "100%" }}
             transition={{ type: "spring", stiffness: 300, damping: 32 }}
             onClick={(e) => e.stopPropagation()}
-            className="flex flex-col bg-white w-[420px] max-w-[95%] h-full border-l border-slate-200 shadow-[-8px_0_24px_-12px_rgba(15,23,42,0.12)]"
+            className={cn(
+              "flex flex-col bg-white w-[420px] max-w-[95%] h-full shadow-xl text-start",
+              isRtl ? "border-r border-slate-200" : "border-l border-slate-200"
+            )}
           >
             <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
               <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                Filters
+                מסננים
               </span>
               <div className="h-4 w-px bg-slate-200" />
               <span className="text-[12.5px] text-slate-700">
                 {activeCount === 0
-                  ? "No filters applied"
-                  : `${activeCount} ${activeCount === 1 ? "filter" : "filters"} active`}
+                  ? "אין מסננים פעילים"
+                  : `${activeCount} מסננים פעילים`}
               </span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-label="Close"
-                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                aria-label="סגור"
+                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
               >
                 <XIcon className="w-3.5 h-3.5" />
               </button>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto">
-              <SectionBar label="Search" />
+              <SectionBar label="חיפוש" />
               <div className="px-4 py-3 space-y-2">
                 <SearchInput
                   value={draft.query ?? ""}
                   onChange={(v) =>
                     setDraft((s) => ({ ...s, query: v || undefined }))
                   }
-                  placeholder="Subject, snippet, contents…"
+                  placeholder="נושא, קטע, תוכן…"
                 />
               </div>
 
-              <SectionBar label="Sender" />
+              <SectionBar label="שולח" />
               <div className="px-4 py-3 space-y-2">
                 <TextInput
                   value={draft.from ?? ""}
                   onChange={(v) =>
                     setDraft((s) => ({ ...s, from: v || undefined }))
                   }
-                  placeholder="name@company.com or substring"
+                  placeholder="name@company.com או חלק מהשם"
                   className="w-full"
                 />
               </div>
 
               <SectionBar
-                label="Accounts"
+                label="תיבות דואר"
                 count={
                   selectedTagId
                     ? accountsByTag?.length
@@ -222,7 +230,7 @@ export function UniboxFilterSheet({
                     onClick={clearAccounts}
                     className="text-[11px] text-slate-500 hover:text-slate-900 transition-colors"
                   >
-                    Clear
+                    נקה
                   </button>
                 ) : (
                   <button
@@ -230,7 +238,7 @@ export function UniboxFilterSheet({
                     onClick={selectAllAccounts}
                     className="text-[11px] text-slate-500 hover:text-slate-900 transition-colors"
                   >
-                    Select all
+                    בחר הכל
                   </button>
                 )}
               </SectionBar>
@@ -242,7 +250,7 @@ export function UniboxFilterSheet({
                 <div className="px-4 pt-3">
                   <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1.5 flex items-center gap-1.5">
                     <TagIcon className="w-3 h-3" />
-                    Tags
+                    תגיות
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {tags.map((t) => {
@@ -289,7 +297,7 @@ export function UniboxFilterSheet({
                 <div className="px-4 pt-3">
                   <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1.5 flex items-center gap-1.5">
                     <TagIcon className="w-3 h-3" />
-                    Categories
+                    קטגוריות
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {categories.map((c) => {
@@ -336,11 +344,11 @@ export function UniboxFilterSheet({
               <div className="px-4 py-3">
                 <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1.5 flex items-center gap-1.5">
                   <MailIcon className="w-3 h-3" />
-                  Mailboxes
+                  תיבות דואר
                 </div>
                 {emails.length === 0 ? (
                   <p className="text-[11.5px] text-slate-400 py-2">
-                    No mailboxes connected yet.
+                    עדיין לא חוברו תיבות דואר.
                   </p>
                 ) : (
                   <div className="space-y-1">
@@ -353,7 +361,7 @@ export function UniboxFilterSheet({
                           key={e.id}
                           type="button"
                           onClick={() => toggleAccount(e.id)}
-                          className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition-colors text-left ${
+                          className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md transition-colors text-start ${
                             checked
                               ? "bg-sky-50/80 hover:bg-sky-50"
                               : tagMatch
@@ -373,12 +381,12 @@ export function UniboxFilterSheet({
                           <span className="size-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[9px] font-semibold shrink-0">
                             {e.email.slice(0, 2).toUpperCase()}
                           </span>
-                          <span className="text-[12px] text-slate-900 truncate flex-1">
+                          <span className="text-[12px] text-slate-900 truncate flex-1 font-mono" dir="ltr">
                             {e.email}
                           </span>
                           {tagMatch && !checked && (
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              via tag
+                            <span className="text-[10px] text-slate-400">
+                              דרך תגית
                             </span>
                           )}
                         </button>
@@ -388,34 +396,34 @@ export function UniboxFilterSheet({
                 )}
               </div>
 
-              <SectionBar label="Status" />
+              <SectionBar label="סטטוס" />
               <div className="px-4 py-3">
                 <Toggle3
                   value={draft.unseen ?? undefined}
                   onChange={(v) => setDraft((s) => ({ ...s, unseen: v }))}
                   options={[
-                    { id: undefined, label: "Any" },
-                    { id: true, label: "Unread" },
-                    { id: false, label: "Read" },
+                    { id: undefined, label: "הכל" },
+                    { id: true, label: "לא נקרא" },
+                    { id: false, label: "נקרא" },
                   ]}
                 />
               </div>
 
-              <SectionBar label="Dates" />
+              <SectionBar label="תאריכים" />
               <div className="px-4 py-3 space-y-2">
                 <DateRow
-                  label="Since"
+                  label="החל מ-"
                   value={draft.since}
                   onChange={(v) => setDraft((s) => ({ ...s, since: v }))}
                 />
                 <DateRow
-                  label="Until"
+                  label="עד ל-"
                   value={draft.until}
                   onChange={(v) => setDraft((s) => ({ ...s, until: v }))}
                 />
               </div>
 
-              <SectionBar label="Sort" />
+              <SectionBar label="מיון" />
               <div className="px-4 py-3 space-y-2">
                 <Toggle3
                   value={draft.sortBy ?? "newest"}
@@ -426,8 +434,8 @@ export function UniboxFilterSheet({
                     }))
                   }
                   options={[
-                    { id: "newest" as const, label: "Newest" },
-                    { id: "oldest" as const, label: "Oldest" },
+                    { id: "newest" as const, label: "החדש ביותר" },
+                    { id: "oldest" as const, label: "הישן ביותר" },
                   ]}
                 />
               </div>
@@ -440,14 +448,14 @@ export function UniboxFilterSheet({
                 className="h-7 px-2.5 rounded-md text-[12px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1.5 transition-colors"
               >
                 <RotateCcwIcon className="w-3 h-3" />
-                Reset
+                איפוס
               </button>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               >
-                Cancel
+                ביטול
               </button>
               <button
                 type="button"
@@ -460,7 +468,7 @@ export function UniboxFilterSheet({
                 ) : (
                   <SearchIcon className="w-3 h-3" />
                 )}
-                Apply
+                החל מסננים
               </button>
             </div>
           </motion.aside>

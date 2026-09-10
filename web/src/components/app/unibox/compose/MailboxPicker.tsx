@@ -50,6 +50,8 @@ export default function MailboxPicker({ value, autoTag, onChange, candidates, lo
     const storeEmails = useAppStore((s) => s.emails);
     const storeTags = useAppStore((s) => s.tags);
 
+    const isRtl = typeof document !== "undefined" && (document.documentElement.dir === "rtl" || document.body.dir === "rtl");
+
     const measure = React.useCallback(() => {
         const el = boxRef.current;
         if (!el) return;
@@ -58,11 +60,13 @@ export default function MailboxPicker({ value, autoTag, onChange, candidates, lo
         // panel's right edge slide underneath it.
         const vw = document.documentElement.clientWidth;
         const vh = window.innerHeight;
-        const left = Math.min(Math.max(r.left, 8), vw - PANEL_WIDTH - 8);
+        const left = isRtl
+            ? Math.max(8, Math.min(r.right - PANEL_WIDTH, vw - PANEL_WIDTH - 8))
+            : Math.min(Math.max(r.left, 8), vw - PANEL_WIDTH - 8);
         // Flip above the trigger when the space below is tight.
         const up = vh - r.bottom < 300 && r.top > vh - r.bottom;
         setAnchor({ top: up ? r.top - 4 : r.bottom + 4, left, up });
-    }, []);
+    }, [isRtl]);
 
     React.useEffect(() => {
         if (!open) {
@@ -131,7 +135,7 @@ export default function MailboxPicker({ value, autoTag, onChange, candidates, lo
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="group max-w-full inline-flex items-center gap-1.5 h-6 pl-1 pr-1 -ml-1 rounded-md hover:bg-slate-50 transition-colors min-w-0"
+                className="group max-w-full inline-flex items-center gap-1.5 h-6 px-1.5 rounded-md hover:bg-slate-50 transition-colors min-w-0"
             >
                 {value === "auto" ? (
                     <>
@@ -141,11 +145,11 @@ export default function MailboxPicker({ value, autoTag, onChange, candidates, lo
                             </span>
                         ) : (
                             <span className="text-[12px] text-slate-400">
-                                {loading ? "picking a mailbox…" : "no active mailbox"}
+                                {loading ? "בוחר תיבת דואר…" : "אין תיבת דואר פעילה"}
                             </span>
                         )}
-                        <span className="h-4 px-1 rounded bg-slate-100 text-slate-500 text-[9.5px] font-medium uppercase tracking-wide shrink-0 max-w-[120px] truncate">
-                            {autoTagTitle ? `auto · ${autoTagTitle}` : "auto"}
+                        <span className="h-4 px-1 rounded bg-slate-100 text-slate-500 text-[9.5px] font-medium uppercase shrink-0 max-w-[120px] truncate">
+                            {autoTagTitle ? `אוטומטי · ${autoTagTitle}` : "אוטומטי"}
                         </span>
                     </>
                 ) : selected ? (
@@ -153,12 +157,12 @@ export default function MailboxPicker({ value, autoTag, onChange, candidates, lo
                         <span className="text-[12.5px] text-slate-900 font-medium truncate">
                             {selected.name || selected.email}
                         </span>
-                        <span className="font-mono text-[10.5px] text-slate-500 truncate">
+                        <span className="font-mono text-[10.5px] text-slate-500 truncate" dir="ltr">
                             {selected.email}
                         </span>
                     </>
                 ) : (
-                    <span className="text-[12px] text-amber-700">mailbox unavailable</span>
+                    <span className="text-[12px] text-amber-700">תיבת דואר אינה זמינה</span>
                 )}
                 <ChevronDownIcon className="w-3 h-3 text-slate-300 shrink-0 group-hover:text-slate-500 transition-colors" />
             </button>
@@ -181,7 +185,7 @@ export default function MailboxPicker({ value, autoTag, onChange, candidates, lo
                                     ? { bottom: window.innerHeight - anchor.top }
                                     : { top: anchor.top }),
                             }}
-                            className="max-w-[calc(100vw-16px)] rounded-lg border border-slate-200 bg-white shadow-xl overflow-hidden"
+                            className="max-w-[calc(100vw-16px)] rounded-lg border border-slate-200 bg-white shadow-xl overflow-hidden text-start"
                         >
                             {/* Search + tag filter header: one compact row */}
                             <div className="px-1.5 pt-1.5 pb-1 border-b border-slate-100 flex items-center gap-1">
@@ -195,14 +199,14 @@ export default function MailboxPicker({ value, autoTag, onChange, candidates, lo
                                         autoFocus
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
-                                        placeholder="Search mailboxes…"
-                                        className="flex-1 min-w-0 bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none"
+                                        placeholder="חיפוש תיבות דואר…"
+                                        className="flex-1 min-w-0 bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
                                     />
                                 </div>
                                 {usedTags.length > 0 && (
                                     <FilterMenu
                                         icon={TagIcon}
-                                        allLabel="All tags"
+                                        allLabel="כל התגיות"
                                         options={usedTags.map((t) => ({
                                             id: t.id,
                                             label: t.title,
@@ -228,26 +232,26 @@ export default function MailboxPicker({ value, autoTag, onChange, candidates, lo
                                         onClick={() => pick("auto", tagFilter)}
                                         title={
                                             filterTag
-                                                ? `Picks the best mailbox tagged ${filterTag.title}`
+                                                ? `בוחר את תיבת הדואר הטובה ביותר עם תגית ${filterTag.title}`
                                                 : recommended
-                                                  ? `Picks ${recommended.email}${candidates?.recommended_reason ? `: ${candidates.recommended_reason}` : ""}`
-                                                  : "Picks the best mailbox for each recipient"
+                                                  ? `בוחר ${recommended.email}${candidates?.recommended_reason ? `: ${candidates.recommended_reason}` : ""}`
+                                                  : "בוחר את תיבת הדואר הטובה ביותר לכל נמען"
                                         }
                                         className={cn(
-                                            "w-full h-8 px-2.5 flex items-center gap-2 text-left transition-colors hover:bg-slate-50",
+                                            "w-full h-8 px-2.5 flex items-center gap-2 text-start rtl:text-right ltr:text-left transition-colors hover:bg-slate-50",
                                             active && "bg-sky-50/60",
                                         )}
                                     >
                                         <SparklesIcon className="w-3 h-3 text-sky-500 shrink-0" />
                                         <span className="text-[11.5px] font-medium text-slate-900 whitespace-nowrap">
-                                            {filterTag ? `Auto in ${filterTag.title}` : "Auto"}
+                                            {filterTag ? `אוטומטי ב-${filterTag.title}` : "אוטומטי"}
                                         </span>
                                         <span className="min-w-0 flex-1 text-[10.5px] text-slate-400 truncate">
                                             {preview
                                                 ? preview.email
                                                 : filterTag
-                                                  ? "no mailbox carries this tag"
-                                                  : "best mailbox per recipient"}
+                                                  ? "אין תיבת דואר עם תגית זו"
+                                                  : "התיבה הטובה ביותר לנמען"}
                                         </span>
                                         {active && <CheckIcon className="w-3 h-3 text-sky-600 shrink-0" />}
                                     </button>
@@ -265,10 +269,10 @@ export default function MailboxPicker({ value, autoTag, onChange, candidates, lo
                                 ) : (
                                     <>
                                         {filtered.length === 0 && (
-                                            <div className="px-3 py-3 text-[11px] text-slate-400">
+                                            <div className="px-3 py-3 text-[11px] text-slate-400 text-start">
                                                 {accounts.length === 0
-                                                    ? "No active mailboxes. Connect one under Emails."
-                                                    : "No mailboxes match."}
+                                                    ? "אין תיבות דואר פעילות. חבר תיבה תחת תיבות דואר."
+                                                    : "לא נמצאו תיבות דואר מתאימות."}
                                             </div>
                                         )}
                                         {filtered.map((a) => (
@@ -309,7 +313,7 @@ function CandidateRow({
             onClick={onPick}
             title={[a.name, ...a.reasons].filter(Boolean).join(" · ")}
             className={cn(
-                "w-full h-8 px-2.5 flex items-center gap-2 text-left transition-colors hover:bg-slate-50",
+                "w-full h-8 px-2.5 flex items-center gap-2 text-start rtl:text-right ltr:text-left transition-colors hover:bg-slate-50",
                 active && "bg-sky-50/60",
             )}
         >
@@ -326,8 +330,8 @@ function CandidateRow({
             <span className="min-w-0 flex-1 text-[11.5px] text-slate-800 truncate">
                 {a.email}
                 {a.recommended && (
-                    <span className="ml-1.5 text-[9px] font-semibold uppercase tracking-wide text-sky-600">
-                        best
+                    <span className="mx-1.5 text-[9px] font-semibold uppercase tracking-wide text-sky-600">
+                        הטובה ביותר
                     </span>
                 )}
             </span>
