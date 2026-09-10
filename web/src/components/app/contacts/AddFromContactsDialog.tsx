@@ -140,10 +140,10 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                     remove_campaigns: [],
                     fields: [],
                 });
-                toast.success(`Added ${count.toLocaleString()} lead${count === 1 ? "" : "s"} to ${target.campaign.name}`);
+                toast.success(`נוספו ${count.toLocaleString()} ${count === 1 ? "ליד" : "לידים"} ל-${target.campaign.name}`);
             } else {
                 const added = await members.mutateAsync({ id: target.segment.id, selection, mode: "include" });
-                toast.success(`Added ${added.toLocaleString()} contact${added === 1 ? "" : "s"} to ${target.segment.name}`);
+                toast.success(`נוספו ${added.toLocaleString()} ${added === 1 ? "איש קשר" : "אנשי קשר"} ל-${target.segment.name}`);
             }
             onClose();
         } catch (err) {
@@ -192,7 +192,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                         key="card"
                         role="dialog"
                         aria-modal="true"
-                        aria-label="Add leads from contacts"
+                        aria-label={target.kind === "campaign" ? "הוספת לידים מאנשי קשר" : "הוספת אנשי קשר למקטע"}
                         initial={{ y: 8, opacity: 0, scale: 0.985 }}
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 8, opacity: 0, scale: 0.985 }}
@@ -205,18 +205,18 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                 <UsersIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                {target.kind === "campaign" ? "Add leads" : "Add contacts"}
+                                {target.kind === "campaign" ? "הוספת לידים" : "הוספת אנשי קשר"}
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-900 font-medium">From contacts</span>
+                            <span className="text-[12.5px] text-slate-900 font-medium">מאנשי קשר</span>
                             <span className="hidden sm:inline-flex items-center h-5 px-1.5 rounded bg-sky-50 text-sky-700 text-[10px] font-medium max-w-[200px] truncate">
-                                → {targetName}
+                                ← {targetName}
                             </span>
                             <button
                                 type="button"
                                 onClick={requestClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגירה"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -226,7 +226,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                             <SearchInput
                                 value={query}
                                 onChange={setQuery}
-                                placeholder="Search name, email, company…"
+                                placeholder="חיפוש לפי שם, אימייל, חברה..."
                                 autoFocus
                                 className="w-full sm:w-64"
                             />
@@ -234,7 +234,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                 <CategoryPicker
                                     value={categoryIds}
                                     onChange={setCategoryIds}
-                                    placeholder="Filter by category…"
+                                    placeholder="סינון לפי קטגוריה..."
                                     allowCreate={false}
                                 />
                             </div>
@@ -248,7 +248,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                 className="inline-flex items-center gap-1.5 hover:text-slate-900 disabled:opacity-50 transition-colors"
                             >
                                 <CheckSquare checked={allLoadedSelected} />
-                                {allLoadedSelected ? "Clear loaded" : `Select loaded (${selectableIDs.length})`}
+                                {allLoadedSelected ? "נקה טעונים" : `בחר טעונים (${selectableIDs.length})`}
                             </button>
                             {!rowSel.all && (search.hasNextPage || contacts.length >= PAGE) && (
                                 <button
@@ -256,11 +256,11 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                     onClick={selectAllMatching}
                                     className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
                                 >
-                                    Select all matching{total != null ? ` (${total.toLocaleString()})` : ""}
+                                    בחר את כל התואמים{total != null ? ` (${total.toLocaleString()})` : ""}
                                 </button>
                             )}
-                            <span className="ml-auto tabular-nums">
-                                {count.toLocaleString()} selected
+                            <span className="ms-auto tabular-nums">
+                                {count.toLocaleString()} נבחרו
                             </span>
                         </div>
 
@@ -274,24 +274,24 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                             ) : search.isError ? (
                                 <div className="px-5 py-10 text-center">
                                     <AlertCircleIcon className="w-4 h-4 text-rose-500 mx-auto mb-2" />
-                                    <p className="text-[12.5px] text-slate-900 font-medium">Couldn't load contacts</p>
+                                    <p className="text-[12.5px] text-slate-900 font-medium">לא ניתן היה לטעון אנשי קשר</p>
                                     <button
                                         type="button"
                                         onClick={() => search.refetch()}
                                         className="mt-2 h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:bg-slate-100 transition-colors"
                                     >
-                                        Retry
+                                        נסה שוב
                                     </button>
                                 </div>
                             ) : contacts.length === 0 ? (
                                 <div className="px-5 py-10 text-center">
                                     <p className="text-[12.5px] text-slate-900 font-medium">
-                                        {debounced || categoryIds.length > 0 ? "No contacts match" : "No contacts yet"}
+                                        {debounced || categoryIds.length > 0 ? "לא נמצאו אנשי קשר תואמים" : "אין אנשי קשר עדיין"}
                                     </p>
                                     <p className="text-[11.5px] text-slate-400 mt-0.5">
                                         {debounced || categoryIds.length > 0
-                                            ? "Try a different search or category."
-                                            : "Import a file or add contacts first."}
+                                            ? "נסה חיפוש או קטגוריה אחרת."
+                                            : "ייבא קובץ או הוסף אנשי קשר תחילה."}
                                     </p>
                                 </div>
                             ) : (
@@ -307,7 +307,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                                     onClick={() => toggle(c.id)}
                                                     aria-pressed={on}
                                                     className={cn(
-                                                        "w-full px-4 h-11 flex items-center gap-3 text-left transition-colors",
+                                                        "w-full px-4 h-11 flex items-center gap-3 text-start transition-colors",
                                                         already
                                                             ? "cursor-default"
                                                             : on
@@ -354,7 +354,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                                     {already && (
                                                         <span className="shrink-0 inline-flex items-center gap-1 h-5 px-1.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-medium">
                                                             <CheckIcon className="w-2.5 h-2.5" strokeWidth={3} />
-                                                            Lead
+                                                            {target.kind === "campaign" ? "ליד קיים" : "חבר קיים"}
                                                         </span>
                                                     )}
                                                 </button>
@@ -370,7 +370,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                                 className="w-full h-8 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-50 inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
                                             >
                                                 {search.isFetchingNextPage && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                                                Load more
+                                                טען עוד
                                             </button>
                                         </li>
                                     )}
@@ -381,16 +381,16 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                         <footer className="px-3 min-h-12 py-1.5 sm:py-0 sm:h-12 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-slate-50/30">
                             <span className="text-[11px] text-slate-400 min-w-0 truncate">
                                 {target.kind === "campaign"
-                                    ? "Contacts already in this campaign are skipped."
-                                    : "Added contacts stay in the segment whatever its conditions say."}
+                                    ? "אנשי קשר שכבר נמצאים בקמפיין זה ידולגו."
+                                    : "אנשי קשר שיתווספו יישארו במקטע ללא תלות בתנאיו."}
                             </span>
                             <button
                                 type="button"
                                 onClick={requestClose}
                                 disabled={busy}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -399,7 +399,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                 className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0"
                             >
                                 {busy ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <UsersIcon className="w-3 h-3" />}
-                                Add {count > 0 ? count.toLocaleString() : ""} {target.kind === "campaign" ? "lead" : "contact"}{count === 1 ? "" : "s"}
+                                הוספת {count > 0 ? count.toLocaleString() : ""} {target.kind === "campaign" ? (count === 1 ? "ליד" : "לידים") : (count === 1 ? "איש קשר" : "אנשי קשר")}
                             </button>
                         </footer>
                     </motion.div>

@@ -52,13 +52,13 @@ export default function SyncSourceEditDrawer({
 
     const campaignName =
         campaigns.campaigns.find((c) => c.id === campaignId)?.name ??
-        (campaignId ? "Selected campaign" : "No campaign");
+        (campaignId ? "קמפיין נבחר" : "ללא קמפיין");
 
     async function save() {
         setBusy(true);
         try {
             const body: UpdateLeadSyncSource = {
-                label: label.trim() || source.sheet_title || "Sync source",
+                label: label.trim() || source.sheet_title || "מקור סנכרון",
                 dedup,
                 has_header: hasHeader,
                 category_ids: categoryIds,
@@ -71,10 +71,10 @@ export default function SyncSourceEditDrawer({
                 body.clear_campaign = true;
             }
             await update.mutateAsync({ id: source.id, body });
-            toast.success("Sync source updated");
+            toast.success("מקור הסנכרון עודכן");
             onClose();
         } catch (err) {
-            toast.error(describeError(err, "Couldn't update the sync source."));
+            toast.error(describeError(err, "לא ניתן היה לעדכן את מקור הסנכרון."));
         } finally {
             setBusy(false);
         }
@@ -92,7 +92,7 @@ export default function SyncSourceEditDrawer({
             >
                 <button
                     type="button"
-                    aria-label="Close"
+                    aria-label="סגירה"
                     onClick={onClose}
                     className="absolute inset-0 bg-slate-900/30 backdrop-blur-[2px]"
                 />
@@ -102,21 +102,21 @@ export default function SyncSourceEditDrawer({
                     animate={{ x: 0, opacity: 1 }}
                     exit={{ x: 24, opacity: 0 }}
                     transition={{ duration: 0.18 }}
-                    className="ml-auto h-full w-full max-w-full md:w-[440px] md:max-w-[92vw] bg-white shadow-xl flex flex-col z-10 relative"
+                    className="ms-auto h-full w-full max-w-full md:w-[440px] md:max-w-[92vw] bg-white shadow-xl flex flex-col z-10 relative rtl:border-r rtl:border-l-0 rtl:shadow-[12px_0_24px_-12px_rgba(15,23,42,0.08)]"
                 >
                     <div className="h-12 px-5 border-b border-slate-200 flex items-center gap-3 shrink-0">
                         <div className="min-w-0 flex-1">
                             <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                Edit sync source
+                                עריכת מקור סנכרון
                             </div>
                             <div className="text-[12.5px] text-slate-900 font-medium truncate">
-                                {source.label || source.sheet_title || "Sync source"}
+                                {source.label || source.sheet_title || "מקור סנכרון"}
                             </div>
                         </div>
                         <button
                             type="button"
                             onClick={onClose}
-                            aria-label="Close"
+                            aria-label="סגירה"
                             className="h-7 w-7 rounded border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-900 inline-flex items-center justify-center transition-colors"
                         >
                             <XIcon className="w-3.5 h-3.5" />
@@ -125,17 +125,17 @@ export default function SyncSourceEditDrawer({
 
                     <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
                         <div className="rounded-md border border-slate-200 bg-slate-50/40 p-3 space-y-1">
-                            <Row label="Spreadsheet" value={source.sheet_title || source.sheet_id} />
-                            {source.tab_title && <Row label="Tab" value={source.tab_title} />}
+                            <Row label="גיליון אלקטרוני" value={source.sheet_title || source.sheet_id} />
+                            {source.tab_title && <Row label="לשונית" value={source.tab_title} />}
                             <Row
-                                label="Mapped columns"
-                                value={`${source.column_mapping.filter((m) => m.target !== "ignore").length} fields`}
+                                label="עמודות ממופות"
+                                value={`${source.column_mapping.filter((m) => m.target !== "ignore").length} שדות`}
                             />
                         </div>
 
                         <section>
-                            <Label>Source label</Label>
-                            <TextInput value={label} onChange={setLabel} placeholder="My leads sheet" />
+                            <Label>תווית מקור</Label>
+                            <TextInput value={label} onChange={setLabel} placeholder="גיליון הלידים שלי" />
                         </section>
 
                         <section>
@@ -146,13 +146,13 @@ export default function SyncSourceEditDrawer({
                                     checked={hasHeader}
                                     onChange={(e) => setHasHeader(e.target.checked)}
                                 />
-                                First row is a header
+                                השורה הראשונה היא כותרת
                             </label>
                         </section>
 
                         <section>
                             <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                                Duplicate handling
+                                טיפול בכפילויות
                             </h2>
                             <div className="space-y-2">
                                 {DEDUP_OPTIONS.map((opt) => (
@@ -188,7 +188,7 @@ export default function SyncSourceEditDrawer({
 
                         <section>
                             <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                                Enroll in campaign
+                                רישום לקמפיין
                             </h2>
                             <PopoverMenu align="start">
                                 <PopoverMenuTrigger asChild>
@@ -199,15 +199,15 @@ export default function SyncSourceEditDrawer({
                                         <input
                                             value={query}
                                             onChange={(e) => setQuery(e.target.value)}
-                                            placeholder="Search campaigns…"
-                                            className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
+                                            placeholder="חיפוש קמפיינים..."
+                                            className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
                                         />
                                     </div>
                                     <PopoverMenuItem
                                         selected={!campaignId}
                                         onSelect={() => setCampaignId(null)}
                                     >
-                                        No campaign
+                                        ללא קמפיין
                                     </PopoverMenuItem>
                                     {campaigns.campaigns.map((c) => (
                                         <PopoverMenuItem
@@ -224,17 +224,17 @@ export default function SyncSourceEditDrawer({
 
                         <section>
                             <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                                Apply categories
+                                החלת קטגוריות
                             </h2>
                             <CategoryPicker value={categoryIds} onChange={setCategoryIds} />
                         </section>
 
                         <section>
                             <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                                Add to segments
+                                הוספה למקטעים
                             </h2>
                             <p className="text-[11px] text-slate-400 leading-tight mb-2">
-                                Every synced contact is pinned into these segments on each run.
+                                כל איש קשר מסונכרן יוצמד למקטעים אלו בכל הרצה.
                             </p>
                             <SegmentMultiPicker value={segmentIds} onChange={setSegmentIds} />
                         </section>
@@ -246,7 +246,7 @@ export default function SyncSourceEditDrawer({
                             onClick={onClose}
                             className="h-7 px-3 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:border-slate-300 hover:text-slate-900 transition-colors"
                         >
-                            Cancel
+                            ביטול
                         </button>
                         <button
                             type="button"
@@ -255,7 +255,7 @@ export default function SyncSourceEditDrawer({
                             className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                         >
                             {busy ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
-                            Save changes
+                            שמירת שינויים
                         </button>
                     </div>
                 </motion.div>

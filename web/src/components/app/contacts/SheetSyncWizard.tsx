@@ -150,10 +150,10 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
             await finishOAuth.mutateAsync({ code, state });
             await connection.refetch();
             await queryClient.invalidateQueries({ queryKey: ["lead-sync", "google", "connection"] });
-            toast.success("Connected to Google Sheets");
+            toast.success("החיבור ל-Google Sheets הצליח");
             setStep("sheet");
         } catch (err) {
-            toast.error(describeError(err, "Connection failed."));
+            toast.error(describeError(err, "החיבור נכשל."));
         } finally {
             setBusy(false);
         }
@@ -163,7 +163,7 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
         if (!connectionId) return;
         const id = sheetId.trim();
         if (!id) {
-            toast.error("Paste a Sheet ID first.");
+            toast.error("יש להדביק מזהה גיליון תחילה.");
             return;
         }
         setBusy(true);
@@ -175,7 +175,7 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
             setTabTitle(first);
             if (!label.trim()) setLabel(m.title);
         } catch (err) {
-            toast.error(describeError(err, "Couldn't read that spreadsheet."));
+            toast.error(describeError(err, "לא ניתן היה לקרוא את הגיליון."));
             setMeta(null);
         } finally {
             setBusy(false);
@@ -185,7 +185,7 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
     async function loadPreview() {
         if (!connectionId || !meta) return;
         if (!tabTitle) {
-            toast.error("Pick a tab first.");
+            toast.error("יש לבחור לשונית תחילה.");
             return;
         }
         setBusy(true);
@@ -200,7 +200,7 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
             setHasHeader(p.has_header);
             setStep("map");
         } catch (err) {
-            toast.error(describeError(err, "Couldn't read that tab."));
+            toast.error(describeError(err, "לא ניתן היה לקרוא את הלשונית."));
         } finally {
             setBusy(false);
         }
@@ -241,11 +241,11 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
                 setStep("result");
                 announceResult(res.result);
             } else {
-                toast.success("Sync source saved");
+                toast.success("מקור הסנכרון נשמר");
                 onClose();
             }
         } catch (err) {
-            toast.error(describeError(err, "Couldn't save the sync source."));
+            toast.error(describeError(err, "לא ניתן היה לשמור את מקור הסנכרון."));
         } finally {
             setBusy(false);
         }
@@ -284,11 +284,11 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
                                 <SheetIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                Sync source
+                                מקור סנכרון
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-900 font-medium">Google Sheet</span>
-                            <div className="hidden sm:flex items-center gap-1 ml-2">
+                            <span className="text-[12.5px] text-slate-900 font-medium">Google Sheets</span>
+                            <div className="hidden sm:flex items-center gap-1 ms-2">
                                 {visibleSteps.map((_, idx) => (
                                     <span
                                         key={idx}
@@ -301,8 +301,8 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגירה"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -359,29 +359,29 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
 
                         <footer className="min-h-12 py-1.5 md:py-0 px-3 border-t border-slate-200 flex flex-wrap items-center gap-1.5 shrink-0 bg-slate-50/30">
                             {step === "connect" && (
-                                <span className="ml-auto text-[11px] text-slate-400">
-                                    We use your existing Google Sheets authorization.
+                                <span className="ms-auto text-[11px] text-slate-400">
+                                    אנו משתמשים בהרשאת Google Sheets הקיימת שלך.
                                 </span>
                             )}
                             {step === "sheet" && (
                                 <>
                                     {connected && !lockedCampaign && (
                                         <span className="text-[11px] text-slate-400">
-                                            Connected to Google.
+                                            מחובר ל-Google.
                                         </span>
                                     )}
                                     <button
                                         type="button"
                                         onClick={loadPreview}
                                         disabled={busy || !meta || !tabTitle}
-                                        className="ml-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                                        className="ms-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                                     >
                                         {busy ? (
                                             <Loader2Icon className="w-3 h-3 animate-spin" />
                                         ) : (
-                                            <ArrowRightIcon className="w-3 h-3" />
+                                            <ArrowRightIcon className="w-3 h-3 rtl:rotate-180" />
                                         )}
-                                        Preview rows
+                                        תצוגה מקדימה של שורות
                                     </button>
                                 </>
                             )}
@@ -392,8 +392,8 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
                                         onClick={() => setStep("sheet")}
                                         className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1.5 transition-colors"
                                     >
-                                        <ArrowLeftIcon className="w-3 h-3" />
-                                        Back
+                                        <ArrowLeftIcon className="w-3 h-3 rtl:rotate-180" />
+                                        חזרה
                                     </button>
                                     {mapProblem && (
                                         <span className="text-[11px] text-amber-700 inline-flex items-center gap-1">
@@ -405,10 +405,10 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
                                         type="button"
                                         onClick={() => setStep("options")}
                                         disabled={!!mapProblem}
-                                        className="ml-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                                        className="ms-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                                     >
-                                        Continue
-                                        <ArrowRightIcon className="w-3 h-3" />
+                                        המשך
+                                        <ArrowRightIcon className="w-3 h-3 rtl:rotate-180" />
                                     </button>
                                 </>
                             )}
@@ -419,17 +419,17 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
                                         onClick={() => setStep("map")}
                                         className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1.5 transition-colors"
                                     >
-                                        <ArrowLeftIcon className="w-3 h-3" />
-                                        Back
+                                        <ArrowLeftIcon className="w-3 h-3 rtl:rotate-180" />
+                                        חזרה
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => save(false)}
                                         disabled={busy}
-                                        className="ml-auto h-7 px-3 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:border-slate-300 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                                        className="ms-auto h-7 px-3 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:border-slate-300 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                                     >
                                         <SaveIcon className="w-3 h-3" />
-                                        Save only
+                                        שמירה בלבד
                                     </button>
                                     <button
                                         type="button"
@@ -442,7 +442,7 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
                                         ) : (
                                             <RefreshCwIcon className="w-3 h-3" />
                                         )}
-                                        Save & sync now
+                                        שמירה וסנכרון עכשיו
                                     </button>
                                 </>
                             )}
@@ -450,9 +450,9 @@ export default function SheetSyncWizard({ open, onClose, lockedCampaign, lockedS
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="ml-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
+                                    className="ms-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
                                 >
-                                    Done
+                                    סיום
                                 </button>
                             )}
                         </footer>
@@ -472,10 +472,9 @@ function ConnectStep({ busy, onConnect }: { busy: boolean; onConnect: () => void
                 <div className="mx-auto size-10 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
                     <SheetIcon className="w-5 h-5" />
                 </div>
-                <p className="text-[13px] text-slate-900 font-medium mt-3">Connect Google Sheets</p>
+                <p className="text-[13px] text-slate-900 font-medium mt-3">חיבור Google Sheets</p>
                 <p className="text-[11.5px] text-slate-500 mt-1 max-w-[42ch] mx-auto leading-relaxed">
-                    Authorize Warmbly to read your spreadsheets. We only read the rows of the tab
-                    you choose — nothing is written back.
+                    הרשאת Warmbly לקריאת גיליונות אלקטרוניים. אנו קוראים רק את השורות בלשונית שתבחר: שום דבר אינו נכתב בחזרה.
                 </p>
                 <button
                     type="button"
@@ -488,14 +487,14 @@ function ConnectStep({ busy, onConnect }: { busy: boolean; onConnect: () => void
                     ) : (
                         <PlugZapIcon className="w-3.5 h-3.5" />
                     )}
-                    {busy ? "Connecting…" : "Connect with Google"}
+                    {busy ? "מתחבר..." : "התחברות באמצעות Google"}
                 </button>
             </div>
             <div className="rounded-md border border-slate-200 bg-slate-50/40 p-3">
-                <ul className="text-[11px] text-slate-500 space-y-0.5 list-disc pl-4 leading-snug">
-                    <li>One row per contact — first row should be the column headers.</li>
-                    <li>At minimum a column with email addresses.</li>
-                    <li>This is on-demand: nothing syncs until you press Sync now.</li>
+                <ul className="text-[11px] text-slate-500 space-y-0.5 list-disc ps-4 leading-snug">
+                    <li>שורה אחת לכל איש קשר: השורה הראשונה צריכה להכיל את כותרות העמודות.</li>
+                    <li>לפחות עמודה אחת המכילה כתובות אימייל.</li>
+                    <li>הסנכרון הוא לפי דרישה: דבר לא יסונכרן עד שתלחץ על 'סנכרן עכשיו'.</li>
                 </ul>
             </div>
         </div>
@@ -524,13 +523,13 @@ function SheetStep({
     return (
         <div className="space-y-4">
             <section>
-                <Label>Spreadsheet ID</Label>
+                <Label>מזהה גיליון (Spreadsheet ID)</Label>
                 <div className="flex items-center gap-1.5">
                     <TextInput
                         value={sheetId}
                         onChange={setSheetId}
                         placeholder="1AbC…XyZ"
-                        className="font-mono flex-1"
+                        className="font-mono flex-1 text-start"
                     />
                     <button
                         type="button"
@@ -539,11 +538,11 @@ function SheetStep({
                         className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 shrink-0"
                     >
                         {busy ? <Loader2Icon className="w-3 h-3 animate-spin" /> : null}
-                        Load tabs
+                        טעינת לשוניות
                     </button>
                 </div>
                 <p className="text-[10.5px] text-slate-400 mt-1 leading-relaxed">
-                    The long ID in the sheet URL between <code className="font-mono">/d/</code> and{" "}
+                    המזהה הארוך בכתובת ה-URL של הגיליון בין <code className="font-mono">/d/</code> לבין{" "}
                     <code className="font-mono">/edit</code>.
                 </p>
             </section>
@@ -553,15 +552,15 @@ function SheetStep({
                     <div className="flex items-center gap-2">
                         <SheetIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span className="text-[12.5px] text-slate-900 font-medium truncate">{meta.title}</span>
-                        <span className="text-[11px] text-slate-400">{meta.tabs.length} tabs</span>
+                        <span className="text-[11px] text-slate-400">{meta.tabs.length} לשוניות</span>
                     </div>
-                    <Label>Tab to import</Label>
+                    <Label>לשונית לייבוא</Label>
                     <PopoverMenu align="start">
                         <PopoverMenuTrigger asChild>
-                            <SelectButton label={tabTitle || "Select a tab…"} className="w-full" />
+                            <SelectButton label={tabTitle || "בחר לשונית..."} className="w-full" />
                         </PopoverMenuTrigger>
                         <PopoverMenuContent minWidth={260}>
-                            <PopoverMenuLabel>Tabs</PopoverMenuLabel>
+                            <PopoverMenuLabel>לשוניות</PopoverMenuLabel>
                             {meta.tabs.map((t) => (
                                 <PopoverMenuItem
                                     key={`${t.index}-${t.title}`}
@@ -613,20 +612,19 @@ function OptionsStep({
     return (
         <div className="space-y-5">
             <section>
-                <Label>Source label</Label>
-                <TextInput value={label} onChange={setLabel} placeholder="My leads sheet" />
+                <Label>תווית מקור</Label>
+                <TextInput value={label} onChange={setLabel} placeholder="גיליון הלידים שלי" />
                 <p className="text-[10.5px] text-slate-400 mt-1">
-                    Shown in your Sync sources list. Defaults to the spreadsheet title.
+                    מוצג ברשימת מקורות הסנכרון שלך. ברירת המחדל היא שם הגיליון.
                 </p>
             </section>
 
             <section>
                 <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                    Duplicate handling
+                    טיפול בכפילויות
                 </h2>
                 <p className="text-[11px] text-slate-400 leading-tight mb-3">
-                    We dedupe on lowercased email each time you sync. Decide what happens when a row
-                    matches a contact you already have.
+                    מניעת כפילויות מתבצעת לפי כתובת אימייל באותיות קטנות בכל סנכרון. בחר כיצד לנהוג כאשר שורה תואמת לאיש קשר קיים.
                 </p>
                 <div className="space-y-2">
                     {DEDUP_OPTIONS.map((opt) => (
@@ -662,20 +660,20 @@ function OptionsStep({
 
             <section>
                 <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                    Enroll in campaign
+                    רישום לקמפיין
                 </h2>
                 {lockedCampaign ? (
                     <div className="rounded-md border border-sky-200 bg-sky-50/60 px-3 py-2 flex items-center gap-2">
                         <CheckIcon className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                         <span className="text-[12px] text-slate-800">
-                            New & updated leads join{" "}
+                            לידים חדשים ומעודכנים יצטרפו ל-{" "}
                             <span className="font-medium">{lockedCampaign.name}</span>.
                         </span>
                     </div>
                 ) : (
                     <>
                         <p className="text-[11px] text-slate-400 leading-tight mb-2">
-                            Optionally enroll every synced contact into a campaign.
+                            רישום אופציונלי של כל איש קשר מסונכרן לקמפיין.
                         </p>
                         <CampaignPicker
                             campaignId={campaignId}
@@ -688,22 +686,22 @@ function OptionsStep({
 
             <section>
                 <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                    Apply categories
+                    החלת קטגוריות
                 </h2>
                 <p className="text-[11px] text-slate-400 leading-tight mb-2">
-                    Every synced contact gets these categories. Skip to leave them untagged.
+                    כל איש קשר מסונכרן יקבל קטגוריות אלו. דלג כדי להשאירם ללא תיוג.
                 </p>
                 <CategoryPicker value={categoryIds} onChange={setCategoryIds} />
             </section>
 
             <section>
                 <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                    Add to segments
+                    הוספה למקטעים
                 </h2>
                 <p className="text-[11px] text-slate-400 leading-tight mb-2">
                     {lockedSegment
-                        ? "Every synced contact is pinned into this segment on each run, whether or not it matches the segment's conditions. Add more below."
-                        : "Every synced contact is pinned into these segments on each run. A segment linked to a campaign enrols them there automatically."}
+                        ? "כל איש קשר מסונכרן יוצמד למקטע זה בכל הרצה, ללא תלות בתנאי המקטע. ניתן להוסיף מקטעים נוספים למטה."
+                        : "כל איש קשר מסונכרן יוצמד למקטעים אלו בכל הרצה. מקטע המקושר לקמפיין ירשום אותם אליו אוטומטית."}
                 </p>
                 {lockedSegment && (
                     <div className="mb-2 flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50/60 px-2 h-7">
@@ -712,8 +710,8 @@ function OptionsStep({
                             style={{ backgroundColor: lockedSegment.color ?? "#0284c7" }}
                         />
                         <span className="text-[12px] font-medium text-sky-900 truncate">{lockedSegment.name}</span>
-                        <span className="ml-auto text-[10px] uppercase tracking-[0.14em] text-sky-700 shrink-0">
-                            Always
+                        <span className="ms-auto text-[10px] uppercase tracking-[0.14em] text-sky-700 shrink-0">
+                            תמיד
                         </span>
                     </div>
                 )}

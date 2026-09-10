@@ -65,7 +65,7 @@ export default function SyncSourcesPanel({
             const res = await syncSource.mutateAsync(src.id);
             announceResult(res.result);
         } catch (err) {
-            toast.error(describeError(err, "Sync failed."));
+            toast.error(describeError(err, "הסנכרון נכשל."));
         } finally {
             setSyncingId(null);
         }
@@ -73,13 +73,13 @@ export default function SyncSourcesPanel({
 
     function confirmDelete(src: LeadSyncSource) {
         confirm.show(
-            `Delete sync source "${src.label || src.sheet_title || "this sheet"}"? Contacts already imported stay.`,
+            `למחוק את מקור הסנכרון "${src.label || src.sheet_title || "גיליון זה"}"? אנשי קשר שכבר יובאו יישארו.`,
             async () => {
                 try {
                     await deleteSource.mutateAsync(src.id);
-                    toast.success("Sync source deleted");
+                    toast.success("מקור הסנכרון נמחק");
                 } catch (err) {
-                    toast.error(describeError(err, "Delete failed."));
+                    toast.error(describeError(err, "המחיקה נכשלה."));
                 }
             },
         );
@@ -112,7 +112,7 @@ export default function SyncSourcesPanel({
                                     <SheetIcon className="w-3 h-3" />
                                 </div>
                                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                    Sync sources
+                                    מקורות סנכרון
                                 </span>
                                 {(campaign || segment) && (
                                     <>
@@ -125,19 +125,19 @@ export default function SyncSourcesPanel({
                                 <button
                                     type="button"
                                     onClick={() => setWizardOpen(true)}
-                                    aria-label={campaign || segment ? "Connect a Google Sheet" : "New sync"}
-                                    className="ml-auto h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
+                                    aria-label={campaign || segment ? "חיבור Google Sheets" : "סנכרון חדש"}
+                                    className="ms-auto h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                                 >
                                     <PlusIcon className="w-3 h-3" />
                                     <span className="hidden md:inline">
-                                        {campaign || segment ? "Connect a Google Sheet" : "New sync"}
+                                        {campaign || segment ? "חיבור Google Sheets" : "סנכרון חדש"}
                                     </span>
-                                    <span className="md:hidden">New</span>
+                                    <span className="md:hidden">חדש</span>
                                 </button>
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    aria-label="Close"
+                                    aria-label="סגירה"
                                     className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                                 >
                                     <XIcon className="w-3.5 h-3.5" />
@@ -163,7 +163,7 @@ export default function SyncSourcesPanel({
                                             <AlertTriangleIcon className="w-4 h-4" />
                                         </div>
                                         <p className="text-[12.5px] text-slate-900 font-medium">
-                                            Couldn&apos;t load sync sources
+                                            לא ניתן היה לטעון מקורות סנכרון
                                         </p>
                                         <button
                                             type="button"
@@ -171,7 +171,7 @@ export default function SyncSourcesPanel({
                                             className="mt-3 h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                                         >
                                             <RefreshCwIcon className="w-3 h-3" />
-                                            Try again
+                                            נסה שוב
                                         </button>
                                     </div>
                                 ) : list.length === 0 ? (
@@ -180,12 +180,11 @@ export default function SyncSourcesPanel({
                                             <SheetIcon className="w-5 h-5" />
                                         </div>
                                         <p className="text-[13px] text-slate-900 font-medium mt-3">
-                                            No sync sources yet
+                                            אין מקורות סנכרון עדיין
                                         </p>
                                         <p className="text-[11.5px] text-slate-500 mt-1 max-w-[42ch] mx-auto leading-relaxed">
-                                            Connect a Google Sheet and re-run it on demand to pull new and
-                                            updated leads into Warmbly
-                                            {campaign ? ` and into ${campaign.name}` : segment ? ` and into ${segment.name}` : ""}.
+                                            חבר גיליון Google Sheets והפעל אותו לפי דרישה כדי למשוך לידים חדשים ומעודכנים ל-Warmbly
+                                            {campaign ? ` ולקמפיין ${campaign.name}` : segment ? ` ולמקטע ${segment.name}` : ""}.
                                         </p>
                                         <button
                                             type="button"
@@ -193,7 +192,7 @@ export default function SyncSourcesPanel({
                                             className="mt-4 h-8 px-4 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                                         >
                                             <PlusIcon className="w-3.5 h-3.5" />
-                                            {campaign || segment ? "Connect a Google Sheet" : "New sync"}
+                                            {campaign || segment ? "חיבור Google Sheets" : "סנכרון חדש"}
                                         </button>
                                     </div>
                                 ) : (
@@ -252,7 +251,7 @@ function SourceRow({
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 min-w-0">
                     <span className="text-[12.5px] text-slate-900 font-medium truncate">
-                        {source.label || source.sheet_title || "Untitled sheet"}
+                        {source.label || source.sheet_title || "גיליון ללא שם"}
                     </span>
                     <StatusBadge status={source.status} hasError={!!source.last_error} />
                 </div>
@@ -269,16 +268,16 @@ function SourceRow({
                     <span className="text-slate-300">·</span>
                     <span className="shrink-0">
                         {source.last_synced_at
-                            ? `synced ${new Date(source.last_synced_at).toLocaleString()}`
-                            : "never synced"}
+                            ? `סונכרן ב-${new Date(source.last_synced_at).toLocaleString("he-IL")}`
+                            : "טרם סונכרן"}
                     </span>
                 </div>
                 {r && (
                     <div className="mt-1 flex items-center gap-1.5 text-[10.5px] tabular-nums">
-                        <Count label="imported" value={r.imported} tone="emerald" />
-                        <Count label="updated" value={r.updated} tone="sky" />
-                        <Count label="skipped" value={r.skipped} tone="slate" />
-                        {r.failed > 0 && <Count label="failed" value={r.failed} tone="red" />}
+                        <Count label="יובאו" value={r.imported} tone="emerald" />
+                        <Count label="עודכנו" value={r.updated} tone="sky" />
+                        <Count label="דולגו" value={r.skipped} tone="slate" />
+                        {r.failed > 0 && <Count label="נכשלו" value={r.failed} tone="red" />}
                     </div>
                 )}
                 {source.last_error && (
@@ -291,7 +290,7 @@ function SourceRow({
                     type="button"
                     onClick={onSync}
                     disabled={syncing}
-                    aria-label="Sync now"
+                    aria-label="סנכרן עכשיו"
                     className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                 >
                     {syncing ? (
@@ -299,12 +298,12 @@ function SourceRow({
                     ) : (
                         <RefreshCwIcon className="w-3 h-3" />
                     )}
-                    <span className="hidden md:inline">Sync now</span>
+                    <span className="hidden md:inline">סנכרן עכשיו</span>
                 </button>
                 <button
                     type="button"
                     onClick={onEdit}
-                    aria-label="Edit sync source"
+                    aria-label="עריכת מקור סנכרון"
                     className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                 >
                     <PencilIcon className="w-3.5 h-3.5" />
@@ -312,7 +311,7 @@ function SourceRow({
                 <button
                     type="button"
                     onClick={onDelete}
-                    aria-label="Delete sync source"
+                    aria-label="מחיקת מקור סנכרון"
                     className="size-7 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center transition-colors"
                 >
                     <Trash2Icon className="w-3.5 h-3.5" />
@@ -327,7 +326,7 @@ function StatusBadge({ status, hasError }: { status: string; hasError: boolean }
         return (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium text-sky-700 uppercase tracking-[0.08em]">
                 <Loader2Icon className="w-2.5 h-2.5 animate-spin" />
-                syncing
+                מסנכרן
             </span>
         );
     }
@@ -335,14 +334,14 @@ function StatusBadge({ status, hasError }: { status: string; hasError: boolean }
         return (
             <span className="inline-flex items-center gap-1 text-[10px] font-medium text-rose-700 uppercase tracking-[0.08em]">
                 <AlertTriangleIcon className="w-2.5 h-2.5" />
-                error
+                שגיאה
             </span>
         );
     }
     return (
         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 uppercase tracking-[0.08em]">
             <CheckCircle2Icon className="w-2.5 h-2.5" />
-            idle
+            ממתין
         </span>
     );
 }

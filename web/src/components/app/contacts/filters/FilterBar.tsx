@@ -33,36 +33,36 @@ import { countActiveFilters, isCompleteCustomFilter } from "./helpers";
 type Setter = React.Dispatch<React.SetStateAction<SearchContacts>>;
 
 const FILTER_TYPES: { id: SearchContactsFilterType; label: string }[] = [
-    { id: "contains", label: "contains" },
-    { id: "equal", label: "is" },
-    { id: "starts_with", label: "starts with" },
-    { id: "ends_with", label: "ends with" },
+    { id: "contains", label: "מכיל" },
+    { id: "equal", label: "שווה ל-" },
+    { id: "starts_with", label: "מתחיל ב-" },
+    { id: "ends_with", label: "מסתיים ב-" },
 ];
 
 const LEAD_STATUS: { id: LeadStatus; label: string }[] = [
-    { id: "pending", label: "Queued" },
-    { id: "active", label: "Processing" },
-    { id: "completed", label: "Done" },
-    { id: "replied", label: "Replied" },
-    { id: "bounced", label: "Bounced" },
-    { id: "failed", label: "Failed" },
-    { id: "undeliverable", label: "Undeliverable" },
+    { id: "pending", label: "בתור" },
+    { id: "active", label: "בעיבוד" },
+    { id: "completed", label: "הושלם" },
+    { id: "replied", label: "השיב" },
+    { id: "bounced", label: "נדחה" },
+    { id: "failed", label: "נכשל" },
+    { id: "undeliverable", label: "לא ניתן למסירה" },
 ];
 
 const ENGAGEMENT: { id: LeadEngagement; label: string }[] = [
-    { id: "opened", label: "Opened" },
-    { id: "not_opened", label: "Not opened" },
-    { id: "clicked", label: "Clicked" },
-    { id: "not_clicked", label: "Not clicked" },
-    { id: "replied", label: "Replied" },
-    { id: "not_replied", label: "Not replied" },
+    { id: "opened", label: "נפתח" },
+    { id: "not_opened", label: "לא נפתח" },
+    { id: "clicked", label: "נלחץ" },
+    { id: "not_clicked", label: "לא נלחץ" },
+    { id: "replied", label: "השיב" },
+    { id: "not_replied", label: "לא השיב" },
 ];
 
 const VERIFICATION: { id: VerificationStatus; label: string }[] = [
-    { id: "valid", label: "Deliverable" },
-    { id: "risky", label: "Risky" },
-    { id: "invalid", label: "Undeliverable" },
-    { id: "unknown", label: "Unverified" },
+    { id: "valid", label: "ניתן למסירה" },
+    { id: "risky", label: "בסיכון" },
+    { id: "invalid", label: "לא ניתן למסירה" },
+    { id: "unknown", label: "טרם אומת" },
 ];
 
 // Optional pills, shown once added from the menu or when their value is set.
@@ -189,51 +189,51 @@ export default function FilterBar({
     );
 
     const menuItems: { key: ExtraKey | "custom"; label: string; hidden?: boolean }[] = [
-        { key: "custom", label: "Custom field" },
-        { key: "created", label: "Date added", hidden: shown("created") },
-        { key: "updated", label: "Last updated", hidden: shown("updated") },
-        { key: "campaign_count", label: "Number of campaigns", hidden: shown("campaign_count") },
-        { key: "verification", label: "Address verification", hidden: shown("verification") },
-        { key: "lead_status", label: "Lead status", hidden: !campaignCtx || shown("lead_status") },
-        { key: "engagement", label: "Engagement", hidden: !campaignCtx || shown("engagement") },
+        { key: "custom", label: "שדה מותאם אישית" },
+        { key: "created", label: "תאריך הוספה", hidden: shown("created") },
+        { key: "updated", label: "עדכון אחרון", hidden: shown("updated") },
+        { key: "campaign_count", label: "מספר קמפיינים", hidden: shown("campaign_count") },
+        { key: "verification", label: "אימות כתובת", hidden: shown("verification") },
+        { key: "lead_status", label: "סטטוס ליד", hidden: !campaignCtx || shown("lead_status") },
+        { key: "engagement", label: "מעורבות", hidden: !campaignCtx || shown("engagement") },
     ];
 
     return (
         <div className="px-5 py-1.5 border-b border-slate-200/60 bg-white flex flex-wrap items-center gap-1.5">
             <MultiPill
                 id="categories"
-                label="Category"
+                label="קטגוריה"
                 openKey={openKey}
                 setOpenKey={setOpenKey}
                 value={filters.category_ids ?? []}
                 onChange={(v) => setFilters((s) => ({ ...s, category_ids: v.length ? v : undefined }))}
                 options={categoryOptions}
-                empty="No categories yet."
-                hint="Contacts must have every selected category."
+                empty="אין עדיין קטגוריות."
+                hint="אנשי הקשר חייבים לכלול כל קטגוריה שנבחרה."
             />
             {!hideSegments && (
                 <MultiPill
                     id="segments"
-                    label="Segment"
+                    label="סגמנט"
                     openKey={openKey}
                     setOpenKey={setOpenKey}
                     value={filters.segment_ids ?? []}
                     onChange={(v) => setFilters((s) => ({ ...s, segment_ids: v.length ? v : undefined }))}
                     options={segmentOptions}
-                    empty="No segments yet."
-                    hint="Contacts must be in every selected segment."
+                    empty="אין עדיין סגמנטים."
+                    hint="אנשי הקשר חייבים להיות בכל סגמנט שנבחר."
                 />
             )}
             <ChoicePill<boolean | undefined>
                 id="status"
-                label="Status"
+                label="סטטוס"
                 openKey={openKey}
                 setOpenKey={setOpenKey}
                 value={filters.subscribed}
                 onChange={(v) => setFilters((s) => ({ ...s, subscribed: v }))}
                 options={[
-                    { id: true, label: "Subscribed" },
-                    { id: false, label: "Unsubscribed" },
+                    { id: true, label: "רשום לדיוור" },
+                    { id: false, label: "ביטל הרשמה" },
                 ]}
             />
             {!campaignCtx && (
@@ -260,7 +260,7 @@ export default function FilterBar({
             {shown("created") && (
                 <DateRangePill
                     id="created"
-                    label="Added"
+                    label="נוסף"
                     openKey={openKey}
                     setOpenKey={setOpenKey}
                     after={filters.created_after}
@@ -272,7 +272,7 @@ export default function FilterBar({
             {shown("updated") && (
                 <DateRangePill
                     id="updated"
-                    label="Updated"
+                    label="עודכן"
                     openKey={openKey}
                     setOpenKey={setOpenKey}
                     after={filters.updated_after}
@@ -294,7 +294,7 @@ export default function FilterBar({
             {shown("verification") && (
                 <ChoicePill<VerificationStatus | undefined>
                     id="verification"
-                    label="Verification"
+                    label="אימות"
                     openKey={openKey}
                     setOpenKey={setOpenKey}
                     value={filters.verification_status}
@@ -306,7 +306,7 @@ export default function FilterBar({
             {shown("lead_status") && (
                 <ChoicePill<LeadStatus | undefined>
                     id="lead_status"
-                    label="Lead status"
+                    label="סטטוס ליד"
                     openKey={openKey}
                     setOpenKey={setOpenKey}
                     value={filters.lead_status}
@@ -318,7 +318,7 @@ export default function FilterBar({
             {shown("engagement") && (
                 <ChoicePill<LeadEngagement | undefined>
                     id="engagement"
-                    label="Engagement"
+                    label="מעורבות"
                     openKey={openKey}
                     setOpenKey={setOpenKey}
                     value={filters.engagement}
@@ -335,11 +335,11 @@ export default function FilterBar({
                         className="h-7 px-2 rounded-md border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-800 text-[12px] inline-flex items-center gap-1 transition-colors"
                     >
                         <PlusIcon className="w-3 h-3" />
-                        Add filter
+                        הוסף מסנן
                     </button>
                 </PopoverMenuTrigger>
                 <PopoverMenuContent minWidth={190}>
-                    <PopoverMenuLabel>Filter by</PopoverMenuLabel>
+                    <PopoverMenuLabel>סנן לפי</PopoverMenuLabel>
                     {menuItems
                         .filter((m) => !m.hidden)
                         .map((m) => (
@@ -350,10 +350,10 @@ export default function FilterBar({
                 </PopoverMenuContent>
             </PopoverMenu>
 
-            <div className="ml-auto flex items-center gap-1.5">
+            <div className="ms-auto flex items-center gap-1.5">
                 <span className="text-[11.5px] text-slate-500 tabular-nums inline-flex items-center gap-1.5">
                     {loading && <Loader2Icon className="w-3 h-3 animate-spin text-slate-400" />}
-                    {total.toLocaleString()} {activeCampaign ? (total === 1 ? "lead" : "leads") : total === 1 ? "contact" : "contacts"}
+                    {total.toLocaleString()} {activeCampaign ? (total === 1 ? "ליד" : "לידים") : total === 1 ? "איש קשר" : "אנשי קשר"}
                 </span>
                 {active > 0 && (
                     <button
@@ -361,7 +361,7 @@ export default function FilterBar({
                         onClick={clearAll}
                         className="h-7 px-2 rounded-md text-[12px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
-                        Clear
+                        נקה
                     </button>
                 )}
                 {onSaveAsSegment && active > 0 && (
@@ -371,7 +371,7 @@ export default function FilterBar({
                         className="h-7 px-2 rounded-md text-[12px] text-sky-700 hover:text-sky-800 hover:bg-sky-50 inline-flex items-center gap-1 transition-colors"
                     >
                         <LayersIcon className="w-3 h-3" />
-                        Save as segment
+                        שמור כסגמנט
                     </button>
                 )}
             </div>
@@ -433,7 +433,7 @@ function Pill({
                     type="button"
                     onClick={() => setOpenKey(open ? null : id)}
                     aria-expanded={open}
-                    className="h-full pl-2 pr-1.5 inline-flex items-center gap-1 max-w-[280px]"
+                    className="h-full ps-2 pe-1.5 inline-flex items-center gap-1 max-w-[280px]"
                 >
                     <span className={cn(active ? "text-sky-600" : "text-slate-500")}>{label}</span>
                     {active && summary && (
@@ -451,8 +451,8 @@ function Pill({
                             e.stopPropagation();
                             onRemove();
                         }}
-                        aria-label={`Remove ${label} filter`}
-                        className="h-full pr-1.5 pl-0.5 inline-flex items-center text-slate-400 hover:text-slate-900"
+                        aria-label={`הסר מסנן ${label}`}
+                        className="h-full pe-1.5 ps-0.5 inline-flex items-center text-slate-400 hover:text-slate-900"
                     >
                         <XIcon className="w-3 h-3" />
                     </button>
@@ -468,7 +468,7 @@ function Pill({
                         transition={{ duration: 0.12 }}
                         style={{ width }}
                         className={cn(
-                            "absolute left-0 z-40 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] overflow-hidden max-w-[calc(100vw-2.5rem)]",
+                            "absolute start-0 z-40 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] overflow-hidden max-w-[calc(100vw-2.5rem)]",
                             placement === "top" ? "bottom-full mb-1" : "top-full mt-1",
                         )}
                     >
@@ -520,14 +520,14 @@ function CheckList({
                     <input
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search…"
+                        placeholder="חיפוש…"
                         autoFocus
-                        className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
+                        className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
                     />
                 </div>
             )}
             <div className="max-h-60 overflow-y-auto py-1">
-                {filtered.length === 0 && <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">{options.length === 0 ? empty : "Nothing matches."}</div>}
+                {filtered.length === 0 && <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">{options.length === 0 ? empty : "לא נמצאו תוצאות."}</div>}
                 {filtered.map((o) => {
                     const checked = value.includes(o.id);
                     return (
@@ -535,7 +535,7 @@ function CheckList({
                             key={o.id}
                             type="button"
                             onClick={() => toggle(o.id)}
-                            className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-100 transition-colors"
+                            className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-100 transition-colors text-start"
                         >
                             <span
                                 className={cn(
@@ -555,8 +555,8 @@ function CheckList({
                 <div className="px-2.5 h-8 border-t border-slate-100 flex items-center gap-2">
                     {hint && <span className="text-[10.5px] text-slate-400 truncate">{hint}</span>}
                     {value.length > 0 && (
-                        <button type="button" onClick={() => onChange([])} className="ml-auto text-[11px] text-slate-500 hover:text-slate-900 shrink-0">
-                            Clear
+                        <button type="button" onClick={() => onChange([])} className="ms-auto text-[11px] text-slate-500 hover:text-slate-900 shrink-0">
+                            נקה
                         </button>
                     )}
                 </div>
@@ -613,8 +613,8 @@ function CampaignPill({
         if (open && hasNextPage && !isFetchingNextPage) void fetchNextPage();
     }, [open, hasNextPage, isFetchingNextPage, fetchNextPage]);
     return (
-        <Pill id="campaigns" label="Campaign" summary={summarize(value, options)} active={value.length > 0} openKey={openKey} setOpenKey={setOpenKey}>
-            <CheckList value={value} onChange={onChange} options={options} empty="No campaigns yet." hint="Contacts in any selected campaign." />
+        <Pill id="campaigns" label="קמפיין" summary={summarize(value, options)} active={value.length > 0} openKey={openKey} setOpenKey={setOpenKey}>
+            <CheckList value={value} onChange={onChange} options={options} empty="אין עדיין קמפיינים." hint="אנשי קשר בכל קמפיין שנבחר." />
         </Pill>
     );
 }
@@ -653,7 +653,7 @@ function ChoicePill<T extends string | boolean | undefined>({
                                 setOpenKey(null);
                             }}
                             className={cn(
-                                "w-full px-2.5 h-7 flex items-center gap-2 text-[12px] transition-colors hover:bg-slate-100",
+                                "w-full px-2.5 h-7 flex items-center gap-2 text-[12px] transition-colors hover:bg-slate-100 text-start",
                                 on ? "text-slate-900 font-medium" : "text-slate-700",
                             )}
                         >
@@ -668,9 +668,9 @@ function ChoicePill<T extends string | boolean | undefined>({
                     <button
                         type="button"
                         onClick={() => onChange(undefined as T)}
-                        className="w-full px-2.5 h-7 flex items-center text-[12px] text-slate-500 hover:bg-slate-100 border-t border-slate-100 mt-1"
+                        className="w-full px-2.5 h-7 flex items-center text-[12px] text-slate-500 hover:bg-slate-100 border-t border-slate-100 mt-1 text-start"
                     >
-                        Any
+                        הכל
                     </button>
                 )}
             </div>
@@ -716,7 +716,7 @@ function CustomPill({
     return (
         <Pill
             id={id}
-            label={value.name.trim() ? value.name : "Custom field"}
+            label={value.name.trim() ? value.name : "שדה מותאם אישית"}
             summary={complete ? `${op} ${value.value}` : undefined}
             active={complete}
             openKey={openKey}
@@ -724,17 +724,17 @@ function CustomPill({
             onRemove={onRemove}
             width={300}
         >
-            <div className="p-2.5 space-y-2">
+            <div className="p-2.5 space-y-2 text-start">
                 <div className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Field</span>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">שדה</span>
                     {keyOptions.length > 0 ? (
-                        <SelectMenu value={value.name} onChange={(v) => onChange({ ...value, name: v })} options={keyOptions} placeholder="Pick a field" fullWidth />
+                        <SelectMenu value={value.name} onChange={(v) => onChange({ ...value, name: v })} options={keyOptions} placeholder="בחר שדה" fullWidth />
                     ) : (
-                        <TextInput value={value.name} onChange={(v) => onChange({ ...value, name: v })} placeholder="Field name" autoFocus />
+                        <TextInput value={value.name} onChange={(v) => onChange({ ...value, name: v })} placeholder="שם שדה" autoFocus />
                     )}
                 </div>
                 <div className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Condition</span>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">תנאי</span>
                     <SelectMenu
                         value={value.type}
                         onChange={(v) => onChange({ ...value, type: v as SearchContactsFilterType })}
@@ -743,8 +743,8 @@ function CustomPill({
                     />
                 </div>
                 <div className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Value</span>
-                    <TextInput value={text} onChange={setText} placeholder="Value" autoFocus={keyOptions.length > 0} />
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">ערך</span>
+                    <TextInput value={text} onChange={setText} placeholder="ערך" autoFocus={keyOptions.length > 0} />
                 </div>
             </div>
         </Pill>
@@ -770,16 +770,16 @@ function DateRangePill({
     onChange: (after?: Date, before?: Date) => void;
     onRemove: () => void;
 }) {
-    const summary = after && before ? `${toIso(after)} to ${toIso(before)}` : after ? `after ${toIso(after)}` : before ? `before ${toIso(before)}` : undefined;
+    const summary = after && before ? `${toIso(after)} עד ${toIso(before)}` : after ? `אחרי ${toIso(after)}` : before ? `לפני ${toIso(before)}` : undefined;
     return (
         <Pill id={id} label={label} summary={summary} active={!!summary} openKey={openKey} setOpenKey={setOpenKey} onRemove={onRemove} width={280}>
-            <div className="p-2.5 space-y-2">
+            <div className="p-2.5 space-y-2 text-start">
                 <div className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">After</span>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">אחרי</span>
                     <DatePicker value={toIso(after)} onChange={(v) => onChange(fromIso(v), before)} className="w-full" />
                 </div>
                 <div className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Before</span>
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">לפני</span>
                     <DatePicker value={toIso(before)} onChange={(v) => onChange(after, fromIso(v))} className="w-full" />
                 </div>
             </div>
@@ -802,12 +802,12 @@ function RangePill({
     onChange: (min?: number, max?: number) => void;
     onRemove: () => void;
 }) {
-    const summary = min !== undefined && max !== undefined ? `${min} to ${max}` : min !== undefined ? `at least ${min}` : max !== undefined ? `at most ${max}` : undefined;
+    const summary = min !== undefined && max !== undefined ? `${min} עד ${max}` : min !== undefined ? `לפחות ${min}` : max !== undefined ? `לכל היותר ${max}` : undefined;
     return (
-        <Pill id="campaign_count" label="Campaigns count" summary={summary} active={!!summary} openKey={openKey} setOpenKey={setOpenKey} onRemove={onRemove} width={240}>
-            <div className="p-2.5 space-y-2">
-                <Bound label="At least" value={min} onChange={(v) => onChange(v, max)} />
-                <Bound label="At most" value={max} onChange={(v) => onChange(min, v)} />
+        <Pill id="campaign_count" label="מספר קמפיינים" summary={summary} active={!!summary} openKey={openKey} setOpenKey={setOpenKey} onRemove={onRemove} width={240}>
+            <div className="p-2.5 space-y-2 text-start">
+                <Bound label="לפחות" value={min} onChange={(v) => onChange(v, max)} />
+                <Bound label="לכל היותר" value={max} onChange={(v) => onChange(min, v)} />
             </div>
         </Pill>
     );
@@ -830,7 +830,7 @@ function Bound({ label, value, onChange }: { label: string; value?: number; onCh
                 {set && <CheckIcon className="w-2 h-2 text-white" />}
             </button>
             <span className="text-[12px] text-slate-700 w-16">{label}</span>
-            <NumberInput value={value ?? 0} onChange={(v) => onChange(Math.max(0, v))} min={0} disabled={!set} suffix="campaigns" className="flex-1" />
+            <NumberInput value={value ?? 0} onChange={(v) => onChange(Math.max(0, v))} min={0} disabled={!set} suffix="קמפיינים" className="flex-1" />
         </div>
     );
 }

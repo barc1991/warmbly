@@ -12,15 +12,15 @@ import type {
 } from "@/lib/api/client/app/contacts/importContacts";
 
 export const STANDARD_TARGETS: { id: string; label: string }[] = [
-    { id: "ignore", label: "Ignore" },
-    { id: "email", label: "Email" },
-    { id: "first_name", label: "First name" },
-    { id: "last_name", label: "Last name" },
-    { id: "company", label: "Company" },
-    { id: "phone", label: "Phone" },
-    { id: "subscribed", label: "Subscribed" },
-    { id: "categories", label: "Categories" },
-    { id: "verification_status", label: "Verification status" },
+    { id: "ignore", label: "התעלמות" },
+    { id: "email", label: "אימייל" },
+    { id: "first_name", label: "שם פרטי" },
+    { id: "last_name", label: "שם משפחה" },
+    { id: "company", label: "חברה" },
+    { id: "phone", label: "טלפון" },
+    { id: "subscribed", label: "רשום לדיוור" },
+    { id: "categories", label: "קטגוריות" },
+    { id: "verification_status", label: "סטטוס אימות" },
 ];
 
 // Vocabularies the verification_status target can read, for the mapping
@@ -39,12 +39,12 @@ export const VERIFICATION_VOCABULARY_LABELS: Record<string, string> = {
 };
 
 export const DEDUP_OPTIONS: { id: ImportDedupStrategy; label: string; hint: string }[] = [
-    { id: "skip", label: "Skip existing", hint: "If a contact with this email exists, leave it alone." },
-    { id: "update", label: "Update existing", hint: "Merge new values onto the existing contact." },
+    { id: "skip", label: "דילוג על קיימים", hint: "אם קיים איש קשר עם כתובת אימייל זו, השאר אותו ללא שינוי." },
+    { id: "update", label: "עדכון קיימים", hint: "מיזוג ערכים חדשים לתוך איש הקשר הקיים." },
     {
         id: "create_duplicate",
-        label: "Create duplicates",
-        hint: "Force a new contact. Falls back to update if blocked by uniqueness.",
+        label: "יצירת כפילויות",
+        hint: "כפיית יצירת איש קשר חדש. במקרה של חסימת ייחודיות יבוצע עדכון.",
     },
 ];
 
@@ -72,10 +72,10 @@ export function describeError(err: unknown, fallback: string): string {
 export function announceResult(res: ImportResult) {
     if (res.failed === 0) {
         toast.success(
-            `Imported ${res.imported} · updated ${res.updated} · skipped ${res.skipped}`,
+            `יובאו ${res.imported} · עודכנו ${res.updated} · דולגו ${res.skipped}`,
         );
     } else {
-        toast(`Synced with ${res.failed} errors`, { icon: "⚠️" });
+        toast(`סונכרן עם ${res.failed} שגיאות`, { icon: "⚠️" });
     }
 }
 
@@ -88,7 +88,7 @@ export function announceResult(res: ImportResult) {
 // it — we catch it here so a mistyped name never costs a whole import.
 const CUSTOM_KEY_RE = /^[A-Za-z0-9_]+(?:[ -]+[A-Za-z0-9_]+)*$/;
 
-export const CUSTOM_KEY_RULES = "Use letters, numbers, underscores, spaces or dashes.";
+export const CUSTOM_KEY_RULES = "יש להשתמש באותיות, מספרים, קווים תחתונים, רווחים או מקפים.";
 
 export function normalizeCustomKey(key: string): string {
     return key.trim().split(/\s+/).filter(Boolean).join(" ");
@@ -121,14 +121,14 @@ export function mappingProblem(mapping: ImportColumnMapping[]): string | null {
         if (!isCustomTarget(m.target)) continue;
         const key = m.custom_key ?? (m.target.startsWith("custom:") ? m.target.slice(7) : "");
         if (normalizeCustomKey(key) === "") {
-            return `Column ${m.index + 1} needs a custom field name.`;
+            return `עמודה ${m.index + 1} דורשת שם שדה מותאם אישית.`;
         }
         if (!isValidCustomKey(key)) {
-            return `"${key.trim()}" is not a valid field name. ${CUSTOM_KEY_RULES}`;
+            return `"${key.trim()}" אינו שם שדה חוקי. ${CUSTOM_KEY_RULES}`;
         }
     }
     if (!mapping.some((m) => m.target === "email")) {
-        return "Map a column to Email.";
+        return "יש למפות עמודה לאימייל.";
     }
     return null;
 }

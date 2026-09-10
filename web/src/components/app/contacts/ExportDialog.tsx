@@ -63,39 +63,39 @@ function slugify(name: string): string {
 }
 
 const STANDARD_FIELDS: { id: string; label: string; preset: "basic" | "full" | "campaign" }[] = [
-    { id: "email",        label: "Email",         preset: "basic" },
-    { id: "first_name",   label: "First name",    preset: "basic" },
-    { id: "last_name",    label: "Last name",     preset: "basic" },
-    { id: "company",      label: "Company",       preset: "basic" },
-    { id: "phone",        label: "Phone",         preset: "basic" },
-    { id: "subscribed",   label: "Subscribed",    preset: "basic" },
-    { id: "categories",   label: "Categories",    preset: "full" },
-    { id: "campaigns",    label: "Campaigns",     preset: "full" },
-    { id: "created_at",   label: "Created at",    preset: "full" },
-    { id: "updated_at",   label: "Updated at",    preset: "full" },
-    { id: "id",           label: "Contact ID",    preset: "full" },
+    { id: "email",        label: "אימייל",         preset: "basic" },
+    { id: "first_name",   label: "שם פרטי",        preset: "basic" },
+    { id: "last_name",    label: "שם משפחה",       preset: "basic" },
+    { id: "company",      label: "חברה",           preset: "basic" },
+    { id: "phone",        label: "טלפון",          preset: "basic" },
+    { id: "subscribed",   label: "רשום לדיוור",    preset: "basic" },
+    { id: "categories",   label: "קטגוריות",       preset: "full" },
+    { id: "campaigns",    label: "קמפיינים",       preset: "full" },
+    { id: "created_at",   label: "נוצר בתאריך",    preset: "full" },
+    { id: "updated_at",   label: "עודכן בתאריך",   preset: "full" },
+    { id: "id",           label: "מזהה איש קשר",   preset: "full" },
 ];
 
 // Per-lead engagement inside the campaign the export is scoped to. Only
 // offered when the filters name exactly one campaign; blank otherwise.
 const CAMPAIGN_FIELDS: { id: string; label: string }[] = [
-    { id: "lead_status",  label: "Lead status" },
-    { id: "lead_opened",  label: "Opened" },
-    { id: "lead_clicked", label: "Clicked" },
-    { id: "lead_replied", label: "Replied" },
+    { id: "lead_status",  label: "סטטוס ליד" },
+    { id: "lead_opened",  label: "נפתח" },
+    { id: "lead_clicked", label: "נלחץ" },
+    { id: "lead_replied", label: "נענה" },
 ];
 
 const PRESETS: { id: "basic" | "full" | "campaign-ready" | "custom"; label: string; hint: string }[] = [
-    { id: "basic",          label: "Basic",          hint: "Core contact details — what most CRMs expect." },
-    { id: "full",           label: "Full",           hint: "Every standard column including categories + campaigns." },
-    { id: "campaign-ready", label: "Campaign-ready", hint: "Email, names and company, plus lead status and engagement inside a campaign." },
-    { id: "custom",         label: "Custom",         hint: "Pick exactly what you need." },
+    { id: "basic",          label: "בסיסי",          hint: "פרטי איש קשר עיקריים: מה שרוב מערכות ה-CRM דורשות." },
+    { id: "full",           label: "מלא",           hint: "כל העמודות הסטנדרטיות כולל קטגוריות וקמפיינים." },
+    { id: "campaign-ready", label: "מותאם לקמפיין", hint: "אימייל, שמות וחברה, בתוספת סטטוס ליד ומעורבות בקמפיין." },
+    { id: "custom",         label: "מותאם אישית",   hint: "בחירת העמודות המדויקות שדרושות לך." },
 ];
 
 const FORMATS: { id: ExportFormat; label: string; sub: string; Icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: "csv",  label: "CSV",  sub: "Universal, opens in Excel/Sheets",   Icon: FileTextIcon },
-    { id: "xlsx", label: "XLSX", sub: "Native Excel, formatted",            Icon: FileSpreadsheetIcon },
-    { id: "json", label: "JSON", sub: "Structured, round-trips via import", Icon: FileJsonIcon },
+    { id: "csv",  label: "CSV",  sub: "אוניברסלי, נפתח ב-Excel וב-Sheets",   Icon: FileTextIcon },
+    { id: "xlsx", label: "XLSX", sub: "קובץ Excel מקורי, מעוצב",            Icon: FileSpreadsheetIcon },
+    { id: "json", label: "JSON", sub: "מובנה, מתאים לייבוא חוזר",            Icon: FileJsonIcon },
 ];
 
 function presetFields(p: "basic" | "full" | "campaign-ready" | "custom", inCampaign = false): string[] {
@@ -122,7 +122,7 @@ export default function ExportDialog({
     const inCampaign = (filters.campaign_ids?.length ?? 0) === 1;
     // Inside a campaign or segment the scope's own ids are not a filter.
     const narrowed = hasNarrowingFilters(filters, scopeContext?.baseFilters);
-    const noun = scopeContext?.kind === "campaign" ? "lead" : "member";
+    const noun = scopeContext?.kind === "campaign" ? "ליד" : "חבר";
     const [format, setFormat] = React.useState<ExportFormat>("csv");
     const [scope, setScope] = React.useState<ExportScope>(() =>
         selectedIds.length > 0 ? "selected" : narrowed ? "filtered" : "all",
@@ -178,7 +178,7 @@ export default function ExportDialog({
             ...customFieldKeys.map((k) => `custom:${k}`),
         ];
         if (effective.length === 0) {
-            toast.error("Pick at least one column to export.");
+            toast.error("יש לבחור לפחות עמודה אחת לייצוא.");
             return;
         }
         setLoading(true);
@@ -201,10 +201,10 @@ export default function ExportDialog({
                 filename: filename.trim() || undefined,
             });
             downloadBlob(result.blob, result.filename);
-            toast.success("Export ready");
+            toast.success("הייצוא מוכן");
             onClose();
         } catch (err) {
-            const msg = err instanceof Error ? err.message : "Export failed.";
+            const msg = err instanceof Error ? err.message : "הייצוא נכשל.";
             toast.error(msg);
         } finally {
             setLoading(false);
@@ -219,7 +219,8 @@ export default function ExportDialog({
             : scope === "all" && narrowed
               ? null
               : (totalKnown ?? 0);
-    const scopeLabel = scopeCount === null ? `Every ${scopeContext ? noun : "contact"}` : `${scopeCount.toLocaleString()} contacts`;
+    const scopeNoun = scopeContext?.kind === "campaign" ? "לידים" : "אנשי קשר";
+    const scopeLabel = scopeCount === null ? `כל ${scopeContext ? noun : "איש קשר"}` : `${scopeCount.toLocaleString()} ${scopeNoun}`;
 
     return (
         <AnimatePresence>
@@ -247,31 +248,31 @@ export default function ExportDialog({
                                 <DownloadIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                Export
+                                ייצוא
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
                             <span className="text-[12.5px] text-slate-900 font-medium">
-                                Contacts
+                                {scopeContext?.kind === "campaign" ? "לידים" : "אנשי קשר"}
                             </span>
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגירה"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
                         </header>
 
                         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5">
-                            <Section title="Format" subtitle="What the downloaded file should be.">
+                            <Section title="פורמט" subtitle="סוג הקובץ שיוורד.">
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     {FORMATS.map(({ id, label, sub, Icon }) => (
                                         <button
                                             key={id}
                                             type="button"
                                             onClick={() => setFormat(id)}
-                                            className={`text-left rounded-md border p-2.5 transition-colors ${
+                                            className={`text-start rounded-md border p-2.5 transition-colors ${
                                                 format === id
                                                     ? "border-slate-900 bg-slate-50"
                                                     : "border-slate-200 hover:border-slate-300"
@@ -287,39 +288,39 @@ export default function ExportDialog({
                                 </div>
                             </Section>
 
-                            <Section title="Scope" subtitle={`${scopeLabel} will be exported.`}>
+                            <Section title="טווח" subtitle={`${scopeLabel} ייוצאו.`}>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     <ScopeButton
                                         active={scope === "all"}
                                         onClick={() => setScope("all")}
-                                        title={scopeContext ? `Every ${noun}` : "Everyone"}
-                                        sub={scopeContext ? `All of ${scopeContext.name}` : "All your contacts"}
+                                        title={scopeContext ? `כל ${noun}` : "כולם"}
+                                        sub={scopeContext ? `כל ${scopeContext.name}` : "כל אנשי הקשר שלך"}
                                     />
                                     <ScopeButton
                                         active={scope === "filtered"}
                                         onClick={() => setScope("filtered")}
-                                        title="Filtered"
-                                        sub={narrowed ? "Matches current filters" : "No filters set"}
+                                        title="מסוננים"
+                                        sub={narrowed ? "תואם למסננים הנוכחיים" : "לא הוגדרו מסננים"}
                                         disabled={!narrowed}
                                     />
                                     <ScopeButton
                                         active={scope === "selected"}
                                         onClick={() => setScope("selected")}
-                                        title="Selected"
-                                        sub={selectedIds.length > 0 ? `${selectedIds.length} selected` : "Nothing selected"}
+                                        title="נבחרים"
+                                        sub={selectedIds.length > 0 ? `${selectedIds.length} נבחרו` : "לא נבחר דבר"}
                                         disabled={selectedIds.length === 0}
                                     />
                                 </div>
                             </Section>
 
-                            <Section title="Columns" subtitle="Pick a preset or build a custom set.">
+                            <Section title="עמודות" subtitle="בחירת תבנית מוכנה מראש או התאמה אישית.">
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
                                     {PRESETS.map((p) => (
                                         <button
                                             key={p.id}
                                             type="button"
                                             onClick={() => applyPreset(p.id)}
-                                            className={`text-left rounded-md border p-2 transition-colors ${
+                                            className={`text-start rounded-md border p-2 transition-colors ${
                                                 preset === p.id
                                                     ? "border-slate-900 bg-slate-50"
                                                     : "border-slate-200 hover:border-slate-300"
@@ -356,12 +357,12 @@ export default function ExportDialog({
                                 </div>
 
                                 <div className="mt-3 pt-3 border-t border-slate-100">
-                                    <Label className="text-[10.5px] text-slate-500">Custom fields</Label>
+                                    <Label className="text-[10.5px] text-slate-500">שדות מותאמים אישית</Label>
                                     <div className="flex items-center gap-1.5 mt-1">
                                         <TextInput
                                             value={customKeyDraft}
                                             onChange={setCustomKeyDraft}
-                                            placeholder="custom field key…"
+                                            placeholder="מפתח שדה מותאם אישית..."
                                             className="flex-1"
                                             onKeyDown={(e) => {
                                                 if (e.key === "Enter") {
@@ -377,7 +378,7 @@ export default function ExportDialog({
                                             className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-[11.5px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                                         >
                                             <PlusIcon className="w-3 h-3" />
-                                            Add
+                                            הוספה
                                         </button>
                                     </div>
                                     {customFieldKeys.length > 0 && (
@@ -385,14 +386,14 @@ export default function ExportDialog({
                                             {customFieldKeys.map((k) => (
                                                 <span
                                                     key={k}
-                                                    className="inline-flex items-center gap-1 h-5 pl-1.5 pr-1 rounded text-[10.5px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                                                    className="inline-flex items-center gap-1 h-5 ps-1.5 pe-1 rounded text-[10.5px] font-medium bg-slate-100 text-slate-700 border border-slate-200"
                                                 >
                                                     <span className="font-mono">{k}</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => removeCustomKey(k)}
                                                         className="opacity-60 hover:opacity-100"
-                                                        aria-label={`Remove ${k}`}
+                                                        aria-label={`הסרת ${k}`}
                                                     >
                                                         <XIcon className="w-2.5 h-2.5" />
                                                     </button>
@@ -403,11 +404,11 @@ export default function ExportDialog({
                                 </div>
                             </Section>
 
-                            <Section title="Filename" subtitle="Optional. Server will pick a sensible default.">
+                            <Section title="שם קובץ" subtitle="אופציונלי. השרת יבחר שם ברירת מחדל הגיוני.">
                                 <TextInput
                                     value={filename}
                                     onChange={setFilename}
-                                    placeholder="e.g. q3-leads"
+                                    placeholder="לדוגמה: q3-leads"
                                     className="w-full"
                                 />
                             </Section>
@@ -415,14 +416,14 @@ export default function ExportDialog({
 
                         <footer className="h-12 px-3 border-t border-slate-200 flex items-center gap-1.5 shrink-0 bg-slate-50/30">
                             <span className="text-[11px] text-slate-400 truncate min-w-0">
-                                {scopeLabel} · {fields.length + customFieldKeys.length} columns
+                                {scopeLabel} · {fields.length + customFieldKeys.length} עמודות
                             </span>
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -435,7 +436,7 @@ export default function ExportDialog({
                                 ) : (
                                     <DownloadIcon className="w-3 h-3" />
                                 )}
-                                Download
+                                הורדה
                             </button>
                         </footer>
                     </motion.div>
@@ -487,7 +488,7 @@ function ScopeButton({
             type="button"
             onClick={onClick}
             disabled={disabled}
-            className={`text-left rounded-md border p-2.5 transition-colors ${
+            className={`text-start rounded-md border p-2.5 transition-colors ${
                 active
                     ? "border-slate-900 bg-slate-50"
                     : "border-slate-200 hover:border-slate-300"
@@ -503,7 +504,7 @@ function ScopeButton({
                 </span>
                 <span className="text-[12px] font-medium text-slate-900">{title}</span>
             </div>
-            <div className="text-[10.5px] text-slate-500 leading-tight pl-4">{sub}</div>
+            <div className="text-[10.5px] text-slate-500 leading-tight ps-4">{sub}</div>
         </button>
     );
 }

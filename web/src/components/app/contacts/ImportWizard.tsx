@@ -169,12 +169,12 @@ export default function ImportWizard({ open, onClose, lockedCampaign, lockedSegm
                 queryClient.invalidateQueries({ queryKey: ["segments"] }),
             ]);
             if (res.failed === 0) {
-                toast.success(`Imported ${res.imported} · updated ${res.updated} · skipped ${res.skipped}`);
+                toast.success(`יובאו ${res.imported} · עודכנו ${res.updated} · דולגו ${res.skipped}`);
             } else {
-                toast(`Done with ${res.failed} errors`, { icon: "⚠️" });
+                toast(`הסתיים עם ${res.failed} שגיאות`, { icon: "⚠️" });
             }
         } catch (err) {
-            toast.error(describeError(err, "Import failed."));
+            toast.error(describeError(err, "הייבוא נכשל."));
         } finally {
             setCommitBusy(false);
         }
@@ -211,20 +211,20 @@ export default function ImportWizard({ open, onClose, lockedCampaign, lockedSegm
                                 <UploadCloudIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                Import
+                                ייבוא
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
                             <span className="text-[12.5px] text-slate-900 font-medium">
-                                Contacts
+                                {lockedCampaign ? "לידים" : "אנשי קשר"}
                             </span>
                             {lockedCampaign && (
                                 <span className="hidden sm:inline-flex items-center h-5 px-1.5 rounded bg-sky-50 text-sky-700 text-[10px] font-medium max-w-[180px] truncate">
-                                    → {lockedCampaign.name}
+                                    ← {lockedCampaign.name}
                                 </span>
                             )}
                             {lockedSegment && (
                                 <span className="hidden sm:inline-flex items-center gap-1 h-5 px-1.5 rounded bg-sky-50 text-sky-700 text-[10px] font-medium max-w-[180px]">
-                                    <span className="shrink-0">→</span>
+                                    <span className="shrink-0">←</span>
                                     {lockedSegment.color && (
                                         <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: lockedSegment.color }} />
                                     )}
@@ -235,8 +235,8 @@ export default function ImportWizard({ open, onClose, lockedCampaign, lockedSegm
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגירה"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -286,14 +286,14 @@ export default function ImportWizard({ open, onClose, lockedCampaign, lockedSegm
                             {step === "upload" && (
                                 <>
                                     <span className="text-[11px] text-slate-400">
-                                        CSV, TSV, or XLSX. Max 50 MB · 50,000 rows.
+                                        קובצי CSV, TSV או XLSX. עד 50 מ״ב · 50,000 שורות.
                                     </span>
                                     <button
                                         type="button"
                                         onClick={onClose}
-                                        className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                        className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                                     >
-                                        Cancel
+                                        ביטול
                                     </button>
                                 </>
                             )}
@@ -304,8 +304,8 @@ export default function ImportWizard({ open, onClose, lockedCampaign, lockedSegm
                                         onClick={() => setStep("upload")}
                                         className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1.5 transition-colors"
                                     >
-                                        <ArrowLeftIcon className="w-3 h-3" />
-                                        Re-upload
+                                        <ArrowLeftIcon className="w-3 h-3 rtl:rotate-180" />
+                                        העלאה מחדש
                                     </button>
                                     {mapProblem && (
                                         <span className="text-[11px] text-amber-700 inline-flex items-center gap-1">
@@ -317,10 +317,10 @@ export default function ImportWizard({ open, onClose, lockedCampaign, lockedSegm
                                         type="button"
                                         onClick={() => setStep("options")}
                                         disabled={!!mapProblem}
-                                        className="ml-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                                        className="ms-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                                     >
-                                        Continue
-                                        <ArrowRightIcon className="w-3 h-3" />
+                                        המשך
+                                        <ArrowRightIcon className="w-3 h-3 rtl:rotate-180" />
                                     </button>
                                 </>
                             )}
@@ -331,21 +331,21 @@ export default function ImportWizard({ open, onClose, lockedCampaign, lockedSegm
                                         onClick={() => setStep("map")}
                                         className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1.5 transition-colors"
                                     >
-                                        <ArrowLeftIcon className="w-3 h-3" />
-                                        Back
+                                        <ArrowLeftIcon className="w-3 h-3 rtl:rotate-180" />
+                                        חזרה
                                     </button>
                                     <button
                                         type="button"
                                         onClick={commit}
                                         disabled={commitBusy}
-                                        className="ml-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                                        className="ms-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                                     >
                                         {commitBusy ? (
                                             <Loader2Icon className="w-3 h-3 animate-spin" />
                                         ) : (
                                             <UploadCloudIcon className="w-3 h-3" />
                                         )}
-                                        Import {preview ? preview.total_rows.toLocaleString() : ""} rows
+                                        ייבוא {preview ? preview.total_rows.toLocaleString() : ""} שורות
                                     </button>
                                 </>
                             )}
@@ -358,14 +358,14 @@ export default function ImportWizard({ open, onClose, lockedCampaign, lockedSegm
                                         }}
                                         className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                                     >
-                                        Import another file
+                                        ייבוא קובץ נוסף
                                     </button>
                                     <button
                                         type="button"
                                         onClick={onClose}
-                                        className="ml-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
+                                        className="ms-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
                                     >
-                                        Done
+                                        סיום
                                     </button>
                                 </>
                             )}
@@ -381,7 +381,7 @@ function StepDots({ step }: { step: Step }) {
     const order: Step[] = ["upload", "map", "options", "result"];
     const i = order.indexOf(step);
     return (
-        <div className="hidden sm:flex items-center gap-1 ml-2">
+        <div className="hidden sm:flex items-center gap-1 ms-2">
             {order.map((_, idx) => (
                 <span
                     key={idx}
@@ -450,7 +450,7 @@ function UploadStep({
                     <>
                         <Loader2Icon className="w-7 h-7 mx-auto text-slate-400 animate-spin" />
                         <p className="text-[12.5px] text-slate-700 font-medium mt-3">
-                            Reading your file…
+                            קורא את הקובץ...
                         </p>
                     </>
                 ) : file ? (
@@ -460,17 +460,17 @@ function UploadStep({
                             {file.name}
                         </p>
                         <p className="text-[11.5px] text-slate-500 mt-1">
-                            {(file.size / 1024).toFixed(1)} KB · choose another to replace
+                            {(file.size / 1024).toFixed(1)} KB · לחץ לבחירת קובץ אחר להחלפה
                         </p>
                     </>
                 ) : (
                     <>
                         <UploadCloudIcon className="w-7 h-7 mx-auto text-slate-400" />
                         <p className="text-[13px] text-slate-900 font-medium mt-3">
-                            Drag & drop a file
+                            גרור ושחרר קובץ לכאן
                         </p>
                         <p className="text-[11.5px] text-slate-500 mt-1">
-                            or click to browse — CSV, TSV, or XLSX
+                            או לחץ לעיון בקבצים (CSV, TSV או XLSX)
                         </p>
                     </>
                 )}
@@ -478,13 +478,13 @@ function UploadStep({
 
             <div className="rounded-md border border-slate-200 bg-slate-50/40 p-3">
                 <p className="text-[11px] text-slate-700 font-medium mb-1">
-                    What we expect
+                    הנחיות למבנה הקובץ
                 </p>
-                <ul className="text-[11px] text-slate-500 space-y-0.5 list-disc pl-4 leading-snug">
-                    <li>One row per contact. First row should be column headers.</li>
-                    <li>At minimum, a column with email addresses.</li>
-                    <li>Anything we don't recognise stays untouched — you'll map columns next.</li>
-                    <li>We dedupe on lowercased email. Choose how to handle existing matches on the next screen.</li>
+                <ul className="text-[11px] text-slate-500 space-y-0.5 list-disc ps-4 leading-snug">
+                    <li>שורה אחת לכל איש קשר. השורה הראשונה צריכה להכיל כותרות עמודות.</li>
+                    <li>לפחות עמודה אחת המכילה כתובות אימייל.</li>
+                    <li>עמודות שלא נזהה יישארו ללא שינוי: תוכל למפות אותן בשלב הבא.</li>
+                    <li>מניעת כפילויות מבוססת על כתובת אימייל באותיות קטנות. בחר כיצד לטפל בהתאמות קיימות במסך הבא.</li>
                 </ul>
             </div>
         </div>
@@ -546,7 +546,7 @@ export function MapStep({
                 <div className="flex-1">
                     <p className="text-[12.5px] text-slate-900 font-medium">{preview.filename}</p>
                     <p className="text-[11px] text-slate-500">
-                        {preview.format.toUpperCase()} · {preview.total_rows.toLocaleString()} rows · {preview.columns.length} columns
+                        {preview.format.toUpperCase()} · {preview.total_rows.toLocaleString()} שורות · {preview.columns.length} עמודות
                     </p>
                 </div>
                 {claimable.length > 0 && (
@@ -555,7 +555,7 @@ export function MapStep({
                         onClick={claimAllAsCustom}
                         className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[11.5px] font-medium transition-colors shrink-0"
                     >
-                        Keep {claimable.length} more as custom fields
+                        שמור עוד {claimable.length} כשדות מותאמים אישית
                     </button>
                 )}
                 <label className="inline-flex items-center gap-1.5 text-[11.5px] text-slate-700 cursor-pointer">
@@ -565,18 +565,18 @@ export function MapStep({
                         checked={hasHeader}
                         onChange={(e) => setHasHeader(e.target.checked)}
                     />
-                    First row is header
+                    השורה הראשונה היא כותרת
                 </label>
             </div>
 
             <div className="rounded-md border border-slate-200 overflow-x-auto">
-                <table className="w-full text-left">
+                <table className="w-full text-start">
                     <thead className="bg-slate-50/60">
                         <tr className="border-b border-slate-200">
-                            <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12">#</th>
-                            <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Column</th>
-                            <th className="hidden md:table-cell px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Sample</th>
-                            <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] md:w-56">Maps to</th>
+                            <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12 text-start">#</th>
+                            <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] text-start">עמודה</th>
+                            <th className="hidden md:table-cell px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] text-start">דוגמה</th>
+                            <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] md:w-56 text-start">מיפוי אל</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -609,8 +609,8 @@ export function MapStep({
                                                 >
                                                     <ShieldCheckIcon className="w-3 h-3" />
                                                     {m.verification_provider && VERIFICATION_VOCABULARY_LABELS[m.verification_provider]
-                                                        ? `${VERIFICATION_VOCABULARY_LABELS[m.verification_provider]} results recognised`
-                                                        : "Verification results recognised; these leads skip the built-in check"}
+                                                        ? `תוצאות אימות זוהו מ-${VERIFICATION_VOCABULARY_LABELS[m.verification_provider]}`
+                                                        : "תוצאות אימות זוהו; לידים אלו ידלגו על הבדיקה המובנית"}
                                                 </motion.p>
                                             )}
                                         </AnimatePresence>
@@ -644,9 +644,9 @@ export function TargetPicker({
     const keyInvalid = isCustom && customKey.trim() !== "" && !isValidCustomKey(customKey);
     const label = isCustom
         ? customKey
-            ? `Custom: ${customKey}`
-            : "Custom field…"
-        : stdLabel ?? "Ignore";
+            ? `מותאם אישית: ${customKey}`
+            : "שדה מותאם אישית..."
+        : stdLabel ?? "התעלמות";
 
     return (
         <div className="flex items-center gap-1.5">
@@ -655,7 +655,7 @@ export function TargetPicker({
                     <SelectButton label={label} className="flex-1" />
                 </PopoverMenuTrigger>
                 <PopoverMenuContent minWidth={200}>
-                    <PopoverMenuLabel>Standard</PopoverMenuLabel>
+                    <PopoverMenuLabel>שדות סטנדרטיים</PopoverMenuLabel>
                     {STANDARD_TARGETS.map((t) => (
                         <PopoverMenuItem
                             key={t.id}
@@ -667,7 +667,7 @@ export function TargetPicker({
                             {t.label}
                         </PopoverMenuItem>
                     ))}
-                    <PopoverMenuLabel>Custom</PopoverMenuLabel>
+                    <PopoverMenuLabel>מותאם אישית</PopoverMenuLabel>
                     <PopoverMenuItem
                         selected={isCustom}
                         onSelect={() =>
@@ -681,7 +681,7 @@ export function TargetPicker({
                             })
                         }
                     >
-                        Use as custom field…
+                        שימוש כשדה מותאם אישית...
                     </PopoverMenuItem>
                 </PopoverMenuContent>
             </PopoverMenu>
@@ -691,7 +691,7 @@ export function TargetPicker({
                     onChange={(v) =>
                         onChange({ index: value.index, target: "custom", custom_key: v })
                     }
-                    placeholder="field name"
+                    placeholder="שם שדה"
                     invalid={keyInvalid}
                     title={keyInvalid ? CUSTOM_KEY_RULES : undefined}
                     className="w-24 md:w-32"
@@ -734,10 +734,10 @@ function OptionsStep({
         <div className="space-y-5">
             <section>
                 <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                    Duplicate handling
+                    טיפול בכפילויות
                 </h2>
                 <p className="text-[11px] text-slate-400 leading-tight mb-3">
-                    We dedupe on lowercased email. Decide what happens when a row in your file matches a contact you already have.
+                    מניעת כפילויות מתבצעת לפי כתובת אימייל באותיות קטנות. בחר כיצד לנהוג כאשר שורה בקובץ תואמת לאיש קשר קיים.
                 </p>
                 <div className="space-y-2">
                     {DEDUP_OPTIONS.map((opt) => (
@@ -773,10 +773,10 @@ function OptionsStep({
 
             <section>
                 <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                    Apply categories
+                    החלת קטגוריות
                 </h2>
                 <p className="text-[11px] text-slate-400 leading-tight mb-2">
-                    Every imported contact will get these categories. Skip if you don't want to tag the whole batch.
+                    כל איש קשר שיובא יקבל קטגוריות אלו. דלג אם אין ברצונך לתייג את כל הקבוצה.
                 </p>
                 <CategoryPicker value={categoryIds} onChange={setCategoryIds} />
             </section>
@@ -784,11 +784,10 @@ function OptionsStep({
             {!campaignLocked && (
                 <section>
                     <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                        Add to campaigns
+                        הוספה לקמפיינים
                     </h2>
                     <p className="text-[11px] text-slate-400 leading-tight mb-2">
-                        Every imported contact joins these campaigns as a lead. An active campaign starts emailing them
-                        on its own schedule.
+                        כל איש קשר שיובא יצטרף לקמפיינים אלו כליד. קמפיין פעיל יתחיל לשלוח אליהם אימיילים לפי לוח הזמנים שלו.
                     </p>
                     <CampaignMultiPicker value={campaignIds} onChange={setCampaignIds} />
                 </section>
@@ -796,12 +795,12 @@ function OptionsStep({
 
             <section>
                 <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                    Add to segments
+                    הוספה למקטעים
                 </h2>
                 <p className="text-[11px] text-slate-400 leading-tight mb-2">
                     {lockedSegment
-                        ? "Every imported contact is pinned into this segment, whether or not it matches the segment's conditions. Add more below."
-                        : "Every imported contact is pinned into these segments. A segment linked to a campaign enrols them there automatically."}
+                        ? "כל איש קשר שיובא יוצמד למקטע זה, ללא קשר לתנאי המקטע. ניתן להוסיף מקטעים נוספים למטה."
+                        : "כל איש קשר שיובא יוצמד למקטעים אלו. מקטע המקושר לקמפיין ירשום אותם אליו אוטומטית."}
                 </p>
                 {lockedSegment && (
                     <div className="mb-2 flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50/60 px-2 h-7">
@@ -810,8 +809,8 @@ function OptionsStep({
                             style={{ backgroundColor: lockedSegment.color ?? "#0284c7" }}
                         />
                         <span className="text-[12px] font-medium text-sky-900 truncate">{lockedSegment.name}</span>
-                        <span className="ml-auto text-[10px] uppercase tracking-[0.14em] text-sky-700 shrink-0">
-                            Always
+                        <span className="ms-auto text-[10px] uppercase tracking-[0.14em] text-sky-700 shrink-0">
+                            תמיד
                         </span>
                     </div>
                 )}
@@ -819,10 +818,10 @@ function OptionsStep({
             </section>
 
             <section className="rounded-md border border-slate-200 bg-slate-50/40 p-3">
-                <Label className="text-[10.5px] text-slate-500">Heads up</Label>
+                <Label className="text-[10.5px] text-slate-500">לתשומת לבך</Label>
                 <p className="text-[11px] text-slate-600 leading-snug mt-1">
-                    Rows with missing or invalid emails are reported as errors and not imported.
-                    You can download an error CSV at the end and re-import after fixing.
+                    שורות ללא כתובת אימייל או עם כתובת לא תקינה ידווחו כשגיאות ולא ייובאו.
+                    תוכל להוריד קובץ CSV של השגיאות בסיום ולייבא אותן שוב לאחר תיקון.
                 </p>
             </section>
         </div>
@@ -869,23 +868,23 @@ export function ResultStep({
                 )}
                 <div className="flex-1">
                     <p className="text-[13.5px] text-slate-900 font-semibold">
-                        {result.failed === 0 ? "Import complete" : "Import finished with errors"}
+                        {result.failed === 0 ? "הייבוא הושלם בהצלחה" : "הייבוא הסתיים עם שגיאות"}
                     </p>
                     <p className="text-[11.5px] text-slate-500 leading-snug mt-0.5">
-                        Processed {result.total.toLocaleString()} rows in{" "}
+                        עובדו {result.total.toLocaleString()} שורות בתוך{" "}
                         {durationText(result.started_at, result.ended_at)}.
                         {result.segments_pinned && pinnedSegments && pinnedSegments.length > 0 && (
-                            <> Pinned into {pinnedSegments.join(", ")}.</>
+                            <> הוצמדו למקטעים {pinnedSegments.join(", ")}.</>
                         )}
                     </p>
                 </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <StatCard label="Imported"  value={result.imported} accent="emerald" />
-                <StatCard label="Updated"   value={result.updated}  accent="sky" />
-                <StatCard label="Skipped"   value={result.skipped}  accent="slate" />
-                <StatCard label="Failed"    value={result.failed}   accent={result.failed > 0 ? "red" : "slate"} />
+                <StatCard label="יובאו"   value={result.imported} accent="emerald" />
+                <StatCard label="עודכנו"  value={result.updated}  accent="sky" />
+                <StatCard label="דולגו"   value={result.skipped}  accent="slate" />
+                <StatCard label="נכשלו"   value={result.failed}   accent={result.failed > 0 ? "red" : "slate"} />
             </div>
 
             {result.segments_pinned === false && (
@@ -893,12 +892,12 @@ export function ResultStep({
                     <AlertTriangleIcon className="w-3.5 h-3.5 mt-px shrink-0 text-amber-600" />
                     <div className="min-w-0">
                         <p className="text-[12.5px] font-medium text-amber-900">
-                            The contacts are in, but not in the segment
+                            אנשי הקשר יובאו, אך לא נוספו למקטע
                         </p>
                         <p className="text-[11.5px] text-amber-800/90 leading-relaxed mt-0.5">
-                            The rows imported; the membership write did not. The reason is in the notes below. Select
-                            them in your contact list and use <span className="font-medium">Segment</span> to add them,
-                            or run the import again.
+                            השורות יובאו בהצלחה; אך רישום החברות במקטע נכשל. הסיבה מפורטת בהערות למטה. בחר
+                            אותם ברשימת אנשי הקשר והשתמש ב<span className="font-medium">מקטעים</span> להוספתם,
+                            או הפעל את הייבוא שוב.
                         </p>
                     </div>
                 </div>
@@ -908,10 +907,10 @@ export function ResultStep({
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
                     <AlertTriangleIcon className="w-3.5 h-3.5 mt-px shrink-0 text-amber-600" />
                     <div className="min-w-0">
-                        <p className="text-[12.5px] font-medium text-amber-900">This list looks low quality</p>
+                        <p className="text-[12.5px] font-medium text-amber-900">נראה שאיכות הרשימה נמוכה</p>
                         <p className="text-[11.5px] text-amber-800/90 leading-relaxed mt-0.5">
-                            {result.quality.summary} They are imported, but sending to them risks the reputation of
-                            every mailbox in this workspace. Clean the list before launching a campaign with it.
+                            {result.quality.summary} אנשי הקשר יובאו, אך שליחת אימיילים אליהם עלולה לסכן את המוניטין
+                            של כל תיבות הדואר במרחב עבודה זה. מומלץ לנקות את הרשימה לפני השקת קמפיין עמה.
                         </p>
                     </div>
                 </div>
@@ -921,29 +920,29 @@ export function ResultStep({
                 <div className="rounded-md border border-slate-200 overflow-hidden">
                     <div className="px-3 h-9 border-b border-slate-200 bg-slate-50/60 flex items-center gap-2">
                         <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 font-medium">
-                            {result.failed === 0 ? "Notes" : "Errors"}
+                            {result.failed === 0 ? "הערות" : "שגיאות"}
                         </span>
                         <span className="text-[11px] text-slate-500">
                             {result.errors_truncated
-                                ? `${result.errors.length.toLocaleString()} of ${result.failed.toLocaleString()}`
+                                ? `${result.errors.length.toLocaleString()} מתוך ${result.failed.toLocaleString()}`
                                 : result.errors.length.toLocaleString()}
                         </span>
                         <button
                             type="button"
                             onClick={downloadErrors}
-                            className="ml-auto h-6 px-2 rounded text-[11px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors"
+                            className="ms-auto h-6 px-2 rounded text-[11px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors"
                         >
                             <DownloadIcon className="w-3 h-3" />
-                            Download errors
+                            הורדת שגיאות
                         </button>
                     </div>
                     <div className="max-h-56 overflow-y-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-start">
                             <thead className="bg-white sticky top-0">
                                 <tr className="border-b border-slate-100">
-                                    <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12">Line</th>
-                                    <th className="hidden md:table-cell px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Email</th>
-                                    <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Reason</th>
+                                    <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12 text-start">שורה</th>
+                                    <th className="hidden md:table-cell px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] text-start">אימייל</th>
+                                    <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] text-start">סיבה</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -999,8 +998,8 @@ function durationText(start: string, end: string): string {
     const e = new Date(end).getTime();
     if (Number.isNaN(s) || Number.isNaN(e)) return "—";
     const ms = e - s;
-    if (ms < 1000) return `${ms} ms`;
+    if (ms < 1000) return `${ms} מילישניות`;
     const sec = ms / 1000;
-    if (sec < 60) return `${sec.toFixed(1)} s`;
-    return `${(sec / 60).toFixed(1)} min`;
+    if (sec < 60) return `${sec.toFixed(1)} שנ'`;
+    return `${(sec / 60).toFixed(1)} דק'`;
 }
