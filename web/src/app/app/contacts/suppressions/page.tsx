@@ -34,14 +34,14 @@ export default function SuppressionsPage() {
 
     return (
         <Page>
-            <PageTopbar eyebrow="Suppression list" subtitle="Addresses and domains no campaign will email">
+            <PageTopbar eyebrow="רשימת חסימה" subtitle="כתובות ודומיינים שאף קמפיין לא ישלח אליהם אימייל">
                 <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={guarded(() => setAdding(true))}>
-                    Add
+                    הוסף
                 </TopbarAction>
             </PageTopbar>
 
-            <SectionBar label="Entries" count={list.entries.length + (list.hasNextPage ? "+" : "")}>
-                <SearchInput value={query} onChange={setQuery} placeholder="Search addresses or domains…" className="w-full sm:w-72" />
+            <SectionBar label="רשומות" count={list.entries.length + (list.hasNextPage ? "+" : "")}>
+                <SearchInput value={query} onChange={setQuery} placeholder="חיפוש כתובות או דומיינים…" className="w-full sm:w-72" />
             </SectionBar>
 
             <PageBody>
@@ -54,16 +54,16 @@ export default function SuppressionsPage() {
                     </div>
                 ) : list.entries.length === 0 ? (
                     <EmptyBlock
-                        title={debounced ? "No entries match" : "Nothing suppressed yet"}
+                        title={debounced ? "לא נמצאו רשומות מתאימות" : "אין עדיין רשומות חסומות"}
                         body={
                             debounced
-                                ? "Try a different search."
-                                : "Recipients who unsubscribe, reply asking to stop, bounce or complain land here automatically. Add customers, partners or whole domains by hand so no campaign reaches them."
+                                ? "נסה חיפוש אחר."
+                                : "נמענים שמבטלים הרשמה, משיבים בבקשה להסרה, נדחים או מדווחים על ספאם מתווספים לכאן אוטומטית. הוסף לקוחות, שותפים או דומיינים שלמים ידנית כדי למנוע שליחת קמפיינים אליהם."
                         }
                         cta={
                             debounced ? undefined : (
                                 <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={guarded(() => setAdding(true))}>
-                                    Add addresses
+                                    הוסף כתובות
                                 </TopbarAction>
                             )
                         }
@@ -81,7 +81,7 @@ export default function SuppressionsPage() {
                                     disabled={list.isFetchingNextPage}
                                     className="h-7 px-2.5 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:border-slate-300 hover:text-slate-900 transition-colors disabled:opacity-50"
                                 >
-                                    {list.isFetchingNextPage ? "Loading…" : "Load more"}
+                                    {list.isFetchingNextPage ? "טוען…" : "טען עוד"}
                                 </button>
                             </div>
                         )}
@@ -110,8 +110,8 @@ function AddForm({ onClose }: { onClose: () => void }) {
             const skipped = res.skipped?.length ?? 0;
             toast.success(
                 skipped
-                    ? `Added ${res.added}; skipped ${skipped} that did not look like an address or domain`
-                    : `Added ${res.added} to the suppression list`,
+                    ? `נוספו ${res.added}; דולגו ${skipped} שלא נראו כמו כתובת או דומיין תקינים`
+                    : `נוספו ${res.added} לרשימת החסימה`,
             );
             onClose();
         } catch (err) {
@@ -125,25 +125,25 @@ function AddForm({ onClose }: { onClose: () => void }) {
                 e.preventDefault();
                 void submit();
             }}
-            className="px-5 py-3 border-b border-slate-200/60 bg-sky-50/40 space-y-2.5"
+            className="px-5 py-3 border-b border-slate-200/60 bg-sky-50/40 space-y-2.5 text-start"
         >
             <div>
-                <Label>Addresses or domains</Label>
+                <Label>כתובות או דומיינים</Label>
                 <Textarea
                     value={raw}
                     onChange={(e) => setRaw(e.target.value)}
                     rows={4}
                     autoFocus
                     placeholder={"jane@acme.com\nacme.com\n@partner.io"}
-                    className="w-full max-w-[520px] text-[12.5px] font-mono"
+                    className="w-full max-w-[520px] text-[12.5px] font-mono text-start"
                 />
                 <p className="mt-1 text-[11px] text-slate-500">
-                    One per line, or paste a column. A bare domain suppresses every address at it.
+                    אחת בכל שורה, או הדבק עמודה. דומיין בודד חוסם כל כתובת תחתיו.
                 </p>
             </div>
             <div>
-                <Label>Reason (optional)</Label>
-                <TextInput value={reason} onChange={setReason} placeholder="Existing customer" className="w-full max-w-[520px]" />
+                <Label>סיבה (אופציונלי)</Label>
+                <TextInput value={reason} onChange={setReason} placeholder="לקוח קיים" className="w-full max-w-[520px]" />
             </div>
             <div className="flex items-center gap-2">
                 <button
@@ -151,14 +151,14 @@ function AddForm({ onClose }: { onClose: () => void }) {
                     disabled={values.length === 0 || add.isPending}
                     className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors disabled:opacity-50"
                 >
-                    {add.isPending ? "Adding…" : values.length > 1 ? `Add ${values.length}` : "Add"}
+                    {add.isPending ? "מוסיף…" : values.length > 1 ? `הוסף ${values.length}` : "הוסף"}
                 </button>
                 <button
                     type="button"
                     onClick={onClose}
                     className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 >
-                    Cancel
+                    ביטול
                 </button>
             </div>
         </form>
@@ -173,12 +173,12 @@ function SuppressionRow({ entry }: { entry: Suppression }) {
 
     function askRemove() {
         const text = recipientTriggered(entry)
-            ? `${entry.email} ${SOURCE_LABEL[entry.source]?.toLowerCase() ?? "was suppressed"} on their own. Removing the entry lets campaigns email them again, and that is recorded in the audit log. Continue?`
-            : `Remove ${entry.email} from the suppression list? Campaigns can email ${isDomain ? "addresses at this domain" : "this address"} again.`;
+            ? `${entry.email} ${SOURCE_LABEL[entry.source]?.toLowerCase() ?? "נחסם"} ביוזמתו. הסרת הרשומה תאפשר לקמפיינים לשלוח אליו אימיילים שוב, ופעולה זו תתועד ביומן הביקורת. האם להמשיך?`
+            : `להסיר את ${entry.email} מרשימת החסימה? קמפיינים יוכלו לשלוח שוב אימיילים אל ${isDomain ? "כתובות בדומיין זה" : "כתובת זו"}.`;
         confirm.show(text, async () => {
             try {
                 await remove.mutateAsync(entry.id);
-                toast.success(`Removed ${entry.email}`);
+                toast.success(`הוסר ${entry.email}`);
             } catch (err) {
                 toast.error(buildError(err as AppError));
             }
@@ -189,11 +189,11 @@ function SuppressionRow({ entry }: { entry: Suppression }) {
     return (
         <div className="group h-11 px-5 flex items-center gap-3 border-b border-slate-200/60 transition-colors hover:bg-slate-50/80">
             <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 text-start">
                 <div className="text-[12.5px] font-medium text-slate-900 truncate">
                     {isDomain ? `@${entry.email}` : entry.email}
                 </div>
-                <div className="text-[11px] text-slate-500 truncate">{entry.reason || "No reason given"}</div>
+                <div className="text-[11px] text-slate-500 truncate">{entry.reason || "לא צוינה סיבה"}</div>
             </div>
             <span
                 className={`hidden sm:inline-flex h-5 items-center px-1.5 rounded text-[10px] font-medium border shrink-0 ${
@@ -204,14 +204,14 @@ function SuppressionRow({ entry }: { entry: Suppression }) {
             >
                 {SOURCE_LABEL[entry.source] ?? entry.source}
             </span>
-            <span className="hidden md:inline text-[11px] text-slate-400 tabular-nums w-28 text-right shrink-0">
+            <span className="hidden md:inline text-[11px] text-slate-400 tabular-nums w-28 text-end shrink-0">
                 {fmtAbsolute(entry.created_at)}
             </span>
             <PopoverMenu align="end">
                 <PopoverMenuTrigger asChild>
                     <button
                         type="button"
-                        aria-label="More"
+                        aria-label="עוד"
                         className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
                     >
                         <MoreHorizontalIcon className="w-3.5 h-3.5" />
@@ -220,7 +220,7 @@ function SuppressionRow({ entry }: { entry: Suppression }) {
                 <PopoverMenuContent minWidth={200}>
                     <PopoverMenuItem onSelect={() => write.guard(askRemove)({})} danger>
                         <XIcon className="w-3.5 h-3.5" />
-                        Remove from list
+                        הסר מהרשימה
                     </PopoverMenuItem>
                 </PopoverMenuContent>
             </PopoverMenu>

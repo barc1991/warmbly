@@ -65,7 +65,7 @@ export default function CampaignSegmentsDialog({
     const requestClose = React.useCallback(() => {
         if (busy) return;
         if (dirty) {
-            confirm.show("Discard your segment changes?", async () => onClose());
+            confirm.show("האם לבטל את השינויים בסגמנטים?", async () => onClose());
             return;
         }
         onClose();
@@ -95,17 +95,17 @@ export default function CampaignSegmentsDialog({
         if (busy || !seeded) return;
         try {
             const res = await save.mutateAsync({ campaignId: campaign.id, segmentIds: [...picked] });
-            const linked = `Linked ${picked.size} segment${picked.size === 1 ? "" : "s"}`;
+            const linked = `קושרו ${picked.size} ${picked.size === 1 ? "סגמנט" : "סגמנטים"}`;
             const { members, held } = linkTotals(res.data);
             if (picked.size === 0) {
-                toast.success("Segments detached");
+                toast.success("הסגמנטים נותקו");
             } else if (res.added > 0) {
-                toast.success(`${linked} and added ${res.added.toLocaleString()} lead${res.added === 1 ? "" : "s"}`);
+                toast.success(`${linked} ונוספו ${res.added.toLocaleString()} ${res.added === 1 ? "ליד" : "לידים"}`);
             } else if (members === 0 || held > 0) {
                 // Say why the list is still empty; "already a lead" here would be a lie.
                 toast(`${linked}. ${linksEmptyReason(res.data)}`);
             } else {
-                toast.success(`${linked}; every member is already a lead`);
+                toast.success(`${linked}; כל החברים כבר קיימים כלידים`);
             }
             onClose();
         } catch (err) {
@@ -137,7 +137,7 @@ export default function CampaignSegmentsDialog({
                         key="card"
                         role="dialog"
                         aria-modal="true"
-                        aria-label="Linked segments"
+                        aria-label="סגמנטים מקושרים"
                         initial={{ y: 8, opacity: 0, scale: 0.985 }}
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 8, opacity: 0, scale: 0.985 }}
@@ -149,29 +149,28 @@ export default function CampaignSegmentsDialog({
                             <div className="size-5 rounded bg-slate-100 text-slate-600 flex items-center justify-center">
                                 <LayersIcon className="w-3 h-3" />
                             </div>
-                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Audience</span>
+                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">קהל יעד</span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-900 font-medium">Linked segments</span>
+                            <span className="text-[12.5px] text-slate-900 font-medium">סגמנטים מקושרים</span>
                             <span className="hidden sm:inline-flex items-center h-5 px-1.5 rounded bg-sky-50 text-sky-700 text-[10px] font-medium max-w-[200px] truncate">
                                 {campaign.name}
                             </span>
                             <button
                                 type="button"
                                 onClick={requestClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגור"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
                         </header>
-                        <div className="px-4 py-2.5 border-b border-slate-100 shrink-0 bg-slate-50/40">
+                        <div className="px-4 py-2.5 border-b border-slate-100 shrink-0 bg-slate-50/40 text-start">
                             <p className="text-[11.5px] text-slate-500 leading-snug">
-                                Contacts in a linked segment become leads automatically, now and whenever the segment grows.
-                                Removing a link stops new enrolment; existing leads stay.
+                                אנשי קשר בסגמנט מקושר הופכים ללידים באופן אוטומטי, עכשיו ובכל פעם שהסגמנט גדל. הסרת קישור עוצרת רישום של לידים חדשים; לידים קיימים יישארו בקמפיין.
                             </p>
                         </div>
                         <div className="px-4 py-3 border-b border-slate-100 shrink-0">
-                            <SearchInput value={query} onChange={setQuery} placeholder="Search segments…" autoFocus className="w-full" />
+                            <SearchInput value={query} onChange={setQuery} placeholder="חיפוש סגמנטים…" autoFocus className="w-full" />
                         </div>
                         <div className="flex-1 min-h-[200px] overflow-y-auto">
                             {loading ? (
@@ -182,20 +181,20 @@ export default function CampaignSegmentsDialog({
                                 </div>
                             ) : loadError ? (
                                 <div className="px-5 py-10 text-center">
-                                    <p className="text-[12.5px] text-slate-900 font-medium">Couldn't load segments</p>
-                                    <p className="text-[11.5px] text-slate-400 mt-0.5">Check your connection and try again.</p>
+                                    <p className="text-[12.5px] text-slate-900 font-medium">לא ניתן לטעון סגמנטים</p>
+                                    <p className="text-[11.5px] text-slate-400 mt-0.5">בדוק את החיבור ונסה שוב.</p>
                                     <button
                                         type="button"
                                         onClick={retryLoad}
                                         className="mt-3 h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors"
                                     >
-                                        Retry
+                                        נסה שוב
                                     </button>
                                 </div>
                             ) : list.length === 0 ? (
                                 <div className="px-5 py-10 text-center">
-                                    <p className="text-[12.5px] text-slate-900 font-medium">{query ? "No segments match" : "No segments yet"}</p>
-                                    <p className="text-[11.5px] text-slate-400 mt-0.5">Build one under Contacts &gt; Segments first.</p>
+                                    <p className="text-[12.5px] text-slate-900 font-medium">{query ? "לא נמצאו סגמנטים מתאימים" : "אין עדיין סגמנטים"}</p>
+                                    <p className="text-[11.5px] text-slate-400 mt-0.5">צור סגמנט תחת אנשי קשר &gt; סגמנטים תחילה.</p>
                                 </div>
                             ) : (
                                 <ul className="divide-y divide-slate-100">
@@ -208,7 +207,7 @@ export default function CampaignSegmentsDialog({
                                                     onClick={() => toggle(s.id)}
                                                     aria-pressed={on}
                                                     className={cn(
-                                                        "w-full px-4 h-10 flex items-center gap-3 text-left transition-colors",
+                                                        "w-full px-4 h-10 flex items-center gap-3 text-start transition-colors",
                                                         on ? "bg-sky-50/60 hover:bg-sky-50" : "hover:bg-slate-50",
                                                     )}
                                                 >
@@ -222,7 +221,7 @@ export default function CampaignSegmentsDialog({
                                                     </span>
                                                     <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                                                     <span className="text-[12.5px] text-slate-900 font-medium truncate">{s.name}</span>
-                                                    <span className="ml-auto font-mono text-[11px] text-slate-500 tabular-nums">
+                                                    <span className="ms-auto font-mono text-[11px] text-slate-500 tabular-nums">
                                                         {s.contact_count.toLocaleString()}
                                                     </span>
                                                 </button>
@@ -233,16 +232,16 @@ export default function CampaignSegmentsDialog({
                             )}
                         </div>
                         <footer className="px-3 py-2 min-h-12 border-t border-slate-200 flex flex-wrap items-center gap-x-2 gap-y-1.5 shrink-0 bg-slate-50/30">
-                            <span className="text-[11px] text-slate-400 leading-snug basis-full sm:basis-0 sm:flex-1 sm:min-w-[120px]">
-                                {picked.size === 0 ? "No segments linked" : `${picked.size} segment${picked.size === 1 ? "" : "s"} linked`}
+                            <span className="text-[11px] text-slate-400 leading-snug basis-full sm:basis-0 sm:flex-1 sm:min-w-[120px] text-start">
+                                {picked.size === 0 ? "אין סגמנטים מקושרים" : `קושרו ${picked.size} ${picked.size === 1 ? "סגמנט" : "סגמנטים"}`}
                             </span>
                             <button
                                 type="button"
                                 onClick={requestClose}
                                 disabled={busy}
-                                className="ml-auto shrink-0 h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                className="ms-auto shrink-0 h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -251,7 +250,7 @@ export default function CampaignSegmentsDialog({
                                 className="shrink-0 whitespace-nowrap h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                             >
                                 {busy ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <LayersIcon className="w-3 h-3" />}
-                                Save
+                                שמור
                             </button>
                         </footer>
                     </motion.div>

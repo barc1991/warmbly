@@ -27,7 +27,7 @@ import buildError from "@/lib/helper/buildError";
 
 export default function SegmentsPage() {
     const canView = usePermission("VIEW_CONTACTS");
-    if (!canView) return <NoAccess feature="segments" permissionLabel="View contacts" />;
+    if (!canView) return <NoAccess feature="segments" permissionLabel="צפייה באנשי קשר" />;
     return <SegmentsList />;
 }
 
@@ -47,13 +47,13 @@ function SegmentsList() {
     async function duplicate(s: Segment) {
         try {
             const copy = await create.mutateAsync({
-                name: `${s.name} (copy)`.slice(0, 120),
+                name: `${s.name} (עותק)`.slice(0, 120),
                 description: s.description,
                 color: s.color,
                 match: s.match,
                 conditions: s.conditions,
             });
-            toast.success(`Duplicated as ${copy.name}`);
+            toast.success(`שוכפל בהצלחה כ-${copy.name}`);
             navigate(`/app/contacts/segments/${copy.id}`);
         } catch (err) {
             toast.error(buildError(err as AppError));
@@ -96,17 +96,17 @@ function SegmentsList() {
     async function copyId(s: Segment) {
         try {
             await navigator.clipboard.writeText(s.id);
-            toast.success("Segment ID copied");
+            toast.success("מזהה הסגמנט הועתק");
         } catch {
-            toast.error("Could not copy");
+            toast.error("ההעתקה נכשלה");
         }
     }
 
     function askDelete(s: Segment) {
-        confirm.show(`Delete the segment "${s.name}"? Contacts themselves are kept.`, async () => {
+        confirm.show(`למחוק את הסגמנט "${s.name}"? אנשי הקשר עצמם יישמרו.`, async () => {
             try {
                 await remove.mutateAsync(s.id);
-                toast.success("Segment deleted");
+                toast.success("הסגמנט נמחק");
             } catch (err) {
                 toast.error(buildError(err as AppError));
             }
@@ -115,25 +115,25 @@ function SegmentsList() {
 
     return (
         <Page>
-            <PageTopbar eyebrow="Segments" subtitle="Reusable audiences built from contact data">
+            <PageTopbar eyebrow="סגמנטים" subtitle="קהלי יעד לשימוש חוזר המבוססים על נתוני אנשי קשר">
                 <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={guarded(openNew)}>
-                    New segment
+                    סגמנט חדש
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={3}>
-                <Stat label="Segments" value={totals.segments} sub="saved audiences" />
-                <Stat label="Memberships" value={totals.contacts.toLocaleString()} sub="across all segments" accent={totals.contacts > 0} />
+                <Stat label="סגמנטים" value={totals.segments} sub="קהלים שמורים" />
+                <Stat label="חברויות" value={totals.contacts.toLocaleString()} sub="בכל הסגמנטים" accent={totals.contacts > 0} />
                 <Stat
-                    label="Largest"
+                    label="הגדול ביותר"
                     value={totals.largest ? totals.largest.contact_count.toLocaleString() : "0"}
-                    sub={totals.largest ? totals.largest.name : "no segments yet"}
+                    sub={totals.largest ? totals.largest.name : "אין עדיין סגמנטים"}
                     last
                 />
             </StatStrip>
 
-            <SectionBar label="All segments" count={list.length}>
-                <SearchInput value={query} onChange={setQuery} placeholder="Search segments…" className="w-full sm:w-64" />
+            <SectionBar label="כל הסגמנטים" count={list.length}>
+                <SearchInput value={query} onChange={setQuery} placeholder="חיפוש סגמנטים…" className="w-full sm:w-64" />
             </SectionBar>
 
             <PageBody>
@@ -144,19 +144,19 @@ function SegmentsList() {
                         ))}
                     </div>
                 ) : segments.isError ? (
-                    <EmptyBlock title="Couldn't load segments" body="Try again in a moment." />
+                    <EmptyBlock title="לא ניתן לטעון סגמנטים" body="נסה שוב בעוד רגע." />
                 ) : list.length === 0 ? (
                     <EmptyBlock
-                        title={query ? "No segments match" : "No segments yet"}
+                        title={query ? "לא נמצאו סגמנטים מתאימים" : "אין עדיין סגמנטים"}
                         body={
                             query
-                                ? "Try a different search."
-                                : "Build an audience from contact fields, categories, campaign activity and engagement, then add it to a campaign in one step."
+                                ? "נסה חיפוש אחר."
+                                : "בנה קהל יעד משדות איש קשר, קטגוריות, פעילות קמפיין ומעורבות, והוסף אותו לקמפיין בלחיצה אחת."
                         }
                         cta={
                             query ? undefined : (
                                 <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={guarded(openNew)}>
-                                    New segment
+                                    סגמנט חדש
                                 </TopbarAction>
                             )
                         }
@@ -180,41 +180,41 @@ function SegmentsList() {
                                         <span className="text-[12.5px] font-medium text-slate-900 truncate">{s.name}</span>
                                         {s.conditions.length === 0 && (
                                             <span className="inline-flex items-center h-4 px-1 rounded bg-slate-100 text-slate-500 text-[10px] font-medium">
-                                                manual
+                                                ידני
                                             </span>
                                         )}
                                     </div>
                                     {s.description && <div className="text-[11px] text-slate-500 truncate">{s.description}</div>}
                                 </div>
                                 <span className="hidden md:inline text-[11px] text-slate-400 tabular-nums shrink-0">
-                                    {s.conditions.length} condition{s.conditions.length === 1 ? "" : "s"}
-                                    {s.match === "any" && s.conditions.length > 1 ? " · any" : ""}
+                                    {s.conditions.length} {s.conditions.length === 1 ? "תנאי" : "תנאים"}
+                                    {s.match === "any" && s.conditions.length > 1 ? " · אחד מהם" : ""}
                                 </span>
-                                <span className="font-mono text-[12px] text-slate-900 tabular-nums w-20 text-right shrink-0">
+                                <span className="font-mono text-[12px] text-slate-900 tabular-nums w-20 text-end shrink-0">
                                     {s.contact_count.toLocaleString()}
                                 </span>
                                 <span className="text-[10.5px] uppercase tracking-[0.1em] text-slate-400 w-16 shrink-0 hidden sm:inline">
-                                    contacts
+                                    אנשי קשר
                                 </span>
                                 <PopoverMenu align="end">
                                     <PopoverMenuTrigger asChild>
                                         <button
                                             type="button"
                                             onClick={(e) => e.stopPropagation()}
-                                            aria-label="More"
+                                            aria-label="עוד"
                                             className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
                                         >
                                             <MoreHorizontalIcon className="w-3.5 h-3.5" />
                                         </button>
                                     </PopoverMenuTrigger>
                                     <PopoverMenuContent minWidth={180}>
-                                        <PopoverMenuItem onSelect={() => navigate(`/app/contacts/segments/${s.id}`)}>View contacts</PopoverMenuItem>
-                                        <PopoverMenuItem onSelect={guarded(() => openEdit(s))}>Edit conditions</PopoverMenuItem>
-                                        <PopoverMenuItem onSelect={campaignGuarded(() => setCampaignFor(s))}>Add to campaign</PopoverMenuItem>
-                                        <PopoverMenuItem onSelect={guarded(() => duplicate(s))}>Duplicate</PopoverMenuItem>
-                                        <PopoverMenuItem onSelect={() => copyId(s)}>Copy segment ID</PopoverMenuItem>
+                                        <PopoverMenuItem onSelect={() => navigate(`/app/contacts/segments/${s.id}`)}>צפייה באנשי קשר</PopoverMenuItem>
+                                        <PopoverMenuItem onSelect={guarded(() => openEdit(s))}>עריכת תנאים</PopoverMenuItem>
+                                        <PopoverMenuItem onSelect={campaignGuarded(() => setCampaignFor(s))}>הוסף לקמפיין</PopoverMenuItem>
+                                        <PopoverMenuItem onSelect={guarded(() => duplicate(s))}>שכפל</PopoverMenuItem>
+                                        <PopoverMenuItem onSelect={() => copyId(s)}>העתק מזהה סגמנט</PopoverMenuItem>
                                         <PopoverMenuSeparator />
-                                        <PopoverMenuItem onSelect={guarded(() => askDelete(s))}>Delete</PopoverMenuItem>
+                                        <PopoverMenuItem onSelect={guarded(() => askDelete(s))}>מחק</PopoverMenuItem>
                                     </PopoverMenuContent>
                                 </PopoverMenu>
                             </div>

@@ -33,11 +33,11 @@ export interface AddSuppressionsResult {
 }
 
 export const SOURCE_LABEL: Record<string, string> = {
-    bounce: "Bounced",
-    complaint: "Spam complaint",
-    unsubscribe: "Unsubscribed",
-    manual: "Added by hand",
-    import: "Imported",
+    bounce: "נדחה (Bounce)",
+    complaint: "תלונת ספאם",
+    unsubscribe: "ביטל הרשמה",
+    manual: "נוסף ידנית",
+    import: "יובא",
 };
 
 // Entries the recipient made themselves (or the mail system recorded) are

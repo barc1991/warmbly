@@ -5,7 +5,7 @@ import { usePermission } from "@/hooks/usePermission";
 
 export default function ContactsPage() {
     const canView = usePermission("VIEW_CONTACTS");
-    if (!canView) return <NoAccess feature="contacts" permissionLabel="View contacts" />;
+    if (!canView) return <NoAccess feature="contacts" permissionLabel="צפייה באנשי קשר" />;
     return (
         <>
             {/* List-hygiene findings live where the list does. */}

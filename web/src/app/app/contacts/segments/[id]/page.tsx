@@ -29,7 +29,7 @@ import { selectionOf } from "@/lib/api/models/app/contacts/ContactSelection";
 
 export default function SegmentPage() {
     const canView = usePermission("VIEW_CONTACTS");
-    if (!canView) return <NoAccess feature="segments" permissionLabel="View contacts" />;
+    if (!canView) return <NoAccess feature="segments" permissionLabel="צפייה באנשי קשר" />;
     return <SegmentDetail />;
 }
 
@@ -58,19 +58,19 @@ function SegmentDetail() {
         return (
             <div className="p-5">
                 <Link to="/app/contacts/segments" className="text-[12px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1">
-                    <ArrowLeftIcon className="w-3 h-3" /> Segments
+                    <ArrowLeftIcon className="w-3 h-3 rtl:rotate-180" /> סגמנטים
                 </Link>
-                <EmptyBlock title="Segment not found" body="It may have been deleted by a teammate." />
+                <EmptyBlock title="הסגמנט לא נמצא" body="ייתכן שהוא נמחק על ידי חבר צוות." />
             </div>
         );
     }
     const s = segment.data;
 
     function askDelete() {
-        confirm.show(`Delete the segment "${s.name}"? Contacts themselves are kept.`, async () => {
+        confirm.show(`למחוק את הסגמנט "${s.name}"? אנשי הקשר עצמם יישמרו.`, async () => {
             try {
                 await remove.mutateAsync(s.id);
-                toast.success("Segment deleted");
+                toast.success("הסגמנט נמחק");
                 navigate("/app/contacts/segments");
             } catch (err) {
                 toast.error(buildError(err as AppError));
@@ -82,29 +82,29 @@ function SegmentDetail() {
         <div className="flex flex-col min-h-full">
             <div className="px-5 pt-3 pb-3 border-b border-slate-200 bg-white">
                 <Link to="/app/contacts/segments" className="text-[11px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1">
-                    <ArrowLeftIcon className="w-3 h-3" /> Segments
+                    <ArrowLeftIcon className="w-3 h-3 rtl:rotate-180" /> סגמנטים
                 </Link>
                 <div className="mt-1.5 flex flex-wrap items-start gap-3">
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 text-start">
                         <div className="flex items-center gap-2 min-w-0">
                             <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                             <h1 className="text-[15px] font-semibold text-slate-900 truncate">{s.name}</h1>
                             <span className="font-mono text-[11px] text-slate-500 tabular-nums">
-                                {s.contact_count.toLocaleString()} contact{s.contact_count === 1 ? "" : "s"}
+                                {s.contact_count.toLocaleString()} {s.contact_count === 1 ? "איש קשר" : "אנשי קשר"}
                             </span>
                         </div>
                         {s.description && <p className="text-[12px] text-slate-500 mt-0.5">{s.description}</p>}
                         <ConditionSummary conditions={s.conditions} match={s.match} specs={fields.data ?? []} included={s.included_count} excluded={s.excluded_count} />
                         <SegmentIdChip id={s.id} />
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 ms-auto">
                         <button
                             type="button"
                             onClick={write.guard(() => setEditorOpen(true))}
                             className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 bg-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                         >
                             <PencilIcon className="w-3 h-3" />
-                            Edit
+                            ערוך
                         </button>
                         <button
                             type="button"
@@ -112,12 +112,12 @@ function SegmentDetail() {
                             className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                         >
                             <MegaphoneIcon className="w-3 h-3" />
-                            Add to campaign
+                            הוסף לקמפיין
                         </button>
                         <button
                             type="button"
                             onClick={write.guard(askDelete)}
-                            aria-label="Delete segment"
+                            aria-label="מחק סגמנט"
                             className="size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors"
                         >
                             <Trash2Icon className="w-3.5 h-3.5" />
@@ -146,7 +146,7 @@ function SegmentIdChip({ id }: { id: string }) {
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1500);
         } catch {
-            toast.error("Could not copy");
+            toast.error("ההעתקה נכשלה");
         }
     }
     return (
@@ -154,8 +154,8 @@ function SegmentIdChip({ id }: { id: string }) {
             <button
                 type="button"
                 onClick={copy}
-                aria-label={copied ? "Segment ID copied" : "Copy segment ID"}
-                title="Copy segment ID"
+                aria-label={copied ? "מזהה סגמנט הועתק" : "העתק מזהה סגמנט"}
+                title="העתק מזהה סגמנט"
                 className="mt-1 inline-flex items-center gap-1.5 max-w-full font-mono text-[10.5px] text-slate-400 hover:text-slate-700 transition-colors"
             >
                 <span className="uppercase tracking-[0.14em] font-sans font-medium text-[9.5px]">ID</span>
@@ -163,7 +163,7 @@ function SegmentIdChip({ id }: { id: string }) {
                 {copied ? <CheckIcon className="w-3 h-3 text-emerald-600 shrink-0" /> : <CopyIcon className="w-3 h-3 shrink-0" />}
             </button>
             <span className="sr-only" role="status" aria-live="polite">
-                {copied ? "Segment ID copied" : ""}
+                {copied ? "מזהה סגמנט הועתק" : ""}
             </span>
         </>
     );
@@ -182,7 +182,7 @@ function OverridesPanel({ segment }: { segment: Segment }) {
         setBusyId(o.contact_id);
         try {
             await set.mutateAsync({ id: segment.id, selection: selectionOf(o.contact_id), mode: "auto" });
-            toast.success("Back to automatic");
+            toast.success("הוחזר למצב אוטומטי");
         } catch (err) {
             toast.error(buildError(err as AppError));
         } finally {
@@ -202,18 +202,18 @@ function OverridesPanel({ segment }: { segment: Segment }) {
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="w-full h-9 px-5 flex items-center gap-2 text-left"
+                className="w-full h-9 px-5 flex items-center gap-2 text-start"
                 aria-expanded={open}
             >
-                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Pinned contacts</span>
+                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">אנשי קשר מקובעים</span>
                 <span className="font-mono text-[10.5px] text-slate-400 tabular-nums">
-                    {segment.included_count} in · {segment.excluded_count} out
+                    {segment.included_count} כלולים · {segment.excluded_count} מוחרגים
                 </span>
-                <ChevronDownIcon className={cn("w-3.5 h-3.5 text-slate-400 ml-auto transition-transform", open && "rotate-180")} />
+                <ChevronDownIcon className={cn("w-3.5 h-3.5 text-slate-400 ms-auto transition-transform", open && "rotate-180")} />
             </button>
             {open && (
                 <ul className="divide-y divide-slate-100 border-t border-slate-200/60 max-h-72 overflow-y-auto bg-white">
-                    {overrides.isPending && <li className="px-5 h-9 flex items-center text-[11.5px] text-slate-400">Loading…</li>}
+                    {overrides.isPending && <li className="px-5 h-9 flex items-center text-[11.5px] text-slate-400">טוען…</li>}
                     {list.map((o) => {
                         const name = `${o.first_name} ${o.last_name}`.trim() || o.email;
                         return (
@@ -224,7 +224,7 @@ function OverridesPanel({ segment }: { segment: Segment }) {
                                         o.mode === "include" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700",
                                     )}
                                 >
-                                    {o.mode === "include" ? "in" : "out"}
+                                    {o.mode === "include" ? "כלול" : "מוחרג"}
                                 </span>
                                 <span className="text-[12px] text-slate-900 truncate">{name}</span>
                                 <span className="text-[11px] text-slate-400 truncate hidden sm:inline">{o.email}</span>
@@ -232,18 +232,16 @@ function OverridesPanel({ segment }: { segment: Segment }) {
                                     type="button"
                                     onClick={write.guard(() => clear(o))}
                                     disabled={busyId === o.contact_id}
-                                    className="ml-auto h-6 px-2 rounded text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                    className="ms-auto h-6 px-2 rounded text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
                                 >
-                                    {busyId === o.contact_id ? "…" : "Back to automatic"}
+                                    {busyId === o.contact_id ? "…" : "החזר לאוטומטי"}
                                 </button>
                             </li>
                         );
                     })}
                     {truncated && (
-                        <li className="px-5 py-2 flex items-center text-[11.5px] text-slate-400 leading-snug">
-                            Showing the newest {list.length.toLocaleString()} of {pinned.toLocaleString()}. Find any other
-                            pinned contact in Contacts and use the Segments section of its drawer to release it: a
-                            pinned-out contact never appears in the member list below.
+                        <li className="px-5 py-2 flex items-center text-[11.5px] text-slate-400 leading-snug text-start">
+                            מציג את {list.length.toLocaleString()} החדשים ביותר מתוך {pinned.toLocaleString()}. ניתן לאתר אנשי קשר מקובעים אחרים באנשי קשר ולהשתמש במגירת הסגמנטים כדי לשחררם: איש קשר שסומן להחרגה לא יופיע ברשימת החברים מטה.
                         </li>
                     )}
                 </ul>
@@ -257,8 +255,8 @@ function describe(c: SegmentCondition, specs: SegmentFieldSpec[]): string {
     const label = spec?.label ?? c.field.replace(/^custom\./, "");
     const op = spec ? SEGMENT_OPERATORS[spec.kind].find((o) => o.id === c.operator)?.label : c.operator;
     if (VALUELESS_OPERATORS.has(c.operator)) return `${label} ${op ?? c.operator}`;
-    if (c.values && c.values.length > 0) return `${label} ${op} ${c.values.length} value${c.values.length === 1 ? "" : "s"}`;
-    if (c.operator === "within_days" || c.operator === "not_within_days") return `${label} ${op} ${c.value} days`;
+    if (c.values && c.values.length > 0) return `${label} ${op} ${c.values.length} ${c.values.length === 1 ? "ערך" : "ערכים"}`;
+    if (c.operator === "within_days" || c.operator === "not_within_days") return `${label} ${op} ${c.value} ימים`;
     return `${label} ${op} ${c.value ?? ""}`.trim();
 }
 
@@ -278,20 +276,20 @@ function ConditionSummary({
     return (
         <div className="mt-2 flex flex-wrap items-center gap-1">
             {conditions.length === 0 ? (
-                <span className="text-[11px] text-slate-400">No conditions: only contacts added by hand.</span>
+                <span className="text-[11px] text-slate-400">ללא תנאים: רק אנשי קשר שנוספו ידנית.</span>
             ) : (
                 conditions.map((c, i) => (
                     <React.Fragment key={i}>
-                        {i > 0 && <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400">{match === "all" ? "and" : "or"}</span>}
+                        {i > 0 && <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400">{match === "all" ? "וגם" : "או"}</span>}
                         <span className="inline-flex items-center h-5 px-1.5 rounded bg-slate-100 text-slate-700 text-[11px]">{describe(c, specs)}</span>
                     </React.Fragment>
                 ))
             )}
             {included > 0 && (
-                <span className="inline-flex items-center h-5 px-1.5 rounded bg-emerald-50 text-emerald-700 text-[11px]">+{included} added by hand</span>
+                <span className="inline-flex items-center h-5 px-1.5 rounded bg-emerald-50 text-emerald-700 text-[11px]">+{included} נוספו ידנית</span>
             )}
             {excluded > 0 && (
-                <span className="inline-flex items-center h-5 px-1.5 rounded bg-amber-50 text-amber-700 text-[11px]">{excluded} excluded</span>
+                <span className="inline-flex items-center h-5 px-1.5 rounded bg-amber-50 text-amber-700 text-[11px]">{excluded} מוחרגים</span>
             )}
         </div>
     );

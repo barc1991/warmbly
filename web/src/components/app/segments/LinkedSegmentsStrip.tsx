@@ -30,7 +30,7 @@ export default function LinkedSegmentsStrip({
         <div className="px-5 py-1.5 border-b border-slate-200/60 bg-slate-50/40 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 shrink-0">
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
                 <LayersIcon className="w-3 h-3" />
-                Linked segments
+                סגמנטים מקושרים
             </span>
             <ul className="flex flex-wrap items-center gap-1.5 min-w-0">
                 {links.map((l) => {
@@ -43,9 +43,9 @@ export default function LinkedSegmentsStrip({
                                 type="button"
                                 onClick={() => onToggle(l.segment_id)}
                                 aria-pressed={active}
-                                title={`${linkSummary(l)}. Click to ${active ? "show every lead" : "show only these leads"}.`}
+                                title={`${linkSummary(l)}. לחץ כדי ${active ? "להציג את כל הלידים" : "להציג לידים אלו בלבד"}.`}
                                 className={cn(
-                                    "h-6 pl-1.5 pr-2 rounded-l-md border inline-flex items-center gap-1.5 text-[11.5px] transition-colors",
+                                    "h-6 ps-1.5 pe-2 rounded-s-md border inline-flex items-center gap-1.5 text-[11.5px] transition-colors",
                                     active
                                         ? "border-sky-300 bg-sky-50 text-sky-800"
                                         : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900",
@@ -64,41 +64,41 @@ export default function LinkedSegmentsStrip({
                                     )}
                                 >
                                     {empty
-                                        ? "no contacts"
+                                        ? "ללא אנשי קשר"
                                         : `${l.lead_count.toLocaleString()}/${l.contact_count.toLocaleString()}`}
                                 </span>
                                 {held && (
                                     <span className="text-[10px] text-amber-700">
-                                        {l.held_out_count.toLocaleString()} held out
+                                        {l.held_out_count.toLocaleString()} מוחזקים בחוץ
                                     </span>
                                 )}
                             </button>
                             <Link
                                 to={`/app/contacts/segments/${l.segment_id}`}
-                                aria-label={`Open the ${l.name} segment`}
-                                title="Open segment"
+                                aria-label={`פתח את סגמנט ${l.name}`}
+                                title="פתח סגמנט"
                                 className={cn(
-                                    "h-6 px-1.5 rounded-r-md border border-l-0 inline-flex items-center transition-colors",
+                                    "h-6 px-1.5 rounded-e-md border border-s-0 inline-flex items-center transition-colors",
                                     active
                                         ? "border-sky-300 bg-sky-50 text-sky-700 hover:text-sky-900"
                                         : "border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:border-slate-300",
                                 )}
                             >
-                                <ExternalLinkIcon className="w-3 h-3" />
+                                <ExternalLinkIcon className="w-3 h-3 rtl:rotate-180" />
                             </Link>
                             {held && onReenrol && (
                                 <button
                                     type="button"
                                     onClick={() => onReenrol(l)}
                                     disabled={reenrolling === l.segment_id}
-                                    className="ml-1 h-6 px-1.5 rounded-md text-[11px] text-amber-800 hover:bg-amber-50 inline-flex items-center gap-1 transition-colors disabled:opacity-50"
+                                    className="ms-1 h-6 px-1.5 rounded-md text-[11px] text-amber-800 hover:bg-amber-50 inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                                 >
                                     {reenrolling === l.segment_id ? (
                                         <Loader2Icon className="w-3 h-3 animate-spin" />
                                     ) : (
                                         <UserPlusIcon className="w-3 h-3" />
                                     )}
-                                    Add back
+                                    החזר לקמפיין
                                 </button>
                             )}
                         </li>
@@ -108,9 +108,9 @@ export default function LinkedSegmentsStrip({
             <button
                 type="button"
                 onClick={onManage}
-                className="ml-auto h-6 px-2 rounded-md text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                className="ms-auto h-6 px-2 rounded-md text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             >
-                Manage
+                ניהול
             </button>
         </div>
     );

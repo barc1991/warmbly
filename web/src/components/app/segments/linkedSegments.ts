@@ -4,14 +4,14 @@
 import type { CampaignSegmentLink } from "@/lib/api/models/app/segments/Segment";
 
 export function linkSummary(l: CampaignSegmentLink): string {
-    if (l.contact_count === 0) return "Matches no contacts yet";
-    const members = `${l.contact_count.toLocaleString()} member${l.contact_count === 1 ? "" : "s"}`;
+    if (l.contact_count === 0) return "אינו מתאים לאנשי קשר כרגע";
+    const members = `${l.contact_count.toLocaleString()} ${l.contact_count === 1 ? "חבר" : "חברים"}`;
     const held =
         l.held_out_count > 0
-            ? `, ${l.held_out_count.toLocaleString()} removed by hand and held out`
+            ? `, ${l.held_out_count.toLocaleString()} הוסרו ידנית ומוחזקים בחוץ`
             : "";
-    if (l.lead_count === l.contact_count) return `${members}, all leads${held}`;
-    return `${members}, ${l.lead_count.toLocaleString()} of them leads${held}`;
+    if (l.lead_count === l.contact_count) return `${members}, כולם לידים${held}`;
+    return `${members}, ${l.lead_count.toLocaleString()} מתוכם לידים${held}`;
 }
 
 export function linkTotals(links: CampaignSegmentLink[]): { members: number; held: number } {
@@ -26,10 +26,10 @@ export function linksEmptyReason(links: CampaignSegmentLink[]): string {
     const names = links.map((l) => l.name).join(", ");
     const { members, held } = linkTotals(links);
     if (members === 0) {
-        return `${names} ${links.length === 1 ? "matches" : "match"} no contacts right now. Leads join automatically as contacts enter the segment.`;
+        return `${names} ${links.length === 1 ? "אינו כולל" : "אינם כוללים"} אנשי קשר כרגע. לידים יצטרפו אוטומטית כשאנשי קשר יתווספו לסגמנט.`;
     }
     if (held > 0) {
-        return `${held.toLocaleString()} member${held === 1 ? "" : "s"} of ${names} ${held === 1 ? "was" : "were"} removed from this campaign by hand, so automatic enrolment leaves them out until you add them back.`;
+        return `${held.toLocaleString()} ${held === 1 ? "חבר" : "חברים"} מתוך ${names} הוסרו מקמפיין זה ידנית, ולכן הרישום האוטומטי משאיר אותם בחוץ עד שתוסיף אותם חזרה.`;
     }
-    return `${links.map(linkSummary).join("; ")}. Members are enrolled automatically within a couple of minutes.`;
+    return `${links.map(linkSummary).join("; ")}. חברים יירשמו אוטומטית תוך מספר דקות.`;
 }

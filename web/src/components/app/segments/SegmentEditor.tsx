@@ -120,7 +120,7 @@ export default function SegmentEditor({
     const requestClose = React.useCallback(() => {
         if (busy) return;
         if (dirty) {
-            confirm.show("Discard your changes to this segment?", async () => onClose());
+            confirm.show("האם לבטל את השינויים בסגמנט זה?", async () => onClose());
             return;
         }
         onClose();
@@ -141,9 +141,9 @@ export default function SegmentEditor({
     const canSave = draft.name.trim() !== "" && incomplete === 0 && !busy;
     const blocker =
         draft.name.trim() === ""
-            ? "Give the segment a name."
+            ? "תן שם לסגמנט."
             : incomplete > 0
-              ? `${incomplete} condition${incomplete === 1 ? " is" : "s are"} missing a value.`
+              ? `${incomplete} ${incomplete === 1 ? "תנאי חסר ערך." : "תנאים חסרי ערך."}`
               : null;
 
     async function save() {
@@ -159,7 +159,7 @@ export default function SegmentEditor({
             const saved = segment
                 ? await update.mutateAsync({ id: segment.id, data: body })
                 : await create.mutateAsync(body);
-            toast.success(segment ? "Segment updated" : "Segment created");
+            toast.success(segment ? "הסגמנט עודכן" : "הסגמנט נוצר");
             setInitial(draft);
             onSaved?.(saved);
             onClose();
@@ -190,66 +190,66 @@ export default function SegmentEditor({
                         key="panel"
                         role="dialog"
                         aria-modal="true"
-                        aria-label={segment ? "Edit segment" : "New segment"}
+                        aria-label={segment ? "עריכת סגמנט" : "סגמנט חדש"}
                         initial={{ x: "100%" }}
                         animate={{ x: 0 }}
                         exit={{ x: "100%" }}
                         transition={{ type: "spring", stiffness: 300, damping: 32 }}
                         onMouseDown={(e) => e.stopPropagation()}
-                        className="flex flex-col bg-white w-[560px] max-w-[95%] h-full border-l border-slate-200 shadow-[-8px_0_24px_-12px_rgba(15,23,42,0.12)]"
+                        className="flex flex-col bg-white w-[560px] max-w-[95%] h-full border-l rtl:border-r rtl:border-l-0 border-slate-200 shadow-[-8px_0_24px_-12px_rgba(15,23,42,0.12)] rtl:shadow-[8px_0_24px_-12px_rgba(15,23,42,0.12)]"
                     >
                         <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                {segment ? "Edit segment" : "New segment"}
+                                {segment ? "עריכת סגמנט" : "סגמנט חדש"}
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
                             <span className="text-[12.5px] text-slate-700 inline-flex items-center gap-1.5">
                                 {preview.isFetching ? (
                                     <Loader2Icon className="w-3 h-3 animate-spin text-slate-400" />
                                 ) : preview.isError ? (
-                                    <span className="text-rose-600">Cannot count</span>
+                                    <span className="text-rose-600">לא ניתן לחשב</span>
                                 ) : (
                                     <>
-                                        Matches{" "}
+                                        מתאים ל-{" "}
                                         <span className="font-mono tabular-nums text-slate-900">
                                             {(preview.data ?? 0).toLocaleString()}
                                         </span>{" "}
-                                        contact{preview.data === 1 ? "" : "s"}
+                                        {preview.data === 1 ? "איש קשר" : "אנשי קשר"}
                                     </>
                                 )}
                             </span>
                             <button
                                 type="button"
                                 onClick={requestClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגור"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto">
-                            <div className="px-4 py-4 space-y-4 border-b border-slate-200/60">
+                            <div className="px-4 py-4 space-y-4 border-b border-slate-200/60 text-start">
                                 <div className="flex gap-3">
                                     <div className="flex-1">
-                                        <Label>Name</Label>
+                                        <Label>שם</Label>
                                         <TextInput
                                             value={draft.name}
                                             onChange={(v) => setDraft((d) => ({ ...d, name: v }))}
-                                            placeholder="Warm leads in fintech"
+                                            placeholder="לידים חמים בפינטק"
                                             autoFocus={!segment}
                                             className="w-full"
                                         />
                                     </div>
                                     <div>
-                                        <Label>Color</Label>
+                                        <Label>צבע</Label>
                                         <div className="flex items-center gap-1 h-7">
                                             {COLORS.map((c) => (
                                                 <button
                                                     key={c}
                                                     type="button"
                                                     onClick={() => setDraft((d) => ({ ...d, color: c }))}
-                                                    aria-label={`Color ${c}`}
+                                                    aria-label={`צבע ${c}`}
                                                     aria-pressed={draft.color === c}
                                                     className={cn(
                                                         "size-4 rounded-full border-2 transition-transform",
@@ -262,28 +262,28 @@ export default function SegmentEditor({
                                     </div>
                                 </div>
                                 <div>
-                                    <Label>Description</Label>
+                                    <Label>תיאור</Label>
                                     <TextInput
                                         value={draft.description}
                                         onChange={(v) => setDraft((d) => ({ ...d, description: v }))}
-                                        placeholder="What this audience is for (optional)"
+                                        placeholder="למה מיועד קהל יעד זה (אופציונלי)"
                                         className="w-full"
                                     />
                                 </div>
                             </div>
 
-                            <div className="px-4 py-4 space-y-3">
+                            <div className="px-4 py-4 space-y-3 text-start">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Conditions</span>
+                                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">תנאים</span>
                                     <span className="font-mono text-[10.5px] text-slate-400 tabular-nums">{draft.conditions.length}</span>
-                                    <div className="ml-auto flex items-center gap-2 text-[12px] text-slate-600">
-                                        <span>Match</span>
+                                    <div className="ms-auto flex items-center gap-2 text-[12px] text-slate-600">
+                                        <span>התאמה</span>
                                         <Segmented<SegmentMatch>
                                             value={draft.match}
                                             onChange={(v) => setDraft((d) => ({ ...d, match: v }))}
                                             options={[
-                                                { value: "all", label: "all" },
-                                                { value: "any", label: "any" },
+                                                { value: "all", label: "הכל" },
+                                                { value: "any", label: "אחד מהם" },
                                             ]}
                                         />
                                     </div>
@@ -291,9 +291,9 @@ export default function SegmentEditor({
 
                                 {draft.conditions.length === 0 && (
                                     <div className="rounded-md border border-dashed border-slate-200 px-3 py-4 text-center">
-                                        <p className="text-[12.5px] text-slate-900 font-medium">No conditions yet</p>
+                                        <p className="text-[12.5px] text-slate-900 font-medium">אין עדיין תנאים</p>
                                         <p className="text-[11.5px] text-slate-400 mt-0.5">
-                                            Without conditions the segment only holds contacts you add by hand.
+                                            ללא תנאים הסגמנט יכיל רק אנשי קשר שנוספו ידנית.
                                         </p>
                                     </div>
                                 )}
@@ -327,22 +327,22 @@ export default function SegmentEditor({
                                     className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 bg-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                                 >
                                     <PlusIcon className="w-3 h-3" />
-                                    Add condition
+                                    הוסף תנאי
                                 </button>
                             </div>
                         </div>
 
                         <footer className="px-3 h-12 border-t border-slate-200 flex items-center gap-2 shrink-0 bg-slate-50/30">
                             <span className="text-[11px] text-slate-400 min-w-0 truncate">
-                                {blocker ?? (segment ? "Changes apply to every list using this segment." : "Membership stays live as contacts change.")}
+                                {blocker ?? (segment ? "השינויים יחולו על כל רשימה המשתמשת בסגמנט זה." : "החברות בסגמנט מתעדכנת בזמן אמת עם שינוי אנשי הקשר.")}
                             </span>
                             <button
                                 type="button"
                                 onClick={requestClose}
                                 disabled={busy}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -351,7 +351,7 @@ export default function SegmentEditor({
                                 className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                             >
                                 {busy && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                                {segment ? "Save segment" : "Create segment"}
+                                {segment ? "שמור סגמנט" : "צור סגמנט"}
                             </button>
                         </footer>
                     </motion.aside>
@@ -400,38 +400,38 @@ function ConditionRow({
         <div className="rounded-md border border-slate-200 bg-white p-2 space-y-1.5">
             <div className="flex items-center gap-1.5">
                 <span className="w-8 shrink-0 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    {index === 0 ? "If" : match === "all" ? "and" : "or"}
+                    {index === 0 ? "אם" : match === "all" ? "וגם" : "או"}
                 </span>
                 <SelectMenu
                     value={condition.field}
                     onChange={pickField}
                     options={fieldOptions}
-                    placeholder="Pick a field…"
+                    placeholder="בחר שדה…"
                     className="min-w-0 flex-1"
                     fullWidth
-                    aria-label="Field"
+                    aria-label="שדה"
                 />
                 <SelectMenu
                     value={condition.operator}
                     onChange={pickOperator}
                     options={operatorOptions}
-                    placeholder="Operator"
+                    placeholder="תנאי"
                     disabled={!spec}
                     className="min-w-0 flex-1"
                     fullWidth
-                    aria-label="Operator"
+                    aria-label="תנאי"
                 />
                 <button
                     type="button"
                     onClick={onRemove}
-                    aria-label="Remove condition"
+                    aria-label="הסר תנאי"
                     className="size-7 shrink-0 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors"
                 >
                     <Trash2Icon className="w-3.5 h-3.5" />
                 </button>
             </div>
             {spec && !VALUELESS_OPERATORS.has(condition.operator) && (
-                <div className="pl-[38px]">
+                <div className="ps-[38px]">
                     <ValueInput spec={spec} condition={condition} selfId={selfId} onChange={onChange} />
                 </div>
             )}
@@ -455,7 +455,7 @@ function ValueInput({
     const setValue = (next: string) => onChange({ ...condition, value: next });
     switch (spec.kind) {
         case "text":
-            return <TextInput value={condition.value ?? ""} onChange={setValue} placeholder="Value" className="w-full" />;
+            return <TextInput value={condition.value ?? ""} onChange={setValue} placeholder="ערך" className="w-full text-start" />;
         case "number":
             return (
                 <NumberInput
@@ -473,7 +473,7 @@ function ValueInput({
                         onChange={(n) => setValue(String(Math.min(3650, Math.max(1, Math.round(n)))))}
                         min={1}
                         max={3650}
-                        suffix="days"
+                        suffix="ימים"
                         className="w-40"
                     />
                 );
@@ -483,14 +483,14 @@ function ValueInput({
                     value={(condition.value ?? "").slice(0, 10)}
                     onChange={setValue}
                     clearable={false}
-                    placeholder="Pick a date"
+                    placeholder="בחר תאריך"
                     className="w-48"
                 />
             );
         case "enum":
             return <EnumMultiPicker value={values} onChange={setValues} options={spec.options ?? []} />;
         case "category":
-            return <CategoryPicker value={values} onChange={setValues} placeholder="Pick categories…" allowCreate={false} />;
+            return <CategoryPicker value={values} onChange={setValues} placeholder="בחר קטגוריות…" allowCreate={false} />;
         case "campaign":
             return <CampaignMultiPicker value={values} onChange={setValues} />;
         case "segment":

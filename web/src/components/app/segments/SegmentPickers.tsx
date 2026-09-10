@@ -22,7 +22,7 @@ export function MultiPicker({
     value,
     onChange,
     options,
-    placeholder = "Pick…",
+    placeholder = "בחר…",
     searchable = true,
     className,
 }: {
@@ -41,7 +41,7 @@ export function MultiPicker({
     const placement = useFlipPlacement(triggerRef, open, 270);
 
     const byId = React.useMemo(() => new Map(options.map((o) => [o.id, o])), [options]);
-    const chips = value.map((id) => byId.get(id) ?? { id, label: "Unknown" });
+    const chips = value.map((id) => byId.get(id) ?? { id, label: "לא ידוע" });
     const filtered = React.useMemo(() => {
         const q = query.trim().toLowerCase();
         if (!q) return options;
@@ -59,7 +59,7 @@ export function MultiPicker({
                     <button
                         type="button"
                         onClick={() => setOpen((o) => !o)}
-                        className="w-full text-left px-2.5 h-7 text-[12px] text-slate-400 hover:text-slate-600"
+                        className="w-full text-start px-2.5 h-7 text-[12px] text-slate-400 hover:text-slate-600"
                     >
                         {placeholder}
                     </button>
@@ -68,7 +68,7 @@ export function MultiPicker({
                         {chips.map((c) => (
                             <span
                                 key={c.id}
-                                className="inline-flex items-center gap-1 h-5 pl-1.5 pr-1 rounded text-[11px] font-medium bg-slate-100 text-slate-700"
+                                className="inline-flex items-center gap-1 h-5 ps-1.5 pe-1 rounded text-[11px] font-medium bg-slate-100 text-slate-700"
                             >
                                 {c.color && <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />}
                                 <span className="truncate max-w-[140px]">{c.label}</span>
@@ -79,7 +79,7 @@ export function MultiPicker({
                                         toggle(c.id);
                                     }}
                                     className="opacity-70 hover:opacity-100"
-                                    aria-label={`Remove ${c.label}`}
+                                    aria-label={`הסר ${c.label}`}
                                 >
                                     <XIcon className="w-2.5 h-2.5" />
                                 </button>
@@ -91,7 +91,7 @@ export function MultiPicker({
                             className="inline-flex items-center gap-1 h-5 px-1.5 rounded text-[11px] font-medium border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
                         >
                             <PlusIcon className="w-2.5 h-2.5" />
-                            Add
+                            הוסף
                         </button>
                     </div>
                 )}
@@ -114,15 +114,15 @@ export function MultiPicker({
                                 <input
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Search…"
+                                    placeholder="חיפוש…"
                                     autoFocus
-                                    className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
+                                    className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
                                 />
                             </div>
                         )}
                         <div className="max-h-56 overflow-y-auto py-1">
                             {filtered.length === 0 && (
-                                <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">Nothing to pick.</div>
+                                <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">אין פריטים לבחירה.</div>
                             )}
                             {filtered.map((o) => {
                                 const checked = value.includes(o.id);
@@ -131,7 +131,7 @@ export function MultiPicker({
                                         key={o.id}
                                         type="button"
                                         onClick={() => toggle(o.id)}
-                                        className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-100 transition-colors"
+                                        className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-100 transition-colors text-start"
                                     >
                                         <span
                                             className={cn(
@@ -165,7 +165,7 @@ export function CampaignMultiPicker({ value, onChange }: { value: string[]; onCh
     React.useEffect(() => {
         if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-    return <MultiPicker value={value} onChange={onChange} options={options} placeholder="Pick campaigns…" />;
+    return <MultiPicker value={value} onChange={onChange} options={options} placeholder="בחר קמפיינים…" />;
 }
 
 export function SegmentMultiPicker({
@@ -185,25 +185,25 @@ export function SegmentMultiPicker({
                 .map((s) => ({ id: s.id, label: s.name, color: s.color })),
         [segments.data, exclude],
     );
-    return <MultiPicker value={value} onChange={onChange} options={options} placeholder="Pick segments…" />;
+    return <MultiPicker value={value} onChange={onChange} options={options} placeholder="בחר סגמנטים…" />;
 }
 
 const ENUM_LABELS: Record<string, string> = {
-    unknown: "Unknown",
-    manual: "Added manually",
-    campaign: "Added from a campaign",
-    import: "Imported",
-    sheet_sync: "Google Sheets sync",
+    unknown: "לא ידוע",
+    manual: "נוסף ידנית",
+    campaign: "נוסף מקמפיין",
+    import: "יובא",
+    sheet_sync: "סנכרון Google Sheets",
     api: "API",
-    ai_assistant: "AI assistant",
-    form: "Form submission",
-    automation: "Automation",
-    valid: "Valid",
-    risky: "Risky",
-    invalid: "Invalid",
+    ai_assistant: "עוזר AI",
+    form: "טופס הרשמה",
+    automation: "אוטומציה",
+    valid: "תקין (Valid)",
+    risky: "בסיכון",
+    invalid: "לא תקין",
     gmail: "Gmail",
     outlook: "Outlook",
-    other: "Other",
+    other: "אחר",
 };
 
 export function EnumMultiPicker({
@@ -216,5 +216,5 @@ export function EnumMultiPicker({
     options: string[];
 }) {
     const opts = React.useMemo<PickOption[]>(() => options.map((o) => ({ id: o, label: ENUM_LABELS[o] ?? o })), [options]);
-    return <MultiPicker value={value} onChange={onChange} options={opts} placeholder="Pick values…" searchable={false} />;
+    return <MultiPicker value={value} onChange={onChange} options={opts} placeholder="בחר ערכים…" searchable={false} />;
 }

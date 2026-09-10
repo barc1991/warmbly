@@ -9,16 +9,16 @@ import { NoAccess } from "@/components/layout/NoAccess";
 import { usePermission } from "@/hooks/usePermission";
 
 const TABS = [
-    { label: "All contacts", path: "", Icon: UsersIcon },
-    { label: "Segments", path: "/segments", Icon: LayersIcon },
-    { label: "Categories", path: "/categories", Icon: TagIcon },
-    { label: "Suppression list", path: "/suppressions", Icon: BanIcon },
+    { label: "כל אנשי הקשר", path: "", Icon: UsersIcon },
+    { label: "סגמנטים", path: "/segments", Icon: LayersIcon },
+    { label: "קטגוריות", path: "/categories", Icon: TagIcon },
+    { label: "רשימת חסימה", path: "/suppressions", Icon: BanIcon },
 ] as const;
 
 export default function ContactsLayout() {
     const canView = usePermission("VIEW_CONTACTS");
     const { pathname } = useLocation();
-    if (!canView) return <NoAccess feature="contacts" permissionLabel="View contacts" />;
+    if (!canView) return <NoAccess feature="contacts" permissionLabel="צפייה באנשי קשר" />;
 
     const current = pathname.replace(/\/$/, "");
     return (

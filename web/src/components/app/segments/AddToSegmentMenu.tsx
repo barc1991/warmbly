@@ -33,7 +33,7 @@ export default function AddToSegmentMenu({
     async function add(id: string, name: string) {
         try {
             const added = await set.mutateAsync({ id, selection, mode: "include" });
-            toast.success(`Added ${added.toLocaleString()} contact${added === 1 ? "" : "s"} to ${name}`);
+            toast.success(`נוספו ${added.toLocaleString()} ${added === 1 ? "איש קשר" : "אנשי קשר"} אל ${name}`);
             onDone?.();
         } catch (err) {
             toast.error(buildError(err as AppError));
@@ -50,13 +50,13 @@ export default function AddToSegmentMenu({
                     className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                 >
                     {set.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <LayersIcon className="w-3 h-3" />}
-                    <span className="hidden sm:inline">Segment</span>
+                    <span className="hidden sm:inline">סגמנט</span>
                 </button>
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={200}>
-                <PopoverMenuLabel>Add {count.toLocaleString()} to segment</PopoverMenuLabel>
+                <PopoverMenuLabel>הוסף {count.toLocaleString()} לסגמנט</PopoverMenuLabel>
                 {list.length === 0 && (
-                    <div className="px-2.5 py-2 text-[11.5px] text-slate-400">No segments yet. Create one under Contacts &gt; Segments.</div>
+                    <div className="px-2.5 py-2 text-[11.5px] text-slate-400">אין עדיין סגמנטים. צור סגמנט תחת אנשי קשר &gt; סגמנטים.</div>
                 )}
                 {list.map((s) => (
                     <PopoverMenuItem key={s.id} onSelect={() => add(s.id, s.name)}>
