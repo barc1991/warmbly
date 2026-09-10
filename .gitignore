@@ -39,6 +39,16 @@ go.work.sum
 
 # env file
 .env
+.env.*
+!.env.example
+
+# OAuth credentials and secrets
+*client_secret*.json
+google-client*.json
+*-client.json
+credentials*.json
+*.pem
+*.key
 
 # Editor/IDE
 .idea/

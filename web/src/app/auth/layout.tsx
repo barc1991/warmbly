@@ -91,7 +91,7 @@ export default function AuthLayout({
                             <div className="hidden items-center gap-3 pt-9 text-[12px] text-slate-400 lg:flex">
                                 {brand.terms_url && <a href={brand.terms_url} target="_blank" rel="noopener noreferrer" className="hover:text-slate-700 transition-colors">תנאי שימוש</a>}
                                 {brand.privacy_url && <a href={brand.privacy_url} target="_blank" rel="noopener noreferrer" className="hover:text-slate-700 transition-colors">מדיניות פרטיות</a>}
-                                <span className="ms-auto">© {new Date().getFullYear()} {brand.name}</span>
+                                <span className="ms-auto" dir="ltr">© {new Date().getFullYear()} {brand.name}</span>
                             </div>
                         </div>
                     </div>

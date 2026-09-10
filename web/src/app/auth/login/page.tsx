@@ -96,7 +96,10 @@ const strengthConfig = [
 ] as const;
 
 function PasswordStrength({ score, warning }: { score: 0 | 1 | 2 | 3 | 4; warning: string }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const cfg = strengthConfig[score];
+    const labelHe = score <= 1 ? "חלשה" : score === 2 ? "בינונית" : score === 3 ? "טובה" : "חזקה";
 
     return (
         <div className="space-y-1">
@@ -108,7 +111,9 @@ function PasswordStrength({ score, warning }: { score: 0 | 1 | 2 | 3 | 4; warnin
                     transition={{ duration: 0.35, ease: "easeOut" }}
                 />
             </div>
-            <p className="text-xs text-slate-400">{cfg.label} password</p>
+            <p className="text-xs text-slate-400">
+                {isHe ? `סיסמה ${labelHe}` : `${cfg.label} password`}
+            </p>
             {warning && <p className="text-xs text-rose-500">{warning}</p>}
         </div>
     );
@@ -165,6 +170,8 @@ const REFUSAL_CODES: Record<string, SignupBlock> = {
 };
 
 export default function LoginPage() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const navigate = useNavigate();
     const location = useLocation();
     const queryClient = useQueryClient();
@@ -317,13 +324,13 @@ export default function LoginPage() {
         if (!passkeySupported() || !(await passkeyAutofillSupported())) return;
         try {
             const token = await passkeyLogin({ conditional: true });
-            toast.success("Welcome back!");
+            toast.success(isHe ? "ברוכים השבים!" : "Welcome back!");
             await completeSession(token);
         } catch (e) {
             // Cancel / no-passkey is expected here; report only real failures.
             if (!(e instanceof PasskeyCancelled)) captureException(e);
         }
-    }, [completeSession]);
+    }, [completeSession, isHe]);
 
     const prepareExplicitPasskey = useCallback((preserveStatus = false) => {
         if (!passkeySupported() || explicitPasskeyChallengeRef.current || explicitPasskeyChallengePendingRef.current) return;
@@ -368,7 +375,7 @@ export default function LoginPage() {
         explicitPasskeyChallengeRef.current = null;
         if (!challenge) {
             setPasskeyStatus("preparing");
-            toast.error("Passkey sign-in is getting ready. Please try again in a moment.");
+            toast.error(isHe ? "התחברות באמצעות מפתח גישה בהכנה. נסה שוב בעוד רגע." : "Passkey sign-in is getting ready. Please try again in a moment.");
             prepareExplicitPasskey(true);
             return;
         }
@@ -382,7 +389,7 @@ export default function LoginPage() {
         try {
             const token = await finishPasskeyLogin(challenge);
             signedIn = true;
-            toast.success("Welcome back!");
+            toast.success(isHe ? "ברוכים השבים!" : "Welcome back!");
             await completeSession(token);
         } catch (e) {
             if (e instanceof PasskeyCancelled) {
@@ -396,11 +403,11 @@ export default function LoginPage() {
                     setPasskeyStatus("not-found");
                 } else if (e.reason === "timeout") {
                     setPasskeyStatus("timeout");
-                    toast.error("Safari didn't show a passkey prompt. Try again, or use password sign-in.");
+                    toast.error(isHe ? "ספארי לא הציג בקשת מפתח גישה. נסה שוב, או השתמש בסיסמה." : "Safari didn't show a passkey prompt. Try again, or use password sign-in.");
                 }
             } else {
                 setPasskeyStatus("error");
-                toast.error((e as Error)?.message || "Couldn't sign in with a passkey.");
+                toast.error((e as Error)?.message || (isHe ? "לא ניתן להתחבר באמצעות מפתח גישה." : "Couldn't sign in with a passkey."));
             }
         } finally {
             setPasskeyPending(false);
@@ -603,7 +610,7 @@ export default function LoginPage() {
                     // token — collect the TOTP/recovery code in a dedicated step.
                     if (res.two_fa_required) {
                         if (!res.pending_token) {
-                            toast.error("Something went wrong, please try again.");
+                            toast.error(isHe ? "משהו השתבש, אנא נסה שוב." : "Something went wrong, please try again.");
                             return;
                         }
                         setPendingToken(res.pending_token);
@@ -611,10 +618,10 @@ export default function LoginPage() {
                         return;
                     }
                     if (!res.access_token) {
-                        toast.error("Something went wrong, please try again.");
+                        toast.error(isHe ? "משהו השתבש, אנא נסה שוב." : "Something went wrong, please try again.");
                         return;
                     }
-                    toast.success("Welcome back!");
+                    toast.success(isHe ? "ברוכים השבים!" : "Welcome back!");
                     // Nudge passwordless enrollment once the dashboard loads.
                     try { sessionStorage.setItem(SUGGEST_PASSKEY_FLAG, "1"); } catch { /* storage unavailable */ }
                     // completeSession saves tokens, clears stale cache, primes the
@@ -624,11 +631,11 @@ export default function LoginPage() {
                 } else {
                     const created = await registerConfirmMutation.mutateAsync({ session, code, turnstile: token });
                     if (created?.token) {
-                        toast.success("Welcome to Warmbly!");
+                        toast.success(isHe ? "ברוכים הבאים ל-Warmbly!" : "Welcome to Warmbly!");
                         await completeSession(created.token);
                         return;
                     }
-                    toast.success("Account created! Please sign in.");
+                    toast.success(isHe ? "החשבון נוצר! אנא התחבר." : "Account created! Please sign in.");
                     handleModeChange("signin");
                     goTo("email", -1);
                 }
@@ -644,7 +651,7 @@ export default function LoginPage() {
     const handle2FA = async (code: string) => {
         try {
             const token = await verify2FAMutation.mutateAsync({ pending_token: pendingToken, code });
-            toast.success("Welcome back!");
+            toast.success(isHe ? "ברוכים השבים!" : "Welcome back!");
             try { sessionStorage.setItem(SUGGEST_PASSKEY_FLAG, "1"); } catch { /* storage unavailable */ }
             await completeSession(token);
         } catch (e) {
@@ -659,20 +666,23 @@ export default function LoginPage() {
                 const res = mode === "signin"
                     ? await loginMutation.mutateAsync({ email, password, turnstile: token })
                     : await registerMutation.mutateAsync({ email, password, turnstile: token, invite: inviteToken || undefined, acquisition });
-                toast.success("Code resent!");
+                toast.success(isHe ? "הקוד נשלח שוב!" : "Code resent!");
                 setSession(res.session ?? "");
             } catch (e) {
                 toast.error(buildError(e as AppError));
             }
         });
-    }, [mode, email, password, inviteToken, acquisition, loginMutation, registerMutation, withCaptcha]);
+    }, [mode, email, password, inviteToken, acquisition, loginMutation, registerMutation, withCaptcha, isHe]);
 
     return (
         <div className="relative">
             {authConfigUnreachable && (
                 <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] leading-relaxed text-amber-800">
-                    Could not reach the API at <span className="font-mono break-all">{API_URL}</span>. The sign-in
-                    options shown here may not match this server.
+                    {isHe ? (
+                        <>לא ניתן להתחבר ל-API בכתובת <span className="font-mono break-all">{API_URL}</span>. אפשרויות ההתחברות המוצגות כאן עשויות לא להתאים לשרת זה.</>
+                    ) : (
+                        <>Could not reach the API at <span className="font-mono break-all">{API_URL}</span>. The sign-in options shown here may not match this server.</>
+                    )}
                 </div>
             )}
 
@@ -807,14 +817,16 @@ function MotionWrap({ children, direction }: { children: React.ReactNode; direct
 /* ── Back button ─────────────────────── */
 
 function BackButton({ onClick }: { onClick: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     return (
         <button
             type="button"
             onClick={onClick}
             className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 transition-colors mb-5 cursor-pointer"
         >
-            <ArrowLeft className="w-4 h-4" />
-            Back
+            <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
+            {isHe ? "חזרה" : "Back"}
         </button>
     );
 }
@@ -870,13 +882,19 @@ function EmailStep({
     passkeyStatus: PasskeyStatus;
     noPasskey: boolean;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const { register, handleSubmit, formState: { errors } } = useForm<z.infer<typeof emailSchema>>({
         resolver: zodResolver(emailSchema),
         defaultValues: { email: defaultEmail },
     });
     const passkeyLoading = passkeyPending || passkeyStatus === "preparing" || passkeyStatus === "waiting";
     const passkeyLocked = passkeyPending || passkeyStatus === "waiting";
-    const passkeyLabel = passkeyStatus === "preparing" ? "Preparing" : passkeyStatus === "waiting" ? "Waiting" : "Passkey";
+    const passkeyLabel = passkeyStatus === "preparing"
+        ? (isHe ? "מכין…" : "Preparing")
+        : passkeyStatus === "waiting"
+            ? (isHe ? "ממתין…" : "Waiting")
+            : (isHe ? "מפתח גישה (Passkey)" : "Passkey");
     const passkeyCell = mode === "signin" && passkeysEnabled && passkeySupported();
     const socialCell = providers.includes("google") || providers.includes("apple");
 
@@ -892,7 +910,10 @@ function EmailStep({
                         transition={{ duration: 0.15 }}
                     >
                         <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">
-                            {(mode === "signin" ? ["Welcome", "back"] : ["Get", "started"]).map((word, i) => (
+                            {(isHe
+                                ? (mode === "signin" ? ["ברוכים", "השבים"] : ["בואו", "נתחיל"])
+                                : (mode === "signin" ? ["Welcome", "back"] : ["Get", "started"])
+                            ).map((word, i) => (
                                 <motion.span
                                     key={word + i}
                                     className="inline-block"
@@ -910,7 +931,9 @@ function EmailStep({
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.15, duration: 0.25 }}
                         >
-                            {mode === "signin" ? "Sign in to your account" : "Create your free account"}
+                            {isHe
+                                ? (mode === "signin" ? "התחבר לחשבונך כדי להמשיך" : "צור את החשבון שלך")
+                                : (mode === "signin" ? "Sign in to your account" : "Create your free account")}
                         </motion.p>
                     </motion.div>
                 </AnimatePresence>
@@ -937,7 +960,11 @@ function EmailStep({
                                 />
                             )}
                             <span className="relative z-10">
-                                {m === "signin" ? "Sign in" : invited ? "Accept invitation" : "Create account"}
+                                {m === "signin"
+                                    ? (isHe ? "התחברות" : "Sign in")
+                                    : invited
+                                        ? (isHe ? "קבלת הזמנה" : "Accept invitation")
+                                        : (isHe ? "יצירת חשבון" : "Create account")}
                             </span>
                         </button>
                     ))}
@@ -946,7 +973,9 @@ function EmailStep({
 
             <form onSubmit={handleSubmit(onContinue)} className="space-y-4">
                 <div>
-                    <label className="text-sm font-medium text-slate-600 pl-0.5">Email address</label>
+                    <label className="text-sm font-medium text-slate-600 pl-0.5">
+                        {isHe ? "כתובת אימייל" : "Email address"}
+                    </label>
                     <input
                         type="email"
                         placeholder="name@company.com"
@@ -958,7 +987,7 @@ function EmailStep({
                     <FieldError message={errors.email?.message} />
                 </div>
 
-                <AuthButton loading={false}>Continue</AuthButton>
+                <AuthButton loading={false}>{isHe ? "המשך" : "Continue"}</AuthButton>
             </form>
 
             {/* Alternative sign-in: one balanced row under a single divider.
@@ -967,7 +996,9 @@ function EmailStep({
             <div className="space-y-3">
                 <div className="flex items-center gap-3">
                     <div className="flex-1 h-px bg-slate-200" />
-                    <span className="text-[10.5px] uppercase tracking-[0.14em] text-slate-400 font-medium">or continue with</span>
+                    <span className="text-[10.5px] uppercase tracking-[0.14em] text-slate-400 font-medium">
+                        {isHe ? "או המשך באמצעות" : "or continue with"}
+                    </span>
                     <div className="flex-1 h-px bg-slate-200" />
                 </div>
 
@@ -993,11 +1024,11 @@ function EmailStep({
                             transition={{ duration: 0.2 }}
                             className="text-center text-[12.5px] text-slate-500"
                         >
-                            {passkeyStatus === "preparing" && "Preparing passkey sign-in..."}
-                            {passkeyStatus === "waiting" && "Waiting for Safari to show the passkey prompt..."}
-                            {passkeyStatus === "timeout" && "No passkey prompt appeared. Try again or use your password."}
-                            {passkeyStatus === "not-found" && "No passkey was selected on this device."}
-                            {passkeyStatus === "error" && "Passkey sign-in couldn't start. Try again or use your password."}
+                            {passkeyStatus === "preparing" && (isHe ? "מכין כניסה במפתח גישה..." : "Preparing passkey sign-in...")}
+                            {passkeyStatus === "waiting" && (isHe ? "ממתין לאישור מפתח הגישה..." : "Waiting for Safari to show the passkey prompt...")}
+                            {passkeyStatus === "timeout" && (isHe ? "לא הופיעה בקשת מפתח גישה. נסה שוב או השתמש בסיסמה." : "No passkey prompt appeared. Try again or use your password.")}
+                            {passkeyStatus === "not-found" && (isHe ? "לא נבחר מפתח גישה במכשיר זה." : "No passkey was selected on this device.")}
+                            {passkeyStatus === "error" && (isHe ? "לא ניתן להפעיל כניסה במפתח גישה. נסה שוב או השתמש בסיסמה." : "Passkey sign-in couldn't start. Try again or use your password.")}
                         </motion.p>
                     )}
                 </AnimatePresence>
@@ -1012,8 +1043,17 @@ function EmailStep({
                             transition={{ duration: 0.2 }}
                             className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[12.5px] leading-relaxed text-slate-600"
                         >
-                            No passkey found on this device. Sign in with your password, or add one later in{" "}
-                            <span className="font-medium text-slate-700">Settings → Security</span>.
+                            {isHe ? (
+                                <>
+                                    לא נמצא מפתח גישה במכשיר זה. היכנס עם סיסמה, או הוסף מפתח גישה מאוחר יותר ב-{" "}
+                                    <span className="font-medium text-slate-700">הגדרות ← אבטחה</span>.
+                                </>
+                            ) : (
+                                <>
+                                    No passkey found on this device. Sign in with your password, or add one later in{" "}
+                                    <span className="font-medium text-slate-700">Settings → Security</span>.
+                                </>
+                            )}
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -1037,16 +1077,18 @@ function SignupUnavailable({
     docsUrl: string;
     onBack: () => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const title =
-        block === "invitation_invalid" ? "Invitation not valid"
-            : block === "invite_only" ? "Invitations only"
-                : "Signups are closed";
+        block === "invitation_invalid" ? (isHe ? "ההזמנה אינה תקפה" : "Invitation not valid")
+            : block === "invite_only" ? (isHe ? "הרשמה בהזמנה בלבד" : "Invitations only")
+                : (isHe ? "ההרשמה סגורה" : "Signups are closed");
     const body =
         block === "invitation_invalid"
-            ? "That invitation link is invalid, expired, or issued for a different email address. Ask whoever invited you for a fresh one."
+            ? (isHe ? "קישור ההזמנה אינו תקף, פג תוקף, או הונפק עבור כתובת אימייל אחרת. בקש הזמנה חדשה." : "That invitation link is invalid, expired, or issued for a different email address. Ask whoever invited you for a fresh one.")
             : block === "invite_only"
-                ? "This server is invite only. Ask an administrator to invite you, then open the link in the invitation to create your account."
-                : "This server is not accepting new accounts.";
+                ? (isHe ? "שרת זה מיועד למוזמנים בלבד. בקש ממנהל המערכת להזמין אותך, ולאחר מכן פתח את הקישור שבהזמנה ליצירת חשבונך." : "This server is invite only. Ask an administrator to invite you, then open the link in the invitation to create your account.")
+                : (isHe ? "שרת זה אינו מקבל חשבונות חדשים כעת." : "This server is not accepting new accounts.");
 
     return (
         <div>
@@ -1064,7 +1106,7 @@ function SignupUnavailable({
                     onClick={onBack}
                     className="w-full h-11 rounded-lg bg-slate-900 text-white text-[13px] font-medium hover:bg-slate-800 transition-colors cursor-pointer"
                 >
-                    Back to sign in
+                    {isHe ? "חזרה להתחברות" : "Back to sign in"}
                 </button>
                 {docsUrl && (
                     <a
@@ -1073,7 +1115,7 @@ function SignupUnavailable({
                         rel="noopener noreferrer"
                         className="w-full h-11 rounded-lg border border-slate-200 bg-white text-slate-700 text-[13px] font-medium inline-flex items-center justify-center hover:bg-slate-50 transition-colors"
                     >
-                        Learn more
+                        {isHe ? "מידע נוסף" : "Learn more"}
                     </a>
                 )}
             </div>
@@ -1100,6 +1142,8 @@ function SignInStep({
     onBack: () => void;
     onSubmit: (data: z.infer<typeof signInSchema>) => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const { register, handleSubmit, formState: { errors } } = useForm<z.infer<typeof signInSchema>>({
         resolver: zodResolver(signInSchema),
     });
@@ -1108,31 +1152,37 @@ function SignInStep({
         <div>
             <div className="text-center mb-6">
                 <EmailPill email={email} onEdit={onBack} />
-                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">Welcome back</h1>
-                <p className="text-sm text-slate-400 mt-1.5">Enter your password to continue</p>
+                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">
+                    {isHe ? "ברוכים השבים" : "Welcome back"}
+                </h1>
+                <p className="text-sm text-slate-400 mt-1.5">
+                    {isHe ? "הזן את הסיסמה שלך כדי להמשיך" : "Enter your password to continue"}
+                </p>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
                     <div className="flex items-center justify-between mb-1">
-                        <label className="text-sm font-medium text-slate-600 pl-0.5">Password</label>
+                        <label className="text-sm font-medium text-slate-600 pl-0.5">
+                            {isHe ? "סיסמה" : "Password"}
+                        </label>
                         <Link to="/auth/reset-password" className="text-xs text-sky-500 hover:text-sky-600 font-medium transition-colors">
-                            Forgot password?
+                            {isHe ? "שכחת סיסמה?" : "Forgot password?"}
                         </Link>
                     </div>
                     <input
                         type="password"
-                        placeholder="Enter your password"
+                        placeholder={isHe ? "הזן את הסיסמה שלך" : "Enter your password"}
                         className={INPUT}
                         autoComplete="current-password"
                         autoFocus
                         {...register("password")}
                     />
-                    <FieldError message={errors.password?.message} />
+                    <FieldError message={errors.password?.message ? (isHe && errors.password?.message === "Password is required" ? "נדרשת סיסמה" : errors.password?.message) : undefined} />
                 </div>
 
                 <div className="pt-1">
-                    <AuthButton loading={pending}>Sign in</AuthButton>
+                    <AuthButton loading={pending}>{isHe ? "התחבר" : "Sign in"}</AuthButton>
                 </div>
             </form>
 
@@ -1140,7 +1190,7 @@ function SignInStep({
                 <>
                     <div className="flex items-center gap-3 my-4">
                         <div className="h-px flex-1 bg-slate-200" />
-                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400">or</span>
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400">{isHe ? "או" : "or"}</span>
                         <div className="h-px flex-1 bg-slate-200" />
                     </div>
                     <button
@@ -1149,7 +1199,7 @@ function SignInStep({
                         disabled={pending}
                         className="w-full h-10 rounded-md border border-slate-200 text-[13px] font-medium text-slate-700 hover:bg-slate-50 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 transition-colors disabled:opacity-50"
                     >
-                        Continue with {ssoLabel || "single sign-on"}
+                        {isHe ? `המשך באמצעות ${ssoLabel || "SSO"}` : `Continue with ${ssoLabel || "single sign-on"}`}
                     </button>
                 </>
             )}
@@ -1170,6 +1220,8 @@ function SignUpStep({
     onBack: () => void;
     onSubmit: (data: z.infer<typeof signUpSchema>) => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const { register, handleSubmit, watch, setError, formState: { errors } } = useForm<z.infer<typeof signUpSchema>>({
         resolver: zodResolver(signUpSchema),
         defaultValues: { password: "", confirmPassword: "", acceptTerms: false },
@@ -1191,7 +1243,7 @@ function SignUpStep({
     const onFormSubmit = handleSubmit(async (data) => {
         const result = await evaluate(data.password);
         if (result.score < 2) {
-            setError("password", { message: result.warning || "Please choose a stronger password." });
+            setError("password", { message: result.warning || (isHe ? "אנא בחר סיסמה חזקה יותר." : "Please choose a stronger password.") });
             return;
         }
         onSubmit(data);
@@ -1201,15 +1253,21 @@ function SignUpStep({
         <div>
             <div className="text-center mb-6">
                 <EmailPill email={email} onEdit={onBack} />
-                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">Create your account</h1>
-                <p className="text-sm text-slate-400 mt-1.5">Choose a password to finish up</p>
+                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">
+                    {isHe ? "צור את החשבון שלך" : "Create your account"}
+                </h1>
+                <p className="text-sm text-slate-400 mt-1.5">
+                    {isHe ? "בחר סיסמה לסיום ההרשמה" : "Choose a password to finish up"}
+                </p>
             </div>
 
             <form onSubmit={onFormSubmit} className="space-y-4">
                 <div>
-                    <label className="text-sm font-medium text-slate-600 pl-0.5">Password</label>
-                    <input type="password" placeholder="Create a password" className={INPUT} autoComplete="new-password" autoFocus {...register("password")} />
-                    <FieldError message={errors.password?.message} />
+                    <label className="text-sm font-medium text-slate-600 pl-0.5">
+                        {isHe ? "סיסמה" : "Password"}
+                    </label>
+                    <input type="password" placeholder={isHe ? "צור סיסמה" : "Create a password"} className={INPUT} autoComplete="new-password" autoFocus {...register("password")} />
+                    <FieldError message={errors.password?.message ? (isHe && errors.password?.message === "Password must be at least 8 characters" ? "הסיסמה חייבת להכיל לפחות 8 תווים" : errors.password?.message) : undefined} />
                     {pw && (
                         <div className="mt-2">
                             <PasswordStrength score={strength.score} warning={strength.warning} />
@@ -1218,9 +1276,11 @@ function SignUpStep({
                 </div>
 
                 <div>
-                    <label className="text-sm font-medium text-slate-600 pl-0.5">Confirm password</label>
-                    <input type="password" placeholder="Confirm your password" className={INPUT} autoComplete="new-password" {...register("confirmPassword")} />
-                    <FieldError message={errors.confirmPassword?.message} />
+                    <label className="text-sm font-medium text-slate-600 pl-0.5">
+                        {isHe ? "אימות סיסמה" : "Confirm password"}
+                    </label>
+                    <input type="password" placeholder={isHe ? "הזן שוב את הסיסמה" : "Confirm your password"} className={INPUT} autoComplete="new-password" {...register("confirmPassword")} />
+                    <FieldError message={errors.confirmPassword?.message ? (isHe && errors.confirmPassword?.message === "Passwords don't match" ? "הסיסמאות אינן תואמות" : errors.confirmPassword?.message) : undefined} />
                 </div>
 
                 {/* Terms */}
@@ -1236,28 +1296,51 @@ function SignUpStep({
                         </div>
                     </div>
                     <span className="text-[13px] text-slate-400 leading-relaxed">
-                        I agree to the{" "}
-                        {brand.terms_url ? (
-                            <a href={brand.terms_url} target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:text-sky-600 font-medium transition-colors">
-                                Terms of Service
-                            </a>
+                        {isHe ? (
+                            <>
+                                אני מסכים ל-
+                                {brand.terms_url ? (
+                                    <a href={brand.terms_url} target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:text-sky-600 font-medium transition-colors mx-1">
+                                        תנאי השימוש
+                                    </a>
+                                ) : (
+                                    " תנאי השימוש "
+                                )}
+                                ו-
+                                {brand.privacy_url ? (
+                                    <a href={brand.privacy_url} target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:text-sky-600 font-medium transition-colors mx-1">
+                                        מדיניות הפרטיות
+                                    </a>
+                                ) : (
+                                    " מדיניות הפרטיות"
+                                )}
+                            </>
                         ) : (
-                            "Terms of Service"
-                        )}
-                        {" "}and{" "}
-                        {brand.privacy_url ? (
-                            <a href={brand.privacy_url} target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:text-sky-600 font-medium transition-colors">
-                                Privacy Policy
-                            </a>
-                        ) : (
-                            "Privacy Policy"
+                            <>
+                                I agree to the{" "}
+                                {brand.terms_url ? (
+                                    <a href={brand.terms_url} target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:text-sky-600 font-medium transition-colors">
+                                        Terms of Service
+                                    </a>
+                                ) : (
+                                    "Terms of Service"
+                                )}
+                                {" "}and{" "}
+                                {brand.privacy_url ? (
+                                    <a href={brand.privacy_url} target="_blank" rel="noopener noreferrer" className="text-sky-500 hover:text-sky-600 font-medium transition-colors">
+                                        Privacy Policy
+                                    </a>
+                                ) : (
+                                    "Privacy Policy"
+                                )}
+                            </>
                         )}
                     </span>
                 </label>
-                <FieldError message={errors.acceptTerms?.message} />
+                <FieldError message={errors.acceptTerms?.message ? (isHe && errors.acceptTerms?.message === "You must accept the terms" ? "עליך לאשר את התנאים" : errors.acceptTerms?.message) : undefined} />
 
                 <div className="pt-1">
-                    <AuthButton loading={pending}>Create account</AuthButton>
+                    <AuthButton loading={pending}>{isHe ? "צור חשבון" : "Create account"}</AuthButton>
                 </div>
             </form>
         </div>
@@ -1281,6 +1364,8 @@ function VerifyStep({
     onSubmit: (code: string) => void;
     onResend: () => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const [otp, setOtp] = useState("");
     const { count, expired, reset } = useCountdown(60);
 
@@ -1298,20 +1383,28 @@ function VerifyStep({
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                     </svg>
                 </div>
-                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">Check your email</h1>
+                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">
+                    {isHe ? "בדוק את תיבת הדוא\"ל שלך" : "Check your email"}
+                </h1>
                 <p className="text-sm text-slate-400 mt-1.5">
-                    We sent a 6-digit code to <span className="text-slate-600 font-medium break-all">{email}</span>
+                    {isHe ? (
+                        <>שלחנו קוד בן 6 ספרות לכתובת <span className="text-slate-600 font-medium break-all">{email}</span></>
+                    ) : (
+                        <>We sent a 6-digit code to <span className="text-slate-600 font-medium break-all">{email}</span></>
+                    )}
                 </p>
                 {!mailDelivers && (
                     <p className="mt-3 mx-auto max-w-sm rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] leading-relaxed text-amber-800">
-                        This server has no mail transport configured, so the code was written to the backend logs instead of being sent. Run <span className="font-mono">docker compose logs backend</span> to read it.
+                        {isHe
+                            ? <>בשרת זה לא מוגדר שרת דואר יוצא, לכן הקוד נרשם בלוגים של ה-backend במקום להישלח. הרץ <span className="font-mono">docker compose logs backend</span> כדי לקרוא אותו.</>
+                            : <>This server has no mail transport configured, so the code was written to the backend logs instead of being sent. Run <span className="font-mono">docker compose logs backend</span> to read it.</>}
                     </p>
                 )}
             </div>
 
             <div className="space-y-5">
                 {/* OTP Input */}
-                <div className="flex justify-center">
+                <div className="flex justify-center" dir="ltr">
                     <InputOTP
                         maxLength={6}
                         value={otp}
@@ -1338,17 +1431,21 @@ function VerifyStep({
                             onClick={handleResend}
                             className="text-sm text-sky-500 hover:text-sky-600 font-medium transition-colors cursor-pointer"
                         >
-                            Resend code
+                            {isHe ? "שלח קוד שוב" : "Resend code"}
                         </button>
                     ) : (
                         <p className="text-sm text-slate-400">
-                            Resend code in <span className="font-medium text-slate-500">{count}s</span>
+                            {isHe ? (
+                                <>שלח קוד שוב בעוד <span className="font-medium text-slate-500">{count} שניות</span></>
+                            ) : (
+                                <>Resend code in <span className="font-medium text-slate-500">{count}s</span></>
+                            )}
                         </p>
                     )}
                 </div>
 
                 <div onClick={() => !pending && onSubmit(otp)}>
-                    <AuthButton loading={pending}>Verify</AuthButton>
+                    <AuthButton loading={pending}>{isHe ? "אימות" : "Verify"}</AuthButton>
                 </div>
             </div>
         </div>
@@ -1366,6 +1463,8 @@ function TwoFactorStep({
     onBack: () => void;
     onSubmit: (code: string) => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const [otp, setOtp] = useState("");
     const [useRecovery, setUseRecovery] = useState(false);
     const [recovery, setRecovery] = useState("");
@@ -1385,9 +1484,13 @@ function TwoFactorStep({
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                     </svg>
                 </div>
-                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">Two-factor authentication</h1>
+                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">
+                    {isHe ? "אימות דו-שלבי" : "Two-factor authentication"}
+                </h1>
                 <p className="text-sm text-slate-400 mt-1.5">
-                    {useRecovery ? "Enter one of your recovery codes." : "Enter the 6-digit code from your authenticator app."}
+                    {useRecovery
+                        ? (isHe ? "הזן את אחד מקודי השחזור שלך." : "Enter one of your recovery codes.")
+                        : (isHe ? "הזן את הקוד בן 6 הספרות מאפליקציית האימות שלך." : "Enter the 6-digit code from your authenticator app.")}
                 </p>
             </div>
 
@@ -1408,10 +1511,10 @@ function TwoFactorStep({
                             autoComplete="off"
                             className="w-full h-12 px-3 rounded-lg border border-slate-200 text-center font-mono tracking-wider text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/15"
                         />
-                        <AuthButton loading={pending}>Verify</AuthButton>
+                        <AuthButton loading={pending}>{isHe ? "אימות" : "Verify"}</AuthButton>
                     </form>
                 ) : (
-                    <div className="flex justify-center">
+                    <div className="flex justify-center" dir="ltr">
                         <InputOTP maxLength={6} value={otp} onChange={(v) => setOtp(v)} containerClassName="gap-1.5 lg:gap-2.5">
                             <InputOTPGroup className="gap-1.5 lg:gap-2.5">
                                 {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -1434,9 +1537,11 @@ function TwoFactorStep({
                             setOtp("");
                             setRecovery("");
                         }}
-                        className="text-sm text-sky-500 hover:text-sky-600 font-medium transition-colors"
+                        className="text-sm text-sky-500 hover:text-sky-600 font-medium transition-colors cursor-pointer"
                     >
-                        {useRecovery ? "Use your authenticator app" : "Use a recovery code"}
+                        {useRecovery
+                            ? (isHe ? "השתמש באפליקציית האימות שלך" : "Use your authenticator app")
+                            : (isHe ? "השתמש בקוד שחזור" : "Use a recovery code")}
                     </button>
                 </div>
             </div>

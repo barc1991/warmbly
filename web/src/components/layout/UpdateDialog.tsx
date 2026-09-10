@@ -117,7 +117,7 @@ export default function UpdateDialog({ open, onClose }: Props) {
 
     const running = isUpdateRunning(state);
     const backendDown = !!started && (logQ.isError || stateQ.isError);
-    const lastJob = state?.updater.last_job;
+    const lastJob = state?.updater?.last_job;
     const finished = !!started && !running && !backendDown && lastJob && lastJob.status !== "running";
 
     React.useEffect(() => {
@@ -171,8 +171,8 @@ export default function UpdateDialog({ open, onClose }: Props) {
         onError: (err: unknown) => toast.error(buildError(err as AppError)),
     });
 
-    const job = state?.updater.job ?? state?.updater.last_job;
-    const steps = state?.updater.mode === "command"
+    const job = state?.updater?.job ?? state?.updater?.last_job;
+    const steps = state?.updater?.mode === "command"
         ? (isHe ? COMMAND_STEPS_HE : COMMAND_STEPS)
         : (isHe ? COMPOSE_STEPS_HE : COMPOSE_STEPS);
 

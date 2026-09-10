@@ -49,7 +49,7 @@ export function VersionPill() {
     // the reload itself when it is open.
     React.useEffect(() => {
         if (!started || !admin || updating || open) return;
-        const last = admin.updater.last_job;
+        const last = admin?.updater?.last_job;
         const moved =
             (admin.running.commit && admin.running.commit !== started.fromCommit) ||
             (admin.running.version && admin.running.version !== started.fromVersion);
@@ -109,8 +109,8 @@ export function VersionPill() {
                 ? "שרת ה-API מופעל מחדש לאחר עדכון"
                 : "The backend is restarting after an update"
             : isHe
-                ? `עדכון מתבצע: ${admin?.updater.job?.step ?? ""}`
-                : `Update in progress: ${admin?.updater.job?.step ?? ""}`;
+                ? `עדכון מתבצע: ${admin?.updater?.job?.step ?? ""}`
+                : `Update in progress: ${admin?.updater?.job?.step ?? ""}`;
     }
 
     const className = cn(
