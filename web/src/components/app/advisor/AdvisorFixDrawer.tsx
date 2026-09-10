@@ -271,6 +271,7 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
                                     // preview it just competes with the fix.
                                     link={action ? null : link}
                                     failed={failed}
+                                    onClose={onClose}
                                 />
                             ) : (
                                 <DoneStep finding={finding} agent={agentResult} />
@@ -410,11 +411,13 @@ function ChangeStep({
     steps,
     link,
     failed,
+    onClose,
 }: {
     finding: AdvisorFinding;
     steps: string[];
     link: { href: string; label: string } | null;
     failed: string | null;
+    onClose: () => void;
 }) {
     const action = finding.action;
 
@@ -479,6 +482,7 @@ function ChangeStep({
             {link ? (
                 <Link
                     to={link.href}
+                    onClick={onClose}
                     className="inline-flex h-7 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-[12px] font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
                 >
                     {link.label}

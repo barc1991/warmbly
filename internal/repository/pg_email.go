@@ -1341,6 +1341,8 @@ func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID str
 		}
 	}
 
+	_, _ = tx.Exec(ctx, "DELETE FROM advisor_findings WHERE entity_id = $1", emailAccountID)
+
 	if err := tx.Commit(ctx); err != nil {
 		db.CaptureError(err, "", nil, "commit")
 		return errx.InternalError()

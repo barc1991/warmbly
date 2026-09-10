@@ -168,6 +168,7 @@ export default function AddressesPage() {
                 const results = await Promise.allSettled(selected.map((id) => removeEmail(id)));
                 const failed = results.filter((r) => r.status === "rejected");
                 await queryClient.invalidateQueries({ queryKey: ["emails"] });
+                await queryClient.invalidateQueries({ queryKey: ["advisor"] });
                 setSelected([]);
                 setRemoving(false);
                 if (failed.length > 0) {

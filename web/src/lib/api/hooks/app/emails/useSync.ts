@@ -10,6 +10,7 @@ export default function useSync(id: string, enabled = true) {
         queryKey: ["emails", id, "sync"],
         queryFn: () => getSync(id),
         enabled: !!id && enabled,
+        retry: false,
         staleTime: 15_000,
         refetchInterval: (query) => {
             const status = query.state.data?.state?.backfill_status;

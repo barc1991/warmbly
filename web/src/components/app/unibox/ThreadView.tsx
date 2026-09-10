@@ -291,6 +291,33 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
     onError: () => toast.error(isHe ? "לא ניתן לבטל השהיה" : "Couldn't un-snooze"),
   });
 
+  const setSelectedThreadId = useAppStore((s) => s.setSelectedThreadId);
+
+  const handleMarkUnread = React.useCallback(() => {
+    const ids = (q.data?.data ?? []).map((m) => m.id);
+    if (ids.length === 0) return;
+    markSeenMutate(
+      { ids, threadId, seen: false },
+      {
+        onSuccess: () => {
+          toast.success(isHe ? "השרשור סומן כלא נקרא" : "Marked as unread");
+          setSelectedThreadId(null);
+        },
+        onError: () => {
+          toast.error(isHe ? "לא ניתן לסמן כלא נקרא" : "Couldn't mark as unread");
+        },
+      },
+    );
+  }, [q.data, threadId, markSeenMutate, isHe, setSelectedThreadId]);
+
+  const handleArchive = React.useCallback(() => {
+    toast(isHe ? "ארכוב שרשורים יתווסף בעדכון הקרוב" : "Archiving threads will be available soon", { icon: "📦" });
+  }, [isHe]);
+
+  const handleDelete = React.useCallback(() => {
+    toast(isHe ? "מחיקת שרשורים מתיבות מסונכרנות תתווסף בעדכון הקרוב" : "Deleting threads from synced mailboxes will be available soon", { icon: "🗑️" });
+  }, [isHe]);
+
   if (q.isPending) {
     return (
       <div className="flex-1 flex items-center justify-center gap-2 text-[12px] text-slate-400">
@@ -508,15 +535,18 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
             <IconAction
               label={isHe ? "סמן כלא נקרא" : "Mark as unread"}
               icon={<MailCheckIcon className="w-3.5 h-3.5" />}
+              onClick={handleMarkUnread}
             />
             <IconAction
               label={isHe ? "העבר לארכיון" : "Archive thread"}
               icon={<ArchiveIcon className="w-3.5 h-3.5" />}
+              onClick={handleArchive}
             />
             <IconAction
               label={isHe ? "מחק שרשור" : "Delete thread"}
               danger
               icon={<TrashIcon className="w-3.5 h-3.5" />}
+              onClick={handleDelete}
             />
           </div>
           <PopoverMenu align="end" side="bottom">
@@ -532,15 +562,20 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
             <PopoverMenuContent>
               <PopoverMenuItem
                 icon={<MailCheckIcon className="w-3.5 h-3.5" />}
+                onSelect={handleMarkUnread}
               >
                 {isHe ? "סמן כלא נקרא" : "Mark as unread"}
               </PopoverMenuItem>
-              <PopoverMenuItem icon={<ArchiveIcon className="w-3.5 h-3.5" />}>
+              <PopoverMenuItem
+                icon={<ArchiveIcon className="w-3.5 h-3.5" />}
+                onSelect={handleArchive}
+              >
                 {isHe ? "העבר לארכיון" : "Archive thread"}
               </PopoverMenuItem>
               <PopoverMenuItem
                 danger
                 icon={<TrashIcon className="w-3.5 h-3.5" />}
+                onSelect={handleDelete}
               >
                 {isHe ? "מחק שרשור" : "Delete thread"}
               </PopoverMenuItem>

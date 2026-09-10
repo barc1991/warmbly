@@ -88,6 +88,7 @@ export default function SocketProvider({
         });
     }, []);
     const pendingJoinsRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+    const pendingPushesRef = useRef<Map<string, Array<{ event: string; payload: Record<string, unknown> }>>>(new Map());
     // Pending single-channel rejoin, plus how many consecutive attempts it has
     // taken and when the last one was scheduled. A successful join cancels the
     // timer; the attempt count decays on its own (CHANNEL_REJOIN_RESET_MS).
@@ -299,6 +300,19 @@ export default function SocketProvider({
                 if (reply.status === 'ok') {
                     channel.state = 'joined';
                     cancelRejoinTimer(topic);
+                    const pending = pendingPushesRef.current.get(topic);
+                    if (pending && pending.length > 0) {
+                        pendingPushesRef.current.delete(topic);
+                        for (const item of pending) {
+                            sendRaw({
+                                topic,
+                                event: item.event,
+                                payload: item.payload,
+                                ref: getRef(),
+                                join_ref: channel.joinRef,
+                            });
+                        }
+                    }
                 } else {
                     channel.state = 'errored';
                     // A throttled join is transient and the server says when
@@ -448,6 +462,7 @@ export default function SocketProvider({
         desiredTopicsRef.current.delete(topic);
         clearRejoin(topic);
         pendingJoinsRef.current.delete(topic);
+        pendingPushesRef.current.delete(topic);
 
         const channel = channelsRef.current.get(topic);
         if (!channel) return;
@@ -534,7 +549,14 @@ export default function SocketProvider({
     ) => {
         const channel = channelsRef.current.get(topic);
         if (!channel || channel.state !== 'joined') {
-            console.warn('[WS] Cannot push to channel - not joined:', topic);
+            if (channel?.state === 'joining') {
+                let list = pendingPushesRef.current.get(topic);
+                if (!list) {
+                    list = [];
+                    pendingPushesRef.current.set(topic, list);
+                }
+                list.push({ event, payload });
+            }
             return;
         }
 

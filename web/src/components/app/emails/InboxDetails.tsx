@@ -58,7 +58,8 @@ import useEmailTrackingDomain from "@/lib/api/hooks/app/emails/useEmailTrackingD
 import useVerifyEmailTrackingDomain from "@/lib/api/hooks/app/emails/useVerifyEmailTrackingDomain";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import getEmail from "@/lib/api/client/app/emails/getEmail";
 import reauthEmailOAuth from "@/lib/api/client/app/emails/reauthEmailOAuth";
 import onboardOAuthFinish from "@/lib/api/client/app/emails/onboardOAuthFinish";
 import { openEmailOAuthPopup } from "@/lib/emails/emailOAuthPopup";
@@ -314,18 +315,24 @@ export default function InboxDetails({
     initialTab = "overview",
     canWarmup = true,
 }: {
-    emails: Inbox[] | null;
+    emails?: Inbox[];
     view: string;
-    setView: React.Dispatch<React.SetStateAction<string>>;
+    setView: (id: string) => void;
     initialTab?: string;
     canWarmup?: boolean;
 }) {
-    const mailbox = emails?.find((e) => e.id === view) ?? null;
+    const listMailbox = emails?.find((e) => e.id === view) ?? null;
+    const singleQuery = useQuery({
+        queryKey: ["emails", "single", view],
+        queryFn: () => getEmail(view),
+        enabled: Boolean(view && !listMailbox),
+    });
+    const mailbox = listMailbox ?? singleQuery.data ?? null;
     const close = () => setView("");
 
     return (
         <AnimatePresence>
-            {view && mailbox && (
+            {view && (mailbox || singleQuery.isPending) && (
                 <>
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -342,7 +349,13 @@ export default function InboxDetails({
                         transition={{ type: "spring", damping: 32, stiffness: 320 }}
                         className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col"
                     >
-                        <Detail key={mailbox.id} mailbox={mailbox} onClose={close} initialTab={initialTab} canWarmup={canWarmup} />
+                        {mailbox ? (
+                            <Detail key={mailbox.id} mailbox={mailbox} onClose={close} initialTab={initialTab} canWarmup={canWarmup} />
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center p-8">
+                                <Loading className="w-6 h-6 text-sky-500" />
+                            </div>
+                        )}
                     </motion.aside>
                 </>
             )}

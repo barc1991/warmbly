@@ -110,7 +110,7 @@ type EmailService interface {
 	LoadAccountOntoWorker(ctx context.Context, accountID uuid.UUID) error
 	// GetSyncState is the dashboard's view of a mailbox's sync: nil state when
 	// the worker has not reported yet.
-	GetSyncState(ctx context.Context, userID, emailID string) (*models.SyncState, models.SyncPolicy, *errx.Error)
+	GetSyncState(ctx context.Context, orgID, emailID string) (*models.SyncState, models.SyncPolicy, *errx.Error)
 	// StartWorkerReconciler periodically ensures every active mailbox is
 	// assigned to a worker and loaded onto it (blocks until ctx is cancelled).
 	StartWorkerReconciler(ctx context.Context, interval time.Duration)
@@ -314,8 +314,8 @@ func (s *emailService) publishAccountEvent(ctx context.Context, eventType pubsub
 // GetSyncState returns the persisted sync state and the policy currently in
 // force. It goes through Get so ownership is checked the same way as every
 // other per-mailbox read.
-func (s *emailService) GetSyncState(ctx context.Context, userID, emailID string) (*models.SyncState, models.SyncPolicy, *errx.Error) {
-	acc, xerr := s.Get(ctx, userID, emailID)
+func (s *emailService) GetSyncState(ctx context.Context, orgID, emailID string) (*models.SyncState, models.SyncPolicy, *errx.Error) {
+	acc, xerr := s.Get(ctx, orgID, emailID)
 	if xerr != nil {
 		return nil, models.SyncPolicy{}, xerr
 	}

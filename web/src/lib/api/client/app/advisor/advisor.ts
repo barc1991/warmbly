@@ -1,9 +1,10 @@
-import type {
-    AdvisorAgentResult,
-    AdvisorFinding,
-    AdvisorFindingsQuery,
-    AdvisorSettings,
-    AdvisorSummary,
+import {
+    type AdvisorAgentResult,
+    type AdvisorFinding,
+    type AdvisorFindingsQuery,
+    type AdvisorSettings,
+    type AdvisorSummary,
+    localizeFinding,
 } from "@/lib/api/models/app/advisor/Advisor";
 import Request from "../../Request";
 
@@ -25,7 +26,7 @@ export async function getAdvisorFindings(q: AdvisorFindingsQuery = {}): Promise<
         url: `/advisor/recommendations${buildQuery(q)}`,
         authorization: true,
     });
-    return res.data ?? [];
+    return (res.data ?? []).map(localizeFinding);
 }
 
 export async function getAdvisorSummary(): Promise<AdvisorSummary> {
@@ -39,11 +40,12 @@ export async function getAdvisorSummary(): Promise<AdvisorSummary> {
 // Applying twice is a no-op that returns the first outcome, so a retry after a
 // dropped response is safe.
 export async function applyAdvisorFinding(id: string): Promise<AdvisorFinding> {
-    return await Request<AdvisorFinding>({
+    const res = await Request<AdvisorFinding>({
         method: "POST",
         url: `/advisor/recommendations/${id}/apply`,
         authorization: true,
     });
+    return localizeFinding(res);
 }
 
 // The agent fix, for findings with no deterministic action. Slow by nature:
@@ -57,11 +59,12 @@ export async function agentFixAdvisorFinding(id: string): Promise<AdvisorAgentRe
 }
 
 export async function undoAdvisorFinding(id: string): Promise<AdvisorFinding> {
-    return await Request<AdvisorFinding>({
+    const res = await Request<AdvisorFinding>({
         method: "POST",
         url: `/advisor/recommendations/${id}/undo`,
         authorization: true,
     });
+    return localizeFinding(res);
 }
 
 export async function snoozeAdvisorFinding(id: string, days: number): Promise<void> {
