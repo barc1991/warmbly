@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -56,12 +57,21 @@ func NewAIDraftRepository(db *pgxpool.Pool) AIDraftRepository {
 
 const aiDraftCols = `id, organization_id, email_account_id, owner_user_id, thread_id, source_message_id,
 	contact_id, campaign_id, to_addr, subject, in_reply_to, body, intent_class, confidence, model, status,
+	COALESCE(research_notes, ''), COALESCE(signature_data, '{}'::jsonb),
 	created_at, updated_at`
 
 func scanAIDraft(row pgx.Row, d *models.AIThreadDraft) error {
-	return row.Scan(&d.ID, &d.OrganizationID, &d.EmailAccountID, &d.OwnerUserID, &d.ThreadID, &d.SourceMessageID,
+	var sigRaw []byte
+	err := row.Scan(&d.ID, &d.OrganizationID, &d.EmailAccountID, &d.OwnerUserID, &d.ThreadID, &d.SourceMessageID,
 		&d.ContactID, &d.CampaignID, &d.ToAddr, &d.Subject, &d.InReplyTo, &d.Body, &d.IntentClass, &d.Confidence,
-		&d.Model, &d.Status, &d.CreatedAt, &d.UpdatedAt)
+		&d.Model, &d.Status, &d.ResearchNotes, &sigRaw, &d.CreatedAt, &d.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	if len(sigRaw) > 0 {
+		_ = json.Unmarshal(sigRaw, &d.SignatureData)
+	}
+	return nil
 }
 
 func (r *aiDraftRepository) CreateDraft(ctx context.Context, d *models.AIThreadDraft) error {
@@ -74,15 +84,19 @@ func (r *aiDraftRepository) CreateDraft(ctx context.Context, d *models.AIThreadD
 	if d.Status == "" {
 		d.Status = models.AIDraftPending
 	}
+	sigBytes, _ := json.Marshal(d.SignatureData)
+	if len(sigBytes) == 0 {
+		sigBytes = []byte("{}")
+	}
 	_, err := r.db.Exec(ctx, `
 		INSERT INTO ai_thread_drafts
 			(id, organization_id, email_account_id, owner_user_id, thread_id, source_message_id,
 			 contact_id, campaign_id, to_addr, subject, in_reply_to, body, intent_class, confidence, model, status,
-			 created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17)`,
+			 research_notes, signature_data, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19)`,
 		d.ID, d.OrganizationID, d.EmailAccountID, d.OwnerUserID, d.ThreadID, d.SourceMessageID,
 		d.ContactID, d.CampaignID, d.ToAddr, d.Subject, d.InReplyTo, d.Body, d.IntentClass, d.Confidence, d.Model, d.Status,
-		now)
+		d.ResearchNotes, sigBytes, now)
 	if isUniqueViolation(err) {
 		return ErrDraftExists
 	}

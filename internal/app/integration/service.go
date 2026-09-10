@@ -149,6 +149,10 @@ type Service interface {
 	// (refreshed) Google token.
 	SpreadsheetValues(ctx context.Context, orgID, connID uuid.UUID, sheetID, a1Range string) ([][]string, error)
 
+	// Frappe CRM operations for autonomous BDR and lead enrichment.
+	SyncFrappeLead(ctx context.Context, orgID uuid.UUID, email string, props map[string]any, task map[string]any, event map[string]any) (string, error)
+	MarkFrappeLeadDNC(ctx context.Context, orgID uuid.UUID, email string) error
+
 	// Dispatch fans a platform event out to every matching event subscription,
 	// executing each provider action. Best-effort: action failures are recorded
 	// on the connection's health but never block the caller.

@@ -50,6 +50,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/research"
 	"github.com/warmbly/warmbly/internal/app/segment"
 	"github.com/warmbly/warmbly/internal/app/sequence"
+	"github.com/warmbly/warmbly/internal/app/serperkeys"
 	"github.com/warmbly/warmbly/internal/app/skills"
 	"github.com/warmbly/warmbly/internal/app/socket"
 	"github.com/warmbly/warmbly/internal/app/stripe"
@@ -229,6 +230,9 @@ type Handler struct {
 
 	// GeminiKeysService manages org-scoped Gemini API keys, multi-key rotation, and fallback configuration.
 	GeminiKeysService geminikeys.Service
+
+	// SerperKeysService manages org-scoped Serper API keys, 2,500-quota rotation, and cached Google search.
+	SerperKeysService serperkeys.Service
 
 	// AIDraftRepo stores inbox-agent reply drafts awaiting human review (M10).
 	// The draft is created in the consumer; these list/approve/discard handlers

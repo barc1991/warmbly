@@ -1265,6 +1265,16 @@ func Run(
 				ai.POST("/gemini-keys/:id/test", m.RequirePermission(models.PermManageSettings), h.TestGeminiKey)
 				ai.GET("/gemini-config", useAI, h.GetGeminiConfig)
 				ai.PUT("/gemini-config", m.RequirePermission(models.PermManageSettings), h.UpdateGeminiConfig)
+
+				// Serper API keys, quota rotation, and BDR settings.
+				ai.GET("/serper-keys", m.RequirePermission(models.PermManageSettings), h.ListSerperKeys)
+				ai.POST("/serper-keys", m.RequirePermission(models.PermManageSettings), h.CreateSerperKeys)
+				ai.DELETE("/serper-keys/:id", m.RequirePermission(models.PermManageSettings), h.DeleteSerperKey)
+				ai.PATCH("/serper-keys/:id/status", m.RequirePermission(models.PermManageSettings), h.UpdateSerperKeyStatus)
+				ai.POST("/serper-keys/:id/test", m.RequirePermission(models.PermManageSettings), h.TestSerperKey)
+				ai.GET("/serper-stats", useAI, h.GetSerperStats)
+				ai.GET("/bdr-settings", useAI, h.GetBDRSettings)
+				ai.PATCH("/bdr-settings", m.RequirePermission(models.PermManageSettings), h.UpdateBDRSettings)
 			}
 
 			// Cloud side of the self-hosted warmup pool link: a member approves

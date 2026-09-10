@@ -35,6 +35,8 @@ import {
     PictureInPicture2Icon,
     SearchIcon,
     Trash2Icon,
+    GlobeIcon,
+    SparklesIcon,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useConfirm } from "@/hooks/context/confirm";
@@ -74,6 +76,33 @@ const aborts = new Map<string, AbortController>();
 
 let mid = 0;
 const nextId = () => `m${++mid}`;
+
+const BDR_QUICK_ACTIONS = [
+    {
+        label: "חקור ליד והעשר נתונים",
+        cmd: "/enrich",
+        prompt: "חקור והעשר נתונים על הליד (חיפוש Google וסריקת אתר): ",
+        icon: SearchIcon,
+    },
+    {
+        label: "סנכרן ל-Frappe CRM",
+        cmd: "/crm",
+        prompt: "סנכרן את הליד הנוכחי ל-Frappe CRM עם כל הפרטים שהועשרו: ",
+        icon: GlobeIcon,
+    },
+    {
+        label: "תאם פגישה ביומן",
+        cmd: "/book",
+        prompt: "תאם פגישה ביומן וצור משימת מעקב לליד: ",
+        icon: ClockIcon,
+    },
+    {
+        label: "נסח תגובה להתנגדות",
+        cmd: "/reply",
+        prompt: "נסח מענה משכנע להתנגדות שהעלה הליד: ",
+        icon: SparklesIcon,
+    },
+];
 
 function deriveTitle(text: string): string {
     const t = text.trim().replace(/\s+/g, " ");
@@ -333,11 +362,27 @@ export default function AgentPanel() {
         }
     }
 
-    async function send() {
+    async function send(overrideText?: string) {
         const tab = activeTab;
         if (!tab || tab.running || tab.pending || !tab.hydrated) return;
-        const text = draft.trim();
+        let text = (overrideText ?? draft).trim();
         if (!text) return;
+
+        // Expand BDR slash commands if present
+        if (text.startsWith("/enrich")) {
+            const arg = text.slice(7).trim();
+            text = `חקור והעשר נתונים על הליד (חיפוש Google וסריקת אתר): ${arg || "הליד הנוכחי"}`;
+        } else if (text.startsWith("/crm")) {
+            const arg = text.slice(4).trim();
+            text = `סנכרן את הליד הנוכחי ל-Frappe CRM כולל יצירת משימה/אירוע: ${arg || "הליד הנוכחי"}`;
+        } else if (text.startsWith("/book")) {
+            const arg = text.slice(5).trim();
+            text = `תאם פגישה ביומן וצור משימת מעקב לליד: ${arg || "הליד הנוכחי"}`;
+        } else if (text.startsWith("/reply")) {
+            const arg = text.slice(6).trim();
+            text = `נסח מענה משכנע ומנצח להתנגדות שהעלה הליד: ${arg || "ההתנגדות האחרונה בשיחה"}`;
+        }
+
         const store = useAppStore.getState();
         // running flips on synchronously so a double Enter can't double-send.
         store.agentUpdateTab(tab.key, (t) => ({
@@ -866,6 +911,54 @@ export default function AgentPanel() {
                     {/* Composer */}
                     <div className="shrink-0 border-t border-slate-200 p-3">
                         <div className={cn(expanded && "mx-auto w-full max-w-[760px]")}>
+                            {/* BDR Quick Action Pills */}
+                            <div className="mb-2 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-[11px]">
+                                {BDR_QUICK_ACTIONS.map((act) => {
+                                    const Icon = act.icon;
+                                    return (
+                                        <button
+                                            key={act.cmd}
+                                            type="button"
+                                            disabled={composerLocked}
+                                            onClick={() => {
+                                                setDraft(act.prompt);
+                                                inputRef.current?.focus();
+                                            }}
+                                            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/60 text-slate-700 hover:text-sky-800 transition-colors shadow-2xs font-medium disabled:opacity-50"
+                                        >
+                                            <Icon className="w-3 h-3 text-sky-600" />
+                                            <span>{act.label}</span>
+                                            <span className="font-mono text-[9.5px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded">
+                                                {act.cmd}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Slash Command Autocomplete Menu */}
+                            {draft.startsWith("/") && !draft.includes(" ") && (
+                                <div className="mb-1.5 p-1.5 bg-white rounded-lg border border-slate-200 shadow-md text-[12px] space-y-0.5">
+                                    <div className="px-2 py-0.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                        פקודות BDR זמינות
+                                    </div>
+                                    {BDR_QUICK_ACTIONS.filter((act) => act.cmd.startsWith(draft.toLowerCase())).map((act) => (
+                                        <button
+                                            key={act.cmd}
+                                            type="button"
+                                            onClick={() => {
+                                                setDraft(act.prompt);
+                                                inputRef.current?.focus();
+                                            }}
+                                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-sky-50 text-right transition-colors"
+                                        >
+                                            <span className="font-medium text-slate-800">{act.label}</span>
+                                            <span className="font-mono text-[11px] text-sky-600 font-semibold">{act.cmd}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
                             {/* py-1 + leading-5 make a single line exactly the
                                 size-7 button height, so text centers against it;
                                 items-end keeps the button pinned when it grows. */}
@@ -1671,10 +1764,10 @@ function ApprovalCard({
 }
 
 const STARTERS = [
+    "חקור את הליד והעשר את פרטיו (טלפון, תפקיד ואתר)",
+    "סנכרן לידים בעלי עניין גבוה ל-Frappe CRM",
+    "נסח מענה משכנע להתנגדות שהעלה הליד",
     "אילו לידים התקררו ודורשים פולואו-אפ?",
-    "סכם לי תגובות נכנסות שהתקבלו השבוע בתיבה",
-    "נסח מענה לתגובה החיובית האחרונה שהתקבלה",
-    "מה סטטוס הביצועים של הקמפיינים הפעילים?",
 ];
 
 function EmptyState({ onPick }: { onPick: (q: string) => void }) {
@@ -1685,7 +1778,7 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
                 איך אפשר לעזור לך היום?
             </div>
             <p className="text-[12px] text-slate-500 mt-1 leading-relaxed max-w-[280px]">
-                אפשר לבקש ממני למצוא אנשי קשר, לבדוק קמפיין, לנסח מענה לאימייל, או להכין טיוטת קמפיין. שום שינוי לא מבוצע ללא אישורך.
+                אפשר לבקש ממני למצוא אנשי קשר, לחקור לידים ולהעשיר מידע מ-Google, לסנכרן ל-Frappe CRM, או לנסח מענה מקצועי.
             </p>
             <div className="mt-4 w-full max-w-[320px] space-y-1.5">
                 {STARTERS.map((q) => (
@@ -1741,6 +1834,11 @@ function toolLabel(tool: string): string {
         draft_reply: "ניסוח מענה",
         search_web: "חיפוש באינטרנט",
         fetch_url: "טעינת דף אינטרנט",
+        serper_google_search: "חיפוש Serper Google",
+        fetch_url_content: "סריקת אתר ומיצוי תוכן",
+        update_lead_fields: "עדכון והעשרת נתוני ליד",
+        frappe_crm_sync: "סנכרון ליד ל-Frappe CRM",
+        mark_do_not_contact: "הגדרת Do Not Contact",
     };
     return map[tool] || tool.replace(/_/g, " ");
 }

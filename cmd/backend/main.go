@@ -85,6 +85,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/research"
 	"github.com/warmbly/warmbly/internal/app/segment"
 	"github.com/warmbly/warmbly/internal/app/sequence"
+	"github.com/warmbly/warmbly/internal/app/serperkeys"
 	"github.com/warmbly/warmbly/internal/app/settings"
 	"github.com/warmbly/warmbly/internal/app/skills"
 	"github.com/warmbly/warmbly/internal/app/socialauth"
@@ -199,6 +200,7 @@ func main() {
 	var skillsService skills.Service
 	var mcpService mcp.Service
 	var geminiKeysService geminikeys.Service
+	var serperKeysService serperkeys.Service
 	var emailVerifyService emailverifyapp.Service
 	var placementRepository repository.PlacementRepository
 	var placementService placement.Service
@@ -1368,6 +1370,10 @@ func main() {
 			aware.WireAttachments(attachmentRepoForHandler)
 		}
 
+		// Serper Google search & BDR enrichment service
+		serperKeysRepo := repository.NewSerperKeysRepository(primaryDB)
+		serperKeysService = serperkeys.NewService(serperKeysRepo, cipherService, cache)
+
 		// Shared AI tool registry: every tool calls a service-layer function as
 		// the invoking user, so the dashboard agent (M3) and MCP server (M8) can
 		// never exceed the caller's permissions. Built once here with the same
@@ -1382,6 +1388,7 @@ func main() {
 			Audit:        auditService,
 			Search:       aiSearch,
 			Cache:        cache,
+			Serper:       serperKeysService,
 			Emails:       emailService,
 			EmailSend:    emailSendService,
 			Compose:      composeService,
@@ -1496,11 +1503,13 @@ func main() {
 		// agent wired onto the advanced service so any reply processed here also
 		// drafts. Paid + opt-in checked inside; nil provider leaves it inert.
 		aiDraftRepo = repository.NewAIDraftRepository(primaryDB.Pool)
-		advancedService.WireInboxAgent(inboxagent.NewService(
+		inboxAgentSvc := inboxagent.NewService(
 			aiProvider, creditService, featureGateService,
 			organizationRepository, uniboxRepository, skillsService,
 			contactRepostory, aiDraftRepo, streamingPublisher,
-		))
+		)
+		inboxAgentSvc.SetBDRComponents(serperKeysRepo, emailRepostory, emailSendService)
+		advancedService.WireInboxAgent(inboxAgentSvc)
 		emailSender := tasks.NewEmailSender(emailRepostory, eventsPublisher)
 		// Never hand a send to a worker that stopped heartbeating: nothing
 		// would execute it and nothing would report it, so the step would
@@ -1965,6 +1974,7 @@ func main() {
 		SkillsService:     skillsService,
 		MCPService:        mcpService,
 		GeminiKeysService: geminiKeysService,
+		SerperKeysService: serperKeysService,
 		AIDraftRepo:       aiDraftRepo,
 
 		// Pre-send email verification

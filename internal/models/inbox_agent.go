@@ -34,14 +34,16 @@ type AIThreadDraft struct {
 	ToAddr          string     `json:"to_addr"`
 	Subject         string     `json:"subject"`
 	// InReplyTo is the RFC Message-Id of the inbound reply, referenced on send.
-	InReplyTo   string    `json:"in_reply_to"`
-	Body        string    `json:"body"`
-	IntentClass string    `json:"intent_class"`
-	Confidence  float64   `json:"confidence"`
-	Model       string    `json:"model"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	InReplyTo     string         `json:"in_reply_to"`
+	Body          string         `json:"body"`
+	IntentClass   string         `json:"intent_class"`
+	Confidence    float64        `json:"confidence"`
+	Model         string         `json:"model"`
+	Status        string         `json:"status"`
+	ResearchNotes string         `json:"research_notes,omitempty"`
+	SignatureData map[string]any `json:"signature_data,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
 }
 
 // InboxAgentReply is the inbound-reply context handed to the inbox agent to

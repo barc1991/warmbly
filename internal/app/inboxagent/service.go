@@ -15,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/warmbly/warmbly/internal/app/credits"
+	"github.com/warmbly/warmbly/internal/app/emailsend"
 	"github.com/warmbly/warmbly/internal/app/feature"
 	"github.com/warmbly/warmbly/internal/app/replyclassify"
 	"github.com/warmbly/warmbly/internal/app/unibox"
@@ -60,23 +61,42 @@ type DraftPublisher interface {
 	PublishAIDraftReady(ctx context.Context, orgID, actorID uuid.UUID, threadID, draftID, emailID string)
 }
 
+// BDRSettingsReader loads BDR settings for the org.
+type BDRSettingsReader interface {
+	GetBDRSettings(ctx context.Context, orgID uuid.UUID) (*models.BDRSettings, error)
+}
+
+// MailboxReader gets mailbox details (e.g. signature).
+type MailboxReader interface {
+	GetByID(ctx context.Context, emailAccountID uuid.UUID) (*models.Email, *errx.Error)
+}
+
+// AutoSender dispatches emails directly when auto-send is permitted.
+type AutoSender interface {
+	SendEmail(ctx context.Context, userID, orgID, emailAccountID uuid.UUID, req *emailsend.SendEmailRequest) (*emailsend.SendEmailResponse, *errx.Error)
+}
+
 // Service is the inbox agent. DraftForReply is the single entry point, called
 // best-effort from the reply hook; it fans the actual work onto its own
 // goroutine + context, so a slow model never stalls inbound-reply processing.
 type Service interface {
 	DraftForReply(ctx context.Context, r models.InboxAgentReply)
+	SetBDRComponents(bdr BDRSettingsReader, mailboxes MailboxReader, sender AutoSender)
 }
 
 type service struct {
-	provider  generation.Provider
-	credits   credits.CreditService
-	feature   feature.FeatureGateService
-	orgs      OrgReader
-	threads   ThreadReader
-	skills    SkillsSource
-	contacts  ContactReader
-	draftRepo repository.AIDraftRepository
-	publisher DraftPublisher
+	provider   generation.Provider
+	credits    credits.CreditService
+	feature    feature.FeatureGateService
+	orgs       OrgReader
+	threads    ThreadReader
+	skills     SkillsSource
+	contacts   ContactReader
+	draftRepo  repository.AIDraftRepository
+	publisher  DraftPublisher
+	bdrReader  BDRSettingsReader
+	mailboxes  MailboxReader
+	autoSender AutoSender
 }
 
 // NewService builds the inbox agent. A nil provider, credit service, org reader,
@@ -104,6 +124,12 @@ func NewService(
 		draftRepo: draftRepo,
 		publisher: publisher,
 	}
+}
+
+func (s *service) SetBDRComponents(bdr BDRSettingsReader, mailboxes MailboxReader, sender AutoSender) {
+	s.bdrReader = bdr
+	s.mailboxes = mailboxes
+	s.autoSender = sender
 }
 
 // DraftForReply kicks off drafting on a detached context so the caller (inbound
@@ -193,6 +219,45 @@ func (s *service) draft(ctx context.Context, r models.InboxAgentReply) {
 			system += "\n\n" + pre
 		}
 	}
+
+	// BDR Settings & Inbound Analysis with Gemini
+	var bdr *models.BDRSettings
+	if s.bdrReader != nil {
+		bdr, _ = s.bdrReader.GetBDRSettings(ctx, r.OrganizationID)
+	}
+
+	analysis, _ := AnalyzeInboundEmail(ctx, s.provider, r.Subject, replyText, r.Counterpart)
+	if analysis == nil {
+		analysis = &InboundAnalysisResult{
+			IntentClass: r.IntentClass,
+			Confidence:  r.Confidence,
+		}
+	}
+	if analysis.IntentClass == "" {
+		analysis.IntentClass = r.IntentClass
+	}
+	if analysis.Confidence == 0 {
+		analysis.Confidence = r.Confidence
+	}
+
+	var researchNotesBuilder strings.Builder
+	if analysis.Rationale != "" {
+		researchNotesBuilder.WriteString("Intent Rationale: " + analysis.Rationale + "\n")
+	}
+	if analysis.KeyInsight != "" {
+		researchNotesBuilder.WriteString("Key Insight: " + analysis.KeyInsight + "\n")
+	}
+	if bdr != nil && bdr.FirstReplyWebsiteCrawl {
+		webText, _ := InspectWebsiteForFirstReply(ctx, r.Counterpart, analysis.SignatureWeb)
+		if webText != "" {
+			researchNotesBuilder.WriteString("Website Research:\n" + webText + "\n")
+		}
+	}
+	researchNotes := strings.TrimSpace(researchNotesBuilder.String())
+	if researchNotes != "" {
+		system += "\n\nLead Research Notes:\n" + researchNotes
+	}
+
 	model := s.provider.ModelForTier(true) // inbox agent is paid-only
 	res, gerr := s.provider.Complete(ctx, generation.CompletionRequest{
 		System: system,
@@ -201,6 +266,19 @@ func (s *service) draft(ctx context.Context, r models.InboxAgentReply) {
 	})
 	if gerr != nil || res == nil || strings.TrimSpace(res.Text) == "" {
 		return
+	}
+
+	// Deliverability & Spam Guardrail
+	var mailboxSignature string
+	if s.mailboxes != nil && r.EmailAccountID != uuid.Nil {
+		if mb, mberr := s.mailboxes.GetByID(ctx, r.EmailAccountID); mberr == nil && mb != nil {
+			mailboxSignature = mb.SignaturePlain
+		}
+	}
+	cleanBody, sErr := DeliverabilitySpamGuardrail(res.Text, mailboxSignature)
+	if sErr != nil {
+		log.Warn().Err(sErr).Str("thread_id", r.ThreadID).Msg("inbox agent: draft triggered spam guardrail, keeping raw body without auto-send")
+		cleanBody = strings.TrimSpace(res.Text)
 	}
 
 	// Reserve the draft row (the partial unique indexes enforce dedupe under a
@@ -214,11 +292,13 @@ func (s *service) draft(ctx context.Context, r models.InboxAgentReply) {
 		ToAddr:          r.Counterpart,
 		Subject:         replySubject(r.Subject),
 		InReplyTo:       r.InReplyTo,
-		Body:            strings.TrimSpace(res.Text),
-		IntentClass:     r.IntentClass,
-		Confidence:      r.Confidence,
+		Body:            cleanBody,
+		IntentClass:     analysis.IntentClass,
+		Confidence:      analysis.Confidence,
 		Model:           res.Model,
 		Status:          models.AIDraftPending,
+		ResearchNotes:   researchNotes,
+		SignatureData:   analysis.SignatureRaw,
 	}
 	if r.ContactID != uuid.Nil {
 		draft.ContactID = &r.ContactID
@@ -252,6 +332,38 @@ func (s *service) draft(ctx context.Context, r models.InboxAgentReply) {
 		// Usage-based settle: charge any overage beyond the flat thread price
 		// from the run's actual tokens (best-effort; the draft stands).
 		_, _ = s.credits.SettleUsage(ctx, r.OrganizationID, credits.CostInboxAgentThread, res.Model, res.TokensUsed, "inbox_agent_draft", "inbox_agent:"+draft.ID.String()+":usage")
+	}
+
+	// Autonomous send when permitted by BDR settings, confidence threshold met, and spam check passed.
+	if bdr != nil && bdr.InboxAutoSendEnabled && s.autoSender != nil && sErr == nil {
+		threshold := bdr.InboxAutoSendMinConfidence
+		if threshold <= 0 {
+			threshold = 0.85
+		}
+		canAutoSendIntent := analysis.IntentClass == "INTERESTED" || analysis.IntentClass == "MEETING_REQUEST"
+		if canAutoSendIntent && analysis.Confidence >= threshold {
+			claimed, cErr := s.draftRepo.SetDraftStatus(ctx, r.OrganizationID, draft.ID, models.AIDraftApproved)
+			if cErr == nil && claimed {
+				sendReq := &emailsend.SendEmailRequest{
+					To:        []string{draft.ToAddr},
+					Subject:   draft.Subject,
+					BodyPlain: draft.Body,
+					ThreadID:  draft.ThreadID,
+					SendMode:  "instant",
+				}
+				if draft.InReplyTo != "" {
+					sendReq.InReplyTo = []string{draft.InReplyTo}
+				}
+				_, sendErr := s.autoSender.SendEmail(ctx, r.OwnerUserID, r.OrganizationID, r.EmailAccountID, sendReq)
+				if sendErr != nil {
+					log.Error().Err(sendErr).Str("draft_id", draft.ID.String()).Msg("inbox agent: auto-send failed, reverting to pending")
+					_, _ = s.draftRepo.RevertApprovedToPending(ctx, r.OrganizationID, draft.ID)
+				} else {
+					draft.Status = models.AIDraftApproved
+					log.Info().Str("draft_id", draft.ID.String()).Str("to", draft.ToAddr).Msg("inbox agent: autonomously sent reply")
+				}
+			}
+		}
 	}
 
 	// Live: the whole team sees the draft land on the thread awaiting review. The

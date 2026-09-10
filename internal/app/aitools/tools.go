@@ -23,6 +23,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/organization"
 	"github.com/warmbly/warmbly/internal/app/segment"
 	"github.com/warmbly/warmbly/internal/app/sequence"
+	"github.com/warmbly/warmbly/internal/app/serperkeys"
 	"github.com/warmbly/warmbly/internal/app/subscription"
 	"github.com/warmbly/warmbly/internal/app/unibox"
 	"github.com/warmbly/warmbly/internal/app/warmup"
@@ -46,6 +47,7 @@ type Deps struct {
 	Audit       audit.AuditService
 	Search      generation.SearchClient
 	Cache       *cache.Cache
+	Serper      serperkeys.Service
 	// Emails / EmailSend / Compose / Warmup back the mailbox-management and
 	// unified-inbox send tools. EmailSend is the only path that transmits mail
 	// to a real recipient (its tools are RiskSend).
@@ -135,6 +137,7 @@ func BuildRegistry(d Deps) *Registry {
 	d.registerAPIKeyTools(r)
 	d.registerWebhookTools(r)
 	d.registerWebTools(r)
+	d.registerBDRTools(r)
 	d.registerSkillTools(r)
 	// Advisor tools are registered separately, after the advisor service is
 	// constructed against this registry (see aitools.RegisterAdvisorTools).

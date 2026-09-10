@@ -514,6 +514,18 @@ var Tables = []Table{
 		ResetOnImport: []string{"last_error", "fail_count", "cooldown_until"},
 	},
 	{
+		Name: "org_serper_keys", Group: models.OrgDataGroupAI,
+		Scope: scopeOrgAlt,
+		Secrets: []SecretColumn{
+			{Column: "encrypted_key", Domain: KeyDomainOrgDEK},
+		},
+		ResetOnImport: []string{"last_error", "fail_count", "cooldown_until"},
+	},
+	{
+		Name: "org_serper_cache", Group: models.OrgDataGroupAI,
+		Scope: scopeOrgAlt,
+	},
+	{
 		Name: "ai_tool_policies", Group: models.OrgDataGroupAI,
 		Scope: scopeOrgAlt,
 	},

@@ -163,7 +163,43 @@ Tabular numbers and monospace IDs inside RTL containers must retain natural left
 
 ---
 
-## 6. Numeric Badge & Circle Centering Rules
+## 6. Autonomous BDR & AI Engine (Gemini 3.8 Flash, Serper & Frappe CRM)
+
+The platform includes an autonomous B2B Business Development Representative (BDR) and data enrichment engine tailored for advertising agencies:
+
+### A. Gemini 3.8 Flash & Multi-Tier Fallback Chain
+* **Google GenAI SDK**: Powered by `google.golang.org/genai`.
+* **Dynamic Fallback Chain**:
+  1. `gemini-3.8-flash` (Primary default, optimal latency and tool execution).
+  2. `gemini-3.7-flash` (First fallback under load or rate limits).
+  3. `gemini-3.6-flash` (Second fallback for extreme load).
+  4. `gemini-3.5-flash-lite` (Lightweight third fallback).
+* **Multi-Key Rotator**: Manages multiple free-tier Gemini API keys per organization with automatic round-robin, 429 cooldown detection, and quota tracking.
+
+### B. Serper Google Search Key Rotator & 7-Day Quota Cache
+* **Quota Tracking**: Tracks usage up to the 2,500 queries limit per free-tier key.
+* **7-Day Multi-Tier Caching**: Caches search results in Redis and PostgreSQL (`org_serper_cache`) for 7 days to eliminate duplicate queries and preserve credits.
+* **Org DEK Encryption**: All Serper API keys stored in `org_serper_keys` are encrypted at rest using the organization data encryption key (`KeyDomainOrgDEK`).
+* **Settings & UI (`ai-models/page.tsx`)**: Visual progress bar (`X / 2,500`), status pills, bulk key import, live key testing (`/test`), and BDR setting toggles.
+
+### C. Gemini BDR AI Tools (`internal/app/aitools/tools_bdr.go`)
+1. `serper_google_search`: Real-time Google search for company details, decision-maker contacts, and domains.
+2. `fetch_url_content`: In-depth web crawling with strict SSRF protection (`webhook.ValidateOutboundURL` and `safehttp`), 7-second hard timeout, and 2MB HTML size cap.
+3. `update_lead_fields`: Updates contact fields in Warmbly with smart Hebrew/English name normalization (stripping corporate suffixes like "בע\"מ", "בעמ", "LTD", "LLC", "חברת...").
+4. `frappe_crm_sync`: Syncs enriched leads directly to Frappe CRM with email-based deduplication, custom fields, and task/event creation.
+5. `mark_do_not_contact`: Marks DNC across both Warmbly and Frappe CRM on unsubscribes or objections.
+
+### D. Autonomous Inbox Agent & Deliverability Guardrails (`internal/app/inboxagent/`)
+* **Intent Classification**: Classifies inbound replies into `INTERESTED`, `MEETING_REQUEST`, `OUT_OF_OFFICE`, `REFERRAL`, `NOT_INTERESTED`, `UNSUBSCRIBE`, `NEUTRAL`.
+* **First-Reply Website Crawling**: Crawls the lead's domain on initial reply to extract ICP insights and inject into `research_notes`.
+* **Deliverability & Spam Guardrails**: Blocks aggressive spam keywords or suspicious links unless explicitly requested; always appends the sender mailbox signature.
+* **Autonomous Auto-Send**: Automatically drafts and transmits replies for high-intent leads (`INTERESTED` or `MEETING_REQUEST`) when confidence exceeds the configured threshold (default 85%).
+* **Unibox Rationale (`AgentDraftCard.tsx`)**: Renders intent badges, confidence %, key business insight, and extracted signature details (phone, title, company).
+* **Agent Panel (`AgentPanel.tsx`)**: Quick Action pills ("חקור ליד והעשר נתונים", "סנכרן ל-Frappe CRM", "תאם פגישה ביומן", "נסח תגובה להתנגדות") and slash commands (`/enrich`, `/crm`, `/book`, `/reply`).
+
+---
+
+## 7. Numeric Badge & Circle Centering Rules
 
 To prevent vertical baseline offsets or digit clipping in RTL number badges and step circles (e.g. Sequence steps `1`, `2` in `NewCampaignDialog.tsx`, onboarding wizards, and status counters):
 1. **Remove `tabular-nums`** from circle badge containers or use `tabular-nums leading-none`.
@@ -184,7 +220,7 @@ To prevent vertical baseline offsets or digit clipping in RTL number badges and 
 
 ---
 
-## 7. Docker Update-Proof Architecture (Preventing Overwrites)
+## 8. Docker Update-Proof Architecture (Preventing Overwrites)
 
 ### The Problem
 In standard Warmbly self-hosted setups, `docker-compose.yml` specifies:
@@ -234,7 +270,7 @@ To ensure that an administrator does not accidentally trigger an automatic updat
 
 ---
 
-## 8. Verification & Developer Runbook
+## 9. Verification & Developer Runbook
 
 Always verify changes using the fast feedback loop:
 
@@ -250,8 +286,8 @@ Always verify changes using the fast feedback loop:
    ```
 3. **Rebuild & Deploy Web & Backend Containers**:
    ```powershell
-   docker compose build --no-cache web
-   docker compose up -d --force-recreate web
+   docker compose build --no-cache web backend
+   docker compose up -d --force-recreate web backend
    ```
 4. **Access the Application**:
    Open `http://localhost:28173` to test live interactions.

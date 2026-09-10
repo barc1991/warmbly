@@ -19,6 +19,8 @@ export interface AIThreadDraft {
     confidence: number
     model: string
     status: "pending" | "approved" | "discarded"
+    research_notes?: string
+    signature_data?: Record<string, any>
     created_at: string
     updated_at: string
 }
