@@ -20,134 +20,134 @@ export interface TemplatePreset {
 export const TEMPLATE_PRESETS: TemplatePreset[] = [
     {
         id: "cold-intro",
-        label: "Cold intro",
-        tag: "Sales",
-        description: "First touch, no prior context",
-        name: "Cold intro · Product",
-        subject: "Quick question, {{.FirstName}}",
+        label: "פנייה קרה",
+        tag: "מכירות",
+        description: "פנייה ראשונה, ללא היכרות מוקדמת",
+        name: "פנייה קרה · מוצר",
+        subject: "שאלה קצרה, {{.FirstName}}",
         body_plain:
-`Hi {{.FirstName}},
+`היי {{.FirstName}},
 
-I was reading up on what {{.Company}} is doing and figured this was worth a quick note. We help teams in your shape sort out [the problem you solve], usually without adding more tools to the stack.
+קראתי קצת על מה ש-{{.Company}} עושים וחשבתי שכדאי להשאיר הודעה קצרה. אנחנו עוזרים לצוותים כמו שלכם לפתור את [הבעיה שאתם פותרים], בדרך כלל בלי להוסיף כלים מיותרים למערך הקיים.
 
-Worth a 15 minute call next week to see if it lines up? Happy to send a few times that work on my side.
+מתאים לתאם שיחה קצרה של 15 דקות בשבוע הבא כדי לבדוק התאמה? אשמח לשלוח כמה מועדים שנוחים לי.
 
-Thanks,
-[your name]`,
+תודה,
+[השם שלך]`,
     },
     {
         id: "follow-up",
-        label: "Follow up",
-        tag: "Sales",
-        description: "Bump after 3 days of silence",
-        name: "Follow-up · 3 days",
-        subject: "Re: Quick question",
+        label: "מעקב",
+        tag: "מכירות",
+        description: "תזכורת לאחר 3 ימים ללא מענה",
+        name: "מעקב · 3 ימים",
+        subject: "המשך: שאלה קצרה",
         body_plain:
-`Hey {{.FirstName}},
+`היי {{.FirstName}},
 
-Just bumping this up in case it got buried earlier in the week. No worries if the timing is off, totally get it.
+רק מקפיץ את ההודעה למקרה שהיא נבלעה במהלך השבוע. הכל בסדר גמור אם העיתוי לא מתאים כרגע, מבין לגמרי.
 
-Still happy to walk you through how we'd think about it if you can spare 15 minutes.
+עדיין אשמח להציג בקצרה איך אנחנו יכולים לעזור אם יש לך 15 דקות פנויות.
 
-Thanks,
-[your name]`,
+תודה,
+[השם שלך]`,
     },
     {
         id: "soft-close",
-        label: "Soft close",
-        tag: "Sales",
-        description: "Last message in a sequence, no pressure",
-        name: "Final follow-up · soft close",
-        subject: "Should I close this out?",
+        label: "סגירה רכה",
+        tag: "מכירות",
+        description: "הודעה אחרונה ברצף, ללא לחץ",
+        name: "מעקב אחרון · סגירה רכה",
+        subject: "האם לסגור את הפנייה?",
         body_plain:
-`Hi {{.FirstName}},
+`היי {{.FirstName}},
 
-Haven't heard back so I'll go ahead and stop poking. Not a problem, timing matters more than the pitch.
+לא שמעתי ממך אז אניח לזה בינתיים. אין שום בעיה, העיתוי הנכון חשוב יותר מכל הצעה.
 
-If something changes down the road, you know where to find me.
+אם משהו ישתנה בהמשך הדרך, תמיד אפשר ליצור איתי קשר.
 
-All the best,
-[your name]`,
+כל טוב,
+[השם שלך]`,
     },
     {
         id: "re-engage",
-        label: "Re-engagement",
-        tag: "Nurture",
-        description: "Reach out after a long quiet stretch",
-        name: "Re-engagement · 30 days",
-        subject: "Still on your radar?",
+        label: "חידוש קשר",
+        tag: "טיפוח",
+        description: "פנייה מחודשת לאחר תקופה שקטה",
+        name: "חידוש קשר · 30 יום",
+        subject: "עדיין רלוונטי עבורכם?",
         body_plain:
-`Hi {{.FirstName}},
+`היי {{.FirstName}},
 
-It's been a while since we last spoke. A few things have shifted on our side that might change the picture for {{.Company}}.
+עבר זמן מאז ששוחחנו לאחרונה. כמה דברים השתנו אצלנו שעשויים להתאים מאוד לצרכים של {{.Company}}.
 
-Want me to send a short note on what's new, or skip it for now?
+תרצה שאשלח עדכון קצר על מה שחדש, או שעדיף לוותר כרגע?
 
-Thanks,
-[your name]`,
+תודה,
+[השם שלך]`,
     },
     {
         id: "meeting-confirm",
-        label: "Meeting confirm",
-        tag: "Ops",
-        description: "Confirm a call that is already booked",
-        name: "Meeting confirm",
-        subject: "Looking forward to our chat",
+        label: "אישור פגישה",
+        tag: "תפעול",
+        description: "אישור שיחה שכבר נקבעה ביומן",
+        name: "אישור פגישה",
+        subject: "מצפה לשיחה שלנו",
         body_plain:
-`Hi {{.FirstName}},
+`היי {{.FirstName}},
 
-Just confirming our call. The calendar invite is already in your inbox.
+רק מוודא את מועד השיחה שלנו. הזימון ליומן כבר נשלח לתיבת הדואר שלך.
 
-If anything comes up and you need to move it, just send a note and we'll find another slot.
+אם צץ משהו ותרצה להזיז את המועד, רק תעדכן אותי ונמצא זמן חלופי.
 
-Talk soon,
-[your name]`,
+נדבר בקרוב,
+[השם שלך]`,
     },
     {
         id: "thanks-reply",
-        label: "Thanks reply",
-        tag: "Reply",
-        description: "Acknowledge a reply and ask one follow-up",
-        name: "Thanks for the reply",
-        subject: "Re: thanks",
+        label: "תשובת תודה",
+        tag: "תשובה",
+        description: "הכרת תודה על מענה ושאלה ממוקדת",
+        name: "תודה על המענה",
+        subject: "תודה על התשובה",
         body_plain:
-`Hi {{.FirstName}},
+`היי {{.FirstName}},
 
-Thanks for getting back to me, appreciate it.
+תודה שחזרת אלי, מעריך את זה מאוד.
 
-Quick follow-up: [one specific question that unlocks the next step]. Once I have that I can put together something useful instead of generic.
+שאלה קצרה להמשך: [שאלה אחת ספציפית שמקדמת את הצעד הבא]. ברגע שיהיה לי את הפרט הזה, אוכל להכין הצעה שימושית ומדויקת עבורכם.
 
-Thanks,
-[your name]`,
+תודה,
+[השם שלך]`,
     },
     {
         id: "polite-no",
-        label: "Polite no thanks",
-        tag: "Reply",
-        description: "Close out a decline graciously",
-        name: "Polite reply · no thanks",
-        subject: "Re: thanks for letting me know",
+        label: "מענה מנומס לסירוב",
+        tag: "תשובה",
+        description: "סגירת שיחה בנימוס וברוח טובה",
+        name: "מענה מנומס · תודה בכל מקרה",
+        subject: "תודה שעדכנת אותי",
         body_plain:
-`Hi {{.FirstName}},
+`היי {{.FirstName}},
 
-No problem at all, thanks for being upfront. If things change down the road, my inbox is open.
+אין שום בעיה, תודה על הכנות והעדכון. אם דברים ישתנו בעתיד, אשמח להיות בקשר.
 
-All the best,
-[your name]`,
+שיהיה המשך שבוע מצוין,
+[השם שלך]`,
     },
     {
         id: "intro-ask",
-        label: "Intro ask",
-        tag: "Nurture",
-        description: "Ask for a referral inside their company",
-        name: "Intro ask",
-        subject: "Quick favor",
+        label: "בקשת הפניה",
+        tag: "טיפוח",
+        description: "בקשה להפניה לאיש קשר מתאים בארגון",
+        name: "בקשת הפניה",
+        subject: "טובה קטנה",
         body_plain:
-`Hi {{.FirstName}},
+`היי {{.FirstName}},
 
-Long shot, but is there someone on your team who handles [topic]? I can keep it short and easy for them, just need a name and I'll take it from there.
+שאלה קטנה, האם יש מישהו בצוות שלכם שמטפל ב-[תחום / נושא]? אוכל לפנות אליו בקצרה וביעילות, רק אשמח לשם ואני כבר אמשיך משם.
 
-Thanks either way,
-[your name]`,
+תודה רבה בכל מקרה,
+[השם שלך]`,
     },
 ];

@@ -78,13 +78,13 @@ export default function TemplatesPage() {
     >(null);
 
     const lastEdited = React.useMemo(() => {
-        if (list.length === 0) return "—";
+        if (list.length === 0) return "-";
         const max = list.reduce(
             (acc, t) => Math.max(acc, new Date(t.updated_at).getTime()),
             0,
         );
-        if (!max) return "—";
-        return new Date(max).toLocaleDateString("en-US", {
+        if (!max) return "-";
+        return new Date(max).toLocaleDateString("he-IL", {
             month: "short",
             day: "numeric",
         });
@@ -93,50 +93,50 @@ export default function TemplatesPage() {
     return (
         <Page>
             <PageTopbar
-                eyebrow="Templates"
-                subtitle="Reusable subject + body for cold opens, follow-ups, replies"
+                eyebrow="תבניות"
+                subtitle="נושא ותוכן לשימוש חוזר עבור פניות, מעקבים ותשובות"
             >
                 <TopbarAction
                     icon={<PlusIcon className="w-3 h-3" />}
                     onClick={() => setEditor({ mode: "create" })}
                 >
-                    New template
+                    תבנית חדשה
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={4}>
-                <Stat label="Saved" value={list.length} sub="reusable drafts" />
-                <Stat label="Searching" value={debouncedSearch ? "yes" : "no"} sub="filter active" />
-                <Stat label="Last edited" value={lastEdited} sub="any template" />
-                <Stat label="Variables" value={VARIABLE_HINTS.length} sub="built-in" last />
+                <Stat label="שמורות" value={list.length} sub="טיוטות לשימוש חוזר" />
+                <Stat label="חיפוש" value={debouncedSearch ? "פעיל" : "ללא"} sub="סינון פעיל" />
+                <Stat label="עריכה אחרונה" value={lastEdited} sub="תבנית כלשהי" />
+                <Stat label="משתנים" value={VARIABLE_HINTS.length} sub="מובנים במערכת" last />
             </StatStrip>
 
             <div className="px-5 py-3 border-b border-slate-200/60 flex items-center gap-2">
                 <div className="relative flex-1 max-w-[360px]">
-                    <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                    <SearchIcon className="absolute start-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search by name or subject…"
-                        className="w-full h-7 pl-7 pr-7 rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                        placeholder="חיפוש לפי שם או נושא…"
+                        className="w-full h-7 ps-7 pe-7 rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100 text-start"
                     />
                     {search && (
                         <button
                             type="button"
                             onClick={() => setSearch("")}
-                            aria-label="Clear search"
-                            className="absolute right-1 top-1/2 -translate-y-1/2 size-5 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center"
+                            aria-label="נקה חיפוש"
+                            className="absolute end-1 top-1/2 -translate-y-1/2 size-5 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center"
                         >
                             <XIcon className="w-3 h-3" />
                         </button>
                     )}
                 </div>
-                <span className="text-[11px] text-slate-400 font-mono tabular-nums ml-auto">
-                    {list.length} {list.length === 1 ? "template" : "templates"}
+                <span className="text-[11px] text-slate-400 font-mono tabular-nums ms-auto">
+                    {list.length} {list.length === 1 ? "תבנית" : "תבניות"}
                 </span>
             </div>
 
-            <SectionBar label={query.isPending ? "Loading…" : `${list.length} templates`} />
+            <SectionBar label={query.isPending ? "טוען…" : `${list.length} תבניות`} />
             <PageBody className="px-3 py-4 sm:px-5 sm:py-5">
                 {query.isPending ? (
                     <SkeletonRows />
@@ -182,12 +182,12 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
                 <FileTextIcon className="w-4 h-4 text-slate-400" />
             </div>
             <h3 className="text-[13px] font-semibold text-slate-900 mb-1">
-                No templates yet
+                אין תבניות עדיין
             </h3>
             <p className="text-[12px] text-slate-500 max-w-md mx-auto mb-4 leading-relaxed">
-                Save the replies and openers you send over and over.
-                Drop variables like {VARIABLE_HINTS[0]} or {VARIABLE_HINTS[3]} so each
-                send picks up the right contact details.
+                שמור את הפניות והמעקבים שאתה שולח באופן קבוע.
+                שלב משתנים כמו {VARIABLE_HINTS[0]} או {VARIABLE_HINTS[3]} כך שכל
+                שליחה תכלול את פרטי איש הקשר המתאימים.
             </p>
             <button
                 type="button"
@@ -195,7 +195,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
                 className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
             >
                 <PlusIcon className="w-3 h-3" />
-                Create first template
+                צור תבנית ראשונה
             </button>
         </div>
     );
@@ -205,14 +205,14 @@ function EmptySearch({ search, onClear }: { search: string; onClear: () => void 
     return (
         <div className="rounded-md border border-dashed border-slate-300 bg-slate-50/40 p-6 text-center">
             <p className="text-[12px] text-slate-500 mb-3">
-                No templates match <span className="font-mono text-slate-700">"{search}"</span>.
+                לא נמצאו תבניות התואמות את <span className="font-mono text-slate-700">"{search}"</span>.
             </p>
             <button
                 type="button"
                 onClick={onClear}
                 className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
             >
-                Clear search
+                נקה חיפוש
             </button>
         </div>
     );
@@ -285,8 +285,8 @@ function TemplateRow({
     async function doDuplicate() {
         try {
             await toast.promise(duplicate.mutateAsync(template.id), {
-                loading: "Duplicating…",
-                success: "Template duplicated",
+                loading: "משכפל…",
+                success: "התבנית שוכפלה",
                 error: (e: AppError) => buildError(e),
             });
         } catch {
@@ -295,11 +295,11 @@ function TemplateRow({
     }
 
     function doDelete() {
-        confirm?.show(`Delete template "${template.name}"? This can't be undone.`, async () => {
+        confirm?.show(`למחוק את התבנית "${template.name}"? לא ניתן לבטל פעולה זו.`, async () => {
             try {
                 await toast.promise(del.mutateAsync(template.id), {
-                    loading: "Deleting…",
-                    success: "Template deleted",
+                    loading: "מוחק…",
+                    success: "התבנית נמחקה",
                     error: (e: AppError) => buildError(e),
                 });
             } catch {
@@ -315,7 +315,7 @@ function TemplateRow({
                     type="button"
                     onClick={onMoveUp}
                     disabled={index === 0 || reordering}
-                    aria-label="Move up"
+                    aria-label="העבר למעלה"
                     className="size-5 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors"
                 >
                     <ChevronUpIcon className="w-3 h-3" />
@@ -327,7 +327,7 @@ function TemplateRow({
                     type="button"
                     onClick={onMoveDown}
                     disabled={index === total - 1 || reordering}
-                    aria-label="Move down"
+                    aria-label="העבר למטה"
                     className="size-5 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors"
                 >
                     <ChevronDownIcon className="w-3 h-3" />
@@ -337,19 +337,19 @@ function TemplateRow({
             <button
                 type="button"
                 onClick={onEdit}
-                className="flex-1 min-w-0 text-left"
+                className="flex-1 min-w-0 text-start"
             >
                 <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-[12.5px] font-semibold text-slate-900 truncate">
                         {template.name}
                     </span>
                     <span className="hidden sm:inline text-[10.5px] font-mono text-slate-400 tabular-nums shrink-0">
-                        edited {formatRelative(template.updated_at)}
+                        נערך {formatRelative(template.updated_at)}
                     </span>
                 </div>
                 {template.subject && (
                     <div className="text-[11.5px] text-slate-600 truncate mb-0.5">
-                        <span className="text-slate-400 mr-1">Subject:</span>
+                        <span className="text-slate-400 me-1">נושא:</span>
                         {template.subject}
                     </div>
                 )}
@@ -365,25 +365,25 @@ function TemplateRow({
                     <PopoverMenuTrigger asChild>
                         <button
                             type="button"
-                            aria-label="Template menu"
+                            aria-label="תפריט תבנית"
                             className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                         >
                             <MoreHorizontalIcon className="w-3.5 h-3.5" />
                         </button>
                     </PopoverMenuTrigger>
-                    <PopoverMenuContent minWidth={176}>
+                    <PopoverMenuContent minWidth={176} className="text-start">
                         <PopoverMenuItem
                             onSelect={onEdit}
                             icon={<PencilIcon className="w-3 h-3" />}
                         >
-                            Edit
+                            עריכה
                         </PopoverMenuItem>
                         <PopoverMenuItem
                             onSelect={doDuplicate}
                             disabled={duplicate.isPending}
                             icon={<CopyIcon className="w-3 h-3" />}
                         >
-                            Duplicate
+                            שכפול
                         </PopoverMenuItem>
                         <PopoverMenuSeparator />
                         <PopoverMenuItem
@@ -392,7 +392,7 @@ function TemplateRow({
                             danger
                             icon={<TrashIcon className="w-3 h-3" />}
                         >
-                            Delete
+                            מחיקה
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -424,13 +424,13 @@ function formatRelative(date: Date | string) {
     const d = typeof date === "string" ? new Date(date) : date;
     const diff = Date.now() - d.getTime();
     const mins = Math.floor(diff / 60_000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1) return "כרגע";
+    if (mins < 60) return `לפני ${mins} דק׳`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return `לפני ${hours} שע׳`;
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (days < 7) return `לפני ${days} ימים`;
+    return d.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
 }
 
 type EditorState =
@@ -493,7 +493,7 @@ function TemplateEditor({
         // by accident doesn't trash their work.
         const dirty = name.trim() !== "" || subject.trim() !== "" || bodyPlain.trim() !== "" || bodyHTML.trim() !== "";
         if (dirty && activePresetId !== p.id) {
-            confirm.show("Replace what you have so far with this template?", apply);
+            confirm.show("האם להחליף את מה שכתבת עד כה בתבנית זו?", apply);
             return;
         }
         apply();
@@ -511,7 +511,7 @@ function TemplateEditor({
     async function submit() {
         const trimmedName = name.trim();
         if (!trimmedName) {
-            toast.error("Name is required");
+            toast.error("יש להזין שם לתבנית");
             return;
         }
         const payload = {
@@ -524,16 +524,16 @@ function TemplateEditor({
             if (!state) return;
             if (state.mode === "create") {
                 await toast.promise(create.mutateAsync(payload), {
-                    loading: "Creating template…",
-                    success: "Template created",
+                    loading: "יוצר תבנית…",
+                    success: "התבנית נוצרה",
                     error: (e: AppError) => buildError(e),
                 });
             } else {
                 await toast.promise(
                     update.mutateAsync({ id: state.template.id, data: payload }),
                     {
-                        loading: "Saving…",
-                        success: "Template saved",
+                        loading: "שומר…",
+                        success: "התבנית נשמרה",
                         error: (e: AppError) => buildError(e),
                     },
                 );
@@ -575,17 +575,17 @@ function TemplateEditor({
                         exit={{ y: 8, opacity: 0 }}
                         transition={{ duration: 0.16 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full max-w-[640px] rounded-lg bg-white border border-slate-200 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden"
+                        className="w-full max-w-[640px] rounded-lg bg-white border border-slate-200 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden text-start"
                     >
                         <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-2.5">
                             <div className="size-5 rounded bg-slate-100 text-slate-600 flex items-center justify-center">
                                 <FileTextIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                {isEdit ? "Edit" : "New"}
+                                {isEdit ? "עריכה" : "חדשה"}
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-900 font-medium">Template</span>
+                            <span className="text-[12.5px] text-slate-900 font-medium">תבנית</span>
                             <ResourceViewers
                                 resource={templateId ? `template:${templateId}` : null}
                                 className="shrink-0"
@@ -593,8 +593,8 @@ function TemplateEditor({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגור"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -610,11 +610,11 @@ function TemplateEditor({
                             )}
 
                             <div>
-                                <Label>Name</Label>
+                                <Label>שם התבנית</Label>
                                 <TextInput
                                     value={name}
                                     onChange={setName}
-                                    placeholder="Cold intro · Product"
+                                    placeholder="פנייה קרה · מוצר"
                                     autoFocus={!isEdit}
                                     className="w-full"
                                 />
@@ -622,28 +622,28 @@ function TemplateEditor({
 
                             <div>
                                 <div className="flex items-center justify-between mb-1">
-                                    <Label className="!mb-0">Subject</Label>
+                                    <Label className="!mb-0">נושא ההודעה</Label>
                                     <VariableMenu onPick={(v) => insertVariable("subject", v)} />
                                 </div>
                                 <TextInput
                                     value={subject}
                                     onChange={setSubject}
-                                    placeholder="Quick question, {{.FirstName}}"
+                                    placeholder="שאלה קצרה, {{.FirstName}}"
                                     className="w-full"
                                 />
                             </div>
 
                             <div>
                                 <div className="flex items-center justify-between mb-1">
-                                    <Label className="!mb-0">Body · plain text</Label>
+                                    <Label className="!mb-0">תוכן · טקסט רגיל</Label>
                                     <VariableMenu onPick={(v) => insertVariable("plain", v)} />
                                 </div>
                                 <textarea
                                     value={bodyPlain}
                                     onChange={(e) => setBodyPlain(e.target.value)}
-                                    placeholder="Hi {{.FirstName}}, …"
+                                    placeholder="היי {{.FirstName}}, …"
                                     rows={8}
-                                    className="w-full rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100 px-2.5 py-2 resize-y leading-relaxed font-mono"
+                                    className="w-full rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100 px-2.5 py-2 resize-y leading-relaxed font-sans text-start"
                                 />
                             </div>
 
@@ -656,10 +656,10 @@ function TemplateEditor({
                                             onChange={(e) => setShowHTML(e.target.checked)}
                                             className="size-3 accent-slate-900"
                                         />
-                                        Also send an HTML body
+                                        שלח גם גרסת HTML
                                     </label>
                                     {showHTML && (
-                                        <div className="ml-auto">
+                                        <div className="ms-auto">
                                             <VariableMenu onPick={(v) => insertVariable("html", v)} />
                                         </div>
                                     )}
@@ -668,18 +668,19 @@ function TemplateEditor({
                                     <textarea
                                         value={bodyHTML}
                                         onChange={(e) => setBodyHTML(e.target.value)}
-                                        placeholder="<p>Hi {{.FirstName}}, …</p>"
+                                        placeholder="<p>היי {{.FirstName}}, …</p>"
                                         rows={6}
-                                        className="w-full rounded-md border border-slate-200 bg-slate-50 text-[12px] text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100 px-2.5 py-2 resize-y leading-relaxed font-mono"
+                                        dir="ltr"
+                                        className="w-full rounded-md border border-slate-200 bg-slate-50 text-[12px] text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100 px-2.5 py-2 resize-y leading-relaxed font-mono text-start"
                                     />
                                 )}
                             </div>
 
                             <div className="rounded-md border border-slate-200 bg-slate-50/60 p-2.5">
                                 <p className="text-[10.5px] text-slate-500 mb-1.5 uppercase tracking-[0.1em] font-medium">
-                                    Built-in variables
+                                    משתנים מובנים
                                 </p>
-                                <div className="flex flex-wrap gap-1">
+                                <div className="flex flex-wrap gap-1" dir="ltr">
                                     {VARIABLE_HINTS.map((v) => (
                                         <code
                                             key={v}
@@ -690,9 +691,9 @@ function TemplateEditor({
                                     ))}
                                 </div>
                                 <p className="text-[10.5px] text-slate-400 mt-1.5 leading-relaxed">
-                                    Custom contact fields work the same way:{" "}
-                                    <code className="font-mono">{"{{.YourField}}"}</code>.
-                                    Unknown variables render as empty strings.
+                                    שדות מותאמים אישית של אנשי קשר פועלים באותו אופן:{" "}
+                                    <code className="font-mono" dir="ltr">{"{{.YourField}}"}</code>.
+                                    משתנים שאינם מוכרים יוצגו כמחרוזת ריקה.
                                 </p>
                             </div>
                         </div>
@@ -701,9 +702,9 @@ function TemplateEditor({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -712,7 +713,7 @@ function TemplateEditor({
                                 className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 {pending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                                {isEdit ? "Save changes" : "Create template"}
+                                {isEdit ? "שמור שינויים" : "צור תבנית"}
                             </button>
                         </div>
                     </motion.div>
@@ -734,25 +735,25 @@ function VariableMenu({ onPick }: { onPick: (token: string) => void }) {
                     type="button"
                     className="text-[10.5px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 h-5 px-1.5 rounded hover:bg-slate-100 transition-colors"
                 >
-                    + variable
+                    + משתנה
                 </button>
             </PopoverMenuTrigger>
-            <PopoverMenuContent minWidth={208}>
-                <PopoverMenuLabel>Contact fields</PopoverMenuLabel>
+            <PopoverMenuContent minWidth={208} className="text-start">
+                <PopoverMenuLabel>שדות איש קשר</PopoverMenuLabel>
                 {STANDARD_VARS.map((v) => (
                     <PopoverMenuItem key={v.token} onSelect={() => onPick(v.token)}>
                         <span className="flex-1 truncate text-[12px] text-slate-700">{v.label}</span>
-                        <code className="ml-2 shrink-0 font-mono text-[10px] text-slate-400">{v.token}</code>
+                        <code className="me-2 shrink-0 font-mono text-[10px] text-slate-400" dir="ltr">{v.token}</code>
                     </PopoverMenuItem>
                 ))}
                 {custom.length > 0 && (
                     <>
                         <PopoverMenuSeparator />
-                        <PopoverMenuLabel>Your custom fields</PopoverMenuLabel>
+                        <PopoverMenuLabel>שדות מותאמים אישית</PopoverMenuLabel>
                         {custom.map((k) => (
                             <PopoverMenuItem key={k} onSelect={() => onPick(buildToken(k))}>
                                 <span className="flex-1 truncate text-[12px] text-slate-700">{k}</span>
-                                <code className="ml-2 shrink-0 font-mono text-[10px] text-slate-400">
+                                <code className="me-2 shrink-0 font-mono text-[10px] text-slate-400" dir="ltr">
                                     {buildToken(k)}
                                 </code>
                             </PopoverMenuItem>
@@ -777,18 +778,18 @@ function PresetStrip({
         <div className="rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-2">
             <div className="flex flex-wrap items-center gap-2 mb-1.5 min-w-0">
                 <span className="text-[10.5px] uppercase tracking-[0.1em] font-medium text-slate-500">
-                    Start from a template
+                    התחל מתבנית מוכנה
                 </span>
                 <span className="hidden sm:inline text-[10.5px] text-slate-400">
-                    or skip this and start blank
+                    או דלג והתחל מאפס
                 </span>
                 {activeId && (
                     <button
                         type="button"
                         onClick={onClear}
-                        className="ml-auto text-[10.5px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 h-5 px-1.5 rounded hover:bg-slate-100 transition-colors"
+                        className="ms-auto text-[10.5px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 h-5 px-1.5 rounded hover:bg-slate-100 transition-colors"
                     >
-                        Reset to blank
+                        אפס לריק
                     </button>
                 )}
             </div>
@@ -802,7 +803,7 @@ function PresetStrip({
                             onClick={() => onPick(p)}
                             title={p.description}
                             className={
-                                "shrink-0 text-left rounded-md border px-2 py-1.5 transition-colors min-w-[140px] " +
+                                "shrink-0 text-start rounded-md border px-2 py-1.5 transition-colors min-w-[140px] " +
                                 (active
                                     ? "border-slate-900 bg-white"
                                     : "border-slate-200 bg-white hover:border-slate-300")
