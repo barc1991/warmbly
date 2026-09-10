@@ -55,12 +55,12 @@ import { PALETTE, newField, type PaletteItem } from "./fieldCatalog";
 type TabKey = "build" | "design" | "settings" | "share" | "analytics" | "submissions";
 
 const TABS: { key: TabKey; label: string; Icon: typeof WrenchIcon }[] = [
-    { key: "build", label: "Build", Icon: WrenchIcon },
-    { key: "design", label: "Design", Icon: PaletteIcon },
-    { key: "settings", label: "Settings", Icon: SettingsIcon },
-    { key: "share", label: "Share", Icon: Share2Icon },
-    { key: "analytics", label: "Analytics", Icon: ChartNoAxesColumnIcon },
-    { key: "submissions", label: "Submissions", Icon: InboxIcon },
+    { key: "build", label: "בנייה", Icon: WrenchIcon },
+    { key: "design", label: "עיצוב", Icon: PaletteIcon },
+    { key: "settings", label: "הגדרות", Icon: SettingsIcon },
+    { key: "share", label: "שיתוף", Icon: Share2Icon },
+    { key: "analytics", label: "ניתוח נתונים", Icon: ChartNoAxesColumnIcon },
+    { key: "submissions", label: "הגשות", Icon: InboxIcon },
 ];
 
 interface Draft {
@@ -97,6 +97,12 @@ const STATUS_PILL: Record<Form["status"], string> = {
     archived: "bg-amber-50 text-amber-700",
 };
 
+const STATUS_LABELS: Record<Form["status"], string> = {
+    draft: "טיוטה",
+    published: "מפורסם",
+    archived: "בארכיון",
+};
+
 function PaletteButton({ item, onAdd, disabled }: { item: PaletteItem; onAdd: () => void; disabled: boolean }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `palette:${item.type}`,
@@ -109,13 +115,13 @@ function PaletteButton({ item, onAdd, disabled }: { item: PaletteItem; onAdd: ()
             type="button"
             onClick={onAdd}
             disabled={disabled}
-            className={`h-8 px-2 w-full inline-flex items-center gap-2 rounded-md text-[12px] text-slate-700 hover:bg-slate-100 transition-colors text-left disabled:opacity-50 ${
+            className={`h-8 px-2 w-full inline-flex items-center gap-2 rounded-md text-[12px] text-slate-700 hover:bg-slate-100 transition-colors text-start disabled:opacity-50 ${
                 isDragging ? "opacity-40" : ""
             }`}
             {...attributes}
             {...listeners}
         >
-            <item.icon className="w-3.5 h-3.5 text-slate-400" />
+            <item.icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             {item.label}
         </button>
     );
@@ -234,7 +240,7 @@ export default function FormBuilder({ form }: { form: Form }) {
 
     function writeFrom(d: Draft, s?: Form["status"]): FormWrite {
         return {
-            name: d.name.trim() || "Untitled form",
+            name: d.name.trim() || "טופס ללא כותרת",
             fields: d.fields,
             design: d.design,
             success_message: d.success_message,
@@ -250,7 +256,7 @@ export default function FormBuilder({ form }: { form: Form }) {
     async function save(nextStatus?: Form["status"]): Promise<boolean> {
         for (const f of draft.fields) {
             if (isInputType(f.type) && f.type !== "hidden" && !f.label.trim()) {
-                toast.error("Every field needs a label");
+                toast.error("לכל שדה נדרשת תווית");
                 setTab("build");
                 setSelectedId(f.id);
                 return false;
@@ -258,17 +264,17 @@ export default function FormBuilder({ form }: { form: Form }) {
         }
         if (nextStatus === "published") {
             if (!draft.fields.some((f) => isInputType(f.type) && f.type !== "hidden")) {
-                toast.error("Add at least one input field before publishing");
+                toast.error("יש להוסיף לפחות שדה קלט אחד לפני הפרסום");
                 setTab("build");
                 return false;
             }
             if (!draft.fields.some((f) => f.type === "email")) {
-                toast("Without an email field, submissions are stored but never become contacts", { icon: "⚠️" });
+                toast("ללא שדה אימייל, הגשות יישמרו אך לא יהפכו לאנשי קשר", { icon: "⚠️" });
             }
             const firstInput = draft.fields.findIndex((f) => f.type !== "page_break");
             const lastInput = draft.fields.map((f) => f.type !== "page_break").lastIndexOf(true);
             if (draft.fields.some((f, i) => f.type === "page_break" && (i < firstInput || i > lastInput))) {
-                toast("A page break before the first field or after the last one makes an empty page", { icon: "⚠️" });
+                toast("מעבר עמוד לפני השדה הראשון או אחרי האחרון יוצר עמוד ריק", { icon: "⚠️" });
             }
         }
         try {
@@ -318,7 +324,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                     to="/app/forms"
                     className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-slate-900 shrink-0"
                 >
-                    <ArrowLeftIcon className="w-3.5 h-3.5" /> Forms
+                    <ArrowLeftIcon className="w-3.5 h-3.5 rtl:rotate-180" /> טפסים
                 </Link>
                 <div className="w-px h-5 bg-slate-200 shrink-0" />
                 <TextInput
@@ -326,10 +332,10 @@ export default function FormBuilder({ form }: { form: Form }) {
                     onChange={(v) => patchDraft({ name: v })}
                     disabled={!canEdit}
                     className="max-w-[260px] font-medium"
-                    placeholder="Form name"
+                    placeholder="שם הטופס"
                 />
                 <span className={`inline-flex items-center h-4 px-1.5 rounded text-[10px] font-medium shrink-0 ${STATUS_PILL[status]}`}>
-                    {status}
+                    {STATUS_LABELS[status]}
                 </span>
                 <ResourceViewers resource={`form:${form.id}`} className="shrink-0" />
                 <div className="flex-1" />
@@ -340,7 +346,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                         rel="noopener noreferrer"
                         className="hidden sm:inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:bg-slate-100 shrink-0"
                     >
-                        <EyeIcon className="w-3.5 h-3.5" /> View live <ExternalLinkIcon className="w-3 h-3" />
+                        <EyeIcon className="w-3.5 h-3.5" /> צפה בטופס <ExternalLinkIcon className="w-3 h-3" />
                     </a>
                 )}
                 {status === "published" ? (
@@ -349,7 +355,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                         onClick={guarded(() => void save("draft"))}
                         className="h-7 px-2.5 rounded-md border border-slate-200 text-[12px] text-slate-600 hover:bg-slate-50 shrink-0"
                     >
-                        Unpublish
+                        בטל פרסום
                     </button>
                 ) : (
                     <button
@@ -357,7 +363,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                         onClick={guarded(() => void save("published"))}
                         className="h-7 px-3 rounded-md bg-sky-600 text-white text-[12px] font-medium hover:bg-sky-700 inline-flex items-center gap-1.5 shrink-0"
                     >
-                        <GlobeIcon className="w-3.5 h-3.5" /> Publish
+                        <GlobeIcon className="w-3.5 h-3.5" /> פרסם
                     </button>
                 )}
             </div>
@@ -398,10 +404,12 @@ export default function FormBuilder({ form }: { form: Form }) {
             <div className="flex-1 min-h-0 flex">
                 {tab === "build" && (
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-                        <aside className="hidden md:flex w-52 shrink-0 flex-col gap-3 border-r border-slate-200 bg-white overflow-y-auto p-3">
+                        <aside className="hidden md:flex w-52 shrink-0 flex-col gap-3 border-e border-slate-200 bg-white overflow-y-auto p-3">
                             {(["Fields", "Layout"] as const).map((group) => (
                                 <div key={group}>
-                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium px-2 mb-1">{group}</div>
+                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium px-2 mb-1">
+                                        {group === "Fields" ? "שדות" : "פריסה"}
+                                    </div>
                                     <div className="flex flex-col">
                                         {PALETTE.filter((p) => p.group === group).map((item) => (
                                             <PaletteButton
@@ -419,10 +427,10 @@ export default function FormBuilder({ form }: { form: Form }) {
                                     </div>
                                 </div>
                             ))}
-                            <p className="text-[10.5px] text-slate-400 px-2">Click to add, or drag onto the canvas.</p>
+                            <p className="text-[10.5px] text-slate-400 px-2">לחץ להוספה, או גרור אל משטח העבודה.</p>
                         </aside>
                         {canvas}
-                        <aside className="hidden lg:block w-80 shrink-0 border-l border-slate-200 bg-white overflow-y-auto">
+                        <aside className="hidden lg:block w-80 shrink-0 border-s border-slate-200 bg-white overflow-y-auto">
                             {selected ? (
                                 <FieldSettingsPanel
                                     key={selected.id}
@@ -431,7 +439,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                                     onChange={(patch) => patchField(selected.id, patch)}
                                 />
                             ) : (
-                                <div className="p-6 text-[12px] text-slate-400">Select a field on the canvas to edit it.</div>
+                                <div className="p-6 text-[12px] text-slate-400">בחר שדה במשטח העבודה כדי לערוך אותו.</div>
                             )}
                         </aside>
                         <DragOverlay>
@@ -448,7 +456,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                 {tab === "design" && (
                     <>
                         {canvas}
-                        <aside className="w-full sm:w-80 shrink-0 border-l border-slate-200 bg-white overflow-y-auto">
+                        <aside className="w-full sm:w-80 shrink-0 border-s border-slate-200 bg-white overflow-y-auto">
                             <DesignPanel
                                 formId={form.id}
                                 design={draft.design}
@@ -501,7 +509,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                         transition={{ type: "spring", damping: 28, stiffness: 360 }}
                         className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-lg border border-slate-200 bg-white shadow-lg px-3 py-2"
                     >
-                        <span className="text-[12px] text-slate-600">Unsaved changes</span>
+                        <span className="text-[12px] text-slate-600">שינויים שלא נשמרו</span>
                         <button
                             type="button"
                             onClick={() => {
@@ -511,7 +519,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                             }}
                             className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:bg-slate-100"
                         >
-                            Discard
+                            בטל שינויים
                         </button>
                         <button
                             type="button"
@@ -519,7 +527,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                             onClick={() => void save()}
                             className="h-7 px-3 rounded-md bg-sky-600 text-white text-[12px] font-medium hover:bg-sky-700 disabled:opacity-60"
                         >
-                            {update.isPending ? "Saving…" : "Save"}
+                            {update.isPending ? "שומר…" : "שמור"}
                         </button>
                     </motion.div>
                 )}

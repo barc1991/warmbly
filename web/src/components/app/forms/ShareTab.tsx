@@ -34,16 +34,16 @@ function Snippet({ label, hint, code }: { label?: string; hint?: string; code: s
                 </div>
             )}
             <div className="relative">
-                <pre className="rounded-md border border-slate-200 bg-slate-50 p-3 pr-16 text-[11.5px] leading-relaxed text-slate-700 overflow-x-auto whitespace-pre-wrap break-all">
+                <pre className="rounded-md border border-slate-200 bg-slate-50 p-3 pe-16 text-[11.5px] leading-relaxed text-slate-700 overflow-x-auto whitespace-pre-wrap break-all dir-ltr text-start">
                     {code}
                 </pre>
                 <button
                     type="button"
                     onClick={() => void copy()}
-                    className="absolute top-2 right-2 inline-flex items-center gap-1 h-6 px-2 rounded-md border border-slate-200 bg-white text-[11px] text-slate-600 hover:bg-slate-50"
+                    className="absolute top-2 end-2 inline-flex items-center gap-1 h-6 px-2 rounded-md border border-slate-200 bg-white text-[11px] text-slate-600 hover:bg-slate-50"
                 >
                     {copied ? <CheckIcon className="w-3 h-3 text-emerald-600" /> : <CopyIcon className="w-3 h-3" />}
-                    {copied ? "Copied" : "Copy"}
+                    {copied ? "הועתק" : "העתק"}
                 </button>
             </div>
         </div>
@@ -84,7 +84,7 @@ function ContactLinkRow({ form, contact }: { form: Form; contact: Contact }) {
                 className="shrink-0 inline-flex items-center gap-1 h-6 px-2 rounded-md border border-slate-200 bg-white text-[11px] text-slate-600 hover:bg-slate-50 disabled:opacity-60"
             >
                 {state === "copied" ? <CheckIcon className="w-3 h-3 text-emerald-600" /> : <CopyIcon className="w-3 h-3" />}
-                {state === "copied" ? "Copied" : state === "loading" ? "Copying…" : "Copy link"}
+                {state === "copied" ? "הועתק" : state === "loading" ? "מעתיק…" : "העתק קישור"}
             </button>
         </div>
     );
@@ -112,8 +112,7 @@ function PersonalizedLinksCard({ form }: { form: Form }) {
     if (form.status !== "published") {
         return (
             <p className="text-[11.5px] text-slate-500 rounded-md bg-slate-50 border border-slate-200 px-3 py-2">
-                Personalized links go live when the form is published. Publish it, then come back here to grab the
-                campaign tag or copy a contact's personal link.
+                קישורים מותאמים אישית הופכים לפעילים כאשר הטופס מפורסם. פרסם את הטופס, ואז חזור לכאן כדי לקחת את תגית הקמפיין או להעתיק קישור אישי.
             </p>
         );
     }
@@ -121,24 +120,24 @@ function PersonalizedLinksCard({ form }: { form: Form }) {
     return (
         <div className="grid gap-x-8 gap-y-5 lg:grid-cols-2">
             <Snippet
-                label="Use in a campaign email"
-                hint="each recipient gets their own link at send time"
+                label="שימוש באימייל של קמפיין"
+                hint="כל נמען מקבל קישור ייחודי משלו בעת השליחה"
                 code={buildFormLinkToken(form.public_id)}
             />
 
             <div>
-                <div className="text-[12.5px] font-medium text-slate-900 mb-1">Copy a link for one contact</div>
-                <SearchInput value={query} onChange={setQuery} placeholder="Search contacts by name or email…" />
+                <div className="text-[12.5px] font-medium text-slate-900 mb-1">העתק קישור עבור איש קשר ספציפי</div>
+                <SearchInput value={query} onChange={setQuery} placeholder="חפש אנשי קשר לפי שם או אימייל…" />
                 {active && (
                     <div className="mt-1.5 flex flex-col">
                         {contacts.map((c) => (
                             <ContactLinkRow key={c.id} form={form} contact={c} />
                         ))}
                         {contacts.length === 0 && !search.isFetching && (
-                            <p className="text-[11.5px] text-slate-500 px-2 py-1.5">No contacts match "{debouncedQuery.trim()}".</p>
+                            <p className="text-[11.5px] text-slate-500 px-2 py-1.5">לא נמצאו אנשי קשר התואמים ל-"{debouncedQuery.trim()}".</p>
                         )}
                         {contacts.length === 0 && search.isFetching && (
-                            <p className="text-[11.5px] text-slate-400 px-2 py-1.5">Searching…</p>
+                            <p className="text-[11.5px] text-slate-400 px-2 py-1.5">מחפש…</p>
                         )}
                     </div>
                 )}
@@ -149,9 +148,6 @@ function PersonalizedLinksCard({ form }: { form: Form }) {
 
 export default function ShareTab({ form, baseUrl }: { form: Form; baseUrl: string }) {
     const pageUrl = form.share_url || (baseUrl ? `${baseUrl}/f/${form.public_id}` : "");
-    // The embed loads its iframe from its own origin, so the snippet has to
-    // come from the same host as the page: an organization on a verified
-    // custom forms domain would otherwise embed on the shared one.
     const scriptOrigin = React.useMemo(() => {
         try {
             return new URL(pageUrl).origin;
@@ -164,7 +160,7 @@ export default function ShareTab({ form, baseUrl }: { form: Form; baseUrl: strin
     if (!pageUrl) {
         return (
             <div className="p-6 text-[12.5px] text-slate-500">
-                No public URL is configured for this instance. Set API_PUBLIC_URL (or FORMS_DOMAIN) on the backend.
+                לא הוגדרה כתובת URL ציבורית עבור מופע זה. הגדר API_PUBLIC_URL (או FORMS_DOMAIN) בשרת.
             </div>
         );
     }
@@ -173,46 +169,46 @@ export default function ShareTab({ form, baseUrl }: { form: Form; baseUrl: strin
         <div className="px-4 lg:px-6 py-5">
             {form.status !== "published" && (
                 <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-                    This form is not published yet. The link and embeds below go live the moment you publish.
+                    טופס זה עדיין אינו מפורסם. הקישור וההטמעות למטה יהפכו לפעילים ברגע הפרסום.
                 </div>
             )}
 
             <div className="divide-y divide-slate-200/60">
-                <Section title="Hosted link" description="The form's own page. Share it anywhere, no website needed.">
+                <Section title="קישור ישיר" description="עמוד הטופס העצמאי. שתף אותו בכל מקום, ללא צורך באתר אינטרנט.">
                     <div className="col-span-full max-w-3xl">
                         <Snippet code={pageUrl} />
                     </div>
                 </Section>
 
                 <Section
-                    title="Embed on your site"
-                    description="These work in WordPress, Webflow, Shopify, Framer and any site that accepts custom HTML."
+                    title="הטמעה באתר שלך"
+                    description="עובד בוורדפרס, Webflow, שופיפיי, Framer ובכל אתר התומך ב-HTML מותאם אישית."
                 >
                     <Snippet
-                        label="JavaScript embed"
-                        hint="recommended, self-sizing"
+                        label="הטמעת JavaScript"
+                        hint="מומלץ, התאמת גודל אוטומטית"
                         code={`<script src="${scriptUrl}" async></script>\n<div data-warmbly-form="${form.public_id}"></div>`}
                     />
                     <Snippet
-                        label="Popup"
-                        hint="opens in an overlay"
-                        code={`<script src="${scriptUrl}" async></script>\n<button data-warmbly-popup="${form.public_id}">Get started</button>`}
+                        label="חלון קופץ (Popup)"
+                        hint="נפתח בשכבה עליונה"
+                        code={`<script src="${scriptUrl}" async></script>\n<button data-warmbly-popup="${form.public_id}">התחל עכשיו</button>`}
                     />
                     <Snippet
-                        label="Plain iframe"
-                        hint="for builders that strip scripts"
+                        label="iframe רגיל"
+                        hint="עבור מערכות המסירות סקריפטים"
                         code={`<iframe src="${pageUrl}?embed=1" width="100%" height="600" style="border:0" title="${form.name.replace(/"/g, "&quot;")}"></iframe>`}
                     />
                     <p className="col-span-full text-[11.5px] text-slate-500">
                         {form.allowed_domains.length > 0
-                            ? `Embedding is limited to: ${form.allowed_domains.join(", ")}.`
-                            : "Restrict which sites may embed this form from the Settings tab."}
+                            ? `ההטמעה מוגבלת לדומיינים: ${form.allowed_domains.join(", ")}.`
+                            : "הגבל אילו אתרים רשאים להטמיע טופס זה בלשונית ההגדרות."}
                     </p>
                 </Section>
 
                 <Section
-                    title="Personalized links"
-                    description="Each contact gets their own link. Opening it prefills the form and ties the submission and every page view back to that contact and the campaign that sent it."
+                    title="קישורים מותאמים אישית"
+                    description="כל איש קשר מקבל קישור ייחודי משלו. פתיחתו ממלאת מראש את הטופס ומקשרת את ההגשה וכל צפייה בעמוד אל איש הקשר והקמפיין ששלח אותו."
                 >
                     <div className="col-span-full">
                         <PersonalizedLinksCard form={form} />
@@ -220,8 +216,8 @@ export default function ShareTab({ form, baseUrl }: { form: Form; baseUrl: strin
                 </Section>
 
                 <Section
-                    title="Custom domain"
-                    description="Form links go out on a shared host by default. Point a subdomain of the domain you send from at it and every link, including the personalized ones in campaign emails, carries your own name."
+                    title="דומיין מותאם אישית"
+                    description="קישורי טפסים נשלחים כברירת מחדל בשרת משותף. הפנה תת-דומיין של הדומיין שממנו אתה שולח אליו, וכל קישור, כולל הקישורים המותאמים אישית באימיילים, יישא את שמך."
                 >
                     <div className="col-span-full">
                         <FormsDomainCard />

@@ -35,6 +35,12 @@ const STATUS_PILL: Record<Form["status"], string> = {
     archived: "bg-amber-50 text-amber-700",
 };
 
+const STATUS_LABELS: Record<Form["status"], string> = {
+    draft: "טיוטה",
+    published: "מפורסם",
+    archived: "בארכיון",
+};
+
 function conversionValue(f: Form): number {
     if (f.views_count <= 0) return -1;
     return Math.min(100, (f.submissions_count / f.views_count) * 100);
@@ -49,10 +55,10 @@ type SortKey = "name" | "views" | "starts" | "submissions" | "conversion" | "ide
 type StatusFilter = "all" | Form["status"];
 
 const STATUS_TABS: { value: StatusFilter; label: string }[] = [
-    { value: "all", label: "All" },
-    { value: "published", label: "Published" },
-    { value: "draft", label: "Drafts" },
-    { value: "archived", label: "Archived" },
+    { value: "all", label: "הכל" },
+    { value: "published", label: "פורסמו" },
+    { value: "draft", label: "טיוטות" },
+    { value: "archived", label: "בארכיון" },
 ];
 
 const SORT_VALUE: Record<SortKey, (f: Form) => number | string> = {
@@ -67,7 +73,7 @@ const SORT_VALUE: Record<SortKey, (f: Form) => number | string> = {
 
 export default function FormsPage() {
     const canView = usePermission("VIEW_CONTACTS");
-    if (!canView) return <NoAccess feature="forms" permissionLabel="View contacts" />;
+    if (!canView) return <NoAccess feature="forms" permissionLabel="צפייה באנשי קשר" />;
     return <FormsList />;
 }
 
@@ -150,7 +156,7 @@ function FormsList() {
 
     async function createNew() {
         try {
-            const f = await create.mutateAsync("Untitled form");
+            const f = await create.mutateAsync("טופס ללא כותרת");
             navigate(`/app/forms/${f.id}`);
         } catch (err) {
             toast.error(buildError(err as AppError));
@@ -159,7 +165,7 @@ function FormsList() {
 
     async function duplicate(f: Form) {
         try {
-            const copy = await create.mutateAsync(`${f.name} (copy)`.slice(0, 120));
+            const copy = await create.mutateAsync(`${f.name} (העתק)`.slice(0, 120));
             await update.mutateAsync({
                 id: copy.id,
                 w: {
@@ -173,7 +179,7 @@ function FormsList() {
                     captcha_enabled: f.captcha_enabled,
                 },
             });
-            toast.success(`Duplicated as ${copy.name}`);
+            toast.success(`שוכפל כ-${copy.name}`);
             navigate(`/app/forms/${copy.id}`);
         } catch (err) {
             toast.error(buildError(err as AppError));
@@ -183,17 +189,17 @@ function FormsList() {
     async function setStatus(f: Form, status: Form["status"]) {
         try {
             await update.mutateAsync({ id: f.id, w: { status } });
-            toast.success(status === "published" ? "Form published" : status === "draft" ? "Form unpublished" : "Form archived");
+            toast.success(status === "published" ? "הטופס פורסם" : status === "draft" ? "פרסום הטופס בוטל" : "הטופס הועבר לארכיון");
         } catch (err) {
             toast.error(buildError(err as AppError));
         }
     }
 
     function askDelete(f: Form) {
-        confirm.show(`Delete the form "${f.name}" and its ${f.submissions_count.toLocaleString()} submissions? Contacts it created are kept.`, async () => {
+        confirm.show(`למחוק את הטופס "${f.name}" ואת ${f.submissions_count.toLocaleString()} ההגשות שלו? אנשי קשר שנוצרו יישמרו.`, async () => {
             try {
                 await remove.mutateAsync(f.id);
-                toast.success("Form deleted");
+                toast.success("הטופס נמחק");
             } catch (err) {
                 toast.error(buildError(err as AppError));
             }
@@ -202,11 +208,11 @@ function FormsList() {
 
     async function copyLink(f: Form) {
         if (!f.share_url) {
-            toast.error("No public URL is configured for this instance");
+            toast.error("לא הוגדרה כתובת URL ציבורית עבור מופע זה");
             return;
         }
         await navigator.clipboard.writeText(f.share_url);
-        toast.success("Link copied");
+        toast.success("הקישור הועתק");
     }
 
     // Bulk actions run per-id over the existing mutations; a partial failure
@@ -216,8 +222,8 @@ function FormsList() {
         const results = await Promise.allSettled(selected.map((id) => update.mutateAsync({ id, w: { status } })));
         setBulkBusy(false);
         const ok = results.filter((r) => r.status === "fulfilled").length;
-        if (ok === results.length) toast.success(`${ok} ${label}`);
-        else toast.error(`${ok} of ${results.length} ${label}; the rest failed`);
+        if (ok === results.length) toast.success(`${ok} עודכנו בהצלחה`);
+        else toast.error(`${ok} מתוך ${results.length} עודכנו; השאר נכשלו`);
         setSelected([]);
     }
 
@@ -225,14 +231,14 @@ function FormsList() {
         const ids = [...selected];
         const total = (forms.data ?? []).filter((f) => ids.includes(f.id)).reduce((n, f) => n + f.submissions_count, 0);
         confirm.show(
-            `Delete ${ids.length} forms and their ${total.toLocaleString()} submissions? Contacts they created are kept.`,
+            `למחוק ${ids.length} טפסים ואת ${total.toLocaleString()} ההגשות שלהם? אנשי קשר שנוצרו יישמרו.`,
             async () => {
                 setBulkBusy(true);
                 const results = await Promise.allSettled(ids.map((id) => remove.mutateAsync(id)));
                 setBulkBusy(false);
                 const ok = results.filter((r) => r.status === "fulfilled").length;
-                if (ok === results.length) toast.success(`${ok} forms deleted`);
-                else toast.error(`${ok} of ${results.length} deleted; the rest failed`);
+                if (ok === results.length) toast.success(`${ok} טפסים נמחקו`);
+                else toast.error(`${ok} מתוך ${results.length} נמחקו; השאר נכשלו`);
                 setSelected([]);
             },
         );
@@ -240,21 +246,21 @@ function FormsList() {
 
     return (
         <Page>
-            <PageTopbar eyebrow="Forms" subtitle="Hosted lead-capture forms you can embed anywhere">
+            <PageTopbar eyebrow="טפסים" subtitle="טפסי לכידת לידים בהתאמה אישית שניתן להטמיע בכל אתר">
                 <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={guarded(createNew)}>
-                    New form
+                    טופס חדש
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={5}>
-                <Stat label="Forms" value={totals.forms} sub={`${totals.live} live`} />
-                <Stat label="Views" value={totals.views.toLocaleString()} sub="all time" />
-                <Stat label="Starts" value={totals.starts.toLocaleString()} sub="began filling" />
-                <Stat label="Submissions" value={totals.subs.toLocaleString()} sub="all time" accent={totals.subs > 0} />
-                <Stat label="Conversion" value={totals.conversion} sub="submissions / views" last />
+                <Stat label="טפסים" value={totals.forms} sub={`${totals.live} פעילים`} />
+                <Stat label="צפיות" value={totals.views.toLocaleString()} sub="בכל הזמנים" />
+                <Stat label="התחלות מילוי" value={totals.starts.toLocaleString()} sub="החלו למלא" />
+                <Stat label="הגשות" value={totals.subs.toLocaleString()} sub="בכל הזמנים" accent={totals.subs > 0} />
+                <Stat label="המרה" value={totals.conversion} sub="הגשות / צפיות" last />
             </StatStrip>
 
-            <SectionBar label="All forms" count={list.length}>
+            <SectionBar label="כל הטפסים" count={list.length}>
                 <div className="flex flex-wrap items-center gap-2">
                     <div className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5">
                         {STATUS_TABS.map((t) => (
@@ -269,7 +275,7 @@ function FormsList() {
                                 }`}
                             >
                                 {t.label}
-                                <span className={`ml-1 tabular-nums ${status === t.value ? "text-slate-400" : "text-slate-400/80"}`}>
+                                <span className={`ms-1 tabular-nums ${status === t.value ? "text-slate-400" : "text-slate-400/80"}`}>
                                     {statusCounts[t.value]}
                                 </span>
                             </button>
@@ -280,13 +286,13 @@ function FormsList() {
                             value={category}
                             onChange={setCategory}
                             options={[
-                                { value: "", label: "All categories" },
+                                { value: "", label: "כל הקטגוריות" },
                                 ...categories.map((c) => ({ value: c.id, label: c.title })),
                             ]}
-                            aria-label="Filter by category"
+                            aria-label="סינון לפי קטגוריה"
                         />
                     )}
-                    <SearchInput value={query} onChange={setQuery} placeholder="Search forms…" className="w-full sm:w-56" />
+                    <SearchInput value={query} onChange={setQuery} placeholder="חיפוש טפסים…" className="w-full sm:w-56" />
                 </div>
             </SectionBar>
 
@@ -298,22 +304,22 @@ function FormsList() {
                         ))}
                     </div>
                 ) : forms.isError ? (
-                    <EmptyBlock title="Couldn't load forms" body="Try again in a moment." />
+                    <EmptyBlock title="לא ניתן לטעון טפסים" body="נסה שוב בעוד רגע." />
                 ) : list.length === 0 ? (
                     (() => {
                         const filtered = Boolean(query) || status !== "all" || category !== "";
                         return (
                             <EmptyBlock
-                                title={filtered ? "No forms match" : "No forms yet"}
+                                title={filtered ? "לא נמצאו טפסים תואמים" : "אין טפסים עדיין"}
                                 body={
                                     filtered
-                                        ? "Try a different search or filter."
-                                        : "Build a form, style it to match your site, and every submission becomes a contact — filed under your categories and optionally dropped straight into a campaign."
+                                        ? "נסה חיפוש או סינון אחר."
+                                        : "בנה טופס, עצב אותו בהתאם למיתוג שלך, וכל הגשה תהפוך לאיש קשר – שיסווג לקטגוריות שלך ויוכל להיכנס ישירות לקמפיין."
                                 }
                                 cta={
                                     filtered ? undefined : (
                                         <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={guarded(createNew)}>
-                                            New form
+                                            טופס חדש
                                         </TopbarAction>
                                     )
                                 }
@@ -321,10 +327,10 @@ function FormsList() {
                         );
                     })()
                 ) : (
-                    <table className="w-full text-left">
+                    <table className="w-full text-start">
                         <thead className="sticky top-0 bg-white z-[1]">
                             <tr className="border-b border-slate-200">
-                                <th className="pl-5 pr-2 py-2 w-9">
+                                <th className="ps-5 pe-2 py-2 w-9">
                                     <input
                                         type="checkbox"
                                         className="w-3.5 h-3.5 rounded accent-sky-600"
@@ -332,15 +338,15 @@ function FormsList() {
                                         onChange={toggleAll}
                                     />
                                 </th>
-                                <SortTh label="Name" k="name" sort={sort} onSort={sortBy} className="max-w-0 w-full md:max-w-none md:w-auto" />
-                                <Th className="w-40 hidden lg:table-cell">Categories</Th>
-                                <Th className="w-24 hidden lg:table-cell">Trend</Th>
-                                <SortTh label="Views" k="views" sort={sort} onSort={sortBy} className="w-16 text-right" right />
-                                <SortTh label="Starts" k="starts" sort={sort} onSort={sortBy} className="w-16 text-right hidden md:table-cell" right />
-                                <SortTh label="Subs" k="submissions" sort={sort} onSort={sortBy} className="w-16 text-right" right />
-                                <SortTh label="Conv" k="conversion" sort={sort} onSort={sortBy} className="w-16 text-right hidden sm:table-cell" right />
-                                <SortTh label="Identified" k="identified" sort={sort} onSort={sortBy} className="w-20 text-right hidden md:table-cell" right />
-                                <SortTh label="Created" k="created" sort={sort} onSort={sortBy} className="w-24 hidden xl:table-cell" />
+                                <SortTh label="שם" k="name" sort={sort} onSort={sortBy} className="max-w-0 w-full md:max-w-none md:w-auto" />
+                                <Th className="w-40 hidden lg:table-cell">קטגוריות</Th>
+                                <Th className="w-24 hidden lg:table-cell">מגמה</Th>
+                                <SortTh label="צפיות" k="views" sort={sort} onSort={sortBy} className="w-16 text-end" right />
+                                <SortTh label="התחלות" k="starts" sort={sort} onSort={sortBy} className="w-16 text-end hidden md:table-cell" right />
+                                <SortTh label="הגשות" k="submissions" sort={sort} onSort={sortBy} className="w-16 text-end" right />
+                                <SortTh label="המרה" k="conversion" sort={sort} onSort={sortBy} className="w-16 text-end hidden sm:table-cell" right />
+                                <SortTh label="מזוהים" k="identified" sort={sort} onSort={sortBy} className="w-20 text-end hidden md:table-cell" right />
+                                <SortTh label="נוצר" k="created" sort={sort} onSort={sortBy} className="w-24 hidden xl:table-cell" />
                                 <th className="w-12" />
                             </tr>
                         </thead>
@@ -355,7 +361,7 @@ function FormsList() {
                                             isSel ? "bg-sky-50/60 hover:bg-sky-50/80" : "hover:bg-slate-50/80"
                                         }`}
                                     >
-                                        <td className="pl-5 pr-2" onClick={(e) => e.stopPropagation()}>
+                                        <td className="ps-5 pe-2" onClick={(e) => e.stopPropagation()}>
                                             <input
                                                 type="checkbox"
                                                 className="w-3.5 h-3.5 rounded accent-sky-600"
@@ -372,11 +378,11 @@ function FormsList() {
                                                     <div className="text-[12.5px] font-medium text-slate-900 truncate leading-tight flex items-center gap-1.5">
                                                         <span className="truncate">{f.name}</span>
                                                         <span className={`inline-flex items-center h-4 px-1.5 rounded text-[10px] font-medium shrink-0 ${STATUS_PILL[f.status]}`}>
-                                                            {f.status}
+                                                            {STATUS_LABELS[f.status]}
                                                         </span>
                                                     </div>
                                                     <div className="text-[11px] text-slate-500 truncate">
-                                                        Last submission {timeAgo(f.last_submission_at)}
+                                                        הגשה אחרונה {timeAgo(f.last_submission_at)}
                                                     </div>
                                                 </div>
                                             </div>
@@ -405,45 +411,45 @@ function FormsList() {
                                         <td className="px-3 text-[12px] text-slate-500 whitespace-nowrap hidden xl:table-cell">
                                             {timeAgo(f.created_at)}
                                         </td>
-                                        <td className="pr-3" onClick={(e) => e.stopPropagation()}>
+                                        <td className="pe-3" onClick={(e) => e.stopPropagation()}>
                                             <PopoverMenu align="end">
                                                 <PopoverMenuTrigger asChild>
                                                     <button
                                                         type="button"
-                                                        aria-label="More"
+                                                        aria-label="עוד"
                                                         className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                                                     >
                                                         <MoreHorizontalIcon className="w-3.5 h-3.5" />
                                                     </button>
                                                 </PopoverMenuTrigger>
                                                 <PopoverMenuContent minWidth={190}>
-                                                    <PopoverMenuItem onSelect={() => navigate(`/app/forms/${f.id}`)}>Open builder</PopoverMenuItem>
+                                                    <PopoverMenuItem onSelect={() => navigate(`/app/forms/${f.id}`)}>פתח בעורך</PopoverMenuItem>
                                                     <PopoverMenuItem onSelect={() => navigate(`/app/forms/${f.id}?tab=analytics`)}>
-                                                        View analytics
+                                                        צפה בניתוח נתונים
                                                     </PopoverMenuItem>
                                                     <PopoverMenuItem onSelect={() => navigate(`/app/forms/${f.id}?tab=submissions`)}>
-                                                        View submissions
+                                                        צפה בהגשות
                                                     </PopoverMenuItem>
                                                     {f.status === "published" && (
                                                         <PopoverMenuItem onSelect={() => void copyLink(f)}>
                                                             <span className="inline-flex items-center gap-1.5">
-                                                                <LinkIcon className="w-3 h-3" /> Copy link
+                                                                <LinkIcon className="w-3 h-3" /> העתק קישור
                                                             </span>
                                                         </PopoverMenuItem>
                                                     )}
                                                     <PopoverMenuSeparator />
                                                     {f.status !== "published" && (
-                                                        <PopoverMenuItem onSelect={guarded(() => void setStatus(f, "published"))}>Publish</PopoverMenuItem>
+                                                        <PopoverMenuItem onSelect={guarded(() => void setStatus(f, "published"))}>פרסם</PopoverMenuItem>
                                                     )}
                                                     {f.status === "published" && (
-                                                        <PopoverMenuItem onSelect={guarded(() => void setStatus(f, "draft"))}>Unpublish</PopoverMenuItem>
+                                                        <PopoverMenuItem onSelect={guarded(() => void setStatus(f, "draft"))}>בטל פרסום</PopoverMenuItem>
                                                     )}
                                                     {f.status !== "archived" && (
-                                                        <PopoverMenuItem onSelect={guarded(() => void setStatus(f, "archived"))}>Archive</PopoverMenuItem>
+                                                        <PopoverMenuItem onSelect={guarded(() => void setStatus(f, "archived"))}>העבר לארכיון</PopoverMenuItem>
                                                     )}
-                                                    <PopoverMenuItem onSelect={guarded(() => void duplicate(f))}>Duplicate</PopoverMenuItem>
+                                                    <PopoverMenuItem onSelect={guarded(() => void duplicate(f))}>שכפל</PopoverMenuItem>
                                                     <PopoverMenuSeparator />
-                                                    <PopoverMenuItem onSelect={guarded(() => askDelete(f))}>Delete</PopoverMenuItem>
+                                                    <PopoverMenuItem onSelect={guarded(() => askDelete(f))}>מחק</PopoverMenuItem>
                                                 </PopoverMenuContent>
                                             </PopoverMenu>
                                         </td>
@@ -459,23 +465,23 @@ function FormsList() {
                 <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center max-w-[calc(100vw-16px)] flex-wrap justify-center md:max-w-none md:flex-nowrap gap-1.5 rounded-md border border-slate-200 bg-white shadow-[0_6px_20px_-4px_rgba(15,23,42,0.12),0_2px_4px_rgba(15,23,42,0.04)] px-2 py-1.5">
                     <div className="inline-flex items-center gap-1.5 px-2 h-7 rounded bg-sky-50 text-sky-700 text-[12px] font-medium">
                         <CheckIcon className="w-3 h-3" />
-                        <span>{selected.length} selected</span>
+                        <span>{selected.length} נבחרו</span>
                     </div>
                     <BarButton disabled={bulkBusy} onClick={guarded(() => void bulkStatus("published", "published"))}>
-                        Publish
+                        פרסם
                     </BarButton>
                     <BarButton disabled={bulkBusy} onClick={guarded(() => void bulkStatus("draft", "unpublished"))}>
-                        Unpublish
+                        בטל פרסום
                     </BarButton>
                     <BarButton disabled={bulkBusy} onClick={guarded(() => void bulkStatus("archived", "archived"))}>
-                        Archive
+                        העבר לארכיון
                     </BarButton>
                     <BarButton danger disabled={bulkBusy} onClick={guarded(bulkDelete)}>
-                        {bulkBusy ? <Loader2Icon className="w-3 h-3 animate-spin" /> : "Delete"}
+                        {bulkBusy ? <Loader2Icon className="w-3 h-3 animate-spin" /> : "מחק"}
                     </BarButton>
                     <button
                         type="button"
-                        aria-label="Clear selection"
+                        aria-label="נקה בחירה"
                         onClick={() => setSelected([])}
                         className="size-7 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center"
                     >
@@ -552,7 +558,7 @@ function SortTh({
 
 function NumTd({ children, muted = false, className }: { children: React.ReactNode; muted?: boolean; className?: string }) {
     return (
-        <td className={`px-3 text-right font-mono text-[12px] tabular-nums whitespace-nowrap ${muted ? "text-slate-500" : "text-slate-900"} ${className ?? ""}`}>
+        <td className={`px-3 text-end font-mono text-[12px] tabular-nums whitespace-nowrap ${muted ? "text-slate-500" : "text-slate-900"} ${className ?? ""}`}>
             {children}
         </td>
     );

@@ -165,10 +165,10 @@ export function hasOptions(t: FormFieldType): boolean {
 }
 
 export const FORM_CONTACT_COLUMNS: { value: string; label: string }[] = [
-    { value: "", label: "Custom field (by label)" },
-    { value: "first_name", label: "First name" },
-    { value: "last_name", label: "Last name" },
-    { value: "email", label: "Email" },
-    { value: "company", label: "Company" },
-    { value: "phone", label: "Phone" },
+    { value: "", label: "שדה מותאם אישית (לפי תווית)" },
+    { value: "first_name", label: "שם פרטי" },
+    { value: "last_name", label: "שם משפחה" },
+    { value: "email", label: "אימייל" },
+    { value: "company", label: "חברה" },
+    { value: "phone", label: "טלפון" },
 ];

@@ -29,36 +29,36 @@ export interface PaletteItem {
 }
 
 export const PALETTE: PaletteItem[] = [
-    { type: "text", label: "Text", icon: TypeIcon, group: "Fields" },
-    { type: "email", label: "Email", icon: AtSignIcon, group: "Fields" },
-    { type: "phone", label: "Phone", icon: PhoneIcon, group: "Fields" },
-    { type: "textarea", label: "Long text", icon: AlignLeftIcon, group: "Fields" },
-    { type: "number", label: "Number", icon: HashIcon, group: "Fields" },
-    { type: "select", label: "Dropdown", icon: ChevronDownSquareIcon, group: "Fields" },
-    { type: "radio", label: "Radio buttons", icon: CircleDotIcon, group: "Fields" },
-    { type: "checkboxes", label: "Checkbox group", icon: ListChecksIcon, group: "Fields" },
-    { type: "checkbox", label: "Single checkbox", icon: CheckSquareIcon, group: "Fields" },
-    { type: "date", label: "Date", icon: CalendarIcon, group: "Fields" },
-    { type: "hidden", label: "Hidden field", icon: EyeOffIcon, group: "Fields" },
-    { type: "heading", label: "Heading", icon: HeadingIcon, group: "Layout" },
-    { type: "paragraph", label: "Text block", icon: TextIcon, group: "Layout" },
-    { type: "divider", label: "Divider", icon: MinusIcon, group: "Layout" },
-    { type: "page_break", label: "Page break", icon: SeparatorHorizontalIcon, group: "Layout" },
+    { type: "text", label: "טקסט", icon: TypeIcon, group: "Fields" },
+    { type: "email", label: "אימייל", icon: AtSignIcon, group: "Fields" },
+    { type: "phone", label: "טלפון", icon: PhoneIcon, group: "Fields" },
+    { type: "textarea", label: "טקסט ארוך", icon: AlignLeftIcon, group: "Fields" },
+    { type: "number", label: "מספר", icon: HashIcon, group: "Fields" },
+    { type: "select", label: "תפריט בחירה", icon: ChevronDownSquareIcon, group: "Fields" },
+    { type: "radio", label: "כפתורי בחירה (רדיו)", icon: CircleDotIcon, group: "Fields" },
+    { type: "checkboxes", label: "קבוצת תיבות סימון", icon: ListChecksIcon, group: "Fields" },
+    { type: "checkbox", label: "תיבת סימון בודדת", icon: CheckSquareIcon, group: "Fields" },
+    { type: "date", label: "תאריך", icon: CalendarIcon, group: "Fields" },
+    { type: "hidden", label: "שדה מוסתר", icon: EyeOffIcon, group: "Fields" },
+    { type: "heading", label: "כותרת", icon: HeadingIcon, group: "Layout" },
+    { type: "paragraph", label: "בלוק טקסט", icon: TextIcon, group: "Layout" },
+    { type: "divider", label: "קו מפריד", icon: MinusIcon, group: "Layout" },
+    { type: "page_break", label: "מעבר עמוד", icon: SeparatorHorizontalIcon, group: "Layout" },
 ];
 
 const DEFAULT_LABELS: Partial<Record<FormFieldType, string>> = {
-    text: "Text",
-    email: "Email",
-    phone: "Phone",
-    textarea: "Message",
-    number: "Number",
-    select: "Pick one",
-    radio: "Pick one",
-    checkboxes: "Pick any",
-    checkbox: "Checkbox",
-    date: "Date",
-    hidden: "Hidden field",
-    heading: "Heading",
+    text: "טקסט",
+    email: "אימייל",
+    phone: "טלפון",
+    textarea: "הודעה",
+    number: "מספר",
+    select: "בחר אפשרות",
+    radio: "בחר אפשרות",
+    checkboxes: "בחר אפשרויות",
+    checkbox: "תיבת סימון",
+    date: "תאריך",
+    hidden: "שדה מוסתר",
+    heading: "כותרת",
 };
 
 let counter = 0;
@@ -68,10 +68,10 @@ export function newField(type: FormFieldType): FormField {
     counter += 1;
     const id = `${type.replace(/[^a-z0-9]/g, "")}-${Date.now().toString(36)}${counter.toString(36)}`;
     const f: FormField = { id, type, label: DEFAULT_LABELS[type] ?? "", required: false };
-    if (type === "select" || type === "radio" || type === "checkboxes") f.options = ["Option 1", "Option 2"];
+    if (type === "select" || type === "radio" || type === "checkboxes") f.options = ["אפשרות 1", "אפשרות 2"];
     if (type === "email") f.map_to = "email";
-    if (type === "paragraph") f.value = "Write something…";
-    if (type === "checkbox") f.placeholder = "I agree";
+    if (type === "paragraph") f.value = "כתוב משהו כאן…";
+    if (type === "checkbox") f.placeholder = "אני מסכים/ה לתנאים";
     if (type === "textarea") f.rows = 4;
     return f;
 }

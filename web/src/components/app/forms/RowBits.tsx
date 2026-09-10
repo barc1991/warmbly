@@ -40,7 +40,7 @@ export function StatusPill({ completed }: { completed: boolean }) {
             }`}
         >
             <span className={`w-1.5 h-1.5 rounded-full ${completed ? "bg-emerald-500" : "bg-amber-500"}`} />
-            {completed ? "Completed" : "In progress"}
+            {completed ? "הושלם" : "בתהליך"}
         </span>
     );
 }

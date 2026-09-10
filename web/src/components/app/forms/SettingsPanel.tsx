@@ -53,11 +53,11 @@ export default function SettingsPanel({
     return (
         <div className="px-4 lg:px-6 py-5 divide-y divide-slate-200/60">
             <Section
-                title="After submission"
-                description="What the visitor sees the moment they finish the form."
+                title="לאחר הגשה"
+                description="מה שהמבקר רואה ברגע סיום מילוי הטופס."
             >
                 <div className="xl:col-span-2">
-                    <Label>Success message</Label>
+                    <Label>הודעת הצלחה</Label>
                     <textarea
                         value={draft.success_message}
                         onChange={(e) => onChange({ success_message: e.target.value })}
@@ -66,59 +66,58 @@ export default function SettingsPanel({
                     />
                 </div>
                 <div>
-                    <Label>Redirect URL</Label>
+                    <Label>כתובת URL להפניה</Label>
                     <TextInput
                         value={draft.redirect_url}
                         onChange={(v) => onChange({ redirect_url: v })}
-                        placeholder="https://example.com/thanks (optional)"
+                        placeholder="https://example.com/thanks (אופציונלי)"
                     />
                     <p className="text-[11px] text-slate-500 mt-1">
-                        Leave empty to show the success message instead.
+                        השאר ריק כדי להציג את הודעת ההצלחה במקום זאת.
                     </p>
                 </div>
             </Section>
 
             <Section
-                title="Lead capture"
-                description="Where a submitted contact lands in your workspace."
+                title="קליטת לידים"
+                description="היכן איש קשר שהוגש נקלט בסביבת העבודה שלך."
             >
                 <div>
-                    <Label>Add to categories</Label>
+                    <Label>הוסף לקטגוריות</Label>
                     <CategoryPicker
                         value={draft.category_ids}
                         onChange={(next) => onChange({ category_ids: next })}
-                        placeholder="Pick categories, e.g. Website leads"
+                        placeholder="בחר קטגוריות, למשל לידים מהאתר"
                     />
-                    <p className="text-[11px] text-slate-500 mt-1">Every submitted contact is filed under these.</p>
+                    <p className="text-[11px] text-slate-500 mt-1">כל איש קשר שמוגש יתוייג תחת קטגוריות אלו.</p>
                 </div>
                 <div>
-                    <Label>Add to campaign</Label>
+                    <Label>הוסף לקמפיין</Label>
                     <SelectMenu
                         value={draft.campaign_id ?? ""}
                         onChange={(v) => onChange({ campaign_id: v === "" ? null : v })}
                         options={[
-                            { value: "", label: "None" },
+                            { value: "", label: "ללא" },
                             ...(campaigns.campaigns ?? []).map((c) => ({ value: c.id, label: c.name })),
                         ]}
                         fullWidth
-                        aria-label="Campaign"
+                        aria-label="קמפיין"
                     />
                     <p className="text-[11px] text-slate-500 mt-1">
-                        New contacts join this campaign as leads. Sending still follows the campaign's own schedule and
-                        limits. The campaign keeps running for new leads instead of finishing between submissions.
+                        אנשי קשר חדשים יצטרפו לקמפיין זה כלידים. השליחה ממשיכה לפעול לפי לוח הזמנים והמגבלות של הקמפיין.
                     </p>
                 </div>
             </Section>
 
             <Section
-                title="Spam protection"
-                description="Every form already has a honeypot trap, a minimum fill time and per-address rate limits."
+                title="הגנה מפני ספאם"
+                description="כל טופס כבר כולל מלכודת honeypot, זמן מילוי מינימלי והגבלת קצב שליחה לפי כתובת."
             >
                 {captchaAvailable ? (
                     <div className="col-span-full">
-                            <SettingRow
-                            title="Captcha challenge"
-                            description="Ask visitors to pass a Cloudflare Turnstile check before submitting."
+                        <SettingRow
+                            title="אימות Captcha"
+                            description="דרוש מהמבקרים לעבור בדיקת Cloudflare Turnstile לפני ההגשה."
                         >
                             <Toggle
                                 value={draft.captcha_enabled}
@@ -128,18 +127,18 @@ export default function SettingsPanel({
                     </div>
                 ) : (
                     <p className="col-span-full text-[11.5px] text-slate-500 rounded-md bg-slate-50 border border-slate-200 px-3 py-2 max-w-3xl">
-                        A captcha challenge becomes available once the operator configures Cloudflare Turnstile
-                        (TURNSTILE_SECRET and TURNSTILE_SITE_KEY).
+                        בדיקת Captcha תהיה זמינה לאחר שהמפעיל יגדיר את Cloudflare Turnstile
+                        (TURNSTILE_SECRET ו-TURNSTILE_SITE_KEY).
                     </p>
                 )}
             </Section>
 
             <Section
-                title="Embedding"
-                description="Which sites may host this form. Leave empty to allow any site."
+                title="הטמעה באתרים"
+                description="אילו אתרים רשאים לארח טופס זה. השאר ריק כדי לאפשר הטמעה בכל אתר."
             >
                 <div className="xl:col-span-2">
-                    <Label>Allowed domains</Label>
+                    <Label>דומיינים מורשים</Label>
                     <div className="flex items-center gap-1.5 max-w-md">
                         <TextInput
                             value={domainInput}
@@ -156,10 +155,10 @@ export default function SettingsPanel({
                         <button
                             type="button"
                             onClick={addDomain}
-                            aria-label="Add domain"
+                            aria-label="הוסף דומיין"
                             className="h-7 px-2 inline-flex items-center gap-1 rounded-md border border-slate-200 text-[12px] text-slate-600 hover:bg-slate-50 shrink-0"
                         >
-                            <PlusIcon className="w-3 h-3" /> Add
+                            <PlusIcon className="w-3 h-3" /> הוסף
                         </button>
                     </div>
                     {draft.allowed_domains.length > 0 && (
@@ -167,16 +166,16 @@ export default function SettingsPanel({
                             {draft.allowed_domains.map((d) => (
                                 <span
                                     key={d}
-                                    className="inline-flex items-center gap-1 h-5 pl-2 pr-1 rounded bg-sky-50 text-sky-700 text-[11px]"
+                                    className="inline-flex items-center gap-1 h-5 ps-2 pe-1 rounded bg-sky-50 text-sky-700 text-[11px]"
                                 >
                                     {d}
                                     <button
                                         type="button"
-                                        aria-label={`Remove ${d}`}
+                                        aria-label={`הסר ${d}`}
                                         onClick={() =>
                                             onChange({
                                                 allowed_domains: draft.allowed_domains.filter((x) => x !== d),
-                                            })
+                                             })
                                         }
                                         className="size-4 inline-flex items-center justify-center rounded hover:bg-sky-100"
                                     >
@@ -187,7 +186,7 @@ export default function SettingsPanel({
                         </div>
                     )}
                     <p className="text-[11px] text-slate-500 mt-1.5">
-                        With domains listed, only those sites and their subdomains can embed the form.
+                        כאשר מוגדרים דומיינים, רק אתרים אלו ותת-הדומיינים שלהם יוכלו להטמיע את הטופס.
                     </p>
                 </div>
             </Section>

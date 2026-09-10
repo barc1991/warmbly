@@ -40,7 +40,7 @@ export default function FieldSettingsPanel({
 
             {field.type === "paragraph" ? (
                 <div>
-                    <Label>Text</Label>
+                    <Label>טקסט</Label>
                     <textarea
                         value={field.value ?? ""}
                         onChange={(e) => onChange({ value: e.target.value })}
@@ -50,53 +50,52 @@ export default function FieldSettingsPanel({
                 </div>
             ) : field.type === "page_break" ? (
                 <div>
-                    <Label>Page title</Label>
-                    <TextInput value={field.label} onChange={(v) => onChange({ label: v })} placeholder="Optional" />
+                    <Label>כותרת עמוד</Label>
+                    <TextInput value={field.label} onChange={(v) => onChange({ label: v })} placeholder="אופציונלי" />
                     <p className="text-[11px] text-slate-500 mt-1">
-                        Fields after this break start a new page. The title labels it on the progress bar and in
-                        analytics.
+                        שדות אחרי מעבר זה יתחילו עמוד חדש. הכותרת מופיעה בסרגל ההתקדמות ובניתוח הנתונים.
                     </p>
                 </div>
             ) : field.type !== "divider" ? (
                 <div>
-                    <Label>{field.type === "heading" ? "Heading" : "Label"}</Label>
-                    <TextInput value={field.label} onChange={(v) => onChange({ label: v })} placeholder="Label" />
+                    <Label>{field.type === "heading" ? "כותרת" : "תווית"}</Label>
+                    <TextInput value={field.label} onChange={(v) => onChange({ label: v })} placeholder="תווית" />
                 </div>
             ) : (
-                <p className="text-[11.5px] text-slate-500">A horizontal rule. Nothing to configure.</p>
+                <p className="text-[11.5px] text-slate-500">קו אופקי מפריד. אין הגדרות לשינוי.</p>
             )}
 
             {input && field.type !== "hidden" && field.type !== "checkbox" && field.type !== "date" && (
                 <div>
-                    <Label>Placeholder</Label>
+                    <Label>טקסט מציין מקום (Placeholder)</Label>
                     <TextInput
                         value={field.placeholder ?? ""}
                         onChange={(v) => onChange({ placeholder: v })}
-                        placeholder={field.type === "select" ? "Select…" : "Shown inside the field"}
+                        placeholder={field.type === "select" ? "בחר…" : "מוצג בתוך השדה"}
                     />
                 </div>
             )}
 
             {field.type === "checkbox" && (
                 <div>
-                    <Label>Checkbox text</Label>
-                    <TextInput value={field.placeholder ?? ""} onChange={(v) => onChange({ placeholder: v })} placeholder="I agree" />
+                    <Label>טקסט תיבת הסימון</Label>
+                    <TextInput value={field.placeholder ?? ""} onChange={(v) => onChange({ placeholder: v })} placeholder="אני מסכים/ה לתנאים" />
                 </div>
             )}
 
             {field.type === "hidden" && (
                 <div>
-                    <Label>Value</Label>
-                    <TextInput value={field.value ?? ""} onChange={(v) => onChange({ value: v })} placeholder="Constant sent with every submission" />
+                    <Label>ערך קבוע</Label>
+                    <TextInput value={field.value ?? ""} onChange={(v) => onChange({ value: v })} placeholder="ערך קבוע שנשלח עם כל הגשה" />
                     <p className="text-[11px] text-slate-500 mt-1">
-                        Invisible to visitors. Useful for tagging the page or campaign a form sits on.
+                        בלתי נראה למבקרים. שימושי לתיוג העמוד או הקמפיין שבו הטופס נמצא.
                     </p>
                 </div>
             )}
 
             {hasOptions(field.type) && (
                 <div>
-                    <Label>Options</Label>
+                    <Label>אפשרויות</Label>
                     <div className="flex flex-col gap-1.5">
                         {(field.options ?? []).map((opt, i) => (
                             <div key={i} className="flex items-center gap-1.5">
@@ -111,7 +110,7 @@ export default function FieldSettingsPanel({
                                 />
                                 <button
                                     type="button"
-                                    aria-label="Remove option"
+                                    aria-label="הסר אפשרות"
                                     disabled={(field.options ?? []).length <= 1}
                                     onClick={() => onChange({ options: (field.options ?? []).filter((_, j) => j !== i) })}
                                     className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40"
@@ -122,10 +121,10 @@ export default function FieldSettingsPanel({
                         ))}
                         <button
                             type="button"
-                            onClick={() => onChange({ options: [...(field.options ?? []), `Option ${(field.options?.length ?? 0) + 1}`] })}
+                            onClick={() => onChange({ options: [...(field.options ?? []), `אפשרות ${(field.options?.length ?? 0) + 1}`] })}
                             className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-[12px] text-sky-700 hover:bg-sky-50 self-start"
                         >
-                            <PlusIcon className="w-3 h-3" /> Add option
+                            <PlusIcon className="w-3 h-3" /> הוסף אפשרות
                         </button>
                     </div>
                 </div>
@@ -133,33 +132,33 @@ export default function FieldSettingsPanel({
 
             {input && field.type !== "hidden" && (
                 <div>
-                    <Label>Help text</Label>
-                    <TextInput value={field.help_text ?? ""} onChange={(v) => onChange({ help_text: v })} placeholder="Shown under the field" />
+                    <Label>טקסט עזרה</Label>
+                    <TextInput value={field.help_text ?? ""} onChange={(v) => onChange({ help_text: v })} placeholder="מוצג מתחת לשדה" />
                 </div>
             )}
 
             {field.type === "textarea" && (
                 <div>
-                    <Label>Rows</Label>
+                    <Label>מספר שורות</Label>
                     <NumberInput value={field.rows ?? 4} onChange={(v) => onChange({ rows: v })} min={2} max={20} className="w-24" />
                 </div>
             )}
 
             {input && field.type !== "hidden" && (
-                <SettingRow title="Required" description="Visitors cannot submit without answering.">
+                <SettingRow title="שדה חובה" description="מבקרים אינם יכולים להגיש את הטופס ללא מילוי שדה זה.">
                     <Toggle value={field.required} onChange={(v) => onChange({ required: v })} />
                 </SettingRow>
             )}
 
             {input && field.type !== "hidden" && (
                 <div>
-                    <Label>Width</Label>
+                    <Label>רוחב השדה</Label>
                     <Segmented
                         value={field.width === "half" ? "half" : "full"}
                         onChange={(v) => onChange({ width: v })}
                         options={[
-                            { value: "full", label: "Full" },
-                            { value: "half", label: "Half" },
+                            { value: "full", label: "מלא" },
+                            { value: "half", label: "חצי" },
                         ]}
                     />
                 </div>
@@ -167,21 +166,21 @@ export default function FieldSettingsPanel({
 
             {input && (
                 <div>
-                    <Label>Saves to contact</Label>
+                    <Label>שמירה לאיש קשר</Label>
                     <SelectMenu
                         value={field.type === "email" ? "email" : field.map_to ?? ""}
                         onChange={(v) => onChange({ map_to: v })}
                         options={mapOptions}
                         disabled={field.type === "email"}
                         fullWidth
-                        aria-label="Contact column"
+                        aria-label="עמודת איש קשר"
                     />
                     <p className="text-[11px] text-slate-500 mt-1">
                         {field.type === "email"
-                            ? "The email field always fills the contact's email."
+                            ? "שדה האימייל תמיד ממלא את כתובת האימייל של איש הקשר."
                             : field.map_to
-                              ? "The answer fills this contact column."
-                              : "The answer is stored as a contact custom field named after the label."}
+                              ? "התשובה תמלא עמודה זו בכרטיס איש הקשר."
+                              : "התשובה תישמר כשדה מותאם אישית של איש הקשר הנושא את שם התווית."}
                     </p>
                 </div>
             )}

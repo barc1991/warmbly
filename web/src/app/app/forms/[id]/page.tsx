@@ -15,7 +15,7 @@ export default function FormBuilderPage() {
     const { id } = useParams<{ id: string }>();
     const form = useForm(canView ? id : undefined);
 
-    if (!canView) return <NoAccess feature="forms" permissionLabel="View contacts" />;
+    if (!canView) return <NoAccess feature="forms" permissionLabel="צפייה באנשי קשר" />;
 
     if (form.isPending) {
         return (
@@ -26,7 +26,7 @@ export default function FormBuilderPage() {
         );
     }
     if (form.isError || !form.data) {
-        return <EmptyBlock title="Form not found" body="It may have been deleted by a teammate." />;
+        return <EmptyBlock title="הטופס לא נמצא" body="יתכן שהוא נמחק על ידי חבר צוות." />;
     }
     return <FormBuilder key={form.data.id} form={form.data} />;
 }
