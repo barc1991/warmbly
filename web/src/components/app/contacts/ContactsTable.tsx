@@ -166,7 +166,7 @@ export default function ContactsTable({
 
     function saveAsSegment(draft: SearchContacts) {
         const { conditions, dropped } = filtersToSegment(draft, current_campaign?.id);
-        if (dropped.length > 0) toast(`Not carried over: ${dropped.join(", ")}. Add a condition for it in the editor.`);
+        if (dropped.length > 0) toast(`לא הועבר: ${dropped.join(", ")}. הוסף תנאי עבורו בעורך.`);
         setSegmentPreset({ conditions });
     }
     // Half-filled custom-field pills stay in the bar but never reach the server.
@@ -203,7 +203,7 @@ export default function ContactsTable({
         if (!segment || selectionCount === 0 || segmentMembers.isPending) return;
         try {
             const removed = await segmentMembers.mutateAsync({ id: segment.id, selection, mode: "exclude" });
-            toast.success(`Removed ${removed.toLocaleString()} contact${removed === 1 ? "" : "s"} from ${segment.name}`);
+            toast.success(`הוסרו ${removed.toLocaleString()} אנשי קשר מ-${segment.name}`);
             clearSelection();
         } catch (err) {
             toast.error(buildError(err as AppError));
@@ -225,7 +225,7 @@ export default function ContactsTable({
         const held = links.reduce((n, l) => n + l.held_out_count, 0);
         const names = links.map((l) => l.name).join(", ");
         confirm?.show(
-            `Add the ${held.toLocaleString()} held-out member${held === 1 ? "" : "s"} of ${names} back to this campaign? Every current member of ${links.length === 1 ? "the segment" : "these segments"} becomes a lead again, including the ones removed by hand.`,
+            `להחזיר ${held.toLocaleString()} חברים מ-${names} לקמפיין זה? כל חבר נוכחי ב${links.length === 1 ? "מקטע" : "מקטעים אלה"} יחזור להיות ליד, כולל אלו שהוסרו ידנית.`,
             async () => {
                 let added = 0;
                 try {
@@ -233,7 +233,7 @@ export default function ContactsTable({
                         const res = await reenrol.mutateAsync({ id: l.segment_id, campaignId: current_campaign.id });
                         added += res.added;
                     }
-                    toast.success(`Added ${added.toLocaleString()} lead${added === 1 ? "" : "s"} back`);
+                    toast.success(`הוחזרו ${added.toLocaleString()} לידים לקמפיין`);
                 } catch (err) {
                     toast.error(buildError(err as AppError));
                 }
@@ -273,7 +273,7 @@ export default function ContactsTable({
                 fields: [],
             });
             const n = updated.length || count;
-            toast.success(`Removed ${n.toLocaleString()} lead${n === 1 ? "" : "s"} from ${current_campaign.name}`);
+            toast.success(`הוסרו ${n.toLocaleString()} לידים מ-${current_campaign.name}`);
             clearSelection();
         } catch (err) {
             toast.error(buildError(err as AppError));
@@ -299,21 +299,21 @@ export default function ContactsTable({
         // The push is a live call per contact against the CRM, so the server
         // caps it; say so here instead of letting the request fail.
         if (selectionCount > MAX_CRM_PUSH) {
-            toast.error(`Push to CRM takes up to ${MAX_CRM_PUSH.toLocaleString()} contacts at a time. Narrow the selection and try again.`);
+            toast.error(`דחיפה ל-CRM תומכת בעד ${MAX_CRM_PUSH.toLocaleString()} אנשי קשר בכל פעם. צמצם את הבחירה ונסה שוב.`);
             return;
         }
-        const t = toast.loading(`Pushing ${selectionCount.toLocaleString()} to ${providerLabel}…`);
+        const t = toast.loading(`דוחף ${selectionCount.toLocaleString()} אל ${providerLabel}...`);
         try {
             const res = await pushContacts.mutateAsync({ connectionId, ...selection });
             if (res.pushed === 0) {
                 toast.error(
-                    `Couldn't push to ${providerLabel}${res.failed ? ` (${res.failed} failed)` : ""}`,
+                    `לא ניתן היה לדחוף אל ${providerLabel}${res.failed ? ` (${res.failed} נכשלו)` : ""}`,
                     { id: t },
                 );
             } else if (res.failed > 0) {
-                toast.success(`Pushed ${res.pushed} to ${providerLabel}, ${res.failed} failed`, { id: t });
+                toast.success(`נדחפו ${res.pushed} אל ${providerLabel}, ${res.failed} נכשלו`, { id: t });
             } else {
-                toast.success(`Pushed ${res.pushed} to ${providerLabel}`, { id: t });
+                toast.success(`נדחפו ${res.pushed} אל ${providerLabel}`, { id: t });
             }
         } catch (err) {
             toast.error(buildError(err as AppError), { id: t });
@@ -371,8 +371,8 @@ export default function ContactsTable({
             try {
                 setDelete(true);
                 await toast.promise(contactsBulkDelete.mutateAsync(target), {
-                    loading: `Deleting ${count.toLocaleString()} ${count === 1 ? "contact" : "contacts"}…`,
-                    success: count === 1 ? "Contact deleted" : "Contacts deleted",
+                    loading: `מוחק ${count.toLocaleString()} אנשי קשר...`,
+                    success: count === 1 ? "איש הקשר נמחק" : "אנשי הקשר נמחקו",
                     error: (err: AppError) => buildError(err),
                 });
                 clearSelection();
@@ -392,14 +392,14 @@ export default function ContactsTable({
     function bulkResearch() {
         if (selectionCount === 0) return;
         confirm?.show(
-            `Research ${selectionCount.toLocaleString()} ${selectionCount === 1 ? "contact" : "contacts"}? ${
+            `לבצע מחקר עבור ${selectionCount.toLocaleString()} אנשי קשר? ${
                 metered
-                    ? `This uses up to ${(selectionCount * 2).toLocaleString()} AI credits and runs`
-                    : "This runs"
-            } in the background.`,
+                    ? `פעולה זו צורכת עד ${(selectionCount * 2).toLocaleString()} נקודות זכות של AI ותרוץ`
+                    : "פעולה זו תרוץ"
+            } ברקע.`,
             async () => {
                 const res = await batchResearch.mutateAsync({ selection, objective: "" });
-                toast.success(`Queued research for ${res.queued.toLocaleString()} contacts`);
+                toast.success(`מחקר הוכנס לתור עבור ${res.queued.toLocaleString()} אנשי קשר`);
                 clearSelection();
             },
         );
@@ -411,12 +411,12 @@ export default function ContactsTable({
     function bulkVerify() {
         if (selectionCount === 0) return;
         confirm?.show(
-            `Re-verify ${selectionCount.toLocaleString()} ${selectionCount === 1 ? "address" : "addresses"}? Verdicts land in the background${
-                selectionCount > 50 ? " over the next few minutes" : ""
+            `לאמת מחדש ${selectionCount.toLocaleString()} כתובות? התוצאות יתקבלו ברקע${
+                selectionCount > 50 ? " במהלך הדקות הקרובות" : ""
             }.`,
             async () => {
                 const res = await verification.mutateAsync({ ...selection, action: "verify" });
-                toast.success(`Re-checking ${res.affected.toLocaleString()} ${res.affected === 1 ? "address" : "addresses"}`);
+                toast.success(`בודק מחדש ${res.affected.toLocaleString()} כתובות`);
                 clearSelection();
             },
         );
@@ -424,10 +424,10 @@ export default function ContactsTable({
     function bulkMarkDeliverable() {
         if (selectionCount === 0) return;
         confirm?.show(
-            `Mark ${selectionCount.toLocaleString()} ${selectionCount === 1 ? "address" : "addresses"} deliverable? Campaigns will send to them even if verification refused them. Use this for a list you verified elsewhere.`,
+            `לסמן ${selectionCount.toLocaleString()} כתובות כניתנות למסירה? קמפיינים ישלחו אליהן גם אם האימות דחה אותן. השתמש בזה עבור רשימה שאומתה במקום אחר.`,
             async () => {
                 const res = await verification.mutateAsync({ ...selection, action: "mark_deliverable" });
-                toast.success(`${res.affected.toLocaleString()} marked deliverable`);
+                toast.success(`${res.affected.toLocaleString()} סומנו כניתנות למסירה`);
                 clearSelection();
             },
         );
@@ -472,7 +472,7 @@ export default function ContactsTable({
             onToggleAll={toggleAll}
             banner={
                 <SelectAllBanner
-                    noun={current_campaign ? "lead" : segment ? "member" : "contact"}
+                    noun={current_campaign ? "ליד" : segment ? "חבר" : "איש קשר"}
                     selectAll={rowSel.all}
                     count={selectionCount}
                     loadedCount={rows.length}
@@ -484,7 +484,7 @@ export default function ContactsTable({
             }
             onRowClick={openContact}
             onDelete={(id) =>
-                confirm?.show(`Delete this contact?`, async () => {
+                confirm?.show(`למחוק איש קשר זה?`, async () => {
                     await bulkDelete(selectionOf(id), 1);
                 })
             }
@@ -492,53 +492,55 @@ export default function ContactsTable({
                 embedded
                     ? (id) =>
                           confirm?.show(
-                              "Remove this lead from the campaign? The contact stays in your workspace.",
+                              "להסיר ליד זה מהקמפיין? איש הקשר יישאר בסביבת העבודה שלך.",
                               async () => removeFromCampaign(selectionOf(id), 1),
                           )
                     : undefined
             }
             emptyTitle={
                 subFilter !== "all"
-                    ? `No ${subFilter} contacts`
+                    ? subFilter === "subscribed"
+                        ? "אין אנשי קשר רשומים"
+                        : "אין אנשי קשר שהסירו רישום"
                     : narrowed
                         ? current_campaign
-                            ? "No leads match"
-                            : "No contacts match"
+                            ? "אין לידים תואמים"
+                            : "אין אנשי קשר תואמים"
                         : linkedEmptyReason
-                            ? "No leads from your linked segments yet"
+                            ? "עדיין אין לידים מהמקטעים המקושרים"
                             : linksPending
-                                ? "No leads loaded yet"
+                                ? "עדיין לא נטענו לידים"
                                 : current_campaign
-                                    ? "No contacts in this campaign"
+                                    ? "אין אנשי קשר בקמפיין זה"
                                 : segment
-                                    ? "No contacts in this segment"
-                                    : "No contacts yet"
+                                    ? "אין אנשי קשר במקטע זה"
+                                    : "עדיין אין אנשי קשר"
             }
             emptyBody={
                 subFilter !== "all"
-                    ? "Switch to All to see the full list."
+                    ? "עבור ל'הכל' כדי לראות את הרשימה המלאה."
                     : narrowed
-                        ? `Clear the filters to see every ${current_campaign ? "lead" : "contact"}.`
+                        ? `נקה את המסננים כדי לראות את כל ${current_campaign ? "הלידים" : "אנשי הקשר"}.`
                         : linkedEmptyReason
                             ? linkedEmptyReason
                             : linksPending
-                                ? "Checking the campaign's linked segments…"
+                                ? "בודק את המקטעים המקושרים לקמפיין..."
                                 : current_campaign
                                     ? campaignSegments.isError
-                                        ? "Pick people from your contacts, import a file, or add one by hand. The linked segments could not be loaded."
-                                        : "Pick people from your contacts, link a segment, import a file, or add one by hand."
+                                        ? "בחר אנשים מאנשי הקשר שלך, יבא קובץ או הוסף ידנית. לא ניתן היה לטעון את המקטעים המקושרים."
+                                        : "בחר אנשים מאנשי הקשר שלך, קשר מקטע, יבא קובץ או הוסף ידנית."
                                 : segment
-                                    ? "Nothing matches it yet. Pin people in from your contacts, import a file, or add one by hand."
-                                    : "Add or upload contacts to get started."
+                                    ? "שום דבר עדיין לא תואם. הצמד אנשים מאנשי הקשר שלך, יבא קובץ או הוסף ידנית."
+                                    : "הוסף או העלה אנשי קשר כדי להתחיל."
             }
             emptyCta={
                 subFilter !== "all" ? (
                     <TopbarAction variant="ghost" onClick={() => setSubFilter("all")}>
-                        Show all
+                        הצג הכל
                     </TopbarAction>
                 ) : narrowed ? (
                     <TopbarAction variant="ghost" onClick={clearLeadFilters}>
-                        {current_campaign ? "Show all leads" : "Clear filters"}
+                        {current_campaign ? "הצג את כל הלידים" : "נקה מסננים"}
                     </TopbarAction>
                 ) : linksPending ? null : current_campaign ? (
                     <div className="flex flex-wrap items-center justify-center gap-1.5">
@@ -548,7 +550,7 @@ export default function ContactsTable({
                                 onClick={() => reenrolSegments(heldOutLinks)}
                                 disabled={reenrol.isPending}
                             >
-                                Add {heldOut.toLocaleString()} back
+                                החזר {heldOut.toLocaleString()}
                             </TopbarAction>
                         )}
                         <TopbarAction
@@ -556,21 +558,21 @@ export default function ContactsTable({
                             icon={<UsersIcon className="w-3 h-3" />}
                             onClick={() => setFromContactsOpen(true)}
                         >
-                            From contacts
+                            מאנשי קשר
                         </TopbarAction>
                         <TopbarAction
                             variant="ghost"
                             icon={<LayersIcon className="w-3 h-3" />}
                             onClick={() => campaignWrite.guard(() => setFromSegmentOpen(true))({})}
                         >
-                            {linkedSegments.length > 0 || campaignSegments.isError ? "Manage segments" : "Link a segment"}
+                            {linkedSegments.length > 0 || campaignSegments.isError ? "ניהול מקטעים" : "קישור מקטע"}
                         </TopbarAction>
                         <TopbarAction
                             variant="ghost"
                             icon={<UploadIcon className="w-3 h-3" />}
                             onClick={() => setImportOpen(true)}
                         >
-                            Import file
+                            ייבוא קובץ
                         </TopbarAction>
                     </div>
                 ) : segment ? (
@@ -579,21 +581,21 @@ export default function ContactsTable({
                             icon={<UsersIcon className="w-3 h-3" />}
                             onClick={() => setFromContactsOpen(true)}
                         >
-                            Add contacts
+                            הוספת אנשי קשר
                         </TopbarAction>
                         <TopbarAction
                             variant="ghost"
                             icon={<UploadIcon className="w-3 h-3" />}
                             onClick={() => setImportOpen(true)}
                         >
-                            Import file
+                            ייבוא קובץ
                         </TopbarAction>
                         <TopbarAction
                             variant="ghost"
                             icon={<UserPlusIcon className="w-3 h-3" />}
                             onClick={() => setNewOpen(true)}
                         >
-                            New contact
+                            איש קשר חדש
                         </TopbarAction>
                     </div>
                 ) : (
@@ -601,7 +603,7 @@ export default function ContactsTable({
                         icon={<UserPlusIcon className="w-3 h-3" />}
                         onClick={() => setNewOpen(true)}
                     >
-                        New contact
+                        איש קשר חדש
                     </TopbarAction>
                 )
             }
@@ -617,11 +619,11 @@ export default function ContactsTable({
     if (embedded) {
         return (
             <>
-                <SectionBar label="Leads" count={total}>
+                <SectionBar label="לידים" count={total}>
                     <SearchInput
                         value={searchProps.query}
                         onChange={(v) => setSearchProps((s) => ({ ...s, query: v }))}
-                        placeholder="Search leads…"
+                        placeholder="חיפוש לידים..."
                         className="w-full sm:w-56"
                     />
                     <TopbarAction
@@ -629,7 +631,7 @@ export default function ContactsTable({
                         icon={<LayersIcon className="w-3 h-3" />}
                         onClick={() => campaignWrite.guard(() => setFromSegmentOpen(true))({})}
                     >
-                        Segments
+                        מקטעים
                         {(campaignSegments.data?.length ?? 0) > 0 ? ` (${campaignSegments.data?.length})` : ""}
                     </TopbarAction>
                     <TopbarAction
@@ -637,34 +639,34 @@ export default function ContactsTable({
                         icon={<UsersIcon className="w-3 h-3" />}
                         onClick={() => setFromContactsOpen(true)}
                     >
-                        From contacts
+                        מאנשי קשר
                     </TopbarAction>
                     <TopbarAction
                         variant="ghost"
                         icon={<UploadIcon className="w-3 h-3" />}
                         onClick={() => setImportOpen(true)}
                     >
-                        Import
+                        ייבוא
                     </TopbarAction>
                     <TopbarAction
                         variant="ghost"
                         icon={<SheetIcon className="w-3 h-3" />}
                         onClick={() => setSyncOpen(true)}
                     >
-                        Sheet sync
+                        סנכרון גיליון
                     </TopbarAction>
                     <TopbarAction
                         variant="ghost"
                         icon={<DownloadIcon className="w-3 h-3" />}
                         onClick={() => setExportOpen(true)}
                     >
-                        Export
+                        ייצוא
                     </TopbarAction>
                     <TopbarAction
                         icon={<UserPlusIcon className="w-3 h-3" />}
                         onClick={() => setNewOpen(true)}
                     >
-                        Add lead
+                        הוספת ליד
                     </TopbarAction>
                 </SectionBar>
                 <LinkedSegmentsStrip
@@ -721,7 +723,7 @@ export default function ContactsTable({
                     campaign={current_campaign}
                     onRemoveFromCampaign={() =>
                         confirm?.show(
-                            `Remove ${selectionCount.toLocaleString()} lead${selectionCount === 1 ? "" : "s"} from this campaign? The contacts stay in your workspace.`,
+                            `להסיר ${selectionCount.toLocaleString()} לידים מקמפיין זה? אנשי הקשר יישארו בסביבת העבודה שלך.`,
                             async () => removeFromCampaign(selection, selectionCount),
                         )
                     }
@@ -776,15 +778,15 @@ export default function ContactsTable({
     return (
         <Page>
             <PageTopbar
-                eyebrow={segment ? "Members" : "Contacts"}
+                eyebrow={segment ? "חברים" : "אנשי קשר"}
                 subtitle={
                     contactsData.isPending
-                        ? "Loading…"
+                        ? "טוען..."
                         : contactsData.isError
-                            ? "Failed to load"
+                            ? "טעינה נכשלה"
                             : segment
-                              ? `${total.toLocaleString()} in ${segment.name}`
-                              : `${total.toLocaleString()} total`
+                              ? `${total.toLocaleString()} ב-${segment.name}`
+                              : `סך הכל ${total.toLocaleString()}`
                 }
             >
                 {segment && (
@@ -793,7 +795,7 @@ export default function ContactsTable({
                         icon={<UsersIcon className="w-3 h-3" />}
                         onClick={() => setFromContactsOpen(true)}
                     >
-                        Add contacts
+                        הוספת אנשי קשר
                     </TopbarAction>
                 )}
                 <div className="hidden md:contents">
@@ -802,21 +804,21 @@ export default function ContactsTable({
                         icon={<UploadIcon className="w-3 h-3" />}
                         onClick={() => setImportOpen(true)}
                     >
-                        Import
+                        ייבוא
                     </TopbarAction>
                     <TopbarAction
                         variant="ghost"
                         icon={<SheetIcon className="w-3 h-3" />}
                         onClick={() => setSyncOpen(true)}
                     >
-                        Sheet sync
+                        סנכרון גיליון
                     </TopbarAction>
                     <TopbarAction
                         variant="ghost"
                         icon={<DownloadIcon className="w-3 h-3" />}
                         onClick={() => setExportOpen(true)}
                     >
-                        Export
+                        ייצוא
                     </TopbarAction>
                 </div>
                 <div className="md:hidden">
@@ -824,18 +826,18 @@ export default function ContactsTable({
                         <PopoverMenuTrigger asChild>
                             <SelectButton
                                 icon={<MoreHorizontalIcon className="w-3.5 h-3.5" />}
-                                aria-label="More actions"
+                                aria-label="פעולות נוספות"
                             />
                         </PopoverMenuTrigger>
                         <PopoverMenuContent>
                             <PopoverMenuItem onSelect={() => setImportOpen(true)}>
-                                Import
+                                ייבוא
                             </PopoverMenuItem>
                             <PopoverMenuItem onSelect={() => setSyncOpen(true)}>
-                                Sheet sync
+                                סנכרון גיליון
                             </PopoverMenuItem>
                             <PopoverMenuItem onSelect={() => setExportOpen(true)}>
-                                Export
+                                ייצוא
                             </PopoverMenuItem>
                         </PopoverMenuContent>
                     </PopoverMenu>
@@ -844,63 +846,63 @@ export default function ContactsTable({
                     icon={<UserPlusIcon className="w-3 h-3" />}
                     onClick={() => setNewOpen(true)}
                 >
-                    New contact
+                    איש קשר חדש
                 </TopbarAction>
             </PageTopbar>
 
             {!segment && <StatStrip cols={4}>
                 <Stat
-                    label="All"
+                    label="הכל"
                     value={counts.total}
-                    sub={counts.exact ? "total contacts" : "on this page"}
+                    sub={counts.exact ? "סך אנשי הקשר" : "בעמוד זה"}
                     onClick={() => setSubFilter("all")}
                 />
                 <Stat
-                    label="Subscribed"
+                    label="רשומים"
                     value={counts.subscribed}
-                    sub="receiving mail"
+                    sub="מקבלים דיוור"
                     accent={counts.subscribed > 0}
                     onClick={() => setSubFilter("subscribed")}
                 />
                 <Stat
-                    label="Unsubscribed"
+                    label="הסירו רישום"
                     value={counts.unsubscribed}
-                    sub="suppressed"
+                    sub="חסומים"
                     onClick={() => setSubFilter("unsubscribed")}
                 />
                 <Stat
-                    label="In campaigns"
+                    label="בתוך קמפיינים"
                     value={counts.inCampaign}
-                    sub="active touchpoints"
+                    sub="נקודות מגע פעילות"
                     last
                 />
             </StatStrip>}
 
             <SectionBar
-                label={segment ? "Segment members" : subFilter === "all" ? "All contacts" : `${subFilter[0].toUpperCase()}${subFilter.slice(1)}`}
+                label={segment ? "חברי מקטע" : subFilter === "all" ? "כל אנשי הקשר" : subFilter === "subscribed" ? "אנשי קשר רשומים" : "אנשי קשר שהסירו רישום"}
                 count={total}
             >
                 <SearchInput
                     value={searchProps.query}
                     onChange={(v) => setSearchProps((s) => ({ ...s, query: v }))}
-                    placeholder="Search by name, email, company…"
+                    placeholder="חיפוש לפי שם, אימייל, חברה..."
                     className="w-full sm:w-72"
                 />
                 <PopoverMenu align="end">
                     <PopoverMenuTrigger asChild>
                         <SelectButton
                             icon={<Settings2Icon className="w-3.5 h-3.5" />}
-                            label="Sort"
+                            label="מיון"
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent>
-                        <PopoverMenuLabel>Sort by</PopoverMenuLabel>
+                        <PopoverMenuLabel>מיון לפי</PopoverMenuLabel>
                         {[
-                            ["created_at", "Date added"],
-                            ["email", "Email"],
-                            ["first_name", "First name"],
-                            ["last_name", "Last name"],
-                            ["company", "Company"],
+                            ["created_at", "תאריך הוספה"],
+                            ["email", "אימייל"],
+                            ["first_name", "שם פרטי"],
+                            ["last_name", "שם משפחה"],
+                            ["company", "חברה"],
                         ].map(([key, label]) => (
                             <PopoverMenuItem
                                 key={key}
@@ -921,7 +923,7 @@ export default function ContactsTable({
                             onSelect={() => setSearchProps((s) => ({ ...s, reverse: !s.reverse }))}
                             closeOnSelect={false}
                         >
-                            Reverse order
+                            סדר הפוך
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -1107,7 +1109,7 @@ function ContactsTableBody({
                 <div className="mx-auto mb-3 size-8 rounded-md bg-red-50 text-red-600 flex items-center justify-center">
                     <AlertTriangleIcon className="w-4 h-4" />
                 </div>
-                <p className="text-[12.5px] text-slate-900 font-medium">Couldn't load contacts</p>
+                <p className="text-[12.5px] text-slate-900 font-medium">לא ניתן היה לטעון אנשי קשר</p>
                 <p className="text-[11.5px] text-slate-500 mt-1 max-w-[44ch] mx-auto leading-relaxed">
                     {errorMessage}
                 </p>
@@ -1123,14 +1125,14 @@ function ContactsTableBody({
                         ) : (
                             <RefreshCcwIcon className="w-3 h-3" />
                         )}
-                        Try again
+                        נסה שוב
                     </button>
                     <button
                         type="button"
                         onClick={() => window.location.reload()}
                         className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] font-medium transition-colors"
                     >
-                        Reload page
+                        רענן עמוד
                     </button>
                 </div>
             </div>
@@ -1157,7 +1159,7 @@ function ContactsTableBody({
                 ) : (
                     <RefreshCcwIcon className="w-3 h-3" />
                 )}
-                Try again
+                נסה שוב
             </button>
         </div>
     ) : hasNextPage ? (
@@ -1170,15 +1172,15 @@ function ContactsTableBody({
                 {isFetchingNextPage ? (
                     <>
                         <Loader2Icon className="w-3 h-3 animate-spin" />
-                        Loading…
+                        טוען...
                     </>
                 ) : (
                     <>
                         <PlusIcon className="w-3 h-3" />
-                        Load more
+                        טען עוד
                         {totalCount > loadedCount && (
                             <span className="text-slate-400">
-                                · {loadedCount.toLocaleString()} of {totalCount.toLocaleString()}
+                                · {loadedCount.toLocaleString()} מתוך {totalCount.toLocaleString()}
                             </span>
                         )}
                     </>
@@ -1200,10 +1202,10 @@ function ContactsTableBody({
     return (
         <>
             {banner}
-            <table className="w-full text-left">
+            <table className="w-full text-start">
                 <thead className="sticky top-0 bg-white z-[1]">
                     <tr className="border-b border-slate-200">
-                        <th className="pl-5 pr-2 py-2 w-9">
+                        <th className="ps-5 pe-2 py-2 w-9">
                             <input
                                 type="checkbox"
                                 className="w-3.5 h-3.5 rounded accent-sky-600"
@@ -1211,46 +1213,46 @@ function ContactsTableBody({
                                 onChange={onToggleAll}
                             />
                         </th>
-                        <Th className="max-w-0 w-full md:max-w-none md:w-auto">Name</Th>
-                        <Th className="hidden md:table-cell">Company</Th>
-                        <Th className="hidden lg:table-cell">Phone</Th>
-                        <Th className="w-auto md:w-32">{embedded ? "Progress" : "Status"}</Th>
+                        <Th className="max-w-0 w-full md:max-w-none md:w-auto">שם</Th>
+                        <Th className="hidden md:table-cell">חברה</Th>
+                        <Th className="hidden lg:table-cell">טלפון</Th>
+                        <Th className="w-auto md:w-32">{embedded ? "התקדמות" : "סטטוס"}</Th>
                         {embedded && (
                             <>
                                 <Th className="w-16 hidden md:table-cell">
                                     <span className="inline-flex items-center gap-1">
-                                        Opened
+                                        נפתח
                                         <span
                                             className="inline-flex cursor-help text-slate-300 hover:text-slate-500"
-                                            title="Opens rely on the mail client loading images. Clients that block images show no open even when the email was read. A click by the person always counts as an open."
+                                            title="פתיחות נסמכות על טעינת תמונות על ידי תוכנת הדואר. תוכנות החוסמות תמונות לא יציגו פתיחה גם אם האימייל נקרא. לחיצה על קישור נספרת תמיד כפתיחה."
                                         >
-                                            <InfoIcon className="w-3 h-3" aria-label="How opens are counted" />
+                                            <InfoIcon className="w-3 h-3" aria-label="כיצד נספרות פתיחות" />
                                         </span>
                                     </span>
                                 </Th>
-                                <Th className="w-16 hidden md:table-cell">Clicked</Th>
-                                <Th className="w-16 hidden md:table-cell">Replied</Th>
+                                <Th className="w-16 hidden md:table-cell">נלחץ</Th>
+                                <Th className="w-16 hidden md:table-cell">נענה</Th>
                             </>
                         )}
                         {embedded ? (
                             <>
-                                <Th className="w-28 hidden md:table-cell">Current step</Th>
+                                <Th className="w-28 hidden md:table-cell">שלב נוכחי</Th>
                                 <Th className="w-36 hidden xl:table-cell">
                                     <span className="inline-flex items-center gap-1">
-                                        Sender
+                                        שולח
                                         <span
                                             className="inline-flex cursor-help text-slate-300 hover:text-slate-500"
-                                            title="The mailbox this lead's whole sequence sends from. It is picked when the first email goes out and every follow-up keeps it, so the contact always hears from one address."
+                                            title="תיבת הדואר שממנה נשלח כל הרצף של ליד זה. התיבה נבחרת עם שליחת האימייל הראשון וכל המעקבים ממשיכים ממנה, כדי שאיש הקשר יקבל תמיד מאותה כתובת."
                                         >
-                                            <InfoIcon className="w-3 h-3" aria-label="How the sender is chosen" />
+                                            <InfoIcon className="w-3 h-3" aria-label="כיצד נבחרת כתובת השולח" />
                                         </span>
                                     </span>
                                 </Th>
                             </>
                         ) : (
-                            <Th className="w-24 text-right hidden md:table-cell">Campaigns</Th>
+                            <Th className="w-24 text-end hidden md:table-cell">קמפיינים</Th>
                         )}
-                        <Th className="w-24 text-right hidden md:table-cell">{embedded ? "Last activity" : "Added"}</Th>
+                        <Th className="w-24 text-end hidden md:table-cell">{embedded ? "פעילות אחרונה" : "נוסף"}</Th>
                         <th className="px-3 py-2 w-12"></th>
                     </tr>
                 </thead>
@@ -1287,7 +1289,7 @@ function ContactsTableBody({
                                 }`}
                             >
                                 <td
-                                    className="pl-5 pr-2"
+                                    className="ps-5 pe-2"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <input
@@ -1364,20 +1366,20 @@ function ContactsTableBody({
                                             n={lead?.opened ?? 0}
                                             sent={(lead?.sent ?? 0) > 0}
                                             Icon={MailOpenIcon}
-                                            label="opened"
+                                            label="נפתח"
                                             auto={(lead?.machine_opened ?? 0) > 0}
                                         />
                                         <EngagementCell
                                             n={lead?.clicked ?? 0}
                                             sent={(lead?.sent ?? 0) > 0}
                                             Icon={MousePointerClickIcon}
-                                            label="clicked"
+                                            label="נלחץ"
                                         />
                                         <EngagementCell
                                             n={lead?.replied ?? 0}
                                             sent={(lead?.sent ?? 0) > 0}
                                             Icon={CornerUpLeftIcon}
-                                            label="replied"
+                                            label="נענה"
                                         />
                                     </>
                                 )}
@@ -1396,37 +1398,37 @@ function ContactsTableBody({
                                                 <span className="truncate">{lead.current_step}</span>
                                             </span>
                                         ) : (
-                                            <span className="text-[11px] text-slate-300">Not started</span>
+                                            <span className="text-[11px] text-slate-300">טרם התחיל</span>
                                         )}
                                     </td>
                                     <td className="px-3 hidden xl:table-cell">
                                         {lead?.sender ? (
                                             <span
-                                                title={`Every step of this lead's sequence sends from ${lead.sender}`}
+                                                title={`כל שלב ברצף של ליד זה נשלח מ-${lead.sender}`}
                                                 className="block truncate text-[11.5px] text-slate-600"
                                             >
                                                 {lead.sender}
                                             </span>
                                         ) : (
-                                            <span className="text-[11px] text-slate-300">Not assigned</span>
+                                            <span className="text-[11px] text-slate-300">לא הוקצה</span>
                                         )}
                                     </td>
                                     </>
                                 ) : (
-                                    <td className="px-3 text-right font-mono text-[12px] text-slate-600 tabular-nums hidden md:table-cell">
+                                    <td className="px-3 text-end font-mono text-[12px] text-slate-600 tabular-nums hidden md:table-cell">
                                         {c.campaigns?.length ?? 0}
                                     </td>
                                 )}
-                                <td className="px-3 text-right font-mono text-[11px] text-slate-500 tabular-nums hidden md:table-cell">
+                                <td className="px-3 text-end font-mono text-[11px] text-slate-500 tabular-nums hidden md:table-cell">
                                     {embedded
                                         ? lead?.last_activity_at
-                                            ? new Date(lead.last_activity_at).toLocaleDateString("en-US", {
+                                            ? new Date(lead.last_activity_at).toLocaleDateString("he-IL", {
                                                   month: "short",
                                                   day: "numeric",
                                               })
                                             : "—"
                                         : c.created_at
-                                            ? new Date(c.created_at).toLocaleDateString("en-US", {
+                                            ? new Date(c.created_at).toLocaleDateString("he-IL", {
                                                   month: "short",
                                                   day: "numeric",
                                               })
@@ -1438,7 +1440,7 @@ function ContactsTableBody({
                                         {onRemoveFromCampaign ? (
                                             <button
                                                 type="button"
-                                                aria-label="Remove from campaign"
+                                                aria-label="הסרה מקמפיין"
                                                 onClick={() => onRemoveFromCampaign(c.id)}
                                                 className="size-6 rounded text-slate-400 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors"
                                             >
@@ -1447,7 +1449,7 @@ function ContactsTableBody({
                                         ) : (
                                             <button
                                                 type="button"
-                                                aria-label="Delete contact"
+                                                aria-label="מחיקת איש קשר"
                                                 onClick={() => onDelete(c.id)}
                                                 className="size-6 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors"
                                             >
@@ -1456,7 +1458,7 @@ function ContactsTableBody({
                                         )}
                                         <button
                                             type="button"
-                                            aria-label="Contact details"
+                                            aria-label="פרטי איש קשר"
                                             onClick={() => onRowClick(c.id, "details")}
                                             className="size-6 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center transition-colors"
                                         >
@@ -1489,14 +1491,14 @@ function StatusPill({ subscribed }: { subscribed: boolean }) {
         return (
             <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-700 uppercase tracking-[0.08em]">
                 <span className="size-1.5 rounded-full bg-emerald-500" />
-                <span className="hidden sm:inline">subscribed</span>
+                <span className="hidden sm:inline">רשום</span>
             </span>
         );
     }
     return (
         <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-slate-500 uppercase tracking-[0.08em]">
             <span className="size-1.5 rounded-full bg-slate-300" />
-            <span className="hidden sm:inline">unsubscribed</span>
+            <span className="hidden sm:inline">הסיר רישום</span>
         </span>
     );
 }
@@ -1523,7 +1525,7 @@ function EngagementCell({
             {n > 0 ? (
                 <span
                     className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 tabular-nums"
-                    title={`${label} ${n} ${n === 1 ? "email" : "emails"}`}
+                    title={`אימייל ${label} ${n} פעמים`}
                 >
                     <Icon className="w-3 h-3 shrink-0" />
                     {n}
@@ -1531,12 +1533,12 @@ function EngagementCell({
             ) : auto ? (
                 <span
                     className="text-[10.5px] text-slate-400"
-                    title="Opened by a mail client automatically, not by a person"
+                    title="נפתח אוטומטית על ידי תוכנת הדואר, לא על ידי אדם"
                 >
-                    auto
+                    אוטומטי
                 </span>
             ) : sent ? (
-                <span className="text-slate-300 text-[11px]" aria-label={`not ${label}`}>
+                <span className="text-slate-300 text-[11px]" aria-label={`לא ${label}`}>
                     —
                 </span>
             ) : null}
@@ -1551,14 +1553,14 @@ const LEAD_META: Record<
     LeadStatus,
     { label: string; dot: string; text: string; Icon: typeof ClockIcon }
 > = {
-    pending: { label: "Queued", dot: "bg-slate-300", text: "text-slate-500", Icon: ClockIcon },
-    active: { label: "Processing", dot: "bg-sky-500", text: "text-sky-700", Icon: ClockIcon },
-    completed: { label: "Done", dot: "bg-indigo-500", text: "text-indigo-700", Icon: CheckIcon },
-    replied: { label: "Replied", dot: "bg-emerald-500", text: "text-emerald-700", Icon: CornerUpLeftIcon },
-    bounced: { label: "Bounced", dot: "bg-rose-500", text: "text-rose-600", Icon: AlertTriangleIcon },
-    failed: { label: "Failed", dot: "bg-rose-500", text: "text-rose-600", Icon: AlertTriangleIcon },
-    unsubscribed: { label: "Unsubscribed", dot: "bg-slate-300", text: "text-slate-400", Icon: BanIcon },
-    undeliverable: { label: "Undeliverable", dot: "bg-amber-500", text: "text-amber-600", Icon: AlertTriangleIcon },
+    pending: { label: "בתור", dot: "bg-slate-300", text: "text-slate-500", Icon: ClockIcon },
+    active: { label: "בעיבוד", dot: "bg-sky-500", text: "text-sky-700", Icon: ClockIcon },
+    completed: { label: "הושלם", dot: "bg-indigo-500", text: "text-indigo-700", Icon: CheckIcon },
+    replied: { label: "נענה", dot: "bg-emerald-500", text: "text-emerald-700", Icon: CornerUpLeftIcon },
+    bounced: { label: "קפץ חזרה", dot: "bg-rose-500", text: "text-rose-600", Icon: AlertTriangleIcon },
+    failed: { label: "נכשל", dot: "bg-rose-500", text: "text-rose-600", Icon: AlertTriangleIcon },
+    unsubscribed: { label: "הסיר רישום", dot: "bg-slate-300", text: "text-slate-400", Icon: BanIcon },
+    undeliverable: { label: "לא ניתן למסירה", dot: "bg-amber-500", text: "text-amber-600", Icon: AlertTriangleIcon },
 };
 
 function LeadStatusPill({ lead }: { lead?: ContactCampaignProgress | null }) {
@@ -1569,9 +1571,9 @@ function LeadStatusPill({ lead }: { lead?: ContactCampaignProgress | null }) {
     // pill itself only has room for the word.
     const title =
         status === "failed" && lead?.failure_reason
-            ? `Could not send: ${lead.failure_reason}`
+            ? `לא ניתן היה לשלוח: ${lead.failure_reason}`
             : status === "undeliverable"
-                ? "Address verification refused this recipient, so the campaign skips it"
+                ? "אימות כתובות דחה נמען זה, ולכן הקמפיין מדלג עליו"
                 : undefined;
     return (
         <span
@@ -1696,38 +1698,38 @@ function LeadProgressStrip({
                 </div>
             </div>
             <div className="flex items-center gap-2 text-[11px] flex-wrap">
-                <StripChip dot="bg-sky-500" label="Processing" n={counts.active} loader={counts.active > 0} {...status("active")} />
-                <StripChip dot="bg-indigo-500" label="Done" n={counts.completed} {...status("completed")} />
-                <StripChip dot="bg-emerald-500" label="Replied" n={counts.replied} {...status("replied")} />
-                <StripChip dot="bg-slate-300" label="Queued" n={counts.pending} {...status("pending")} />
-                <StripChip dot="bg-rose-400" label="Bounced" n={counts.bounced} {...status("bounced")} />
+                <StripChip dot="bg-sky-500" label="בעיבוד" n={counts.active} loader={counts.active > 0} {...status("active")} />
+                <StripChip dot="bg-indigo-500" label="הושלם" n={counts.completed} {...status("completed")} />
+                <StripChip dot="bg-emerald-500" label="נענה" n={counts.replied} {...status("replied")} />
+                <StripChip dot="bg-slate-300" label="בתור" n={counts.pending} {...status("pending")} />
+                <StripChip dot="bg-rose-400" label="קפץ חזרה" n={counts.bounced} {...status("bounced")} />
                 {(counts.failed > 0 || leadStatus === "failed") && (
-                    <StripChip dot="bg-rose-500" label="Failed" n={counts.failed} {...status("failed")} />
+                    <StripChip dot="bg-rose-500" label="נכשל" n={counts.failed} {...status("failed")} />
                 )}
                 {(counts.undeliverable > 0 || leadStatus === "undeliverable") && (
-                    <StripChip dot="bg-amber-500" label="Undeliverable" n={counts.undeliverable} {...status("undeliverable")} />
+                    <StripChip dot="bg-amber-500" label="לא ניתן למסירה" n={counts.undeliverable} {...status("undeliverable")} />
                 )}
-                <StripChip dot="bg-slate-300" label="Unsub" n={counts.unsubscribed} {...status("unsubscribed")} />
+                <StripChip dot="bg-slate-300" label="הסרת רישום" n={counts.unsubscribed} {...status("unsubscribed")} />
                 <span className="h-4 w-px bg-slate-200 mx-0.5" aria-hidden />
-                <StripChip Icon={MailOpenIcon} label="Opened" n={eng?.opened} {...engaged("opened")} />
-                <StripChip Icon={MailOpenIcon} label="Not opened" n={eng?.notOpened} {...engaged("not_opened")} />
-                <StripChip Icon={MousePointerClickIcon} label="Clicked" n={eng?.clicked} {...engaged("clicked")} />
-                <StripChip Icon={MousePointerClickIcon} label="Not clicked" n={eng?.notClicked} {...engaged("not_clicked")} />
-                <StripChip Icon={CornerUpLeftIcon} label="Replied" n={eng?.replied} {...engaged("replied")} />
-                <StripChip Icon={CornerUpLeftIcon} label="Not replied" n={eng?.notReplied} {...engaged("not_replied")} />
+                <StripChip Icon={MailOpenIcon} label="נפתח" n={eng?.opened} {...engaged("opened")} />
+                <StripChip Icon={MailOpenIcon} label="לא נפתח" n={eng?.notOpened} {...engaged("not_opened")} />
+                <StripChip Icon={MousePointerClickIcon} label="נלחץ" n={eng?.clicked} {...engaged("clicked")} />
+                <StripChip Icon={MousePointerClickIcon} label="לא נלחץ" n={eng?.notClicked} {...engaged("not_clicked")} />
+                <StripChip Icon={CornerUpLeftIcon} label="נענה" n={eng?.replied} {...engaged("replied")} />
+                <StripChip Icon={CornerUpLeftIcon} label="לא נענה" n={eng?.notReplied} {...engaged("not_replied")} />
             </div>
-            <div className="ml-auto flex items-center gap-2 text-[10.5px] text-slate-400 tabular-nums">
+            <div className="ms-auto flex items-center gap-2 text-[10.5px] text-slate-400 tabular-nums">
                 {counts.active > 0 && (
                     <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
                         <span className="relative flex size-1.5">
                             <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
                             <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
                         </span>
-                        Live
+                        פעיל
                     </span>
                 )}
                 <span>
-                    {hasMore ? `${loaded} of ${total} loaded` : `${total} lead${total === 1 ? "" : "s"}`}
+                    {hasMore ? `${loaded} מתוך ${total} נטענו` : `${total} לידים`}
                 </span>
             </div>
         </div>
@@ -1783,8 +1785,8 @@ function StripChip({
 // deletePrompt words the confirm so a 12,000-row select-all does not read the
 // same as three ticked rows.
 function deletePrompt(count: number): string {
-    if (count === 1) return "Delete this contact? It is removed from every campaign and segment it belongs to.";
-    return `Delete ${count.toLocaleString()} contacts? They are removed from every campaign and segment they belong to. This cannot be undone.`;
+    if (count === 1) return "למחוק איש קשר זה? הוא יוסר מכל קמפיין ומקטע שאליהם הוא שייך.";
+    return `למחוק ${count.toLocaleString()} אנשי קשר? הם יוסרו מכל קמפיין ומקטע שאליהם הם שייכים. לא ניתן לבטל פעולה זו.`;
 }
 
 // The bridge between "every row on screen" and "every row that matches". The
@@ -1811,35 +1813,33 @@ function SelectAllBanner({
     onClear: () => void;
 }) {
     if (!selectAll && !canSelectAllMatching) return null;
-    const plural = (n: number) => (n === 1 ? noun : `${noun}s`);
+    const plural = (n: number) => (n === 1 ? noun : noun === "ליד" ? "לידים" : noun === "חבר" ? "חברים" : "אנשי קשר");
     return (
         <div className="px-5 py-2 bg-sky-50/70 border-b border-sky-100 text-[12px] text-sky-900 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-center">
             {selectAll ? (
                 <>
                     <span>
-                        All <span className="font-medium">{count.toLocaleString()}</span> {plural(count)} matching this
-                        view are selected.
+                        כל <span className="font-medium">{count.toLocaleString()}</span> ה{plural(count)} התואמים לתצוגה זו נבחרו.
                     </span>
                     <button
                         type="button"
                         onClick={onClear}
                         className="font-medium underline underline-offset-2 hover:text-sky-700"
                     >
-                        Clear selection
+                        בטל בחירה
                     </button>
                 </>
             ) : (
                 <>
                     <span>
-                        The <span className="font-medium">{loadedCount.toLocaleString()}</span> {plural(loadedCount)} loaded
-                        here are selected.
+                        <span className="font-medium">{loadedCount.toLocaleString()}</span> ה{plural(loadedCount)} שנטענו כאן נבחרו.
                     </span>
                     <button
                         type="button"
                         onClick={onSelectAllMatching}
                         className="font-medium underline underline-offset-2 hover:text-sky-700"
                     >
-                        Select all {total.toLocaleString()} matching
+                        בחר את כל {total.toLocaleString()} התואמים
                     </button>
                 </>
             )}
@@ -1899,7 +1899,7 @@ function SelectionBar({
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center max-w-[calc(100vw-16px)] flex-wrap justify-center md:max-w-none md:flex-nowrap gap-1.5 rounded-md border border-slate-200 bg-white shadow-[0_6px_20px_-4px_rgba(15,23,42,0.12),0_2px_4px_rgba(15,23,42,0.04)] px-2 py-1.5">
             <div className="inline-flex items-center gap-1.5 px-2 h-7 rounded bg-sky-50 text-sky-700 text-[12px] font-medium">
                 <CheckIcon className="w-3 h-3" />
-                <span>{count.toLocaleString()} selected</span>
+                <span>{count.toLocaleString()} נבחרו</span>
             </div>
             {pushTargets.length > 0 && (
                 <PopoverMenu side="top" align="center">
@@ -1914,11 +1914,11 @@ function SelectionBar({
                             ) : (
                                 <CableIcon className="w-3 h-3" />
                             )}
-                            <span className="hidden sm:inline">Push to CRM</span>
+                            <span className="hidden sm:inline">דחיפה ל-CRM</span>
                         </button>
                     </PopoverMenuTrigger>
                     <PopoverMenuContent>
-                        <PopoverMenuLabel>Push {count.toLocaleString()} to</PopoverMenuLabel>
+                        <PopoverMenuLabel>דחיפת {count.toLocaleString()} אל</PopoverMenuLabel>
                         {pushTargets.map((t) => {
                             const label = PROVIDER_LABELS[t.provider];
                             const custom = t.label && t.label.toLowerCase() !== t.provider ? ` · ${t.label}` : "";
@@ -1937,7 +1937,7 @@ function SelectionBar({
                 onClick={onBulkEdit}
                 className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-medium transition-colors"
             >
-                Edit
+                עריכה
             </button>
             <AddToSegmentMenu selection={selection} count={count} onDone={onClear} />
             {segment && (
@@ -1948,7 +1948,7 @@ function SelectionBar({
                     className="h-7 px-2.5 rounded text-[12px] text-amber-700 hover:text-white hover:bg-amber-600 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                 >
                     {excluding ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <XIcon className="w-3 h-3" />}
-                    <span className="hidden sm:inline">Remove from segment</span>
+                    <span className="hidden sm:inline">הסרה ממקטע</span>
                 </button>
             )}
             {campaign && onRemoveFromCampaign && (
@@ -1959,7 +1959,7 @@ function SelectionBar({
                     className="h-7 px-2.5 rounded text-[12px] text-amber-700 hover:text-white hover:bg-amber-600 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                 >
                     {removing ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <UserMinusIcon className="w-3 h-3" />}
-                    <span className="hidden sm:inline">Remove from campaign</span>
+                    <span className="hidden sm:inline">הסרה מקמפיין</span>
                 </button>
             )}
             <button
@@ -1969,7 +1969,7 @@ function SelectionBar({
                 className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-sky-700 hover:bg-sky-50 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
             >
                 {researching ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <SparklesIcon className="w-3 h-3" />}
-                <span className="hidden sm:inline">Research</span>
+                <span className="hidden sm:inline">מחקר</span>
             </button>
             <PopoverMenu side="top" align="center">
                 <PopoverMenuTrigger asChild>
@@ -1979,13 +1979,13 @@ function SelectionBar({
                         className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                     >
                         {verifying ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <ShieldCheckIcon className="w-3 h-3" />}
-                        <span className="hidden sm:inline">Verify</span>
+                        <span className="hidden sm:inline">אימות</span>
                     </button>
                 </PopoverMenuTrigger>
                 <PopoverMenuContent>
-                    <PopoverMenuLabel>Address verification</PopoverMenuLabel>
-                    <PopoverMenuItem onSelect={onVerify}>Re-verify {count.toLocaleString()}</PopoverMenuItem>
-                    <PopoverMenuItem onSelect={onMarkDeliverable}>Mark deliverable</PopoverMenuItem>
+                    <PopoverMenuLabel>אימות כתובות</PopoverMenuLabel>
+                    <PopoverMenuItem onSelect={onVerify}>אימות מחדש של {count.toLocaleString()}</PopoverMenuItem>
+                    <PopoverMenuItem onSelect={onMarkDeliverable}>סימון כניתן למסירה</PopoverMenuItem>
                 </PopoverMenuContent>
             </PopoverMenu>
             {/* Inside a campaign the destructive action is leaving the campaign,
@@ -1999,7 +1999,7 @@ function SelectionBar({
                     className="h-7 px-2.5 rounded text-[12px] text-red-600 hover:text-white hover:bg-red-600 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                 >
                     {deleting ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <TrashIcon className="w-3 h-3" />}
-                    <span className="hidden sm:inline">Delete</span>
+                    <span className="hidden sm:inline">מחיקה</span>
                 </button>
             )}
             <div className="h-4 w-px bg-slate-200" />
@@ -2008,7 +2008,7 @@ function SelectionBar({
                 onClick={onClear}
                 className="h-7 px-2.5 rounded text-[12px] text-slate-500 hover:text-slate-900 transition-colors"
             >
-                Clear
+                ביטול
             </button>
         </div>
     );

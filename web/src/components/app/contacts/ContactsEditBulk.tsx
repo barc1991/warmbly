@@ -37,10 +37,10 @@ import CategoryPicker from "./CategoryPicker";
 
 type FieldType = "ADD" | "EDIT" | "DELETE" | "RENAME";
 const FIELD_TYPES: { id: FieldType; label: string; hint: string }[] = [
-    { id: "ADD", label: "Add", hint: "Only set the key if it's not already present." },
-    { id: "EDIT", label: "Edit", hint: "Set the key to this value, overwriting any prior value." },
-    { id: "DELETE", label: "Delete", hint: "Remove the key from each selected contact." },
-    { id: "RENAME", label: "Rename", hint: "Rename the key — \"value\" is the new key name." },
+    { id: "ADD", label: "הוספה", hint: "הגדרת המפתח רק אם אינו קיים כבר." },
+    { id: "EDIT", label: "עריכה", hint: "הגדרת המפתח לערך זה, תוך דריסת כל ערך קודם." },
+    { id: "DELETE", label: "מחיקה", hint: "הסרת המפתח מכל איש קשר שנבחר." },
+    { id: "RENAME", label: "שינוי שם", hint: "שינוי שם המפתח: 'ערך' הוא שם המפתח החדש." },
 ];
 
 interface Field {
@@ -56,8 +56,6 @@ function isComplete(f: Field): boolean {
     if (!f.key.trim()) return false;
     return f.type === "DELETE" || f.value.trim().length > 0;
 }
-
-const plural = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
 export default function ContactsEditBulk({
     active,
@@ -105,17 +103,17 @@ export default function ContactsEditBulk({
     const changes = React.useMemo(() => {
         const out: { key: string; label: string; clear: () => void }[] = [];
         if (campaignsAdd.length > 0)
-            out.push({ key: "ca", label: `Add to ${plural(campaignsAdd.length, "campaign", "campaigns")}`, clear: () => setCampaignsAdd([]) });
+            out.push({ key: "ca", label: `הוספה ל-${campaignsAdd.length} קמפיינים`, clear: () => setCampaignsAdd([]) });
         if (campaignsRemove.length > 0)
-            out.push({ key: "cr", label: `Remove from ${plural(campaignsRemove.length, "campaign", "campaigns")}`, clear: () => setCampaignsRemove([]) });
+            out.push({ key: "cr", label: `הסרה מ-${campaignsRemove.length} קמפיינים`, clear: () => setCampaignsRemove([]) });
         if (categoriesAdd.length > 0)
-            out.push({ key: "ka", label: `Add ${plural(categoriesAdd.length, "category", "categories")}`, clear: () => setCategoriesAdd([]) });
+            out.push({ key: "ka", label: `הוספת ${categoriesAdd.length} קטגוריות`, clear: () => setCategoriesAdd([]) });
         if (categoriesRemove.length > 0)
-            out.push({ key: "kr", label: `Remove ${plural(categoriesRemove.length, "category", "categories")}`, clear: () => setCategoriesRemove([]) });
+            out.push({ key: "kr", label: `הסרת ${categoriesRemove.length} קטגוריות`, clear: () => setCategoriesRemove([]) });
         if (subscribeMode !== "unchanged")
-            out.push({ key: "s", label: subscribeMode === "subscribe" ? "Subscribe" : "Unsubscribe", clear: () => setSubscribeMode("unchanged") });
+            out.push({ key: "s", label: subscribeMode === "subscribe" ? "רישום" : "ביטול רישום", clear: () => setSubscribeMode("unchanged") });
         if (readyFields.length > 0)
-            out.push({ key: "f", label: `${plural(readyFields.length, "field change", "field changes")}`, clear: () => setFields([]) });
+            out.push({ key: "f", label: `${readyFields.length} שינויי שדות`, clear: () => setFields([]) });
         return out;
     }, [campaignsAdd, campaignsRemove, categoriesAdd, categoriesRemove, subscribeMode, readyFields]);
 
@@ -125,7 +123,7 @@ export default function ContactsEditBulk({
     const applicable = changes.length > 0;
 
     const requestClose = React.useCallback(() => {
-        if (touched) confirm.show("Discard bulk changes?", async () => setActive(false));
+        if (touched) confirm.show("לבטל את השינויים המרוכזים?", async () => setActive(false));
         else setActive(false);
     }, [touched, confirm, setActive]);
 
@@ -143,8 +141,8 @@ export default function ContactsEditBulk({
                     subscribe: subscribeMode === "subscribe" ? true : subscribeMode === "unsubscribe" ? false : undefined,
                 }),
                 {
-                    loading: `Updating ${plural(count, "contact", "contacts")}…`,
-                    success: `Updated ${plural(count, "contact", "contacts")}`,
+                    loading: `מעדכן ${count.toLocaleString()} אנשי קשר...`,
+                    success: `עודכנו ${count.toLocaleString()} אנשי קשר`,
                     error: (err: AppError) => buildError(err),
                 },
             );
@@ -189,68 +187,68 @@ export default function ContactsEditBulk({
                         key="panel"
                         role="dialog"
                         aria-modal="true"
-                        aria-label="Bulk edit contacts"
+                        aria-label="עריכה מרוכזת של אנשי קשר"
                         initial={{ x: 32, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: 32, opacity: 0 }}
                         transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
                         onMouseDown={(e) => e.stopPropagation()}
-                        className="flex flex-col w-[32rem] max-w-[95%] h-full bg-white border-l border-slate-200 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.08)]"
+                        className="flex flex-col w-[32rem] max-w-[95%] h-full bg-white border-l rtl:border-r rtl:border-l-0 border-slate-200 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.08)] rtl:shadow-[12px_0_24px_-12px_rgba(15,23,42,0.08)]"
                     >
                         <header className="h-12 px-4 border-b border-slate-200 flex items-center gap-2.5 shrink-0">
-                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium shrink-0">Bulk edit</span>
+                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium shrink-0">עריכה מרוכזת</span>
                             <div className="h-4 w-px bg-slate-200 shrink-0" />
                             <span className="text-[12.5px] text-slate-900 font-medium shrink-0">
-                                {plural(count, "contact", "contacts")}
+                                {count.toLocaleString()} אנשי קשר
                             </span>
                             {scope && (
                                 <span className="inline-flex items-center h-5 px-1.5 rounded bg-sky-50 text-sky-700 text-[10px] font-medium min-w-0">
                                     <span className="truncate">
-                                        in {scope.name}
+                                        ב-{scope.name}
                                     </span>
                                 </span>
                             )}
                             <button
                                 type="button"
                                 onClick={requestClose}
-                                aria-label="Close"
-                                className="ml-auto shrink-0 size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגירה"
+                                className="ms-auto shrink-0 size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
                         </header>
 
                         <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100">
-                            <Section title="Campaigns" subtitle="Membership changes apply to every selected contact.">
-                                <PickerRow direction="add" label="Add to">
+                            <Section title="קמפיינים" subtitle="שינויי שיוך יחולו על כל איש קשר שנבחר.">
+                                <PickerRow direction="add" label="הוספה ל-">
                                     <CampaignMultiPicker value={campaignsAdd} onChange={setCampaignsAdd} />
                                 </PickerRow>
-                                <PickerRow direction="remove" label="Remove from">
+                                <PickerRow direction="remove" label="הסרה מ-">
                                     <CampaignMultiPicker value={campaignsRemove} onChange={setCampaignsRemove} />
                                 </PickerRow>
                             </Section>
 
-                            <Section title="Categories" subtitle="Labels put on the contacts themselves.">
-                                <PickerRow direction="add" label="Add">
+                            <Section title="קטגוריות" subtitle="תגיות המוצמדות לאנשי הקשר עצמם.">
+                                <PickerRow direction="add" label="הוספה">
                                     <CategoryPicker value={categoriesAdd} onChange={setCategoriesAdd} />
                                 </PickerRow>
-                                <PickerRow direction="remove" label="Remove">
+                                <PickerRow direction="remove" label="הסרה">
                                     <CategoryPicker
                                         value={categoriesRemove}
                                         onChange={setCategoriesRemove}
                                         allowCreate={false}
-                                        placeholder="Pick categories to strip…"
+                                        placeholder="בחר קטגוריות להסרה..."
                                     />
                                 </PickerRow>
                             </Section>
 
-                            <Section title="Subscription" subtitle="Marketing consent. Leave it alone unless you mean to change it.">
+                            <Section title="סטטוס דיוור" subtitle="הסכמה לקבלת דיוור. השאר ללא שינוי אלא אם ברצונך לעדכן.">
                                 <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
                                     {(
                                         [
-                                            ["unchanged", "Leave alone"],
-                                            ["subscribe", "Subscribe"],
-                                            ["unsubscribe", "Unsubscribe"],
+                                            ["unchanged", "ללא שינוי"],
+                                            ["subscribe", "רשום"],
+                                            ["unsubscribe", "הסר רישום"],
                                         ] as const
                                     ).map(([id, label]) => (
                                         <button
@@ -270,8 +268,8 @@ export default function ContactsEditBulk({
                             </Section>
 
                             <Section
-                                title="Custom fields"
-                                subtitle="Queue as many operations as you need; each runs on every selected contact."
+                                title="שדות מותאמים אישית"
+                                subtitle="הוסף כמה פעולות שתרצה; כל פעולה תחול על כל איש קשר שנבחר."
                                 accessory={
                                     fields.length < 100 && (
                                         <button
@@ -280,7 +278,7 @@ export default function ContactsEditBulk({
                                             className="h-6 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-[11px] text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 transition-colors"
                                         >
                                             <PlusIcon className="w-3 h-3" />
-                                            Add operation
+                                            הוספת פעולה
                                         </button>
                                     )
                                 }
@@ -291,7 +289,7 @@ export default function ContactsEditBulk({
                                         onClick={() => setFields([{ type: "ADD", key: "", value: "" }])}
                                         className="w-full rounded-md border border-dashed border-slate-200 hover:border-slate-300 px-3 py-4 text-[11.5px] text-slate-400 hover:text-slate-600 transition-colors"
                                     >
-                                        No field operations queued. Add one.
+                                        אין פעולות שדות בתור. לחץ להוספה.
                                     </button>
                                 ) : (
                                     <div className="space-y-2">
@@ -312,27 +310,27 @@ export default function ContactsEditBulk({
                             item removable. Bulk writes are hard to walk back. */}
                         <div className="shrink-0 border-t border-slate-200 bg-slate-50/60 px-4 py-2.5">
                             <div className="flex items-center gap-2 mb-1.5">
-                                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Will apply</span>
+                                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">יוחל בפועל</span>
                                 {incomplete > 0 && (
                                     <span className="text-[10.5px] text-amber-700">
-                                        {plural(incomplete, "field operation is", "field operations are")} incomplete and will be skipped
+                                        {incomplete} פעולות שדות אינן שלמות וידולגו
                                     </span>
                                 )}
                             </div>
                             {changes.length === 0 ? (
-                                <p className="text-[11.5px] text-slate-400">Nothing yet. Pick a change above.</p>
+                                <p className="text-[11.5px] text-slate-400">טרם נבחרו שינויים. בחר שינוי למעלה.</p>
                             ) : (
                                 <div className="flex flex-wrap gap-1">
                                     {changes.map((c) => (
                                         <span
                                             key={c.key}
-                                            className="inline-flex items-center gap-1 h-5 pl-1.5 pr-1 rounded border border-slate-200 bg-white text-[11px] font-medium text-slate-700"
+                                            className="inline-flex items-center gap-1 h-5 ps-1.5 pe-1 rounded border border-slate-200 bg-white text-[11px] font-medium text-slate-700"
                                         >
                                             {c.label}
                                             <button
                                                 type="button"
                                                 onClick={c.clear}
-                                                aria-label={`Undo: ${c.label}`}
+                                                aria-label={`ביטול: ${c.label}`}
                                                 className="text-slate-400 hover:text-slate-900 transition-colors"
                                             >
                                                 <XIcon className="w-2.5 h-2.5" />
@@ -350,19 +348,19 @@ export default function ContactsEditBulk({
                                 disabled={!touched}
                                 className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
                             >
-                                Discard
+                                ביטול
                             </button>
                             <button
                                 type="button"
                                 onClick={submit}
                                 disabled={!applicable || update.isPending}
-                                title={applicable ? undefined : "Pick at least one change to apply"}
-                                className="ml-auto shrink-0 whitespace-nowrap h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                                title={applicable ? undefined : "בחר לפחות שינוי אחד להחלה"}
+                                className="ms-auto shrink-0 whitespace-nowrap h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                             >
                                 {update.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
                                 {applicable
-                                    ? `Apply ${plural(changes.length, "change", "changes")} to ${count.toLocaleString()}`
-                                    : `Apply to ${count.toLocaleString()}`}
+                                    ? `החל ${changes.length} שינויים על ${count.toLocaleString()}`
+                                    : `החל על ${count.toLocaleString()}`}
                             </button>
                         </footer>
                     </motion.aside>
@@ -440,7 +438,7 @@ function FieldRow({
     const typePlacement = useFlipPlacement(triggerRef, showType, 180);
     const typeDef = FIELD_TYPES.find((t) => t.id === field.type)!;
     const needsValue = field.type !== "DELETE";
-    const missing = !field.key.trim() ? "key" : needsValue && !field.value.trim() ? (field.type === "RENAME" ? "new key name" : "value") : null;
+    const missing = !field.key.trim() ? "מפתח" : needsValue && !field.value.trim() ? (field.type === "RENAME" ? "שם מפתח חדש" : "ערך") : null;
 
     return (
         <div className={cn("rounded-md border bg-white p-2.5 space-y-2", missing ? "border-amber-200" : "border-slate-200")}>
@@ -465,7 +463,7 @@ function FieldRow({
                                 exit={{ opacity: 0, y: typePlacement === "top" ? 4 : -4 }}
                                 transition={{ duration: 0.12 }}
                                 className={cn(
-                                    "absolute left-0 z-30 w-56 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] py-1",
+                                    "absolute left-0 rtl:left-auto rtl:right-0 z-30 w-56 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] py-1",
                                     typePlacement === "top" ? "bottom-full mb-1" : "top-full mt-1",
                                 )}
                             >
@@ -478,7 +476,7 @@ function FieldRow({
                                             setShowType(false);
                                         }}
                                         className={cn(
-                                            "w-full px-2.5 py-1.5 text-left hover:bg-slate-100 transition-colors",
+                                            "w-full px-2.5 py-1.5 text-start hover:bg-slate-100 transition-colors",
                                             t.id === field.type && "bg-slate-50",
                                         )}
                                     >
@@ -490,7 +488,7 @@ function FieldRow({
                         )}
                     </AnimatePresence>
                 </div>
-                <TextInput value={field.key} onChange={(v) => onChange({ ...field, key: v })} placeholder="key" className="flex-1" />
+                <TextInput value={field.key} onChange={(v) => onChange({ ...field, key: v })} placeholder="מפתח" className="flex-1" />
                 {/* The value slot keeps its width on DELETE so switching type
                     does not shuffle the row underneath the pointer. */}
                 <div className="flex-1">
@@ -498,26 +496,26 @@ function FieldRow({
                         <TextInput
                             value={field.value}
                             onChange={(v) => onChange({ ...field, value: v })}
-                            placeholder={field.type === "RENAME" ? "new key name" : "value"}
+                            placeholder={field.type === "RENAME" ? "שם מפתח חדש" : "ערך"}
                             className="w-full"
                         />
                     ) : (
                         <div className="h-7 rounded-md border border-dashed border-slate-200 px-2 flex items-center text-[11px] text-slate-400">
-                            no value needed
+                            אין צורך בערך
                         </div>
                     )}
                 </div>
                 <button
                     type="button"
                     onClick={onRemove}
-                    aria-label="Remove operation"
+                    aria-label="הסרת פעולה"
                     className="size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors shrink-0"
                 >
                     <TrashIcon className="w-3 h-3" />
                 </button>
             </div>
             <p className={cn("text-[10.5px] leading-tight", missing ? "text-amber-700" : "text-slate-400")}>
-                {missing ? `Needs a ${missing}; skipped until then.` : typeDef.hint}
+                {missing ? `נדרש ${missing}; הפעולה תדולג עד למילוי.` : typeDef.hint}
             </p>
         </div>
     );
