@@ -31,7 +31,7 @@ export default function UndeliverableBanner({
         setAction("verify");
         try {
             const res = await request.mutateAsync({ campaign_id: campaignId, action: "verify" });
-            toast.success(`Re-checking ${res.affected} ${res.affected === 1 ? "lead" : "leads"}. Sending resumes as soon as any pass.`);
+            toast.success(`בודק מחדש ${res.affected} ${res.affected === 1 ? "ליד" : "לידים"}. השליחה תחודש ברגע שמי מהם יעבור בהצלחה.`);
         } catch (e) {
             toast.error(buildError(e as AppError));
         } finally {
@@ -41,13 +41,13 @@ export default function UndeliverableBanner({
 
     const sendAnyway = () => {
         confirm?.show(
-            "Send to the refused leads anyway? They are marked deliverable and the campaign resumes. Use this only for a list you verified elsewhere: sending to dead addresses costs you bounces.",
+            "לשלוח ללידים שסורבו בכל זאת? הם יסומנו כניתנים למסירה והקמפיין יחודש. השתמש באפשרות זו רק עבור רשימה שאומתה במקור אחר: שליחה לכתובות לא תקינות תפגע במוניטין השליחה ותגרום לחזרות.",
             async () => {
                 setAction("send");
                 try {
                     await request.mutateAsync({ campaign_id: campaignId, action: "mark_deliverable" });
                     await start.mutateAsync({ id: campaignId, options: { acknowledge_list_risk: true } });
-                    toast.success("Campaign resumed");
+                    toast.success("הקמפיין חודש");
                 } catch (e) {
                     toast.error(buildError(e as AppError));
                 } finally {
@@ -79,13 +79,13 @@ export default function UndeliverableBanner({
                         </motion.span>
                         <div className="min-w-0 flex-1">
                             <p className="text-[12.5px] font-medium text-amber-900">
-                                Sending paused: address verification refused the remaining leads
+                                השליחה הושהתה: אימות הכתובות פסל את הלידים הנותרים
                             </p>
                             <p className="text-[11.5px] text-amber-800/80 leading-snug mt-0.5">
-                                Re-check them now, or send anyway if you verified this list with another service.
-                                Verification settings live under{" "}
+                                בדוק אותם שוב כעת, או שלח בכל זאת אם אימתת רשימה זו בשירות אחר.
+                                הגדרות אימות מנוהלות תחת{" "}
                                 <Link to="/app/settings/sending" className="underline underline-offset-2 hover:text-amber-900">
-                                    Settings
+                                    הגדרות
                                 </Link>
                                 .
                             </p>
@@ -99,7 +99,7 @@ export default function UndeliverableBanner({
                                 className="h-7 px-2.5 rounded-md border border-amber-300 bg-white hover:bg-amber-100 text-amber-900 text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 {action === "verify" ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcwIcon className="w-3.5 h-3.5" />}
-                                Re-verify leads
+                                אמת לידים מחדש
                             </PermissionButton>
                             <PermissionButton
                                 permission="SEND_CAMPAIGNS"
@@ -109,7 +109,7 @@ export default function UndeliverableBanner({
                                 className="h-7 px-2.5 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 {action === "send" ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <SendIcon className="w-3.5 h-3.5" />}
-                                Send anyway
+                                שלח בכל זאת
                             </PermissionButton>
                         </div>
                     </div>

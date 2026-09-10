@@ -36,7 +36,7 @@ export const CAMPAIGN_STATUS_LABEL_HE: Record<string, string> = {
     draft: "טיוטה",
 };
 
-export const CAMPAIGN_STATUS_LABEL = CAMPAIGN_STATUS_LABEL_EN;
+export const CAMPAIGN_STATUS_LABEL = CAMPAIGN_STATUS_LABEL_HE;
 
 // Single source of truth for a status's color — drives BOTH the leading mark
 // and the right-side text label so they always agree. emerald = live/done,
@@ -55,7 +55,7 @@ const CAMPAIGN_STATUS_TONE: Record<string, string> = {
 // An unmapped status still has to read as words, not an enum: underscores
 // become spaces rather than surfacing "PAUSED_NO_ACCOUNTS".
 export function campaignStatusLabel(status?: string): string {
-    const isHe = i18next.language === "he";
+    const isHe = !i18next.language || i18next.language.startsWith("he");
     const dict = isHe ? CAMPAIGN_STATUS_LABEL_HE : CAMPAIGN_STATUS_LABEL_EN;
     if (!status) return dict.draft;
     return dict[status] ?? status.replace(/_/g, " ");
@@ -96,7 +96,7 @@ export function isOneTimeCampaign(c: Pick<CampaignStatusSubject, "kind">): boole
 // (active but waiting on its start date), sending, sent. Paused variants keep
 // their sequence wording since the reasons are the same.
 export function campaignDisplayLabel(c: CampaignStatusSubject): string {
-    const isHe = i18next.language === "he";
+    const isHe = !i18next.language || i18next.language.startsWith("he");
     const status = c.status ?? "draft";
     if (isIdleCampaign(c)) return isHe ? "ממתין ללידים" : CAMPAIGN_IDLE_LABEL;
     if (!isOneTimeCampaign(c)) return campaignStatusLabel(status);

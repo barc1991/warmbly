@@ -49,18 +49,18 @@ function scheduleSummary(c: Campaign): string {
     const hasWindows =
         Array.isArray(c.schedule_windows) &&
         c.schedule_windows.some((d) => Array.isArray(d) && d.length > 0);
-    if (hasWindows) return "Custom windows";
+    if (hasWindows) return "חלונות מותאמים אישית";
     const days = bitCount(c.days ?? 0);
     const time =
-        c.start_time && c.end_time ? `${c.start_time}–${c.end_time}` : "all day";
-    return `${days || 7} day${days === 1 ? "" : "s"} · ${time}`;
+        c.start_time && c.end_time ? `${c.start_time}–${c.end_time}` : "כל היום";
+    return `${days || 7} ${days === 1 ? "יום" : "ימים"} · ${time}`;
 }
 
 function trackingSummary(c: Campaign): string {
-    if (c.open_tracking && c.link_tracking) return "Opens + links";
-    if (c.open_tracking) return "Opens";
-    if (c.link_tracking) return "Links";
-    return "Off";
+    if (c.open_tracking && c.link_tracking) return "פתיחות + קישורים";
+    if (c.open_tracking) return "פתיחות";
+    if (c.link_tracking) return "קישורים";
+    return "כבוי";
 }
 
 function SummaryChip({
@@ -209,12 +209,12 @@ export default function LaunchCampaignDialog({
                                         <CheckIcon className="w-6 h-6" strokeWidth={2.6} />
                                     </motion.div>
                                     <p className="mt-3 text-[14px] font-semibold text-slate-900">
-                                        {waiting || isIdleCampaign(c) ? "Running, waiting for leads" : "You're live"}
+                                        {waiting || isIdleCampaign(c) ? "פועל, ממתין ללידים" : "הקמפיין באוויר"}
                                     </p>
                                     <p className="mt-0.5 text-[12px] text-slate-500 truncate max-w-full">
                                         {waiting || isIdleCampaign(c)
-                                            ? `${c.name} sends to leads as they arrive`
-                                            : `${c.name} is now sending`}
+                                            ? `${c.name} ישלח הודעות ללידים עם הגעתם`
+                                            : `${c.name} שולח כעת הודעות`}
                                     </p>
                                 </motion.div>
                             ) : (
@@ -226,7 +226,7 @@ export default function LaunchCampaignDialog({
                                         </span>
                                         <div className="min-w-0 flex-1">
                                             <h2 className="text-[14px] font-semibold text-slate-900 leading-tight">
-                                                Launch campaign
+                                                הפעלת קמפיין
                                             </h2>
                                             <p className="text-[12px] text-slate-500 truncate">
                                                 {c.name}
@@ -236,8 +236,8 @@ export default function LaunchCampaignDialog({
                                             type="button"
                                             onClick={onClose}
                                             disabled={phase === "launching"}
-                                            aria-label="Close"
-                                            className="shrink-0 size-7 -mt-1 -mr-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors disabled:opacity-40"
+                                            aria-label="סגור"
+                                            className="shrink-0 size-7 -mt-1 -me-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors disabled:opacity-40"
                                         >
                                             <XIcon className="w-4 h-4" />
                                         </button>
@@ -247,28 +247,28 @@ export default function LaunchCampaignDialog({
                                     <div className="px-5 grid grid-cols-2 gap-2">
                                         <SummaryChip
                                             icon={<GaugeIcon className="w-4 h-4" />}
-                                            label="Daily cap"
-                                            value={`${c.daily_limit}/mailbox`}
+                                            label="מגבלה יומית"
+                                            value={`${c.daily_limit}/תיבה`}
                                         />
                                         <SummaryChip
                                             icon={<CalendarClockIcon className="w-4 h-4" />}
-                                            label="Schedule"
+                                            label="לוח זמנים"
                                             value={scheduleSummary(c)}
                                         />
                                         <SummaryChip
                                             icon={<EyeIcon className="w-4 h-4" />}
-                                            label="Tracking"
+                                            label="מעקב"
                                             value={trackingSummary(c)}
                                         />
                                         <SummaryChip
                                             icon={<ListChecksIcon className="w-4 h-4" />}
-                                            label="Steps"
+                                            label="שלבים"
                                             value={
                                                 steps.isError
-                                                    ? "Unavailable"
+                                                    ? "לא זמין"
                                                     : stepCount === undefined
                                                         ? "…"
-                                                        : `${stepCount} step${stepCount === 1 ? "" : "s"}`
+                                                        : `${stepCount} ${stepCount === 1 ? "שלב" : "שלבים"}`
                                             }
                                         />
                                     </div>
@@ -280,12 +280,12 @@ export default function LaunchCampaignDialog({
                                             <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2">
                                                 <HourglassIcon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-400" />
                                                 <p className="text-[12px] leading-snug text-slate-600">
-                                                    First emails wait{" "}
+                                                    האימיילים הראשונים ממתינים{" "}
                                                     <span className="font-medium text-slate-900">
-                                                        {entryDelayLabel(c.entry_delay_minutes).toLowerCase()}
+                                                        {entryDelayLabel(c.entry_delay_minutes)}
                                                     </span>{" "}
-                                                    after each contact entered the campaign, so the first sends may not
-                                                    go out today.
+                                                    לאחר כניסת כל איש קשר לקמפיין, כך שהשליחות הראשונות עשויות שלא
+                                                    לצאת היום.
                                                 </p>
                                             </div>
                                         </div>
@@ -295,7 +295,7 @@ export default function LaunchCampaignDialog({
                                     {preflight.isFetching ? (
                                         <div className="px-5 pt-3 flex items-center gap-2 text-[11.5px] text-slate-400">
                                             <span className="campaign-grid text-slate-300" aria-hidden />
-                                            Running pre-send checks…
+                                            מבצע בדיקות מקדימות לפני שליחה…
                                         </div>
                                     ) : issues.length > 0 ? (
                                         <div className="px-5 pt-3 space-y-1.5">
@@ -340,18 +340,18 @@ export default function LaunchCampaignDialog({
                                     ) : preflight.data ? (
                                         <div className="px-5 pt-3 flex items-center gap-1.5 text-[11.5px] text-emerald-700">
                                             <CheckIcon className="w-3.5 h-3.5 shrink-0" />
-                                            Pre-send checks passed.
+                                            הבדיקות המקדימות לפני שליחה עברו בהצלחה.
                                         </div>
                                     ) : null}
 
                                     <p className="px-5 pt-3 text-[11.5px] text-slate-500 leading-relaxed">
                                         {c.entry_delay_minutes > 0
-                                            ? "The campaign starts now; each contact's first email goes out once their delay is up, paced to the schedule and your mailbox guardrails. You can pause anytime."
-                                            : "Sending begins immediately, paced to the schedule and your mailbox guardrails. You can pause anytime."}
+                                            ? "הקמפיין מתחיל כעת; האימייל הראשון של כל איש קשר יישלח ברגע שזמן העיכוב שלו יסתיים, בקצב המותאם ללוח הזמנים ולמגבלות תיבת הדואר שלך. ניתן להשהות בכל עת."
+                                            : "השליחה מתחילה באופן מיידי, בקצב המותאם ללוח הזמנים ולמגבלות תיבת הדואר שלך. ניתן להשהות בכל עת."}
                                         {c.continuous
-                                            ? " Out of leads, the campaign stays active and waits for new ones."
+                                            ? " כאשר ייגמרו הלידים, הקמפיין יישאר פעיל וימתין ללידים חדשים."
                                             : c.status === "completed"
-                                                ? " If every lead has already finished, the campaign stays active and waits for new ones."
+                                                ? " אם כל הלידים כבר הסתיימו, הקמפיין יישאר פעיל וימתין ללידים חדשים."
                                                 : ""}
                                     </p>
 
@@ -372,7 +372,7 @@ export default function LaunchCampaignDialog({
                                             disabled={phase === "launching"}
                                             className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 bg-white text-[12.5px] font-medium transition-colors disabled:opacity-50"
                                         >
-                                            Cancel
+                                            ביטול
                                         </button>
                                         {riskBlocked && (
                                             <motion.button
@@ -383,7 +383,7 @@ export default function LaunchCampaignDialog({
                                                 disabled={phase === "launching"}
                                                 className="h-8 px-3 rounded-md border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-[12.5px] font-medium transition-colors disabled:opacity-50"
                                             >
-                                                Launch anyway
+                                                הפעל בכל זאת
                                             </motion.button>
                                         )}
                                         <button
@@ -395,12 +395,12 @@ export default function LaunchCampaignDialog({
                                             {phase === "launching" ? (
                                                 <>
                                                     <span className="campaign-grid text-white" aria-hidden />
-                                                    Launching…
+                                                    מפעיל…
                                                 </>
                                             ) : (
                                                 <>
                                                     <RocketIcon className="w-3.5 h-3.5" />
-                                                    Launch now
+                                                    הפעל עכשיו
                                                 </>
                                             )}
                                         </button>

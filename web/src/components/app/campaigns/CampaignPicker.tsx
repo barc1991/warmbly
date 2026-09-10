@@ -15,7 +15,7 @@ export default function CampaignPicker({
     campaignId,
     campaignName,
     onChange,
-    noneLabel = "No campaign",
+    noneLabel = "ללא קמפיין",
     className = "w-full",
 }: {
     campaignId: string | null;
@@ -29,7 +29,7 @@ export default function CampaignPicker({
     // A saved id whose name is not cached yet (an automation reopened later)
     // resolves from the list once it loads.
     const resolved = campaignId ? campaigns.campaigns.find((c) => c.id === campaignId)?.name : undefined;
-    const label = campaignId ? campaignName || resolved || "Selected campaign" : noneLabel;
+    const label = campaignId ? campaignName || resolved || "קמפיין נבחר" : noneLabel;
 
     return (
         <PopoverMenu align="start">
@@ -41,7 +41,7 @@ export default function CampaignPicker({
                     <input
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search campaigns…"
+                        placeholder="חיפוש קמפיינים…"
                         className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
                     />
                 </div>
@@ -59,7 +59,7 @@ export default function CampaignPicker({
                 ))}
                 {campaigns.campaigns.length === 0 && (
                     <div className="px-3 py-2 text-[11.5px] text-slate-400 text-center">
-                        {campaigns.isPending ? "Loading…" : "No campaigns found."}
+                        {campaigns.isPending ? "טוען…" : "לא נמצאו קמפיינים."}
                     </div>
                 )}
             </PopoverMenuContent>

@@ -14,12 +14,12 @@ export default function CampaignDangerZone({ campaign }: { campaign: Campaign })
     return (
         <div className="rounded-md border border-red-200 bg-red-50/40 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="min-w-0 flex-1">
-                <p className="text-[12.5px] font-medium text-slate-900">Delete this campaign</p>
+                <p className="text-[12.5px] font-medium text-slate-900">מחיקת קמפיין זה</p>
                 <p className="text-[11.5px] text-slate-500 mt-0.5 leading-relaxed">
                     {running
-                        ? "It is still running. Deleting stops sending immediately and removes the campaign, its steps, lead progress and activity. Contacts and emails already sent stay."
-                        : "Removes the campaign, its steps, lead progress and activity. Contacts and emails already sent stay."}{" "}
-                    This can't be undone.
+                        ? "הקמפיין עדיין פועל. המחיקה תעצור את השליחה באופן מיידי ותסיר את הקמפיין, את שלביו, את התקדמות הלידים ואת הפעילות. אנשי קשר ואימיילים שכבר נשלחו יישארו."
+                        : "מסיר את הקמפיין, את שלביו, את התקדמות הלידים ואת הפעילות. אנשי קשר ואימיילים שכבר נשלחו יישארו."}{" "}
+                    לא ניתן לבטל פעולה זו.
                 </p>
             </div>
             <PermissionButton
@@ -32,7 +32,7 @@ export default function CampaignDangerZone({ campaign }: { campaign: Campaign })
                 className="h-7 px-2.5 rounded-md border border-red-200 text-red-600 hover:bg-red-600 hover:border-red-600 hover:text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60 shrink-0"
             >
                 <TrashIcon className="w-3.5 h-3.5" />
-                Delete campaign
+                מחק קמפיין
             </PermissionButton>
         </div>
     );

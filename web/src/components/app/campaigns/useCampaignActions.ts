@@ -29,11 +29,11 @@ export function canStartCampaign(status: string | null | undefined): boolean {
 // that sending stops as part of the delete rather than requiring a pause.
 export function deleteCampaignPrompt(c: CampaignLike): string {
     const what =
-        "The campaign, its steps, lead progress and activity are permanently removed. Contacts and emails already sent stay.";
+        "הקמפיין, השלבים שלו, התקדמות הלידים והפעילות יימחקו לצמיתות. אנשי קשר ואימיילים שכבר נשלחו יישארו.";
     if (c.status === "active") {
-        return `Delete "${c.name}"? It is still running: sending stops immediately. ${what} This can't be undone.`;
+        return `למחוק את "${c.name}"? הקמפיין עדיין פועל: השליחה תיפסק באופן מיידי. ${what} לא ניתן לבטל פעולה זו.`;
     }
-    return `Delete "${c.name}"? ${what} This can't be undone.`;
+    return `למחוק את "${c.name}"? ${what} לא ניתן לבטל פעולה זו.`;
 }
 
 // gate runs fn when the member holds the permission and pops the standard
@@ -60,8 +60,8 @@ export function useCampaignActions() {
     function requestDelete(c: CampaignLike, opts?: { afterDelete?: () => void }) {
         confirm.show(deleteCampaignPrompt(c), async () => {
             await toast.promise(del.mutateAsync(c.id), {
-                loading: "Deleting campaign…",
-                success: `Deleted "${c.name}"`,
+                loading: "מוחק קמפיין…",
+                success: `הקמפיין "${c.name}" נמחק`,
                 error: (e: AppError) => buildError(e),
             });
             opts?.afterDelete?.();
@@ -73,8 +73,8 @@ export function useCampaignActions() {
     async function duplicateAndOpen(c: CampaignLike) {
         try {
             const created = await toast.promise(duplicate.mutateAsync({ id: c.id }), {
-                loading: "Duplicating campaign…",
-                success: (copy) => `Created "${copy.name}" as a draft`,
+                loading: "משכפל קמפיין…",
+                success: (copy) => `הקמפיין "${copy.name}" נוצר כטיוטה`,
                 error: (e: AppError) => buildError(e),
             });
             navigate(`/app/campaigns/${created.id}/preferences`);

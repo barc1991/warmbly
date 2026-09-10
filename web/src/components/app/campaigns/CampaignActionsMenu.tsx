@@ -47,8 +47,8 @@ export default function CampaignActionsMenu({ campaign, variant, onToggle, after
             <PopoverMenuTrigger asChild>
                 <button
                     type="button"
-                    aria-label={`Actions for ${campaign.name}`}
-                    title="More actions"
+                    aria-label={`פעולות עבור ${campaign.name}`}
+                    title="פעולות נוספות"
                     className={cn(
                         "inline-flex items-center justify-center shrink-0 transition-colors",
                         variant === "row"
@@ -64,14 +64,14 @@ export default function CampaignActionsMenu({ campaign, variant, onToggle, after
                     onSelect={() => navigate(`/app/campaigns/${campaign.id}/preferences`)}
                     icon={<PencilIcon className="w-3 h-3" />}
                 >
-                    {variant === "row" ? "Edit" : "Edit settings"}
+                    {variant === "row" ? "עריכה" : "עריכת הגדרות"}
                 </PopoverMenuItem>
                 <PopoverMenuItem
                     onSelect={gate("MANAGE_CAMPAIGNS", () => actions.duplicateAndOpen(campaign))}
                     disabled={actions.duplicating}
                     icon={<CopyIcon className="w-3 h-3" />}
                 >
-                    Duplicate
+                    שכפל
                 </PopoverMenuItem>
                 {showToggle && (
                     <PopoverMenuItem
@@ -84,7 +84,7 @@ export default function CampaignActionsMenu({ campaign, variant, onToggle, after
                             )
                         }
                     >
-                        {isActive ? "Pause" : "Start"}
+                        {isActive ? "השהה" : "הפעל"}
                     </PopoverMenuItem>
                 )}
                 <PopoverMenuSeparator />
@@ -94,7 +94,7 @@ export default function CampaignActionsMenu({ campaign, variant, onToggle, after
                     disabled={actions.deleting}
                     icon={<TrashIcon className="w-3 h-3" />}
                 >
-                    Delete
+                    מחק
                 </PopoverMenuItem>
             </PopoverMenuContent>
         </PopoverMenu>

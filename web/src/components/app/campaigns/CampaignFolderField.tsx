@@ -21,9 +21,9 @@ export default function CampaignFolderField({
     if (folders.length === 0) {
         return (
             <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/50 px-4 py-5 text-center">
-                <p className="text-[12.5px] text-slate-600 font-medium">No folders yet</p>
+                <p className="text-[12.5px] text-slate-600 font-medium">אין תיקיות עדיין</p>
                 <p className="text-[11.5px] text-slate-400 mt-0.5">
-                    Create folders to organize your campaigns.
+                    צור תיקיות כדי לארגן את הקמפיינים שלך.
                 </p>
                 <button
                     type="button"
@@ -31,7 +31,7 @@ export default function CampaignFolderField({
                     className="mt-3 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors"
                 >
                     <PlusIcon className="w-3 h-3" />
-                    New folder
+                    תיקייה חדשה
                 </button>
             </div>
         );
@@ -48,7 +48,7 @@ export default function CampaignFolderField({
                         onClick={() => onToggle(f.id)}
                         aria-pressed={on}
                         className={cn(
-                            "inline-flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-md border text-[12.5px] font-medium transition-colors",
+                            "inline-flex items-center gap-1.5 h-7 ps-2 pe-2.5 rounded-md border text-[12.5px] font-medium transition-colors",
                             on
                                 ? "border-transparent text-slate-800"
                                 : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900",
@@ -70,7 +70,7 @@ export default function CampaignFolderField({
                 className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[12px] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
             >
                 <Settings2Icon className="w-3.5 h-3.5" />
-                Manage
+                ניהול
             </button>
         </div>
     );

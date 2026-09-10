@@ -21,6 +21,12 @@ const STATUS_PILL: Record<CampaignFormStats["status"], string> = {
     archived: "bg-amber-50 text-amber-700",
 };
 
+const STATUS_LABEL: Record<CampaignFormStats["status"], string> = {
+    draft: "טיוטה",
+    published: "פורסם",
+    archived: "בארכיון",
+};
+
 export default function CampaignFormsPanel({ campaignId }: { campaignId: string }) {
     const forms = useCampaignForms(campaignId);
     const rows = forms.data ?? [];
@@ -30,18 +36,18 @@ export default function CampaignFormsPanel({ campaignId }: { campaignId: string 
 
     return (
         <div className="rounded-md border border-slate-200 overflow-hidden bg-white">
-            <SectionBar label="Forms" count={rows.length} />
+            <SectionBar label="טפסים" count={rows.length} />
             <div className="divide-y divide-slate-200/60">
                 <div className="h-8 px-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
-                    <span className="flex-1 min-w-0">Form</span>
-                    <span className="w-16 text-right" title="Recipients given a personalized link">
-                        Links
+                    <span className="flex-1 min-w-0">טופס</span>
+                    <span className="w-16 text-end" title="נמענים שקיבלו קישור מותאם אישית">
+                        קישורים
                     </span>
-                    <span className="w-16 text-right">Opened</span>
-                    <span className="w-16 text-right hidden md:block">Started</span>
-                    <span className="w-16 text-right">Filled</span>
-                    <span className="w-16 text-right hidden md:block" title="Submissions out of links sent">
-                        Rate
+                    <span className="w-16 text-end">נפתחו</span>
+                    <span className="w-16 text-end hidden md:block">החלו</span>
+                    <span className="w-16 text-end">מולאו</span>
+                    <span className="w-16 text-end hidden md:block" title="הגשות מתוך קישורים שנשלחו">
+                        המרה
                     </span>
                     <span className="w-7" />
                 </div>
@@ -58,29 +64,29 @@ export default function CampaignFormsPanel({ campaignId }: { campaignId: string 
                                 <span
                                     className={`inline-flex items-center h-4 px-1.5 rounded text-[10px] font-medium shrink-0 ${STATUS_PILL[f.status]}`}
                                 >
-                                    {f.status}
+                                    {STATUS_LABEL[f.status]}
                                 </span>
                             )}
                         </span>
-                        <span className="w-16 text-right font-mono text-[11.5px] text-slate-700 tabular-nums">
+                        <span className="w-16 text-end font-mono text-[11.5px] text-slate-700 tabular-nums">
                             <AnimatedNumber value={f.links_sent} />
                         </span>
-                        <span className="w-16 text-right font-mono text-[11.5px] text-emerald-600 tabular-nums">
+                        <span className="w-16 text-end font-mono text-[11.5px] text-emerald-600 tabular-nums">
                             <AnimatedNumber value={f.viewers} />
                         </span>
-                        <span className="w-16 text-right font-mono text-[11.5px] text-violet-600 tabular-nums hidden md:block">
+                        <span className="w-16 text-end font-mono text-[11.5px] text-violet-600 tabular-nums hidden md:block">
                             <AnimatedNumber value={f.starters} />
                         </span>
-                        <span className="w-16 text-right font-mono text-[11.5px] text-sky-600 tabular-nums">
+                        <span className="w-16 text-end font-mono text-[11.5px] text-sky-600 tabular-nums">
                             <AnimatedNumber value={f.submissions} />
                         </span>
-                        <span className="w-16 text-right font-mono text-[11.5px] text-slate-500 tabular-nums hidden md:block">
+                        <span className="w-16 text-end font-mono text-[11.5px] text-slate-500 tabular-nums hidden md:block">
                             {rate(f.submissions, f.links_sent)}
                         </span>
                         <span className="w-7 flex justify-end">
                             <Link
                                 to={`/app/forms/${f.form_id}?tab=analytics`}
-                                aria-label={`Open ${f.form_name} analytics`}
+                                aria-label={`צפה בניתוח נתונים עבור ${f.form_name}`}
                                 className="size-6 inline-flex items-center justify-center rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
                                 <ExternalLinkIcon className="w-3 h-3" />
@@ -90,8 +96,7 @@ export default function CampaignFormsPanel({ campaignId }: { campaignId: string 
                 ))}
             </div>
             <p className="px-5 py-2.5 border-t border-slate-200/60 text-[11px] text-slate-400">
-                Every recipient gets their own link, so opens and submissions here are tied to the exact contact this
-                campaign emailed.
+                לכל נמען מופק קישור ייחודי משלו, כך שפתיחות והגשות כאן מקושרות ישירות לאיש הקשר המדויק שנשלח אליו אימייל מקמפיין זה.
             </p>
         </div>
     );
