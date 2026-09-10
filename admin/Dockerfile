@@ -41,5 +41,5 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # without POSIX permissions (exFAT/NTFS mounts) that is 0700 and nginx 403s.
 RUN chmod -R a+rX /usr/share/nginx/html
 COPY docker-entrypoint.sh /docker-entrypoint.d/40-warmbly-config.sh
-RUN chmod +x /docker-entrypoint.d/40-warmbly-config.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.d/40-warmbly-config.sh && chmod +x /docker-entrypoint.d/40-warmbly-config.sh
 EXPOSE 80
