@@ -13,9 +13,9 @@ import {
 } from "./entryDelay";
 
 const UNIT_OPTIONS: SelectOption[] = [
-    { value: "minutes", label: "minutes" },
-    { value: "hours", label: "hours" },
-    { value: "days", label: "days" },
+    { value: "minutes", label: "דקות" },
+    { value: "hours", label: "שעות" },
+    { value: "days", label: "ימים" },
 ];
 
 /**
@@ -101,7 +101,7 @@ export default function EntryDelayPicker({
                     </button>
                 ))}
                 <button type="button" disabled={disabled} onClick={() => setCustom(true)} className={chip(custom)}>
-                    Custom
+                    מותאם אישית
                 </button>
             </div>
             {custom && (
@@ -123,7 +123,7 @@ export default function EntryDelayPicker({
                         options={UNIT_OPTIONS}
                         minWidth={130}
                         disabled={disabled}
-                        aria-label="Delay unit"
+                        aria-label="יחידת עיכוב"
                     />
                 </div>
             )}

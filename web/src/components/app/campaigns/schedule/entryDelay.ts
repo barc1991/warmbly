@@ -6,13 +6,13 @@
 export const ENTRY_DELAY_MAX_MINUTES = 90 * 24 * 60;
 
 export const ENTRY_DELAY_PRESETS: { label: string; minutes: number }[] = [
-    { label: "Immediately", minutes: 0 },
-    { label: "1 hour", minutes: 60 },
-    { label: "4 hours", minutes: 240 },
-    { label: "1 day", minutes: 1440 },
-    { label: "2 days", minutes: 2880 },
-    { label: "3 days", minutes: 4320 },
-    { label: "1 week", minutes: 10080 },
+    { label: "מיידית", minutes: 0 },
+    { label: "שעה אחת", minutes: 60 },
+    { label: "4 שעות", minutes: 240 },
+    { label: "יום אחד", minutes: 1440 },
+    { label: "יומיים", minutes: 2880 },
+    { label: "3 ימים", minutes: 4320 },
+    { label: "שבוע אחד", minutes: 10080 },
 ];
 
 export const ENTRY_DELAY_UNIT_MINUTES = { minutes: 1, hours: 60, days: 1440 } as const;
@@ -29,11 +29,23 @@ export function splitEntryDelay(minutes: number): { amount: number; unit: EntryD
     return { amount: minutes, unit: "minutes" };
 }
 
-/** "Immediately", "2 days", "90 minutes" — the phrase every surface shows. */
+/** "מיידית", "יומיים", "90 דקות" — the phrase every surface shows. */
 export function entryDelayLabel(minutes: number): string {
-    if (minutes <= 0) return "Immediately";
+    if (minutes <= 0) return "מיידית";
     const preset = ENTRY_DELAY_PRESETS.find((p) => p.minutes === minutes);
     if (preset) return preset.label;
     const { amount, unit } = splitEntryDelay(minutes);
-    return `${amount} ${amount === 1 ? unit.slice(0, -1) : unit}`;
+    if (unit === "days") {
+        if (amount === 1) return "יום אחד";
+        if (amount === 2) return "יומיים";
+        return `${amount} ימים`;
+    }
+    if (unit === "hours") {
+        if (amount === 1) return "שעה אחת";
+        if (amount === 2) return "שעתיים";
+        return `${amount} שעות`;
+    }
+    if (amount === 1) return "דקה אחת";
+    return `${amount} דקות`;
 }
+
