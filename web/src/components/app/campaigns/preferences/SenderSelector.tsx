@@ -116,14 +116,14 @@ export default function SenderSelector({
                         onClick={() => setOpen((o) => !o)}
                         className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600"
                     >
-                        All active mailboxes — click to narrow by tag or pick specific ones…
+                        כל תיבות הדואר הפעילות — לחץ כדי לצמצם לפי תגית או לבחור תיבות ספציפיות…
                     </div>
                 ) : (
                     <div className="px-2 py-2 flex flex-wrap gap-1">
                         {tagChips.map((t) => (
                             <span
                                 key={`tag-${t.id}`}
-                                className="inline-flex items-center gap-1 h-5 pl-1.5 pr-1 rounded text-[11px] font-medium"
+                                className="inline-flex items-center gap-1 h-5 ps-1.5 pe-1 rounded text-[11px] font-medium"
                                 style={{
                                     backgroundColor: hexToRgba(t.color, 0.12),
                                     color: t.color,
@@ -139,7 +139,7 @@ export default function SenderSelector({
                                         toggleTag(t.id);
                                     }}
                                     className="opacity-70 hover:opacity-100"
-                                    aria-label={`Remove ${t.title}`}
+                                    aria-label={`הסר את ${t.title}`}
                                 >
                                     <XIcon className="w-2.5 h-2.5" />
                                 </button>
@@ -148,10 +148,10 @@ export default function SenderSelector({
                         {accountChips.map(({ id, inbox }) => (
                             <span
                                 key={`acct-${id}`}
-                                className="inline-flex items-center gap-1.5 h-5 pl-1.5 pr-1 rounded text-[11px] font-medium border border-slate-200 bg-slate-50 text-slate-700"
+                                className="inline-flex items-center gap-1.5 h-5 ps-1.5 pe-1 rounded text-[11px] font-medium border border-slate-200 bg-slate-50 text-slate-700"
                             >
                                 <span className={`size-2 rounded-full shrink-0 ${healthDot(inbox?.status ?? "")}`} />
-                                <span className="truncate max-w-[200px]">{inbox?.email ?? id}</span>
+                                <span className="truncate max-w-[200px]" dir="ltr">{inbox?.email ?? id}</span>
                                 <button
                                     type="button"
                                     onClick={(e) => {
@@ -159,7 +159,7 @@ export default function SenderSelector({
                                         toggleAccount(id);
                                     }}
                                     className="opacity-70 hover:opacity-100"
-                                    aria-label={`Remove ${inbox?.email ?? id}`}
+                                    aria-label={`הסר את ${inbox?.email ?? id}`}
                                 >
                                     <XIcon className="w-2.5 h-2.5" />
                                 </button>
@@ -171,7 +171,7 @@ export default function SenderSelector({
                             className="inline-flex items-center gap-1 h-5 px-1.5 rounded text-[11px] font-medium border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
                         >
                             <PlusIcon className="w-2.5 h-2.5" />
-                            Add
+                            הוסף
                         </button>
                     </div>
                 )}
@@ -192,7 +192,7 @@ export default function SenderSelector({
                             <input
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                placeholder="Search tags or mailboxes…"
+                                placeholder="חיפוש תגיות או תיבות דואר…"
                                 autoFocus
                                 className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
                             />
@@ -202,7 +202,7 @@ export default function SenderSelector({
                             {filteredTags.length > 0 && (
                                 <>
                                     <div className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                                        Tags
+                                        תגיות
                                     </div>
                                     {filteredTags.map((t) => {
                                         const checked = selectedTags.includes(t.id);
@@ -235,14 +235,14 @@ export default function SenderSelector({
 
                             {/* Mailboxes */}
                             <div className="px-2.5 pt-2 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                                Mailboxes
+                                תיבות דואר
                             </div>
                             {isLoading && (
-                                <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">Loading…</div>
+                                <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">טוען…</div>
                             )}
                             {!isLoading && filteredMailboxes.length === 0 && (
                                 <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                                    {emails.length === 0 ? "No mailboxes connected yet." : "No matches."}
+                                    {emails.length === 0 ? "אין תיבות דואר מחוברות עדיין." : "לא נמצאו תוצאות."}
                                 </div>
                             )}
                             {filteredMailboxes.map((e) => {
@@ -262,9 +262,9 @@ export default function SenderSelector({
                                             {checked && <CheckIcon className="w-2 h-2 text-white" />}
                                         </span>
                                         <span className={`size-2.5 rounded-full shrink-0 ${healthDot(e.status)}`} />
-                                        <span className="min-w-0 flex-1 truncate text-left">{e.email}</span>
+                                        <span className="min-w-0 flex-1 truncate text-start" dir="ltr">{e.email}</span>
                                         {e.provider && (
-                                            <span className="shrink-0 max-w-[88px] truncate pl-2 text-[10px] capitalize tracking-[0.06em] text-slate-400">
+                                            <span className="shrink-0 max-w-[88px] truncate ps-2 text-[10px] capitalize tracking-[0.06em] text-slate-400">
                                                 {e.provider}
                                             </span>
                                         )}
@@ -275,8 +275,8 @@ export default function SenderSelector({
                         <div className="px-2.5 h-7 flex items-center gap-1.5 text-[11px] text-slate-400 border-t border-slate-100">
                             <MailIcon className="w-3 h-3" />
                             {totalSelected === 0
-                                ? "Nothing selected — all active mailboxes"
-                                : `${selectedTags.length} tag${selectedTags.length === 1 ? "" : "s"} · ${selectedAccounts.length} mailbox${selectedAccounts.length === 1 ? "" : "es"}`}
+                                ? "לא נבחר דבר — כל התיבות הפעילות"
+                                : `${selectedTags.length} ${selectedTags.length === 1 ? "תגית" : "תגיות"} · ${selectedAccounts.length} ${selectedAccounts.length === 1 ? "תיבה" : "תיבות"}`}
                         </div>
                     </motion.div>
                 )}

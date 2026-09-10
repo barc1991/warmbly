@@ -15,8 +15,8 @@ type SetCampaign = React.Dispatch<React.SetStateAction<Campaign>>;
 
 // Provider guidance behind the defaults, shown so the numbers are not magic.
 const REFERENCE = [
-    "Google asks senders to keep spam complaints under 0.10% and never reach 0.30%.",
-    "Amazon SES puts an account under review at a 5% bounce rate and can pause sending at 10%.",
+    "Google דורשת משולחים לשמור על שיעור תלונות ספאם מתחת ל-0.10% ולא להגיע לעולם ל-0.30%.",
+    "Amazon SES מעמידה חשבון בבדיקה כאשר שיעור החזרות (Bounce) מגיע ל-5% ועשויה להשהות את השליחה ב-10%.",
 ];
 
 export function GuardrailsSection({
@@ -36,7 +36,7 @@ export function GuardrailsSection({
                     <PauseCircleIcon className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div className="min-w-0">
                         <p className="text-[11.5px] text-amber-900/90 leading-relaxed">
-                            {newCampaign.guardrail_reason || "This campaign was paused automatically by a guardrail."}
+                            {newCampaign.guardrail_reason || "קמפיין זה הושהה אוטומטית על ידי מנגנון הגנה."}
                         </p>
                         {trippedAt && (
                             <p className="text-[10.5px] text-amber-800/70 mt-1">
@@ -45,8 +45,8 @@ export function GuardrailsSection({
                         )}
                         {paused && (
                             <p className="text-[10.5px] text-amber-800/70 mt-1">
-                                Starting the campaign again clears this. Fix the underlying problem first, or it will
-                                trip again on the next check.
+                                הפעלת הקמפיין מחדש תאפס התראה זו. פתור תחילה את הבעיה המהותית, אחרת הקמפיין ייעצר
+                                שוב בבדיקה הבאה.
                             </p>
                         )}
                     </div>
@@ -54,8 +54,8 @@ export function GuardrailsSection({
             )}
 
             <SettingRow
-                title="Auto-pause"
-                description="Stop this campaign the moment its bounce, complaint, or reply rate leaves the band below. Checked every 15 minutes."
+                title="השהיה אוטומטית"
+                description="עצור קמפיין זה ברגע ששיעור החזרות, התלונות או המענה חורג מהטווח שהוגדר להלן. נבדק כל 15 דקות."
                 control={
                     <Toggle
                         id="campaign-pref-guardrail"
@@ -69,7 +69,7 @@ export function GuardrailsSection({
                 <div className="rounded-md border border-slate-200 bg-slate-50/40 p-3.5 space-y-4">
                     <div className="flex flex-wrap items-end gap-4">
                         <div>
-                            <Label>Pause above bounce rate</Label>
+                            <Label>השהה מעל שיעור חזרות</Label>
                             <NumberInput
                                 value={newCampaign.guardrail_bounce_rate_max}
                                 min={0}
@@ -81,7 +81,7 @@ export function GuardrailsSection({
                             />
                         </div>
                         <div>
-                            <Label>Pause above complaint rate</Label>
+                            <Label>השהה מעל שיעור תלונות</Label>
                             <NumberInput
                                 value={newCampaign.guardrail_complaint_rate_max}
                                 min={0}
@@ -93,7 +93,7 @@ export function GuardrailsSection({
                             />
                         </div>
                         <div>
-                            <Label>Pause below reply rate</Label>
+                            <Label>השהה מתחת לשיעור מענה</Label>
                             <NumberInput
                                 value={newCampaign.guardrail_reply_rate_min}
                                 min={0}
@@ -108,24 +108,24 @@ export function GuardrailsSection({
 
                     <div className="flex flex-wrap items-end gap-4">
                         <div>
-                            <Label>Only after</Label>
+                            <Label>רק לאחר</Label>
                             <NumberInput
                                 value={newCampaign.guardrail_min_sample}
                                 min={1}
                                 max={100000}
                                 onChange={(v) => setNewCampaign((bef) => ({ ...bef, guardrail_min_sample: v }))}
-                                suffix="sends"
+                                suffix="שליחות"
                                 className="w-40"
                             />
                         </div>
                         <div>
-                            <Label>Measured over the last</Label>
+                            <Label>נמדד לאורך</Label>
                             <NumberInput
                                 value={newCampaign.guardrail_window_days}
                                 min={0}
                                 max={365}
                                 onChange={(v) => setNewCampaign((bef) => ({ ...bef, guardrail_window_days: v }))}
-                                suffix="days"
+                                suffix="ימים"
                                 className="w-40"
                             />
                         </div>
@@ -133,9 +133,8 @@ export function GuardrailsSection({
 
                     <div className="space-y-1.5 pt-0.5">
                         <p className="text-[11px] text-slate-500 leading-relaxed">
-                            A rate of <b>0</b> turns that rule off. The reply-rate floor is off by default: pausing for
-                            weak engagement is a deliberate choice. A window of <b>0</b> days measures the campaign&apos;s
-                            whole history.
+                            שיעור של <b>0</b> מכבה את הכלל הרלוונטי. רף שיעור המענה כבוי כברירת מחדל: השהיה בשל
+                            מעורבות נמוכה היא החלטה מודעת. חלון של <b>0</b> ימים מודד את כל ההיסטוריה של הקמפיין.
                         </p>
                         {REFERENCE.map((line) => (
                             <p key={line} className="text-[10.5px] text-slate-400 leading-relaxed">

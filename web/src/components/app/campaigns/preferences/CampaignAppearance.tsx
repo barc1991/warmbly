@@ -12,10 +12,10 @@ import { SelectMenu, type SelectOption } from "@/components/ui/select-menu";
 import { useOutreachSettings } from "@/lib/api/hooks/app/outreach/useOutreachSettings";
 
 const UNSUB_MODES: SelectOption[] = [
-    { value: "inherit", label: "Workspace default" },
-    { value: "text", label: "Reply to opt out (text line)" },
-    { value: "link", label: "Unsubscribe link" },
-    { value: "off", label: "Nothing" },
+    { value: "inherit", label: "ברירת המחדל של סביבת העבודה" },
+    { value: "text", label: "השב כדי לבטל הצטרפות (שורת טקסט)" },
+    { value: "link", label: "קישור להסרה מרשימת תפוצה" },
+    { value: "off", label: "ללא" },
 ];
 
 const DAILY_MIN = 3;
@@ -36,7 +36,7 @@ export function GeneralSection({
     return (
         <div className="space-y-4">
             <div>
-                <Label>Campaign name</Label>
+                <Label>שם הקמפיין</Label>
                 <TextInput
                     value={newCampaign.name}
                     placeholder={campaign.name}
@@ -45,10 +45,10 @@ export function GeneralSection({
                 />
             </div>
             <div>
-                <Label>Description</Label>
+                <Label>תיאור</Label>
                 <TextInput
                     value={newCampaign.description}
-                    placeholder={campaign.description || "Optional — what this targets"}
+                    placeholder={campaign.description || "אופציונלי — מה מטרת הקמפיין"}
                     onChange={(v) => setNewCampaign((bef) => ({ ...bef, description: v }))}
                     className="w-full max-w-[420px]"
                 />
@@ -74,34 +74,34 @@ export function SendingAccountsSection({
     return (
         <div className="space-y-4">
             <div>
-                <Label>Sending accounts</Label>
+                <Label>חשבונות שולח</Label>
                 <SenderSelector
                     selectedTags={newCampaign.email_tags}
                     onTagsChange={(next) => setNewCampaign((bef) => ({ ...bef, email_tags: next }))}
                     selectedAccounts={explicitAccounts}
                     onAccountsChange={setExplicitAccounts}
                 />
-                <p className="text-[11px] text-slate-400 mt-1.5">
-                    Pick tags, specific mailboxes, or both — volume is split evenly across the resolved pool.
-                    Leave empty to send from every active mailbox.
+                <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                    בחר תגיות, תיבות דואר ספציפיות או שתיהן — הנפח יחולק שווה בשווה בין כל התיבות במאגר.
+                    השאר ריק כדי לשלוח מכל תיבת דואר פעילה.
                 </p>
             </div>
             <div>
-                <Label>Daily limit per mailbox</Label>
+                <Label>מגבלה יומית לכל תיבת דואר</Label>
                 <NumberInput
                     value={newCampaign.daily_limit}
                     min={DAILY_MIN}
                     max={DAILY_MAX}
                     onChange={(v) => setNewCampaign((bef) => ({ ...bef, daily_limit: v }))}
-                    suffix="emails / day"
+                    suffix="אימיילים / יום"
                     className="w-48"
                 />
                 <p className={`text-[11px] mt-1.5 ${dailyInvalid ? "text-rose-500" : dailyHigh ? "text-amber-600" : "text-slate-400"}`}>
                     {dailyInvalid
-                        ? `Must be between ${DAILY_MIN} and ${DAILY_MAX}.`
+                        ? `חייב להיות בין ${DAILY_MIN} ל-${DAILY_MAX}.`
                         : dailyHigh
-                          ? "Well above the 30–50/day safe cold-outreach band. Every mailbox in the pool needs the reputation and provider capacity to carry this."
-                          : `${DAILY_MIN}–${DAILY_MAX}. Default 50 — stay conservative until reputation is proven.`}
+                          ? "הרבה מעל לטווח הבטוח של 30–50 ליום עבור פנייה קרה. כל תיבה במאגר צריכה מוניטין וקיבולת מספקים מהספק כדי לעמוד בכך."
+                          : `${DAILY_MIN}–${DAILY_MAX}. ברירת מחדל 50 — שמור על ערך שמרני עד שהמוניטין יוכח.`}
                 </p>
             </div>
         </div>
@@ -127,8 +127,8 @@ export function DeliverabilitySection({
     return (
         <div className="space-y-5">
             <SettingRow
-                title="Stop on reply"
-                description="Pause follow-ups for a contact once they respond."
+                title="עצור בעת מענה"
+                description="השהה אימיילי המשך לאיש קשר ברגע שהוא משיב."
                 control={
                     <Toggle
                         id="campaign-pref-stop-on-reply"
@@ -138,8 +138,8 @@ export function DeliverabilitySection({
                 }
             />
             <SettingRow
-                title="Plain text only"
-                description="Send as simple text for the best deliverability (disables tracking)."
+                title="טקסט רגיל בלבד"
+                description="שלח כטקסט פשוט לעבירות מרבית (מבטל מעקב)."
                 control={
                     <Toggle
                         id="campaign-pref-text"
@@ -149,8 +149,8 @@ export function DeliverabilitySection({
                 }
             />
             <SettingRow
-                title="Open tracking"
-                description="Track email opens, but may slightly reduce deliverability."
+                title="מעקב פתיחות"
+                description="עקוב אחר פתיחות אימייל (עשוי להפחית מעט את העבירות)."
                 control={
                     <Toggle
                         id="campaign-pref-open-tracking"
@@ -161,8 +161,8 @@ export function DeliverabilitySection({
                 }
             />
             <SettingRow
-                title="Link tracking"
-                description="Track clicks on links to measure engagement (click-through rate). Each link is tracked on its own, so a contact's activity shows exactly which link was clicked."
+                title="מעקב קישורים"
+                description="עקוב אחר לחיצות על קישורים למדידת מעורבות (CTR). כל קישור מנוטר בנפרד, כך שפעילות איש הקשר מציגה בדיוק על איזה קישור נלחץ."
                 control={
                     <Toggle
                         id="campaign-pref-link-tracking"
@@ -173,8 +173,8 @@ export function DeliverabilitySection({
                 }
             />
             <SettingRow
-                title="UTM parameters"
-                description="Tag every link with utm_source, utm_medium, utm_campaign and utm_content (the link's own text) so clicks show up attributed in your web analytics. Links that already carry a UTM value keep it."
+                title="פרמטרי UTM"
+                description="תייג כל קישור עם utm_source, utm_medium, utm_campaign ו-utm_content (טקסט הקישור עצמו) כדי שהלחיצות ישויכו במערכת האנליטיקס שלך. קישורים שכבר מכילים ערכי UTM ישמרו עליהם."
                 control={
                     <Toggle
                         id="campaign-pref-utm-tracking"
@@ -188,8 +188,8 @@ export function DeliverabilitySection({
                 <UTMFields campaign={newCampaign} setNewCampaign={setNewCampaign} />
             )}
             <SettingRow
-                title="Unsubscribe header"
-                description="Add a List-Unsubscribe header so mail clients can show their own one-click unsubscribe. It is a header, not visible copy, so it changes nothing about how the email reads and works on plain-text sends too. This is the opt-out Gmail and Yahoo look for; leave it on."
+                title="כותרת הסרה (List-Unsubscribe)"
+                description="הוסף כותרת List-Unsubscribe כדי שלקוחות דוא״ל יוכלו להציג כפתור הסרה בלחיצה אחת. זו כותרת טכנית ולא תוכן גלוי, כך שהיא אינה משנה את מראה האימייל ופועלת גם בשליחת טקסט רגיל. זו אפשרות ההסרה ש-Gmail ו-Yahoo דורשים; מומלץ להשאיר פעיל."
                 control={
                     <Toggle
                         id="campaign-pref-unsub"
@@ -199,17 +199,16 @@ export function DeliverabilitySection({
                 }
             />
             <SettingRow
-                title="Opt-out line"
+                title="שורת הסרה"
                 description={
                     <>
-                        The opt-out appended after the signature of every email in this campaign. Reply to opt out reads
-                        as a personal email and is honoured automatically; a link is for lists that need one, and the
-                        header above already covers the bulk-sender rules. The workspace default is set under Settings
-                        &gt; Sending.
+                        אפשרות ההסרה שמתווספת לאחר החתימה בכל אימייל בקמפיין זה. מענה לצורך הסרה נקרא כאימייל
+                        אישי ומכובד אוטומטית; קישור מיועד לרשימות שדורשות זאת, והכותרת למעלה כבר מכסה את כללי
+                        השולחים בכמויות גדולות. ברירת המחדל של סביבת העבודה מוגדרת תחת הגדרות &gt; שליחה.
                         {plainTextLinkOptOut && (
                             <span className="mt-1 block text-amber-700">
-                                This campaign sends plain text only, where a link has nowhere to hide its address: the
-                                recipient reads the full unsubscribe URL. Prefer the header and the reply line here.
+                                קמפיין זה נשלח בטקסט רגיל בלבד, שבו קישור אינו יכול להסתיר את כתובתו: הנמען
+                                קורא את כתובת ה-URL המלאה של ההסרה. עדיף להשתמש בכותרת ובשורת המענה כאן.
                             </span>
                         )}
                     </>
@@ -221,7 +220,7 @@ export function DeliverabilitySection({
                             setNewCampaign((bef) => ({ ...bef, unsubscribe_mode: v as Campaign["unsubscribe_mode"] }))
                         }
                         options={UNSUB_MODES}
-                        aria-label="Opt-out line"
+                        aria-label="שורת הסרה"
                         minWidth={240}
                         align="end"
                     />
@@ -240,7 +239,7 @@ export function UTMFields({
     setNewCampaign: SetCampaign;
 }) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pl-0 sm:pl-4 sm:border-l-2 sm:border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 ps-0 sm:ps-4 sm:border-s-2 sm:border-slate-100">
             <div>
                 <Label>utm_source</Label>
                 <TextInput
@@ -268,9 +267,9 @@ export function UTMFields({
                     className="w-full"
                 />
             </div>
-            <p className="sm:col-span-3 text-[11px] text-slate-400 -mt-1">
-                Leave a field empty to use the placeholder default. utm_content is set per link from its text
-                (for example <span className="font-mono">pricing</span>), so each link is attributed on its own.
+            <p className="sm:col-span-3 text-[11px] text-slate-400 -mt-1 leading-relaxed">
+                השאר שדה ריק כדי להשתמש בברירת המחדל. utm_content מוגדר לכל קישור מתוך הטקסט שלו
+                (לדוגמה <span className="font-mono">pricing</span>), כך שכל קישור משויך באופן עצמאי.
             </p>
         </div>
     );

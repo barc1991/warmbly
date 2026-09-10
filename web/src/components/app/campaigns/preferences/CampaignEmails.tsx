@@ -46,13 +46,13 @@ function RampPreview({
 
     return (
         <div>
-            <div className="flex items-end gap-1 h-14">
+            <div className="flex items-end gap-1 h-14" dir="ltr">
                 {shown.map((val, i) => {
                     const today = i === todayIdx;
                     return (
                         <div
                             key={i}
-                            title={`Day ${i + 1}: ${val}/day`}
+                            title={`יום ${i + 1}: ${val}/יום`}
                             className={`flex-1 min-w-[4px] rounded-t-sm ${today ? "bg-sky-500" : "bg-sky-200"}`}
                             style={{ height: `${Math.max(10, (val / ceiling) * 100)}%` }}
                         />
@@ -61,10 +61,10 @@ function RampPreview({
             </div>
             <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-400">
                 <span>
-                    Day 1 · {start}/day
+                    יום 1 · {start}/יום
                 </span>
                 <span>
-                    {more > 0 ? `+${more} more · ` : ""}Day {days.length} · {ceiling}/day, then steady
+                    {more > 0 ? `+עוד ${more} · ` : ""}יום {days.length} · {ceiling}/יום, ולאחר מכן קבוע
                 </span>
             </div>
         </div>
@@ -85,46 +85,46 @@ export function RotationRampSection({
             {/* Inbox rotation */}
             <div>
                 <SettingRow
-                    title="Inbox rotation"
-                    description="Send this campaign from several mailboxes so no single inbox sends too much — better deliverability and more total volume."
+                    title="סבב תיבות דואר (Rotation)"
+                    description="שלח קמפיין זה ממספר תיבות דואר כדי שאף תיבה לא תשלח יותר מדי — עבירות טובה יותר ונפח כולל גבוה יותר."
                     stack
                     control={
                         <OptionSelect
-                            aria-label="Inbox rotation"
+                            aria-label="סבב תיבות דואר"
                             cols={1}
                             value={newCampaign.rotation_mode}
                             onChange={(v) => setNewCampaign((bef) => ({ ...bef, rotation_mode: v }))}
                             options={[
                                 {
                                     value: "least_recently_used",
-                                    label: "Even spacing",
-                                    hint: "Recommended — always picks the mailbox that's been idle longest, for the most natural send pattern.",
+                                    label: "פיזור שווה (LRU)",
+                                    hint: "מומלץ — בוחר תמיד את התיבה שהייתה בלתי פעילה למשך הזמן הארוך ביותר, לדפוס שליחה טבעי במיוחד.",
                                 },
                                 {
                                     value: "round_robin",
-                                    label: "Round-robin",
-                                    hint: "Cycles through your mailboxes in order (A → B → C → A). A simple, even split.",
+                                    label: "סבב מחזורי (Round-robin)",
+                                    hint: "עובר בין תיבות הדואר לפי הסדר (א → ב → ג → א). חלוקה שווה ופשוטה.",
                                 },
                                 {
                                     value: "weighted",
-                                    label: "Weighted",
-                                    hint: "Sends more from your healthiest, higher-limit mailboxes.",
+                                    label: "משוקלל",
+                                    hint: "שולח יותר מתיבות הדואר הבריאות ביותר ובעלות המגבלה הגבוהה יותר.",
                                 },
                             ]}
                         />
                     }
                 />
                 <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
-                    Rotation picks the mailbox for a lead's first email, and every follow-up to that lead comes from
-                    the same address, so the conversation stays consistent. Each mailbox stays within its own daily
-                    limit, and a lead only changes address if its mailbox stops being able to send for this campaign.
+                    סבב התיבות בוחר את התיבה עבור האימייל הראשון של הליד, וכל אימייל המשך לליד זה נשלח מאותה
+                    כתובת כדי לשמור על עקביות בשיחה. כל תיבה נשארת בתוך המגבלה היומית שלה, וליד ישנה כתובת שולח
+                    רק אם התיבה שלו אינה מסוגלת עוד לשלוח עבור קמפיין זה.
                 </p>
             </div>
 
             {/* Daily ramp-up */}
             <SettingRow
-                title="Daily ramp-up"
-                description="Gradually raise each mailbox's daily volume instead of starting at full limit — a smooth growth curve protects deliverability. (Separate from warmup.)"
+                title="העלאה יומית הדרגתית (Ramp-up)"
+                description="העלה בהדרגה את הנפח היומי של כל תיבה במקום להתחיל במגבלה המלאה — עקומת צמיחה חלקה מגינה על עבירות השליחה. (נפרד מחימום תיבות)."
                 control={
                     <Toggle
                         id="campaign-pref-ramp"
@@ -137,47 +137,47 @@ export function RotationRampSection({
                 <div className="rounded-md border border-slate-200 bg-slate-50/40 p-3.5 space-y-3.5">
                     <div className="flex flex-wrap items-end gap-4">
                         <div>
-                            <Label>Start</Label>
+                            <Label>התחלה</Label>
                             <NumberInput
                                 value={newCampaign.ramp_start}
                                 min={1}
                                 max={5000}
                                 onChange={(v) => setNewCampaign((bef) => ({ ...bef, ramp_start: v }))}
-                                suffix="/ day"
+                                suffix="/ יום"
                                 className="w-36"
                             />
                         </div>
                         <div>
-                            <Label>Increase by</Label>
+                            <Label>הגדלה בכל יום ב</Label>
                             <NumberInput
                                 value={newCampaign.ramp_increment}
                                 min={1}
                                 max={100}
                                 onChange={(v) => setNewCampaign((bef) => ({ ...bef, ramp_increment: v }))}
-                                suffix="/ day"
+                                suffix="/ יום"
                                 className="w-36"
                             />
                         </div>
                         <div>
-                            <Label>Ceiling</Label>
+                            <Label>תקרה</Label>
                             <NumberInput
                                 value={newCampaign.ramp_ceiling}
                                 min={1}
                                 max={5000}
                                 onChange={(v) => setNewCampaign((bef) => ({ ...bef, ramp_ceiling: v }))}
-                                suffix="/ day"
+                                suffix="/ יום"
                                 className="w-36"
                             />
                         </div>
                         <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-sky-50 text-sky-700 text-[11.5px] font-medium">
-                            Today's cap
+                            מגבלה להיום
                             <span className="font-mono tabular-nums">{newCampaign.ramp_level}</span>
                         </span>
                     </div>
                     {rampInvalid ? (
                         <p className="flex items-center gap-1.5 text-[11px] text-rose-500">
                             <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
-                            Start must be less than or equal to the ceiling.
+                            הערך ההתחלתי חייב להיות קטן או שווה לתקרה.
                         </p>
                     ) : (
                         <RampPreview
@@ -206,19 +206,19 @@ export function EspMatchingSection({
     return (
         <div className="space-y-4">
             <SettingRow
-                title="Provider matching"
-                description="Match the sending mailbox provider to the recipient's provider (e.g. Google → Google)."
+                title="התאמת ספק דואר (ESP Matching)"
+                description="התאם את ספק תיבת הדואר השולחת לספק הדואר של הנמען (לדוגמה: Google ← Google)."
                 stack
                 control={
                     <OptionSelect
-                        aria-label="ESP matching mode"
+                        aria-label="מצב התאמת ספק"
                         cols={3}
                         value={newCampaign.esp_match_mode}
                         onChange={(v) => setNewCampaign((bef) => ({ ...bef, esp_match_mode: v }))}
                         options={[
-                            { value: "off", label: "Off", hint: "Ignore provider when choosing a mailbox" },
-                            { value: "prefer", label: "Prefer same", hint: "Use a same-provider mailbox when free" },
-                            { value: "strict", label: "Strict same", hint: "Only send from a same-provider mailbox" },
+                            { value: "off", label: "כבוי", hint: "התעלם מהספק בעת בחירת תיבת דואר" },
+                            { value: "prefer", label: "העדף ספק זהה", hint: "השתמש בתיבה מאותו ספק כשהיא פנויה" },
+                            { value: "strict", label: "ספק זהה בלבד", hint: "שלח אך ורק מתיבה בעלת ספק זהה" },
                         ]}
                     />
                 }
@@ -243,24 +243,24 @@ export function LeadFlowSection({
     return (
         <div className="space-y-5">
             <div>
-                <Label>New leads contacted per day</Label>
+                <Label>לידים חדשים לפנייה ביום</Label>
                 <NumberInput
                     value={newCampaign.max_new_leads_per_day}
                     min={0}
                     max={10000}
                     onChange={(v) => setNewCampaign((bef) => ({ ...bef, max_new_leads_per_day: v }))}
-                    suffix={newCampaign.max_new_leads_per_day === 0 ? "= no limit" : "leads / day"}
+                    suffix={newCampaign.max_new_leads_per_day === 0 ? "= ללא הגבלה" : "לידים / יום"}
                     className="w-48"
                 />
                 <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                    Limits how many brand-new leads get their <span className="text-slate-500">very first</span>{" "}
-                    email from this campaign each day, so a fresh list goes out as a steady trickle instead of one
-                    big blast. Follow-ups to people already in the campaign still send and don't count against this.
+                    מגביל לכמה לידים חדשים לחלוטין יישלח האימייל <span className="text-slate-500">הראשון ביותר</span>{" "}
+                    מקמפיין זה מדי יום, כדי שרשימה חדשה תצא בטפטוף יציב ולא בבת אחת. אימיילי המשך לאנשים שכבר
+                    נמצאים בקמפיין ממשיכים להישלח ואינם נספרים במגבלה זו.
                 </p>
             </div>
             <SettingRow
-                title="Prioritize new leads"
-                description="Send to newly added leads before resuming the existing queue."
+                title="תעדוף לידים חדשים"
+                description="שלח ללידים שנוספו לאחרונה לפני המשך התור הקיים."
                 control={
                     <Toggle
                         id="campaign-pref-prioritize-new"
@@ -270,8 +270,8 @@ export function LeadFlowSection({
                 }
             />
             <SettingRow
-                title="Keep running for new leads"
-                description="Out of leads, the campaign stays active and waits instead of finishing, so leads from a linked segment, a form, the API or an automation keep getting the sequence. Linking a segment, a form or an automation to this campaign turns it on, and so does starting the campaign once every lead has finished."
+                title="המשך לפעול עבור לידים חדשים"
+                description="כאשר ייגמרו הלידים, הקמפיין יישאר פעיל וימתין במקום להסתיים, כך שלידים מסגמנט מקושר, מטופס, מה-API או מאוטומציה ימשיכו לקבל את הרצף. קישור סגמנט, טופס או אוטומציה מפעיל הגדרה זו, וכך גם הפעלת הקמפיין לאחר שכל הלידים הסתיימו."
                 control={
                     <Toggle
                         id="campaign-pref-continuous"
@@ -281,8 +281,8 @@ export function LeadFlowSection({
                 }
             />
             <SettingRow
-                title="Send to risky emails"
-                description="Attempt delivery to addresses flagged risky by verification (may increase bounces)."
+                title="שלח לכתובות דואר בסיכון"
+                description="נסה לשלוח לכתובות שסומנו כבעלות סיכון באימות (עשוי להגדיל חזרות)."
                 control={
                     <Toggle
                         id="campaign-pref-risk"
@@ -326,15 +326,15 @@ export function CcBccSection({
                             }}
                             className="text-[11px] text-slate-400 hover:text-rose-500 transition-colors"
                         >
-                            Remove
+                            הסר
                         </button>
                     </div>
                     <EmailListInput
                         values={newCampaign.cc}
                         onChange={(v) => setNewCampaign((bef) => ({ ...bef, cc: v }))}
                     />
-                    <p className="text-[11px] text-slate-400 mt-1.5">
-                        Visible to recipients. Paste or type several — separate with a comma, space, or Enter.
+                    <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                        גלוי לנמענים. הדבק או הקלד מספר כתובות — הפרד באמצעות פסיק, רווח או Enter.
                     </p>
                 </div>
             )}
@@ -351,14 +351,14 @@ export function CcBccSection({
                             }}
                             className="text-[11px] text-slate-400 hover:text-rose-500 transition-colors"
                         >
-                            Remove
+                            הסר
                         </button>
                     </div>
                     <EmailListInput
                         values={newCampaign.bcc}
                         onChange={(v) => setNewCampaign((bef) => ({ ...bef, bcc: v }))}
                     />
-                    <p className="text-[11px] text-slate-400 mt-1.5">Hidden from recipients.</p>
+                    <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">מוסתר מהנמענים.</p>
                 </div>
             )}
 
@@ -366,17 +366,17 @@ export function CcBccSection({
                 <div className="flex flex-wrap items-center gap-2">
                     {!showCc && (
                         <button type="button" onClick={() => setShowCc(true)} className={addBtn}>
-                            + Add CC
+                            + הוסף CC
                         </button>
                     )}
                     {!showBcc && (
                         <button type="button" onClick={() => setShowBcc(true)} className={addBtn}>
-                            + Add BCC
+                            + הוסף BCC
                         </button>
                     )}
                     {!showCc && !showBcc && (
                         <span className="text-[11px] text-slate-400">
-                            Optionally copy extra addresses on every email this campaign sends.
+                            אופציונלי: הוסף כתובות מועתקות בכל אימייל שקמפיין זה שולח.
                         </span>
                     )}
                 </div>

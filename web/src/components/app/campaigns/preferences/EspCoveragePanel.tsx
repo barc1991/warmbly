@@ -26,8 +26,8 @@ type Status = "ok" | "warn" | "blocked" | "any";
 const LABEL: Record<string, string> = {
     gmail: "Google",
     outlook: "Outlook",
-    smtp_imap: "Other / SMTP",
-    other: "Other domains",
+    smtp_imap: "אחר / SMTP",
+    other: "דומיינים אחרים",
 };
 
 export default function EspCoveragePanel({
@@ -77,8 +77,8 @@ export default function EspCoveragePanel({
         return (
             <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
                 <p className="text-[11.5px] text-amber-700 leading-relaxed">
-                    No active mailboxes resolve for this campaign yet, so there's nothing to match against. Add
-                    mailboxes or tags under <span className="font-medium">Sending accounts</span>.
+                    אין תיבות דואר פעילות במאגר קמפיין זה כרגע, לכן אין מול מה לבצע התאמה. הוסף תיבות דואר או תגיות
+                    תחת <span className="font-medium">חשבונות שולח</span>.
                 </p>
             </div>
         );
@@ -99,14 +99,14 @@ export default function EspCoveragePanel({
         <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 space-y-3.5">
             {/* Pool summary + active mode */}
             <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Your mailboxes</span>
+                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400">תיבות הדואר שלך</span>
                 <ModePill mode={mode} />
             </div>
             <div className="flex items-center gap-2 flex-wrap -mt-1">
                 {poolChips.map((p) => (
                     <span
                         key={p.key}
-                        className="inline-flex items-center gap-1.5 h-7 pl-1 pr-2 rounded-md border border-slate-200 bg-white"
+                        className="inline-flex items-center gap-1.5 h-7 ps-1 pe-2 rounded-md border border-slate-200 bg-white"
                     >
                         <ProviderLogo provider={p.key} className="size-5" />
                         <span className="text-[11.5px] text-slate-700">
@@ -145,10 +145,10 @@ export default function EspCoveragePanel({
                             <ProviderLogo provider={r} className="size-8" />
                             <div className="min-w-0 flex-1">
                                 <div className="text-[12.5px] font-medium text-slate-800 leading-tight">
-                                    {LABEL[r]} recipients
+                                    נמעני {LABEL[r]}
                                 </div>
                                 <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400">via</span>
+                                    <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400">באמצעות</span>
                                     {mode === "off" ? (
                                         <AnyMailbox />
                                     ) : (
@@ -168,7 +168,7 @@ export default function EspCoveragePanel({
                                             )}
                                             {status === "blocked" && (
                                                 <span className="text-[11px] text-rose-500 font-medium">
-                                                    No matching mailbox
+                                                    אין תיבת דואר מתאימה
                                                 </span>
                                             )}
                                         </>
@@ -184,9 +184,9 @@ export default function EspCoveragePanel({
                 <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
                     <ProviderLogo provider="other" className="size-8" />
                     <div className="min-w-0 flex-1">
-                        <div className="text-[12.5px] font-medium text-slate-800 leading-tight">Other domains</div>
+                        <div className="text-[12.5px] font-medium text-slate-800 leading-tight">דומיינים אחרים</div>
                         <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400">via</span>
+                            <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400">באמצעות</span>
                             <AnyMailbox />
                         </div>
                     </div>
@@ -196,25 +196,24 @@ export default function EspCoveragePanel({
 
             {mode === "strict" && onlyWildcard && (
                 <p className="rounded-md bg-amber-50 border border-amber-200 px-2.5 py-2 text-[11px] text-amber-700 leading-relaxed">
-                    All your mailboxes are SMTP/IMAP, which can send to any provider — so Strict can't narrow by
-                    provider here and behaves like Off. Connect a Google or Outlook mailbox to truly restrict
-                    same-provider sending.
+                    כל תיבות הדואר שלך הן מסוג SMTP/IMAP, שיכולות לשלוח לכל ספק — לכן מצב קפדני אינו יכול לצמצם
+                    כאן לפי ספק ומתנהג כמו מצב כבוי. חבר תיבת Google או Outlook כדי להגביל באמת שליחה מאותו ספק.
                 </p>
             )}
 
             <p className="text-[11px] text-slate-400 leading-relaxed">
                 {mode === "off"
-                    ? "Provider matching is off — any recipient can be sent from any mailbox in the pool."
+                    ? "התאמת ספקים כבויה — כל נמען יכול להישלח מכל תיבת דואר במאגר."
                     : mode === "strict"
-                      ? "Strict sends Google and Outlook recipients only from a same-provider mailbox (the sky match) — a recipient with no same-provider mailbox is held (deferred) until one frees up, never sent cross-provider. SMTP/IMAP mailboxes only carry non-Google/Outlook (“other”) domains under strict."
-                      : "Prefer uses a same-provider mailbox when one has capacity (the sky match), otherwise it falls back to another provider (the amber chip) — it never holds a recipient. SMTP/IMAP mailboxes can carry any provider."}
+                      ? "מצב קפדני שולח לנמעני Google ו-Outlook אך ורק מתיבת דואר של אותו ספק — נמען שאין עבורו תיבה מאותו ספק מושהה עד שתיבה מתאימה תתפנה, ולעולם אינו נשלח מספק שונה. תיבות SMTP/IMAP משרתות רק דומיינים אחרים במצב זה."
+                      : "מצב העדפה משתמש בתיבה מאותו ספק כאשר יש לה קיבולת פנויה, ואם לא — משתמש בתיבה מספק אחר. הוא לעולם אינו משהה נמען. תיבות SMTP/IMAP יכולות לשלוח לכל ספק."}
             </p>
         </div>
     );
 }
 
 function AnyMailbox() {
-    return <span className="text-[11px] text-slate-400">Any mailbox in the pool</span>;
+    return <span className="text-[11px] text-slate-400">כל תיבה במאגר</span>;
 }
 
 function Chip({
@@ -233,16 +232,16 @@ function Chip({
               ? "border-amber-200 bg-amber-50/60 border-dashed"
               : "border-slate-200 bg-slate-50";
     return (
-        <span className={`inline-flex items-center gap-1 h-6 pl-1 pr-1.5 rounded-md border ${cls}`}>
+        <span className={`inline-flex items-center gap-1 h-6 ps-1 pe-1.5 rounded-md border ${cls}`}>
             <ProviderLogo provider={provider} className="size-4" muted={variant !== "match"} />
             <span className={`text-[11px] tabular-nums ${variant === "match" ? "text-slate-700" : "text-slate-500"}`}>
                 ×{count}
             </span>
             {variant === "wildcard" && (
-                <span className="text-[9px] uppercase tracking-[0.1em] text-slate-400 ml-0.5">any</span>
+                <span className="text-[9px] uppercase tracking-[0.1em] text-slate-400 ms-0.5">הכל</span>
             )}
             {variant === "fallback" && (
-                <span className="text-[9px] uppercase tracking-[0.1em] text-amber-500 ml-0.5">fallback</span>
+                <span className="text-[9px] uppercase tracking-[0.1em] text-amber-500 ms-0.5">חלופי</span>
             )}
         </span>
     );
@@ -250,10 +249,10 @@ function Chip({
 
 function StatusBadge({ status }: { status: Status }) {
     const map = {
-        ok: { text: "Covered", cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
-        warn: { text: "Fallback", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
-        blocked: { text: "Deferred", cls: "bg-rose-50 text-rose-700", dot: "bg-rose-500" },
-        any: { text: "Any", cls: "bg-slate-100 text-slate-500", dot: "bg-slate-400" },
+        ok: { text: "מכוסה", cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+        warn: { text: "חלופי", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
+        blocked: { text: "מושהה", cls: "bg-rose-50 text-rose-700", dot: "bg-rose-500" },
+        any: { text: "הכל", cls: "bg-slate-100 text-slate-500", dot: "bg-slate-400" },
     }[status];
     return (
         <span
@@ -267,9 +266,9 @@ function StatusBadge({ status }: { status: Status }) {
 
 function ModePill({ mode }: { mode: Mode }) {
     const m = {
-        off: { t: "Matching off", c: "bg-slate-100 text-slate-500" },
-        prefer: { t: "Prefer same", c: "bg-sky-50 text-sky-700" },
-        strict: { t: "Strict same", c: "bg-sky-50 text-sky-700" },
+        off: { t: "התאמה כבויה", c: "bg-slate-100 text-slate-500" },
+        prefer: { t: "העדף ספק זהה", c: "bg-sky-50 text-sky-700" },
+        strict: { t: "ספק זהה בלבד", c: "bg-sky-50 text-sky-700" },
     }[mode];
     return (
         <span

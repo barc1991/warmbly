@@ -85,6 +85,7 @@ export function Toggle({
             type="button"
             id={id}
             role="switch"
+            dir="ltr"
             aria-checked={value}
             disabled={disabled}
             onClick={() => onChange(!value)}
@@ -187,7 +188,7 @@ export function OptionSelect<T extends string>({
                         aria-checked={active}
                         onClick={() => onChange(o.value)}
                         className={cn(
-                            "group flex w-full items-start gap-2.5 rounded-md border px-3 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-100",
+                            "group flex w-full items-start gap-2.5 rounded-md border px-3 py-2 text-start transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-100",
                             active
                                 ? "border-sky-300 bg-sky-50"
                                 : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
@@ -275,8 +276,8 @@ export function EmailListInput({
                 return (
                     <span
                         key={`${v}-${i}`}
-                        title={invalid ? "This doesn't look like a valid email address" : undefined}
-                        className={`inline-flex items-center gap-1 h-5 pl-1.5 pr-1 rounded text-[11px] font-medium max-w-[calc(100%-4rem)] ${
+                        title={invalid ? "כתובת אימייל זו אינה נראית תקינה" : undefined}
+                        className={`inline-flex items-center gap-1 h-5 ps-1.5 pe-1 rounded text-[11px] font-medium max-w-[calc(100%-4rem)] ${
                             invalid ? "bg-rose-50 text-rose-600" : "bg-sky-50 text-sky-700"
                         }`}
                     >
@@ -284,7 +285,7 @@ export function EmailListInput({
                         <button
                             type="button"
                             onClick={() => onChange(values.filter((_, idx) => idx !== i))}
-                            aria-label={`Remove ${v}`}
+                            aria-label={`הסר את ${v}`}
                             className="opacity-70 hover:opacity-100 shrink-0"
                         >
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -297,6 +298,7 @@ export function EmailListInput({
             <input
                 value={draft}
                 inputMode="email"
+                dir="ltr"
                 onChange={(e) => setDraft(e.target.value)}
                 onPaste={(e) => {
                     const text = e.clipboardData.getData("text");
@@ -319,7 +321,7 @@ export function EmailListInput({
                 }}
                 onBlur={commit}
                 placeholder={values.length === 0 ? placeholder : ""}
-                className="flex-1 min-w-[120px] h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
+                className="flex-1 min-w-[120px] h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
             />
         </div>
     );
