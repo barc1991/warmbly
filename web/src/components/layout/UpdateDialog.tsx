@@ -101,7 +101,9 @@ export default function UpdateDialog({ open, onClose }: Props) {
     const qc = useQueryClient();
     const stateQ = useInstanceUpdate(open);
     const logQ = useInstanceUpdateLog(open);
-    const state: InstanceUpdate | undefined = logQ.data ?? stateQ.data;
+    const rawState = logQ.data ?? stateQ.data;
+    const state: InstanceUpdate | undefined =
+        rawState && typeof rawState === "object" && "running" in rawState ? (rawState as InstanceUpdate) : undefined;
     const started = readUpdateStarted();
 
     const [pane, setPane] = React.useState<Pane>("overview");
@@ -118,7 +120,7 @@ export default function UpdateDialog({ open, onClose }: Props) {
     const running = isUpdateRunning(state);
     const backendDown = !!started && (logQ.isError || stateQ.isError);
     const lastJob = state?.updater?.last_job;
-    const finished = !!started && !running && !backendDown && lastJob && lastJob.status !== "running";
+    const finished = !!started && !running && !backendDown && !!lastJob && lastJob.status !== "running";
 
     React.useEffect(() => {
         if (!open) return;
@@ -336,7 +338,7 @@ function OverviewPane({
     loading: boolean;
     isHe?: boolean;
 }) {
-    if (loading || !state) {
+    if (loading || !state || typeof state !== "object" || !state.updater) {
         return (
             <div className="space-y-3">
                 <div className="h-20 rounded-md bg-slate-100 animate-pulse" />
@@ -447,17 +449,17 @@ function OverviewPane({
                     </Row>
                 )}
                 <Row label={isHe ? "מנגנון עדכון" : "Updater"}>
-                    {updater.status === "ok" && (
+                    {updater?.status === "ok" && (
                         <span className="inline-flex items-center gap-1.5 text-slate-700">
                             <span className="size-1.5 rounded-full bg-emerald-500" />
                             {isHe ? "מוכן לפעולה" : "ready"}
                             <span className="text-slate-400">({updater.mode})</span>
                         </span>
                     )}
-                    {updater.status === "off" && (
+                    {(!updater || updater.status === "off") && (
                         <span className="text-slate-500">{isHe ? "לא מוגדר" : "not configured"}</span>
                     )}
-                    {updater.status === "unreachable" && (
+                    {updater?.status === "unreachable" && (
                         <span className="inline-flex items-center gap-1.5 text-amber-700">
                             <span className="size-1.5 rounded-full bg-amber-500" />
                             {isHe ? "לא זמין" : "unreachable"}
@@ -475,15 +477,15 @@ function OverviewPane({
                 </Row>
             </dl>
 
-            {updater.status !== "ok" && (
-                <Notice tone={updater.status === "unreachable" ? "warning" : "info"}>
+            {(!updater || updater.status !== "ok") && (
+                <Notice tone={updater?.status === "unreachable" ? "warning" : "info"}>
                     <div className="font-medium text-slate-900">
-                        {updater.status === "unreachable"
+                        {updater?.status === "unreachable"
                             ? (isHe ? "מנגנון העדכון אינו מגיב" : "The updater is not answering")
                             : (isHe ? "עדכונים מופעלים ישירות מהטרמינל" : "Updates run from a shell here")}
                     </div>
                     <div className="mt-0.5">
-                        {updater.status === "unreachable"
+                        {updater?.status === "unreachable"
                             ? updater.error
                             : (isHe
                                 ? "לא הוגדר שירות מעדכן אוטומטי בסביבה זו, ניתן לבצע עדכון בפונדקאי (Host):"
@@ -518,7 +520,7 @@ function OverviewPane({
                     </code>
                 </Notice>
             )}
-            {checkout?.dirty && updater.status === "ok" && !state.update_available && (
+            {checkout?.dirty && updater?.status === "ok" && !state.update_available && (
                 <Notice tone="warning">
                     {isHe
                         ? "במאגר ישנם שינויים מקומיים שלא נשמרו. המעדכן דורש ביצוע commit או stash לפני עדכון."

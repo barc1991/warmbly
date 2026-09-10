@@ -7,7 +7,7 @@ export const API_URL = runtimeEnv("API_URL", import.meta.env.VITE_API_URL);
 // The whole dashboard talks to the versioned API. VITE_API_URL is a bare origin
 // (no path), so this is the single place the /v1 prefix is applied.
 export const API_BASE_URL = `${API_URL}/v1`;
-export const TURNSTILE_KEY = runtimeEnv("TURNSTILE_KEY", import.meta.env.VITE_TURNSTILE_KEY);
+export const TURNSTILE_KEY = runtimeEnv("TURNSTILE_KEY", import.meta.env.VITE_TURNSTILE_KEY, "1x00000000000000000000AA");
 // Empty means browser error reporting is never initialised. See lib/observability.
 export const SENTRY_DSN = runtimeEnv("SENTRY_DSN", import.meta.env.VITE_SENTRY_DSN);
 // The deployment label events are tagged with. Runtime, so one image can serve

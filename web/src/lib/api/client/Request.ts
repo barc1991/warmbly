@@ -73,6 +73,13 @@ export default async function Request<T>(config: AuthRequestConfig): Promise<T> 
 
     try {
         const res = await Client.request(config)
+        if (typeof res.data === "string" && (res.data.trim().startsWith("<!doctype") || res.data.trim().startsWith("<html"))) {
+            throw {
+                status: 502,
+                message: "Invalid API response: received HTML instead of JSON.",
+                code: "invalid_response",
+            } as AppError;
+        }
         return reviveDates(res.data)
     } catch (error) {
         const appErr = error as AppError;
@@ -87,6 +94,13 @@ export default async function Request<T>(config: AuthRequestConfig): Promise<T> 
                     Authorization: `Bearer ${token.access_token}`,
                 }
                 const res = await Client.request(config)
+                if (typeof res.data === "string" && (res.data.trim().startsWith("<!doctype") || res.data.trim().startsWith("<html"))) {
+                    throw {
+                        status: 502,
+                        message: "Invalid API response: received HTML instead of JSON.",
+                        code: "invalid_response",
+                    } as AppError;
+                }
                 return reviveDates(res.data)
             } catch {
                 clearTokens();

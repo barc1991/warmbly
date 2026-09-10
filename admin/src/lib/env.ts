@@ -9,7 +9,7 @@ export const API_URL: string = runtimeEnv("API_URL", import.meta.env.VITE_API_UR
 
 export const DASHBOARD_URL: string = runtimeEnv("DASHBOARD_URL", import.meta.env.VITE_DASHBOARD_URL, "http://localhost:5173");
 
-export const TURNSTILE_KEY: string = runtimeEnv("TURNSTILE_KEY", import.meta.env.VITE_TURNSTILE_KEY);
+export const TURNSTILE_KEY: string = runtimeEnv("TURNSTILE_KEY", import.meta.env.VITE_TURNSTILE_KEY, "1x00000000000000000000AA");
 
 // Browser error reporting. The admin panel ships to self-hosters like every
 // other image, so the DSN is the operator's and an empty one means the SDK is

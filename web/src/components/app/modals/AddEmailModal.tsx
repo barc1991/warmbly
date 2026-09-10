@@ -27,6 +27,7 @@ import {
     AlertCircleIcon,
     ArrowLeftIcon,
     CheckIcon,
+    ChevronDownIcon,
     ChevronRightIcon,
     CloudIcon,
     FileSpreadsheetIcon,
@@ -50,6 +51,7 @@ import type { OAuthSlot } from "@/lib/api/models/app/oauth-slots/OAuthSlot";
 
 import { Logo } from "@/components/svg";
 import { TextInput } from "@/components/ui/field";
+import { PopoverMenu, PopoverMenuTrigger, PopoverMenuContent } from "@/components/ui/popover-menu";
 import { useUserProfile } from "@/hooks/context/user";
 import { API_URL, APP_URL } from "@/lib/information";
 import type { AppError } from "@/lib/api/client/normalizeError";
@@ -851,6 +853,133 @@ function WorkspaceMailboxes({ onAdopted }: { onAdopted: () => void }) {
     );
 }
 
+function OAuthSlotSelector({
+    slots,
+    activeSlot,
+    onSelectSlot,
+    isHe,
+}: {
+    slots: OAuthSlot[];
+    activeSlot: OAuthSlot | null;
+    onSelectSlot: (id: string) => void;
+    isHe: boolean;
+}) {
+    const [open, setOpen] = React.useState(false);
+
+    return (
+        <div className="space-y-1.5">
+            <label className="text-[11.5px] font-medium text-slate-600 block">
+                {isHe ? "בחר לאיזה סלוט לשייך את התיבה:" : "Select which slot to connect to:"}
+            </label>
+            <PopoverMenu open={open} onOpenChange={setOpen}>
+                <PopoverMenuTrigger asChild>
+                    <button
+                        type="button"
+                        aria-expanded={open}
+                        className={cn(
+                            "w-full h-10 px-3 rounded-xl border bg-white flex items-center justify-between gap-2.5 transition-all text-start outline-none",
+                            open
+                                ? "border-sky-400 ring-2 ring-sky-100 shadow-sm"
+                                : "border-slate-200 hover:border-slate-300 shadow-xs"
+                        )}
+                    >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <LayersIcon className="w-4 h-4 text-sky-600 shrink-0" />
+                            <span className="text-[12.5px] font-medium text-slate-900 truncate">
+                                {activeSlot?.name ?? (isHe ? "בחר סלוט..." : "Select slot...")}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                            {activeSlot && (
+                                <span className={cn(
+                                    "font-mono tabular-nums text-[11px] px-2 py-0.5 rounded-full border",
+                                    activeSlot.connected_count >= activeSlot.max_accounts
+                                        ? "bg-rose-50 text-rose-700 border-rose-200 font-semibold"
+                                        : "bg-slate-50 text-slate-600 border-slate-200"
+                                )}>
+                                    {activeSlot.connected_count}/{activeSlot.max_accounts} {isHe ? "תיבות" : "mailboxes"}
+                                </span>
+                            )}
+                            <ChevronDownIcon
+                                className={cn(
+                                    "w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0",
+                                    open && "rotate-180 text-sky-600"
+                                )}
+                            />
+                        </div>
+                    </button>
+                </PopoverMenuTrigger>
+                <PopoverMenuContent
+                    matchTriggerWidth
+                    zIndex={200}
+                    className="rounded-xl border border-slate-200 bg-white shadow-xl p-1.5 space-y-1 max-h-64 overflow-y-auto"
+                >
+                    {slots.map((s) => {
+                        const full = s.connected_count >= s.max_accounts;
+                        const isSelected = activeSlot?.id === s.id;
+                        return (
+                            <button
+                                key={s.id}
+                                type="button"
+                                disabled={full}
+                                onClick={() => {
+                                    if (!full) {
+                                        onSelectSlot(s.id);
+                                        setOpen(false);
+                                    }
+                                }}
+                                className={cn(
+                                    "w-full px-3 py-2 rounded-lg flex items-center justify-between gap-2.5 text-start transition-colors outline-none",
+                                    isSelected
+                                        ? "bg-sky-50/90 text-sky-950 font-medium"
+                                        : full
+                                        ? "opacity-50 cursor-not-allowed text-slate-400 bg-slate-50/40"
+                                        : "hover:bg-slate-50 text-slate-700 hover:text-slate-900"
+                                )}
+                            >
+                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                    <div
+                                        className={cn(
+                                            "size-5 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                                            isSelected
+                                                ? "bg-sky-600 text-white shadow-xs"
+                                                : "border border-slate-300 text-transparent"
+                                        )}
+                                    >
+                                        <CheckIcon className="w-3 h-3 stroke-[2.5]" />
+                                    </div>
+                                    <span className="text-[12.5px] truncate">
+                                        {s.name}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <span
+                                        className={cn(
+                                            "font-mono tabular-nums text-[11px] px-2 py-0.5 rounded-full border",
+                                            full
+                                                ? "bg-rose-50 text-rose-700 border-rose-200 font-semibold"
+                                                : isSelected
+                                                ? "bg-sky-100 text-sky-800 border-sky-200"
+                                                : "bg-slate-100 text-slate-600 border-slate-200"
+                                        )}
+                                    >
+                                        {s.connected_count}/{s.max_accounts} {isHe ? "תיבות" : "mailboxes"}
+                                    </span>
+                                    {full && (
+                                        <span className="text-[10.5px] font-semibold text-rose-600">
+                                            {isHe ? "- מלא!" : "- Full!"}
+                                        </span>
+                                    )}
+                                </div>
+                            </button>
+                        );
+                    })}
+                </PopoverMenuContent>
+            </PopoverMenu>
+        </div>
+    );
+}
+
 function OAuthPanel({
     provider,
     busy,
@@ -911,7 +1040,7 @@ function OAuthPanel({
             </div>
 
             {hasSlots && !viaCloud && (
-                <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/60 space-y-3">
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
                     <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5">
                             <LayersIcon className="w-4 h-4 text-sky-600" />
@@ -929,36 +1058,23 @@ function OAuthPanel({
                     </div>
 
                     {slots.length > 1 && (
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] text-slate-500">
-                                {isHe ? "בחר לאיזה סלוט לשייך את התיבה:" : "Select which slot to connect to:"}
-                            </label>
-                            <select
-                                value={activeSlot?.id ?? ""}
-                                onChange={(e) => onSelectSlot(e.target.value)}
-                                className="w-full h-8 px-2.5 rounded-md border border-slate-200 bg-white text-[12px] text-slate-800 focus:outline-none focus:border-sky-400"
-                            >
-                                {slots.map((s) => {
-                                    const full = s.connected_count >= s.max_accounts;
-                                    return (
-                                        <option key={s.id} value={s.id} disabled={full}>
-                                            {s.name} ({s.connected_count}/{s.max_accounts} {isHe ? "תיבות" : "mailboxes"}) {full ? (isHe ? "- מלא!" : "- Full!") : ""}
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                        </div>
+                        <OAuthSlotSelector
+                            slots={slots}
+                            activeSlot={activeSlot}
+                            onSelectSlot={onSelectSlot}
+                            isHe={isHe}
+                        />
                     )}
 
                     {activeSlot && (
-                        <div className="p-2.5 rounded-md border border-slate-200 bg-white space-y-2">
+                        <div className="p-3 rounded-xl border border-slate-200 bg-white space-y-2 shadow-xs">
                             <div className="flex items-center justify-between text-[11.5px]">
                                 <span className="font-medium text-slate-900 truncate">
                                     {activeSlot.name}
                                 </span>
                                 <span className={cn(
-                                    "font-mono tabular-nums text-[11px] px-1.5 py-0.5 rounded",
-                                    isCurrentSlotFull ? "bg-rose-50 text-rose-700 font-semibold" : "bg-slate-100 text-slate-700"
+                                    "font-mono tabular-nums text-[11px] px-2 py-0.5 rounded-full border",
+                                    isCurrentSlotFull ? "bg-rose-50 text-rose-700 border-rose-200 font-semibold" : "bg-slate-100 text-slate-700 border-slate-200"
                                 )}>
                                     {activeSlot.connected_count} / {activeSlot.max_accounts} {isHe ? "תיבות" : "mailboxes"}
                                 </span>

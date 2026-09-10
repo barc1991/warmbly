@@ -33,8 +33,8 @@ export function TurnstileModal({ visible, onToken }: Props) {
     }, [deliver]);
 
     useEffect(() => {
-        if (visible && bypassToken) {
-            onTokenRef.current(bypassToken);
+        if (visible && (bypassToken || !TURNSTILE_KEY)) {
+            onTokenRef.current(bypassToken || "");
             return;
         }
 
@@ -51,7 +51,7 @@ export function TurnstileModal({ visible, onToken }: Props) {
         }
     }, [visible, bypassToken, deliver]);
 
-    if (bypassToken) return null;
+    if (bypassToken || !TURNSTILE_KEY) return null;
 
     // The Turnstile component's typings don't surface `ref` publicly,
     // but the underlying widget does support it. Cast the props bag

@@ -77,8 +77,8 @@ export function TurnstileModal({ visible, onToken, onError }: Props) {
     }, [fail]);
 
     useEffect(() => {
-        if (visible && bypassToken) {
-            onTokenRef.current(bypassToken);
+        if (visible && (bypassToken || !TURNSTILE_KEY)) {
+            onTokenRef.current(bypassToken || "");
             return;
         }
         if (visible) {
@@ -98,7 +98,7 @@ export function TurnstileModal({ visible, onToken, onError }: Props) {
         }
     }, [visible, bypassToken, deliver, execute]);
 
-    if (bypassToken) return null;
+    if (bypassToken || !TURNSTILE_KEY) return null;
 
     const turnstileProps = {
         ref: turnstileRef,

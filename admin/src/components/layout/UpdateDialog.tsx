@@ -88,7 +88,7 @@ export function UpdateDialog({ open, onOpenChange }: Props) {
     const phase: Phase = useMemo(() => {
         if (isUpdating(state)) return "running";
         if (started && (jobQ.isError || stateQ.isError)) return "restarting";
-        const last = state?.updater.last_job;
+        const last = state?.updater?.last_job;
         if (started && last && last.status !== "running") {
             return last.status === "succeeded" ? "done" : "failed";
         }

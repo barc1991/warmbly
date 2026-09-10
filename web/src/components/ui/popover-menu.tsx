@@ -141,12 +141,14 @@ export function PopoverMenuContent({
     className,
     minWidth = 200,
     matchTriggerWidth = false,
+    zIndex = 150,
 }: {
     children: React.ReactNode;
     className?: string;
     minWidth?: number;
     /** Pin the panel to the trigger's measured width (for full-width selects). */
     matchTriggerWidth?: boolean;
+    zIndex?: number;
 }) {
     const { open, setOpen, triggerRef, side, align, sideOffset } = useMenu();
     const ref = useRef<HTMLDivElement>(null);
@@ -162,7 +164,7 @@ export function PopoverMenuContent({
             const c = ref.current;
             if (!t || !c) return;
             const r = t.getBoundingClientRect();
-            const cw = c.offsetWidth;
+            const cw = matchTriggerWidth ? r.width : c.offsetWidth;
             const ch = c.offsetHeight;
             let top: number;
             if (side === "bottom") {
@@ -300,8 +302,8 @@ export function PopoverMenuContent({
                         width: matchTriggerWidth ? pos?.width : undefined,
                         visibility: pos ? "visible" : "hidden",
                         // Above the contact/import drawers (z-110..130) but
-                        // below the global confirm dialog (z-200).
-                        zIndex: 150,
+                        // below the global confirm dialog (z-200). Default is 150.
+                        zIndex,
                         transformOrigin,
                         willChange: "transform, opacity",
                     }}

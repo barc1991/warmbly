@@ -14,9 +14,10 @@ export default function Turnstile({setToken}: Props) {
 
     useEffect(() => {
         if (bypassToken) setToken(bypassToken);
+        else if (!TURNSTILE_KEY) setToken("");
     }, [bypassToken, setToken]);
 
-    if (bypassToken) return null;
+    if (bypassToken || !TURNSTILE_KEY) return null;
 
     return <>
         <TurnstileObj.default
