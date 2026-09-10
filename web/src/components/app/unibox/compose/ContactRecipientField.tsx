@@ -7,6 +7,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowUpDownIcon,
@@ -44,10 +45,10 @@ function contactName(c: Contact): string {
 }
 
 // Sort options for the browse panel, mapped onto search sort_by keys.
-const BROWSE_SORTS: { key: SearchContactsSortBy; label: string }[] = [
-    { key: "updated_at", label: "Recent" },
-    { key: "first_name", label: "Name" },
-    { key: "email", label: "Email" },
+const BROWSE_SORTS: { key: SearchContactsSortBy; label: string; labelHe: string }[] = [
+    { key: "updated_at", label: "Recent", labelHe: "אחרונים" },
+    { key: "first_name", label: "Name", labelHe: "שם" },
+    { key: "email", label: "Email", labelHe: "אימייל" },
 ];
 
 const BROWSE_PANEL_WIDTH = 400;
@@ -66,6 +67,8 @@ export default function ContactRecipientField({
     placeholder,
     autoFocus,
 }: ContactRecipientFieldProps) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const [input, setInput] = React.useState("");
     const [focused, setFocused] = React.useState(false);
     const [highlight, setHighlight] = React.useState(0);
@@ -355,8 +358,8 @@ export default function ContactRecipientField({
                     }
                     setBrowseOpen((o) => !o);
                 }}
-                aria-label="Browse contacts"
-                title="Browse contacts"
+                aria-label={isHe ? "עיון באנשי קשר" : "Browse contacts"}
+                title={isHe ? "עיון באנשי קשר" : "Browse contacts"}
                 className="shrink-0 size-5 inline-flex items-center justify-center rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
             >
                 <UserPlusIcon className="w-3.5 h-3.5" />
@@ -395,8 +398,8 @@ export default function ContactRecipientField({
                                 <TagIcon className="w-3 h-3 text-slate-400 shrink-0" />
                                 <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
                                 <span className="text-[11.5px] text-slate-800 truncate">{c.title}</span>
-                                <span className="ml-auto text-[9.5px] text-slate-400 shrink-0">
-                                    filter by category
+                                <span className="ms-auto text-[9.5px] text-slate-400 shrink-0">
+                                    {isHe ? "סנן לפי קטגוריה" : "filter by category"}
                                 </span>
                             </button>
                         ))}
@@ -494,7 +497,7 @@ export default function ContactRecipientField({
                                             setBrowseOpen(false);
                                         }
                                     }}
-                                    placeholder="Search contacts…"
+                                    placeholder={isHe ? "חיפוש אנשי קשר…" : "Search contacts…"}
                                     autoFocus
                                     className="flex-1 min-w-0 bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none"
                                 />
@@ -502,7 +505,7 @@ export default function ContactRecipientField({
                             {allCategories.length > 0 && (
                                 <FilterMenu
                                     icon={TagIcon}
-                                    allLabel="All categories"
+                                    allLabel={isHe ? "כל הקטגוריות" : "All categories"}
                                     options={allCategories.map((c) => ({
                                         id: c.id,
                                         label: c.title,
@@ -514,9 +517,9 @@ export default function ContactRecipientField({
                             )}
                             <FilterMenu
                                 icon={ArrowUpDownIcon}
-                                allLabel="Sort"
+                                allLabel={isHe ? "מיון" : "Sort"}
                                 allowAll={false}
-                                options={BROWSE_SORTS.map((s) => ({ id: s.key, label: s.label }))}
+                                options={BROWSE_SORTS.map((s) => ({ id: s.key, label: isHe ? s.labelHe : s.label }))}
                                 value={browseSort}
                                 onChange={(id) => {
                                     if (id) setBrowseSort(id as SearchContactsSortBy);
@@ -532,7 +535,9 @@ export default function ContactRecipientField({
                                     <SkeletonRow />
                                 </>
                             ) : browseRows.length === 0 ? (
-                                <div className="px-3 py-4 text-[11.5px] text-slate-400 text-center">No contacts.</div>
+                                <div className="px-3 py-4 text-[11.5px] text-slate-400 text-center">
+                                    {isHe ? "אין אנשי קשר." : "No contacts."}
+                                </div>
                             ) : (
                                 browseRows.map((c) => {
                                     const added = existingEmails.has(c.email.toLowerCase());
@@ -584,7 +589,9 @@ export default function ContactRecipientField({
                                                 </span>
                                             </span>
                                             {added && (
-                                                <span className="shrink-0 text-[9.5px] text-slate-400">Added</span>
+                                                <span className="shrink-0 text-[9.5px] text-slate-400">
+                                                    {isHe ? "נוסף" : "Added"}
+                                                </span>
                                             )}
                                         </button>
                                     );
@@ -593,15 +600,15 @@ export default function ContactRecipientField({
                         </AnimatedHeight>
                         {browsePicked.length > 0 && (
                             <div className="shrink-0 p-1.5 border-t border-slate-200 flex items-center gap-2">
-                                <span className="pl-1 text-[10.5px] text-slate-400">
-                                    {browsePicked.length} selected
+                                <span className="ps-1 text-[10.5px] text-slate-400">
+                                    {isHe ? `${browsePicked.length} נבחרו` : `${browsePicked.length} selected`}
                                 </span>
                                 <button
                                     type="button"
                                     onClick={addBrowsePicked}
-                                    className="ml-auto h-6 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[11.5px] font-medium transition-colors"
+                                    className="ms-auto h-6 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[11.5px] font-medium transition-colors"
                                 >
-                                    Add {browsePicked.length}
+                                    {isHe ? `הוסף ${browsePicked.length}` : `Add ${browsePicked.length}`}
                                 </button>
                             </div>
                         )}

@@ -75,12 +75,12 @@ interface ReplyComposerProps {
     onClose: () => void;
 }
 
-const SCHEDULE_PRESETS: { label: string; at: () => Date }[] = [
-    { label: "In 1 hour", at: () => offsetHours(1) },
-    { label: "In 3 hours", at: () => offsetHours(3) },
-    { label: "Tomorrow 9:00", at: () => atHour(1, 9) },
-    { label: "Tomorrow 17:00", at: () => atHour(1, 17) },
-    { label: "Monday 9:00", at: () => nextMonday9() },
+const SCHEDULE_PRESETS: { label: string; labelHe: string; at: () => Date }[] = [
+    { label: "In 1 hour", labelHe: "בעוד שעה", at: () => offsetHours(1) },
+    { label: "In 3 hours", labelHe: "בעוד 3 שעות", at: () => offsetHours(3) },
+    { label: "Tomorrow 9:00", labelHe: "מחר ב-09:00", at: () => atHour(1, 9) },
+    { label: "Tomorrow 17:00", labelHe: "מחר ב-17:00", at: () => atHour(1, 17) },
+    { label: "Monday 9:00", labelHe: "יום שני ב-09:00", at: () => nextMonday9() },
 ];
 
 // Body length cap. Generous; real replies rarely come close.
@@ -119,19 +119,20 @@ function defaultCustomScheduleValue(): string {
     return toLocalInput(offsetHours(2));
 }
 
-function formatFriendly(d: Date): string {
+function formatFriendly(d: Date, isHe = false): string {
     const now = new Date();
     const sameDay =
         d.getFullYear() === now.getFullYear() &&
         d.getMonth() === now.getMonth() &&
         d.getDate() === now.getDate();
-    const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    if (sameDay) return `today, ${time}`;
-    return d.toLocaleString(undefined, {
+    const time = d.toLocaleTimeString(isHe ? "he-IL" : undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+    if (sameDay) return isHe ? `היום, ${time}` : `today, ${time}`;
+    return d.toLocaleString(isHe ? "he-IL" : undefined, {
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
     });
 }
 
@@ -248,19 +249,19 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const send = async (scheduledAt?: Date) => {
         if (!canSend && !isSending) {
             if (!trimmedBody) {
-                toast.error("Body is empty");
+                toast.error(isHe ? "גוף ההודעה ריק" : "Body is empty");
                 return;
             }
             if (to.length === 0) {
-                toast.error("Add at least one recipient");
+                toast.error(isHe ? "הוסף לפחות נמען אחד" : "Add at least one recipient");
                 return;
             }
             if (!to.every(looksLikeEmail)) {
-                toast.error("Recipient email looks invalid");
+                toast.error(isHe ? "כתובת האימייל של הנמען אינה תקינה" : "Recipient email looks invalid");
                 return;
             }
             if (!accountId) {
-                toast.error("Couldn't resolve the sending mailbox");
+                toast.error(isHe ? "לא ניתן לזהות את התיבה השולחת" : "Couldn't resolve the sending mailbox");
                 return;
             }
         }
@@ -309,17 +310,21 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             } else {
                 toast.success(
                     scheduledAt
-                        ? `Scheduled for ${formatFriendly(scheduledAt)}`
+                        ? (isHe ? `תוזמן ל-${formatFriendly(scheduledAt, isHe)}` : `Scheduled for ${formatFriendly(scheduledAt)}`)
                         : mode === "forward"
-                          ? "Forward queued"
-                          : "Reply queued",
+                          ? (isHe ? "ההעברה נוספה לתור" : "Forward queued")
+                          : (isHe ? "התשובה נוספה לתור" : "Reply queued"),
                 );
             }
             setScheduleOpen(false);
             setCustomMode(false);
             onClose();
         } catch {
-            toast.error(mode === "forward" ? "Failed to forward" : "Failed to send reply");
+            toast.error(
+                mode === "forward"
+                    ? (isHe ? "ההעברה נכשלה" : "Failed to forward")
+                    : (isHe ? "שליחת התשובה נכשלה" : "Failed to send reply"),
+            );
         } finally {
             setIsSending(false);
         }
@@ -328,18 +333,18 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const handleInstant = () => send();
     const handleSchedule = (d: Date) => {
         if (!Number.isFinite(d.getTime()) || d.getTime() <= Date.now() + 5_000) {
-            toast.error("Pick a future time (a few seconds out, please)");
+            toast.error(isHe ? "יש לבחור מועד עתידי" : "Pick a future time (a few seconds out, please)");
             return;
         }
         if (d.getTime() - Date.now() > MAX_SCHEDULE_MS) {
-            toast.error("Scheduled send can't be more than 29 days out");
+            toast.error(isHe ? "לא ניתן לתזמן שליחה ליותר מ-29 ימים מראש" : "Scheduled send can't be more than 29 days out");
             return;
         }
         send(d);
     };
     const handleCustom = () => {
         if (!customValue) {
-            toast.error("Pick a time first");
+            toast.error(isHe ? "יש לבחור מועד תחילה" : "Pick a time first");
             return;
         }
         handleSchedule(new Date(customValue));
@@ -360,7 +365,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             setSubject(subj);
         }
         setTemplateOpen(false);
-        toast.success(`Inserted "${name}"`);
+        toast.success(isHe ? `הוכנסה תבנית "${name}"` : `Inserted "${name}"`);
     };
 
     // Three signature states the user might be in. Surfacing all
@@ -385,13 +390,15 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
         return { kind: "off", preview: plain };
     }, [mailbox?.signature_plain, mailbox?.signature_sync]);
 
-    const replyToName = replyTo.from ? nameFromAddr(replyTo.from) : "(unknown sender)";
+    const replyToName = replyTo.from ? nameFromAddr(replyTo.from) : (isHe ? "שולח לא ידוע" : "(unknown sender)");
     const replyToAddr = replyTo.from ? bareEmail(replyTo.from) : "";
-    const replyTargetSubject = replyTo.subject?.trim() || "(no subject)";
+    const replyTargetSubject = replyTo.subject?.trim() || (isHe ? "(ללא נושא)" : "(no subject)");
 
     const scheduleTooltip = scheduleAtCap
-        ? `Schedule queue full (${scheduledUsed}/${scheduledCap}). Cancel some from the Scheduled view.`
-        : "Send later, up to 29 days out";
+        ? (isHe
+            ? `תור התזמון מלא (${scheduledUsed}/${scheduledCap}). בטל חלק מהתזמונים במסך התזמון.`
+            : `Schedule queue full (${scheduledUsed}/${scheduledCap}). Cancel some from the Scheduled view.`)
+        : (isHe ? "שליחה במועד מאוחר יותר, עד 29 ימים מראש" : "Send later, up to 29 days out");
 
     return (
         <motion.div
@@ -417,16 +424,16 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     title={replyToAddr ? `${replyToName} <${replyToAddr}>` : replyToName}
                 >
                     <span className="font-semibold text-slate-800">
-                        {mode === "forward" ? "Forward" : "Reply"}
+                        {mode === "forward" ? (isHe ? "העבר" : "Forward") : (isHe ? "השב" : "Reply")}
                     </span>{" "}
-                    to {replyToName}
+                    {isHe ? "אל" : "to"} {replyToName}
                     <span className="text-slate-400"> · {replyTargetSubject}</span>
                 </span>
                 <button
                     type="button"
                     onClick={onClose}
-                    aria-label="Close composer"
-                    title="Close composer"
+                    aria-label={isHe ? "סגור חלון תגובה" : "Close composer"}
+                    title={isHe ? "סגור חלון תגובה" : "Close composer"}
                     className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors shrink-0"
                 >
                     <XIcon className="w-3.5 h-3.5" />
@@ -437,7 +444,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 quiet inline label, hairline between rows, no label lane or
                 divider column. */}
             <div className="shrink-0 bg-white">
-                <HeaderRow label="To">
+                <HeaderRow label={isHe ? "אל" : "To"}>
                     <ContactRecipientField value={to} onChange={setTo} placeholder="name@example.com" />
                     {(!showCc || !showBcc) && (
                         <div className="ms-auto flex items-center gap-0.5 shrink-0 self-start pt-px">
@@ -447,7 +454,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                     onClick={() => setShowCc(true)}
                                     className="h-5 px-1 rounded text-[11px] text-slate-400 hover:text-slate-700 transition-colors"
                                 >
-                                    Cc
+                                    {isHe ? "עותק" : "Cc"}
                                 </button>
                             )}
                             {!showBcc && (
@@ -456,7 +463,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                     onClick={() => setShowBcc(true)}
                                     className="h-5 px-1 rounded text-[11px] text-slate-400 hover:text-slate-700 transition-colors"
                                 >
-                                    Bcc
+                                    {isHe ? "עותק מוסתר" : "Bcc"}
                                 </button>
                             )}
                         </div>
@@ -465,28 +472,28 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
 
                 {showCc && (
                     <HeaderRow
-                        label="Cc"
+                        label={isHe ? "עותק" : "Cc"}
                         onRemove={() => {
                             setCc([]);
                             setShowCc(false);
                         }}
                     >
-                        <ContactRecipientField value={cc} onChange={setCc} placeholder="Add Cc recipients" />
+                        <ContactRecipientField value={cc} onChange={setCc} placeholder={isHe ? "הוסף נמעני עותק" : "Add Cc recipients"} />
                     </HeaderRow>
                 )}
                 {showBcc && (
                     <HeaderRow
-                        label="Bcc"
+                        label={isHe ? "עותק מוסתר" : "Bcc"}
                         onRemove={() => {
                             setBcc([]);
                             setShowBcc(false);
                         }}
                     >
-                        <ContactRecipientField value={bcc} onChange={setBcc} placeholder="Add Bcc recipients" />
+                        <ContactRecipientField value={bcc} onChange={setBcc} placeholder={isHe ? "הוסף נמעני עותק מוסתר" : "Add Bcc recipients"} />
                     </HeaderRow>
                 )}
 
-                <HeaderRow label="From">
+                <HeaderRow label={isHe ? "מאת" : "From"}>
                     {mailbox ? (
                         <div className="inline-flex items-center gap-2 min-w-0">
                             <span className="text-[12.5px] text-slate-800 truncate">
@@ -498,7 +505,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         </div>
                     ) : (
                         <span className="text-[12px] text-amber-700">
-                            No sending mailbox resolved
+                            {isHe ? "לא זוהתה תיבה שולחת" : "No sending mailbox resolved"}
                         </span>
                     )}
                 </HeaderRow>
@@ -509,7 +516,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         value={subject}
                         dir="auto"
                         onChange={(e) => setSubject(e.target.value)}
-                        placeholder="Subject"
+                        placeholder={isHe ? "נושא" : "Subject"}
                         className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none"
                     />
                 </div>
@@ -600,14 +607,14 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <div className="px-3 py-1.5 flex items-center gap-1.5 border-b border-emerald-200/40 bg-emerald-50/60">
                         <PenLineIcon className="w-3 h-3 text-emerald-700" />
                         <span className="text-[10px] uppercase tracking-[0.14em] text-emerald-800 font-semibold">
-                            Signature appended on send
+                            {isHe ? "חתימה תצורף בעת השליחה" : "Signature appended on send"}
                         </span>
                         <span
                             className="ms-auto inline-flex items-center gap-1 text-[10px] text-emerald-700/80"
-                            title="Manage this in mailbox settings"
+                            title={isHe ? "ניהול בהגדרות התיבה" : "Manage this in mailbox settings"}
                         >
                             <InfoIcon className="w-2.5 h-2.5" />
-                            from {mailbox?.email ?? "this mailbox"}
+                            {isHe ? "מאת" : "from"} {mailbox?.email ?? (isHe ? "תיבה זו" : "this mailbox")}
                         </span>
                     </div>
                     <pre className="px-3 py-2 m-0 font-sans text-[11.5px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-28 overflow-y-auto md:max-h-none">
@@ -619,18 +626,24 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 <div className="mx-4 mb-2 px-3 py-2 rounded-md border border-amber-200/60 bg-amber-50/50 flex items-start gap-2 text-[11.5px] text-amber-900">
                     <InfoIcon className="w-3 h-3 mt-0.5 shrink-0 text-amber-700" />
                     <span className="leading-snug">
-                        A signature is saved for this mailbox but signature
-                        sync is off, so it will <strong>not</strong> be
-                        appended on send. Turn sync on in mailbox settings
-                        to include it automatically.
+                        {isHe ? (
+                            <>
+                                קיימת חתימה שמורה לתיבה זו אך סנכרון חתימות כבוי, לכן היא <strong>לא</strong> תצורף בעת השליחה. הפעל סנכרון בהגדרות התיבה כדי לכלול אותה אוטומטית.
+                            </>
+                        ) : (
+                            <>
+                                A signature is saved for this mailbox but signature sync is off, so it will <strong>not</strong> be appended on send. Turn sync on in mailbox settings to include it automatically.
+                            </>
+                        )}
                     </span>
                 </div>
             )}
             {signatureState.kind === "none" && (
                 <div className="mx-4 mb-2 px-3 py-1.5 rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400 flex items-center gap-1.5">
                     <PenLineIcon className="w-3 h-3" />
-                    No signature on this mailbox. Type one inline or set
-                    one in mailbox settings.
+                    {isHe
+                        ? "אין חתימה מוגדרת לתיבה זו. הקלד ידנית או הגדר בהגדרות התיבה."
+                        : "No signature on this mailbox. Type one inline or set one in mailbox settings."}
                 </div>
             )}
 
@@ -650,7 +663,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     ) : (
                         <SendIcon className="w-3 h-3" />
                     )}
-                    {isSending ? "Sending" : "Send"}
+                    {isSending ? (isHe ? "שולח…" : "Sending") : (isHe ? "שלח" : "Send")}
                 </button>
 
                 {/* Schedule picker. Direct button trigger (no Tooltip
@@ -673,7 +686,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <ClockIcon className="w-3 h-3" />
-                            Schedule
+                            {isHe ? "תזמון" : "Schedule"}
                             <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                         </button>
                     </PopoverMenuTrigger>
@@ -688,7 +701,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                     transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
                                     className="px-1 py-1 w-[260px]"
                                 >
-                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
+                                    <PopoverMenuLabel>{isHe ? "שלח ב-" : "Send at"}</PopoverMenuLabel>
                                     <div className="mt-1">
                                         <DateTimePicker value={customValue} onChange={setCustomValue} stepMinutes={15} />
                                     </div>
@@ -700,14 +713,14 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                             className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                                         >
                                             <CheckIcon className="w-3 h-3" />
-                                            Schedule
+                                            {isHe ? "תזמן" : "Schedule"}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setCustomMode(false)}
                                             className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
                                         >
-                                            Back
+                                            {isHe ? "חזרה" : "Back"}
                                         </button>
                                     </div>
                                 </motion.div>
@@ -719,13 +732,13 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
                                 >
-                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
+                                    <PopoverMenuLabel>{isHe ? "שלח ב-" : "Send at"}</PopoverMenuLabel>
                                     {SCHEDULE_PRESETS.map((p) => (
                                         <PopoverMenuItem
                                             key={p.label}
                                             onSelect={() => handleSchedule(p.at())}
                                         >
-                                            {p.label}
+                                            {isHe ? p.labelHe : p.label}
                                         </PopoverMenuItem>
                                     ))}
                                     <PopoverMenuSeparator />
@@ -733,7 +746,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                         onSelect={() => setCustomMode(true)}
                                         closeOnSelect={false}
                                     >
-                                        Pick a time
+                                        {isHe ? "...בחר מועד" : "Pick a time"}
                                     </PopoverMenuItem>
                                 </motion.div>
                             )}
@@ -753,11 +766,11 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <PopoverMenuTrigger asChild>
                         <button
                             type="button"
-                            title="Drop a saved reply into the body"
+                            title={isHe ? "הכנס תשובה שמורה לגוף ההודעה" : "Drop a saved reply into the body"}
                             className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors"
                         >
                             <FileTextIcon className="w-3 h-3" />
-                            Template
+                            {isHe ? "תבנית" : "Template"}
                             <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                         </button>
                     </PopoverMenuTrigger>
@@ -783,7 +796,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         onClick={() => setBody("")}
                         className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
                     >
-                        Discard
+                        {isHe ? "בטל" : "Discard"}
                     </button>
                 )}
 
@@ -799,16 +812,16 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     )}
                     title={
                         signatureState.kind === "on"
-                            ? "Your mailbox signature will be appended to this reply on send."
+                            ? (isHe ? "חתימת התיבה שלך תצורף לתשובה זו בעת השליחה." : "Your mailbox signature will be appended to this reply on send.")
                             : signatureState.kind === "off"
-                              ? "A signature exists but sync is off, so it will not be appended."
-                              : "No signature configured for this mailbox."
+                              ? (isHe ? "קיימת חתימה אך הסנכרון כבוי, לכן היא לא תצורף." : "A signature exists but sync is off, so it will not be appended.")
+                              : (isHe ? "לא הוגדרה חתימה עבור תיבה זו." : "No signature configured for this mailbox.")
                     }
                 >
                     <PenLineIcon className="w-2.5 h-2.5" />
-                    {signatureState.kind === "on" && "Signature on"}
-                    {signatureState.kind === "off" && "Signature off"}
-                    {signatureState.kind === "none" && "No signature"}
+                    {signatureState.kind === "on" && (isHe ? "חתימה מופעלת" : "Signature on")}
+                    {signatureState.kind === "off" && (isHe ? "חתימה כבויה" : "Signature off")}
+                    {signatureState.kind === "none" && (isHe ? "ללא חתימה" : "No signature")}
                 </span>
 
                 <span className="font-mono text-[10px] text-slate-400 tabular-nums">

@@ -10,6 +10,7 @@
 // validation. Read data: /analytics/accounts/:id and /analytics/warmup?email_id=.
 
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import AdvisorStrip from "@/components/app/advisor/AdvisorStrip";
 import {
@@ -358,6 +359,8 @@ const EDITABLE: (keyof Inbox)[] = [
 ];
 
 function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }: { mailbox: Inbox; onClose: () => void; initialTab?: string; canWarmup?: boolean }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const [tab, setTab] = useState(initialTab);
     const [form, setForm] = useState<Inbox>(mailbox);
     const update = (patch: Partial<Inbox>) => setForm((f) => ({ ...f, ...patch }));
@@ -409,7 +412,17 @@ function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }:
                     <div className="text-[10.5px] text-slate-400 capitalize">{mailbox.provider?.replace("_", "/")}</div>
                 </div>
                 <span className={cn("h-5 px-2 rounded-full border text-[10px] font-semibold uppercase tracking-wide inline-flex items-center shrink-0", statusTone(mailbox.status))}>
-                    {mailbox.status}
+                    {isHe
+                        ? mailbox.status === "active"
+                            ? "פעיל"
+                            : mailbox.status === "inactive"
+                              ? "לא פעיל"
+                              : mailbox.status === "paused"
+                                ? "מושהה"
+                                : mailbox.status === "error"
+                                  ? "שגיאה"
+                                  : mailbox.status
+                        : mailbox.status}
                 </span>
                 <ResourceViewers resource={mailbox.id ? `mailbox:${mailbox.id}` : null} className="shrink-0" />
                 <button onClick={onClose} aria-label="סגור" className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0">
@@ -1268,6 +1281,8 @@ function trackingDomainProblem(host: string): string | null {
 }
 
 function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const [domain, setDomain] = useState(mailbox.tracking_domain ?? "");
     const [copied, setCopied] = useState(false);
     const status = useEmailTrackingDomain(mailbox.id);
@@ -1284,7 +1299,10 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
     const target = status.data?.cname_target ?? "";
     const busy = mutation.isPending || verify.isPending;
     // Show the diagnostic while something is wrong, not once it is fixed.
-    const message = !verified && status.data?.message && !dirty ? status.data.message : "";
+    const rawMessage = !verified && status.data?.message && !dirty ? status.data.message : "";
+    const message = isHe && rawMessage.includes("No custom tracking domain is set")
+        ? "לא הוגדר דומיין מעקב מותאם אישית, לכן פתיחות ולחיצות עוברות דרך שרת המעקב המשותף וקישור ההסרה נשאר על כתובת ה-API של ההתקנה."
+        : rawMessage;
 
     const copyTarget = async () => {
         if (!target) return;

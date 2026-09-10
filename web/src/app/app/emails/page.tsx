@@ -79,12 +79,12 @@ const DefaultFolder = {
 // can proactively toast the user (continuous health reporting).
 const HEALTH_RANK: Record<string, number> = { healthy: 0, warning: 1, error: 2 };
 
-function healthTone(status?: AccountStatus): { dot: string; text: string; label: string; pulse: boolean } {
+function healthTone(status?: AccountStatus, isHe = false): { dot: string; text: string; label: string; pulse: boolean } {
     const h = status?.health;
     if (!h) return { dot: "bg-slate-300", text: "text-slate-500", label: "—", pulse: false };
-    if (h.status === "healthy") return { dot: "bg-emerald-500", text: "text-emerald-600", label: `Healthy ${h.score}`, pulse: false };
-    if (h.status === "warning") return { dot: "bg-amber-500", text: "text-amber-600", label: `At risk ${h.score}`, pulse: true };
-    return { dot: "bg-rose-500", text: "text-rose-600", label: `Issue ${h.score}`, pulse: true };
+    if (h.status === "healthy") return { dot: "bg-emerald-500", text: "text-emerald-600", label: isHe ? `תקין ${h.score}` : `Healthy ${h.score}`, pulse: false };
+    if (h.status === "warning") return { dot: "bg-amber-500", text: "text-amber-600", label: isHe ? `בסיכון ${h.score}` : `At risk ${h.score}`, pulse: true };
+    return { dot: "bg-rose-500", text: "text-rose-600", label: isHe ? `בעיה ${h.score}` : `Issue ${h.score}`, pulse: true };
 }
 
 import AdvisorRowFlag from "@/components/app/advisor/AdvisorRowFlag";
@@ -518,7 +518,8 @@ function MailboxRow({
 }) {
     const life = useWarmupLifecycle(box.id);
     const confirm = useConfirm();
-    const { t } = useTranslation(["mailboxes", "common"]);
+    const { t, i18n } = useTranslation(["mailboxes", "common"]);
+    const isHe = i18n.language === "he";
 
     // Resolve the row's tag ids against the user's tag registry; cap the chips
     // so long tag lists don't crowd the email out of the cell.
@@ -535,7 +536,7 @@ function MailboxRow({
     const paused = !!box.warmup && !!box.warmup_paused_at;
     const active = !!box.warmup && !box.warmup_paused_at;
 
-    const tone = healthTone(status);
+    const tone = healthTone(status, isHe);
     const ws = status?.warmup_status;
     const inCampaign = status?.in_campaign;
 
@@ -558,14 +559,14 @@ function MailboxRow({
     const warmupLabel = inCloud
         ? cloud?.cloud
             ? `${cloud.cloud.sent_today}/${cloud.cloud.warmup?.target_volume ?? cloud.cloud.settings.base}`
-            : "Cloud"
+            : (isHe ? "ענן" : "Cloud")
         : active
         ? `${ws?.current_volume ?? 0}/${ws?.target_volume ?? box.warmup_base}`
         : paused
-            ? "Paused"
+            ? (isHe ? "מושהה" : "Paused")
             : inCampaign
-                ? "Health-check"
-                : "Off";
+                ? (isHe ? "בדיקת תקינות" : "Health-check")
+                : (isHe ? "כבוי" : "Off");
     const warmupTone = inCloud
         ? cloudPaused
             ? "text-amber-600"

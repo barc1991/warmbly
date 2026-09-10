@@ -6,6 +6,7 @@
 // path with a native datetime input.
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import toast from "react-hot-toast";
@@ -84,12 +85,12 @@ function toUniboxEmail(m: UniboxThreadMessage): UniboxEmail {
   };
 }
 
-const SNOOZE_PRESETS: { label: string; until: () => Date }[] = [
-  { label: "In 1 hour", until: () => offsetHours(1) },
-  { label: "In 3 hours", until: () => offsetHours(3) },
-  { label: "Tomorrow 9:00", until: () => atHour(1, 9) },
-  { label: "Monday 9:00", until: () => nextMonday9() },
-  { label: "Next week", until: () => offsetDays(7) },
+const SNOOZE_PRESETS: { label: string; labelHe: string; until: () => Date }[] = [
+  { label: "In 1 hour", labelHe: "בעוד שעה", until: () => offsetHours(1) },
+  { label: "In 3 hours", labelHe: "בעוד 3 שעות", until: () => offsetHours(3) },
+  { label: "Tomorrow 9:00", labelHe: "מחר ב-09:00", until: () => atHour(1, 9) },
+  { label: "Monday 9:00", labelHe: "יום שני ב-09:00", until: () => nextMonday9() },
+  { label: "Next week", labelHe: "בשבוע הבא", until: () => offsetDays(7) },
 ];
 
 function offsetHours(h: number): Date {
@@ -129,6 +130,8 @@ function defaultCustomSnoozeValue(): string {
 }
 
 export function ThreadView({ threadId, emailId }: ThreadViewProps) {
+  const { i18n } = useTranslation();
+  const isHe = i18n.language === "he";
   const q = useThread(threadId, emailId);
   const scheduledQ = useThreadScheduled(threadId);
   const accounts = useAppStore((s) => s.emails);
@@ -137,7 +140,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
   const cancel = useMutation({
     mutationFn: (taskId: string) => cancelScheduled(taskId),
     onSuccess: () => {
-      toast.success("Scheduled send cancelled");
+      toast.success(isHe ? "שליחה מתוזמנת בוטלה" : "Scheduled send cancelled");
       // Three caches to refresh: the per-thread list (this view),
       // the global scheduled list (Scheduled scope), and the
       // overview that powers the scope-rail counter.
@@ -147,7 +150,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
       queryClient.invalidateQueries({ queryKey: ["unibox", "scheduled"] });
       queryClient.invalidateQueries({ queryKey: ["unibox", "overview"] });
     },
-    onError: () => toast.error("Couldn't cancel that send"),
+    onError: () => toast.error(isHe ? "לא ניתן לבטל את השליחה" : "Couldn't cancel that send"),
   });
 
   const [snoozeOpen, setSnoozeOpen] = React.useState(false);
@@ -267,32 +270,32 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
     mutationFn: (until: Date) =>
       snoozeThread({ thread_id: threadId, snoozed_until: until.toISOString() }),
     onSuccess: () => {
-      toast.success("Snoozed");
+      toast.success(isHe ? "הושהה" : "Snoozed");
       queryClient.invalidateQueries({ queryKey: ["unibox", "search"] });
       queryClient.invalidateQueries({ queryKey: ["unibox", "overview"] });
       queryClient.invalidateQueries({ queryKey: ["unibox", "unseen-count"] });
       setSnoozeOpen(false);
       setCustomMode(false);
     },
-    onError: () => toast.error("Couldn't snooze this thread"),
+    onError: () => toast.error(isHe ? "לא ניתן להשהות שרשור זה" : "Couldn't snooze this thread"),
   });
 
   const unsnooze = useMutation({
     mutationFn: () => unsnoozeThread(threadId),
     onSuccess: () => {
-      toast.success("Un-snoozed");
+      toast.success(isHe ? "ההשהיה בוטלה" : "Un-snoozed");
       queryClient.invalidateQueries({ queryKey: ["unibox", "search"] });
       queryClient.invalidateQueries({ queryKey: ["unibox", "overview"] });
       setSnoozeOpen(false);
     },
-    onError: () => toast.error("Couldn't un-snooze"),
+    onError: () => toast.error(isHe ? "לא ניתן לבטל השהיה" : "Couldn't un-snooze"),
   });
 
   if (q.isPending) {
     return (
       <div className="flex-1 flex items-center justify-center gap-2 text-[12px] text-slate-400">
         <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-        Loading thread…
+        {isHe ? "טוען שרשור…" : "Loading thread…"}
       </div>
     );
   }
@@ -303,17 +306,17 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
         <div className="text-center max-w-sm">
           <AlertCircleIcon className="w-5 h-5 text-rose-500 mx-auto mb-2" />
           <p className="text-[12.5px] font-medium text-slate-900 mb-1">
-            Couldn't load this thread
+            {isHe ? "לא ניתן לטעון שרשור זה" : "Couldn't load this thread"}
           </p>
           <p className="text-[11.5px] text-slate-500 mb-3">
-            {q.error?.message ?? "Request failed"}
+            {q.error?.message ?? (isHe ? "הבקשה נכשלה" : "Request failed")}
           </p>
           <button
             type="button"
             onClick={() => q.refetch()}
             className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
           >
-            Try again
+            {isHe ? "נסה שוב" : "Try again"}
           </button>
         </div>
       </div>
@@ -325,12 +328,12 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-[12px] text-slate-400">
-        This thread is empty.
+        {isHe ? "שרשור זה ריק." : "This thread is empty."}
       </div>
     );
   }
 
-  const subject = messages[0]?.subject || "(no subject)";
+  const subject = messages[0]?.subject || (isHe ? "(ללא נושא)" : "(no subject)");
   const participants = new Set(
     messages.map((m) => m.from).filter((f): f is string => Boolean(f)),
   );
@@ -358,11 +361,11 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
     // useful message instead of letting the API 400.
     const MAX_SNOOZE_MS = 90 * 24 * 60 * 60 * 1000;
     if (Number.isNaN(d.getTime()) || d.getTime() <= Date.now() + 5_000) {
-      toast.error("Pick a future time (a few seconds out, please)");
+      toast.error(isHe ? "בחר זמן עתידי (לפחות כמה שניות קדימה)" : "Pick a future time (a few seconds out, please)");
       return;
     }
     if (d.getTime() - Date.now() > MAX_SNOOZE_MS) {
-      toast.error("Snooze can't be more than 90 days out");
+      toast.error(isHe ? "השהיה אינה יכולה להיות מעל 90 יום" : "Snooze can't be more than 90 days out");
       return;
     }
     snooze.mutate(d);
@@ -373,7 +376,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
       <div className="flex-1 flex flex-col min-w-0 bg-white">
       <div className="h-12 px-3 sm:px-5 border-b border-slate-200 flex items-center gap-2 sm:gap-3 shrink-0 bg-white">
         <span className="hidden sm:inline text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-          Thread
+          {isHe ? "שרשור" : "Thread"}
         </span>
         <div className="hidden sm:block h-4 w-px bg-slate-200" />
         <span className="text-[12.5px] text-slate-900 font-medium truncate min-w-0">
@@ -392,11 +395,11 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
           </span>
         )}
         <ResourceViewers resource={`thread:${threadId}`} className="shrink-0" />
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ms-auto flex items-center gap-1">
           <button
             type="button"
             onClick={() => setCrmOpen((o) => !o)}
-            aria-label={crmOpen ? "Hide contact panel" : "Show contact panel"}
+            aria-label={crmOpen ? (isHe ? "הסתר חלונית איש קשר" : "Hide contact panel") : (isHe ? "הצג חלונית איש קשר" : "Show contact panel")}
             className={
               "inline-flex size-7 rounded-md items-center justify-center transition-colors " +
               (crmOpen
@@ -423,7 +426,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
           >
             <PopoverMenuTrigger asChild>
               <button
-                aria-label="Snooze this thread"
+                aria-label={isHe ? "השהה שרשור זה" : "Snooze this thread"}
                 className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors text-[12px]"
                 disabled={snooze.isPending || unsnooze.isPending}
               >
@@ -432,7 +435,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
                 ) : (
                   <MoonIcon className="w-3.5 h-3.5" />
                 )}
-                <span className="hidden sm:inline">Snooze</span>
+                <span className="hidden sm:inline">{isHe ? "השהה" : "Snooze"}</span>
                 <ChevronDownIcon className="w-3 h-3 text-slate-400" />
               </button>
             </PopoverMenuTrigger>
@@ -447,7 +450,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
                     transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
                     className="px-1 py-1 w-[240px]"
                   >
-                    <PopoverMenuLabel>Pick a date &amp; time</PopoverMenuLabel>
+                    <PopoverMenuLabel>{isHe ? "בחר תאריך ושעה" : "Pick a date & time"}</PopoverMenuLabel>
                     <div className="mt-1">
                       <DateTimePicker value={customValue} onChange={setCustomValue} stepMinutes={15} />
                     </div>
@@ -458,14 +461,14 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
                         className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1 transition-colors"
                       >
                         <CheckIcon className="w-3 h-3" />
-                        Snooze
+                        {isHe ? "השהה" : "Snooze"}
                       </button>
                       <button
                         type="button"
                         onClick={() => setCustomMode(false)}
                         className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
                       >
-                        Back
+                        {isHe ? "חזרה" : "Back"}
                       </button>
                     </div>
                   </motion.div>
@@ -477,23 +480,23 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
                   >
-                    <PopoverMenuLabel>Snooze until</PopoverMenuLabel>
+                    <PopoverMenuLabel>{isHe ? "השהה עד" : "Snooze until"}</PopoverMenuLabel>
                     {SNOOZE_PRESETS.map((p) => (
                       <PopoverMenuItem
                         key={p.label}
                         onSelect={() => snooze.mutate(p.until())}
                       >
-                        {p.label}
+                        {isHe ? p.labelHe : p.label}
                       </PopoverMenuItem>
                     ))}
                     <PopoverMenuItem
                       onSelect={() => setCustomMode(true)}
                       closeOnSelect={false}
                     >
-                      Pick a time…
+                      {isHe ? "...בחר מועד" : "Pick a time…"}
                     </PopoverMenuItem>
                     <PopoverMenuItem onSelect={() => unsnooze.mutate()}>
-                      Un-snooze now
+                      {isHe ? "בטל השהיה כעת" : "Un-snooze now"}
                     </PopoverMenuItem>
                   </motion.div>
                 )}
@@ -503,15 +506,15 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
 
           <div className="hidden sm:flex items-center gap-1">
             <IconAction
-              label="Mark as unread"
+              label={isHe ? "סמן כלא נקרא" : "Mark as unread"}
               icon={<MailCheckIcon className="w-3.5 h-3.5" />}
             />
             <IconAction
-              label="Archive thread"
+              label={isHe ? "העבר לארכיון" : "Archive thread"}
               icon={<ArchiveIcon className="w-3.5 h-3.5" />}
             />
             <IconAction
-              label="Delete thread"
+              label={isHe ? "מחק שרשור" : "Delete thread"}
               danger
               icon={<TrashIcon className="w-3.5 h-3.5" />}
             />
@@ -520,7 +523,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
             <PopoverMenuTrigger asChild>
               <button
                 type="button"
-                aria-label="More thread actions"
+                aria-label={isHe ? "פעולות נוספות לשרשור" : "More thread actions"}
                 className="sm:hidden size-7 rounded-md inline-flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               >
                 <MoreVerticalIcon className="w-3.5 h-3.5" />
@@ -530,16 +533,16 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
               <PopoverMenuItem
                 icon={<MailCheckIcon className="w-3.5 h-3.5" />}
               >
-                Mark as unread
+                {isHe ? "סמן כלא נקרא" : "Mark as unread"}
               </PopoverMenuItem>
               <PopoverMenuItem icon={<ArchiveIcon className="w-3.5 h-3.5" />}>
-                Archive thread
+                {isHe ? "העבר לארכיון" : "Archive thread"}
               </PopoverMenuItem>
               <PopoverMenuItem
                 danger
                 icon={<TrashIcon className="w-3.5 h-3.5" />}
               >
-                Delete thread
+                {isHe ? "מחק שרשור" : "Delete thread"}
               </PopoverMenuItem>
             </PopoverMenuContent>
           </PopoverMenu>
@@ -547,7 +550,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
       </div>
 
       <SectionBar
-        label={`${messages.length} ${messages.length === 1 ? "message" : "messages"}`}
+        label={isHe ? `${messages.length} ${messages.length === 1 ? "הודעה" : "הודעות"}` : `${messages.length} ${messages.length === 1 ? "message" : "messages"}`}
         count={participants.size}
       />
 
@@ -615,7 +618,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
               className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
             >
               <CornerUpLeftIcon className="w-3 h-3" />
-              Reply
+              {isHe ? "השב" : "Reply"}
             </button>
             <button
               type="button"
@@ -627,10 +630,10 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
               className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1.5 transition-colors"
             >
               <ForwardIcon className="w-3 h-3" />
-              Forward
+              {isHe ? "העבר" : "Forward"}
             </button>
-            <span className="ml-auto hidden md:inline text-[10.5px] text-slate-400">
-              Hover any message to reply to it directly.
+            <span className="ms-auto hidden md:inline text-[10.5px] text-slate-400">
+              {isHe ? "רחף מעל הודעה כלשהי כדי להשיב ישירות." : "Hover any message to reply to it directly."}
             </span>
           </motion.div>
         )}
@@ -683,25 +686,26 @@ function IconAction({
 
 // Friendly relative-or-absolute time used for scheduled cards.
 // Examples: "in 12 min", "in 3 h", "tomorrow, 09:00", "Mar 5, 17:00".
-function formatScheduled(iso: string): string {
+function formatScheduled(iso: string, isHe = false): string {
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return iso;
   const now = new Date();
   const diffMs = d.getTime() - now.getTime();
   const diffMin = Math.round(diffMs / 60_000);
-  const timeStr = d.toLocaleTimeString(undefined, {
+  const timeStr = d.toLocaleTimeString(isHe ? "he-IL" : undefined, {
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 
   if (diffMin > 0 && diffMin < 60) {
-    return `in ${diffMin} min`;
+    return isHe ? `בעוד ${diffMin} דק'` : `in ${diffMin} min`;
   }
   const sameDay =
     d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
-  if (sameDay) return `today, ${timeStr}`;
+  if (sameDay) return isHe ? `היום, ${timeStr}` : `today, ${timeStr}`;
 
   const tomorrow = new Date(now);
   tomorrow.setDate(now.getDate() + 1);
@@ -709,13 +713,14 @@ function formatScheduled(iso: string): string {
     d.getFullYear() === tomorrow.getFullYear() &&
     d.getMonth() === tomorrow.getMonth() &&
     d.getDate() === tomorrow.getDate();
-  if (isTomorrow) return `tomorrow, ${timeStr}`;
+  if (isTomorrow) return isHe ? `מחר, ${timeStr}` : `tomorrow, ${timeStr}`;
 
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(isHe ? "he-IL" : undefined, {
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
   });
 }
 
@@ -735,7 +740,9 @@ function ScheduledMessageBubble({
   cancelling: boolean;
   onCancel: () => void;
 }) {
-  const when = formatScheduled(item.scheduled_at);
+  const { i18n } = useTranslation();
+  const isHe = i18n.language === "he";
+  const when = formatScheduled(item.scheduled_at, isHe);
   const recipients = [...item.to, ...(item.cc ?? []), ...(item.bcc ?? [])];
   const recipientLine =
     recipients.slice(0, 3).join(", ") +
@@ -751,19 +758,19 @@ function ScheduledMessageBubble({
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-[10px] uppercase tracking-[0.14em] text-sky-700 font-semibold">
-                Scheduled
+                {isHe ? "מתוזמן" : "Scheduled"}
               </span>
               <span className="text-[12.5px] font-semibold text-slate-900">
                 {when}
               </span>
             </div>
             <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 min-w-0">
-              <span className="truncate">from {item.account_email}</span>
+              <span className="truncate">{isHe ? `מאת ${item.account_email}` : `from ${item.account_email}`}</span>
               <span aria-hidden className="text-slate-300">
                 &middot;
               </span>
               <span className="truncate">
-                to {recipientLine || "(no recipient)"}
+                {isHe ? `אל ${recipientLine || "(ללא נמען)"}` : `to ${recipientLine || "(no recipient)"}`}
               </span>
             </div>
           </div>
@@ -771,7 +778,7 @@ function ScheduledMessageBubble({
             type="button"
             onClick={onCancel}
             disabled={cancelling}
-            title="Cancel this scheduled send"
+            title={isHe ? "בטל שליחה מתוזמנת זו" : "Cancel this scheduled send"}
             className="shrink-0 inline-flex items-center gap-1 h-6 px-1.5 rounded-md border border-sky-200 bg-white text-sky-700 hover:text-rose-700 hover:border-rose-300 hover:bg-rose-50 text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {cancelling ? (
@@ -779,10 +786,10 @@ function ScheduledMessageBubble({
             ) : (
               <XIcon className="w-3 h-3" />
             )}
-            {cancelling ? "Cancelling" : "Cancel"}
+            {cancelling ? (isHe ? "מבטל…" : "Cancelling") : (isHe ? "בטל" : "Cancel")}
           </button>
         </header>
-        <div className="mt-2.5 ml-10">
+        <div className="mt-2.5 ms-10">
           {item.subject && (
             <div className="text-[12.5px] font-medium text-slate-900 truncate">
               {item.subject}
@@ -795,7 +802,7 @@ function ScheduledMessageBubble({
           )}
           <div className="mt-2 inline-flex items-center gap-1 h-5 px-1.5 rounded bg-white border border-sky-200 text-[10px] text-sky-700 font-medium">
             <SendIcon className="w-2.5 h-2.5" />
-            Will send {when}
+            {isHe ? `יישלח ${when}` : `Will send ${when}`}
           </div>
         </div>
       </div>

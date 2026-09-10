@@ -9,17 +9,18 @@ import type UniboxEmail from "@/lib/api/models/app/unibox/UniboxEmail";
 import { useAppStore } from "@/stores";
 import { useResourceViewers } from "@/hooks/PresenceProvider";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
-function relative(d: Date): string {
+function relative(d: Date, isHe = false): string {
   const diff = Date.now() - d.getTime();
   const m = Math.floor(diff / 60_000);
-  if (m < 1) return "now";
-  if (m < 60) return `${m}m`;
+  if (m < 1) return isHe ? "עכשיו" : "now";
+  if (m < 60) return isHe ? `${m} דק'` : `${m}m`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
+  if (h < 24) return isHe ? `${h} ש'` : `${h}h`;
   const days = Math.floor(h / 24);
-  if (days < 7) return `${days}d`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (days < 7) return isHe ? `${days} ימ'` : `${days}d`;
+  return d.toLocaleDateString(isHe ? "he-IL" : undefined, { month: "short", day: "numeric" });
 }
 
 function fromName(s: string): string {
@@ -48,6 +49,8 @@ interface ConversationItemProps {
 }
 
 export function ConversationItem({ email }: ConversationItemProps) {
+  const { i18n } = useTranslation();
+  const isHe = i18n.language === "he";
   const selectedThreadId = useAppStore((s) => s.selectedThreadId);
   const setSelectedThreadId = useAppStore((s) => s.setSelectedThreadId);
   const setSelectedAccountId = useAppStore((s) => s.setSelectedAccountId);
@@ -134,8 +137,8 @@ export function ConversationItem({ email }: ConversationItemProps) {
               className="shrink-0 relative flex size-2"
               title={
                 replierName
-                  ? `${replierName} is replying`
-                  : `${viewers[0].name ?? "A teammate"} is viewing`
+                  ? (isHe ? `${replierName} משיב/ה כעת` : `${replierName} is replying`)
+                  : (isHe ? `${viewers[0].name ?? "חבר צוות"} צופה כעת` : `${viewers[0].name ?? "A teammate"} is viewing`)
               }
             >
               <span
@@ -153,7 +156,7 @@ export function ConversationItem({ email }: ConversationItemProps) {
             </span>
           )}
           <span className="font-mono text-[10px] text-slate-400 tabular-nums shrink-0 ml-auto">
-            {relative(date)}
+            {relative(date, isHe)}
           </span>
         </div>
         <div
@@ -162,10 +165,10 @@ export function ConversationItem({ email }: ConversationItemProps) {
             unread ? "text-slate-800 font-medium" : "text-slate-600",
           )}
         >
-          {email.subject || "(no subject)"}
+          {email.subject || (isHe ? "(ללא נושא)" : "(no subject)")}
         </div>
         <div className="text-[11px] text-slate-400 truncate mt-0.5">
-          {preview || "(no preview)"}
+          {preview || (isHe ? "(אין תצוגה מקדימה)" : "(no preview)")}
         </div>
         {(mailbox || labels.length > 0) && (
           <div className="mt-1 flex items-center gap-1 min-w-0 flex-wrap">

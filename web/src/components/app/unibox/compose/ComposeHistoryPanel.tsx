@@ -35,14 +35,17 @@ function bareEmail(s: string): string {
     return s.trim();
 }
 
+import i18n from "i18next";
+
 function formatWhen(iso: string): string {
+    const isHe = i18n.language === "he";
     const d = new Date(iso);
     const now = new Date();
     const sameYear = d.getFullYear() === now.getFullYear();
     const sameDay =
         sameYear && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-    if (sameDay) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    return d.toLocaleDateString(undefined, {
+    if (sameDay) return d.toLocaleTimeString(isHe ? "he-IL" : undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+    return d.toLocaleDateString(isHe ? "he-IL" : undefined, {
         month: "short",
         day: "numeric",
         ...(sameYear ? {} : { year: "2-digit" }),

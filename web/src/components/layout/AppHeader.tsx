@@ -61,6 +61,21 @@ const labelMap: Record<string, string> = {
     integrations: "אינטגרציות",
     automations: "אוטומציות",
     deliverability: "דיוור",
+    all: "הכל",
+    inbox: "דואר נכנס",
+    unread: "לא נקרא",
+    starred: "מסומן בכוכב",
+    sent: "נשלח",
+    drafts: "טיוטות",
+    scheduled: "מתוזמן",
+    positive: "חיובי",
+    interested: "מתעניין",
+    meeting_booked: "נקבעה פגישה",
+    not_interested: "לא מעוניין",
+    auto_reply: "מענה אוטומטי",
+    bounced: "שגיאות מסירה",
+    spam: "ספאם",
+    archive: "ארכיון",
 };
 
 const segToI18n: Record<string, string> = {
@@ -89,32 +104,38 @@ const segToI18n: Record<string, string> = {
 };
 
 function pretty(segment: string): string {
-    return labelMap[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
+    return labelMap[segment.toLowerCase()] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
 }
 
 export function AppHeader({ onMenu }: { onMenu?: () => void }) {
     const { pathname } = useLocation();
     const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const isHe = i18n.language === "he";
 
     const getCrumbTitle = (seg: string) => {
-        const i18nKey = segToI18n[seg];
-        if (i18nKey) return t(i18nKey, pretty(seg));
-        return pretty(seg);
+        const i18nKey = segToI18n[seg.toLowerCase()];
+        if (i18nKey) return t(i18nKey, isHe ? (labelMap[seg.toLowerCase()] ?? pretty(seg)) : pretty(seg));
+        return isHe ? (labelMap[seg.toLowerCase()] ?? pretty(seg)) : pretty(seg);
     };
 
     // Path under /app — first segment is the section ("emails", "admin", ...),
-    // subsequent ones are subpages. Don't show UUID-looking segments verbatim
-    // because nobody wants "Campaigns > 47a3-..." in their chrome.
+    // subsequent ones are subpages. Don't show UUID-looking or hex thread segments verbatim
+    // because nobody wants "Campaigns > 47a3-..." or "Unibox > All > 1a06..." in their chrome.
     const segments = pathname
         .split("/")
         .filter(Boolean)
         .filter((s) => s !== "app");
     // Each crumb links to its own path prefix so "Campaigns > Leads" gets you
-    // back to the list; hidden UUID segments still count toward the prefix.
+    // back to the list; hidden UUID/hex segments still count toward the prefix.
     const crumbs = segments
-        .map((seg, i) => ({ seg, to: `/app/${segments.slice(0, i + 1).join("/")}` }))
-        .filter(({ seg }) => !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(seg));
+        .map((seg, i) => ({ seg, to: `/app/${segments.slice(0, i + 1).join("/")}`, index: i }))
+        .filter(({ seg, index }) => {
+            if ((segments[0] === "unibox" || segments[0] === "inbox") && index >= 2) return false;
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(seg)) return false;
+            if (/^[0-9a-f]{8,}$/i.test(seg)) return false;
+            return true;
+        });
     // A crumb whose prefix is the page itself is a label; every other one is a
     // link (so "Campaigns" stays clickable on /campaigns/<id>, where the hidden
     // id is the real last segment).
@@ -190,8 +211,9 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
                 >
                     <Search className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">חיפוש בכל המערכת...</span>
-                    <kbd className="hidden md:inline-flex h-4 items-center px-1 rounded border border-slate-300/70 bg-white/60 font-mono text-[10px] text-slate-500 ms-0.5">
-                        ⌘K
+                    <kbd className="hidden md:inline-flex h-4 items-center gap-0.5 px-1.5 rounded border border-slate-300/70 bg-white/60 font-sans text-[10px] text-slate-500 ms-0.5 select-none">
+                        <span className="text-[9px] leading-none opacity-70">⌘</span>
+                        <span className="text-[10px] font-semibold leading-none">K</span>
                     </kbd>
                 </button>
             </div>

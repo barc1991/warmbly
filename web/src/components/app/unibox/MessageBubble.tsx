@@ -14,6 +14,7 @@
 // which specific message in the thread their reply targets.
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { AlertCircleIcon, CornerUpLeftIcon, ForwardIcon, Loader2Icon } from "lucide-react";
 import EmailBody from "./EmailBody";
 import useUniboxEmail from "@/lib/api/hooks/app/unibox/useUniboxEmail";
@@ -52,15 +53,18 @@ export function MessageBubble({
     onReply,
     onForward,
 }: MessageBubbleProps) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const [expanded, setExpanded] = React.useState(defaultExpanded);
     const body = useUniboxEmail(email.id, expanded);
 
     const date = new Date(email.date);
-    const dateStr = date.toLocaleString(undefined, {
+    const dateStr = date.toLocaleString(isHe ? "he-IL" : undefined, {
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
     });
 
     const name = fromName(email.from);
@@ -98,7 +102,7 @@ export function MessageBubble({
                         )}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
-                        <span className="truncate min-w-0">to {email.to}</span>
+                        <span className="truncate min-w-0">{isHe ? `אל ${email.to}` : `to ${email.to}`}</span>
                     </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -110,8 +114,8 @@ export function MessageBubble({
                                     e.stopPropagation();
                                     onReply();
                                 }}
-                                aria-label="Reply to this message"
-                                title="Reply to this message"
+                                aria-label={isHe ? "השב להודעה זו" : "Reply to this message"}
+                                title={isHe ? "השב להודעה זו" : "Reply to this message"}
                                 className="size-6 rounded text-slate-500 hover:text-sky-700 hover:bg-sky-50 inline-flex items-center justify-center transition-colors"
                             >
                                 <CornerUpLeftIcon className="w-3 h-3" />
@@ -124,8 +128,8 @@ export function MessageBubble({
                                     e.stopPropagation();
                                     onForward();
                                 }}
-                                aria-label="Forward this message"
-                                title="Forward this message"
+                                aria-label={isHe ? "העבר הודעה זו" : "Forward this message"}
+                                title={isHe ? "העבר הודעה זו" : "Forward this message"}
                                 className="size-6 rounded text-slate-500 hover:text-violet-700 hover:bg-violet-50 inline-flex items-center justify-center transition-colors"
                             >
                                 <ForwardIcon className="w-3 h-3" />
@@ -142,15 +146,15 @@ export function MessageBubble({
                 <button
                     type="button"
                     onClick={() => setExpanded(true)}
-                    className="w-full text-left text-[13px] text-slate-500 truncate hover:text-slate-700 transition-colors"
-                    title="Show this message"
+                    className="w-full text-left rtl:text-right text-[13px] text-slate-500 truncate hover:text-slate-700 transition-colors"
+                    title={isHe ? "הצג הודעה זו" : "Show this message"}
                 >
-                    {snippet || "Show this message"}
+                    {snippet || (isHe ? "הצג הודעה זו" : "Show this message")}
                 </button>
             ) : body.isPending ? (
                 <div className="flex items-center gap-2 text-[12px] text-slate-400">
                     <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-                    Loading message…
+                    {isHe ? "טוען הודעה…" : "Loading message…"}
                 </div>
             ) : body.isError ? (
                 <div className="text-[12.5px] text-slate-600">
@@ -158,13 +162,13 @@ export function MessageBubble({
                     <p className="whitespace-pre-wrap break-words">{snippet}</p>
                     <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-amber-700">
                         <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
-                        Couldn't load the full message.
+                        {isHe ? "לא ניתן לטעון את ההודעה המלאה." : "Couldn't load the full message."}
                         <button
                             type="button"
                             onClick={() => body.refetch()}
                             className="underline underline-offset-2 hover:text-amber-800"
                         >
-                            Try again
+                            {isHe ? "נסה שוב" : "Try again"}
                         </button>
                     </p>
                 </div>
@@ -174,8 +178,9 @@ export function MessageBubble({
                     {body.data?.body_truncated && (
                         <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-amber-700">
                             <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
-                            Only a preview of this message is stored, so the rest isn't
-                            shown here. Open it in the mailbox to read it in full.
+                            {isHe
+                                ? "נשמרה תצוגה מקדימה בלבד עבור הודעה זו. פתח בתיבת הדואר כדי לקרוא במלואה."
+                                : "Only a preview of this message is stored, so the rest isn't shown here. Open it in the mailbox to read it in full."}
                         </p>
                     )}
                 </>

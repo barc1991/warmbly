@@ -8,6 +8,7 @@
 "use client";
 
 import { CalendarPlusIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import {
     PopoverMenu,
@@ -40,6 +41,8 @@ export default function BookACallButton({
     contactId?: string;
     className?: string;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const { data } = useIntegrationConnections();
     const targets = (data?.connections ?? [])
         .map((conn) => ({ conn, url: bookingURL(conn) }))
@@ -57,11 +60,11 @@ export default function BookACallButton({
                 type="button"
                 onClick={() => open(targets[0].url)}
                 className={cn(TRIGGER_CLASS, className)}
-                title="Open your scheduling page (prefilled) so the prospect can pick a time"
-                aria-label="Booking link"
+                title={isHe ? "פתח את דף הפגישות (ממולא מראש) כדי שהליד יוכל לבחור מועד" : "Open your scheduling page (prefilled) so the prospect can pick a time"}
+                aria-label={isHe ? "קישור לתיאום" : "Booking link"}
             >
                 <CalendarPlusIcon className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Booking link</span>
+                <span className="hidden md:inline">{isHe ? "קישור לתיאום" : "Booking link"}</span>
             </button>
         );
     }
@@ -69,13 +72,13 @@ export default function BookACallButton({
     return (
         <PopoverMenu align="end" side="bottom">
             <PopoverMenuTrigger asChild>
-                <button type="button" className={cn(TRIGGER_CLASS, className)} aria-label="Booking link">
+                <button type="button" className={cn(TRIGGER_CLASS, className)} aria-label={isHe ? "קישור לתיאום" : "Booking link"}>
                     <CalendarPlusIcon className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">Booking link</span>
+                    <span className="hidden md:inline">{isHe ? "קישור לתיאום" : "Booking link"}</span>
                 </button>
             </PopoverMenuTrigger>
             <PopoverMenuContent>
-                <PopoverMenuLabel>Send a scheduling link via</PopoverMenuLabel>
+                <PopoverMenuLabel>{isHe ? "שלח קישור לתיאום באמצעות" : "Send a scheduling link via"}</PopoverMenuLabel>
                 {targets.map((t) => (
                     <PopoverMenuItem key={t.conn.id} onSelect={() => open(t.url)}>
                         {PROVIDER_LABELS[t.conn.provider]}

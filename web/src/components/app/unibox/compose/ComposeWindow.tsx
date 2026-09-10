@@ -14,6 +14,7 @@
 //   - Suppressed recipients are flagged before send, not bounced after.
 
 import React from "react";
+import i18n from "i18next";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
@@ -97,18 +98,20 @@ function toLocalInput(d: Date): string {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function formatFriendly(d: Date): string {
+    const isHe = i18n.language === "he";
     const now = new Date();
     const sameDay =
         d.getFullYear() === now.getFullYear() &&
         d.getMonth() === now.getMonth() &&
         d.getDate() === now.getDate();
-    const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    if (sameDay) return `today, ${time}`;
-    return d.toLocaleString(undefined, {
+    const time = d.toLocaleTimeString(isHe ? "he-IL" : undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+    if (sameDay) return isHe ? `היום, ${time}` : `today, ${time}`;
+    return d.toLocaleString(isHe ? "he-IL" : undefined, {
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
     });
 }
 
