@@ -522,12 +522,15 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             <textarea
                 ref={bodyRef}
                 value={body}
-                dir="auto"
                 onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY_LEN))}
                 placeholder={
-                    mode === "forward"
-                        ? "Add a note (optional). ⌘J for AI, ⌘Enter to send."
-                        : "Write your reply. ⌘J for AI, ⌘Enter to send."
+                    isHe
+                        ? mode === "forward"
+                            ? "הוסף הערה לפני ההעברה… (⌘J לבינה מלאכותית, ⌘Enter לשליחה)"
+                            : "כתוב תשובה… (⌘J לבינה מלאכותית, ⌘Enter לשליחה)"
+                        : mode === "forward"
+                          ? "Add a note (optional). ⌘J for AI, ⌘Enter to send."
+                          : "Write your reply. ⌘J for AI, ⌘Enter to send."
                 }
                 onKeyDown={(e) => {
                     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -539,15 +542,6 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     }
                 }}
                 className="w-full min-h-[120px] max-h-72 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-y focus:outline-none"
-                placeholder={
-                    isHe
-                        ? mode === "forward"
-                            ? "הוסף הערה לפני ההעברה…"
-                            : "כתוב תשובה…"
-                        : mode === "forward"
-                          ? "Add a note before forwarding…"
-                          : "Write a reply…"
-                }
                 dir="auto"
             />
             {aiDraft.phase === "busy" && (

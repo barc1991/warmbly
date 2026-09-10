@@ -30,7 +30,7 @@ const PresenceContext = createContext<PresenceContextValue>({
 // activity (route + focused record) so teammates get the Discord-like
 // "who's here / who's already on this" layer everywhere in the dashboard.
 export function PresenceProvider({ children }: { children: React.ReactNode }) {
-    const { isConnected, subscribeToChannel, pushToChannel } = useSocket();
+    const { isConnected, subscribeToChannel, pushToChannel, getChannelState } = useSocket();
     const currentOrg = useAppStore((s) => s.currentOrganization);
     const setPresenceState = useAppStore((s) => s.setPresenceState);
     const applyPresenceDiff = useAppStore((s) => s.applyPresenceDiff);
@@ -48,8 +48,10 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
     const pushActivity = useCallback(() => {
         const orgId = orgIdRef.current;
         if (!orgId) return;
-        pushToChannel(`org:${orgId}`, 'presence:update', { ...activityRef.current });
-    }, [pushToChannel]);
+        const topic = `org:${orgId}`;
+        if (getChannelState(topic) !== 'joined') return;
+        pushToChannel(topic, 'presence:update', { ...activityRef.current });
+    }, [pushToChannel, getChannelState]);
 
     // Track the current route. Changing pages implicitly drops any focused
     // record (detail panes unmount and clear themselves, but a hard

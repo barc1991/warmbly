@@ -11,6 +11,7 @@ import React from "react";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowUpCircleIcon, Loader2Icon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import useInstanceVersion from "@/lib/api/hooks/auth/useInstanceVersion";
 import useUser from "@/lib/api/hooks/auth/useUser";
 import { isUpdateRunning, runningLabel, useInstanceUpdate } from "@/lib/api/hooks/auth/useInstanceUpdate";
@@ -62,13 +63,18 @@ export function VersionPill() {
         }
     }, [started, admin, updating, open, qc]);
 
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+
     if (!v || !selfHosted) return null;
 
     const running = v.version && v.version !== "dev" ? v.version : v.commit ? `dev ${v.commit.slice(0, 7)}` : "dev";
     const available = v.update_available;
     const latest = v.latest?.tag;
 
-    let label = available ? (latest ? `Update to ${latest}` : "Update available") : running;
+    let label = available
+        ? (latest ? (isHe ? `עדכון ל-${latest}` : `Update to ${latest}`) : (isHe ? "עדכון זמין" : "Update available"))
+        : running;
     let icon: React.ReactNode = available ? (
         <span className="relative flex size-2.5 items-center justify-center">
             <span className="absolute inline-flex size-full rounded-full bg-amber-400 opacity-60 animate-ping" />
@@ -80,17 +86,31 @@ export function VersionPill() {
     let tone = available ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-white/70 text-slate-500 border-slate-200";
     let title = available
         ? isAdmin
-            ? `Warmbly ${latest ?? "newer"} is available; this instance runs ${running}. Click to update.`
-            : `Warmbly ${latest ?? "newer"} is available; this instance runs ${running}. Ask a platform admin to update.`
+            ? isHe
+                ? `גרסה חדשה של Warmbly (${latest ?? "חדשה יותר"}) זמינה; בסביבה זו רצה גרסה ${running}. לחץ לעדכון.`
+                : `Warmbly ${latest ?? "newer"} is available; this instance runs ${running}. Click to update.`
+            : isHe
+                ? `גרסה חדשה של Warmbly (${latest ?? "חדשה יותר"}) זמינה; בסביבה זו רצה גרסה ${running}. פנה למנהל מערכת לעדכון.`
+                : `Warmbly ${latest ?? "newer"} is available; this instance runs ${running}. Ask a platform admin to update.`
         : isAdmin
-          ? `Warmbly ${running}, up to date. Click for details.`
-          : `Warmbly ${running}, up to date.`;
+          ? isHe
+              ? `Warmbly גרסה ${running}, המערכת מעודכנת. לחץ לפרטים.`
+              : `Warmbly ${running}, up to date. Click for details.`
+          : isHe
+              ? `Warmbly גרסה ${running}, המערכת מעודכנת.`
+              : `Warmbly ${running}, up to date.`;
 
     if (isAdmin && (updating || restarting)) {
-        label = restarting ? "Reconnecting" : "Updating";
+        label = restarting ? (isHe ? "מתחבר מחדש" : "Reconnecting") : (isHe ? "מעדכן…" : "Updating");
         icon = <Loader2Icon className="w-3 h-3 animate-spin" />;
         tone = "bg-sky-50 text-sky-700 border-sky-200";
-        title = restarting ? "The backend is restarting after an update" : `Update in progress: ${admin?.updater.job?.step ?? ""}`;
+        title = restarting
+            ? isHe
+                ? "שרת ה-API מופעל מחדש לאחר עדכון"
+                : "The backend is restarting after an update"
+            : isHe
+                ? `עדכון מתבצע: ${admin?.updater.job?.step ?? ""}`
+                : `Update in progress: ${admin?.updater.job?.step ?? ""}`;
     }
 
     const className = cn(

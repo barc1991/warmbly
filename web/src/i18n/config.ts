@@ -68,9 +68,9 @@ export const resources = {
 
 export type LocaleNamespace = keyof (typeof resources)["en"];
 
-// Determine initial language from localStorage or default to Hebrew ("he") if Hebrew browser/env or English
-const savedLocale = localStorage.getItem("warmbly_locale");
-const initialLocale = savedLocale || (navigator.language?.startsWith("he") ? "he" : "en");
+// Determine initial language from localStorage or default to Hebrew ("he")
+const savedLocale = typeof window !== "undefined" ? localStorage.getItem("warmbly_locale") : null;
+const initialLocale = savedLocale || "he";
 
 i18n
     .use(LanguageDetector)
@@ -78,7 +78,7 @@ i18n
     .init({
         resources,
         lng: initialLocale,
-        fallbackLng: "en",
+        fallbackLng: "he",
         defaultNS: "common",
         ns: ["common", "nav", "auth", "campaigns", "mailboxes", "contacts", "crm", "unibox", "settings"],
         interpolation: {

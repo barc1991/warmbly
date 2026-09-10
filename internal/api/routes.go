@@ -1182,6 +1182,14 @@ func Run(
 				org.GET("/:orgId/limit-requests", h.ListOrgLimitRequests)
 			}
 
+			// Alias for compatibility with plural forms
+			orgs := jwtOnly.Group("/organizations")
+			orgs.Use(m.RateLimitMiddleware(models.RateLimitWrite))
+			{
+				orgs.GET("/current/risk", m.RequireOrganization(), h.GetOrganizationRisk)
+				orgs.GET("/current", m.RequireOrganization(), h.GetCurrentOrganization)
+			}
+
 			// Cancel a pending limit request by id (submitter-only). Sits
 			// outside the /organization group so the URL doesn't need
 			// double-encoding of the org id.

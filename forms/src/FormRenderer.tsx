@@ -3,7 +3,7 @@
 // /api. Client checks are a courtesy; the backend re-validates everything and
 // its message wins the error box.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 
 import type { FormField, PublicForm } from "./api";
@@ -207,10 +207,8 @@ export function FormRenderer({
     };
 
     const isRtl = useMemo(() => {
-        if (def.design?.direction === "rtl") return true;
         const allText = [
-            def.title,
-            def.description,
+            def.name,
             ...def.fields.map((f) => `${f.label || ""} ${f.placeholder || ""} ${f.help_text || ""}`),
         ].join(" ");
         return /[\u0590-\u05FF]/.test(allText);
