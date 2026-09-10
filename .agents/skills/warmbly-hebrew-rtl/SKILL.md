@@ -161,6 +161,16 @@ Tabular numbers and monospace IDs inside RTL containers must retain natural left
 * **API Permission Scopes (`APIPermission.ts`)**: 24 Hebrew descriptions across READ, WRITE, BULK, and REALTIME scopes.
 * **Breadcrumbs & Navigation (`AppHeader.tsx`, `nav.json`)**: Terminology cleaned up without English brackets ("תיבת דואר מאוחדת", "יומן פעילות", "דיוור", "ניהול לקוחות", "קטגוריות", "סגמנטים", "רשימת חסימה").
 
+### G. Mailbox Connection & Onboarding Suite
+* **Main Provider Picker (`AddEmailModal.tsx`, `view === "pick"`)**: Google Workspace/Gmail, Microsoft 365/Outlook, SMTP/IMAP, Bulk CSV, and Warmbly Cloud workspace accounts.
+* **Self-Host Missing OAuth (`ProviderNotConfigured`)**: Complete Hebrew instructions for self-hosted instances with `dir="ltr"` on `.env` keys (`BOX_GOOGLE_CLIENT_ID=`, `BOX_OUTLOOK_CLIENT_ID=`) to prevent RTL sign inversion, plus Cloud skip option.
+* **OAuth Authorization Panel (`OAuthPanel`)**: Localized consent scopes ("שליחה וקריאה של מיילים בשמך", "מעקב אחר מענים ומסירות", "אסימונים מוצפנים") and interactive buttons.
+* **Manual SMTP & IMAP Form (`SmtpImapPanel`)**: Localized Account, IMAP, SMTP sections, single-credential toggle, port presets, server verification notice, and `ltr:pl-[76px] rtl:pr-[76px]` alignment.
+* **Security Selector (`SecuritySelect.tsx`)**: Segmented control with localized options (SSL / TLS, STARTTLS, ללא הצפנה), tooltips, and localhost-only security warnings.
+* **Bulk CSV Connect Wizard (`BulkConnectPanel.tsx`)**: Drag-and-drop dropzone, sample CSV template download, column format guides, real-time batch processing progress meter (`DitherMeter`), failed rows CSV report download, and retry flow.
+* **Mailbox Allowance & Fair-Use Dialog (`MailboxAllowanceDialog.tsx`)**: Quota usage meter, fair-use calculation breakdown, plan upgrade comparison cards, inline quota increase request form with Hebrew date formatting, and request withdrawal prompts.
+* **Credential Refresh & Re-Auth Dialog (`UpdateCredentialsDialog.tsx`)**: Replacement credentials dialog for broken or modified mailbox passwords, with server testing before saving.
+
 ---
 
 ## 6. Autonomous BDR & AI Engine (Gemini 3.8 Flash, Serper & Frappe CRM)
