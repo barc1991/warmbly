@@ -126,11 +126,11 @@ function ConfigureStep({
 
     async function submit() {
         if (!name.trim()) {
-            toast.error("Name is required");
+            toast.error("שם המפתח הוא שדה חובה");
             return;
         }
         if (permissionsBitmask === 0) {
-            toast.error("Pick at least one permission");
+            toast.error("בחר לפחות הרשאה אחת");
             return;
         }
         const allowedIPs = allowedIPsRaw
@@ -154,7 +154,7 @@ function ConfigureStep({
             });
             onCreated(k);
         } catch (e) {
-            const msg = e instanceof Error ? e.message : "Failed to create key";
+            const msg = e instanceof Error ? e.message : "יצירת המפתח נכשלה";
             toast.error(msg);
         }
     }
@@ -163,19 +163,19 @@ function ConfigureStep({
         <div>
             <div className="h-11 px-4 border-b border-slate-200 flex items-center gap-2">
                 <KeyIcon className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-[12.5px] font-medium text-slate-900">Create API key</span>
+                <span className="text-[12.5px] font-medium text-slate-900">יצירת מפתח API</span>
                 <button
                     type="button"
                     onClick={onCancel}
-                    className="ml-auto w-7 h-7 rounded-md hover:bg-slate-100 inline-flex items-center justify-center text-slate-500 hover:text-slate-900"
-                    aria-label="Close"
+                    className="ms-auto w-7 h-7 rounded-md hover:bg-slate-100 inline-flex items-center justify-center text-slate-500 hover:text-slate-900"
+                    aria-label="סגירה"
                 >
                     <XIcon className="w-3.5 h-3.5" />
                 </button>
             </div>
 
             <div className="px-5 py-4 space-y-4 max-h-[70dvh] overflow-y-auto">
-                <Field label="Name" hint="Shown in the dashboard. e.g. production-server, ci-pipeline.">
+                <Field label="שם המפתח" hint="מוצג בלוח הבקרה. לדוגמה: production-server, ci-pipeline.">
                     <input
                         autoFocus
                         value={name}
@@ -185,36 +185,36 @@ function ConfigureStep({
                     />
                 </Field>
 
-                <Field label="Description" optional hint="Internal note. Where will this key be used?">
+                <Field label="תיאור" optional hint="הערה פנימית. היכן ישמש מפתח זה?">
                     <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         rows={2}
-                        placeholder="Server-side calls from EU production"
+                        placeholder="קריאות שרת מסביבת ייצור"
                         className="w-full px-2.5 py-1.5 rounded-md border border-slate-200 focus:border-sky-400 focus:ring-1 focus:ring-sky-200 outline-none text-[12.5px] text-slate-900 placeholder:text-slate-400 resize-none"
                     />
                 </Field>
 
-                <Field label="Permissions">
+                <Field label="הרשאות">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 mb-2">
                         <PresetCard
                             icon={<ShieldIcon className="w-3 h-3" />}
-                            label="Read-only"
-                            sub="View everything"
+                            label="קריאה בלבד"
+                            sub="צפייה בהכל"
                             active={preset === "read_only"}
                             onClick={() => switchPreset("read_only")}
                         />
                         <PresetCard
                             icon={<ShieldCheckIcon className="w-3 h-3" />}
-                            label="Full access"
-                            sub="Read + write"
+                            label="גישה מלאה"
+                            sub="קריאה וכתיבה"
                             active={preset === "full_access"}
                             onClick={() => switchPreset("full_access")}
                         />
                         <PresetCard
                             icon={<SlidersIcon className="w-3 h-3" />}
-                            label="Custom"
-                            sub="Pick scopes"
+                            label="מותאם אישית"
+                            sub="בחירת הרשאות"
                             active={preset === "custom"}
                             onClick={() => switchPreset("custom")}
                         />
@@ -223,14 +223,14 @@ function ConfigureStep({
                         <div className="h-24 rounded-md bg-slate-50 animate-pulse" />
                     ) : perms.isError ? (
                         <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-3 text-[11.5px] text-rose-700 flex items-center justify-between gap-2">
-                            <span>Couldn't load permissions.</span>
+                            <span>טעינת ההרשאות נכשלה.</span>
                             <button type="button" onClick={() => perms.refetch()} className="font-medium underline underline-offset-2 hover:no-underline">
-                                Retry
+                                נסה שוב
                             </button>
                         </div>
                     ) : (perms.data?.permissions?.length ?? 0) === 0 ? (
                         <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-[11.5px] text-slate-500">
-                            No permissions available for this account.
+                            אין הרשאות זמינות עבור חשבון זה.
                         </div>
                     ) : (
                         <PermissionMatrix
@@ -241,11 +241,11 @@ function ConfigureStep({
                     )}
                 </Field>
 
-                <Field label="Rate limit" hint="Soft cap, sliding window. We return 429 + Retry-After when exceeded.">
+                <Field label="מגבלת קצב" hint="מגבלה רכה בחלון מתגלגל. נחזיר 429 + Retry-After במקרה של חריגה.">
                     <RateLimitSetter value={rateLimit} onChange={setRateLimit} />
                 </Field>
 
-                <Field label="Expires">
+                <Field label="תוקף">
                     <div className="flex items-center gap-1">
                         {(["never", "30", "90", "365"] as const).map((v) => (
                             <button
@@ -258,7 +258,7 @@ function ConfigureStep({
                                         : "border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300"
                                 }`}
                             >
-                                {v === "never" ? "Never" : `${v} days`}
+                                {v === "never" ? "ללא הגבלה" : `${v} ימים`}
                             </button>
                         ))}
                     </div>
@@ -269,11 +269,11 @@ function ConfigureStep({
                     onClick={() => setAdvanced((a) => !a)}
                     className="text-[11.5px] text-slate-500 hover:text-slate-900 underline-offset-2 hover:underline"
                 >
-                    {advanced ? "Hide advanced" : "Advanced (IP allowlist)"}
+                    {advanced ? "הסתר הגדרות מתקדמות" : "מתקדם (רשימת כתובות IP מורשות)"}
                 </button>
 
                 {advanced && (
-                    <Field label="Allowed IPs" optional hint="Comma- or newline-separated. Supports CIDR (10.0.0.0/8). Empty = any.">
+                    <Field label="כתובות IP מורשות" optional hint="מופרדות בפסיק או שורה חדשה. תומך ב-CIDR (לדוגמה 10.0.0.0/8). ריק = כל כתובת.">
                         <textarea
                             value={allowedIPsRaw}
                             onChange={(e) => setAllowedIPsRaw(e.target.value)}
@@ -288,15 +288,15 @@ function ConfigureStep({
             <div className="h-12 px-4 border-t border-slate-200 flex items-center gap-2 bg-slate-50/40">
                 <span className="hidden md:inline-flex text-[11px] text-slate-500 items-center gap-1.5">
                     <LockIcon className="w-3 h-3" />
-                    The secret will be shown once. Save it somewhere safe.
+                    הסוד יוצג פעם אחת בלבד. שמור אותו במקום בטוח.
                 </span>
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="ms-auto flex items-center gap-1.5">
                     <button
                         type="button"
                         onClick={onCancel}
                         className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors"
                     >
-                        Cancel
+                        ביטול
                     </button>
                     <button
                         type="button"
@@ -305,7 +305,7 @@ function ConfigureStep({
                         className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                     >
                         {create.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <KeyIcon className="w-3 h-3" />}
-                        Create key
+                        יצירת מפתח
                     </button>
                 </div>
             </div>
@@ -319,26 +319,26 @@ function RevealStep({ apiKey, onClose }: { apiKey: APIKeyWithSecret; onClose: ()
         navigator.clipboard.writeText(apiKey.secret).then(
             () => {
                 setCopied(true);
-                toast.success("Secret copied to clipboard");
+                toast.success("הסוד הועתק ללוח");
                 setTimeout(() => setCopied(false), 2000);
             },
-            () => toast.error("Failed to copy"),
+            () => toast.error("ההעתקה נכשלה"),
         );
     }
     return (
         <div>
             <div className="h-11 px-4 border-b border-slate-200 flex items-center gap-2">
                 <CheckIcon className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-[12.5px] font-medium text-slate-900">Key created</span>
+                <span className="text-[12.5px] font-medium text-slate-900">המפתח נוצר בהצלחה</span>
             </div>
 
             <div className="px-5 py-5">
                 <p className="text-[12.5px] text-slate-900 font-medium mb-1">{apiKey.name}</p>
                 <p className="text-[11.5px] text-slate-500 mb-4">
-                    Copy the secret now. We hash it on the server and can never show it again.
+                    העתק את הסוד כעת. הוא מגובב בשרת ולא ניתן יהיה להציגו שוב.
                 </p>
 
-                <div className="rounded-md border border-slate-200 bg-slate-950 overflow-hidden">
+                <div className="rounded-md border border-slate-200 bg-slate-950 overflow-hidden" dir="ltr">
                     <div className="px-3 py-2 flex items-center gap-2 border-b border-slate-800/60">
                         <KeyIcon className="w-3 h-3 text-slate-400" />
                         <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-slate-400">
@@ -350,7 +350,7 @@ function RevealStep({ apiKey, onClose }: { apiKey: APIKeyWithSecret; onClose: ()
                             className="ml-auto inline-flex items-center gap-1 h-6 px-2 rounded text-slate-300 hover:text-white hover:bg-slate-800 transition-colors text-[11px]"
                         >
                             {copied ? <CheckIcon className="w-3 h-3" /> : <CopyIcon className="w-3 h-3" />}
-                            {copied ? "Copied" : "Copy"}
+                            {copied ? "הועתק" : "העתק"}
                         </button>
                     </div>
                     <pre className="px-4 py-3 text-[12px] text-slate-100 font-mono whitespace-pre-wrap break-all">
@@ -359,8 +359,8 @@ function RevealStep({ apiKey, onClose }: { apiKey: APIKeyWithSecret; onClose: ()
                 </div>
 
                 <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] text-amber-900 leading-relaxed">
-                    <strong>Heads up:</strong> closing this dialog will discard the plaintext secret.
-                    Anyone with this string can act as <span className="font-mono">{apiKey.name}</span>.
+                    <strong>שים לב:</strong> סגירת חלונית זו תמחק את הסוד המוצג.
+                    כל מי שמחזיק במחרוזת זו יכול לפעול בשם <span className="font-mono">{apiKey.name}</span>.
                 </div>
             </div>
 
@@ -370,7 +370,7 @@ function RevealStep({ apiKey, onClose }: { apiKey: APIKeyWithSecret; onClose: ()
                     onClick={onClose}
                     className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
                 >
-                    I've saved it
+                    שמרתי את המפתח
                 </button>
             </div>
         </div>
@@ -395,7 +395,7 @@ function Field({
                     {label}
                 </label>
                 {optional && (
-                    <span className="text-[10px] text-slate-400 font-mono">optional</span>
+                    <span className="text-[10px] text-slate-400 font-mono">רשות</span>
                 )}
             </div>
             {children}
@@ -413,7 +413,7 @@ function RateLimitSetter({ value, onChange }: { value: number; onChange: (v: num
     return (
         <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
             <div className="flex items-center justify-center gap-3">
-                <button type="button" onClick={() => onChange(clamp(value - 10))} disabled={value <= 1} className={stepBtn} aria-label="Decrease by 10">
+                <button type="button" onClick={() => onChange(clamp(value - 10))} disabled={value <= 1} className={stepBtn} aria-label="הפחת ב-10">
                     <MinusIcon className="w-3.5 h-3.5" />
                 </button>
                 <div className="flex items-baseline gap-1.5">
@@ -425,9 +425,9 @@ function RateLimitSetter({ value, onChange }: { value: number; onChange: (v: num
                         onChange={(e) => onChange(clamp(Number(e.target.value)))}
                         className="w-[74px] text-center text-[22px] font-semibold tabular-nums text-slate-900 bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
-                    <span className="text-[11px] text-slate-400 whitespace-nowrap">req / min</span>
+                    <span className="text-[11px] text-slate-400 whitespace-nowrap">בקשות / דקה</span>
                 </div>
-                <button type="button" onClick={() => onChange(clamp(value + 10))} disabled={value >= 10000} className={stepBtn} aria-label="Increase by 10">
+                <button type="button" onClick={() => onChange(clamp(value + 10))} disabled={value >= 10000} className={stepBtn} aria-label="הגדל ב-10">
                     <PlusIcon className="w-3.5 h-3.5" />
                 </button>
             </div>
@@ -479,7 +479,7 @@ function PresetCard({
         <button
             type="button"
             onClick={onClick}
-            className={`relative text-left rounded-md border px-2.5 py-2 transition-colors ${
+            className={`relative text-start rounded-md border px-2.5 py-2 transition-colors ${
                 active
                     ? "border-sky-400 bg-sky-50/60"
                     : "border-slate-200 hover:border-slate-300 bg-white"
@@ -522,13 +522,20 @@ function PermissionMatrix({
         return [...ordered, ...extra];
     }, [grouped]);
 
+    const categoryNames: Record<string, string> = {
+        read: "קריאה",
+        write: "כתיבה",
+        bulk: "פעולות כמותיות",
+        special: "מיוחד",
+    };
+
     return (
         <div className="rounded-md border border-slate-200 divide-y divide-slate-200/60 max-h-56 overflow-y-auto">
             {categories.map((cat) =>
                 grouped[cat] && grouped[cat].length > 0 ? (
                     <div key={cat}>
                         <div className="px-2.5 py-1.5 bg-slate-50/60 text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">
-                            {cat}
+                            {categoryNames[cat] ?? cat}
                         </div>
                         <div>
                             {grouped[cat].map((p) => {
@@ -538,7 +545,7 @@ function PermissionMatrix({
                                         key={p.name}
                                         type="button"
                                         onClick={() => onToggle(p.value)}
-                                        className="w-full px-2.5 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-left transition-colors"
+                                        className="w-full px-2.5 py-1.5 flex items-center gap-2 hover:bg-slate-50 text-start transition-colors"
                                     >
                                         <div
                                             className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${

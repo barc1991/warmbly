@@ -75,11 +75,11 @@ export default function APIKeysPage() {
 
     const samplePrefix = all[0]?.key_prefix ? `${all[0].key_prefix}…` : "wmbly_••";
 
-    if (!canManage) return <NoAccess feature="API keys" permissionLabel="Manage API keys" />;
+    if (!canManage) return <NoAccess feature="מפתחות API" permissionLabel="ניהול מפתחות API" />;
 
     return (
         <Page>
-            <PageTopbar eyebrow="API keys" subtitle="Programmatic access · stripe-style scoped tokens">
+            <PageTopbar eyebrow="מפתחות API" subtitle="גישה תכנותית · טוקנים בעלי הרשאות מוגדרות">
                 <SearchPill value={search} onChange={setSearch} />
                 <button
                     type="button"
@@ -88,46 +88,46 @@ export default function APIKeysPage() {
                         keys.refetch();
                         analytics.refetch();
                     }}
-                    aria-label="Refresh"
+                    aria-label="רענון"
                     className="h-7 w-7 rounded-md border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-900 inline-flex items-center justify-center transition-colors"
                 >
                     <RefreshCwIcon className={`w-3 h-3 ${summary.isFetching ? "animate-spin" : ""}`} />
                 </button>
                 <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={() => setCreateOpen(true)}>
-                    <span className="hidden sm:inline">Create key</span>
+                    <span className="hidden sm:inline">יצירת מפתח</span>
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={4}>
                 <Stat
-                    label="Active keys"
+                    label="מפתחות פעילים"
                     value={summary.data?.active_keys ?? 0}
-                    sub={summary.data ? `${summary.data.revoked_keys + summary.data.expired_keys} inactive` : "—"}
+                    sub={summary.data ? `${summary.data.revoked_keys + summary.data.expired_keys} לא פעילים` : "-"}
                     accent={(summary.data?.active_keys ?? 0) > 0}
                 />
                 <Stat
-                    label="Requests · 24h"
+                    label="בקשות · 24 שעות"
                     value={summary.data?.requests_24h ?? 0}
-                    sub={summary.data ? `${summary.data.errors_24h} errors` : "—"}
+                    sub={summary.data ? `${summary.data.errors_24h} שגיאות` : "-"}
                 />
                 <Stat
-                    label="Avg latency · 24h"
-                    value={summary.data ? `${Math.round(summary.data.avg_latency_ms_24h)}ms` : "—"}
-                    sub="across all keys"
+                    label="זמן תגובה ממוצע · 24 שעות"
+                    value={summary.data ? `${Math.round(summary.data.avg_latency_ms_24h)}ms` : "-"}
+                    sub="בכל המפתחות"
                 />
                 <Stat
-                    label="Last call"
-                    value={summary.data?.last_call_at ? fmtRelative(summary.data.last_call_at) : "—"}
-                    sub={summary.data?.last_call_at ? fmtFull(summary.data.last_call_at) : "no calls yet"}
+                    label="קריאה אחרונה"
+                    value={summary.data?.last_call_at ? fmtRelative(summary.data.last_call_at) : "-"}
+                    sub={summary.data?.last_call_at ? fmtFull(summary.data.last_call_at) : "אין קריאות עדיין"}
                     last
                 />
             </StatStrip>
 
             <SectionBar
-                label="Traffic · last 24h"
+                label="תעבורה · 24 שעות אחרונות"
                 count={analytics.data?.total ?? 0}
             >
-                {analytics.isFetching && <span className="text-[10px] text-slate-400">syncing…</span>}
+                {analytics.isFetching && <span className="text-[10px] text-slate-400">סנכרון…</span>}
             </SectionBar>
             <div className="px-5 py-4 border-b border-slate-200/60">
                 {analytics.isPending ? (
@@ -139,25 +139,25 @@ export default function APIKeysPage() {
                     <Legend color="bg-emerald-500/80" label="2xx" />
                     <Legend color="bg-amber-400/80" label="4xx" />
                     <Legend color="bg-rose-500/80" label="5xx" />
-                    <span className="ml-auto inline-flex items-center gap-1.5 text-[10.5px] text-slate-400">
+                    <span className="ms-auto inline-flex items-center gap-1.5 text-[10.5px] text-slate-400">
                         <GaugeIcon className="w-3 h-3" />
-                        live; refreshes every minute
+                        בזמן אמת; מתרענן מדי דקה
                     </span>
                 </div>
             </div>
 
-            <SectionBar label="Quick start" />
+            <SectionBar label="התחלה מהירה" />
             <div className="px-5 py-4 border-b border-slate-200/60">
                 <CodeSnippet prefix={samplePrefix} />
                 <p className="text-[11.5px] text-slate-500 mt-2 leading-relaxed">
-                    Pass the secret as a <span className="font-mono">Bearer</span> header. Every request returns
-                    rate-limit headers (<span className="font-mono">X-RateLimit-Limit</span>,{" "}
-                    <span className="font-mono">X-RateLimit-Remaining</span>) so well-behaved clients can self-throttle
-                    before hitting <span className="font-mono">429</span>.
+                    העבר את המפתח החוצה בכותרת <span className="font-mono">Bearer</span>. כל בקשה מחזירה
+                    כותרות מגבלת קצב (<span className="font-mono">X-RateLimit-Limit</span>,{" "}
+                    <span className="font-mono">X-RateLimit-Remaining</span>) כדי שלקוחות יוכלו להאט את הקצב בעצמם
+                    לפני הגעה לקוד <span className="font-mono">429</span>.
                 </p>
             </div>
 
-            <SectionBar label="Keys" count={filtered.length} />
+            <SectionBar label="מפתחות" count={filtered.length} />
             <PageBody>
                 {keys.isPending ? (
                     <div className="px-5 py-4 space-y-2">
@@ -168,11 +168,11 @@ export default function APIKeysPage() {
                 ) : filtered.length === 0 ? (
                     <div className="py-10">
                         <EmptyBlock
-                            title={search ? "No keys match" : "No API keys yet"}
+                            title={search ? "לא נמצאו מפתחות תואמים" : "אין עדיין מפתחות API"}
                             body={
                                 search
-                                    ? "Try a shorter search."
-                                    : "Create a key to start calling Warmbly from your server or CI."
+                                    ? "נסה חיפוש קצר יותר."
+                                    : "צור מפתח כדי להתחיל לבצע קריאות ל-Warmbly מהשרת או ה-CI שלך."
                             }
                             cta={
                                 !search && (
@@ -182,7 +182,7 @@ export default function APIKeysPage() {
                                         className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                                     >
                                         <PlusIcon className="w-3 h-3" />
-                                        Create key
+                                        יצירת מפתח
                                     </button>
                                 )
                             }
@@ -209,7 +209,7 @@ function KeyRow({ apiKey, onClick }: { apiKey: APIKey; onClick: () => void }) {
         <button
             type="button"
             onClick={onClick}
-            className="w-full h-12 px-5 flex items-center gap-3 text-left hover:bg-slate-50/80 transition-colors group"
+            className="w-full h-12 px-5 flex items-center gap-3 text-start hover:bg-slate-50/80 transition-colors group"
         >
             <KeyIcon
                 className={`w-3.5 h-3.5 shrink-0 ${
@@ -226,13 +226,13 @@ function KeyRow({ apiKey, onClick }: { apiKey: APIKey; onClick: () => void }) {
                 {apiKey.key_prefix}…{apiKey.key_suffix}
             </span>
             <StatusPill status={status} />
-            <span className="ml-auto flex items-center gap-3 shrink-0">
+            <span className="ms-auto flex items-center gap-3 shrink-0">
                 <span className="hidden sm:inline text-[10.5px] text-slate-400 tabular-nums">
-                    <GaugeIcon className="inline w-3 h-3 mr-1 align-[-2px]" />
-                    {apiKey.rate_limit_per_minute}/m
+                    <GaugeIcon className="inline w-3 h-3 me-1 align-[-2px]" />
+                    {apiKey.rate_limit_per_minute}/דקה
                 </span>
-                <span className="hidden md:inline font-mono text-[10.5px] text-slate-400 tabular-nums w-32 text-right truncate">
-                    {apiKey.last_used_at ? `used ${fmtRelative(apiKey.last_used_at)}` : "never used"}
+                <span className="hidden md:inline font-mono text-[10.5px] text-slate-400 tabular-nums w-32 text-end truncate">
+                    {apiKey.last_used_at ? `בשימוש ${fmtRelative(apiKey.last_used_at)}` : "מעולם לא היה בשימוש"}
                 </span>
             </span>
         </button>
@@ -242,16 +242,16 @@ function KeyRow({ apiKey, onClick }: { apiKey: APIKey; onClick: () => void }) {
 function StatusPill({ status }: { status: APIKey["status"] }) {
     const tone =
         status === "active"
-            ? { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" }
+            ? { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", label: "פעיל" }
             : status === "revoked"
-              ? { bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-500" }
-              : { bg: "bg-slate-100", text: "text-slate-600", dot: "bg-slate-400" };
+              ? { bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-500", label: "בוטל" }
+              : { bg: "bg-slate-100", text: "text-slate-600", dot: "bg-slate-400", label: "פג תוקף" };
     return (
         <span
             className={`inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] uppercase tracking-[0.08em] font-medium ${tone.bg} ${tone.text}`}
         >
             <span className={`size-1.5 rounded-full ${tone.dot}`} />
-            {status}
+            {tone.label}
         </span>
     );
 }
@@ -268,14 +268,14 @@ function CodeSnippet({ prefix }: { prefix: string }) {
         navigator.clipboard.writeText(snippet).then(
             () => {
                 setCopied(true);
-                toast.success("Snippet copied");
+                toast.success("הקטע הועתק");
                 setTimeout(() => setCopied(false), 1500);
             },
-            () => toast.error("Failed to copy"),
+            () => toast.error("ההעתקה נכשלה"),
         );
     }
     return (
-        <div className="rounded-md border border-slate-200 bg-slate-950 overflow-hidden">
+        <div className="rounded-md border border-slate-200 bg-slate-950 overflow-hidden" dir="ltr">
             <div className="h-8 px-3 flex items-center gap-2 border-b border-slate-800/60">
                 <div className="size-1.5 rounded-full bg-red-400/70" />
                 <div className="size-1.5 rounded-full bg-amber-400/70" />
@@ -287,7 +287,7 @@ function CodeSnippet({ prefix }: { prefix: string }) {
                     className="ml-auto inline-flex items-center gap-1 h-6 px-2 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-[11px]"
                 >
                     {copied ? <CheckIcon className="w-3 h-3" /> : <CopyIcon className="w-3 h-3" />}
-                    {copied ? "Copied" : "Copy"}
+                    {copied ? "הועתק" : "העתק"}
                 </button>
             </div>
             <pre className="px-4 py-3 text-[12px] leading-relaxed text-slate-200 font-mono whitespace-pre overflow-x-auto">
@@ -304,14 +304,14 @@ function SearchPill({ value, onChange }: { value: string; onChange: (v: string) 
             <input
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                placeholder="Search…"
+                placeholder="חיפוש…"
                 className="w-[100px] sm:w-[140px] h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
             />
             {value && (
                 <button
                     type="button"
                     onClick={() => onChange("")}
-                    aria-label="Clear"
+                    aria-label="ניקוי"
                     className="text-slate-400 hover:text-slate-700"
                 >
                     <XIcon className="w-3 h-3" />
@@ -335,29 +335,29 @@ function fmtRelative(iso: string): string {
         const d = new Date(iso);
         const diff = Date.now() - d.getTime();
         const s = Math.floor(diff / 1000);
-        if (s < 60) return `${s}s ago`;
+        if (s < 60) return `לפני ${s} שניות`;
         const m = Math.floor(s / 60);
-        if (m < 60) return `${m}m ago`;
+        if (m < 60) return `לפני ${m} דקות`;
         const h = Math.floor(m / 60);
-        if (h < 24) return `${h}h ago`;
+        if (h < 24) return `לפני ${h} שעות`;
         const days = Math.floor(h / 24);
-        if (days < 30) return `${days}d ago`;
-        return d.toLocaleDateString();
+        if (days < 30) return `לפני ${days} ימים`;
+        return d.toLocaleDateString("he-IL");
     } catch {
-        return "—";
+        return "-";
     }
 }
 
 function fmtFull(iso: string): string {
     try {
-        return new Date(iso).toLocaleString("en-US", {
+        return new Date(iso).toLocaleString("he-IL", {
             month: "short",
             day: "numeric",
             hour: "2-digit",
             minute: "2-digit",
         });
     } catch {
-        return "—";
+        return "-";
     }
 }
 
