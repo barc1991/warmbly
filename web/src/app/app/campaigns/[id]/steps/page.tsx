@@ -32,8 +32,8 @@ function StepsBuilder({ campaignId }: { campaignId: string }) {
         setCreating(true);
         try {
             await toast.promise(createSequence.mutateAsync(), {
-                loading: "Adding step…",
-                success: "Step added.",
+                loading: "מוסיף שלב…",
+                success: "השלב נוסף.",
                 error: (err: AppError) => buildError(err),
             });
         } finally {
@@ -47,11 +47,9 @@ function StepsBuilder({ campaignId }: { campaignId: string }) {
                 <div className="mb-3 flex size-10 items-center justify-center rounded-md bg-sky-50 text-sky-600">
                     <LayersIcon className="w-4 h-4" />
                 </div>
-                <h2 className="text-[13px] font-medium text-slate-900">Build your flow</h2>
+                <h2 className="text-[13px] font-medium text-slate-900">בנה את התהליך שלך</h2>
                 <p className="mt-1 mb-4 max-w-xs text-center text-[11.5px] leading-relaxed text-slate-400">
-                    Add your first step, then drag from a step to branch on opens, clicks, or
-                    replies. The first email sends immediately; later steps wait and thread as
-                    follow-ups.
+                    הוסף את השלב הראשון, ולאחר מכן גרור חוטים לפיצול לפי פתיחות, לחיצות או מענים. האימייל הראשון נשלח מיידית; השלבים הבאים ממתינים ונשלחים כהמשך באותו השרשור.
                 </p>
                 <PermissionButton
                     permission="MANAGE_CAMPAIGNS"
@@ -65,7 +63,7 @@ function StepsBuilder({ campaignId }: { campaignId: string }) {
                     ) : (
                         <PlusIcon className="w-3.5 h-3.5" />
                     )}
-                    Add your first step
+                    הוסף את השלב הראשון
                 </PermissionButton>
             </div>
         );

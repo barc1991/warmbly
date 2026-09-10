@@ -62,14 +62,14 @@ function seedWindows(c: Campaign): Interval[][] {
 
 const PRESETS: { label: string; build: () => Interval[][] }[] = [
     {
-        label: "Mon–Fri 9–5",
+        label: "ב'–ו' 9–17",
         build: () => Array.from({ length: 7 }, (_, i) => (i < 5 ? [{ start: 540, end: 1020 }] : [])),
     },
     {
-        label: "Every day 9–5",
+        label: "כל יום 9–17",
         build: () => Array.from({ length: 7 }, () => [{ start: 540, end: 1020 }]),
     },
-    { label: "Clear", build: () => Array.from({ length: 7 }, () => []) },
+    { label: "נקה הכל", build: () => Array.from({ length: 7 }, () => []) },
 ];
 
 export default function CampaignSchedule() {
@@ -114,7 +114,7 @@ export default function CampaignSchedule() {
     async function submit() {
         if (loading) return;
         if (totalWindows === 0) {
-            toast.error("Add at least one sending window.");
+            toast.error("יש להוסיף לפחות חלון שליחה אחד.");
             return;
         }
         const patch: Partial<Campaign> = {
@@ -124,8 +124,8 @@ export default function CampaignSchedule() {
         try {
             setLoading(true);
             await toast.promise(updateCampaign.mutateAsync(patch), {
-                loading: "Saving…",
-                success: "Schedule updated.",
+                loading: "שומר…",
+                success: "לוח הזמנים עודכן בהצלחה.",
                 error: (err: AppError) => buildError(err),
             });
         } finally {
@@ -138,14 +138,14 @@ export default function CampaignSchedule() {
     const startDate = newData.start_date instanceof Date ? newData.start_date : null;
     const endDate = newData.end_date instanceof Date ? newData.end_date : null;
     const durationLabel =
-        startDate && endDate ? `${differenceInCalendarDays(endDate, startDate)} days` : "Open-ended";
+        startDate && endDate ? `${differenceInCalendarDays(endDate, startDate)} ימים` : "ללא הגבלת זמן";
     const datesHint = startDate
         ? endDate
-            ? `${format(startDate, "MMM d")} – ${format(endDate, "MMM d, yyyy")}`
-            : `from ${format(startDate, "MMM d, yyyy")} onward`
+            ? `${format(startDate, "d בMMM")} – ${format(endDate, "d בMMM, yyyy")}`
+            : `החל מ-${format(startDate, "d בMMM, yyyy")} ואילך`
         : endDate
-            ? `until ${format(endDate, "MMM d, yyyy")}`
-            : "Runs continuously while active";
+            ? `עד ${format(endDate, "d בMMM, yyyy")}`
+            : "פועל ברציפות כל עוד הקמפיין פעיל";
 
     return (
         <div className="space-y-4">
@@ -158,23 +158,21 @@ export default function CampaignSchedule() {
                         </span>
                         <div className="min-w-0">
                         <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                            Weekly sending windows
+                            חלונות שליחה שבועיים
                         </div>
                         {totalWindows === 0 ? (
                             <p className="text-[12.5px] text-rose-500 leading-tight mt-0.5">
-                                No windows yet — drag on a day to add one.
+                                עדיין אין חלונות שליחה. גרור על יום מסוים כדי להוסיף.
                             </p>
                         ) : (
                             <p className="text-[12.5px] text-slate-700 leading-tight mt-0.5">
-                                <span className="font-medium text-slate-900">{totalWindows}</span> window
-                                {totalWindows === 1 ? "" : "s"} across{" "}
-                                <span className="font-medium text-slate-900">{activeDays}</span> day
-                                {activeDays === 1 ? "" : "s"}
+                                <span className="font-medium text-slate-900">{totalWindows}</span> חלונות שליחה ב-
+                                <span className="font-medium text-slate-900">{activeDays}</span> ימים
                             </p>
                         )}
                         </div>
                     </div>
-                    <div className="w-full sm:w-auto sm:ml-auto shrink-0">
+                    <div className="w-full sm:w-auto sm:ms-auto shrink-0">
                         <PopoverMenu>
                             <PopoverMenuTrigger asChild>
                                 <SelectButton
@@ -200,8 +198,8 @@ export default function CampaignSchedule() {
 
                 {/* presets */}
                 <div className="px-4 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200/70 bg-slate-50/30">
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mr-0.5">
-                        Presets
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium me-0.5">
+                        תבניות
                     </span>
                     {PRESETS.map((p) => (
                         <button
@@ -213,8 +211,8 @@ export default function CampaignSchedule() {
                             {p.label}
                         </button>
                     ))}
-                    <span className="ml-auto text-[11px] text-slate-400 hidden sm:block">
-                        Drag to add · drag a block to move · edges to resize · ⧉ copies a day to all
+                    <span className="ms-auto text-[11px] text-slate-400 hidden sm:block">
+                        גרור להוספה · גרור בלוק להזזה · משוך קצוות לשינוי גודל · ⧉ מעתיק יום לכולם
                     </span>
                 </div>
 
@@ -225,8 +223,7 @@ export default function CampaignSchedule() {
                         <WeekScheduleGrid windows={windows} onChange={setWindows} />
                     </div>
                     <p className="text-[11px] text-slate-400 mt-3">
-                        Each day is independent — set different windows per day, or several windows in one day. Sends
-                        are scheduled in {tzLabel}; worker IPs spread distribution naturally.
+                        כל יום עומד בפני עצמו: הגדר חלונות שונים לכל יום או מספר חלונות ביום אחד. השליחות מתוזמנות לפי {tzLabel}; כתובות ה-IP של השרתים מפזרות את העומס בצורה טבעית.
                     </p>
                 </div>
             </section>
@@ -236,9 +233,9 @@ export default function CampaignSchedule() {
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2.5">
                     <HourglassIcon className="w-3.5 h-3.5 text-slate-400" />
                     <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                        Before the first email
+                        לפני האימייל הראשון
                     </span>
-                    <span className="ml-auto inline-flex items-center h-5 px-1.5 rounded border border-slate-200 bg-slate-50 text-[11px] text-slate-600">
+                    <span className="ms-auto inline-flex items-center h-5 px-1.5 rounded border border-slate-200 bg-slate-50 text-[11px] text-slate-600">
                         {entryDelayLabel(newData.entry_delay_minutes)}
                     </span>
                 </div>
@@ -247,9 +244,7 @@ export default function CampaignSchedule() {
                     onChange={(v: number) => setNewData((b) => ({ ...b, entry_delay_minutes: v }))}
                 />
                 <p className="text-[11px] text-slate-400 mt-3">
-                    Counted from the moment a contact enters this campaign, so a contact who joins a linked segment next
-                    week waits the same amount from their own start. The email then goes out in the first sending window
-                    after the delay. Follow-up waits are set on the steps and are not affected.
+                    נספר מרגע כניסת איש הקשר לקמפיין זה. איש קשר שמצטרף לסגמנט מקושר בעוד שבוע ימתין את אותו פרק הזמן מרגע כניסתו. האימייל יישלח בחלון השליחה הראשון לאחר ההשהיה. זמני ההמתנה להמשך השרשור מוגדרים בשלבים עצמם ואינם מושפעים מכך.
                 </p>
             </section>
 
@@ -258,9 +253,9 @@ export default function CampaignSchedule() {
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2.5">
                     <CalendarRangeIcon className="w-3.5 h-3.5 text-slate-400" />
                     <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                        Campaign dates
+                        תאריכי פעילות הקמפיין
                     </span>
-                    <span className="ml-auto inline-flex items-center gap-2 text-[11px] text-slate-400">
+                    <span className="ms-auto inline-flex items-center gap-2 text-[11px] text-slate-400">
                         <span>{datesHint}</span>
                         <span className="inline-flex items-center h-5 px-1.5 rounded border border-slate-200 bg-slate-50 text-slate-600 tabular-nums">
                             {durationLabel}
@@ -270,23 +265,23 @@ export default function CampaignSchedule() {
                 <div className="flex items-end gap-3 flex-wrap">
                     <div className="w-full sm:w-[170px]">
                         <DateSelect
-                            title="Start date"
+                            title="תאריך התחלה"
                             value={newData.start_date ?? null}
                             onChange={(v) => setNewData((b) => ({ ...b, start_date: v }))}
                             minDate={new Date()}
                         />
                     </div>
-                    <ArrowRightIcon className="w-4 h-4 text-slate-300 shrink-0 self-end mb-1.5 hidden sm:block" />
+                    <ArrowRightIcon className="w-4 h-4 text-slate-300 shrink-0 self-end mb-1.5 hidden sm:block rtl:rotate-180" />
                     <div className="w-full sm:w-[170px]">
                         <DateSelect
-                            title="End date"
+                            title="תאריך סיום"
                             value={newData.end_date ?? null}
                             onChange={(v) => setNewData((b) => ({ ...b, end_date: v }))}
                             minDate={addDays(new Date(), 1)}
                         />
                     </div>
                     <p className="text-[11px] text-slate-400 self-end mb-1 flex-1 sm:min-w-[180px]">
-                        Optional bounds for when the campaign may send. Leave both blank to run open-ended.
+                        הגדרת טווח תאריכים שבהם מותר לקמפיין לשלוח אימיילים (אופציונלי). השאר את שניהם ריקים לפעילות רציפה ללא הגבלת זמן.
                     </p>
                 </div>
             </section>
@@ -304,14 +299,14 @@ export default function CampaignSchedule() {
                         setWindows(seedWindows(campaign));
                     }}
                 >
-                    Reset
+                    איפוס
                 </button>
                 <PermissionButton
                     permission="MANAGE_CAMPAIGNS"
                     className="h-7 px-3 bg-sky-600 hover:bg-sky-700 text-white rounded-md text-[12px] font-medium transition-colors min-w-[110px] inline-flex items-center justify-center"
                     onClick={submit}
                 >
-                    {loading ? <Loading className="h-4" /> : "Save changes"}
+                    {loading ? <Loading className="h-4" /> : "שמור שינויים"}
                 </PermissionButton>
             </div>
         </div>

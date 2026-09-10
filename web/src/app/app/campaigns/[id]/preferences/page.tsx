@@ -33,45 +33,45 @@ const DAILY_MAX = 5000;
 // One scrolling page — every section stacks in order and the left nav is a
 // scrollspy over these ids.
 const SECTIONS = [
-    { id: "general", label: "General", description: "Name and description for this campaign." },
-    { id: "folders", label: "Folders", description: "Organize this campaign into folders." },
+    { id: "general", label: "כללי", description: "שם ותיאור עבור קמפיין זה." },
+    { id: "folders", label: "תיקיות", description: "ארגון קמפיין זה בתוך תיקיות." },
     {
         id: "senders",
-        label: "Sending accounts",
-        description: "Which mailboxes send this campaign — by tag, individually, or both — and the per-mailbox daily cap.",
+        label: "חשבונות שולחים",
+        description: "אילו תיבות דואר שולחות קמפיין זה (לפי תגית, באופן פרטני או שניהם) ומכסת השליחה היומית לכל תיבה.",
     },
     {
         id: "deliverability",
-        label: "Deliverability",
-        description: "Reply handling, open/link tracking, and the unsubscribe header.",
+        label: "עבירות דואר",
+        description: "טיפול במענים, מעקב פתיחות ולחיצות, וכותרת ביטול הרשמה (Unsubscribe).",
     },
     {
         id: "rotation",
-        label: "Rotation & ramp-up",
-        description: "How volume is distributed across mailboxes and ramped over time.",
+        label: "סבב והדרגתיות",
+        description: "אופן חלוקת נפח השליחה בין תיבות הדואר והעלאה הדרגתית של הכמויות לאורך זמן.",
     },
     {
         id: "matching",
-        label: "ESP matching",
-        description: "Align the sending mailbox provider with each recipient's provider.",
+        label: "התאמת ספק (ESP)",
+        description: "התאמת ספק תיבת הדואר השולחת לספק השירות של כל נמען.",
     },
     {
         id: "guardrails",
-        label: "Auto-pause",
-        description: "Stop this campaign automatically when its bounce, complaint, or reply rate leaves the band you set.",
+        label: "השהיה אוטומטית",
+        description: "עצירת הקמפיין באופן אוטומטי כאשר שיעור החזרות (Bounce), תלונות הספאם או המענה חורגים מהטווח שהוגדר.",
     },
     {
         id: "leadflow",
-        label: "Lead flow",
-        description: "New-lead throttle, prioritization, and risky-address policy.",
+        label: "זרימת לידים",
+        description: "הגבלת קצב לידים חדשים, תעדוף ומדיניות כתובות בסיכון.",
     },
     {
         id: "ccbcc",
-        label: "CC & BCC",
-        description: "Copy extra addresses on every email sent by this campaign.",
+        label: "עותק (CC) ומוסתר (BCC)",
+        description: "העתקת כתובות נוספות בכל אימייל הנשלח מקמפיין זה.",
     },
-    { id: "order", label: "Contact order", description: "The order contacts are sent in." },
-    { id: "danger", label: "Delete campaign", description: "" },
+    { id: "order", label: "סדר אנשי קשר", description: "הסדר שבו נשלחים האימיילים לאנשי הקשר." },
+    { id: "danger", label: "מחיקת קמפיין", description: "" },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -280,15 +280,15 @@ export default function CampaignPreferences() {
 
     const validationError = (): string | null => {
         if (newData.daily_limit < DAILY_MIN || newData.daily_limit > DAILY_MAX) {
-            return `Daily limit must be between ${DAILY_MIN} and ${DAILY_MAX}.`;
+            return `מגבלת השליחה היומית חייבת להיות בין ${DAILY_MIN} ל-${DAILY_MAX}.`;
         }
         if (newData.ramp_enabled && newData.ramp_start > newData.ramp_ceiling) {
-            return "Ramp start must be less than or equal to the ramp ceiling.";
+            return "כמות ההתחלה חייבת להיות קטנה או שווה לתקרת ההדרגתיות.";
         }
         const guardrail = guardrailValidationError(newData);
         if (guardrail) return guardrail;
         // Sending accounts: nothing selected is valid — it means "all active
-        // mailboxes", so there is no minimum-selection requirement anymore.
+        // mailboxes".
         return null;
     };
 
@@ -320,8 +320,8 @@ export default function CampaignPreferences() {
                     }
                 })(),
                 {
-                    loading: "Saving…",
-                    success: "Campaign successfully updated.",
+                    loading: "שומר…",
+                    success: "הקמפיין עודכן בהצלחה.",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -391,7 +391,7 @@ export default function CampaignPreferences() {
             <nav className="md:w-56 md:shrink-0">
                 <div className="md:sticky md:top-1 z-10 sticky top-0 -mx-5 px-5 md:mx-0 md:px-0 bg-white/90 backdrop-blur md:bg-transparent md:backdrop-blur-0">
                     <p className="hidden md:block px-2.5 mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                        On this page
+                        בעמוד זה
                     </p>
                     <div className="flex md:flex-col gap-0.5 overflow-x-auto no-scrollbar py-2 md:py-0 border-b md:border-0 border-slate-200/60">
                         {SECTIONS.map(({ id, label }) => {
@@ -401,7 +401,7 @@ export default function CampaignPreferences() {
                                     key={id}
                                     type="button"
                                     onClick={() => scrollTo(id)}
-                                    className={`relative h-8 px-2.5 md:w-full inline-flex items-center text-left text-[12.5px] rounded-md select-none transition-colors shrink-0 ${
+                                    className={`relative h-8 px-2.5 md:w-full inline-flex items-center text-start text-[12.5px] rounded-md select-none transition-colors shrink-0 ${
                                         active
                                             ? "text-sky-700 font-medium"
                                             : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
@@ -449,7 +449,7 @@ export default function CampaignPreferences() {
                             className="sticky bottom-0 z-20 mt-2 py-3 bg-white/90 backdrop-blur border-t border-slate-200/70 flex items-center justify-end gap-2"
                         >
                             {blocked && (
-                                <span className="mr-auto text-[11.5px] text-rose-500">{validationError()}</span>
+                                <span className="me-auto text-[11.5px] text-rose-500">{validationError()}</span>
                             )}
                             <button
                                 className="h-7 px-3 text-[12px] font-medium text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded-md transition-colors"
@@ -458,7 +458,7 @@ export default function CampaignPreferences() {
                                     setExplicitAccounts(savedAccounts);
                                 }}
                             >
-                                Reset
+                                איפוס
                             </button>
                             <PermissionButton
                                 permission="MANAGE_CAMPAIGNS"
@@ -466,7 +466,7 @@ export default function CampaignPreferences() {
                                 onClick={submit}
                                 disabled={blocked}
                             >
-                                {loading ? <Loading className="h-4" /> : "Save changes"}
+                                {loading ? <Loading className="h-4" /> : "שמור שינויים"}
                             </PermissionButton>
                         </motion.div>
                     )}

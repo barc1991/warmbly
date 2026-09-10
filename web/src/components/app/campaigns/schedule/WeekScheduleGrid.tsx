@@ -14,7 +14,7 @@ export interface Interval {
     end: number; // minutes since midnight (start,1440]
 }
 
-const ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const ABBR = ["ב'", "ג'", "ד'", "ה'", "ו'", "ש'", "א'"];
 const HOURS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
 const BODY_H = 420;
 const GUTTER = 46;
@@ -27,20 +27,14 @@ const snap = (n: number) => Math.round(n / SNAP) * SNAP;
 const pct = (min: number) => `${(min / DAY) * 100}%`;
 const hourLabel = (h: number) => {
     const hh = h % 24;
-    const ampm = hh < 12 ? "a" : "p";
-    const h12 = hh % 12 === 0 ? 12 : hh % 12;
-    return `${h12}${ampm}`;
+    return `${hh}:00`;
 };
-// An interval's end is exclusive and may be 1440 (midnight, end of day), which
-// the plain h<12 test rendered as "12pm" — so a full day read as "12am-12pm"
-// and looked like sending stopped at noon.
+// An interval's end is exclusive and may be 1440 (midnight, end of day).
 const fmt = (min: number) => {
-    if (min === DAY) return "midnight";
+    if (min === DAY) return "חצות";
     const h = Math.floor(min / 60);
     const m = min % 60;
-    const ampm = h < 12 ? "am" : "pm";
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2, "0")}${ampm}`;
+    return m === 0 ? `${h}:00` : `${h}:${String(m).padStart(2, "0")}`;
 };
 
 function mergeIntervals(ivs: Interval[]): Interval[] {
@@ -216,26 +210,26 @@ export default function WeekScheduleGrid({
                             >
                                 {d}
                                 {i === todayIdx && (
-                                    <span className="absolute bottom-1 size-1 rounded-full bg-sky-500" title="Today" />
+                                    <span className="absolute bottom-1 size-1 rounded-full bg-sky-500" title="היום" />
                                 )}
                                 <button
                                     type="button"
-                                    title="Add a window"
+                                    title="הוסף חלון"
                                     onClick={() => addDefault(i)}
                                     className="absolute left-1 top-1/2 -translate-y-1/2 md:top-1.5 md:translate-y-0 inline-flex size-6 md:size-4 items-center justify-center rounded text-slate-400 transition-opacity hover:bg-white hover:text-sky-600 opacity-100 md:opacity-0 md:group-hover/h:opacity-100"
                                 >
                                     <PlusIcon className="w-2.5 h-2.5" />
-                                </button>
-                                {active && (
-                                    <button
-                                        type="button"
-                                        title="Copy this day to every day"
-                                        onClick={() => copyToAll(i)}
-                                        className="absolute right-1 top-1/2 -translate-y-1/2 md:top-1.5 md:translate-y-0 size-6 md:size-4 rounded text-slate-400 hover:text-sky-600 hover:bg-white inline-flex items-center justify-center opacity-100 md:opacity-0 md:group-hover/h:opacity-100 transition-opacity"
-                                    >
-                                        <CopyIcon className="w-2.5 h-2.5" />
-                                    </button>
-                                )}
+                                 </button>
+                                 {active && (
+                                     <button
+                                         type="button"
+                                         title="העתק יום זה לכל הימים"
+                                         onClick={() => copyToAll(i)}
+                                         className="absolute right-1 top-1/2 -translate-y-1/2 md:top-1.5 md:translate-y-0 size-6 md:size-4 rounded text-slate-400 hover:text-sky-600 hover:bg-white inline-flex items-center justify-center opacity-100 md:opacity-0 md:group-hover/h:opacity-100 transition-opacity"
+                                     >
+                                         <CopyIcon className="w-2.5 h-2.5" />
+                                     </button>
+                                 )}
                             </div>
                         );
                     })}
@@ -276,7 +270,7 @@ export default function WeekScheduleGrid({
                             >
                                 {windows[i].length === 0 && (
                                     <span className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[9.5px] text-slate-300 leading-tight px-1">
-                                        drag, or tap +
+                                        גרור, או הקש +
                                     </span>
                                 )}
                                 {windows[i].map((iv, idx) => (
@@ -343,7 +337,7 @@ function Block({
             </div>
             <button
                 type="button"
-                title="Remove window"
+                title="הסר חלון"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                     e.stopPropagation();
