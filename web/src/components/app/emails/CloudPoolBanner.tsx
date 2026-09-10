@@ -6,11 +6,14 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { CloudIcon, XIcon } from "lucide-react";
 import useCloudPool from "@/hooks/useCloudPool";
+import { useTranslation } from "react-i18next";
 
 const DISMISS_KEY = "warmbly.cloud-pool-banner.dismissed";
 
 export default function CloudPoolBanner({ onConnect, mailboxCount }: { onConnect: () => void; mailboxCount: number }) {
     const pool = useCloudPool();
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const [dismissed, setDismissed] = React.useState(() => localStorage.getItem(DISMISS_KEY) === "1");
 
     if (!pool.selfHosted || pool.loading) return null;
@@ -23,14 +26,23 @@ export default function CloudPoolBanner({ onConnect, mailboxCount }: { onConnect
                     <CloudIcon className="w-4 h-4 shrink-0 text-sky-600" />
                     <span className="min-w-0 flex-1 leading-snug">
                         <span className="font-medium">
-                            {pool.enrolledCount === 0 ? "No mailbox is in the Warmbly pool yet." : `${pool.enrolledCount} of ${mailboxCount} mailboxes warm in the Warmbly pool.`}
+                            {pool.enrolledCount === 0
+                                ? (isHe ? "אין עדיין תיבות דואר במאגר Warmbly." : "No mailbox is in the Warmbly pool yet.")
+                                : (isHe
+                                    ? `${pool.enrolledCount} מתוך ${mailboxCount} תיבות דואר מתחממות במאגר Warmbly.`
+                                    : `${pool.enrolledCount} of ${mailboxCount} mailboxes warm in the Warmbly pool.`)}
                         </span>{" "}
                         <span className="text-sky-900/80">
-                            {limit === null ? "Unlimited mailboxes." : `${pool.enrolledCount} of ${limit} free.`} Use the cloud icon on a row, or the warmup menu, to add one.
+                            {limit === null
+                                ? (isHe ? "ללא הגבלת תיבות." : "Unlimited mailboxes.")
+                                : (isHe ? `${pool.enrolledCount} מתוך ${limit} חינם.` : `${pool.enrolledCount} of ${limit} free.`)}{" "}
+                            {isHe
+                                ? "השתמש בסמל הענן בשורה או בתפריט החימום כדי להוסיף תיבה."
+                                : "Use the cloud icon on a row, or the warmup menu, to add one."}
                         </span>
                     </span>
                     <Link to="/app/settings/warmbly-cloud" className="shrink-0 text-[12px] font-medium text-sky-700 hover:text-sky-900 underline underline-offset-2">
-                        Manage
+                        {isHe ? "ניהול" : "Manage"}
                     </Link>
                 </div>
             </div>
@@ -46,19 +58,25 @@ export default function CloudPoolBanner({ onConnect, mailboxCount }: { onConnect
                     <CloudIcon className="w-3.5 h-3.5" />
                 </span>
                 <span className="min-w-0 flex-1 leading-snug">
-                    <span className="font-medium">Warm these mailboxes in the Warmbly pool.</span>{" "}
-                    <span className="text-slate-600">Thousands of real mailboxes, replies and spam rescue handled for you. Free for up to 10 mailboxes; everything else stays on this server.</span>
+                    <span className="font-medium">
+                        {isHe ? "חמם את תיבות הדואר הללו במאגר של Warmbly." : "Warm these mailboxes in the Warmbly pool."}
+                    </span>{" "}
+                    <span className="text-slate-600">
+                        {isHe
+                            ? "אלפי תיבות דואר אמיתיות, מענים וחילוץ מתיקיית הספאם מנוהלים עבורך. חינם עבור עד 10 תיבות דואר; כל השאר נשאר בשרת זה."
+                            : "Thousands of real mailboxes, replies and spam rescue handled for you. Free for up to 10 mailboxes; everything else stays on this server."}
+                    </span>
                 </span>
                 <button
                     type="button"
                     onClick={onConnect}
                     className="shrink-0 h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                 >
-                    Connect
+                    {isHe ? "חיבור" : "Connect"}
                 </button>
                 <button
                     type="button"
-                    aria-label="Dismiss"
+                    aria-label={isHe ? "סגור" : "Dismiss"}
                     onClick={() => {
                         localStorage.setItem(DISMISS_KEY, "1");
                         setDismissed(true);

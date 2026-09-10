@@ -90,7 +90,7 @@ export function UserNav() {
                     onSelect={() => navigate("/app/settings")}
                     icon={<SettingsIcon className="w-3 h-3" />}
                 >
-                    {t("nav.items.settings", "Settings")}
+                    {t("nav:items.settings", "Settings")}
                 </PopoverMenuItem>
                 <PopoverMenuItem
                     onSelect={() => setLanguage(language.startsWith("he") ? "en" : "he")}
@@ -105,7 +105,7 @@ export function UserNav() {
                     disabled={logoutMutation.isPending}
                     danger
                 >
-                    {logoutMutation.isPending ? t("common.actions.signingOut", "Signing out…") : t("nav.userNav.logout", "Log out")}
+                    {logoutMutation.isPending ? t("common:actions.signingOut", "Signing out…") : t("nav:userNav.logout", "Log out")}
                 </PopoverMenuItem>
             </PopoverMenuContent>
         </PopoverMenu>

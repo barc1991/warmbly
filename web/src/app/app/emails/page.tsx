@@ -292,7 +292,7 @@ export default function AddressesPage() {
                     <PopoverMenuTrigger asChild>
                         <SelectButton
                             icon={<FilterIcon className="w-3.5 h-3.5" />}
-                            label={stag.title}
+                            label={tag ? stag.title : t("mailboxes:actions.allAccounts", "All accounts")}
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={200}>
@@ -359,14 +359,14 @@ export default function AddressesPage() {
                 ) : !emailsData.emails || emailsData.emails.length === 0 ? (
                     cloud.selfHosted || authConfigLoading ? (
                     <EmptyBlock
-                        title="No email accounts yet"
-                        body="Connect your first mailbox to start warming up and sending campaigns."
+                        title={t("mailboxes:empty.title", "No email accounts yet")}
+                        body={t("mailboxes:empty.description", "Connect your first mailbox to start warming up and sending campaigns.")}
                         cta={
                             <TopbarAction
                                 onClick={() => p?.setAddEmail(true)}
                                 icon={<PlusIcon className="w-3 h-3" />}
                             >
-                                Add account
+                                {t("mailboxes:addMailbox", "Add account")}
                             </TopbarAction>
                         }
                     />

@@ -13,9 +13,9 @@ function useRipple() {
     type RippleElement = HTMLElement & { _ripple?: HTMLSpanElement | null };
 
     const down = (e: MouseEvent) => {
-      let target = e.target as HTMLElement;
-      while (target && !target.classList.contains('ripple')) {
-        target = target.parentElement as HTMLElement;
+      let target = e.target as HTMLElement | null;
+      while (target && (!target.classList || !target.classList.contains('ripple'))) {
+        target = target.parentElement;
       }
       if (!target) return;
 
@@ -41,9 +41,9 @@ function useRipple() {
     };
 
     const up = (e: MouseEvent) => {
-      let target = e.target as HTMLElement;
-      while (target && !target.classList.contains('ripple')) {
-        target = target.parentElement as HTMLElement;
+      let target = e.target as HTMLElement | null;
+      while (target && (!target.classList || !target.classList.contains('ripple'))) {
+        target = target.parentElement;
       }
       const rippleData = (target as RippleElement)?._ripple;
       if (target && rippleData) {

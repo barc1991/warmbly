@@ -62,30 +62,30 @@ import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
 const navItemI18n: Record<string, string> = {
-    "/app/unibox": "nav.items.unibox",
-    "/app/emails": "nav.items.mailboxes",
-    "/app/campaigns": "nav.items.campaigns",
-    "/app/contacts": "nav.items.contacts",
-    "/app/forms": "nav.items.forms",
-    "/app/analytics": "nav.items.analytics",
-    "/app/deliverability": "nav.items.deliverability",
-    "/app/crm/pipelines": "nav.items.pipelines",
-    "/app/crm/deals": "nav.items.deals",
-    "/app/crm/tasks": "nav.items.tasks",
-    "/app/crm/meetings": "nav.items.meetings",
-    "/app/templates": "nav.items.templates",
-    "/app/integrations": "nav.items.integrations",
-    "/app/automations": "nav.items.automations",
-    "/app/api-keys": "nav.items.apiKeys",
-    "/app/audit": "nav.items.auditLog",
-    "/app/settings": "nav.items.settings",
+    "/app/unibox": "nav:items.unibox",
+    "/app/emails": "nav:items.mailboxes",
+    "/app/campaigns": "nav:items.campaigns",
+    "/app/contacts": "nav:items.contacts",
+    "/app/forms": "nav:items.forms",
+    "/app/analytics": "nav:items.analytics",
+    "/app/deliverability": "nav:items.deliverability",
+    "/app/crm/pipelines": "nav:items.pipelines",
+    "/app/crm/deals": "nav:items.deals",
+    "/app/crm/tasks": "nav:items.tasks",
+    "/app/crm/meetings": "nav:items.meetings",
+    "/app/templates": "nav:items.templates",
+    "/app/integrations": "nav:items.integrations",
+    "/app/automations": "nav:items.automations",
+    "/app/api-keys": "nav:items.apiKeys",
+    "/app/audit": "nav:items.auditLog",
+    "/app/settings": "nav:items.settings",
 };
 
 const navSectionI18n: Record<string, string> = {
-    Email: "nav.groups.outreach",
-    CRM: "nav.groups.crm",
-    Resources: "nav.groups.resources",
-    Settings: "nav.groups.settings",
+    Email: "nav:groups.outreach",
+    CRM: "nav:groups.crm",
+    Resources: "nav:groups.resources",
+    Settings: "nav:groups.settings",
 };
 
 // Stable (module-level) empty contacts search so the sidebar's contact-count
@@ -966,7 +966,7 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
                     "fixed inset-y-0 start-0 z-50 w-64 flex flex-col text-slate-900 bg-white shadow-2xl transition-transform duration-300 ease-out",
                     open ? "translate-x-0" : "-translate-x-full rtl:translate-x-full",
                     // >=md: static sidebar column over the chrome, no transform/shadow.
-                    "md:static md:z-auto md:translate-x-0 md:bg-transparent md:shadow-none md:transition-none shrink-0",
+                    "md:static md:z-auto md:translate-x-0 rtl:md:translate-x-0 md:transform-none md:bg-transparent md:shadow-none md:transition-none shrink-0",
                 )}
             >
                 {/* Mobile drawer header: brand + close. (The desktop sidebar
