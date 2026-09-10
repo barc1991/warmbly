@@ -1,6 +1,7 @@
 import React from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Flame, Inbox, BarChart3, Send, CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 /* ═══════════════════════════════════════════
    Auth showcase — a horizontal slide carousel on an airy sky.
@@ -65,89 +66,91 @@ function Ring({ pct }: { pct: number }) {
     );
 }
 
-const slides: Slide[] = [
-    {
-        key: "warmup",
-        icon: Flame,
-        title: "Warmup on autopilot",
-        desc: "Reputation built with natural, well-spaced traffic.",
-        mock: (
-            <Panel>
-                <div className="flex items-center justify-between">
-                    <Eyebrow>Reputation</Eyebrow>
-                    <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-600">
-                        <CheckCircle2 className="size-3" /> Healthy
-                    </span>
-                </div>
-                <div className="mt-1 text-[34px] font-bold leading-none text-slate-900 tabular-nums">
-                    98<span className="text-[15px] text-slate-300"> / 100</span>
-                </div>
-                <div className="mt-3"><Spark /></div>
-            </Panel>
-        ),
-    },
-    {
-        key: "inbox",
-        icon: Inbox,
-        title: "Land in the primary tab",
-        desc: "Live inbox placement across every mailbox.",
-        mock: (
-            <Panel>
-                <div className="flex items-center gap-4">
-                    <Ring pct={96} />
-                    <div>
-                        <Eyebrow>Inbox placement</Eyebrow>
-                        <div className="mt-0.5 text-[20px] font-bold leading-tight text-slate-900">Primary</div>
-                        <div className="text-[12px] text-slate-400">96% inboxed this week</div>
+function getSlides(isHe: boolean): Slide[] {
+    return [
+        {
+            key: "warmup",
+            icon: Flame,
+            title: isHe ? "חימום תיבות על אוטומט" : "Warmup on autopilot",
+            desc: isHe ? "בניית מוניטין שולח גבוה עם תנועה טבעית ומתוזמנת היטב." : "Reputation built with natural, well-spaced traffic.",
+            mock: (
+                <Panel>
+                    <div className="flex items-center justify-between">
+                        <Eyebrow>{isHe ? "מוניטין שולח" : "Reputation"}</Eyebrow>
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-600">
+                            <CheckCircle2 className="size-3" /> {isHe ? "תקין ומעולה" : "Healthy"}
+                        </span>
                     </div>
-                </div>
-            </Panel>
-        ),
-    },
-    {
-        key: "analytics",
-        icon: BarChart3,
-        title: "Know what's working",
-        desc: "Opens, replies and placement, beautifully tracked.",
-        mock: (
-            <Panel>
-                <div className="flex items-center justify-between gap-4">
-                    <div>
-                        <Eyebrow>Open rate</Eyebrow>
-                        <div className="mt-0.5 text-[28px] font-bold leading-none text-slate-900 tabular-nums">62%</div>
+                    <div className="mt-1 text-[34px] font-bold leading-none text-slate-900 tabular-nums">
+                        98<span className="text-[15px] text-slate-300"> / 100</span>
                     </div>
-                    <div>
-                        <Eyebrow>Reply rate</Eyebrow>
-                        <div className="mt-0.5 text-[28px] font-bold leading-none text-slate-900 tabular-nums">14%</div>
-                    </div>
-                </div>
-                <div className="mt-3"><Spark /></div>
-            </Panel>
-        ),
-    },
-    {
-        key: "sequences",
-        icon: Send,
-        title: "Automated sequences",
-        desc: "Multi-step outreach that respects every reply.",
-        mock: (
-            <Panel>
-                <div className="space-y-2.5">
-                    {[["Intro email", "Sent"], ["Follow-up", "Scheduled"], ["Break-up", "Queued"]].map(([s, st], idx) => (
-                        <div key={s} className="flex items-center gap-3">
-                            <span className={`size-5 shrink-0 rounded-full text-[10px] font-semibold flex items-center justify-center ${idx === 0 ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-400"}`}>{idx + 1}</span>
-                            <span className="text-[12.5px] font-medium text-slate-700">{s}</span>
-                            <span className="ml-auto text-[11px] text-slate-400">{st}</span>
+                    <div className="mt-3"><Spark /></div>
+                </Panel>
+            ),
+        },
+        {
+            key: "inbox",
+            icon: Inbox,
+            title: isHe ? "נחיתה בתיבת הדואר הנכנס" : "Land in the primary tab",
+            desc: isHe ? "ניטור מיקום בזמן אמת עבור כל חשבונות השולח שלך." : "Live inbox placement across every mailbox.",
+            mock: (
+                <Panel>
+                    <div className="flex items-center gap-4">
+                        <Ring pct={96} />
+                        <div>
+                            <Eyebrow>{isHe ? "מיקום בתיבה" : "Inbox placement"}</Eyebrow>
+                            <div className="mt-0.5 text-[20px] font-bold leading-tight text-slate-900">{isHe ? "דואר ראשי (Primary)" : "Primary"}</div>
+                            <div className="text-[12px] text-slate-400">{isHe ? "96% הגיעו ל-Inbox השבוע" : "96% inboxed this week"}</div>
                         </div>
-                    ))}
-                </div>
-            </Panel>
-        ),
-    },
-];
-
-const N = slides.length;
-const track = [...slides, slides[0]]; // clone first slide for a seamless forward loop
+                    </div>
+                </Panel>
+            ),
+        },
+        {
+            key: "analytics",
+            icon: BarChart3,
+            title: isHe ? "שקיפות מלאה על מה שעובד" : "Know what's working",
+            desc: isHe ? "פתיחות, מענים ותוצאות מסירה, במעקב חזותי בזמן אמת." : "Opens, replies and placement, beautifully tracked.",
+            mock: (
+                <Panel>
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <Eyebrow>{isHe ? "אחוז פתיחה" : "Open rate"}</Eyebrow>
+                            <div className="mt-0.5 text-[28px] font-bold leading-none text-slate-900 tabular-nums">62%</div>
+                        </div>
+                        <div>
+                            <Eyebrow>{isHe ? "אחוז מענה" : "Reply rate"}</Eyebrow>
+                            <div className="mt-0.5 text-[28px] font-bold leading-none text-slate-900 tabular-nums">14%</div>
+                        </div>
+                    </div>
+                    <div className="mt-3"><Spark /></div>
+                </Panel>
+            ),
+        },
+        {
+            key: "sequences",
+            icon: Send,
+            title: isHe ? "רצפי שליחה אוטומטיים" : "Automated sequences",
+            desc: isHe ? "פניות מרובות שלבים שעוצרות אוטומטית בכל קבלת תגובה." : "Multi-step outreach that respects every reply.",
+            mock: (
+                <Panel>
+                    <div className="space-y-2.5">
+                        {(isHe
+                            ? [["אימייל היכרות", "נשלח"], ["אימייל מעקב", "מתוזמן"], ["הודעת סיום", "בתור"]]
+                            : [["Intro email", "Sent"], ["Follow-up", "Scheduled"], ["Break-up", "Queued"]]
+                        ).map(([s, st], idx) => (
+                            <div key={s} className="flex items-center gap-3">
+                                <span className={`size-5 shrink-0 rounded-full text-[10px] font-semibold flex items-center justify-center ${idx === 0 ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-400"}`}>{idx + 1}</span>
+                                <span className="text-[12.5px] font-medium text-slate-700">{s}</span>
+                                <span className="ms-auto text-[11px] text-slate-400">{st}</span>
+                            </div>
+                        ))}
+                    </div>
+                </Panel>
+            ),
+        },
+    ];
+}
 
 function SlideView({ slide }: { slide: Slide }) {
     const Icon = slide.icon;
@@ -169,6 +172,12 @@ function SlideView({ slide }: { slide: Slide }) {
 }
 
 export default function AuthShowcase() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+    const slides = React.useMemo(() => getSlides(isHe), [isHe]);
+    const N = slides.length;
+    const track = React.useMemo(() => [...slides, slides[0]], [slides]);
+
     const reduce = useReducedMotion();
     const [idx, setIdx] = React.useState(0); // 0..N, where N renders the clone
     const [withAnim, setWithAnim] = React.useState(true);

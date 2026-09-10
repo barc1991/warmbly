@@ -19,7 +19,7 @@ export default function GroupPicker({
     disabled?: boolean;
 }) {
     if (groups.length === 0) {
-        return <div className="text-[12px] text-slate-400">Loading data groups…</div>;
+        return <div className="text-[12px] text-slate-400">טוען קבוצות נתונים…</div>;
     }
 
     return (
@@ -36,7 +36,7 @@ export default function GroupPicker({
                         type="button"
                         disabled={locked}
                         onClick={() => onToggle(g.key)}
-                        className={`w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors ${
+                        className={`w-full flex items-start gap-2.5 px-3 py-2.5 text-start transition-colors ${
                             locked ? "cursor-default" : "hover:bg-slate-50"
                         }`}
                     >
@@ -54,17 +54,17 @@ export default function GroupPicker({
                                 <span className="text-[12.5px] font-medium text-slate-900">{g.label}</span>
                                 {g.required && (
                                     <span className="text-[10px] uppercase tracking-[0.08em] font-medium rounded-sm px-1 bg-slate-100 text-slate-500">
-                                        Always
+                                        תמיד
                                     </span>
                                 )}
                                 {!g.required && pinnedBy.length > 0 && (
                                     <span className="text-[10px] uppercase tracking-[0.08em] font-medium rounded-sm px-1 bg-slate-100 text-slate-500">
-                                        Needed by {pinnedBy.map((d) => d.label).join(", ")}
+                                        נדרש על ידי {pinnedBy.map((d) => d.label).join(", ")}
                                     </span>
                                 )}
                                 {g.heavy && (
                                     <span className="text-[10px] uppercase tracking-[0.08em] font-medium rounded-sm px-1 bg-amber-50 text-amber-700">
-                                        Large
+                                        גדול
                                     </span>
                                 )}
                             </span>

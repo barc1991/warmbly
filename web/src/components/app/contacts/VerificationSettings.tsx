@@ -14,10 +14,10 @@ import { useContactVerification } from "@/lib/api/hooks/app/contacts/useContactV
 import { cn } from "@/lib/utils";
 
 const SEGMENTS = [
-    { key: "valid", label: "Deliverable", color: "bg-emerald-500", text: "text-emerald-700" },
-    { key: "risky", label: "Risky", color: "bg-amber-400", text: "text-amber-700" },
-    { key: "invalid", label: "Undeliverable", color: "bg-rose-500", text: "text-rose-700" },
-    { key: "unknown", label: "Unverified", color: "bg-slate-200", text: "text-slate-500" },
+    { key: "valid", label: "תקין למשלוח", color: "bg-emerald-500", text: "text-emerald-700" },
+    { key: "risky", label: "בסיכון", color: "bg-amber-400", text: "text-amber-700" },
+    { key: "invalid", label: "בלתי ניתן למשלוח", color: "bg-rose-500", text: "text-rose-700" },
+    { key: "unknown", label: "לא אומת", color: "bg-slate-200", text: "text-slate-500" },
 ] as const;
 
 export default function VerificationSettings() {
@@ -28,8 +28,8 @@ export default function VerificationSettings() {
 
     return (
         <Section
-            eyebrow="Address verification"
-            description="Every contact you add is checked before any campaign sends to it, so bad addresses never become bounces. Nothing to run: verdicts land in the background and appear on each contact."
+            eyebrow="אימות כתובות אימייל"
+            description="כל איש קשר שנוסף נבדק לפני שקמפיין שולח אליו, כך שכתובות שגויות לעולם אינן הופכות להחזרות (bounces). הכל פועל אוטומטית: התוצאות מתקבלות ברקע ומוצגות לצד כל איש קשר."
         >
             {isLoading || !data ? (
                 <div className="h-16 rounded-md bg-slate-100 animate-pulse" />
@@ -50,33 +50,33 @@ export default function VerificationSettings() {
                             </motion.span>
                             <div className="min-w-0">
                                 <p className="text-[12.5px] font-medium text-slate-900">
-                                    {paid ? "MillionVerifier" : "Built-in check"}
-                                    <span className="ml-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                        {paid ? "pay as you go" : "included"}
+                                    {paid ? "MillionVerifier" : "בדיקה מובנית"}
+                                    <span className="mr-1.5 rtl:mr-1.5 rtl:ml-0 ltr:ml-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
+                                        {paid ? "לפי שימוש" : "כלול בחבילה"}
                                     </span>
                                 </p>
                                 <p className="text-[11.5px] text-slate-500 leading-snug">
                                     {paid
-                                        ? "One credit per address, from your own MillionVerifier balance."
+                                        ? "קרדיט אחד לכל כתובת, מיתרת ה-MillionVerifier שלך."
                                         : data.builtin_ready
-                                          ? "Syntax, mail server, disposable domains and a mailbox probe. Catch-all domains and Microsoft 365 stay unverified."
-                                          : "Syntax, mail server and disposable-domain checks. The mailbox probe is off on this instance, so most addresses stay unverified."}
+                                          ? "בדיקת תחביר, שרת דואר, דומיינים חד-פעמיים ובדיקת תיבה ישירה. דומיינים מסוג Catch-all ו-Microsoft 365 נותרים ללא אימות."
+                                          : "בדיקת תחביר, שרת דואר ודומיינים חד-פעמיים. בדיקת התיבה הישירה כבויה במערכת זו, לכן רוב הכתובות נותרות ללא אימות."}
                                 </p>
                             </div>
                         </div>
-                        <div className="md:ml-auto shrink-0 flex items-center gap-2">
+                        <div className="md:mr-auto md:rtl:mr-auto md:rtl:ml-0 md:ltr:ml-auto shrink-0 flex items-center gap-2">
                             {paid && data.credits !== undefined && (
                                 <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-slate-50 border border-slate-200 text-[12px] text-slate-700">
                                     <CoinsIcon className="w-3.5 h-3.5 text-amber-500" />
-                                    <AnimatedNumber value={data.credits} className="font-medium tabular-nums" /> credits
+                                    <AnimatedNumber value={data.credits} className="font-medium tabular-nums" /> קרדיטים
                                 </span>
                             )}
                             <Link
                                 to="/app/integrations"
                                 className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors"
                             >
-                                {paid ? "Manage connection" : "Connect MillionVerifier"}
-                                <ArrowRightIcon className="w-3.5 h-3.5" />
+                                {paid ? "נהל חיבור" : "חבר את MillionVerifier"}
+                                <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                             </Link>
                         </div>
                     </div>
@@ -118,7 +118,7 @@ export default function VerificationSettings() {
                                     className="inline-flex items-center gap-1.5 text-[11.5px] text-slate-400"
                                 >
                                     <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-                                    <AnimatedNumber value={counts?.pending ?? 0} className="tabular-nums" /> in the queue
+                                    <AnimatedNumber value={counts?.pending ?? 0} className="tabular-nums" /> בתור להמתנה
                                 </motion.span>
                             )}
                         </div>

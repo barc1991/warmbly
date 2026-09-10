@@ -42,7 +42,7 @@ export default function ChangePasswordDialog({ open, onClose }: { open: boolean;
             // Other sessions are revoked server-side; refresh the list so they
             // drop out of the Sessions panel live.
             void queryClient.invalidateQueries({ queryKey: ["sessions"] });
-            toast.success("Password changed. Other devices were signed out.");
+            toast.success("הסיסמה שונתה בהצלחה. שאר המכשירים נותקו.");
             onClose();
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -70,13 +70,13 @@ export default function ChangePasswordDialog({ open, onClose }: { open: boolean;
                         className="w-full max-w-sm rounded-lg bg-white border border-slate-200 shadow-xl"
                     >
                         <header className="px-4 h-12 flex items-center gap-2 border-b border-slate-200">
-                            <h3 className="text-[13px] font-semibold text-slate-900">Change password</h3>
+                            <h3 className="text-[13px] font-semibold text-slate-900">שינוי סיסמה</h3>
                             <button
                                 type="button"
                                 onClick={onClose}
                                 disabled={pending}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center disabled:opacity-60"
+                                aria-label="סגור"
+                                className="ms-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center disabled:opacity-60 cursor-pointer"
                             >
                                 <XIcon className="w-4 h-4" />
                             </button>
@@ -84,33 +84,33 @@ export default function ChangePasswordDialog({ open, onClose }: { open: boolean;
 
                         <div className="p-4 space-y-3">
                             <div>
-                                <Label>Current password</Label>
-                                <TextInput type="password" value={current} onChange={setCurrent} placeholder="Current password" autoFocus />
+                                <Label>סיסמה נוכחית</Label>
+                                <TextInput type="password" value={current} onChange={setCurrent} placeholder="הזן סיסמה נוכחית" autoFocus />
                             </div>
                             <div>
-                                <Label>New password</Label>
-                                <TextInput type="password" value={next} onChange={setNext} placeholder="At least 12 characters" />
-                                <p className="text-[11px] text-slate-400 mt-1">12+ characters with upper and lower case and a number.</p>
+                                <Label>סיסמה חדשה</Label>
+                                <TextInput type="password" value={next} onChange={setNext} placeholder="לפחות 12 תווים" />
+                                <p className="text-[11px] text-slate-400 mt-1">12+ תווים עם אותיות גדולות וקטנות ומספר.</p>
                             </div>
                             <div>
-                                <Label>Confirm new password</Label>
-                                <TextInput type="password" value={confirm} onChange={setConfirm} placeholder="Repeat new password" onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
+                                <Label>אימות סיסמה חדשה</Label>
+                                <TextInput type="password" value={confirm} onChange={setConfirm} placeholder="הקלד שוב את הסיסמה החדשה" onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
                                 {confirm.length > 0 && next !== confirm && (
-                                    <p className="text-[11px] text-rose-500 mt-1">Passwords do not match.</p>
+                                    <p className="text-[11px] text-rose-500 mt-1">הסיסמאות אינן תואמות.</p>
                                 )}
                             </div>
                             <p className="text-[11px] text-slate-400 leading-relaxed pt-1">
-                                Changing your password signs out every other device. This one stays signed in.
+                                שינוי הסיסמה ינתק את כל שאר המכשירים המחוברים. מכשיר זה יישאר מחובר.
                             </p>
                         </div>
 
                         <footer className="px-4 h-12 flex items-center justify-end gap-2 border-t border-slate-200">
-                            <button type="button" onClick={onClose} disabled={pending} className="h-7 px-2.5 rounded-md text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-60">
-                                Cancel
+                            <button type="button" onClick={onClose} disabled={pending} className="h-7 px-2.5 rounded-md text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-60 cursor-pointer">
+                                ביטול
                             </button>
-                            <button type="button" onClick={submit} disabled={!valid || pending} className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60">
-                                {pending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                                Change password
+                            <button type="button" onClick={submit} disabled={!valid || pending} className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60 cursor-pointer">
+                                {pending && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
+                                שנה סיסמה
                             </button>
                         </footer>
                     </motion.div>

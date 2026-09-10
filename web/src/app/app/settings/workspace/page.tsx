@@ -107,17 +107,17 @@ export default function WorkspaceSettingsPage() {
 
     return (
         <SectionShell
-            title="Workspace"
-            description="Org-wide settings. Visible only to the owner."
+            title="סביבת עבודה"
+            description="הגדרות ברמת הארגון. גלוי רק לבעלים."
             actions={<SaveStatus status={autosave.status} onRetry={autosave.retry} />}
         >
             <Section
-                eyebrow="Identity"
-                description="How this workspace is named and addressed."
+                eyebrow="זהות"
+                description="כיצד סביבת עבודה זו נקראת ומזוהה."
             >
                 <Row
-                    label="Workspace avatar"
-                    description="Square logo or initials. Shown in the org switcher and on shared report URLs."
+                    label="תמונת סביבת עבודה"
+                    description="לוגו מרובע או ראשי תיבות. מוצג במחליף הארגונים ובדוחות משותפים."
                     align="start"
                 >
                     <AvatarUploader
@@ -132,34 +132,35 @@ export default function WorkspaceSettingsPage() {
                         }}
                     />
                 </Row>
-                <Row label="Workspace name" description="Shown in the sidebar and invitation emails.">
+                <Row label="שם סביבת העבודה" description="מוצג בסרגל הצד ובמיילים של הזמנות.">
                     <TextInput value={name} onChange={setName} className="w-full max-w-[280px]" />
                 </Row>
                 <Row
-                    label="Workspace ID"
-                    description="Stable identifier. Used in API calls and support tickets."
+                    label="מזהה סביבת עבודה"
+                    description="מזהה ייחודי קבוע. משמש בקריאות API ובפניות תמיכה."
                     align="start"
                 >
                     <input
                         type="text"
                         value={currentOrg?.id ?? ""}
                         readOnly
-                        className="w-full max-w-[300px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12px] text-slate-500 font-mono"
+                        dir="ltr"
+                        className="w-full max-w-[300px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12px] text-slate-500 font-mono text-left"
                     />
                 </Row>
             </Section>
 
             <Section
-                eyebrow="Sending defaults"
-                description="Used by new campaigns unless overridden."
+                eyebrow="ברירות מחדל לשליחה"
+                description="משמש קמפיינים חדשים אלא אם הוגדר אחרת."
             >
                 <Row
-                    label="Default daily cap"
-                    description="Built-in safety: 50/day per cold mailbox. Raise per-campaign if needed."
+                    label="מכסה יומית כברירת מחדל"
+                    description="הגנת בטיחות מובנית: 50 ליום לכל תיבת דואר קרה. ניתן להגדיל ברמת הקמפיין במידת הצורך."
                 >
                     <input
                         type="text"
-                        value="50 / day"
+                        value="50 / יום"
                         disabled
                         className="w-full max-w-[120px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12px] text-slate-500"
                     />
@@ -167,37 +168,37 @@ export default function WorkspaceSettingsPage() {
             </Section>
 
             <Section
-                eyebrow="Privacy & compliance"
-                description="Headers and identifiers attached to every send."
+                eyebrow="פרטיות ותאימות"
+                description="כותרות ומזהים המצורפים לכל שליחה."
             >
                 <Row
-                    label="Unsubscribe and opt-out"
-                    description="The opt-out line every campaign email carries, and the suppression list, live under Sending."
+                    label="הסרה מרשימה וביטול הצטרפות"
+                    description="שורת ביטול ההצטרפות בכל הודעת קמפיין, ורשימת ההשתקה, נמצאות תחת שליחה."
                 >
                     <Link to="/app/settings/sending" className="text-[12px] text-sky-700 hover:text-sky-800 font-medium">
-                        Open sending settings
+                        פתח הגדרות שליחה
                     </Link>
                 </Row>
                 <ToggleRow
-                    label="Track opens by default"
-                    description="Inserts a 1×1 pixel. Disable for highest deliverability."
+                    label="מעקב פתיחות כברירת מחדל"
+                    description="מוסיף פיקסל 1×1. בטל לעבירות מקסימלית."
                 />
             </Section>
 
             <Section
-                eyebrow="Team presence"
-                description="What members can see about each other in real time. Applies to everyone in the workspace."
+                eyebrow="נוכחות צוות"
+                description="מה חברי הצוות יכולים לראות זה על זה בזמן אמת. חל על כולם בסביבת העבודה."
             >
                 <ToggleRow
-                    label="Show who's online"
-                    description="Display the live avatar stack of members currently in the dashboard. Off hides all online presence from teammates."
+                    label="הצג מי מחובר"
+                    description="הצג את תמונות הפרופיל של החברים שנמצאים כעת במערכת. כיבוי יסתיר את כל נתוני הנוכחות מחברי הצוות."
                     checked={showOnline}
                     onChange={onToggleOnline}
                     disabled={!canManageSettings}
                 />
                 <ToggleRow
-                    label="Show activity"
-                    description="Let teammates see what someone is viewing, editing, or replying to. Off keeps online status but hides the detail."
+                    label="הצג פעילות"
+                    description="אפשר לחברי הצוות לראות במה מישהו צופה, עורך או משיב. כיבוי שומר על סטטוס מחובר אך מסתיר את פרטי הפעילות."
                     checked={showActivity && showOnline}
                     onChange={onToggleActivity}
                     disabled={!canManageSettings || !showOnline}
@@ -205,12 +206,12 @@ export default function WorkspaceSettingsPage() {
             </Section>
 
             <Section
-                eyebrow="AI voice profile"
-                description="Grounds every AI writing surface (assistant, reply drafts, research openers) so drafts sound like you and know what you sell. All optional."
+                eyebrow="פרופיל קול בינה מלאכותית (AI)"
+                description="מנחה את כל ניסוחי הבינה המלאכותית (עוזר, טיוטות מענה, פתיחי מחקר) כך שיישמעו כמוך ויכירו את מה שאתה מוכר. הכל אופציונלי."
             >
                 <Row
-                    label="What you sell"
-                    description="One or two sentences on your product and the outcome it delivers."
+                    label="מה אתה מוכר"
+                    description="משפט או שניים על המוצר שלך והתוצאה שהוא מספק."
                     align="start"
                 >
                     <Textarea
@@ -220,13 +221,13 @@ export default function WorkspaceSettingsPage() {
                         disabled={!canManageSettings}
                         rows={3}
                         maxLength={2000}
-                        placeholder="We help RevOps teams keep their CRM clean by..."
+                        placeholder="אנחנו עוזרים לצוותי מכירות לשמור על CRM נקי על ידי..."
                         className="w-full max-w-[420px] text-[12.5px]"
                     />
                 </Row>
                 <Row
-                    label="Who you sell to"
-                    description="Your ideal customer: role, company type, the pain they feel."
+                    label="למי אתה מוכר"
+                    description="הלקוח האידיאלי שלך: תפקיד, סוג חברה, והכאב שהם חווים."
                     align="start"
                 >
                     <Textarea
@@ -236,13 +237,13 @@ export default function WorkspaceSettingsPage() {
                         disabled={!canManageSettings}
                         rows={3}
                         maxLength={2000}
-                        placeholder="Heads of RevOps at 50-500 person B2B SaaS companies who..."
+                        placeholder="מנהלי מכירות בחברות SaaS B2B של 50-500 עובדים ש..."
                         className="w-full max-w-[420px] text-[12.5px]"
                     />
                 </Row>
                 <Row
-                    label="House voice"
-                    description="How you want to sound. Casual or formal, phrases to use or avoid."
+                    label="טון דיבור וסגנון"
+                    description="איך אתה רוצה להישמע. נינוח או רשמי, ביטויים לשימוש או להימנעות."
                     align="start"
                 >
                     <Textarea
@@ -252,19 +253,19 @@ export default function WorkspaceSettingsPage() {
                         disabled={!canManageSettings}
                         rows={3}
                         maxLength={2000}
-                        placeholder="Direct and warm, lowercase openers are fine, never salesy."
+                        placeholder="ישיר וחם, אותיות קטנות בהתחלה זה בסדר, לעולם לא מכירתי מדי."
                         className="w-full max-w-[420px] text-[12.5px]"
                     />
                 </Row>
             </Section>
 
             <Section
-                eyebrow="Inbox agent"
-                description={`On an inbound human reply, draft a suggested reply in your voice and hold it in the unibox for review. It never sends on its own.${metered ? " Paid feature; each handled reply costs 5 AI credits." : ""}`}
+                eyebrow="סוכן תיבת דואר (Inbox Agent)"
+                description={`בעת קבלת מענה אנושי נכנס, מנסח טיוטת תגובה בקול שלך וממתין לאישורך בתיבה המאוחדת. לעולם אינו שולח בעצמו.${metered ? " תכונה בתשלום; כל מענה שמטופל עולה 5 נקודות זכות AI." : ""}`}
             >
                 <ToggleRow
-                    label="Draft replies for me"
-                    description="When someone replies, the agent writes a suggested reply and attaches it to the thread under Agent drafts. You approve-and-send, edit, or discard it."
+                    label="נסח מענה עבורי"
+                    description="כאשר מישהו משיב, הסוכן כותב טיוטת תגובה ומצרף אותה לשרשור תחת 'טיוטות סוכן'. אתה מאשר ושולח, עורך או מבטל אותה."
                     checked={inboxAgent}
                     onChange={onToggleInboxAgent}
                     disabled={!canManageSettings}
@@ -272,12 +273,12 @@ export default function WorkspaceSettingsPage() {
             </Section>
 
             <Section
-                eyebrow="AI assistant"
-                description="How the assistant's conversation history works across the team."
+                eyebrow="עוזר בינה מלאכותית"
+                description="כיצד היסטוריית השיחות של העוזר פועלת בקרב הצוות."
             >
                 <ToggleRow
-                    label="Shared history"
-                    description="Every member with the Use AI permission sees and can continue every assistant conversation in this workspace, instead of only their own. Turning it on exposes existing conversations to the whole team."
+                    label="היסטוריה משותפת"
+                    description="כל חבר בעל הרשאת 'שימוש ב-AI' יוכל לראות ולהמשיך כל שיחת עוזר בסביבת עבודה זו, במקום רק את שלו. הפעלה תחשוף את השיחות הקיימות לכל הצוות."
                     checked={sharedHistory}
                     onChange={onToggleSharedHistory}
                     disabled={!canManageSettings}
@@ -287,13 +288,13 @@ export default function WorkspaceSettingsPage() {
             <AdvisorSettingsSection canManage={canManageSettings} />
 
             <Section
-                eyebrow="Workspace stats"
-                description="Snapshot of how this workspace is being used."
+                eyebrow="סטטיסטיקות סביבת העבודה"
+                description="מבט חטוף על אופן השימוש בסביבת עבודה זו."
             >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Stat label="Members" value={1} />
-                    <Stat label="Mailboxes" value={0} />
-                    <Stat label="Campaigns" value={0} />
+                    <Stat label="חברים" value={1} />
+                    <Stat label="תיבות דואר" value={0} />
+                    <Stat label="קמפיינים" value={0} />
                 </div>
             </Section>
         </SectionShell>

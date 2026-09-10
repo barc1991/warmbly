@@ -29,6 +29,8 @@ export function TextInput({
     onBlur,
     invalid,
     title,
+    id,
+    dir,
 }: {
     value: string;
     onChange: (v: string) => void;
@@ -48,9 +50,12 @@ export function TextInput({
     // readers. Pair it with `title` (or nearby text) saying what is wrong.
     invalid?: boolean;
     title?: string;
+    dir?: string;
+    id?: string;
 }) {
     return (
         <input
+            id={id}
             type={type}
             value={value}
             placeholder={placeholder}
@@ -62,6 +67,7 @@ export function TextInput({
             onBlur={onBlur}
             aria-invalid={invalid || undefined}
             title={title}
+            dir={dir}
             className={cn(
                 base,
                 "min-w-0",
@@ -110,7 +116,7 @@ export function SearchInput({
                 <button
                     type="button"
                     onClick={() => onChange("")}
-                    aria-label="Clear search"
+                    aria-label="נקה חיפוש"
                     className="size-5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center shrink-0 transition-colors"
                 >
                     <XIcon className="w-3 h-3" />

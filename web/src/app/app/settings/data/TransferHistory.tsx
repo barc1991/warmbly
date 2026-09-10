@@ -26,12 +26,12 @@ export default function TransferHistory({
     loading?: boolean;
 }) {
     if (loading) {
-        return <div className="text-[12px] text-slate-400">Loading…</div>;
+        return <div className="text-[12px] text-slate-400">טוען…</div>;
     }
     if (exports.length === 0 && imports.length === 0) {
         return (
             <div className="text-[12.5px] text-slate-500">
-                No archives yet. Start an export above, or import one from another instance.
+                אין עדיין ארכיונים. התחל ייצוא למעלה, או ייבא ארכיון ממופע אחר.
             </div>
         );
     }
@@ -70,7 +70,7 @@ function ExportRow({ job }: { job: OrgExportJob }) {
             a.remove();
             URL.revokeObjectURL(url);
         } catch {
-            toast.error("That archive could not be downloaded.");
+            toast.error("לא ניתן היה להוריד ארכיון זה.");
         } finally {
             setDownloading(false);
         }
@@ -79,14 +79,14 @@ function ExportRow({ job }: { job: OrgExportJob }) {
     return (
         <Row
             icon={<DownloadIcon className="w-3.5 h-3.5 text-slate-400" />}
-            title="Export"
+            title="ייצוא"
             job={job}
             detail={
                 job.status === "completed"
                     ? [
-                          `${totalRows(job.row_counts).toLocaleString()} rows`,
+                          `${totalRows(job.row_counts).toLocaleString()} שורות`,
                           formatBytes(job.archive_bytes),
-                          job.include_secrets ? "with credentials" : "no credentials",
+                          job.include_secrets ? "עם פרטי התחברות" : "ללא פרטי התחברות",
                           formatExpiry(job.expires_at),
                       ]
                           .filter(Boolean)
@@ -103,16 +103,16 @@ function ExportRow({ job }: { job: OrgExportJob }) {
                             className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                         >
                             {downloading && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                            Download
+                            הורדה
                         </button>
                     )}
                     {!running && (
                         <button
                             type="button"
-                            aria-label="Delete archive"
+                            aria-label="מחק ארכיון"
                             onClick={() =>
                                 confirm.show(
-                                    "Delete this archive? The file is removed from storage and cannot be downloaded again.",
+                                    "למחוק ארכיון זה? הקובץ יוסר מהאחסון ולא ניתן יהיה להורידו שוב.",
                                     () => remove.mutateAsync(job.id),
                                 )
                             }
@@ -133,19 +133,28 @@ function ImportRow({ job }: { job: OrgImportJob }) {
             icon={<UploadIcon className="w-3.5 h-3.5 text-slate-400" />}
             title={
                 job.source_manifest
-                    ? `Import from ${job.source_manifest.organization_name}`
-                    : "Import"
+                    ? `ייבוא מ-${job.source_manifest.organization_name}`
+                    : "ייבוא"
             }
             job={job}
             detail={
                 job.status === "completed"
-                    ? `${totalRows(job.row_counts).toLocaleString()} rows applied`
+                    ? `${totalRows(job.row_counts).toLocaleString()} שורות הוחלו`
                     : undefined
             }
             warnings={job.warnings}
         />
     );
 }
+
+const STAGE_LABELS: Record<string, string> = {
+    starting: "מתחיל",
+    tables: "טבלאות",
+    blobs: "קבצים מצורפים",
+    finalising: "מסיים",
+    validating: "מאמת",
+    writing: "כותב",
+};
 
 function Row({
     icon,
@@ -173,7 +182,7 @@ function Row({
                         <span className="text-[12.5px] font-medium text-slate-900">{title}</span>
                         <StatusPill status={job.status} />
                         <span className="text-[11px] text-slate-400">
-                            {new Date(job.created_at).toLocaleString()}
+                            {new Date(job.created_at).toLocaleString("he-IL")}
                         </span>
                     </div>
 
@@ -192,7 +201,7 @@ function Row({
                                 />
                             </div>
                             <div className="text-[11px] text-slate-500 mt-1">
-                                {job.progress_percent}% · {job.progress_stage || "starting"}
+                                {job.progress_percent}% · {STAGE_LABELS[job.progress_stage] || job.progress_stage || "מתחיל"}
                             </div>
                         </div>
                     )}
@@ -218,6 +227,14 @@ function Row({
     );
 }
 
+const STATUS_LABELS: Record<string, string> = {
+    completed: "הושלם",
+    failed: "נכשל",
+    expired: "פג תוקף",
+    queued: "בתור",
+    running: "פועל",
+};
+
 function StatusPill({ status }: { status: string }) {
     const tone =
         status === "completed"
@@ -231,7 +248,7 @@ function StatusPill({ status }: { status: string }) {
         <span
             className={`text-[10px] uppercase tracking-[0.08em] font-medium rounded-sm px-1 ${tone}`}
         >
-            {status}
+            {STATUS_LABELS[status] || status}
         </span>
     );
 }

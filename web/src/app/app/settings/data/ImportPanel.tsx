@@ -66,7 +66,7 @@ export default function ImportPanel({
             setSelected(expandGroups(result.archive.groups, groups));
         } catch (e) {
             setReport(null);
-            toast.error((e as { message?: string })?.message ?? "That archive could not be read.");
+            toast.error((e as { message?: string })?.message ?? "לא ניתן היה לקרוא ארכיון זה.");
         }
     }
 
@@ -75,8 +75,8 @@ export default function ImportPanel({
         const conflictTotal = Object.values(report.conflicts).reduce((a, b) => a + b, 0);
         const message =
             conflict === "overwrite" && conflictTotal > 0
-                ? `This will replace ${conflictTotal.toLocaleString()} existing row(s) in this workspace with the archive's versions. That cannot be undone. Continue?`
-                : `This will add the contents of "${report.archive.organization_name}" to this workspace. Continue?`;
+                ? `פעולה זו תחליף ${conflictTotal.toLocaleString()} שורות קיימות בסביבת עבודה זו בגרסאות מתוך הארכיון. לא ניתן לבטל פעולה זו. האם להמשיך?`
+                : `פעולה זו תוסיף את התוכן של "${report.archive.organization_name}" לסביבת עבודה זו. האם להמשיך?`;
 
         confirm.show(message, async () => {
             try {
@@ -93,7 +93,7 @@ export default function ImportPanel({
                 if (fileRef.current) fileRef.current.value = "";
                 onStarted();
             } catch (e) {
-                toast.error((e as { message?: string })?.message ?? "Could not start the import.");
+                toast.error((e as { message?: string })?.message ?? "לא ניתן היה להתחיל בייבוא.");
             }
         });
     }
@@ -104,12 +104,12 @@ export default function ImportPanel({
                 <FileArchiveIcon className="w-4 h-4 text-slate-400 shrink-0" />
                 <div className="min-w-0 flex-1">
                     <div className="text-[12.5px] font-medium text-slate-900 leading-tight">
-                        {file ? file.name : "Choose an archive"}
+                        {file ? file.name : "בחר ארכיון"}
                     </div>
                     <div className="text-[11.5px] text-slate-500 leading-tight mt-0.5">
                         {file
                             ? formatBytes(file.size)
-                            : "A .warmbly.zip file exported from this or another instance."}
+                            : "קובץ .warmbly.zip שיוצא ממופע זה או ממופע אחר."}
                     </div>
                 </div>
                 <input
@@ -124,7 +124,7 @@ export default function ImportPanel({
                     onClick={() => fileRef.current?.click()}
                     className="self-start h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors shrink-0"
                 >
-                    {file ? "Choose another" : "Choose file"}
+                    {file ? "בחר אחר" : "בחר קובץ"}
                 </button>
             </div>
 
@@ -135,8 +135,9 @@ export default function ImportPanel({
                         onChange={setPassphrase}
                         type="password"
                         autoComplete="current-password"
-                        placeholder="Export passphrase (only if the archive carries credentials)"
+                        placeholder="סיסמת אבטחה של הייצוא (רק אם הארכיון כולל פרטי התחברות)"
                         className="w-full"
+                        dir="ltr"
                     />
                     <button
                         type="button"
@@ -145,7 +146,7 @@ export default function ImportPanel({
                         className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] font-medium text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                     >
                         {preflight.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                        Check this archive
+                        בדוק ארכיון זה
                     </button>
                 </div>
             )}
@@ -156,7 +157,7 @@ export default function ImportPanel({
 
                     <div>
                         <div className="text-[11px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1.5">
-                            What to apply
+                            מה ליישם
                         </div>
                         <GroupPicker
                             groups={groups.filter((g) => report.archive.groups.includes(g.key))}
@@ -168,20 +169,20 @@ export default function ImportPanel({
 
                     <div>
                         <div className="text-[11px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1.5">
-                            Rows that already exist here
+                            שורות שכבר קיימות כאן
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2">
                             <ConflictChoice
                                 active={conflict === "skip"}
                                 onClick={() => setConflict("skip")}
-                                title="Keep what is here"
-                                body="The archive only adds rows this workspace does not already have."
+                                title="שמור את מה שקיים כאן"
+                                body="הארכיון יוסיף רק שורות שאינן קיימות כבר בסביבת עבודה זו."
                             />
                             <ConflictChoice
                                 active={conflict === "overwrite"}
                                 onClick={() => setConflict("overwrite")}
-                                title="Replace with the archive"
-                                body="Existing rows are overwritten by the archive's versions. Cannot be undone."
+                                title="החלף בנתוני הארכיון"
+                                body="שורות קיימות יידרסו על ידי הגרסאות מהארכיון. לא ניתן לבטל."
                                 danger
                             />
                         </div>
@@ -195,10 +196,10 @@ export default function ImportPanel({
                             className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                         >
                             {createImport.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                            Import into this workspace
+                            ייבא לסביבת עבודה זו
                         </button>
                         <span className="text-[11.5px] text-slate-500">
-                            Applied in one transaction: it either lands completely or not at all.
+                            מיושם בטרנזקציה אחת: הפעולה תצליח במלואה או שלא תתבצע כלל.
                         </span>
                     </div>
                 </>
@@ -214,33 +215,30 @@ function ArchiveSummary({ report }: { report: OrgImportPreflight }) {
     return (
         <div className="rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2.5 space-y-2">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <Fact label="Workspace" value={a.organization_name} />
-                <Fact label="Exported" value={new Date(a.exported_at).toLocaleDateString()} />
-                <Fact label="Rows" value={totalRows(a.row_counts).toLocaleString()} />
-                <Fact label="Attachments" value={String(a.blob_count)} />
+                <Fact label="סביבת עבודה" value={a.organization_name} />
+                <Fact label="יוצא ב-" value={new Date(a.exported_at).toLocaleDateString("he-IL")} />
+                <Fact label="שורות" value={totalRows(a.row_counts).toLocaleString()} />
+                <Fact label="קבצים מצורפים" value={String(a.blob_count)} />
             </div>
 
             <div className="text-[11.5px] text-slate-600 leading-relaxed">
                 {a.has_secrets
                     ? report.secrets_unsealed
-                        ? "Credentials are sealed in this archive and your passphrase opens them, so mailboxes will arrive connected."
-                        : "Credentials are sealed in this archive, but the passphrase above does not open them yet."
-                    : "This archive carries no credentials, so mailboxes will arrive needing a reconnect."}
+                        ? "פרטי ההתחברות נאטמו בארכיון זה וסיסמת האבטחה שלך פותחת אותם, כך שתיבות הדואר יגיעו כשהן מחוברות."
+                        : "פרטי ההתחברות נאטמו בארכיון זה, אך סיסמת האבטחה למעלה עדיין אינה פותחת אותם."
+                    : "ארכיון זה אינו נושא פרטי התחברות, ולכן תיבות הדואר יגיעו ויידרשו חיבור מחדש."}
             </div>
 
             {conflictTotal > 0 && (
                 <div className="text-[11.5px] text-slate-600">
-                    {conflictTotal.toLocaleString()} row(s) in the archive already exist in this
-                    workspace.
+                    {conflictTotal.toLocaleString()} שורות בארכיון כבר קיימות בסביבת עבודה זו.
                 </div>
             )}
 
             {report.unknown_members.length > 0 && (
                 <div className="text-[11.5px] text-slate-600">
-                    {report.unknown_members.length} member(s) have no account on this instance
-                    ({report.unknown_members.slice(0, 3).map((m) => m.email).join(", ")}
-                    {report.unknown_members.length > 3 ? ", …" : ""}). Their rows will be
-                    reassigned to you.
+                    {report.unknown_members.length} חברים אינם רשומים במופע זה ({report.unknown_members.slice(0, 3).map((m) => m.email).join(", ")}
+                    {report.unknown_members.length > 3 ? ", …" : ""}). השורות שלהם ישויכו אליך מחדש.
                 </div>
             )}
 
@@ -282,7 +280,7 @@ function ConflictChoice({
         <button
             type="button"
             onClick={onClick}
-            className={`flex-1 text-left rounded-md border px-3 py-2 transition-colors ${
+            className={`flex-1 text-start rounded-md border px-3 py-2 transition-colors ${
                 active
                     ? danger
                         ? "border-red-300 bg-red-50/60"

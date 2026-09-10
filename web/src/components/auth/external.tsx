@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { RiAppleFill } from "@remixicon/react";
 import { KeyRound, Loader2Icon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Google } from "../svg";
 import { AUTH_CELL as CELL } from "./styles";
 
@@ -47,6 +48,8 @@ export default function ExternalLogin({
     providers: string[];
     onProvider: (provider: string) => Promise<void> | void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const passkeyRef = useRef<HTMLButtonElement | null>(null);
     // Which provider is mid-handoff. The click ends in a full page navigation,
     // so without this the button sits inert for the length of a round trip.
@@ -93,7 +96,7 @@ export default function ExternalLogin({
                         onPointerDown={() => passkey.onPrepare()}
                         onFocus={() => passkey.onPrepare()}
                         disabled={passkey.disabled}
-                        aria-label="Sign in with a passkey"
+                        aria-label={isHe ? "התחבר באמצעות מפתח גישה" : "Sign in with a passkey"}
                         aria-busy={passkey.loading}
                         initial={{ opacity: 0, scale: 0.85 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -125,7 +128,7 @@ export default function ExternalLogin({
                                     )}
                                 </AnimatePresence>
                             </span>
-                            {passkey.label ?? "Passkey"}
+                            {passkey.label ?? (isHe ? "מפתח גישה" : "Passkey")}
                         </CellBody>
                     </motion.button>
                 )}

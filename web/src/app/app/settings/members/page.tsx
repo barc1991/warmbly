@@ -66,11 +66,11 @@ export default function MembersSettingsPage() {
     const inviteList = invites.data ?? [];
 
     function doRemove(id: string, label: string) {
-        confirm?.show(`Remove ${label}?`, async () => {
+        confirm?.show(`להסיר את ${label}?`, async () => {
             try {
                 await toast.promise(removeMember.mutateAsync(id), {
-                    loading: "Removing…",
-                    success: "Member removed",
+                    loading: "מסיר…",
+                    success: "חבר הצוות הוסר",
                     error: (e: AppError) => buildError(e),
                 });
             } catch {
@@ -79,11 +79,11 @@ export default function MembersSettingsPage() {
         });
     }
     function doCancelInvite(id: string) {
-        confirm?.show(`Cancel this invitation?`, async () => {
+        confirm?.show(`לבטל הזמנה זו?`, async () => {
             try {
                 await toast.promise(cancelInvite.mutateAsync(id), {
-                    loading: "Cancelling…",
-                    success: "Invitation cancelled",
+                    loading: "מבטל…",
+                    success: "ההזמנה בוטלה",
                     error: (e: AppError) => buildError(e),
                 });
             } catch {
@@ -96,7 +96,7 @@ export default function MembersSettingsPage() {
             const { token } = await getInvitationLink(invitationId);
             const url = `${window.location.origin}/invite?token=${encodeURIComponent(token)}`;
             await navigator.clipboard.writeText(url);
-            toast.success("Invite link copied");
+            toast.success("קישור ההזמנה הועתק");
         } catch (e) {
             toast.error(buildError(e as AppError));
         }
@@ -106,8 +106,8 @@ export default function MembersSettingsPage() {
             await toast.promise(
                 updateRole.mutateAsync({ id: memberId, data: { role_ids: roleIds } }),
                 {
-                    loading: "Saving…",
-                    success: "Roles updated",
+                    loading: "שומר…",
+                    success: "התפקידים עודכנו",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -118,13 +118,13 @@ export default function MembersSettingsPage() {
 
     return (
         <SectionShell
-            title="Members"
-            description={`Everyone with access to ${currentOrg?.name ?? "this workspace"}.`}
+            title="חברי צוות"
+            description={`כל בעלי הגישה אל ${currentOrg?.name ?? "סביבת עבודה זו"}.`}
         >
             {access.canManage && (
                 <Section
-                    eyebrow="Invite teammates"
-                    description="Paste any number of emails — we'll separate them automatically. Pick a role; you can change it later."
+                    eyebrow="הזמן חברי צוות"
+                    description="הדבק מספר כתובות אימייל — נפריד ביניהן אוטומטית. בחר תפקיד; תוכל לשנות אותו בכל עת."
                 >
                     <InviteFlow
                         pending={invite.isPending}
@@ -141,31 +141,31 @@ export default function MembersSettingsPage() {
                                     failed++;
                                 }
                             }
-                            if (ok && !failed) toast.success(`Invited ${ok} ${ok === 1 ? "person" : "people"}`);
-                            else if (ok && failed) toast.success(`Invited ${ok} · ${failed} failed`);
-                            else toast.error("All invitations failed");
+                            if (ok && !failed) toast.success(`נשלחה הזמנה ל-${ok} ${ok === 1 ? "איש צוות" : "חברי צוות"}`);
+                            else if (ok && failed) toast.success(`נשלחה הזמנה ל-${ok} · ${failed} נכשלו`);
+                            else toast.error("כל ההזמנות נכשלו");
                         }}
                     />
                 </Section>
             )}
 
             <Section
-                eyebrow="Members"
-                description={`${memberList.length} ${memberList.length === 1 ? "member" : "members"} in this workspace.`}
+                eyebrow="חברי צוות"
+                description={`${memberList.length} ${memberList.length === 1 ? "חבר צוות" : "חברי צוות"} בסביבת עבודה זו.`}
             >
                 {members.isPending ? (
-                    <p className="text-[11.5px] text-slate-400 py-2">Loading…</p>
+                    <p className="text-[11.5px] text-slate-400 py-2">טוען…</p>
                 ) : memberList.length === 0 ? (
-                    <p className="text-[11.5px] text-slate-400 py-2">No members yet.</p>
+                    <p className="text-[11.5px] text-slate-400 py-2">אין עדיין חברי צוות.</p>
                 ) : (
                     <TableSurface>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-left rtl:text-right">
                             <thead>
                                 <tr className="border-b border-slate-200">
-                                    <Th>Member</Th>
-                                    <Th className="md:w-44">Role</Th>
-                                    <Th className="w-40 hidden md:table-cell">Joined</Th>
+                                    <Th>חבר צוות</Th>
+                                    <Th className="md:w-44">תפקיד</Th>
+                                    <Th className="w-40 hidden md:table-cell">הצטרף ב-</Th>
                                     <th className="w-12 px-3 py-2"></th>
                                 </tr>
                             </thead>
@@ -190,8 +190,8 @@ export default function MembersSettingsPage() {
                                                         <div className="text-[12.5px] text-slate-900 truncate leading-tight">
                                                             {email}
                                                             {isSelf && (
-                                                                <span className="ml-1.5 text-[10px] text-slate-400 uppercase tracking-[0.1em]">
-                                                                    you
+                                                                <span className="mr-1.5 ml-1.5 text-[10px] text-slate-400 uppercase tracking-[0.1em]">
+                                                                    אתה
                                                                 </span>
                                                             )}
                                                         </div>
@@ -212,7 +212,7 @@ export default function MembersSettingsPage() {
                                                 ) : isOwner ? (
                                                     <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em] font-semibold rounded-sm px-1.5 py-0.5 border bg-sky-50 text-sky-700 border-sky-100">
                                                         <ShieldCheckIcon className="w-2.5 h-2.5" />
-                                                        Owner
+                                                        בעלים
                                                     </span>
                                                 ) : (
                                                     <RoleChips roles={m.roles ?? []} />
@@ -220,7 +220,7 @@ export default function MembersSettingsPage() {
                                             </td>
                                             <td className="px-3 font-mono text-[11px] text-slate-500 tabular-nums hidden md:table-cell">
                                                 {m.joined_at
-                                                    ? new Date(m.joined_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                                                    ? new Date(m.joined_at).toLocaleDateString("he-IL", { month: "short", day: "numeric", year: "numeric" })
                                                     : "—"}
                                             </td>
                                             <td className="px-3">
@@ -228,8 +228,8 @@ export default function MembersSettingsPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => doRemove(m.user_id, email)}
-                                                        aria-label="Remove member"
-                                                        className="size-6 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                                                        aria-label="הסר חבר צוות"
+                                                        className="size-6 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 cursor-pointer"
                                                     >
                                                         <TrashIcon className="w-3 h-3" />
                                                     </button>
@@ -246,22 +246,22 @@ export default function MembersSettingsPage() {
             </Section>
 
             <Section
-                eyebrow="Pending invitations"
-                description={`${inviteList.length} awaiting acceptance.`}
+                eyebrow="הזמנות בהמתנה"
+                description={`${inviteList.length} ממתינות לאישור.`}
             >
                 {invites.isPending ? (
-                    <p className="text-[11.5px] text-slate-400 py-2">Loading…</p>
+                    <p className="text-[11.5px] text-slate-400 py-2">טוען…</p>
                 ) : inviteList.length === 0 ? (
-                    <p className="text-[11.5px] text-slate-400 py-2">Nothing pending. Invite somebody above.</p>
+                    <p className="text-[11.5px] text-slate-400 py-2">אין הזמנות בהמתנה. הזמן חבר צוות למעלה.</p>
                 ) : (
                     <TableSurface>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-left rtl:text-right">
                             <thead>
                                 <tr className="border-b border-slate-200">
-                                    <Th>Email</Th>
-                                    <Th className="w-32">Role</Th>
-                                    <Th className="w-40 hidden md:table-cell">Expires</Th>
+                                    <Th>אימייל</Th>
+                                    <Th className="w-32">תפקיד</Th>
+                                    <Th className="w-40 hidden md:table-cell">פג תוקף</Th>
                                     <th className="w-16 md:w-32 px-3 py-2"></th>
                                 </tr>
                             </thead>
@@ -274,7 +274,7 @@ export default function MembersSettingsPage() {
                                         <td className="px-4">
                                             <div className="flex items-center gap-2.5">
                                                 <MailIcon className="w-3.5 h-3.5 text-slate-400" />
-                                                <span className="text-[12.5px] text-slate-900 truncate">
+                                                <span className="text-[12.5px] text-slate-900 truncate" dir="ltr">
                                                     {inv.email}
                                                 </span>
                                             </div>
@@ -282,8 +282,8 @@ export default function MembersSettingsPage() {
                                         <td className="px-3">
                                             {(inv.roles?.length ?? 0) > 0 ? <RoleChips roles={inv.roles!} /> : <RolePill role={inv.role} color={(customRoles.data ?? []).find((r) => r.id === inv.role_id)?.color} />}
                                         </td>
-                                        <td className="px-3 font-mono text-[11px] text-slate-500 tabular-nums hidden md:table-cell">
-                                            {new Date(inv.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                        <td className="px-3 font-mono text-[11px] text-slate-500 tabular-nums hidden md:table-cell" dir="ltr">
+                                            {new Date(inv.expires_at).toLocaleDateString("he-IL", { month: "short", day: "numeric" })}
                                         </td>
                                         <td className="px-3">
                                             {access.canManage && (
@@ -291,8 +291,8 @@ export default function MembersSettingsPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => copyInviteLink(inv.id)}
-                                                        aria-label="Copy invite link"
-                                                        title="Copy invite link"
+                                                        aria-label="העתק קישור הזמנה"
+                                                        title="העתק קישור הזמנה"
                                                         className="size-6 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                                                     >
                                                         <CopyIcon className="w-3 h-3" />
@@ -300,8 +300,8 @@ export default function MembersSettingsPage() {
                                                     <button
                                                         type="button"
                                                         onClick={() => doCancelInvite(inv.id)}
-                                                        aria-label="Cancel invitation"
-                                                        title="Cancel invitation"
+                                                        aria-label="בטל הזמנה"
+                                                        title="בטל הזמנה"
                                                         className="size-6 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors"
                                                     >
                                                         <TrashIcon className="w-3 h-3" />
@@ -404,16 +404,16 @@ function InviteFlow({
         const invalid = unique.filter((e) => !isValidEmail(e));
 
         if (invalid.length > 0 && valid.length === 0) {
-            toast.error("No valid email addresses entered");
+            toast.error("לא הוזנו כתובות אימייל תקינות");
             return;
         }
         if (invalid.length > 0) {
-            toast(`Skipping ${invalid.length} invalid: ${invalid.slice(0, 3).join(", ")}${invalid.length > 3 ? "…" : ""}`, {
+            toast(`מדלג על ${invalid.length} כתובות לא תקינות: ${invalid.slice(0, 3).join(", ")}${invalid.length > 3 ? "…" : ""}`, {
                 icon: "⚠️",
             });
         }
         if (effectiveRoleIds.length === 0) {
-            toast.error("Create a role first (Settings → Roles & access)");
+            toast.error("צור תפקיד תחילה (הגדרות ← תפקידים והרשאות)");
             return;
         }
         await onSubmit(valid, effectiveRoleIds);
@@ -424,14 +424,14 @@ function InviteFlow({
     const totalCount = chips.length + (draft.trim() ? draft.trim().split(SEPARATOR_RE).filter(Boolean).length : 0);
     const activeLabel =
         selectedRoles.length === 0
-            ? "No roles yet"
+            ? "אין תפקידים עדיין"
             : selectedRoles.map((r) => r.name).join(", ");
     const activeDescription =
         selectedRoles.length === 0
-            ? "Create a role under Settings → Roles & access before inviting members."
+            ? "צור תפקיד תחת הגדרות ← תפקידים והרשאות לפני הזמנת חברי צוות."
             : selectedRoles.length === 1
-                ? (selectedRoles[0].description || "This role's permissions apply to the invitee.")
-                : "The invitee gets the combined permissions of every selected role.";
+                ? (selectedRoles[0].description || "הרשאות תפקיד זה יחולו על המוזמן.")
+                : "המוזמן יקבל את שילוב ההרשאות של כל התפקידים שנבחרו.";
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-4">
@@ -442,15 +442,13 @@ function InviteFlow({
                     <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-800">
                         <MailIcon className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>
-                            This server does not deliver mail, so the invitation email will not arrive. Invite the
-                            person anyway, then use <span className="font-medium">Copy invite link</span> on their
-                            row under Pending invitations and send it to them yourself.
+                            שרת זה אינו שולח דואר, לכן הודעת ההזמנה לא תגיע במייל. הזמן את המשתמש בכל זאת, ולאחר מכן השתמש ב-<span className="font-medium">העתק קישור הזמנה</span> בשורה שלו תחת הזמנות בהמתנה ושלח לו אותו ידנית.
                         </span>
                     </div>
                 )}
 
                 <div>
-                    <Label>Emails</Label>
+                    <Label>כתובות אימייל</Label>
                     <div
                         className="min-h-[36px] w-full px-2 py-1.5 rounded-md border border-slate-200 bg-white flex flex-wrap items-center gap-1.5 focus-within:border-sky-400 focus-within:ring-2 focus-within:ring-sky-100 transition-colors"
                         onClick={(e) => {
@@ -465,7 +463,7 @@ function InviteFlow({
                                     c.valid ? "bg-slate-100 text-slate-700" : "bg-red-50 text-red-700"
                                 }`}
                             >
-                                <span className="truncate min-w-0">{c.email}</span>
+                                <span className="truncate min-w-0" dir="ltr">{c.email}</span>
                                 <button
                                     type="button"
                                     onClick={(ev) => {
@@ -473,7 +471,7 @@ function InviteFlow({
                                         removeChip(c.email);
                                     }}
                                     className="opacity-60 hover:opacity-100 shrink-0"
-                                    aria-label={`Remove ${c.email}`}
+                                    aria-label={`הסר את ${c.email}`}
                                 >
                                     <XIcon className="w-2.5 h-2.5" />
                                 </button>
@@ -498,16 +496,17 @@ function InviteFlow({
                                 }
                             }}
                             placeholder={chips.length === 0 ? "name@company.com, another@…" : ""}
-                            className="flex-1 min-w-[120px] h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
+                            dir="ltr"
+                            className="flex-1 min-w-[120px] h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none text-left"
                         />
                     </div>
                     <p className="text-[11px] text-slate-400 mt-1">
-                        Separate with comma, semicolon, space or enter. Paste any list — we'll split it.
+                        הפרד באמצעות פסיק, נקודה-פסיק, רווח או Enter. הדבק רשימה – נפצל אותה אוטומטית.
                     </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Label className="!mb-0 w-16">Roles</Label>
+                    <Label className="!mb-0 w-16">תפקידים</Label>
                     <RoleMultiSelect
                         roles={customRoles}
                         value={effectiveRoleIds}
@@ -518,17 +517,17 @@ function InviteFlow({
                 <div className="flex items-center gap-2 pt-1">
                     <span className="text-[11px] text-slate-500">
                         {totalCount > 0
-                            ? `${totalCount} ${totalCount === 1 ? "email" : "emails"} ready`
-                            : "Enter at least one email."}
+                            ? `${totalCount} ${totalCount === 1 ? "כתובת אימייל מוכנה" : "כתובות אימייל מוכנות"}`
+                            : "הזן לפחות כתובת אימייל אחת."}
                     </span>
                     <button
                         type="button"
                         onClick={submit}
                         disabled={pending || (chips.length === 0 && draft.trim() === "")}
-                        className="ml-auto h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                        className="mr-auto rtl:mr-auto rtl:ml-0 ltr:ml-auto h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                     >
-                        {pending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <SendIcon className="w-3 h-3" />}
-                        Send invitations
+                        {pending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <SendIcon className="w-3 h-3 rtl:rotate-180" />}
+                        שלח הזמנות
                     </button>
                 </div>
             </div>

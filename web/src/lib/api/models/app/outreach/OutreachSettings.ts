@@ -35,9 +35,9 @@ export interface UnsubscribeSettings {
 
 export const DEFAULT_UNSUBSCRIBE: UnsubscribeSettings = {
     mode: "text",
-    text: "If this isn't relevant, just reply and let me know and I won't email you again.",
-    link_intro: "Not the right person, or not interested?",
-    link_text: "Unsubscribe",
+    text: "אם זה לא רלוונטי, פשוט השב והודע לי ולא אפנה אליך שוב במייל.",
+    link_intro: "לא האדם הנכון, או לא מעוניין?",
+    link_text: "הסר אותי מרשימת התפוצה",
 };
 
 export interface OutreachSettings {
@@ -56,15 +56,13 @@ export interface OutreachSettings {
 export const DEFAULT_PREFERRED_HOURS = [9, 10, 11, 14, 15, 16];
 
 export function formatHour(h: number): string {
-    if (h === 0) return "12am";
-    if (h === 12) return "12pm";
-    return h < 12 ? `${h}am` : `${h - 12}pm`;
+    return `${h.toString().padStart(2, "0")}:00`;
 }
 
-// Collapses a sorted hour list into "9-11am, 2-4pm" for the summary line.
+// Collapses a sorted hour list into "09:00-11:00, 14:00-16:00" for the summary line.
 export function describeHours(hours: number[]): string {
     const sorted = [...new Set(hours)].filter((h) => h >= 0 && h <= 23).sort((a, b) => a - b);
-    if (sorted.length === 0) return "no hours selected";
+    if (sorted.length === 0) return "לא נבחרו שעות";
     const runs: number[][] = [];
     for (const h of sorted) {
         const last = runs[runs.length - 1];

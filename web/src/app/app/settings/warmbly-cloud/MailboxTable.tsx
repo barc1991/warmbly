@@ -42,15 +42,15 @@ export default function MailboxTable() {
         if (row.enrolled) {
             confirm.show(
                 row.managed
-                    ? `Remove ${row.email} from this instance? It stays in your Warmbly Cloud workspace, where its sign-in lives.`
-                    : `Stop warming ${row.email} in the Warmbly pool? The cloud deletes its credential right away.`,
+                    ? `להסיר את ${row.email} ממופע זה? היא תישאר בסביבת העבודה שלך ב-Warmbly Cloud שבה שמורים פרטי ההתחברות שלה.`
+                    : `להפסיק את חימום ${row.email} במאגר Warmbly? הענן ימחק את פרטי ההתחברות שלה באופן מיידי.`,
                 async () => {
-                    await run(row.id, () => unenroll.mutateAsync(row.id), row.managed ? `${row.email} removed from this instance` : `${row.email} removed from the pool`);
+                    await run(row.id, () => unenroll.mutateAsync(row.id), row.managed ? `${row.email} הוסרה ממופע זה` : `${row.email} הוסרה מהמאגר`);
                 },
             );
             return;
         }
-        void run(row.id, () => enroll.mutateAsync(row.id), `${row.email} is now warming in the pool`);
+        void run(row.id, () => enroll.mutateAsync(row.id), `${row.email} מתחממת כעת במאגר`);
     };
 
     if (rows.isLoading) {
@@ -62,7 +62,7 @@ export default function MailboxTable() {
     }
     const list = rows.data ?? [];
     if (list.length === 0) {
-        return <p className="text-[12.5px] text-slate-500">No active mailboxes. Connect one under Mailboxes to enroll it.</p>;
+        return <p className="text-[12.5px] text-slate-500">אין תיבות דואר פעילות. חבר תיבה תחת "תיבות דואר" כדי להירשם.</p>;
     }
 
     return (
@@ -70,11 +70,11 @@ export default function MailboxTable() {
             <table className="w-full text-[12.5px]">
                 <thead>
                     <tr className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium border-b border-slate-200/70">
-                        <th className="text-left font-medium px-3 h-8">Mailbox</th>
-                        <th className="text-left font-medium px-3 h-8 hidden md:table-cell">Health</th>
-                        <th className="text-right font-medium px-3 h-8 hidden md:table-cell">Today</th>
-                        <th className="text-right font-medium px-3 h-8 hidden lg:table-cell">7 days</th>
-                        <th className="text-right font-medium px-3 h-8">In pool</th>
+                        <th className="text-start font-medium px-3 h-8">תיבת דואר</th>
+                        <th className="text-start font-medium px-3 h-8 hidden md:table-cell">תקינות</th>
+                        <th className="text-end font-medium px-3 h-8 hidden md:table-cell">היום</th>
+                        <th className="text-end font-medium px-3 h-8 hidden lg:table-cell">7 ימים</th>
+                        <th className="text-end font-medium px-3 h-8">במאגר</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70">
@@ -87,14 +87,14 @@ export default function MailboxTable() {
                                 <motion.tr key={row.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="bg-white">
                                     <td className="px-3 py-2.5">
                                         <div className="min-w-0">
-                                            <p className="text-slate-900 truncate">{row.email}</p>
+                                            <p className="text-slate-900 truncate" dir="ltr">{row.email}</p>
                                             <p className="text-[11px] text-slate-400 truncate">
                                                 {providerLabel(row.provider)}
-                                                {row.managed && " · signed in through Warmbly Cloud"}
-                                                {!supported && " · signed in with this instance's own OAuth app; add it again through Warmbly Cloud to warm it"}
-                                                {row.enrolled && !cloud && " · waiting for the cloud"}
+                                                {row.managed && " · מחובר דרך Warmbly Cloud"}
+                                                {!supported && " · מחובר באמצעות אפליקציית OAuth של מופע זה; הוסף שוב דרך Warmbly Cloud כדי לחמם אותה"}
+                                                {row.enrolled && !cloud && " · ממתין לענן"}
                                                 {cloud?.errors && cloud.errors.length > 0 && (
-                                                    <span className="inline-flex items-center gap-1 text-amber-700 ml-1">
+                                                    <span className="inline-flex items-center gap-1 text-amber-700 ms-1">
                                                         <AlertTriangleIcon className="w-3 h-3" />
                                                         {cloud.errors[0].title}
                                                     </span>
@@ -105,9 +105,9 @@ export default function MailboxTable() {
                                     <td className="px-3 py-2.5 hidden md:table-cell">
                                         {row.enrolled ? <HealthPill health={cloud?.health ?? null} paused={paused} /> : <span className="text-slate-300">–</span>}
                                     </td>
-                                    <td className="px-3 py-2.5 text-right tabular-nums hidden md:table-cell">
+                                    <td className="px-3 py-2.5 text-end tabular-nums hidden md:table-cell">
                                         {row.enrolled && cloud ? (
-                                            <span className="text-slate-700">
+                                            <span className="text-slate-700" dir="ltr">
                                                 {cloud.sent_today}
                                                 <span className="text-slate-400"> / {cloud.warmup?.target_volume ?? cloud.settings.base}</span>
                                             </span>
@@ -115,11 +115,11 @@ export default function MailboxTable() {
                                             <span className="text-slate-300">–</span>
                                         )}
                                     </td>
-                                    <td className="px-3 py-2.5 text-right tabular-nums hidden lg:table-cell">
+                                    <td className="px-3 py-2.5 text-end tabular-nums hidden lg:table-cell">
                                         {row.enrolled && cloud ? (
-                                            <span className="text-slate-700" title={`${cloud.replied_7d} replies, ${cloud.spam_placed_7d} landed in spam`}>
-                                                {cloud.sent_7d} sent
-                                                {cloud.spam_placed_7d > 0 && <span className="text-amber-700"> · {cloud.spam_placed_7d} spam</span>}
+                                            <span className="text-slate-700" title={`${cloud.replied_7d} תשובות, ${cloud.spam_placed_7d} הגיעו לספאם`}>
+                                                {cloud.sent_7d} נשלחו
+                                                {cloud.spam_placed_7d > 0 && <span className="text-amber-700"> · {cloud.spam_placed_7d} ספאם</span>}
                                             </span>
                                         ) : (
                                             <span className="text-slate-300">–</span>
@@ -130,12 +130,12 @@ export default function MailboxTable() {
                                             {row.enrolled && cloud && (
                                                 <button
                                                     type="button"
-                                                    title={paused ? "Resume warmup" : "Pause warmup"}
+                                                    title={paused ? "חדש חימום" : "השהה חימום"}
                                                     onClick={() =>
                                                         void run(
                                                             row.id,
                                                             () => lifecycle.mutateAsync({ id: row.id, action: paused ? "resume" : "pause" }),
-                                                            paused ? "Warmup resumed" : "Warmup paused",
+                                                            paused ? "החימום חודש" : "החימום הושהה",
                                                         )
                                                     }
                                                     className="size-6 rounded-md inline-flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
@@ -161,19 +161,19 @@ export default function MailboxTable() {
 }
 
 function HealthPill({ health, paused }: { health: PoolLinkWarmupHealth | null; paused: boolean }) {
-    if (paused) return <Pill tone="muted">Paused</Pill>;
-    if (!health) return <Pill tone="muted">Starting</Pill>;
+    if (paused) return <Pill tone="muted">מושהה</Pill>;
+    if (!health) return <Pill tone="muted">מתחיל</Pill>;
     switch (health.state) {
         case "healthy":
-            return <Pill tone="ok">Healthy</Pill>;
+            return <Pill tone="ok">תקין</Pill>;
         case "watch":
-            return <Pill tone="warn">Watch</Pill>;
+            return <Pill tone="warn">במעקב</Pill>;
         case "throttled":
-            return <Pill tone="warn">Throttled</Pill>;
+            return <Pill tone="warn">מוגבל</Pill>;
         default:
             return (
                 <Pill tone="bad" title={health.reason}>
-                    {health.state === "blocked" ? "Blocked" : "Quarantined"}
+                    {health.state === "blocked" ? "חסום" : "בהסגר"}
                 </Pill>
             );
     }

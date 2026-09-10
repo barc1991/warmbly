@@ -89,8 +89,8 @@ export default function AuthLayout({
 
                             {/* Footer — desktop, inside the card */}
                             <div className="hidden items-center gap-3 pt-9 text-[12px] text-slate-400 lg:flex">
-                                {brand.terms_url && <a href={brand.terms_url} target="_blank" rel="noopener noreferrer" className="hover:text-slate-700 transition-colors">Terms</a>}
-                                {brand.privacy_url && <a href={brand.privacy_url} target="_blank" rel="noopener noreferrer" className="hover:text-slate-700 transition-colors">Privacy</a>}
+                                {brand.terms_url && <a href={brand.terms_url} target="_blank" rel="noopener noreferrer" className="hover:text-slate-700 transition-colors">תנאי שימוש</a>}
+                                {brand.privacy_url && <a href={brand.privacy_url} target="_blank" rel="noopener noreferrer" className="hover:text-slate-700 transition-colors">מדיניות פרטיות</a>}
                                 <span className="ms-auto">© {new Date().getFullYear()} {brand.name}</span>
                             </div>
                         </div>
@@ -100,11 +100,11 @@ export default function AuthLayout({
                 {/* Footer — mobile, on the sky below the card */}
                 <div className="mt-5 flex items-center justify-center gap-3 text-[12px] text-white/70 lg:hidden">
                     {brand.terms_url && <>
-                        <a href={brand.terms_url} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Terms</a>
+                        <a href={brand.terms_url} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">תנאי שימוש</a>
                         <span className="text-white/40">·</span>
                     </>}
                     {brand.privacy_url && <>
-                        <a href={brand.privacy_url} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Privacy</a>
+                        <a href={brand.privacy_url} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">מדיניות פרטיות</a>
                         <span className="text-white/40">·</span>
                     </>}
                     <span>© {new Date().getFullYear()} {brand.name}</span>

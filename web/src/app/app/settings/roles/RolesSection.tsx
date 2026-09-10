@@ -42,11 +42,11 @@ export default function RolesSection({ canManage }: { canManage: boolean }) {
     const customRoles = roles.data ?? [];
 
     function doDelete(role: OrganizationRole) {
-        confirm?.show(`Delete the ${role.name} role?`, async () => {
+        confirm?.show(`למחוק את תפקיד ${role.name}?`, async () => {
             try {
                 await toast.promise(deleteRole.mutateAsync(role.id), {
-                    loading: "Deleting…",
-                    success: "Role deleted",
+                    loading: "מוחק…",
+                    success: "התפקיד נמחק",
                     error: (e: AppError) => buildError(e),
                 });
             } catch {
@@ -69,18 +69,18 @@ export default function RolesSection({ canManage }: { canManage: boolean }) {
                                 <span className="text-[12.5px] font-medium text-slate-900 truncate">{role.name}</span>
                             </div>
                             <p className="text-[11px] text-slate-500 truncate">
-                                {role.description || `${countBits(role.permissions)} permissions`}
+                                {role.description || `${countBits(role.permissions)} הרשאות`}
                             </p>
                         </div>
                         <span className="font-mono text-[10.5px] text-slate-400 tabular-nums shrink-0">
-                            {role.member_count} {role.member_count === 1 ? "member" : "members"}
+                            {role.member_count === 1 ? "חבר צוות אחד" : `${role.member_count} חברי צוות`}
                         </span>
                         {canManage && (
                             <div className="flex items-center gap-1 shrink-0">
                                 <button
                                     type="button"
                                     onClick={() => setEditing(role)}
-                                    aria-label={`Edit ${role.name}`}
+                                    aria-label={`ערוך את ${role.name}`}
                                     className="size-6 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                                 >
                                     <PencilIcon className="w-3 h-3" />
@@ -88,7 +88,7 @@ export default function RolesSection({ canManage }: { canManage: boolean }) {
                                 <button
                                     type="button"
                                     onClick={() => doDelete(role)}
-                                    aria-label={`Delete ${role.name}`}
+                                    aria-label={`מחק את ${role.name}`}
                                     className="size-6 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center transition-colors"
                                 >
                                     <Trash2Icon className="w-3 h-3" />
@@ -106,7 +106,7 @@ export default function RolesSection({ canManage }: { canManage: boolean }) {
                     className="h-7 px-2.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-[12px] font-medium text-slate-700 inline-flex items-center gap-1.5 transition-colors"
                 >
                     <PlusIcon className="w-3.5 h-3.5" />
-                    New role
+                    תפקיד חדש
                 </button>
             )}
 
@@ -143,7 +143,7 @@ function RoleEditor({ role, onClose }: { role: OrganizationRole | null; onClose:
 
     async function save() {
         if (!name.trim()) {
-            toast.error("Give the role a name");
+            toast.error("תן שם לתפקיד");
             return;
         }
         try {
@@ -152,8 +152,8 @@ function RoleEditor({ role, onClose }: { role: OrganizationRole | null; onClose:
                     ? update.mutateAsync({ id: role.id, data: { name: name.trim(), description, color, permissions } })
                     : create.mutateAsync({ name: name.trim(), description, color, permissions }),
                 {
-                    loading: "Saving…",
-                    success: role ? "Role updated" : "Role created",
+                    loading: "שומר…",
+                    success: role ? "התפקיד עודכן" : "התפקיד נוצר",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -181,18 +181,18 @@ function RoleEditor({ role, onClose }: { role: OrganizationRole | null; onClose:
             >
                 <header className="px-4 h-12 flex items-center gap-2 border-b border-slate-200 sticky top-0 bg-white">
                     <h3 className="text-[13px] font-semibold text-slate-900">
-                        {role ? `Edit ${role.name}` : "New role"}
+                        {role ? `ערוך תפקיד ${role.name}` : "תפקיד חדש"}
                     </h3>
                     {role && role.member_count > 0 && (
                         <span className="text-[10.5px] text-amber-600">
-                            Changes apply to {role.member_count} {role.member_count === 1 ? "member" : "members"} immediately
+                            השינויים יחולו מיד על {role.member_count} {role.member_count === 1 ? "חבר צוות" : "חברי צוות"}
                         </span>
                     )}
                     <button
                         type="button"
                         onClick={onClose}
-                        aria-label="Close"
-                        className="ml-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center"
+                        aria-label="סגור"
+                        className="ms-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center"
                     >
                         <XIcon className="w-4 h-4" />
                     </button>
@@ -201,25 +201,25 @@ function RoleEditor({ role, onClose }: { role: OrganizationRole | null; onClose:
                 <div className="p-4 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <Label>Name</Label>
+                            <Label>שם התפקיד</Label>
                             <TextInput
                                 value={name}
                                 onChange={(v) => setName(v.slice(0, 50))}
-                                placeholder="SDR"
+                                placeholder="נציג מכירות (SDR)"
                             />
                         </div>
                         <div>
-                            <Label>Description</Label>
+                            <Label>תיאור</Label>
                             <TextInput
                                 value={description}
                                 onChange={setDescription}
-                                placeholder="Replies in the inbox, no settings"
+                                placeholder="מענה בתיבת הדואר, ללא גישה להגדרות"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <Label>Start from</Label>
+                        <Label>התחל מתבנית</Label>
                         <div className="inline-flex items-center rounded-md border border-slate-200 bg-white p-0.5 flex-wrap">
                             {PRESETS.map((p) => (
                                 <button
@@ -240,18 +240,18 @@ function RoleEditor({ role, onClose }: { role: OrganizationRole | null; onClose:
                             ))}
                         </div>
                         <p className="text-[11px] text-slate-400 mt-1">
-                            Copies a template's permissions as a starting point, then tweak below.
+                            מעתיק את ההרשאות של התבנית כנקודת התחלה, לאחר מכן ניתן להתאים למטה.
                         </p>
                     </div>
 
                     <div>
-                        <Label>Color</Label>
+                        <Label>צבע</Label>
                         <div className="flex items-center gap-1.5">
                             {COLORS.map((c) => (
                                 <button
                                     key={c}
                                     type="button"
-                                    aria-label={`Use color ${c}`}
+                                    aria-label={`בחר צבע ${c}`}
                                     onClick={() => setColor(c)}
                                     className={`size-6 rounded-full border-2 transition-transform ${
                                         color === c ? "border-slate-900 scale-110" : "border-transparent"
@@ -278,7 +278,7 @@ function RoleEditor({ role, onClose }: { role: OrganizationRole | null; onClose:
                                                 key={p.key}
                                                 type="button"
                                                 onClick={() => toggle(p.bit)}
-                                                className={`px-2.5 py-1.5 rounded-md border text-left transition-colors ${
+                                                className={`px-2.5 py-1.5 rounded-md border text-left rtl:text-right transition-colors ${
                                                     on
                                                         ? "border-sky-200 bg-sky-50"
                                                         : "border-slate-200 bg-white hover:bg-slate-50"
@@ -314,7 +314,7 @@ function RoleEditor({ role, onClose }: { role: OrganizationRole | null; onClose:
                         onClick={onClose}
                         className="h-7 px-2.5 rounded-md text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors"
                     >
-                        Cancel
+                        ביטול
                     </button>
                     <button
                         type="button"
@@ -323,7 +323,7 @@ function RoleEditor({ role, onClose }: { role: OrganizationRole | null; onClose:
                         className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                     >
                         {pending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                        {role ? "Save changes" : "Create role"}
+                        {role ? "שמור שינויים" : "צור תפקיד"}
                     </button>
                 </footer>
             </motion.div>

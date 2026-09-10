@@ -4,9 +4,6 @@
 // day and keeps to it. The panel leads with that rolled day, because "why did
 // nothing send at 4pm" is answered by today's plan, not by the ranges that
 // produced it.
-//
-// Owns its own save (PUT /emails/:id/behavior) rather than joining the drawer's
-// shared mailbox form: it is a separate resource with its own validation.
 
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -56,9 +53,7 @@ function FieldShell({ label, hint, children }: { label: string; hint?: string; c
     );
 }
 
-// Minute-precision clock field. Deliberately not the shared 30-minute
-// TimeSelect: the whole point of this panel is that a mailbox starts at 09:14
-// rather than on the half hour.
+// Minute-precision clock field.
 function ClockField({ value, onChange }: { value: number; onChange: (v: number) => void }) {
     const [draft, setDraft] = React.useState(() => minutesToClock(value));
 
@@ -81,7 +76,8 @@ function ClockField({ value, onChange }: { value: number; onChange: (v: number) 
             placeholder="09:00"
             onChange={setDraft}
             onBlur={() => commit(draft)}
-            className="w-full h-9 tabular-nums"
+            dir="ltr"
+            className="w-full h-9 tabular-nums text-center"
         />
     );
 }
@@ -109,8 +105,6 @@ function RangeRow({
     );
 }
 
-// A min/max pair rendered as one control, since every range in this panel is
-// "somewhere between these two".
 function PairField({
     min,
     max,
@@ -131,7 +125,7 @@ function PairField({
     return (
         <div className="flex items-center gap-2">
             <NumberInput value={min} onChange={onMin} min={lowerBound} step={step} align="right" className="w-full h-9" />
-            <span className="text-[11.5px] text-slate-400 shrink-0">to</span>
+            <span className="text-[11.5px] text-slate-400 shrink-0">עד</span>
             <NumberInput value={max} onChange={onMax} min={lowerBound} step={step} suffix={suffix} align="right" className="w-full h-9" />
         </div>
     );
@@ -151,7 +145,7 @@ function ClockPair({
     return (
         <div className="flex items-center gap-2">
             <ClockField value={min} onChange={onMin} />
-            <span className="text-[11.5px] text-slate-400 shrink-0">to</span>
+            <span className="text-[11.5px] text-slate-400 shrink-0">עד</span>
             <ClockField value={max} onChange={onMax} />
         </div>
     );
@@ -177,9 +171,9 @@ function TodayCard({ mailboxId, enabled }: { mailboxId: string; enabled: boolean
     if (!p.is_working_day) {
         return (
             <div className="px-5 py-4">
-                <Eyebrow>Today</Eyebrow>
+                <Eyebrow>היום</Eyebrow>
                 <p className="mt-2 text-[12.5px] text-slate-700">
-                    Not a sending day for this mailbox. The next working day picks up its own hours.
+                    היום אינו יום שליחה עבור תיבת דואר זו. יום העבודה הבא יקבע את שעותיו בעצמו.
                 </p>
             </div>
         );
@@ -190,12 +184,12 @@ function TodayCard({ mailboxId, enabled }: { mailboxId: string; enabled: boolean
     return (
         <div className="px-5 py-4">
             <div className="flex items-center justify-between">
-                <Eyebrow>Today&apos;s workday</Eyebrow>
-                <span className="text-[10.5px] text-slate-400 font-mono">{p.timezone}</span>
+                <Eyebrow>יום העבודה להיום</Eyebrow>
+                <span className="text-[10.5px] text-slate-400 font-mono" dir="ltr">{p.timezone}</span>
             </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12.5px] text-slate-700">
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5" dir="ltr">
                     <ClockIcon className="w-3.5 h-3.5 text-slate-400" />
                     <b className="text-slate-900 tabular-nums">{minutesToClock(p.work_start_minute)}</b>
                     <span className="text-slate-400">–</span>
@@ -204,27 +198,27 @@ function TodayCard({ mailboxId, enabled }: { mailboxId: string; enabled: boolean
                 {p.lunch_start_minute !== null && p.lunch_end_minute !== null && (
                     <span className="inline-flex items-center gap-1.5">
                         <CoffeeIcon className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="tabular-nums">
+                        <span className="tabular-nums" dir="ltr">
                             {minutesToClock(p.lunch_start_minute)}–{minutesToClock(p.lunch_end_minute)}
                         </span>
                     </span>
                 )}
                 <span className="inline-flex items-center gap-1.5">
                     <TimerIcon className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{secondsToLabel(p.gap_min_seconds)}–{secondsToLabel(p.gap_max_seconds)} apart</span>
+                    <span>הפרש של <span dir="ltr">{secondsToLabel(p.gap_min_seconds)}–{secondsToLabel(p.gap_max_seconds)}</span></span>
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                     <GaugeIcon className="w-3.5 h-3.5 text-slate-400" />
-                    <span>max {p.hourly_limit}/hour</span>
+                    <span>מקסימום {p.hourly_limit}/שעה</span>
                 </span>
             </div>
 
             <div className="mt-3 flex items-center justify-between text-[12px] text-slate-600">
                 <span>
-                    <b className="text-slate-900 tabular-nums">{p.sent_today}</b> of{" "}
-                    <b className="text-slate-900 tabular-nums">{p.daily_limit}</b> sent
+                    נשלחו <b className="text-slate-900 tabular-nums">{p.sent_today}</b> מתוך{" "}
+                    <b className="text-slate-900 tabular-nums">{p.daily_limit}</b>
                 </span>
-                <span className="text-slate-400 tabular-nums">{p.remaining_today} left</span>
+                <span className="text-slate-400 tabular-nums">נותרו {p.remaining_today}</span>
             </div>
             <div className="mt-1.5 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                 <div className="h-full rounded-full bg-sky-500 transition-all" style={{ width: `${used}%` }} />
@@ -263,7 +257,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
     if (query.isError) {
         return (
             <div className="px-5 py-6 text-[12.5px] text-slate-500">
-                Sending behaviour is unavailable for this mailbox right now.
+                התנהגות שליחה אינה זמינה עבור תיבת דואר זו כרגע.
             </div>
         );
     }
@@ -282,7 +276,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
         }
         try {
             await mutation.mutateAsync(patch);
-            toast.success("Sending behaviour updated");
+            toast.success("התנהגות השליחה עודכנה");
         } catch (e) {
             toast.error(buildError(e as AppError));
         }
@@ -291,9 +285,6 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
     const tz = form.timezone || timezone;
 
     return (
-        // The drawer owns the scroll container, so the save row is sticky
-        // rather than a flex footer — otherwise it would sit below the fold on
-        // a panel this tall.
         <div>
             <div className="divide-y divide-slate-200/60">
                 {/* On/off */}
@@ -309,12 +300,12 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                         </div>
                         <div className="min-w-0">
                             <div className="text-[12.5px] font-medium text-slate-900">
-                                {form.enabled ? "Sending like a person" : "Fixed schedule"}
+                                {form.enabled ? "שליחה כמו אדם אמיתי" : "לוח זמנים קבוע"}
                             </div>
                             <div className="text-[11px] text-slate-400">
                                 {form.enabled
-                                    ? "Hours, volume and spacing are re-rolled each day"
-                                    : "Uses the mailbox daily cap and minimum gap"}
+                                    ? "השעות, הנפח והמרווחים מוגרלים מחדש בכל יום"
+                                    : "משתמש במכסה היומית ובמרווח המינימלי של תיבת הדואר"}
                             </div>
                         </div>
                     </div>
@@ -325,24 +316,24 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
 
                 {/* Working days */}
                 <div className="px-5 py-5 space-y-2">
-                    <Eyebrow>Working days</Eyebrow>
+                    <Eyebrow>ימי עבודה</Eyebrow>
                     <WeekdayBitmask
                         weekdays={[...WEEKDAY_LABELS]}
                         value={form.weekdays}
                         setValue={(v) => update({ weekdays: v })}
                     />
                     <p className="text-[10.5px] text-slate-400 leading-relaxed">
-                        Days this mailbox sends anything at all, cold outreach and warmup alike.
+                        הימים שבהם תיבת דואר זו שולחת בכלל, הן פנייה קרה והן חימום.
                     </p>
                 </div>
 
                 {/* Workday */}
                 <div className="px-5 py-5 space-y-5">
-                    <Eyebrow>Workday</Eyebrow>
+                    <Eyebrow>יום עבודה</Eyebrow>
                     <RangeRow
                         icon={<SunriseIcon className="w-3.5 h-3.5" />}
-                        label="Starts somewhere between"
-                        hint="A different start time each day, so the mailbox never opens on the same minute twice."
+                        label="מתחיל בטווח שבין"
+                        hint="שעת התחלה שונה בכל יום, כך שתיבת הדואר לעולם אינה מתחילה באותה דקה פעמיים."
                     >
                         <ClockPair
                             min={form.work_start_min}
@@ -353,8 +344,8 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                     </RangeRow>
                     <RangeRow
                         icon={<SunsetIcon className="w-3.5 h-3.5" />}
-                        label="Finishes somewhere between"
-                        hint="Nothing is scheduled after the day's rolled finish time."
+                        label="מסתיים בטווח שבין"
+                        hint="שום דבר אינו מתוזמן לאחר שעת הסיום שהוגרלה לאותו יום."
                     >
                         <ClockPair
                             min={form.work_end_min}
@@ -368,12 +359,12 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                 {/* Lunch */}
                 <div className="px-5 py-5 space-y-5">
                     <div className="flex items-center justify-between gap-3">
-                        <Eyebrow>Lunch break</Eyebrow>
+                        <Eyebrow>הפסקת צהריים</Eyebrow>
                         <Toggle value={form.lunch_enabled} onChange={(v) => update({ lunch_enabled: v })} />
                     </div>
                     {form.lunch_enabled && (
                         <>
-                            <RangeRow icon={<CoffeeIcon className="w-3.5 h-3.5" />} label="Starts somewhere between">
+                            <RangeRow icon={<CoffeeIcon className="w-3.5 h-3.5" />} label="מתחילה בטווח שבין">
                                 <ClockPair
                                     min={form.lunch_earliest}
                                     max={form.lunch_latest}
@@ -381,13 +372,13 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                                     onMax={(v) => update({ lunch_latest: v })}
                                 />
                             </RangeRow>
-                            <FieldShell label="Lasts" hint="A quiet gap in the middle of the day, like any real inbox has.">
+                            <FieldShell label="נמשכת" hint="הפסקה שקטה באמצע היום, בדיוק כמו בתיבת דואר אמיתית.">
                                 <PairField
                                     min={form.lunch_min_minutes}
                                     max={form.lunch_max_minutes}
                                     onMin={(v) => update({ lunch_min_minutes: v })}
                                     onMax={(v) => update({ lunch_max_minutes: v })}
-                                    suffix="minutes"
+                                    suffix="דקות"
                                 />
                             </FieldShell>
                         </>
@@ -396,43 +387,43 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
 
                 {/* Volume + spacing */}
                 <div className="px-5 py-5 space-y-5">
-                    <Eyebrow>Volume and spacing</Eyebrow>
+                    <Eyebrow>נפח ומרווחים</Eyebrow>
                     <FieldShell
-                        label="Cold emails per day"
-                        hint="Rolled once a day inside this range. It can only lower the mailbox's daily cap, never raise it."
+                        label="אימיילים קרים ליום"
+                        hint="מוגרל פעם ביום בתוך טווח זה. יכול רק להפחית את המכסה היומית של תיבת הדואר, לעולם לא להעלות אותה."
                     >
                         <PairField
                             min={form.daily_limit_min}
                             max={form.daily_limit_max}
                             onMin={(v) => update({ daily_limit_min: v })}
                             onMax={(v) => update({ daily_limit_max: v })}
-                            suffix="/ day"
+                            suffix="/ יום"
                             lowerBound={1}
                         />
                     </FieldShell>
                     <FieldShell
-                        label="Cold emails per hour"
-                        hint="Stops a whole day's allowance landing in one burst before lunch."
+                        label="אימיילים קרים לשעה"
+                        hint="מונע מכל מכסת היום להישלח בבת אחת לפני ארוחת הצהריים."
                     >
                         <PairField
                             min={form.hourly_limit_min}
                             max={form.hourly_limit_max}
                             onMin={(v) => update({ hourly_limit_min: v })}
                             onMax={(v) => update({ hourly_limit_max: v })}
-                            suffix="/ hour"
+                            suffix="/ שעה"
                             lowerBound={1}
                         />
                     </FieldShell>
                     <FieldShell
-                        label="Delay between emails"
-                        hint={`Drawn fresh for every send, so the intervals stay irregular. Currently ${secondsToLabel(form.gap_min_seconds)} to ${secondsToLabel(form.gap_max_seconds)}.`}
+                        label="השהיה בין אימיילים"
+                        hint={`מוגרלת מחדש עבור כל שליחה, כך שהמרווחים אינם קבועים. כעת ${secondsToLabel(form.gap_min_seconds)} עד ${secondsToLabel(form.gap_max_seconds)}.`}
                     >
                         <PairField
                             min={form.gap_min_seconds}
                             max={form.gap_max_seconds}
                             onMin={(v) => update({ gap_min_seconds: v })}
                             onMax={(v) => update({ gap_max_seconds: v })}
-                            suffix="seconds"
+                            suffix="שניות"
                             step={15}
                             lowerBound={30}
                         />
@@ -444,9 +435,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                     <div className="rounded-md border border-sky-100 bg-sky-50/70 px-3 py-2.5 flex gap-2.5">
                         <InfoIcon className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
                         <p className="text-[11.5px] text-sky-900/90 leading-relaxed">
-                            Every time here is local to <b>{tz || "UTC"}</b>, this mailbox&apos;s own timezone. Mailboxes in
-                            other regions keep their own working hours on the same campaign. Change the timezone on the
-                            mailbox to move the whole schedule.
+                            כל הזמנים כאן הם מקומיים עבור <b dir="ltr">{tz || "UTC"}</b>, אזור הזמן של תיבת דואר זו. תיבות דואר באזורים אחרים שומרות על שעות עבודה משלהן באותו קמפיין. שנה את אזור הזמן בתיבת הדואר כדי להזיז את לוח הזמנים כולו.
                         </p>
                     </div>
                 </div>
@@ -467,13 +456,13 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                         transition={{ duration: 0.2 }}
                         className="sticky bottom-0 z-10 h-14 px-5 flex items-center gap-2 border-t border-slate-200 bg-slate-50/95 backdrop-blur-sm"
                     >
-                        <span className="text-[11.5px] text-slate-500">Unsaved changes</span>
-                        <div className="ml-auto flex items-center gap-2">
+                        <span className="text-[11.5px] text-slate-500">שינויים שלא נשמרו</span>
+                        <div className="ms-auto flex items-center gap-2">
                             <button
                                 onClick={() => query.data && setForm(query.data)}
                                 className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors"
                             >
-                                Discard
+                                בטל
                             </button>
                             <button
                                 onClick={save}
@@ -481,7 +470,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                                 className="h-8 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 {mutation.isPending && <Loading className="!w-3.5 h-3.5 text-white" />}
-                                Save behaviour
+                                שמור התנהגות
                             </button>
                         </div>
                     </motion.div>

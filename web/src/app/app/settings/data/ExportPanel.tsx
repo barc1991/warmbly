@@ -71,13 +71,13 @@ export default function ExportPanel({
                 setRepeat("");
                 onStarted();
             } catch (e) {
-                toast.error((e as { message?: string })?.message ?? "Could not start the export.");
+                toast.error((e as { message?: string })?.message ?? "לא ניתן היה להתחיל בייצוא.");
             }
         };
 
         if (includeSecrets) {
             confirm.show(
-                "This archive will contain every mailbox password and access token in the workspace, protected only by the passphrase you just typed. Anyone with both the file and the passphrase can send mail as these mailboxes. Continue?",
+                "ארכיון זה יכיל כל סיסמת תיבת דואר ואסימון גישה בסביבת העבודה, מוגנים אך ורק באמצעות סיסמת האבטחה (Passphrase) שהקלדת כעת. כל מי שמחזיק גם בקובץ וגם בסיסמה יוכל לשלוח דואר בשם תיבות דואר אלה. האם להמשיך?",
                 run,
             );
             return;
@@ -99,13 +99,12 @@ export default function ExportPanel({
                     <div className="min-w-0 flex-1">
                         <div className="text-[12.5px] font-medium text-slate-900 leading-tight inline-flex items-center gap-1.5">
                             <KeyRoundIcon className="w-3 h-3 text-slate-400" />
-                            Include mailbox credentials
+                            כלול פרטי התחברות של תיבות דואר
                         </div>
                         <div className="text-[11.5px] text-slate-500 leading-tight mt-0.5">
-                            Mailbox passwords, OAuth tokens and integration keys are sealed into
-                            the archive under a passphrase you choose. Import it with the same
-                            passphrase and mailboxes come up connected. Leave this off and they
-                            arrive needing a reconnect.
+                            סיסמאות של תיבות דואר, אסימוני OAuth ומפתחות אינטגרציה נאטמים לתוך
+                            הארכיון תחת סיסמת אבטחה שתבחר. בייבוא עם אותה סיסמה, תיבות הדואר
+                            יעלו כשהן מחוברות כבר. אם תבטל אפשרות זו, הן יגיעו ויידרשו חיבור מחדש.
                         </div>
                     </div>
                     <Toggle
@@ -122,25 +121,27 @@ export default function ExportPanel({
                             onChange={setPassphrase}
                             type="password"
                             autoComplete="new-password"
-                            placeholder={`Passphrase (at least ${minPassphrase} characters)`}
+                            placeholder={`סיסמת אבטחה (לפחות ${minPassphrase} תווים)`}
                             disabled={createExport.isPending}
                             className="w-full"
+                            dir="ltr"
                         />
                         <TextInput
                             value={repeat}
                             onChange={setRepeat}
                             type="password"
                             autoComplete="new-password"
-                            placeholder="Repeat the passphrase"
+                            placeholder="חזור על סיסמת האבטחה"
                             disabled={createExport.isPending}
                             className="w-full"
+                            dir="ltr"
                         />
                         <p className="text-[11px] leading-relaxed text-amber-700">
                             {passphraseTooShort
-                                ? `Use at least ${minPassphrase} characters.`
+                                ? `השתמש בלפחות ${minPassphrase} תווים.`
                                 : passphraseMismatch
-                                    ? "The two passphrases do not match."
-                                    : "Warmbly never stores this passphrase. Lose it and the credentials in the archive cannot be recovered, so you would have to export again."}
+                                    ? "שתי סיסמאות האבטחה אינן תואמות."
+                                    : "Warmbly לעולם אינה שומרת סיסמה זו. אם תשכח אותה, לא ניתן יהיה לשחזר את פרטי ההתחברות מהארכיון ותצטרך לייצא מחדש."}
                         </p>
                     </div>
                 )}
@@ -154,10 +155,10 @@ export default function ExportPanel({
                     className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {createExport.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                    Start export
+                    התחל ייצוא
                 </button>
                 <span className="text-[11.5px] text-slate-500">
-                    Large workspaces take a while. You can leave this page.
+                    סביבות עבודה גדולות עשויות לארוך זמן מה. ניתן לעזוב עמוד זה.
                 </span>
             </div>
         </div>

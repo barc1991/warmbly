@@ -12,9 +12,19 @@ import {
 } from "@/components/ui/popover-menu";
 import { roleColor } from "./RoleSelect";
 
+export function localizeRoleName(name: string): string {
+    const map: Record<string, string> = {
+        Admin: "מנהל מערכת",
+        Manager: "מנהל",
+        Viewer: "צופה",
+        Owner: "בעלים",
+    };
+    return map[name] ?? name;
+}
+
 export function RoleChips({ roles }: { roles: MemberRole[] }) {
     if (roles.length === 0) {
-        return <span className="text-[11px] text-slate-400">No role</span>;
+        return <span className="text-[11px] text-slate-400">ללא תפקיד</span>;
     }
     return (
         <span className="inline-flex flex-wrap items-center gap-1">
@@ -25,7 +35,7 @@ export function RoleChips({ roles }: { roles: MemberRole[] }) {
                     style={{ backgroundColor: `${r.color || "#64748b"}14`, borderColor: `${r.color || "#64748b"}55`, color: r.color || "#475569" }}
                 >
                     <span className="size-1.5 rounded-full" style={{ backgroundColor: r.color || "#64748b" }} />
-                    {r.name}
+                    {localizeRoleName(r.name)}
                 </span>
             ))}
         </span>
@@ -51,10 +61,10 @@ export default function RoleMultiSelect({
     const selected = roles.filter((r) => value.includes(r.id));
     const summary =
         selected.length === 0
-            ? "Select roles"
+            ? "בחר תפקידים"
             : selected.length === 1
-                ? selected[0].name
-                : `${selected[0].name} +${selected.length - 1}`;
+                ? localizeRoleName(selected[0].name)
+                : `${localizeRoleName(selected[0].name)} +${selected.length - 1}`;
 
     const toggle = (id: string) => {
         const next = value.includes(id) ? value.filter((v) => v !== id) : [...value, id];
@@ -68,7 +78,7 @@ export default function RoleMultiSelect({
                 <button
                     type="button"
                     disabled={pending || roles.length === 0}
-                    className="h-6 px-1.5 rounded text-[10px] uppercase tracking-[0.08em] font-semibold inline-flex items-center gap-1 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-60"
+                    className="h-6 px-1.5 rounded text-[10px] uppercase tracking-[0.08em] font-semibold inline-flex items-center gap-1 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-60 cursor-pointer"
                 >
                     {pending ? (
                         <Loader2Icon className="w-2.5 h-2.5 animate-spin" />
@@ -88,7 +98,7 @@ export default function RoleMultiSelect({
                             type="button"
                             title={r.description || undefined}
                             onClick={() => toggle(r.id)}
-                            className="w-full px-2.5 py-1.5 text-left hover:bg-slate-100 transition-colors flex items-center gap-2"
+                            className="w-full px-2.5 py-1.5 text-left rtl:text-right hover:bg-slate-100 transition-colors flex items-center gap-2 cursor-pointer"
                         >
                             <span
                                 className={`size-3.5 rounded-sm border inline-flex items-center justify-center shrink-0 ${
@@ -98,14 +108,13 @@ export default function RoleMultiSelect({
                             >
                                 {on && <CheckIcon className="w-2.5 h-2.5 text-white" />}
                             </span>
-                            <span className="size-1.5 rounded-full" style={{ backgroundColor: roleColor(r) }} />
-                            <span className="text-[12px] font-medium text-slate-900">{r.name}</span>
+                            <span className="text-[12px] text-slate-700 truncate">{localizeRoleName(r.name)}</span>
                         </button>
                     );
                 })}
                 {roles.length === 0 && (
                     <div className="px-2.5 py-2 text-[11.5px] text-slate-500">
-                        No roles yet. Create one under Settings → Roles & access.
+                        אין תפקידים עדיין. צור תפקיד תחת הגדרות ← תפקידים והרשאות.
                     </div>
                 )}
             </PopoverMenuContent>

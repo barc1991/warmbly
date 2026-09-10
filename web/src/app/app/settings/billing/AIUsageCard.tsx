@@ -21,14 +21,14 @@ import { AnimatedNumber, DitherAreaChart, DitherMeter, DitherSlider, type Dither
 import { Section } from "../_components/SectionShell";
 
 const REASON_LABELS: Record<string, string> = {
-    writing_assistant: "Writing assistant",
-    writing_edit: "Selection edits",
-    reply_draft: "Reply drafts",
-    agent_iteration: "Dashboard assistant",
-    inbox_agent_draft: "Inbox agent",
-    research_run: "Contact research",
-    automation_ai: "Automation AI",
-    campaign_ai: "Campaign switches",
+    writing_assistant: "עוזר כתיבה",
+    writing_edit: "עריכת מקטעים",
+    reply_draft: "טיוטות תשובה",
+    agent_iteration: "עוזר לוח בקרה",
+    inbox_agent_draft: "סוכן תיבת דואר",
+    research_run: "מחקר אנשי קשר",
+    automation_ai: "אוטומציית AI",
+    campaign_ai: "החלפות קמפיין",
 };
 
 type WindowKey = "day" | "week" | "month";
@@ -121,8 +121,8 @@ export default function AIUsageCard() {
                     auto_topup_max_per_month: form.autoMax,
                 }),
                 {
-                    loading: "Saving spend controls…",
-                    success: "Spend controls saved",
+                    loading: "שומר בקרת הוצאות…",
+                    success: "בקרת ההוצאות נשמרה",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -143,11 +143,11 @@ export default function AIUsageCard() {
             const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
             const key = d.toISOString().slice(0, 10);
             const p = byDate.get(key);
-            const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+            const label = d.toLocaleDateString("he-IL", { month: "short", day: "numeric", timeZone: "UTC" });
             days.push({
                 key,
                 value: p?.credits ?? 0,
-                hint: `${label} · ${(p?.credits ?? 0).toLocaleString()} credits · ${(p?.tokens ?? 0).toLocaleString()} tokens`,
+                hint: `${label} · ${(p?.credits ?? 0).toLocaleString()} קרדיטים · ${(p?.tokens ?? 0).toLocaleString()} טוקנים`,
             });
         }
         return days;
@@ -155,23 +155,23 @@ export default function AIUsageCard() {
 
     return (
         <Section
-            eyebrow="AI usage & spend controls"
-            description="Credits are charged from what each AI call actually uses (tokens, per model). Watch the spend here, cap it per day, week, or month, and top up automatically before features pause."
+            eyebrow="שימוש ובקרת הוצאות AI"
+            description="חיוב הקרדיטים מבוסס על השימוש בפועל בכל קריאת AI (טוקנים, לפי מודל). כאן ניתן לעקוב אחר ההוצאה, להגביל אותה ליום, לשבוע או לחודש, ולהפעיל מילוי אוטומטי לפני שפעולות יושבתו."
         >
             {usage.isPending ? (
                 <div className="h-24 rounded bg-slate-100 animate-pulse" />
             ) : u ? (
                 <>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <SpendStat label="Today" spent={u.spent_today} limit={u.limit_daily} />
-                        <SpendStat label="This week" spent={u.spent_week} limit={u.limit_weekly} />
-                        <SpendStat label="This month" spent={u.spent_month} limit={u.limit_monthly} />
+                        <SpendStat label="היום" spent={u.spent_today} limit={u.limit_daily} />
+                        <SpendStat label="השבוע" spent={u.spent_week} limit={u.limit_weekly} />
+                        <SpendStat label="החודש" spent={u.spent_month} limit={u.limit_monthly} />
                     </div>
 
                     <div>
                         <div className="mb-2 flex items-center justify-between gap-2">
                             <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                                Last {range} days
+                                {range} ימים אחרונים
                             </div>
                             <RangeToggle range={range} onChange={setRange} />
                         </div>
@@ -179,80 +179,80 @@ export default function AIUsageCard() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                        <Breakdown title="By feature" rows={u.by_reason} labelFor={(k) => REASON_LABELS[k] ?? k} />
-                        <Breakdown title="By model" rows={u.by_model} labelFor={(k) => k || "unmetered"} />
+                        <Breakdown title="לפי תכונה" rows={u.by_reason} labelFor={(k) => REASON_LABELS[k] ?? k} />
+                        <Breakdown title="לפי מודל" rows={u.by_model} labelFor={(k) => k || "ללא מדידה"} />
                     </div>
                 </>
             ) : (
-                <p className="text-[11.5px] text-slate-500">Usage is unavailable right now.</p>
+                <p className="text-[11.5px] text-slate-500">נתוני השימוש אינם זמינים כעת.</p>
             )}
 
             {form && (
                 <div className="mt-2 border-t border-slate-200 pt-4 space-y-5">
                     <div>
-                        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">Workspace limits</div>
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">מגבלות סביבת עבודה</div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <LimitCell
-                                label="Per day"
+                                label="ליום"
                                 windowKey="day"
                                 value={form.daily}
                                 onChange={(v) => setForm({ ...form, daily: v })}
                                 spent={u?.spent_today}
-                                spentLabel="Spent today"
+                                spentLabel="הוצא היום"
                             />
                             <LimitCell
-                                label="Per week"
+                                label="לשבוע"
                                 windowKey="week"
                                 value={form.weekly}
                                 onChange={(v) => setForm({ ...form, weekly: v })}
                                 spent={u?.spent_week}
-                                spentLabel="Spent this week"
+                                spentLabel="הוצא השבוע"
                             />
                             <LimitCell
-                                label="Per month"
+                                label="לחודש"
                                 windowKey="month"
                                 value={form.monthly}
                                 onChange={(v) => setForm({ ...form, monthly: v })}
                                 spent={u?.spent_month}
-                                spentLabel="Spent this month"
+                                spentLabel="הוצא החודש"
                             />
                         </div>
                         <p className="mt-1.5 text-[11px] text-slate-400">
-                            When a limit is reached, AI features pause until the window rolls over. Leave a limit off for no cap.
+                            בהגעה למגבלה, תכונות ה-AI יושהו עד להתחלת חלון הזמן הבא. השארת שדה ללא מגבלה מאפשרת שימוש חופשי.
                         </p>
                     </div>
 
                     <div>
-                        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">Per-member limits</div>
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">מגבלות לחבר צוות</div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <LimitCell
-                                label="Per day"
+                                label="ליום"
                                 windowKey="day"
                                 value={form.memberDaily}
                                 onChange={(v) => setForm({ ...form, memberDaily: v })}
                             />
                             <LimitCell
-                                label="Per week"
+                                label="לשבוע"
                                 windowKey="week"
                                 value={form.memberWeekly}
                                 onChange={(v) => setForm({ ...form, memberWeekly: v })}
                             />
                             <LimitCell
-                                label="Per month"
+                                label="לחודש"
                                 windowKey="month"
                                 value={form.memberMonthly}
                                 onChange={(v) => setForm({ ...form, memberMonthly: v })}
                             />
                         </div>
                         <p className="mt-1.5 text-[11px] text-slate-400">
-                            Caps what each teammate can spend on AI in each window. Scheduled work (automations, inbox agent) is workspace-level and not counted against anyone. Who can use AI at all is a role permission ("Use AI") under Team.
+                            מגביל את הסכום שכל חבר צוות רשאי להוציא על AI בכל חלון זמן. משימות מתוזמנות (אוטומציות, סוכן תיבת דואר) מופעלות ברמת סביבת העבודה ואינן נספרות לחובת אף חבר. הרשאת השימוש ב-AI נקבעת לפי תפקיד בהגדרות הצוות.
                         </p>
                     </div>
 
                     <div>
-                        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">Low-credit reminder</div>
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">תזכורת יתרה נמוכה</div>
                         <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
-                            <span>Alert the billing team when the balance drops below</span>
+                            <span>התרע לצוות החיוב כאשר היתרה יורדת מתחת ל-</span>
                             <NumberInput
                                 value={form.lowThreshold}
                                 onChange={(n) => setForm({ ...form, lowThreshold: Math.max(0, Math.round(n)) })}
@@ -260,18 +260,18 @@ export default function AIUsageCard() {
                                 max={1000000}
                                 className="w-24"
                             />
-                            <span>credits (at most once per day).</span>
+                            <span>קרדיטים (לכל היותר פעם ביום).</span>
                         </div>
                     </div>
 
                     <div>
-                        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">Auto top-up</div>
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">מילוי אוטומטי</div>
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
                                 role="switch"
                                 aria-checked={form.autoEnabled}
-                                aria-label="Auto top-up"
+                                aria-label="מילוי אוטומטי"
                                 onClick={() => setForm({ ...form, autoEnabled: !form.autoEnabled })}
                                 className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
                                     form.autoEnabled ? "bg-sky-600" : "bg-slate-200"
@@ -284,7 +284,7 @@ export default function AIUsageCard() {
                                 />
                             </button>
                             <span className="text-[12px] text-slate-600">
-                                Buy a pack automatically with the card on file when credits run low
+                                רכישת חבילה אוטומטית באמצעות כרטיס האשראי הרשום כאשר הקרדיטים אוזלים
                             </span>
                         </div>
                         <AnimatePresence initial={false}>
@@ -298,17 +298,17 @@ export default function AIUsageCard() {
                                 >
                                     <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
                                         <div>
-                                            <Label>Pack to buy</Label>
+                                            <Label>חבילה לרכישה</Label>
                                             <SelectMenu
                                                 value={form.autoPack}
                                                 onChange={(v) => setForm({ ...form, autoPack: v })}
-                                                options={packs.map((p) => ({ value: p.key, label: `${p.credits.toLocaleString()} credits` }))}
+                                                options={packs.map((p) => ({ value: p.key, label: `${p.credits.toLocaleString()} קרדיטים` }))}
                                                 className="w-full"
                                                 fullWidth
                                             />
                                         </div>
                                         <div>
-                                            <Label>When balance is below</Label>
+                                            <Label>כאשר היתרה נמוכה מ-</Label>
                                             <NumberInput
                                                 value={form.autoThreshold}
                                                 onChange={(n) => setForm({ ...form, autoThreshold: Math.max(0, Math.round(n)) })}
@@ -318,7 +318,7 @@ export default function AIUsageCard() {
                                             />
                                         </div>
                                         <div>
-                                            <Label>Max purchases / month</Label>
+                                            <Label>מקסימום רכישות בחודש</Label>
                                             <NumberInput
                                                 value={form.autoMax}
                                                 onChange={(n) => setForm({ ...form, autoMax: Math.max(0, Math.min(100, Math.round(n))) })}
@@ -343,7 +343,7 @@ export default function AIUsageCard() {
                                 className="sticky bottom-4 z-10 flex justify-center"
                             >
                                 <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg shadow-slate-900/10">
-                                    <span className="text-[12px] text-slate-600">Unsaved spend controls</span>
+                                    <span className="text-[12px] text-slate-600">שינויים בבקרת ההוצאות שלא נשמרו</span>
                                     <button
                                         type="button"
                                         onClick={() => serverForm && setForm(serverForm)}
@@ -351,7 +351,7 @@ export default function AIUsageCard() {
                                         className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
                                     >
                                         <RotateCcwIcon className="w-3 h-3" />
-                                        Reset
+                                        אפס
                                     </button>
                                     <button
                                         type="button"
@@ -360,7 +360,7 @@ export default function AIUsageCard() {
                                         className="h-7 px-3 rounded-md bg-sky-600 text-[12px] font-medium text-white hover:bg-sky-700 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                                     >
                                         {save.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                                        Save
+                                        שמור
                                     </button>
                                 </div>
                             </motion.div>
@@ -377,6 +377,7 @@ function meterTone(pct: number): DitherTone {
 }
 
 // SpendStat is one window's spent-vs-limit chip with a dithered meter when a
+// SpendStat is one window's spent-vs-limit chip with a dithered meter when a
 // limit is configured.
 function SpendStat({ label, spent, limit }: { label: string; spent: number; limit: number | null }) {
     const pct = limit && limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : null;
@@ -385,7 +386,7 @@ function SpendStat({ label, spent, limit }: { label: string; spent: number; limi
             <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">{label}</div>
             <div className="mt-0.5 flex items-baseline gap-1">
                 <AnimatedNumber value={spent} className="text-[16px] font-semibold text-slate-900 tabular-nums" />
-                <span className="text-[11px] text-slate-400">{limit ? `/ ${limit.toLocaleString()} credits` : "credits"}</span>
+                <span className="text-[11px] text-slate-400">{limit ? `/ ${limit.toLocaleString()} קרדיטים` : "קרדיטים"}</span>
             </div>
             {pct !== null && <DitherMeter frac={pct / 100} tone={meterTone(pct)} height={4} className="mt-1.5" />}
         </div>
@@ -406,7 +407,7 @@ function Breakdown({
         <div>
             <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">{title}</div>
             {rows.length === 0 ? (
-                <p className="text-[11.5px] text-slate-400">No AI usage in this window yet.</p>
+                <p className="text-[11.5px] text-slate-400">אין שימוש ב-AI בחלון זמן זה עדיין.</p>
             ) : (
                 <div className="space-y-1.5">
                     {rows.map((r) => (
@@ -414,7 +415,7 @@ function Breakdown({
                             <div className="flex items-baseline justify-between gap-2">
                                 <span className="min-w-0 truncate text-slate-600">{labelFor(r.key)}</span>
                                 <span className="shrink-0 tabular-nums text-slate-500">
-                                    {r.credits.toLocaleString()} cr · {r.tokens.toLocaleString()} tok · {r.count.toLocaleString()}×
+                                    {r.credits.toLocaleString()} קר' · {r.tokens.toLocaleString()} טוק' · {r.count.toLocaleString()}×
                                 </span>
                             </div>
                             <DitherMeter frac={r.credits / total} height={4} className="mt-0.5" />
@@ -445,7 +446,7 @@ function RangeToggle({ range, onChange }: { range: RangeDays; onChange: (r: Rang
                             active ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
                         }`}
                     >
-                        {r}d
+                        {r} ימ'
                     </button>
                 );
             })}
@@ -520,7 +521,7 @@ function LimitCell({
                     type="button"
                     role="switch"
                     aria-checked={on}
-                    aria-label={`${label} limit`}
+                    aria-label={`מגבלת ${label}`}
                     onClick={() => onChange(on ? null : presets[1])}
                     className={`relative inline-flex h-[18px] w-8 shrink-0 items-center rounded-full transition-colors ${
                         on ? "bg-sky-600" : "bg-slate-200"
@@ -533,7 +534,7 @@ function LimitCell({
                     />
                 </button>
             </div>
-            {!on && <div className="mt-1 text-[12px] text-slate-400">No cap</div>}
+            {!on && <div className="mt-1 text-[12px] text-slate-400">ללא תקרה</div>}
             <AnimatePresence initial={false}>
                 {on && (
                     <motion.div
@@ -550,7 +551,7 @@ function LimitCell({
                                     onCommit={(n) => onChange(n)}
                                     className="text-[17px] font-semibold text-slate-900 tabular-nums"
                                 />
-                                <span className="text-[10.5px] text-slate-400">credits</span>
+                                <span className="text-[10.5px] text-slate-400">קרדיטים</span>
                             </div>
                             <DitherSlider
                                 value={value}
@@ -558,7 +559,7 @@ function LimitCell({
                                 max={sliderMax}
                                 step={WINDOW_STEP[windowKey]}
                                 onChange={(v) => onChange(v)}
-                                label={`${label} limit`}
+                                label={`מגבלת ${label}`}
                             />
                             <div className="flex items-center gap-2.5">
                                 {presets.map((p) => (

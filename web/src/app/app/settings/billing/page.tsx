@@ -54,10 +54,10 @@ type BillingTab = "overview" | "plans" | "ai" | "payment";
 // Tab slugs are path segments under /app/settings/billing; overview is the
 // bare path.
 const TABS: { id: BillingTab; slug: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: "overview", slug: "", label: "Overview", icon: GaugeIcon },
-    { id: "plans", slug: "plans", label: "Plans", icon: LayersIcon },
-    { id: "ai", slug: "ai-credits", label: "AI & credits", icon: SparklesIcon },
-    { id: "payment", slug: "payment", label: "Payment", icon: CreditCardIcon },
+    { id: "overview", slug: "", label: "סקירה כללית", icon: GaugeIcon },
+    { id: "plans", slug: "plans", label: "תוכניות", icon: LayersIcon },
+    { id: "ai", slug: "ai-credits", label: "AI וקרדיטים", icon: SparklesIcon },
+    { id: "payment", slug: "payment", label: "תשלום", icon: CreditCardIcon },
 ];
 
 function tabForSlug(slug: string | undefined): BillingTab | null {
@@ -105,19 +105,19 @@ export default function BillingSettingsPage() {
 
     if (!access.loading && !access.isOwner) {
         return (
-            <SectionShell title="Billing" description="Owner only.">
-                <Section eyebrow="Permission denied">
+            <SectionShell title="חיובים" description="לבעלי סביבת העבודה בלבד.">
+                <Section eyebrow="הרשאה נדחתה">
                     <div className="flex items-start gap-3">
                         <div className="size-9 rounded-md bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
                             <LockIcon className="w-4 h-4" />
                         </div>
                         <div>
                             <div className="text-[13px] font-semibold text-slate-900">
-                                Only the workspace owner can view billing
+                                רק בעל סביבת העבודה רשאי לצפות בחיובים
                             </div>
                             <p className="text-[12px] text-slate-500 leading-relaxed mt-1 max-w-md">
-                                Plan changes, invoices and payment methods are scoped to the
-                                owner role. Ask your owner to share an update if you need one.
+                                שינויי תוכנית, חשבוניות ואמצעי תשלום מוגבלים לתפקיד
+                                הבעלים. פנה לבעל סביבת העבודה לקבלת עדכון במידת הצורך.
                             </p>
                         </div>
                     </div>
@@ -135,10 +135,10 @@ export default function BillingSettingsPage() {
             const res = await validateCode.mutateAsync({ code });
             if (res.valid) {
                 setApplied(res);
-                toast.success("Promo code applied");
+                toast.success("קוד קופון הוחל בהצלחה");
             } else {
                 setApplied(null);
-                toast.error(res.reason || "That code can't be applied");
+                toast.error(res.reason || "לא ניתן להחיל קוד זה");
             }
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -163,9 +163,9 @@ export default function BillingSettingsPage() {
     // surfaces use, so there is one upgrade experience everywhere.
     function openPlanChooser() {
         upgradeDialog.open({
-            feature: "Your plan",
+            feature: "התוכנית שלך",
             minPlan: "starter",
-            blurb: "Compare every plan, switch billing interval, and change your subscription in one step.",
+            blurb: "השווה בין כל התוכניות, החלף מחזור חיוב, ושנה את המנוי שלך בשלב אחד.",
         });
     }
 
@@ -185,14 +185,14 @@ export default function BillingSettingsPage() {
 
     return (
         <SectionShell
-            title="Billing"
-            description={`Plan, payment and invoices for ${currentOrg?.name ?? "this workspace"}.`}
+            title="חיובים"
+            description={`תוכנית, תשלום וחשבוניות עבור ${currentOrg?.name ?? "סביבת עבודה זו"}.`}
             actions={
                 <TopbarAction
                     icon={<ExternalLinkIcon className="w-3 h-3" />}
                     onClick={openPortal}
                 >
-                    {flow.portalPending ? "Opening…" : "Manage billing"}
+                    {flow.portalPending ? "פותח…" : "ניהול חיובים"}
                 </TopbarAction>
             }
         >
@@ -239,8 +239,8 @@ export default function BillingSettingsPage() {
                         {tab === "plans" && (
                             <>
                                 <Section
-                                    eyebrow="Compare plans"
-                                    description="The same lineup as the public pricing page. Switching is prorated and takes effect immediately."
+                                    eyebrow="השוואת תוכניות"
+                                    description="אותו מגוון תוכניות כמו בעמוד התמחור הציבורי. המעבר מחושב באופן יחסי ונכנס לתוקף מיידית."
                                     actions={
                                         <BillingIntervalToggle
                                             interval={billingInterval}
@@ -260,7 +260,7 @@ export default function BillingSettingsPage() {
                                                 interval={billingInterval}
                                                 pending={flow.pending === id}
                                                 busy={flow.pending !== null || flow.portalPending}
-                                                ctaVerb={currentPlan.id === "free" ? "Get" : "Switch to"}
+                                                ctaVerb={currentPlan.id === "free" ? "השג" : "עבור אל"}
                                                 footer={
                                                     <ProrationNote
                                                         planId={flow.resolveServerPlan(id)?.id}
@@ -275,18 +275,18 @@ export default function BillingSettingsPage() {
                                         to="/#pricing"
                                         className="inline-flex items-center gap-1 text-[11.5px] text-slate-500 hover:text-slate-900 transition-colors"
                                     >
-                                        <ArrowUpRightIcon className="w-3 h-3" />
-                                        Open full pricing page
+                                        <ArrowUpRightIcon className="w-3 h-3 rtl:rotate-180" />
+                                        פתח את עמוד התמחור המלא
                                     </Link>
                                 </Section>
 
                                 <Section
-                                    eyebrow="Promo code"
-                                    description="Have a discount code? Apply it to preview your price. It's applied at checkout."
+                                    eyebrow="קוד קופון"
+                                    description="יש לך קוד הנחה? החל אותו כדי לראות את המחיר מראש. הוא ייושם בעת התשלום."
                                 >
                                     <Row
-                                        label="Discount code"
-                                        description="We validate the code against your workspace and the plan you pick."
+                                        label="קוד הנחה"
+                                        description="אנו מאמתים את הקוד מול סביבת העבודה שלך והתוכנית שתבחר."
                                         align="start"
                                     >
                                         <div className="flex flex-col items-stretch gap-2 sm:items-end">
@@ -300,6 +300,7 @@ export default function BillingSettingsPage() {
                                                         if (e.key === "Enter") applyCode();
                                                     }}
                                                     className="w-full sm:w-[180px] font-mono uppercase"
+                                                    dir="ltr"
                                                 />
                                                 {applied ? (
                                                     <button
@@ -308,7 +309,7 @@ export default function BillingSettingsPage() {
                                                         className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center gap-1 shrink-0"
                                                     >
                                                         <XIcon className="w-3 h-3" />
-                                                        Clear
+                                                        נקה
                                                     </button>
                                                 ) : (
                                                     <button
@@ -322,14 +323,14 @@ export default function BillingSettingsPage() {
                                                         ) : (
                                                             <TicketIcon className="w-3 h-3" />
                                                         )}
-                                                        Apply
+                                                        החל
                                                     </button>
                                                 )}
                                             </div>
                                             {applied && (
                                                 <div className="text-[11.5px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md px-2 py-1 inline-flex items-center gap-1.5">
                                                     <CheckIcon className="w-3 h-3 shrink-0" />
-                                                    <span className="font-mono font-medium">{applied.code}</span>
+                                                    <span className="font-mono font-medium" dir="ltr">{applied.code}</span>
                                                     <span>· {describeDiscount(applied)}</span>
                                                 </div>
                                             )}
@@ -338,24 +339,24 @@ export default function BillingSettingsPage() {
                                 </Section>
 
                                 <Section
-                                    eyebrow="Redeemed codes"
-                                    description="Promo and referral codes this workspace has redeemed."
+                                    eyebrow="קודים שמומשו"
+                                    description="קודי קופון והפניה שסביבת עבודה זו מימשה."
                                 >
                                     {redemptions.isPending ? (
                                         <div className="h-16 rounded bg-slate-100 animate-pulse" />
                                     ) : (redemptions.data?.data.length ?? 0) === 0 ? (
                                         <p className="text-[12px] text-slate-500 leading-relaxed">
-                                            No codes redeemed yet. Apply a code above to see it here.
+                                            אין עדיין קודים שמומשו. החל קוד למעלה כדי לראות אותו כאן.
                                         </p>
                                     ) : (
                                         <TableSurface>
                                             <table className="w-full text-[12px]">
                                                 <thead>
-                                                    <tr className="text-left text-[10.5px] uppercase tracking-[0.08em] text-slate-400 border-b border-slate-200">
-                                                        <th className="font-medium px-3 py-2">Code</th>
-                                                        <th className="font-medium px-3 py-2">Discount</th>
-                                                        <th className="font-medium px-3 py-2">Status</th>
-                                                        <th className="font-medium px-3 py-2 text-right">Redeemed</th>
+                                                    <tr className="text-start text-[10.5px] uppercase tracking-[0.08em] text-slate-400 border-b border-slate-200">
+                                                        <th className="font-medium px-3 py-2 text-start">קוד</th>
+                                                        <th className="font-medium px-3 py-2 text-start">הנחה</th>
+                                                        <th className="font-medium px-3 py-2 text-start">סטטוס</th>
+                                                        <th className="font-medium px-3 py-2 text-end">מומש ב-</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
@@ -380,12 +381,12 @@ export default function BillingSettingsPage() {
                         {tab === "payment" && (
                             <>
                                 <Section
-                                    eyebrow="Payment"
-                                    description="Card used for renewals and add-ons. Managed through Stripe."
+                                    eyebrow="תשלום"
+                                    description="כרטיס אשראי לחידושים ותוספות. מנוהל באמצעות Stripe."
                                 >
                                     <Row
-                                        label="Payment method"
-                                        description="Cards are held by Stripe and never touch Warmbly, so they are read and changed in the portal."
+                                        label="אמצעי תשלום"
+                                        description="כרטיסים נשמרים ב-Stripe ולעולם אינם נוגעים ב-Warmbly, ולכן נצפים ומשתנים בפורטל התשלומים."
                                     >
                                         <button
                                             type="button"
@@ -394,12 +395,12 @@ export default function BillingSettingsPage() {
                                             className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
                                         >
                                             <CreditCardIcon className="w-3 h-3" />
-                                            Manage cards in Stripe
+                                            נהל כרטיסים ב-Stripe
                                         </button>
                                     </Row>
                                     <Row
-                                        label="Billing email"
-                                        description="Invoices and renewal notices go to the billing email on the Stripe customer."
+                                        label="אימייל לחיוב"
+                                        description="חשבוניות והודעות חידוש נשלחות לכתובת האימייל של הלקוח ב-Stripe."
                                     >
                                         <button
                                             type="button"
@@ -407,18 +408,18 @@ export default function BillingSettingsPage() {
                                             disabled={flow.portalPending}
                                             className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-60"
                                         >
-                                            Change in Stripe
+                                            שנה ב-Stripe
                                         </button>
                                     </Row>
                                 </Section>
 
                                 <Section
-                                    eyebrow="Invoices"
-                                    description="Receipts from your billing portal."
+                                    eyebrow="חשבוניות"
+                                    description="קבלות מפורטל החיובים שלך."
                                 >
                                     <p className="text-[12px] text-slate-500 leading-relaxed">
-                                        Invoices live in Stripe's billing portal. Open the portal to download
-                                        PDF receipts.
+                                        חשבוניות זמינות בפורטל החיובים של Stripe. פתח את הפורטל כדי להוריד
+                                        קבלות בפורמט PDF.
                                     </p>
                                     <button
                                         type="button"
@@ -431,7 +432,7 @@ export default function BillingSettingsPage() {
                                         ) : (
                                             <FileTextIcon className="w-3 h-3" />
                                         )}
-                                        Open invoices
+                                        פתח חשבוניות
                                     </button>
                                 </Section>
                             </>
@@ -447,17 +448,25 @@ export default function BillingSettingsPage() {
 function RedemptionRow({ row }: { row: DiscountRedemption }) {
     return (
         <tr className="text-slate-700">
-            <td className="px-3 py-2 font-mono uppercase text-slate-900">{row.code}</td>
+            <td className="px-3 py-2 font-mono uppercase text-slate-900" dir="ltr">{row.code}</td>
             <td className="px-3 py-2 text-slate-600">{describeRedemption(row)}</td>
             <td className="px-3 py-2">
                 <RedemptionStatusPill status={row.status} />
             </td>
-            <td className="px-3 py-2 text-right text-slate-500 tabular-nums">
+            <td className="px-3 py-2 text-end text-slate-500 tabular-nums">
                 {fmtDate(row.redeemed_at)}
             </td>
         </tr>
     );
 }
+
+const REDEMPTION_STATUS_LABELS: Record<string, string> = {
+    applied: "הוחל",
+    active: "פעיל",
+    expired: "פג תוקף",
+    revoked: "בוטל",
+    void: "מבוטל",
+};
 
 function RedemptionStatusPill({ status }: { status: string }) {
     const s = (status ?? "").toLowerCase();
@@ -471,7 +480,7 @@ function RedemptionStatusPill({ status }: { status: string }) {
         <span
             className={`inline-flex items-center text-[10px] uppercase tracking-[0.08em] font-semibold rounded-sm px-1.5 py-0.5 border ${cls}`}
         >
-            {status || "—"}
+            {REDEMPTION_STATUS_LABELS[s] || status || "—"}
         </span>
     );
 }
@@ -479,22 +488,22 @@ function RedemptionStatusPill({ status }: { status: string }) {
 // describeRedemption renders a short human summary of a redeemed code.
 function describeRedemption(d: DiscountRedemption): string {
     if (d.type === "trial_extension") {
-        return `+${d.trial_extension_days ?? 0} trial days`;
+        return `+${d.trial_extension_days ?? 0} ימי ניסיון`;
     }
     if (d.type === "percent") {
-        return `${d.percent_off ?? 0}% off`;
+        return `${d.percent_off ?? 0}% הנחה`;
     }
     if (d.type === "fixed" && d.amount_off != null) {
-        return `${(d.currency ?? "usd").toUpperCase()} ${fmtMoney(d.amount_off)} off`;
+        return `${(d.currency ?? "usd").toUpperCase()} ${fmtMoney(d.amount_off)} הנחה`;
     }
-    return d.type || "Discount";
+    return d.type || "הנחה";
 }
 
 function fmtDate(value?: string | null): string {
     if (!value) return "—";
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "—";
-    return d.toLocaleDateString("en-US", {
+    return d.toLocaleDateString("he-IL", {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -510,7 +519,7 @@ function ProrationNote({ planId, enabled }: { planId?: string; enabled: boolean 
     return (
         <div className="rounded-md border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-[11px] leading-snug">
             {preview.isPending ? (
-                <span className="text-slate-400">Pricing this switch…</span>
+                <span className="text-slate-400">מחשב את עלות המעבר…</span>
             ) : preview.data ? (
                 <>
                     <div className="text-slate-700 tabular-nums font-medium">
@@ -520,17 +529,17 @@ function ProrationNote({ planId, enabled }: { planId?: string; enabled: boolean 
                                 preview.data.proration_amount,
                                 preview.data.currency,
                             );
-                            if (due > 0) return `Due today $${fmtMoney(due)}`;
-                            if (due < 0) return `Credit $${fmtMoney(Math.abs(due))}`;
-                            return "No charge today";
+                            if (due > 0) return `לתשלום היום $${fmtMoney(due)}`;
+                            if (due < 0) return `זיכוי $${fmtMoney(Math.abs(due))}`;
+                            return "ללא חיוב היום";
                         })()}
                     </div>
                     <div className="text-slate-400">
-                        Next bill {fmtDate(preview.data.next_billing_date as unknown as string)}
+                        חיוב הבא ב-{fmtDate(preview.data.next_billing_date as unknown as string)}
                     </div>
                 </>
             ) : (
-                <span className="text-slate-400">Prorated at switch</span>
+                <span className="text-slate-400">חישוב יחסי בעת המעבר</span>
             )}
         </div>
     );

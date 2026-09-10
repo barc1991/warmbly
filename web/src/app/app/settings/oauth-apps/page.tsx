@@ -58,19 +58,19 @@ import type {
 import { SectionShell } from "../_components/SectionShell";
 
 function formatRelative(date: Date | string | undefined): string {
-    if (!date) return "never";
+    if (!date) return "אף פעם";
     const d = typeof date === "string" ? new Date(date) : date;
-    if (Number.isNaN(d.getTime())) return "never";
+    if (Number.isNaN(d.getTime())) return "אף פעם";
     const diff = Date.now() - d.getTime();
-    if (diff < 0) return d.toLocaleString();
+    if (diff < 0) return d.toLocaleString("he-IL");
     const mins = Math.floor(diff / 60_000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1) return "כרגע";
+    if (mins < 60) return `לפני ${mins} דק'`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return `לפני ${hours} שע'`;
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (days < 7) return `לפני ${days} ימים`;
+    return d.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
 }
 
 function hostOf(url: string): string {
@@ -98,7 +98,7 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
             className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 h-7 text-[11.5px] text-slate-600 hover:bg-slate-50"
         >
             {copied ? <CheckIcon className="w-3.5 h-3.5 text-emerald-600" /> : <CopyIcon className="w-3.5 h-3.5" />}
-            {copied ? "Copied" : (label ?? "Copy")}
+            {copied ? "הועתק" : (label ?? "העתק")}
         </button>
     );
 }
@@ -128,7 +128,7 @@ function ScopePicker({ value, onChange }: { value: number; onChange: (v: number)
                                     key={p.name}
                                     type="button"
                                     onClick={() => toggle(p.value)}
-                                    className={`flex items-start gap-2 rounded-md border px-2 py-1.5 text-left ${on ? "border-sky-400 bg-sky-50" : "border-slate-200 hover:bg-slate-50"}`}
+                                    className={`flex items-start gap-2 rounded-md border px-2 py-1.5 text-left rtl:text-right ${on ? "border-sky-400 bg-sky-50" : "border-slate-200 hover:bg-slate-50"}`}
                                 >
                                     <span
                                         className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded ${on ? "bg-sky-600 text-white" : "border border-slate-300"}`}
@@ -193,14 +193,14 @@ function EventPicker({
     return (
         <div className="space-y-2.5">
             <div className="flex items-center gap-2">
-                <SearchInput value={q} onChange={setQ} placeholder="Search events…" className="flex-1" />
+                <SearchInput value={q} onChange={setQ} placeholder="חפש אירועים…" className="flex-1" />
                 {value.length > 0 && (
                     <button
                         type="button"
                         onClick={() => onChange([])}
                         className="h-7 px-2.5 rounded-md border border-slate-200 text-[11.5px] text-slate-600 hover:bg-slate-50 shrink-0"
                     >
-                        Subscribe to all
+                        הירשם להכל
                     </button>
                 )}
             </div>
@@ -213,17 +213,17 @@ function EventPicker({
                 )}
             >
                 {value.length === 0 ? (
-                    <>Subscribed to all events the granting org allows. New event types are included automatically (high-volume events excluded).</>
+                    <>מנוי לכל האירועים שארגון המעניק מאשר. סוגי אירועים חדשים נכללים אוטומטית (למעט אירועים בנפח גבוה).</>
                 ) : (
                     <>
-                        Subscribed to <span className="font-medium">{value.length}</span>{" "}
-                        {value.length === 1 ? "event" : "events"}. Leave none selected to receive all the events each org allows.
+                        מנוי ל-<span className="font-medium">{value.length}</span>{" "}
+                        {value.length === 1 ? "אירוע" : "אירועים"}. השאר ללא בחירה כדי לקבל את כל האירועים שכל ארגון מאשר.
                     </>
                 )}
             </div>
             <div className="max-h-[280px] overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
                 {Object.keys(grouped).length === 0 ? (
-                    <div className="px-3 py-6 text-center text-[11.5px] text-slate-400">No events match.</div>
+                    <div className="px-3 py-6 text-center text-[11.5px] text-slate-400">לא נמצאו אירועים תואמים.</div>
                 ) : (
                     Object.entries(grouped).map(([cat, list]) => (
                         <div key={cat} className="p-1.5">
@@ -239,7 +239,7 @@ function EventPicker({
                                             type="button"
                                             onClick={() => toggle(d.type)}
                                             className={cn(
-                                                "w-full flex items-start gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors",
+                                                "w-full flex items-start gap-2 rounded-md px-1.5 py-1.5 text-left rtl:text-right transition-colors",
                                                 on ? "bg-sky-50" : "hover:bg-slate-50",
                                             )}
                                         >
@@ -253,12 +253,12 @@ function EventPicker({
                                             </span>
                                             <span className="min-w-0 flex-1">
                                                 <span className="flex items-center gap-1.5">
-                                                    <span className="block text-[12px] font-medium text-slate-700 font-mono truncate">
+                                                    <span className="block text-[12px] font-medium text-slate-700 font-mono truncate" dir="ltr">
                                                         {d.type}
                                                     </span>
                                                     {d.firehose && (
                                                         <span className="shrink-0 inline-flex items-center rounded-sm bg-amber-50 border border-amber-200 px-1 text-[9.5px] uppercase tracking-[0.08em] font-semibold text-amber-700">
-                                                            High volume
+                                                            נפח גבוה
                                                         </span>
                                                     )}
                                                 </span>
@@ -275,7 +275,7 @@ function EventPicker({
                 )}
             </div>
             <p className="text-[10.5px] text-amber-700">
-                High-volume events are only sent if you select them explicitly.
+                אירועים בנפח גבוה נשלחים רק אם תבחר בהם במפורש.
             </p>
         </div>
     );
@@ -289,6 +289,14 @@ const DELIVERY_TONE: Record<WebhookDeliveryStatus, string> = {
     abandoned: "bg-rose-50 text-rose-700 border-rose-100",
 };
 
+const DELIVERY_STATUS_LABELS: Record<WebhookDeliveryStatus, string> = {
+    delivered: "נמסר",
+    pending: "ממתין",
+    in_flight: "בתהליך",
+    failed: "נכשל",
+    abandoned: "ננטש",
+};
+
 function DeliveryStatusBadge({ status }: { status: WebhookDeliveryStatus }) {
     return (
         <span
@@ -297,7 +305,7 @@ function DeliveryStatusBadge({ status }: { status: WebhookDeliveryStatus }) {
                 DELIVERY_TONE[status] ?? DELIVERY_TONE.pending,
             )}
         >
-            {status.replace("_", " ")}
+            {DELIVERY_STATUS_LABELS[status] ?? status.replace("_", " ")}
         </span>
     );
 }
@@ -318,7 +326,7 @@ function AppLogo({ name, url, size = "md" }: { name: string; url?: string | null
     return <div className={cn(dim, color, "flex items-center justify-center text-white font-semibold shrink-0")}>{letter}</div>;
 }
 
-const WIZARD_STEPS = ["Basics", "Branding", "Redirects", "Webhook domains", "Webhooks", "Scopes"] as const;
+const WIZARD_STEPS = ["פרטים בסיסיים", "מיתוג", "הפניות (Redirects)", "דומיינים לוובהוק", "וובהוקים", "הרשאות (Scopes)"] as const;
 
 // Stepper — the horizontal progress indicator at the top of the register wizard.
 function Stepper({ step }: { step: number }) {
@@ -397,12 +405,12 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
         if (!stepValid(step)) {
             toast.error(
                 step === 0
-                    ? "Give the app a name"
+                    ? "תן שם לאפליקציה"
                     : step === 2
-                      ? "Add at least one redirect URI"
+                      ? "הוסף לפחות כתובת URI אחת להפניה"
                       : step === 4
-                        ? "The webhook URL must start with https://"
-                        : "Select at least one scope",
+                        ? "כתובת ה-Webhook חייבת להתחיל ב-https://"
+                        : "בחר לפחות הרשאה אחת",
             );
             return;
         }
@@ -418,13 +426,13 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
             const { logo_url } = await uploadLogo.mutateAsync(file);
             setLogoUrl(logo_url);
         } catch (err) {
-            toast.error((err as { message?: string })?.message ?? "Could not upload the logo");
+            toast.error((err as { message?: string })?.message ?? "לא ניתן להעלות את הלוגו");
         }
     };
 
     const submit = async () => {
         if (!stepValid(0) || !stepValid(2) || !stepValid(4) || !stepValid(5)) {
-            toast.error("Fill in the required fields");
+            toast.error("מלא את שדות החובה");
             return;
         }
         try {
@@ -440,9 +448,9 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
                 scopes,
             });
             setCreated(app);
-            toast.success("App registered");
+            toast.success("האפליקציה נרשמה בהצלחה");
         } catch (e) {
-            toast.error((e as { message?: string })?.message ?? "Could not register the app");
+            toast.error((e as { message?: string })?.message ?? "לא ניתן לרשום את האפליקציה");
         }
     };
 
@@ -468,9 +476,9 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
             >
                 <div className="flex items-center border-b border-slate-200 px-4 h-11 shrink-0">
                     <span className="text-[12.5px] font-medium text-slate-900">
-                        {created ? "App created" : "Register an OAuth app"}
+                        {created ? "האפליקציה נוצרה" : "רישום אפליקציית OAuth"}
                     </span>
-                    <button onClick={onClose} className="ml-auto h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">
+                    <button onClick={onClose} className="ms-auto h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">
                         <XIcon className="w-4 h-4" />
                     </button>
                 </div>
@@ -493,23 +501,23 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
                                     {step === 0 && (
                                         <>
                                             <div>
-                                                <Label>Name</Label>
-                                                <TextInput value={name} onChange={setName} placeholder="Acme Integration" className="w-full" />
+                                                <Label>שם האפליקציה</Label>
+                                                <TextInput value={name} onChange={setName} placeholder="אינטגרציית Acme" className="w-full" />
                                             </div>
                                             <div>
-                                                <Label>Description</Label>
-                                                <TextInput value={description} onChange={setDescription} placeholder="What the app does" className="w-full" />
+                                                <Label>תיאור</Label>
+                                                <TextInput value={description} onChange={setDescription} placeholder="מה האפליקציה עושה" className="w-full" />
                                             </div>
                                             <div>
-                                                <Label>Website</Label>
-                                                <TextInput value={website} onChange={setWebsite} placeholder="https://acme.com" className="w-full" />
+                                                <Label>אתר אינטרנט</Label>
+                                                <TextInput value={website} onChange={setWebsite} placeholder="https://acme.com" className="w-full" dir="ltr" />
                                             </div>
                                         </>
                                     )}
                                     {step === 1 && (
                                         <>
                                             <p className="text-[12px] text-slate-500 leading-relaxed">
-                                                Add a logo so people recognize your app on the consent screen when they connect it.
+                                                הוסף לוגו כדי שמשתמשים יזהו את האפליקציה שלך במסך האישור בעת החיבור.
                                             </p>
                                             <div className="flex items-center gap-3">
                                                 <AppLogo name={name || "?"} url={logoUrl} size="lg" />
@@ -523,76 +531,79 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
                                                             className="h-8 px-3 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 disabled:opacity-60"
                                                         >
                                                             {uploadLogo.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
-                                                            {logoUrl ? "Replace logo" : "Upload logo"}
+                                                            {logoUrl ? "החלף לוגו" : "העלה לוגו"}
                                                         </button>
                                                         {logoUrl && (
                                                             <button type="button" onClick={() => setLogoUrl("")} className="text-[11.5px] text-slate-400 hover:text-rose-600">
-                                                                Remove
+                                                                הסר
                                                             </button>
                                                         )}
                                                     </div>
-                                                    <p className="mt-1.5 text-[10.5px] text-slate-400">PNG or JPG, up to 2MB. Optional.</p>
+                                                    <p className="mt-1.5 text-[10.5px] text-slate-400">PNG או JPG, עד 2MB. אופציונלי.</p>
                                                 </div>
                                             </div>
                                         </>
                                     )}
                                     {step === 2 && (
                                         <div>
-                                            <Label>Redirect URIs</Label>
+                                            <Label>כתובות URI להפניה (Redirect URIs)</Label>
                                             <textarea
                                                 value={redirects}
                                                 onChange={(e) => setRedirects(e.target.value)}
                                                 placeholder={"https://acme.com/oauth/callback"}
                                                 rows={3}
+                                                dir="ltr"
                                                 className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[12px] font-mono text-slate-900 placeholder:text-slate-400 outline-none resize-y focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                                             />
-                                            <p className="mt-1 text-[11px] text-slate-400">One per line. Must be HTTPS (or a loopback URL), matched exactly.</p>
+                                            <p className="mt-1 text-[11px] text-slate-400">אחת בכל שורה. חייב להיות HTTPS (או כתובת loopback מקומית), בהתאמה מדויקת.</p>
                                         </div>
                                     )}
                                     {step === 3 && (
                                         <div>
-                                            <Label>Webhook domains</Label>
+                                            <Label>דומיינים לוובהוק (Webhook domains)</Label>
                                             <textarea
                                                 value={webhookDomains}
                                                 onChange={(e) => setWebhookDomains(e.target.value)}
                                                 placeholder={".acme.com\nhooks.partner.com"}
                                                 rows={3}
+                                                dir="ltr"
                                                 className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[12px] font-mono text-slate-900 placeholder:text-slate-400 outline-none resize-y focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                                             />
                                             <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                                                Webhooks this app registers must point at these domains. Use a leading dot for subdomains
-                                                (.acme.com matches hooks.acme.com); a bare domain (acme.com) is an exact match. Leave empty to
-                                                forbid this app from registering webhooks.
+                                                וובהוקים שהאפליקציה רושמת חייבים להפנות לדומיינים אלה. השתמש בנקודה מובילה עבור תת-דומיינים
+                                                (למשל ‎.acme.com תואם ל-hooks.acme.com); דומיין ללא נקודה (acme.com) הוא התאמה מדויקת. השאר ריק כדי למנוע
+                                                מאפליקציה זו לרשום וובהוקים.
                                             </p>
                                         </div>
                                     )}
                                     {step === 4 && (
                                         <>
                                             <p className="text-[12px] text-slate-500 leading-relaxed">
-                                                Optionally receive Warmbly events over webhooks. Each org that authorizes the app gets its own
-                                                signed delivery stream, scoped to what that org granted. You can skip this and add it later.
+                                                קבל אירועים מ-Warmbly באמצעות וובהוקים. כל ארגון שמאשר את האפליקציה מקבל זרם מסירות
+                                                חתום משלו, בהתאם להרשאות שהעניק. ניתן לדלג ולהוסיף זאת מאוחר יותר.
                                             </p>
                                             <div>
-                                                <Label>Webhook URL</Label>
+                                                <Label>כתובת Webhook</Label>
                                                 <TextInput
                                                     value={webhookUrl}
                                                     onChange={setWebhookUrl}
                                                     placeholder="https://hooks.acme.com/warmbly"
                                                     className="w-full"
+                                                    dir="ltr"
                                                 />
                                                 <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                                                    Must be https and its host must fall within the allowed webhook domains above. Leave empty to
-                                                    skip webhooks for now.
+                                                    חייבת להיות https והמארח שלה חייב להיכלל בדומיינים המורשים לעיל. השאר ריק כדי לדלג
+                                                    על וובהוקים כרגע.
                                                 </p>
                                                 {!webhookUrlValid && (
-                                                    <p className="mt-1 text-[11px] text-rose-600">The webhook URL must start with https://</p>
+                                                    <p className="mt-1 text-[11px] text-rose-600">כתובת ה-Webhook חייבת להתחיל ב-https://</p>
                                                 )}
                                             </div>
                                             {webhookUrl.trim() !== "" && (
                                                 <div>
-                                                    <Label>Events</Label>
+                                                    <Label>אירועים</Label>
                                                     {catalog.isPending ? (
-                                                        <div className="py-6 text-center text-[11.5px] text-slate-400">Loading events…</div>
+                                                        <div className="py-6 text-center text-[11.5px] text-slate-400">טוען אירועים…</div>
                                                     ) : (
                                                         <EventPicker
                                                             catalog={catalog.data?.event_types ?? []}
@@ -606,7 +617,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
                                     )}
                                     {step === 5 && (
                                         <div>
-                                            <Label>Scopes</Label>
+                                            <Label>הרשאות (Scopes)</Label>
                                             <ScopePicker value={scopes} onChange={setScopes} />
                                         </div>
                                     )}
@@ -617,19 +628,19 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
                         <div className="px-4 py-2.5 border-t border-slate-200 flex items-center gap-2 shrink-0">
                             {step > 0 ? (
                                 <button onClick={goBack} className="h-8 px-3 rounded-md border border-slate-200 text-[12.5px] text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5">
-                                    <ArrowLeftIcon className="w-3.5 h-3.5" /> Back
+                                    <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" /> הקודם
                                 </button>
                             ) : (
                                 <button onClick={onClose} className="h-8 px-3 rounded-md border border-slate-200 text-[12.5px] text-slate-600 hover:bg-slate-50">
-                                    Cancel
+                                    ביטול
                                 </button>
                             )}
-                            <span className="ml-auto text-[11px] text-slate-400">
-                                Step {step + 1} of {WIZARD_STEPS.length}
+                            <span className="ms-auto text-[11px] text-slate-400">
+                                שלב {step + 1} מתוך {WIZARD_STEPS.length}
                             </span>
                             {step < WIZARD_STEPS.length - 1 ? (
                                 <button onClick={goNext} className="h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700 inline-flex items-center gap-1.5">
-                                    Next <ArrowRightIcon className="w-3.5 h-3.5" />
+                                    הבא <ArrowLeftIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                                 </button>
                             ) : (
                                 <button
@@ -638,7 +649,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
                                     className="h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700 disabled:opacity-60 inline-flex items-center gap-1.5"
                                 >
                                     {create.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
-                                    Create app
+                                    צור אפליקציה
                                 </button>
                             )}
                         </div>
@@ -656,24 +667,24 @@ function RevealStep({ app, onDone }: { app: OAuthApplicationWithSecret; onDone: 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
             <div className="flex items-center gap-2 text-emerald-600">
                 <CheckCircle2Icon className="w-4 h-4" />
-                <span className="text-[12.5px] font-medium">{app.name} is ready</span>
+                <span className="text-[12.5px] font-medium">{app.name} מוכנה</span>
             </div>
             <p className="text-[12px] text-slate-500 leading-relaxed">
-                Save the client secret now. For security it is shown only once and cannot be retrieved later (you can rotate it if you lose it).
+                שמור את מפתח הלקוח הסודי (Client Secret) כעת. מטעמי אבטחה הוא מוצג פעם אחת בלבד ולא ניתן לשחזרו מאוחר יותר (תוכל לסבבו מחדש אם תאבד אותו).
             </p>
             <div>
-                <Label>Client ID</Label>
+                <Label>מזהה לקוח (Client ID)</Label>
                 <div className="flex items-center gap-1.5">
-                    <code className="flex-1 truncate rounded-md border border-slate-200 bg-slate-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-slate-700">
+                    <code className="flex-1 truncate rounded-md border border-slate-200 bg-slate-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-slate-700" dir="ltr">
                         {app.client_id}
                     </code>
                     <CopyButton value={app.client_id} />
                 </div>
             </div>
             <div>
-                <Label>Client secret</Label>
+                <Label>סוד לקוח (Client Secret)</Label>
                 <div className="flex items-center gap-1.5">
-                    <code className="flex-1 truncate rounded-md border border-amber-200 bg-amber-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-amber-800">
+                    <code className="flex-1 truncate rounded-md border border-amber-200 bg-amber-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-amber-800" dir="ltr">
                         {app.client_secret}
                     </code>
                     <CopyButton value={app.client_secret ?? ""} />
@@ -681,7 +692,7 @@ function RevealStep({ app, onDone }: { app: OAuthApplicationWithSecret; onDone: 
             </div>
             <div className="pt-1">
                 <button onClick={onDone} className="h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700">
-                    Done
+                    סיום
                 </button>
             </div>
         </div>
@@ -701,7 +712,7 @@ function AppWebhookChip({ app }: { app: OAuthApplication }) {
             <WebhookIcon className="w-3 h-3" />
             {endpoints.isPending
                 ? hostOf(app.webhook_url)
-                : `${installs} ${installs === 1 ? "install" : "installs"}`}
+                : `${installs} ${installs === 1 ? "התקנה אחת" : "התקנות"}`}
         </span>
     );
 }
@@ -714,12 +725,12 @@ function AppRow({ app }: { app: OAuthApplication }) {
     const [editOpen, setEditOpen] = React.useState(false);
 
     const onRotate = () =>
-        confirm.show("Rotate this app's client secret? The current secret stops working immediately.", async () => {
+        confirm.show("לסבב את מפתח הלקוח הסודי של אפליקציה זו? המפתח הנוכחי יפסיק לעבוד מיידית.", async () => {
             const res = await rotate.mutateAsync(app.id);
             setSecret(res.client_secret);
         });
     const onDelete = () =>
-        confirm.show(`Delete "${app.name}"? Every token issued to it is revoked.`, async () => {
+        confirm.show(`האם למחוק את "${app.name}"? כל אסימון שהונפק לה יבוטל לצמיתות.`, async () => {
             await del.mutateAsync(app.id);
         });
 
@@ -733,31 +744,31 @@ function AppRow({ app }: { app: OAuthApplication }) {
                     <div className="text-[13px] font-semibold text-slate-800 truncate">{app.name}</div>
                     {app.description && <div className="text-[11.5px] text-slate-400 truncate">{app.description}</div>}
                     <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                        <code className="truncate rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-mono text-slate-600">
+                        <code className="truncate rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-mono text-slate-600" dir="ltr">
                             {app.client_id}
                         </code>
-                        <CopyButton value={app.client_id} label="ID" />
+                        <CopyButton value={app.client_id} label="מזהה" />
                         {app.webhook_url && <AppWebhookChip app={app} />}
                     </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                     <button
                         onClick={() => setEditOpen(true)}
-                        title="Edit app"
+                        title="ערוך אפליקציה"
                         className="h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                     >
                         <PencilIcon className="w-3.5 h-3.5" />
                     </button>
                     <button
                         onClick={onRotate}
-                        title="Rotate secret"
+                        title="סבב מפתח סודי"
                         className="h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                     >
                         <RefreshCwIcon className="w-3.5 h-3.5" />
                     </button>
                     <button
                         onClick={onDelete}
-                        title="Delete app"
+                        title="מחק אפליקציה"
                         className="h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                     >
                         <Trash2Icon className="w-3.5 h-3.5" />
@@ -765,23 +776,23 @@ function AppRow({ app }: { app: OAuthApplication }) {
                 </div>
             </div>
             <div className="mt-2">
-                <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400 mb-1">Redirect URIs</div>
+                <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400 mb-1">כתובות URI להפניה (Redirect URIs)</div>
                 <div className="flex flex-wrap gap-1">
                     {app.redirect_uris.map((u) => (
-                        <span key={u} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10.5px] font-mono text-slate-500">
+                        <span key={u} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10.5px] font-mono text-slate-500" dir="ltr">
                             {u}
                         </span>
                     ))}
                 </div>
             </div>
             <div className="mt-2">
-                <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400 mb-1">Webhook domains</div>
+                <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400 mb-1">דומיינים לוובהוק (Webhook domains)</div>
                 {webhookDomains.length === 0 ? (
-                    <span className="text-[10.5px] text-slate-400">No webhook domains. This app can't register webhooks.</span>
+                    <span className="text-[10.5px] text-slate-400">אין דומיינים לוובהוק. אפליקציה זו אינה יכולה לרשום וובהוקים.</span>
                 ) : (
                     <div className="flex flex-wrap gap-1">
                         {webhookDomains.map((d) => (
-                            <span key={d} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10.5px] font-mono text-slate-500">
+                            <span key={d} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10.5px] font-mono text-slate-500" dir="ltr">
                                 {d}
                             </span>
                         ))}
@@ -790,9 +801,9 @@ function AppRow({ app }: { app: OAuthApplication }) {
             </div>
             {secret && (
                 <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">
-                    <div className="text-[10.5px] uppercase tracking-[0.12em] text-amber-700 mb-1">New client secret (shown once)</div>
+                    <div className="text-[10.5px] uppercase tracking-[0.12em] text-amber-700 mb-1">סוד לקוח חדש (מוצג פעם אחת בלבד)</div>
                     <div className="flex items-center gap-1.5">
-                        <code className="flex-1 truncate text-[11.5px] font-mono text-amber-800">{secret}</code>
+                        <code className="flex-1 truncate text-[11.5px] font-mono text-amber-800" dir="ltr">{secret}</code>
                         <CopyButton value={secret} />
                     </div>
                 </div>
@@ -813,7 +824,7 @@ function AppWebhookSecretRow({ app }: { app: OAuthApplication }) {
     const [rotated, setRotated] = React.useState<string | null>(null);
 
     const onRotate = () =>
-        confirm.show("Rotate this app's webhook signing secret? The current secret stops working immediately.", async () => {
+        confirm.show("לסבב את מפתח החתימה של וובהוק לאפליקציה זו? המפתח הנוכחי יפסיק לעבוד מיידית.", async () => {
             const res = await rotate.mutateAsync(app.id);
             setRotated(res.webhook_secret);
             setReveal(true);
@@ -821,18 +832,18 @@ function AppWebhookSecretRow({ app }: { app: OAuthApplication }) {
 
     return (
         <div className="space-y-2.5">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Signing secret</div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">מפתח חתימה (Signing secret)</div>
             <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                Verify the HMAC signature on every delivery with this secret. Shared across all installs of this app.
+                אמת את חתימת ה-HMAC בכל מסירה באמצעות מפתח זה. משותף לכל ההתקנות של אפליקציה זו.
             </p>
             <div className="flex items-center gap-1.5">
                 {reveal && secret.data ? (
-                    <code className="flex-1 truncate rounded-md border border-slate-200 bg-slate-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-slate-700">
+                    <code className="flex-1 truncate rounded-md border border-slate-200 bg-slate-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-slate-700" dir="ltr">
                         {secret.data.webhook_secret}
                     </code>
                 ) : (
-                    <code className="flex-1 truncate rounded-md border border-slate-200 bg-slate-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-slate-400">
-                        {reveal && secret.isPending ? "Loading…" : "••••••••••••••••••••••••"}
+                    <code className="flex-1 truncate rounded-md border border-slate-200 bg-slate-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-slate-400" dir="ltr">
+                        {reveal && secret.isPending ? "טוען…" : "••••••••••••••••••••••••"}
                     </code>
                 )}
                 {reveal && secret.data ? (
@@ -843,7 +854,7 @@ function AppWebhookSecretRow({ app }: { app: OAuthApplication }) {
                         onClick={() => setReveal(true)}
                         className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 h-7 text-[11.5px] text-slate-600 hover:bg-slate-50"
                     >
-                        Reveal
+                        חשוף
                     </button>
                 )}
                 <button
@@ -853,14 +864,14 @@ function AppWebhookSecretRow({ app }: { app: OAuthApplication }) {
                     className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 h-7 text-[11.5px] text-slate-600 hover:bg-slate-50 disabled:opacity-60"
                 >
                     {rotate.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <RefreshCwIcon className="w-3.5 h-3.5" />}
-                    Rotate
+                    סבב מפתח
                 </button>
             </div>
             {rotated && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
-                    <div className="text-[10.5px] uppercase tracking-[0.12em] text-amber-700 mb-1">New signing secret (shown once)</div>
+                    <div className="text-[10.5px] uppercase tracking-[0.12em] text-amber-700 mb-1">מפתח חתימה חדש (מוצג פעם אחת בלבד)</div>
                     <div className="flex items-center gap-1.5">
-                        <code className="flex-1 truncate text-[11.5px] font-mono text-amber-800">{rotated}</code>
+                        <code className="flex-1 truncate text-[11.5px] font-mono text-amber-800" dir="ltr">{rotated}</code>
                         <CopyButton value={rotated} />
                     </div>
                 </div>
@@ -877,12 +888,12 @@ function AppWebhookInstalls({ app }: { app: OAuthApplication }) {
     return (
         <div className="space-y-2">
             <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                Installations{list.length > 0 ? ` (${list.length})` : ""}
+                התקנות{list.length > 0 ? ` (${list.length})` : ""}
             </div>
             {endpoints.isPending ? (
-                <div className="py-4 text-center text-[11.5px] text-slate-400">Loading installs…</div>
+                <div className="py-4 text-center text-[11.5px] text-slate-400">טוען התקנות…</div>
             ) : list.length === 0 ? (
-                <p className="text-[11.5px] text-slate-400">No orgs have installed this app's webhook yet.</p>
+                <p className="text-[11.5px] text-slate-400">אף ארגון עדיין לא התקין את ה-webhook של אפליקציה זו.</p>
             ) : (
                 <div className="rounded-md border border-slate-200 divide-y divide-slate-100">
                     {list.map((e) => (
@@ -900,28 +911,28 @@ function InstallRow({ endpoint }: { endpoint: WebhookEndpoint }) {
         <div className="flex items-center gap-2 px-2.5 py-2">
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                    <code className="text-[11.5px] font-mono text-slate-700 truncate">{endpoint.organization_id}</code>
+                    <code className="text-[11.5px] font-mono text-slate-700 truncate" dir="ltr">{endpoint.organization_id}</code>
                     {!endpoint.enabled ? (
                         <span className="inline-flex items-center rounded-sm bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] font-semibold text-slate-500">
-                            Disabled
+                            מושבת
                         </span>
                     ) : endpoint.verified_at ? (
                         <span className="inline-flex items-center rounded-sm bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] font-semibold text-emerald-700">
-                            Verified
+                            מאומת
                         </span>
                     ) : (
                         <span className="inline-flex items-center rounded-sm bg-amber-50 border border-amber-100 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] font-semibold text-amber-700">
-                            Pending
+                            ממתין
                         </span>
                     )}
                     {failing && (
                         <span className="inline-flex items-center rounded-sm bg-rose-50 border border-rose-100 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] font-semibold text-rose-700">
-                            {endpoint.consecutive_failures} failing
+                            {endpoint.consecutive_failures} נכשלו
                         </span>
                     )}
                 </div>
                 <div className="mt-0.5 text-[10.5px] text-slate-400">
-                    Last success {formatRelative(endpoint.last_success_at)}
+                    הצלחה אחרונה {formatRelative(endpoint.last_success_at)}
                 </div>
             </div>
         </div>
@@ -956,7 +967,7 @@ function AppWebhookDeliveries({ app, catalog }: { app: OAuthApplication; catalog
             setCursor(res.pagination.next_cursor);
             setHasMore(res.pagination.has_more);
         } catch (e) {
-            toast.error((e as { message?: string })?.message ?? "Could not load more deliveries");
+            toast.error((e as { message?: string })?.message ?? "לא ניתן לטעון עוד מסירות");
         } finally {
             setLoadingMore(false);
         }
@@ -966,16 +977,16 @@ function AppWebhookDeliveries({ app, catalog }: { app: OAuthApplication; catalog
 
     return (
         <div className="space-y-2.5">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Recent deliveries</div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">מסירות אחרונות</div>
             <div className="flex items-center gap-2 flex-wrap">
                 <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as WebhookDeliveryStatus | "")}
                     className="h-7 rounded-md border border-slate-200 bg-white px-2 text-[12px] text-slate-700 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 >
-                    <option value="">All statuses</option>
+                    <option value="">כל הסטטוסים</option>
                     {APP_DELIVERY_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s.replace("_", " ")}</option>
+                        <option key={s} value={s}>{DELIVERY_STATUS_LABELS[s] ?? s.replace("_", " ")}</option>
                     ))}
                 </select>
                 <select
@@ -983,7 +994,7 @@ function AppWebhookDeliveries({ app, catalog }: { app: OAuthApplication; catalog
                     onChange={(e) => setEventType(e.target.value)}
                     className="h-7 rounded-md border border-slate-200 bg-white px-2 text-[12px] text-slate-700 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 max-w-[180px]"
                 >
-                    <option value="">All events</option>
+                    <option value="">כל האירועים</option>
                     {catalog.map((d) => (
                         <option key={d.type} value={d.type}>{d.type}</option>
                     ))}
@@ -991,9 +1002,9 @@ function AppWebhookDeliveries({ app, catalog }: { app: OAuthApplication; catalog
             </div>
 
             {first.isPending ? (
-                <div className="py-8 text-center text-[12px] text-slate-400">Loading deliveries…</div>
+                <div className="py-8 text-center text-[12px] text-slate-400">טוען מסירות…</div>
             ) : rows.length === 0 ? (
-                <p className="text-[11.5px] text-slate-400 py-2">No deliveries yet. Once events fire, every attempt shows here.</p>
+                <p className="text-[11.5px] text-slate-400 py-2">אין עדיין מסירות. ברגע שאירועים יופעלו, כל ניסיון יוצג כאן.</p>
             ) : (
                 <div className="rounded-md border border-slate-200 divide-y divide-slate-100">
                     {rows.map((d) => (
@@ -1011,7 +1022,7 @@ function AppWebhookDeliveries({ app, catalog }: { app: OAuthApplication; catalog
                         className="h-8 px-3 rounded-md border border-slate-200 text-[12px] text-slate-600 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center gap-1.5"
                     >
                         {loadingMore && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
-                        Load more
+                        טען עוד
                     </button>
                 </div>
             )}
@@ -1036,10 +1047,10 @@ function AppDeliveryRow({ delivery }: { delivery: WebhookDelivery }) {
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-slate-50/80 transition-colors"
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-left rtl:text-right hover:bg-slate-50/80 transition-colors"
             >
-                <ChevronRightIcon className={cn("w-3.5 h-3.5 text-slate-300 shrink-0 transition-transform", open && "rotate-90")} />
-                <code className="text-[11.5px] font-mono text-slate-700 truncate flex-1 min-w-0">{delivery.event_type}</code>
+                <ChevronRightIcon className={cn("w-3.5 h-3.5 text-slate-300 shrink-0 transition-transform rtl:rotate-180", open && "rotate-90 rtl:rotate-90")} />
+                <code className="text-[11.5px] font-mono text-slate-700 truncate flex-1 min-w-0" dir="ltr">{delivery.event_type}</code>
                 <DeliveryStatusBadge status={delivery.status} />
                 {typeof delivery.response_status === "number" && (
                     <span
@@ -1047,11 +1058,12 @@ function AppDeliveryRow({ delivery }: { delivery: WebhookDelivery }) {
                             "text-[11px] font-mono tabular-nums",
                             delivery.response_status >= 200 && delivery.response_status < 300 ? "text-emerald-600" : "text-rose-600",
                         )}
+                        dir="ltr"
                     >
                         {delivery.response_status}
                     </span>
                 )}
-                <span className="text-[10.5px] text-slate-400 tabular-nums shrink-0">
+                <span className="text-[10.5px] text-slate-400 tabular-nums shrink-0" dir="ltr">
                     {delivery.attempt_count}/{delivery.max_attempts}
                 </span>
                 <span className="text-[10.5px] text-slate-400 shrink-0 hidden sm:inline">{formatRelative(delivery.created_at)}</span>
@@ -1068,25 +1080,25 @@ function AppDeliveryRow({ delivery }: { delivery: WebhookDelivery }) {
                         <div className="px-3 py-2.5 space-y-2.5">
                             {delivery.error_reason && (
                                 <div className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-700 leading-relaxed">
-                                    <span className="font-medium">Error:</span> {delivery.error_reason}
+                                    <span className="font-medium">שגיאה:</span> {delivery.error_reason}
                                 </div>
                             )}
                             {delivery.response_body_excerpt && (
                                 <div>
-                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1">Response body</div>
-                                    <pre className="rounded-md border border-slate-200 bg-white p-2 text-[10.5px] font-mono text-slate-600 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
+                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1">גוף התגובה (Response body)</div>
+                                    <pre className="rounded-md border border-slate-200 bg-white p-2 text-[10.5px] font-mono text-slate-600 whitespace-pre-wrap break-words max-h-32 overflow-y-auto" dir="ltr">
                                         {delivery.response_body_excerpt}
                                     </pre>
                                 </div>
                             )}
                             <div>
-                                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1">Payload</div>
-                                <pre className="rounded-md border border-slate-200 bg-white p-2 text-[10.5px] font-mono text-slate-600 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
+                                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1">מטען נתונים (Payload)</div>
+                                <pre className="rounded-md border border-slate-200 bg-white p-2 text-[10.5px] font-mono text-slate-600 whitespace-pre-wrap break-words max-h-64 overflow-y-auto" dir="ltr">
                                     {prettyPayload}
                                 </pre>
                             </div>
                             <span className="block text-[10.5px] text-slate-400">
-                                Last attempt {formatRelative(delivery.last_attempt_at ?? delivery.created_at)}
+                                ניסיון אחרון {formatRelative(delivery.last_attempt_at ?? delivery.created_at)}
                             </span>
                         </div>
                     </motion.div>
@@ -1120,19 +1132,19 @@ function EditModal({ app, onClose }: { app: OAuthApplication; onClose: () => voi
 
     const save = async () => {
         if (name.trim().length === 0) {
-            toast.error("Give the app a name");
+            toast.error("תן שם לאפליקציה");
             return;
         }
         if (redirectList.length === 0) {
-            toast.error("Add at least one redirect URI");
+            toast.error("הוסף לפחות כתובת URI אחת להפניה");
             return;
         }
         if (!webhookUrlValid) {
-            toast.error("The webhook URL must start with https://");
+            toast.error("כתובת ה-Webhook חייבת להתחיל ב-https://");
             return;
         }
         if (scopes === 0) {
-            toast.error("Select at least one scope");
+            toast.error("בחר לפחות הרשאה אחת");
             return;
         }
         try {
@@ -1150,10 +1162,10 @@ function EditModal({ app, onClose }: { app: OAuthApplication; onClose: () => voi
                     scopes,
                 },
             });
-            toast.success("App updated");
+            toast.success("האפליקציה עודכנה בהצלחה");
             onClose();
         } catch (e) {
-            toast.error((e as { message?: string })?.message ?? "Could not update the app");
+            toast.error((e as { message?: string })?.message ?? "לא ניתן לעדכן את האפליקציה");
         }
     };
 
@@ -1175,65 +1187,67 @@ function EditModal({ app, onClose }: { app: OAuthApplication; onClose: () => voi
                 transition={{ duration: 0.15, ease: "easeOut" }}
             >
                 <div className="flex items-center border-b border-slate-200 px-4 h-11 shrink-0">
-                    <span className="text-[12.5px] font-medium text-slate-900">Edit {app.name}</span>
-                    <button onClick={onClose} className="ml-auto h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">
+                    <span className="text-[12.5px] font-medium text-slate-900">ערוך את {app.name}</span>
+                    <button onClick={onClose} className="ms-auto h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">
                         <XIcon className="w-4 h-4" />
                     </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     <div>
-                        <Label>Name</Label>
-                        <TextInput value={name} onChange={setName} placeholder="Acme Integration" className="w-full" />
+                        <Label>שם האפליקציה</Label>
+                        <TextInput value={name} onChange={setName} placeholder="אינטגרציית Acme" className="w-full" />
                     </div>
                     <div>
-                        <Label>Description</Label>
-                        <TextInput value={description} onChange={setDescription} placeholder="What the app does" className="w-full" />
+                        <Label>תיאור</Label>
+                        <TextInput value={description} onChange={setDescription} placeholder="מה האפליקציה עושה" className="w-full" />
                     </div>
                     <div>
-                        <Label>Website</Label>
-                        <TextInput value={website} onChange={setWebsite} placeholder="https://acme.com" className="w-full" />
+                        <Label>אתר אינטרנט</Label>
+                        <TextInput value={website} onChange={setWebsite} placeholder="https://acme.com" className="w-full" dir="ltr" />
                     </div>
                     <div>
-                        <Label>Redirect URIs</Label>
+                        <Label>כתובות URI להפניה (Redirect URIs)</Label>
                         <textarea
                             value={redirects}
                             onChange={(e) => setRedirects(e.target.value)}
                             placeholder={"https://acme.com/oauth/callback"}
                             rows={3}
+                            dir="ltr"
                             className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[12px] font-mono text-slate-900 placeholder:text-slate-400 outline-none resize-y focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                         />
-                        <p className="mt-1 text-[11px] text-slate-400">One per line. Must be HTTPS (or a loopback URL), matched exactly.</p>
+                        <p className="mt-1 text-[11px] text-slate-400">אחת בכל שורה. חייב להיות HTTPS (או כתובת loopback מקומית), בהתאמה מדויקת.</p>
                     </div>
                     <div>
-                        <Label>Webhook domains</Label>
+                        <Label>דומיינים לוובהוק (Webhook domains)</Label>
                         <textarea
                             value={webhookDomains}
                             onChange={(e) => setWebhookDomains(e.target.value)}
                             placeholder={".acme.com\nhooks.partner.com"}
                             rows={3}
+                            dir="ltr"
                             className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[12px] font-mono text-slate-900 placeholder:text-slate-400 outline-none resize-y focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                         />
                         <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                            Webhooks this app registers must point at these domains. Use a leading dot for subdomains (.acme.com
-                            matches hooks.acme.com); a bare domain (acme.com) is an exact match. Leave empty to forbid this app from
-                            registering webhooks.
+                            וובהוקים שהאפליקציה רושמת חייבים להפנות לדומיינים אלה. השתמש בנקודה מובילה עבור תת-דומיינים (.acme.com
+                            תואם ל-hooks.acme.com); דומיין ללא נקודה (acme.com) הוא התאמה מדויקת. השאר ריק כדי למנוע מאפליקציה זו
+                            לרשום וובהוקים.
                         </p>
                     </div>
                     <div>
-                        <Label>Webhook URL</Label>
-                        <TextInput value={webhookUrl} onChange={setWebhookUrl} placeholder="https://hooks.acme.com/warmbly" className="w-full" />
+                        <Label>כתובת Webhook</Label>
+                        <TextInput value={webhookUrl} onChange={setWebhookUrl} placeholder="https://hooks.acme.com/warmbly" className="w-full" dir="ltr" />
                         <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                            Must be https and its host must fall within the allowed webhook domains above. Leave empty to disable webhooks.
+                            חייבת להיות https והמארח שלה חייב להיכלל בדומיינים המורשים לעיל. השאר ריק כדי להשבית וובהוקים.
                         </p>
                         {!webhookUrlValid && (
-                            <p className="mt-1 text-[11px] text-rose-600">The webhook URL must start with https://</p>
+                            <p className="mt-1 text-[11px] text-rose-600">כתובת ה-Webhook חייבת להתחיל ב-https://</p>
                         )}
                     </div>
                     {webhookUrl.trim() !== "" && (
                         <div>
-                            <Label>Events</Label>
+                            <Label>אירועים</Label>
                             {catalog.isPending ? (
-                                <div className="py-6 text-center text-[11.5px] text-slate-400">Loading events…</div>
+                                <div className="py-6 text-center text-[11.5px] text-slate-400">טוען אירועים…</div>
                             ) : (
                                 <EventPicker
                                     catalog={catalog.data?.event_types ?? []}
@@ -1244,7 +1258,7 @@ function EditModal({ app, onClose }: { app: OAuthApplication; onClose: () => voi
                         </div>
                     )}
                     <div>
-                        <Label>Scopes</Label>
+                        <Label>הרשאות (Scopes)</Label>
                         <ScopePicker value={scopes} onChange={setScopes} />
                     </div>
 
@@ -1258,15 +1272,15 @@ function EditModal({ app, onClose }: { app: OAuthApplication; onClose: () => voi
                 </div>
                 <div className="px-4 py-2.5 border-t border-slate-200 flex items-center gap-2 shrink-0">
                     <button onClick={onClose} className="h-8 px-3 rounded-md border border-slate-200 text-[12.5px] text-slate-600 hover:bg-slate-50">
-                        Cancel
+                        ביטול
                     </button>
                     <button
                         onClick={save}
                         disabled={update.isPending}
-                        className="ml-auto h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700 disabled:opacity-60 inline-flex items-center gap-1.5"
+                        className="ms-auto h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700 disabled:opacity-60 inline-flex items-center gap-1.5"
                     >
                         {update.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
-                        Save changes
+                        שמור שינויים
                     </button>
                 </div>
             </motion.div>
@@ -1282,7 +1296,7 @@ function AuthorizedTab() {
     const apps = authorized.data?.authorized_apps ?? [];
 
     if (apps.length === 0) {
-        return <EmptyBlock title="No authorized apps" body="Apps your workspace connects to via OAuth will appear here." />;
+        return <EmptyBlock title="אין אפליקציות מורשות" body="אפליקציות שסביבת העבודה שלך מתחברת אליהן דרך OAuth יופיעו כאן." />;
     }
     return (
         <div className="space-y-2">
@@ -1292,18 +1306,18 @@ function AuthorizedTab() {
                     <div className="min-w-0 flex-1">
                         <div className="text-[13px] font-semibold text-slate-800 truncate">{a.name}</div>
                         <div className="text-[11.5px] text-slate-400">
-                            Authorized {new Date(a.authorized_at).toLocaleDateString()}
+                            הורשתה ב-{new Date(a.authorized_at).toLocaleDateString("he-IL")}
                         </div>
                     </div>
                     <button
                         onClick={() =>
-                            confirm.show(`Revoke "${a.name}"? Its tokens stop working immediately.`, async () => {
+                            confirm.show(`לבטל את ההרשאה עבור "${a.name}"? האסימונים שלה יפסיקו לעבוד מיידית.`, async () => {
                                 await revoke.mutateAsync(a.application_id);
                             })
                         }
                         className="h-7 px-2.5 rounded-md border border-slate-200 text-[12px] text-slate-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
                     >
-                        Revoke
+                        בטל הרשאה
                     </button>
                 </div>
             ))}
@@ -1317,21 +1331,21 @@ export default function OAuthAppsPage() {
     const [tab, setTab] = React.useState<"apps" | "authorized">("apps");
     const [createOpen, setCreateOpen] = React.useState(false);
 
-    if (!canManage) return <NoAccess feature="OAuth apps" permissionLabel="Manage API keys" />;
+    if (!canManage) return <NoAccess feature="אפליקציות OAuth" permissionLabel="ניהול מפתחות API" />;
 
     const list = apps.data?.applications ?? [];
 
     return (
         <SectionShell
-            title="OAuth apps"
-            description="Apps that connect to Warmbly on a user's behalf via OAuth2."
+            title="אפליקציות OAuth"
+            description="אפליקציות המתחברות ל-Warmbly בשם המשתמש באמצעות OAuth2."
             actions={
                 tab === "apps" ? (
                     <button
                         onClick={() => setCreateOpen(true)}
                         className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5"
                     >
-                        <PlusIcon className="w-3.5 h-3.5" /> Register app
+                        <PlusIcon className="w-3.5 h-3.5" /> רשום אפליקציה
                     </button>
                 ) : null
             }
@@ -1340,8 +1354,8 @@ export default function OAuthAppsPage() {
                 <div className="mb-3 flex items-center gap-1 border-b border-slate-200">
                     {(
                         [
-                            ["apps", "Your apps"],
-                            ["authorized", "Authorized apps"],
+                            ["apps", "האפליקציות שלך"],
+                            ["authorized", "אפליקציות מורשות"],
                         ] as const
                     ).map(([k, label]) => (
                         <button
@@ -1372,8 +1386,8 @@ export default function OAuthAppsPage() {
                         {tab === "apps" ? (
                             list.length === 0 ? (
                                 <EmptyBlock
-                                    title="No OAuth apps yet"
-                                    body="Register an app to let it request scoped access to Warmbly accounts via OAuth2."
+                                    title="אין עדיין אפליקציות OAuth"
+                                    body="רשום אפליקציה כדי לאפשר לה לבקש גישה מוגבלת לחשבונות Warmbly באמצעות OAuth2."
                                 />
                             ) : (
                                 <div className="space-y-2">

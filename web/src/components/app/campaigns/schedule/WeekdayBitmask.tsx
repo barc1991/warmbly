@@ -31,7 +31,7 @@ export default function WeekdayBitmask({
                                 : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
                         }`}
                     >
-                        <span className="text-[11px] font-medium">{day.slice(0, 3)}</span>
+                        <span className="text-[11px] font-medium">{day.length <= 5 ? day : day.slice(0, 3)}</span>
                         <span
                             className={`mt-1 size-1.5 rounded-full ${
                                 active ? "bg-sky-500" : "bg-slate-300"

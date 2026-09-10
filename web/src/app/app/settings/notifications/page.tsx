@@ -18,38 +18,38 @@ import { useAutosave } from "@/hooks/useAutosave";
 import { useRegisterUnsaved } from "@/hooks/context/unsaved";
 
 const INBOUND: { key: NotificationCategoryKey; label: string; hint: string }[] = [
-    { key: "inbound_reply", label: "Reply received", hint: "A recipient replied to a cold email." },
-    { key: "inbound_out_of_office", label: "Out-of-office detected", hint: "An auto-responder hit one of your sends." },
+    { key: "inbound_reply", label: "התקבלה תגובה", hint: "נמען הגיב לאימייל קר." },
+    { key: "inbound_out_of_office", label: "זוהה מענה אוטומטי (מחוץ למשרד)", hint: "תשובה אוטומטית התקבלה עבור אחת השליחות שלך." },
 ];
 
 const HEALTH: { key: NotificationCategoryKey; label: string; hint: string }[] = [
-    { key: "health_bounce", label: "Bounce detected", hint: "A campaign starts bouncing — notifies the campaign owner." },
-    { key: "health_complaint", label: "Spam complaint", hint: "Any complaint event on one of your campaigns." },
-    { key: "health_worker_downtime", label: "Worker downtime", hint: "A sender worker stops responding." },
-    { key: "health_domain_auth", label: "Domain authentication failing", hint: "A sending domain lost its SPF or DMARC record. Cold sending and warmup stop from it if it is not fixed." },
-    { key: "campaign_paused", label: "Campaign auto-paused", hint: "A guardrail stopped a campaign because its bounce, complaint, or reply rate left the band." },
+    { key: "health_bounce", label: "זוהתה שגיאת מסירה (Bounce)", hint: "קמפיין מתחיל להחזיר שגיאות מסירה — שולח התראה לבעל הקמפיין." },
+    { key: "health_complaint", label: "תלונת ספאם", hint: "אירוע תלונה כלשהו באחד הקמפיינים שלך." },
+    { key: "health_worker_downtime", label: "השבתת וורקר (Worker)", hint: "וורקר שולח מפסיק להגיב." },
+    { key: "health_domain_auth", label: "כשל באימות דומיין", hint: "דומיין שולח איבד את רשומת ה-SPF או ה-DMARC שלו. שליחה קרה וחימום ייעצרו ממנו אם לא יתוקן." },
+    { key: "campaign_paused", label: "קמפיין הושהה אוטומטית", hint: "מנגנון הגנה עצר קמפיין מכיוון ששיעור ה-Bounce, התלונות או התגובות חרג מהטווח המותר." },
 ];
 
 const SECURITY: { key: NotificationCategoryKey; label: string; hint: string }[] = [
-    { key: "security_new_signin", label: "New sign-in", hint: "Your account was accessed from a device you haven't used before." },
+    { key: "security_new_signin", label: "התחברות חדשה", hint: "התבצעה גישה לחשבונך ממכשיר שלא השתמשת בו בעבר." },
 ];
 
 const BILLING: { key: NotificationCategoryKey; label: string; hint: string }[] = [
-    { key: "billing_alert", label: "Trial and billing alerts", hint: "Your trial is about to expire or your workspace was paused. Goes to members who manage billing." },
+    { key: "billing_alert", label: "התראות תקופת ניסיון וחיוב", hint: "תקופת הניסיון שלך עומדת לפוג או שסביבת העבודה הושהתה. נשלח לחברים המנהלים חיוב." },
 ];
 
 const TEAM: { key: NotificationCategoryKey; label: string; hint: string }[] = [
-    { key: "team_activity", label: "Teammate joined your workspace", hint: "A new member accepted an invite. Goes to members who manage the team." },
+    { key: "team_activity", label: "חבר צוות הצטרף לסביבת העבודה", hint: "חבר חדש קיבל הזמנה. נשלח למנהלי הצוות." },
 ];
 
 // Window presets in minutes; "custom" reveals a minutes input. There is no
 // per-event option on purpose — 30 minutes is the floor.
 const WINDOW_PRESETS: { value: string; label: React.ReactNode; hint: string }[] = [
-    { value: "30", label: "Every 30 minutes", hint: "The fastest option. Bundles anything you have not already read." },
-    { value: "60", label: "Every hour", hint: "At most one bundled email per hour." },
-    { value: "180", label: "Every 3 hours", hint: "A few bundles across a working day." },
-    { value: "1440", label: "Once a day", hint: "One daily summary of everything unread." },
-    { value: "custom", label: "Custom", hint: "Pick your own window, from 30 minutes up to a day." },
+    { value: "30", label: "כל 30 דקות", hint: "האפשרות המהירה ביותר. מרכזת את כל מה שטרם קראת." },
+    { value: "60", label: "כל שעה", hint: "לכל היותר אימייל מרוכז אחד בשעה." },
+    { value: "180", label: "כל 3 שעות", hint: "מספר הודעות מרוכזות לאורך יום העבודה." },
+    { value: "1440", label: "פעם ביום", hint: "סיכום יומי מרוכז של כל ההתראות שלא נקראו." },
+    { value: "custom", label: "מותאם אישית", hint: "בחר חלון זמן משלך, החל מ-30 דקות ועד יממה." },
 ];
 
 export default function NotificationsSettingsPage() {
@@ -137,52 +137,52 @@ export default function NotificationsSettingsPage() {
 
     return (
         <SectionShell
-            title="Notifications"
-            description="Which events notify you, and where they are delivered. Defaults reflect the recommendation."
+            title="התראות"
+            description="אילו אירועים יתריעו בפניך והיכן יימסרו. ברירות המחדל משקפות את ההמלצה."
             actions={<SaveStatus status={autosave.status} onRetry={autosave.retry} />}
         >
             {isLoading || !draft ? (
-                <div className="px-5 py-10 text-[12.5px] text-slate-400">Loading…</div>
+                <div className="px-5 py-10 text-[12.5px] text-slate-400">טוען…</div>
             ) : (
                 <>
                     <Section
-                        eyebrow="Inbound activity"
-                        description="Get notified about replies on a campaign you're running. Off by default to keep high-volume sends quiet."
+                        eyebrow="פעילות נכנסת"
+                        description="קבל התראות על תגובות בקמפיין שאתה מפעיל. כבוי כברירת מחדל לשמירה על שקט בשליחות בנפח גבוה."
                     >
                         {rows(INBOUND)}
                     </Section>
-                    <Section eyebrow="Health" description="Deliverability + infrastructure alerts. Recommended on.">
+                    <Section eyebrow="תקינות ומסירות" description="התראות עבירות דואר ותשתיות. מומלץ להשאיר מופעל.">
                         {rows(HEALTH)}
                     </Section>
-                    <Section eyebrow="Security" description="Account access alerts.">
+                    <Section eyebrow="אבטחה" description="התראות גישה לחשבון.">
                         {rows(SECURITY)}
                     </Section>
-                    <Section eyebrow="Billing" description="Trial and billing alerts.">
+                    <Section eyebrow="חיוב ומנוי" description="התראות תקופת ניסיון ותשלומים.">
                         {rows(BILLING)}
                     </Section>
-                    <Section eyebrow="Team" description="Activity from your teammates.">
+                    <Section eyebrow="צוות" description="פעילות מחברי הצוות שלך.">
                         {rows(TEAM)}
                     </Section>
-                    <Section eyebrow="Channels" description="Where enabled notifications are delivered. Applies across every category above.">
-                        <Row label="In-app" description="The bell in the dashboard chrome (controlled per category above).">
-                            <span className="text-[11px] font-medium text-emerald-600">On</span>
+                    <Section eyebrow="ערוצי מסירה" description="היכן נמסרות התראות שמופעלות. חל על כל הקטגוריות שלעיל.">
+                        <Row label="בתוך המערכת" description="הפעמון בסרגל העליון (נשלט לפי קטגוריה למעלה).">
+                            <span className="text-[11px] font-medium text-emerald-600">מופעל</span>
                         </Row>
                         <Row
-                            label="Mobile push"
-                            description="Alerts on devices signed in with the Warmbly iOS app. The first event pushes right away; bursts arrive as one summary instead of a ping per event."
+                            label="התראת Push בנייד"
+                            description="התראות במכשירים המחוברים לאפליקציית Warmbly. האירוע הראשון נשלח מיידית; רצפים מגיעים כסיכום אחד במקום צפצוף לכל אירוע."
                         >
                             <Toggle on={channelOn("push")} onChange={(v) => setChannel("push", v)} />
                         </Row>
-                        <Row label="Email" description="Delivery to your account email.">
+                        <Row label="אימייל" description="מסירה לכתובת האימייל של חשבונך.">
                             <Toggle on={channelOn("email")} onChange={(v) => setChannel("email", v)} />
                         </Row>
-                        <Row label="Slack" description="Posts to your connected Slack, on the channel set up for Slack in the Integrations tab. Connect Slack and configure a channel there first.">
+                        <Row label="Slack" description="שליחה ל-Slack המחובר, בערוץ שהוגדר בלשונית אינטגרציות. חבר תחילה את Slack והגדר ערוץ שם.">
                             <Toggle on={channelOn("slack")} onChange={(v) => setChannel("slack", v)} />
                         </Row>
                     </Section>
-                    <Section eyebrow="Email delivery" description="How often the email channel sends. Everything unread bundles into one email per window, so a busy day costs a few emails instead of one per alert.">
+                    <Section eyebrow="תדירות מסירת אימייל" description="באיזו תדירות נשלחות הודעות באימייל. כל ההתראות שלא נקראו מתקבצות לאימייל אחד לחלון זמן, כך שיום עמוס מייצר אימיילים בודדים במקום אימייל לכל התראה.">
                         <OptionSelect
-                            aria-label="Email bundling window"
+                            aria-label="חלון קיבוץ אימייל"
                             cols={2}
                             value={windowSelection}
                             onChange={pickWindow}
@@ -190,20 +190,20 @@ export default function NotificationsSettingsPage() {
                         />
                         {windowSelection === "custom" && (
                             <div className="flex items-center gap-2">
-                                <span className="text-[12px] text-slate-500">Bundle every</span>
+                                <span className="text-[12px] text-slate-500">קבץ כל</span>
                                 <NumberInput
                                     value={minutes}
                                     onChange={setMinutes}
                                     min={EMAIL_WINDOW_MIN_MINUTES}
                                     max={EMAIL_WINDOW_MAX_MINUTES}
                                     step={15}
-                                    suffix="minutes"
+                                    suffix="דקות"
                                     className="w-36"
                                 />
                             </div>
                         )}
                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                            Alerts you read in the app are never emailed. Security sign-in alerts always send immediately, and alerts that concern several teammates arrive as one shared email.
+                            התראות שקראת במערכת לא יישלחו שוב באימייל. התראות אבטחה על התחברות תמיד נשלחות מיידית, והתראות הנוגעות למספר חברי צוות מגיעות כאימייל משותף אחד.
                         </p>
                     </Section>
                 </>

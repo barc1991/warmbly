@@ -32,14 +32,14 @@ export default function DataSettingsPage() {
     if (!access.isOwner) {
         return (
             <SectionShell
-                title="Data"
-                description="Move this workspace to or from another Warmbly instance."
+                title="נתונים"
+                description="העבר את סביבת העבודה הזו אל או משרת Warmbly אחר."
             >
-                <Section eyebrow="Restricted">
+                <Section eyebrow="גישה מוגבלת">
                     <p className="text-[12.5px] text-slate-500 leading-relaxed">
-                        Only the workspace owner can export or import workspace data. An
-                        export contains every contact, message and mailbox credential in
-                        the workspace, so it is held to the same bar as deleting it.
+                        רק בעל סביבת העבודה רשאי לייצא או לייבא נתוני סביבת עבודה. קובץ
+                        ייצוא מכיל כל איש קשר, הודעה ופרטי התחברות לתיבות דואר
+                        בסביבת העבודה, ולכן חל עליו אותו רף אבטחה מחמיר כמו מחיקתה.
                     </p>
                 </Section>
             </SectionShell>
@@ -48,16 +48,16 @@ export default function DataSettingsPage() {
 
     return (
         <SectionShell
-            title="Data"
-            description="Move this workspace to or from another Warmbly instance."
+            title="נתונים"
+            description="העבר את סביבת העבודה הזו אל או משרת Warmbly אחר."
         >
             <Section
-                eyebrow="Export"
-                description="Write the whole workspace to a single archive file you can import on another instance."
+                eyebrow="ייצוא"
+                description="כתוב את כל סביבת העבודה לקובץ ארכיון יחיד שתוכל לייבא במופע (Instance) אחר."
                 actions={
                     <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
                         <DownloadIcon className="w-3 h-3" />
-                        {groups.data ? `Kept for ${groups.data.retention_days} days` : ""}
+                        {groups.data ? `נשמר למשך ${groups.data.retention_days} ימים` : ""}
                     </span>
                 }
             >
@@ -65,13 +65,13 @@ export default function DataSettingsPage() {
                     groups={groups.data?.groups ?? []}
                     minPassphrase={groups.data?.min_passphrase ?? 12}
                     loading={groups.isLoading}
-                    onStarted={() => toast.success("Export started. It keeps running if you leave this page.")}
+                    onStarted={() => toast.success("הייצוא החל. הוא ימשיך לרוץ גם אם תעזוב עמוד זה.")}
                 />
             </Section>
 
             <Section
-                eyebrow="Archives"
-                description="Exports from this workspace. Each one is a full copy, so they expire."
+                eyebrow="ארכיונים"
+                description="קבצי ייצוא מסביבת עבודה זו. כל אחד מהם הוא עותק מלא, ולכן יש להם תוקף מוגבל."
             >
                 <TransferHistory
                     exports={exports.data ?? []}
@@ -81,18 +81,18 @@ export default function DataSettingsPage() {
             </Section>
 
             <Section
-                eyebrow="Import"
-                description="Apply an archive exported from another instance to this workspace."
+                eyebrow="ייבוא"
+                description="החל קובץ ארכיון שיוצא ממופע אחר על סביבת עבודה זו."
                 actions={
                     <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
                         <UploadIcon className="w-3 h-3" />
-                        Nothing is written until you confirm
+                        שום דבר לא ייכתב עד שתאשר
                     </span>
                 }
             >
                 <ImportPanel
                     groups={groups.data?.groups ?? []}
-                    onStarted={() => toast.success("Import started. It keeps running if you leave this page.")}
+                    onStarted={() => toast.success("הייבוא החל. הוא ימשיך לרוץ גם אם תעזוב עמוד זה.")}
                 />
             </Section>
         </SectionShell>

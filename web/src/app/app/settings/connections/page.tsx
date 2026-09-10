@@ -39,8 +39,8 @@ export default function ConnectionsSettingsPage() {
 
     return (
         <SectionShell
-            title="Connections"
-            description="Connect external MCP servers to give the AI assistant extra tools. Warmbly discovers each server's tools; you review and enable them. The assistant always asks before running an external tool."
+            title="חיבורים"
+            description="חבר שרתי MCP חיצוניים כדי להעניק לעוזר ה-AI כלים נוספים. Warmbly מגלה את הכלים של כל שרת; אתה סוקר ומפעיל אותם. העוזר תמיד מבקש אישור לפני הפעלת כלי חיצוני."
             actions={
                 canManage ? (
                     <button
@@ -49,17 +49,17 @@ export default function ConnectionsSettingsPage() {
                         className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                     >
                         <PlusIcon className="w-3 h-3" />
-                        Add server
+                        הוסף שרת
                     </button>
                 ) : undefined
             }
         >
-            <Section eyebrow="MCP servers" description="Only enabled servers' tools are available to the AI.">
+            <Section eyebrow="שרתי MCP" description="רק כלים של שרתים מופעלים זמינים עבור ה-AI.">
                 {servers.isPending ? (
                     <div className="h-16 rounded bg-slate-100 animate-pulse" />
                 ) : rows.length === 0 ? (
                     <p className="text-[12px] text-slate-500 leading-relaxed">
-                        No connections yet. Add an MCP server to extend what the assistant can do.
+                        אין עדיין חיבורים. הוסף שרת MCP כדי להרחיב את מה שהעוזר יכול לבצע.
                     </p>
                 ) : (
                     <div className="space-y-3">
@@ -89,16 +89,16 @@ function ServerCard({ server, canManage }: { server: MCPServer; canManage: boole
         }
     }
     function remove() {
-        confirm.show(`Disconnect "${server.name}"? Its tools will be removed from the assistant.`, async () => {
+        confirm.show(`לנתק את "${server.name}"? הכלים שלו יוסרו מעוזר ה-AI.`, async () => {
             await del.mutateAsync(server.id);
-            toast.success("Disconnected");
+            toast.success("נותק בהצלחה");
         });
     }
     async function reDiscover() {
         try {
             await toast.promise(refresh.mutateAsync(server.id), {
-                loading: "Refreshing tools…",
-                success: "Tools refreshed",
+                loading: "מרענן כלים…",
+                success: "הכלים רועננו בהצלחה",
                 error: (e: AppError) => buildError(e),
             });
         } catch {
@@ -114,15 +114,15 @@ function ServerCard({ server, canManage }: { server: MCPServer; canManage: boole
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="text-[12.5px] font-medium text-slate-900">{server.name}</div>
-                    <div className="text-[11px] text-slate-400 font-mono truncate">{server.url}</div>
+                    <div className="text-[11px] text-slate-400 font-mono truncate" dir="ltr">{server.url}</div>
                 </div>
                 {canManage && (
                     <div className="flex items-center gap-2 shrink-0">
                         <Toggle on={server.enabled} onChange={toggle} disabled={update.isPending || server.discovered_tools.length === 0} />
-                        <button type="button" onClick={reDiscover} title="Refresh tools" className="size-6 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center transition-colors">
+                        <button type="button" onClick={reDiscover} title="רענן כלים" className="size-6 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center transition-colors">
                             {refresh.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <RefreshCwIcon className="w-3 h-3" />}
                         </button>
-                        <button type="button" onClick={remove} title="Disconnect" className="size-6 rounded-md text-slate-400 hover:text-white hover:bg-red-600 inline-flex items-center justify-center transition-colors">
+                        <button type="button" onClick={remove} title="התנתק" className="size-6 rounded-md text-slate-400 hover:text-white hover:bg-red-600 inline-flex items-center justify-center transition-colors">
                             <Trash2Icon className="w-3 h-3" />
                         </button>
                     </div>
@@ -132,16 +132,16 @@ function ServerCard({ server, canManage }: { server: MCPServer; canManage: boole
             {server.last_error ? (
                 <div className="mt-2 flex items-start gap-1.5 rounded-md bg-red-50 border border-red-100 px-2 py-1.5 text-[11px] text-red-700">
                     <AlertTriangleIcon className="w-3 h-3 mt-0.5 shrink-0" />
-                    <span className="min-w-0 break-words">Could not reach the server: {server.last_error}</span>
+                    <span className="min-w-0 break-words">לא ניתן היה להגיע לשרת: {server.last_error}</span>
                 </div>
             ) : server.discovered_tools.length > 0 ? (
                 <div className="mt-2">
                     <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400 mb-1">
-                        {server.discovered_tools.length} tool{server.discovered_tools.length === 1 ? "" : "s"}
+                        {server.discovered_tools.length} {server.discovered_tools.length === 1 ? "כלי" : "כלים"}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                         {server.discovered_tools.map((t) => (
-                            <span key={t.name} title={t.description} className="inline-flex items-center gap-1 text-[10.5px] text-slate-600 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">
+                            <span key={t.name} title={t.description} className="inline-flex items-center gap-1 text-[10.5px] text-slate-600 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5" dir="ltr">
                                 <WrenchIcon className="w-2.5 h-2.5 text-slate-400" />
                                 {t.name}
                             </span>
@@ -149,7 +149,7 @@ function ServerCard({ server, canManage }: { server: MCPServer; canManage: boole
                     </div>
                 </div>
             ) : (
-                <p className="mt-2 text-[11px] text-slate-400">No tools discovered yet.</p>
+                <p className="mt-2 text-[11px] text-slate-400">טרם התגלו כלים.</p>
             )}
         </div>
     );
@@ -173,12 +173,12 @@ function AddServerDrawer({ open, onClose }: { open: boolean; onClose: () => void
 
     async function submit() {
         if (!name.trim() || !url.trim()) {
-            toast.error("Name and URL are required");
+            toast.error("שם וכתובת URL הם שדות חובה");
             return;
         }
         try {
             await create.mutateAsync({ name, url, auth_type: auth, token: auth === "bearer" ? token : undefined });
-            toast.success("Server connected. Review its tools, then enable it.");
+            toast.success("השרת חובר. סקור את הכלים שלו ולאחר מכן הפעל אותו.");
             onClose();
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -198,19 +198,19 @@ function AddServerDrawer({ open, onClose }: { open: boolean; onClose: () => void
                         className="fixed right-0 top-0 z-50 h-full w-full sm:w-[460px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col"
                     >
                         <div className="shrink-0 px-5 h-14 flex items-center gap-3 border-b border-slate-200">
-                            <div className="text-[13px] font-semibold text-slate-900 flex-1">Connect MCP server</div>
+                            <div className="text-[13px] font-semibold text-slate-900 flex-1">חיבור שרת MCP</div>
                             <button onClick={onClose} className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors">
                                 <XIcon className="w-4 h-4" />
                             </button>
                         </div>
                         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
-                            <Field label="Name">
-                                <TextInput value={name} onChange={setName} placeholder="Company docs" className="w-full" />
+                            <Field label="שם">
+                                <TextInput value={name} onChange={setName} placeholder="תיעוד החברה" className="w-full" />
                             </Field>
-                            <Field label="Server URL" hint="Must be an https URL to a streamable-HTTP MCP endpoint.">
-                                <TextInput value={url} onChange={setUrl} placeholder="https://mcp.example.com/mcp" className="w-full font-mono" />
+                            <Field label="כתובת URL של השרת" hint="חייבת להיות כתובת https לנקודת קצה של MCP ב-streamable-HTTP.">
+                                <TextInput value={url} onChange={setUrl} placeholder="https://mcp.example.com/mcp" className="w-full font-mono" dir="ltr" />
                             </Field>
-                            <Field label="Authentication">
+                            <Field label="אימות">
                                 <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-[12px]">
                                     {(["none", "bearer"] as const).map((a) => (
                                         <button
@@ -219,14 +219,14 @@ function AddServerDrawer({ open, onClose }: { open: boolean; onClose: () => void
                                             onClick={() => setAuth(a)}
                                             className={`h-6 px-3 rounded font-medium transition-colors ${auth === a ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
                                         >
-                                            {a === "none" ? "None" : "Bearer token"}
+                                            {a === "none" ? "ללא" : "אסימון Bearer"}
                                         </button>
                                     ))}
                                 </div>
                             </Field>
                             {auth === "bearer" && (
-                                <Field label="Token" hint="Stored encrypted. Never shown again.">
-                                    <TextInput value={token} onChange={setToken} placeholder="secret token" type="password" className="w-full font-mono" />
+                                <Field label="אסימון (Token)" hint="נשמר בצורה מוצפנת. לעולם לא יוצג שוב.">
+                                    <TextInput value={token} onChange={setToken} placeholder="אסימון סודי" type="password" className="w-full font-mono" dir="ltr" />
                                 </Field>
                             )}
                         </div>
@@ -238,7 +238,7 @@ function AddServerDrawer({ open, onClose }: { open: boolean; onClose: () => void
                                 className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                             >
                                 {create.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <PlugIcon className="w-3 h-3" />}
-                                Connect
+                                התחבר
                             </button>
                         </div>
                     </motion.aside>

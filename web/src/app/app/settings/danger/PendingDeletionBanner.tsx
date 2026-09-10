@@ -20,18 +20,18 @@ interface Props {
 
 function formatRemaining(executeAfter: Date): string {
     const ms = executeAfter.getTime() - Date.now();
-    if (ms <= 0) return "any moment now";
+    if (ms <= 0) return "בכל רגע";
     const totalMinutes = Math.floor(ms / 60_000);
     const days = Math.floor(totalMinutes / (60 * 24));
     const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
     const minutes = totalMinutes % 60;
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+    if (days > 0) return `${days} ימ' ${hours} שע'`;
+    if (hours > 0) return `${hours} שע' ${minutes} דק'`;
+    return `${minutes} דק'`;
 }
 
 function formatAbsolute(d: Date): string {
-    return d.toLocaleString(undefined, {
+    return d.toLocaleString("he-IL", {
         weekday: "short",
         day: "numeric",
         month: "short",
@@ -45,7 +45,7 @@ export default function PendingDeletionBanner({
     title,
     deletion,
     onCancel,
-    cancelLabel = "Cancel deletion",
+    cancelLabel = "בטל מחיקה",
 }: Props) {
     const [loading, setLoading] = React.useState(false);
     // Re-render every minute so the "time remaining" stays honest on
@@ -63,7 +63,7 @@ export default function PendingDeletionBanner({
         try {
             setLoading(true);
             await onCancel();
-            toast.success("Deletion cancelled");
+            toast.success("המחיקה בוטלה בהצלחה");
         } catch (err) {
             toast.error(buildError(err as AppError));
         } finally {
@@ -82,33 +82,33 @@ export default function PendingDeletionBanner({
                         {title}
                     </div>
                     <div className="text-[11.5px] text-red-700/80 leading-tight mt-0.5">
-                        Scheduled by you on{" "}
-                        {new Date(deletion.scheduled_at).toLocaleDateString()}.
-                        {deletion.reason ? ` Reason: "${deletion.reason}".` : ""}
+                        תוזמן על ידך ב-{" "}
+                        {new Date(deletion.scheduled_at).toLocaleDateString("he-IL")}.
+                        {deletion.reason ? ` סיבה: "${deletion.reason}".` : ""}
                     </div>
                 </div>
             </div>
 
             <div className="px-3.5 py-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <DetailCell
-                    label="Permanent delete on"
+                    label="מחיקה לצמיתות ב-"
                     value={formatAbsolute(executeAfter)}
                 />
                 <DetailCell
-                    label="Time remaining"
+                    label="זמן שנותר"
                     value={formatRemaining(executeAfter)}
                 />
             </div>
 
             <div className="px-3 min-h-11 py-2 sm:py-0 sm:h-11 border-t border-red-200/70 bg-red-100/30 flex items-center flex-wrap sm:flex-nowrap gap-1.5">
                 <span className="text-[11.5px] text-red-700/80">
-                    Cancel any time before then to keep everything intact.
+                    ניתן לבטל בכל עת לפני כן כדי לשמור על הנתונים.
                 </span>
                 <button
                     type="button"
                     onClick={handleCancel}
                     disabled={loading}
-                    className="ml-auto h-7 px-2.5 rounded-md bg-white border border-red-300 hover:border-red-400 text-red-700 hover:text-red-800 hover:bg-red-50 text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                    className="ms-auto h-7 px-2.5 rounded-md bg-white border border-red-300 hover:border-red-400 text-red-700 hover:text-red-800 hover:bg-red-50 text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                 >
                     {loading ? (
                         <Loader2Icon className="w-3 h-3 animate-spin" />

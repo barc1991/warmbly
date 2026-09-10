@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 import { ArrowLeft, Pencil, LockIcon, Loader2Icon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { usePasswordStrength } from "@/hooks/usePasswordStrength";
 
 import Turnstile, { type BoundTurnstileObject } from "react-turnstile";

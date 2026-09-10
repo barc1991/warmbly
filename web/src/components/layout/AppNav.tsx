@@ -710,7 +710,7 @@ function LivePanel() {
                             {scrub.sent.toLocaleString()}
                         </span>
                         <span className="text-[10.5px] text-slate-500">
-                            sent {formatTrendDay(scrub.date)}
+                            נשלחו ב-{formatTrendDay(scrub.date)}
                         </span>
                     </>
                 ) : (
@@ -721,8 +721,8 @@ function LivePanel() {
                         />
                         <span className="text-[10.5px] text-slate-500">
                             {capacity > 0
-                                ? `of ${capacity.toLocaleString()} sent today`
-                                : "sent today"}
+                                ? `מתוך ${capacity.toLocaleString()} נשלחו היום`
+                                : "נשלחו היום"}
                         </span>
                     </>
                 )}
@@ -734,8 +734,8 @@ function LivePanel() {
                 className="mt-1.5 px-2.5"
                 title={
                     capacity > 0
-                        ? `${sentToday} of ${capacity} daily capacity used`
-                        : "Connect a mailbox to start sending"
+                        ? `${sentToday} מתוך ${capacity} קיבולת יומית בשימוש`
+                        : "חבר תיבת דואר כדי להתחיל לשלוח"
                 }
             >
                 <div className="h-1 rounded-full bg-sky-100 overflow-hidden">
@@ -754,7 +754,7 @@ function LivePanel() {
             <div className="border-t border-slate-100 px-2.5 py-1.5 flex items-center gap-3 text-[10.5px]">
                 <span
                     className="inline-flex items-center gap-1 text-slate-500"
-                    title={`${mailboxes} ${mailboxes === 1 ? "mailbox" : "mailboxes"} connected`}
+                    title={`${mailboxes} תיבות דואר מחוברות`}
                 >
                     <MailIcon className="w-3 h-3 text-slate-400" />
                     <span className="font-mono tabular-nums">{mailboxes}</span>
@@ -762,7 +762,7 @@ function LivePanel() {
                 {active > 0 && (
                     <span
                         className="inline-flex items-center gap-1 text-emerald-600"
-                        title={`${active} warming or sending`}
+                        title={`${active} בחימום או שליחה פעילה`}
                     >
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         <span className="font-mono tabular-nums">{active}</span>
@@ -773,7 +773,7 @@ function LivePanel() {
                         "ms-auto inline-flex items-center gap-1",
                         unseenCount > 0 ? "text-sky-600" : "text-slate-400",
                     )}
-                    title={`${unseenCount} unread in inbox`}
+                    title={`${unseenCount} הודעות שלא נקראו בתיבה`}
                 >
                     <InboxIcon className="w-3 h-3" />
                     <span className="font-mono tabular-nums">

@@ -23,11 +23,11 @@ import LinkedInstances from "./LinkedInstances";
 export default function WarmblyCloudSettingsPage() {
     const canManage = usePermission("MANAGE_SETTINGS");
     const authConfig = useAuthConfig();
-    if (!canManage) return <NoAccess feature="Warmbly Cloud" permissionLabel="Manage settings" />;
+    if (!canManage) return <NoAccess feature="Warmbly Cloud" permissionLabel="ניהול הגדרות" />;
     if (authConfig.data && !authConfig.data.self_hosted) {
         return (
-            <SectionShell title="Linked instances" description="Self-hosted Warmbly instances that warm their mailboxes in this workspace's pool.">
-                <Section eyebrow="Instances" description="Each instance enrolls its own mailboxes. Unlinking removes them from the pool.">
+            <SectionShell title="מופעים מקושרים" description="מופעי Warmbly בהתקנה עצמית שמחממים את תיבות הדואר שלהם במאגר של סביבת עבודה זו.">
+                <Section eyebrow="מופעים" description="כל מופע רושם את תיבות הדואר שלו. ביטול קישור מסיר אותן מהמאגר.">
                     <LinkedInstances />
                 </Section>
             </SectionShell>
@@ -48,7 +48,7 @@ function SelfHostedCloud() {
 
     if (status.isLoading || !status.data) {
         return (
-            <SectionShell title="Warmbly Cloud" description="Warm your mailboxes in the Warmbly pool while everything else stays on this server.">
+            <SectionShell title="Warmbly Cloud" description="חמם את תיבות הדואר שלך במאגר של Warmbly בעוד כל השאר נשאר בשרת זה.">
                 <div className="py-10 flex justify-center text-slate-400">
                     <Loader2Icon className="w-4 h-4 animate-spin" />
                 </div>
@@ -61,7 +61,7 @@ function SelfHostedCloud() {
     return (
         <SectionShell
             title="Warmbly Cloud"
-            description="Warm your mailboxes in the Warmbly pool while everything else stays on this server."
+            description="חמם את תיבות הדואר שלך במאגר של Warmbly בעוד כל השאר נשאר בשרת זה."
             actions={
                 st.connected ? (
                     <button
@@ -70,7 +70,7 @@ function SelfHostedCloud() {
                         className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5"
                     >
                         <RefreshCwIcon className={`w-3 h-3 ${status.isFetching ? "animate-spin" : ""}`} />
-                        Refresh
+                        רענן
                     </button>
                 ) : undefined
             }
@@ -88,7 +88,7 @@ function SelfHostedCloud() {
                     </motion.div>
                 ) : (
                     <motion.div key="steady" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="divide-y divide-slate-200/70">
-                        <Section eyebrow="Connection">
+                        <Section eyebrow="חיבור">
                             <Row
                                 label={
                                     <span className="inline-flex items-center gap-2">
@@ -101,13 +101,13 @@ function SelfHostedCloud() {
                                 description={
                                     st.reachable ? (
                                         <span>
-                                            Connected{st.link?.connected_at ? ` since ${new Date(st.link.connected_at).toLocaleDateString()}` : ""} ·{" "}
+                                            מחובר{st.link?.connected_at ? ` החל מ-${new Date(st.link.connected_at).toLocaleDateString("he-IL")}` : ""} ·{" "}
                                             {plan?.mailbox_limit === null || plan?.mailbox_limit === undefined
-                                                ? "Unlimited mailboxes"
-                                                : `${plan.enrolled} of ${plan.mailbox_limit} free mailboxes`}
+                                                ? "ללא הגבלת תיבות דואר"
+                                                : `${plan.enrolled} מתוך ${plan.mailbox_limit} תיבות דואר חינמיות`}
                                         </span>
                                     ) : (
-                                        <span className="text-amber-700">Cloud unreachable{st.error ? `: ${st.error}` : ""}</span>
+                                        <span className="text-amber-700">הענן אינו נגיש{st.error ? `: ${st.error}` : ""}</span>
                                     )
                                 }
                             >
@@ -119,7 +119,7 @@ function SelfHostedCloud() {
                                             rel="noreferrer"
                                             className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                                         >
-                                            Unlimited for ${plan.price_usd}/mo
+                                            ללא הגבלה ב-${plan.price_usd}/חודש
                                             <ExternalLinkIcon className="w-3 h-3" />
                                         </a>
                                     )}
@@ -129,32 +129,32 @@ function SelfHostedCloud() {
                                                 plan.tier === "paid" ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-600"
                                             }`}
                                         >
-                                            {plan.tier === "paid" ? "Unlimited" : "Free"}
+                                            {plan.tier === "paid" ? "ללא הגבלה" : "חינם"}
                                         </span>
                                     )}
                                 </div>
                             </Row>
                         </Section>
                         <Section
-                            eyebrow="Mailboxes"
-                            description="Enrolled mailboxes are warmed by Warmbly Cloud; their local warmup stops. Campaigns keep sending from this server."
+                            eyebrow="תיבות דואר"
+                            description="תיבות דואר רשומות מחוממות על ידי Warmbly Cloud; החימום המקומי שלהן מושהה. קמפיינים ימשיכו לשלוח משרת זה כרגיל."
                         >
                             <MailboxTable />
                         </Section>
-                        <Section eyebrow="Disconnect">
+                        <Section eyebrow="ניתוק">
                             <Row
                                 danger
-                                label="Disconnect from Warmbly Cloud"
-                                description="Every enrolled mailbox is removed from the pool and the cloud deletes its credentials. Local warmup takes over again."
+                                label="התנתק מ-Warmbly Cloud"
+                                description="כל תיבת דואר רשומה מוסרת מהמאגר והענן מוחק את פרטי ההתחברות שלה. החימום המקומי יתחדש."
                             >
                                 <button
                                     type="button"
                                     onClick={() =>
-                                        confirm.show("Disconnect this instance from Warmbly Cloud? All enrolled mailboxes stop warming in the pool.", async () => {
+                                        confirm.show("לנתק מופע זה מ-Warmbly Cloud? כל תיבות הדואר הרשומות יפסיקו להתחמם במאגר.", async () => {
                                             try {
                                                 await disconnect.mutateAsync();
                                                 setFlow(null);
-                                                toast.success("Disconnected");
+                                                toast.success("נותק בהצלחה");
                                             } catch (e) {
                                                 toast.error(buildError(e as AppError));
                                             }
@@ -162,7 +162,7 @@ function SelfHostedCloud() {
                                     }
                                     className="h-7 px-2.5 rounded-md text-[12px] text-rose-600 hover:bg-rose-50 transition-colors"
                                 >
-                                    Disconnect
+                                    התנתק
                                 </button>
                             </Row>
                         </Section>

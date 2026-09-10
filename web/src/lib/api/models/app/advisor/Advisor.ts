@@ -157,10 +157,10 @@ export interface AdvisorFindingsQuery {
 // Presentation tokens, kept beside the types so every advisor surface renders
 // severity identically.
 export const SEVERITY_LABEL: Record<AdvisorSeverity, string> = {
-    critical: "Critical",
-    high: "Needs attention",
-    medium: "Worth fixing",
-    low: "Suggestion",
+    critical: "קריטי",
+    high: "דורש טיפול",
+    medium: "מומלץ לתקן",
+    low: "הצעה",
 };
 
 // Tints rather than fills. A translucent wash of the severity colour lets
@@ -201,19 +201,19 @@ export const SEVERITY_ROW: Record<AdvisorSeverity, string> = {
 // The one-word verdict the row indicator shows. Deliberately shorter than
 // SEVERITY_LABEL: a table cell has room for a word, not a phrase.
 export const SEVERITY_SHORT: Record<AdvisorSeverity, string> = {
-    critical: "Urgent",
-    high: "Fix",
-    medium: "Tune",
-    low: "Tip",
+    critical: "דחוף",
+    high: "לתיקון",
+    medium: "לשיפור",
+    low: "טיפ",
 };
 
 export const CATEGORY_LABEL: Record<AdvisorCategory, string> = {
-    deliverability: "Deliverability",
-    mailbox: "Mailbox",
-    warmup: "Warmup",
-    campaign: "Campaign",
-    copy: "Copy",
-    list: "List",
+    deliverability: "עבירות",
+    mailbox: "תיבת דואר",
+    warmup: "חימום",
+    campaign: "קמפיין",
+    copy: "תוכן וניסוח",
+    list: "רשימות תפוצה",
 };
 
 // A run of findings from the same check, collapsed into one card. One

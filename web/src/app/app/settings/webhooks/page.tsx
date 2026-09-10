@@ -62,19 +62,19 @@ import type {
 /* ── helpers ─────────────────────── */
 
 function formatRelative(date: Date | string | undefined): string {
-    if (!date) return "never";
+    if (!date) return "אף פעם";
     const d = typeof date === "string" ? new Date(date) : date;
-    if (Number.isNaN(d.getTime())) return "never";
+    if (Number.isNaN(d.getTime())) return "אף פעם";
     const diff = Date.now() - d.getTime();
-    if (diff < 0) return d.toLocaleString();
+    if (diff < 0) return d.toLocaleString("he-IL");
     const mins = Math.floor(diff / 60_000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1) return "כרגע";
+    if (mins < 60) return `לפני ${mins} דק'`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return `לפני ${hours} שע'`;
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (days < 7) return `לפני ${days} ימים`;
+    return d.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
 }
 
 function CopyButton({ value, label }: { value: string; label?: string }) {
@@ -95,7 +95,7 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
             className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 h-7 text-[11.5px] text-slate-600 hover:bg-slate-50"
         >
             {copied ? <CheckIcon className="w-3.5 h-3.5 text-emerald-600" /> : <CopyIcon className="w-3.5 h-3.5" />}
-            {copied ? "Copied" : (label ?? "Copy")}
+            {copied ? "הועתק" : (label ?? "העתק")}
         </button>
     );
 }
@@ -144,14 +144,14 @@ function EventPicker({
     return (
         <div className="space-y-2.5">
             <div className="flex items-center gap-2">
-                <SearchInput value={q} onChange={setQ} placeholder="Search events…" className="flex-1" />
+                <SearchInput value={q} onChange={setQ} placeholder="חפש אירועים…" className="flex-1" />
                 {value.length > 0 && (
                     <button
                         type="button"
                         onClick={() => onChange([])}
                         className="h-7 px-2.5 rounded-md border border-slate-200 text-[11.5px] text-slate-600 hover:bg-slate-50 shrink-0"
                     >
-                        Subscribe to all
+                        הירשם להכל
                     </button>
                 )}
             </div>
@@ -164,17 +164,17 @@ function EventPicker({
                 )}
             >
                 {value.length === 0 ? (
-                    <>Subscribed to all events. New event types are included automatically (high-volume events excluded).</>
+                    <>מנוי לכל האירועים. סוגי אירועים חדשים נכללים אוטומטית (למעט אירועים בנפח גבוה).</>
                 ) : (
                     <>
-                        Subscribed to <span className="font-medium">{value.length}</span>{" "}
-                        {value.length === 1 ? "event" : "events"}. Leave none selected to receive all events.
+                        מנוי ל-<span className="font-medium">{value.length}</span>{" "}
+                        {value.length === 1 ? "אירוע" : "אירועים"}. השאר ללא בחירה כדי לקבל את כל האירועים.
                     </>
                 )}
             </div>
             <div className="max-h-[280px] overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
                 {Object.keys(grouped).length === 0 ? (
-                    <div className="px-3 py-6 text-center text-[11.5px] text-slate-400">No events match.</div>
+                    <div className="px-3 py-6 text-center text-[11.5px] text-slate-400">לא נמצאו אירועים תואמים.</div>
                 ) : (
                     Object.entries(grouped).map(([cat, list]) => (
                         <div key={cat} className="p-1.5">
@@ -190,7 +190,7 @@ function EventPicker({
                                             type="button"
                                             onClick={() => toggle(d.type)}
                                             className={cn(
-                                                "w-full flex items-start gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors",
+                                                "w-full flex items-start gap-2 rounded-md px-1.5 py-1.5 text-left rtl:text-right transition-colors",
                                                 on ? "bg-sky-50" : "hover:bg-slate-50",
                                             )}
                                         >
@@ -204,12 +204,12 @@ function EventPicker({
                                             </span>
                                             <span className="min-w-0 flex-1">
                                                 <span className="flex items-center gap-1.5">
-                                                    <span className="block text-[12px] font-medium text-slate-700 font-mono truncate">
+                                                    <span className="block text-[12px] font-medium text-slate-700 font-mono truncate" dir="ltr">
                                                         {d.type}
                                                     </span>
                                                     {d.firehose && (
                                                         <span className="shrink-0 inline-flex items-center rounded-sm bg-amber-50 border border-amber-200 px-1 text-[9.5px] uppercase tracking-[0.08em] font-semibold text-amber-700">
-                                                            High volume
+                                                            נפח גבוה
                                                         </span>
                                                     )}
                                                 </span>
@@ -226,7 +226,7 @@ function EventPicker({
                 )}
             </div>
             <p className="text-[10.5px] text-amber-700">
-                High-volume events are only sent if you select them explicitly.
+                אירועים בנפח גבוה נשלחים רק אם תבחר בהם במפורש.
             </p>
         </div>
     );
@@ -234,7 +234,7 @@ function EventPicker({
 
 /* ── create wizard ─────────────────────── */
 
-const WIZARD_STEPS = ["Endpoint", "Events", "Secret"] as const;
+const WIZARD_STEPS = ["נקודת קצה (Endpoint)", "אירועים", "סוד חתימה"] as const;
 
 function Stepper({ step }: { step: number }) {
     return (
@@ -287,7 +287,7 @@ function CreateModal({ catalog, onClose }: { catalog: WebhookEventDescriptor[]; 
 
     const goNext = () => {
         if (step === 0 && !urlValid) {
-            toast.error("Enter a valid endpoint URL (https://…)");
+            toast.error("הזן כתובת URL חוקית לנקודת הקצה (https://…)");
             return;
         }
         setStep((s) => Math.min(s + 1, WIZARD_STEPS.length - 1));
@@ -296,7 +296,7 @@ function CreateModal({ catalog, onClose }: { catalog: WebhookEventDescriptor[]; 
 
     const submit = async () => {
         if (!urlValid) {
-            toast.error("Enter a valid endpoint URL");
+            toast.error("הזן כתובת URL חוקית לנקודת הקצה");
             return;
         }
         try {
@@ -308,9 +308,9 @@ function CreateModal({ catalog, onClose }: { catalog: WebhookEventDescriptor[]; 
             });
             setCreated(endpoint);
             setStep(WIZARD_STEPS.length - 1);
-            toast.success("Endpoint created");
+            toast.success("נקודת הקצה נוצרה בהצלחה");
         } catch (e) {
-            toast.error((e as { message?: string })?.message ?? "Could not create the endpoint");
+            toast.error((e as { message?: string })?.message ?? "לא ניתן ליצור את נקודת הקצה");
         }
     };
 
@@ -333,16 +333,16 @@ function CreateModal({ catalog, onClose }: { catalog: WebhookEventDescriptor[]; 
             >
                 <div className="flex items-center border-b border-slate-200 px-4 h-11 shrink-0">
                     <span className="text-[12.5px] font-medium text-slate-900">
-                        {created ? "Endpoint created" : "Add a webhook endpoint"}
+                        {created ? "נקודת הקצה נוצרה" : "הוסף נקודת קצה של Webhook"}
                     </span>
-                    <button onClick={onClose} className="ml-auto h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">
+                    <button onClick={onClose} className="ms-auto h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">
                         <XIcon className="w-4 h-4" />
                     </button>
                 </div>
 
                 {created ? (
                     <SecretReveal
-                        title={`${created.url} is ready`}
+                        title={`${created.url} מוכנה`}
                         secret={created.secret}
                         onDone={onClose}
                     />
@@ -362,21 +362,21 @@ function CreateModal({ catalog, onClose }: { catalog: WebhookEventDescriptor[]; 
                                     {step === 0 && (
                                         <>
                                             <div>
-                                                <Label>Endpoint URL</Label>
-                                                <TextInput value={url} onChange={setUrl} placeholder="https://acme.com/webhooks/warmbly" className="w-full" />
+                                                <Label>כתובת URL של נקודת הקצה</Label>
+                                                <TextInput value={url} onChange={setUrl} placeholder="https://acme.com/webhooks/warmbly" className="w-full" dir="ltr" />
                                                 <p className="mt-1 text-[11px] text-slate-400">
-                                                    Must be HTTPS. We POST a signed JSON body here for each subscribed event.
+                                                    חייבת להיות HTTPS. אנו שולחים בקשת POST עם גוף JSON חתום עבור כל אירוע שנרשם.
                                                 </p>
                                             </div>
                                             <div>
-                                                <Label>Description</Label>
-                                                <TextInput value={description} onChange={setDescription} placeholder="What this endpoint is for (optional)" className="w-full" />
+                                                <Label>תיאור</Label>
+                                                <TextInput value={description} onChange={setDescription} placeholder="למה נקודת קצה זו משמשת (אופציונלי)" className="w-full" />
                                             </div>
                                         </>
                                     )}
                                     {step === 1 && (
                                         <div>
-                                            <Label>Events</Label>
+                                            <Label>אירועים</Label>
                                             <EventPicker catalog={catalog} value={events} onChange={setEvents} />
                                         </div>
                                     )}
@@ -387,19 +387,19 @@ function CreateModal({ catalog, onClose }: { catalog: WebhookEventDescriptor[]; 
                         <div className="px-4 py-2.5 border-t border-slate-200 flex items-center gap-2 shrink-0">
                             {step > 0 ? (
                                 <button onClick={goBack} className="h-8 px-3 rounded-md border border-slate-200 text-[12.5px] text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5">
-                                    <ArrowLeftIcon className="w-3.5 h-3.5" /> Back
+                                    <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" /> הקודם
                                 </button>
                             ) : (
                                 <button onClick={onClose} className="h-8 px-3 rounded-md border border-slate-200 text-[12.5px] text-slate-600 hover:bg-slate-50">
-                                    Cancel
+                                    ביטול
                                 </button>
                             )}
-                            <span className="ml-auto text-[11px] text-slate-400">
-                                Step {step + 1} of {WIZARD_STEPS.length}
+                            <span className="ms-auto text-[11px] text-slate-400">
+                                שלב {step + 1} מתוך {WIZARD_STEPS.length}
                             </span>
                             {step < 1 ? (
                                 <button onClick={goNext} className="h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700 inline-flex items-center gap-1.5">
-                                    Next <ArrowRightIcon className="w-3.5 h-3.5" />
+                                    הבא <ArrowLeftIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                                 </button>
                             ) : (
                                 <button
@@ -408,7 +408,7 @@ function CreateModal({ catalog, onClose }: { catalog: WebhookEventDescriptor[]; 
                                     className="h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700 disabled:opacity-60 inline-flex items-center gap-1.5"
                                 >
                                     {create.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
-                                    Create endpoint
+                                    צור נקודת קצה
                                 </button>
                             )}
                         </div>
@@ -429,25 +429,23 @@ function SecretReveal({ title, secret, onDone }: { title: string; secret: string
                 <span className="text-[12.5px] font-medium truncate">{title}</span>
             </div>
             <p className="text-[12px] text-slate-500 leading-relaxed">
-                Save the signing secret now. For security it is shown only once and cannot be retrieved later (you can rotate it
-                if you lose it). Use it to verify the HMAC signature on every delivery.
+                שמור את מפתח החתימה הסודי כעת. מטעמי אבטחה הוא מוצג פעם אחת בלבד ולא ניתן לשחזרו מאוחר יותר (תוכל לסבבו מחדש אם תאבד אותו). השתמש בו כדי לאמת את חתימת ה-HMAC בכל מסירה.
             </p>
             <div>
-                <Label>Signing secret</Label>
+                <Label>מפתח חתימה סודי</Label>
                 <div className="flex items-center gap-1.5">
-                    <code className="flex-1 truncate rounded-md border border-amber-200 bg-amber-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-amber-800">
+                    <code className="flex-1 truncate rounded-md border border-amber-200 bg-amber-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-amber-800" dir="ltr">
                         {secret}
                     </code>
                     <CopyButton value={secret} />
                 </div>
             </div>
             <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-500 leading-relaxed">
-                Verify your endpoint by replying with a 2xx to its first delivery. Send a test event from the endpoint's
-                Overview tab once it is created.
+                אמת את נקודת הקצה שלך על ידי מענה עם קוד 2xx למסירה הראשונה. שלח אירוע בדיקה מטאב הסקירה הכללית לאחר יצירתה.
             </div>
             <div className="pt-1">
                 <button onClick={onDone} className="h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700">
-                    Done
+                    סיום
                 </button>
             </div>
         </div>
@@ -460,30 +458,30 @@ function VerificationBadge({ endpoint }: { endpoint: WebhookEndpoint }) {
     if (endpoint.auto_disabled_at) {
         return (
             <span
-                title={endpoint.disabled_reason || "Auto-disabled after repeated failures"}
+                title={endpoint.disabled_reason || "הושבתה אוטומטית עקב כישלונות חוזרים"}
                 className="inline-flex items-center gap-1 rounded-sm bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] font-semibold text-rose-700"
             >
-                <AlertTriangleIcon className="w-3 h-3" /> Auto-disabled
+                <AlertTriangleIcon className="w-3 h-3" /> מושבת אוטומטית
             </span>
         );
     }
     if (!endpoint.enabled) {
         return (
             <span className="inline-flex items-center rounded-sm bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] font-semibold text-slate-500">
-                Disabled
+                מושבת
             </span>
         );
     }
     if (endpoint.verified_at) {
         return (
             <span className="inline-flex items-center gap-1 rounded-sm bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] font-semibold text-emerald-700">
-                <ShieldCheckIcon className="w-3 h-3" /> Verified
+                <ShieldCheckIcon className="w-3 h-3" /> מאומת
             </span>
         );
     }
     return (
         <span className="inline-flex items-center rounded-sm bg-amber-50 border border-amber-100 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] font-semibold text-amber-700">
-            Pending verification
+            ממתין לאימות
         </span>
     );
 }
@@ -496,6 +494,14 @@ const DELIVERY_TONE: Record<WebhookDeliveryStatus, string> = {
     abandoned: "bg-rose-50 text-rose-700 border-rose-100",
 };
 
+const DELIVERY_STATUS_LABELS: Record<WebhookDeliveryStatus, string> = {
+    delivered: "נמסר",
+    pending: "ממתין",
+    in_flight: "בתהליך",
+    failed: "נכשל",
+    abandoned: "ננטש",
+};
+
 function DeliveryStatusBadge({ status }: { status: WebhookDeliveryStatus }) {
     return (
         <span
@@ -504,7 +510,7 @@ function DeliveryStatusBadge({ status }: { status: WebhookDeliveryStatus }) {
                 DELIVERY_TONE[status] ?? DELIVERY_TONE.pending,
             )}
         >
-            {status.replace("_", " ")}
+            {DELIVERY_STATUS_LABELS[status] ?? status.replace("_", " ")}
         </span>
     );
 }
@@ -514,7 +520,7 @@ function DeliveryStatusBadge({ status }: { status: WebhookDeliveryStatus }) {
 function EventsSummary({ endpoint }: { endpoint: WebhookEndpoint }) {
     const [open, setOpen] = React.useState(false);
     const all = endpoint.event_types.length === 0;
-    const label = all ? "All events" : `${endpoint.event_types.length} ${endpoint.event_types.length === 1 ? "event" : "events"}`;
+    const label = all ? "כל האירועים" : `${endpoint.event_types.length} ${endpoint.event_types.length === 1 ? "אירוע" : "אירועים"}`;
     return (
         <span className="relative inline-block">
             <button
@@ -544,7 +550,7 @@ function EventsSummary({ endpoint }: { endpoint: WebhookEndpoint }) {
                             onClick={(e) => e.stopPropagation()}
                         >
                             {endpoint.event_types.map((t) => (
-                                <div key={t} className="px-1.5 py-1 text-[11px] font-mono text-slate-600 truncate">{t}</div>
+                                <div key={t} className="px-1.5 py-1 text-[11px] font-mono text-slate-600 truncate" dir="ltr">{t}</div>
                             ))}
                         </motion.div>
                     </>
@@ -561,16 +567,16 @@ function EndpointRow({ endpoint, onOpen }: { endpoint: WebhookEndpoint; onOpen: 
         <button
             type="button"
             onClick={onOpen}
-            className="w-full text-left rounded-lg border border-slate-200 p-3 hover:bg-slate-50/80 transition-colors"
+            className="w-full text-left rtl:text-right rounded-lg border border-slate-200 p-3 hover:bg-slate-50/80 transition-colors"
         >
             <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <code className="text-[12.5px] font-mono text-slate-800 truncate max-w-full">{endpoint.url}</code>
+                        <code className="text-[12.5px] font-mono text-slate-800 truncate max-w-full" dir="ltr">{endpoint.url}</code>
                         <VerificationBadge endpoint={endpoint} />
                         {endpoint.consecutive_failures > 0 && (
                             <span className="inline-flex items-center rounded-sm bg-rose-50 border border-rose-100 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.06em] font-semibold text-rose-700">
-                                {endpoint.consecutive_failures} failing
+                                {endpoint.consecutive_failures} נכשלו
                             </span>
                         )}
                     </div>
@@ -579,13 +585,13 @@ function EndpointRow({ endpoint, onOpen }: { endpoint: WebhookEndpoint; onOpen: 
                     )}
                     <div className="mt-1.5 flex items-center gap-2 flex-wrap text-[10.5px] text-slate-400">
                         <EventsSummary endpoint={endpoint} />
-                        <span>Last success {formatRelative(endpoint.last_success_at)}</span>
+                        <span>הצלחה אחרונה {formatRelative(endpoint.last_success_at)}</span>
                         {endpoint.auto_disabled_at && endpoint.disabled_reason && (
                             <span className="text-rose-500">{endpoint.disabled_reason}</span>
                         )}
                     </div>
                 </div>
-                <ChevronRightIcon className="w-4 h-4 text-slate-300 shrink-0 mt-0.5" />
+                <ChevronRightIcon className="w-4 h-4 text-slate-300 shrink-0 mt-0.5 rtl:rotate-180" />
             </div>
         </button>
     );
@@ -594,9 +600,9 @@ function EndpointRow({ endpoint, onOpen }: { endpoint: WebhookEndpoint; onOpen: 
 /* ── detail drawer ─────────────────────── */
 
 const DRAWER_TABS: { key: string; label: string; icon: LucideIcon }[] = [
-    { key: "overview", label: "Overview", icon: GaugeIcon },
-    { key: "deliveries", label: "Deliveries", icon: ActivityIcon },
-    { key: "settings", label: "Settings", icon: Settings2Icon },
+    { key: "overview", label: "סקירה כללית", icon: GaugeIcon },
+    { key: "deliveries", label: "מסירות", icon: ActivityIcon },
+    { key: "settings", label: "הגדרות", icon: Settings2Icon },
 ];
 
 function EndpointDrawer({
@@ -632,8 +638,8 @@ function EndpointDrawer({
                         <ActivityIcon className="w-4 h-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-medium text-slate-900 truncate font-mono">{endpoint.url}</div>
-                        <div className="text-[10.5px] text-slate-400">Created {formatRelative(endpoint.created_at)}</div>
+                        <div className="text-[13px] font-medium text-slate-900 truncate font-mono" dir="ltr">{endpoint.url}</div>
+                        <div className="text-[10.5px] text-slate-400">נוצר {formatRelative(endpoint.created_at)}</div>
                     </div>
                     <VerificationBadge endpoint={endpoint} />
                     <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0">
@@ -686,7 +692,7 @@ function OverviewTab({ endpoint }: { endpoint: WebhookEndpoint }) {
     const [secret, setSecret] = React.useState<string | null>(null);
 
     const onRotate = () =>
-        confirm.show("Rotate this endpoint's signing secret? The current secret stops working immediately.", async () => {
+        confirm.show("לסבב את מפתח החתימה של נקודת קצה זו? המפתח הנוכחי יפסיק לעבוד מיידית.", async () => {
             const res = await rotate.mutateAsync(endpoint.id);
             setSecret(res.secret);
         });
@@ -694,18 +700,18 @@ function OverviewTab({ endpoint }: { endpoint: WebhookEndpoint }) {
     const onTest = async () => {
         try {
             await verify.mutateAsync(endpoint.id);
-            toast.success("Test sent. Your endpoint verifies on a 2xx.");
+            toast.success("בדיקה נשלחה. נקודת הקצה תאומת עם קוד 2xx.");
         } catch (e) {
-            toast.error((e as { message?: string })?.message ?? "Could not send the test event");
+            toast.error((e as { message?: string })?.message ?? "לא ניתן לשלוח אירוע בדיקה");
         }
     };
 
     return (
         <div className="p-5 space-y-5">
             <div>
-                <Label>Endpoint URL</Label>
+                <Label>כתובת URL של נקודת הקצה</Label>
                 <div className="flex items-center gap-1.5">
-                    <code className="flex-1 truncate rounded-md border border-slate-200 bg-slate-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-slate-700">
+                    <code className="flex-1 truncate rounded-md border border-slate-200 bg-slate-50 px-2 h-7 inline-flex items-center text-[11.5px] font-mono text-slate-700" dir="ltr">
                         {endpoint.url}
                     </code>
                     <CopyButton value={endpoint.url} />
@@ -714,11 +720,11 @@ function OverviewTab({ endpoint }: { endpoint: WebhookEndpoint }) {
 
             <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-md border border-slate-200 px-3 py-2.5">
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Last success</div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">הצלחה אחרונה</div>
                     <div className="mt-1 text-[13px] text-slate-900">{formatRelative(endpoint.last_success_at)}</div>
                 </div>
                 <div className="rounded-md border border-slate-200 px-3 py-2.5">
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Consecutive failures</div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">כישלונות רצופים</div>
                     <div className={cn("mt-1 text-[13px]", endpoint.consecutive_failures > 0 ? "text-rose-600" : "text-slate-900")}>
                         {endpoint.consecutive_failures}
                     </div>
@@ -727,17 +733,17 @@ function OverviewTab({ endpoint }: { endpoint: WebhookEndpoint }) {
 
             {endpoint.last_failure_reason && (
                 <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] text-amber-800 leading-relaxed">
-                    <span className="font-medium">Last failure</span> ({formatRelative(endpoint.last_failure_at)}):{" "}
+                    <span className="font-medium">כישלון אחרון</span> ({formatRelative(endpoint.last_failure_at)}):{" "}
                     {endpoint.last_failure_reason}
                 </div>
             )}
 
             <div className="border-t border-slate-200 pt-4 space-y-2.5">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Verification</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">אימות</div>
                 <p className="text-[11.5px] text-slate-500 leading-relaxed">
                     {endpoint.verified_at
-                        ? `Verified ${formatRelative(endpoint.verified_at)}.`
-                        : "This endpoint isn't verified yet. Send a test event; it verifies on the first 2xx response."}
+                        ? `מאומת ${formatRelative(endpoint.verified_at)}.`
+                        : "נקודת קצה זו עדיין לא אומתה. שלח אירוע בדיקה; היא תאומת עם תגובת ה-2xx הראשונה."}
                 </p>
                 <button
                     type="button"
@@ -745,15 +751,15 @@ function OverviewTab({ endpoint }: { endpoint: WebhookEndpoint }) {
                     disabled={verify.isPending}
                     className="h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700 disabled:opacity-60 inline-flex items-center gap-1.5"
                 >
-                    {verify.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <SendIcon className="w-3.5 h-3.5" />}
-                    Send test event
+                    {verify.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <SendIcon className="w-3.5 h-3.5 rtl:rotate-180" />}
+                    שלח אירוע בדיקה
                 </button>
             </div>
 
             <div className="border-t border-slate-200 pt-4 space-y-2.5">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Signing secret</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">מפתח חתימה סודי</div>
                 <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                    The secret is shown only once at creation. Rotate it if it leaks; the new value is shown once below.
+                    המפתח מוצג פעם אחת בלבד בעת היצירה. סבב אותו אם דלף; הערך החדש יוצג פעם אחת למטה.
                 </p>
                 <button
                     type="button"
@@ -762,13 +768,13 @@ function OverviewTab({ endpoint }: { endpoint: WebhookEndpoint }) {
                     className="h-8 px-3 rounded-md border border-slate-200 text-[12.5px] text-slate-700 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center gap-1.5"
                 >
                     {rotate.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <RefreshCwIcon className="w-3.5 h-3.5" />}
-                    Rotate signing secret
+                    סבב מפתח חתימה
                 </button>
                 {secret && (
                     <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
-                        <div className="text-[10.5px] uppercase tracking-[0.12em] text-amber-700 mb-1">New signing secret (shown once)</div>
+                        <div className="text-[10.5px] uppercase tracking-[0.12em] text-amber-700 mb-1">מפתח חתימה חדש (מוצג פעם אחת בלבד)</div>
                         <div className="flex items-center gap-1.5">
-                            <code className="flex-1 truncate text-[11.5px] font-mono text-amber-800">{secret}</code>
+                            <code className="flex-1 truncate text-[11.5px] font-mono text-amber-800" dir="ltr">{secret}</code>
                             <CopyButton value={secret} />
                         </div>
                     </div>
@@ -814,7 +820,7 @@ function DeliveriesTab({ endpoint, catalog }: { endpoint: WebhookEndpoint; catal
             setCursor(res.pagination.next_cursor);
             setHasMore(res.pagination.has_more);
         } catch (e) {
-            toast.error((e as { message?: string })?.message ?? "Could not load more deliveries");
+            toast.error((e as { message?: string })?.message ?? "לא ניתן לטעון עוד מסירות");
         } finally {
             setLoadingMore(false);
         }
@@ -830,9 +836,9 @@ function DeliveriesTab({ endpoint, catalog }: { endpoint: WebhookEndpoint; catal
                     onChange={(e) => setStatus(e.target.value as WebhookDeliveryStatus | "")}
                     className="h-7 rounded-md border border-slate-200 bg-white px-2 text-[12px] text-slate-700 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 >
-                    <option value="">All statuses</option>
+                    <option value="">כל הסטטוסים</option>
                     {DELIVERY_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s.replace("_", " ")}</option>
+                        <option key={s} value={s}>{DELIVERY_STATUS_LABELS[s] ?? s.replace("_", " ")}</option>
                     ))}
                 </select>
                 <select
@@ -840,7 +846,7 @@ function DeliveriesTab({ endpoint, catalog }: { endpoint: WebhookEndpoint; catal
                     onChange={(e) => setEventType(e.target.value)}
                     className="h-7 rounded-md border border-slate-200 bg-white px-2 text-[12px] text-slate-700 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 max-w-[180px]"
                 >
-                    <option value="">All events</option>
+                    <option value="">כל האירועים</option>
                     {catalog.map((d) => (
                         <option key={d.type} value={d.type}>{d.type}</option>
                     ))}
@@ -848,9 +854,9 @@ function DeliveriesTab({ endpoint, catalog }: { endpoint: WebhookEndpoint; catal
             </div>
 
             {first.isPending ? (
-                <div className="py-10 text-center text-[12px] text-slate-400">Loading deliveries…</div>
+                <div className="py-10 text-center text-[12px] text-slate-400">טוען מסירות…</div>
             ) : rows.length === 0 ? (
-                <EmptyBlock title="No deliveries yet" body="Once events fire, every delivery attempt to this endpoint shows here." />
+                <EmptyBlock title="אין עדיין מסירות" body="ברגע שאירועים יופעלו, כל ניסיון מסירה לנקודת קצה זו יוצג כאן." />
             ) : (
                 <div className="rounded-md border border-slate-200 divide-y divide-slate-100">
                     {rows.map((d) => (
@@ -868,7 +874,7 @@ function DeliveriesTab({ endpoint, catalog }: { endpoint: WebhookEndpoint; catal
                         className="h-8 px-3 rounded-md border border-slate-200 text-[12px] text-slate-600 hover:bg-slate-50 disabled:opacity-60 inline-flex items-center gap-1.5"
                     >
                         {loadingMore && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
-                        Load more
+                        טען עוד
                     </button>
                 </div>
             )}
@@ -884,9 +890,9 @@ function DeliveryRow({ delivery }: { delivery: WebhookDelivery }) {
         e.stopPropagation();
         try {
             await redeliver.mutateAsync(delivery.id);
-            toast.success("Queued for redelivery.");
+            toast.success("נכנס לתור למסירה חוזרת.");
         } catch (err) {
-            toast.error((err as { message?: string })?.message ?? "Could not redeliver");
+            toast.error((err as { message?: string })?.message ?? "לא ניתן לבצע מסירה חוזרת");
         }
     };
 
@@ -903,17 +909,17 @@ function DeliveryRow({ delivery }: { delivery: WebhookDelivery }) {
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-slate-50/80 transition-colors"
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-left rtl:text-right hover:bg-slate-50/80 transition-colors"
             >
-                <ChevronRightIcon className={cn("w-3.5 h-3.5 text-slate-300 shrink-0 transition-transform", open && "rotate-90")} />
-                <code className="text-[11.5px] font-mono text-slate-700 truncate flex-1 min-w-0">{delivery.event_type}</code>
+                <ChevronRightIcon className={cn("w-3.5 h-3.5 text-slate-300 shrink-0 transition-transform rtl:rotate-180", open && "rotate-90 rtl:rotate-90")} />
+                <code className="text-[11.5px] font-mono text-slate-700 truncate flex-1 min-w-0" dir="ltr">{delivery.event_type}</code>
                 <DeliveryStatusBadge status={delivery.status} />
                 {typeof delivery.response_status === "number" && (
-                    <span className={cn("text-[11px] font-mono tabular-nums", delivery.response_status >= 200 && delivery.response_status < 300 ? "text-emerald-600" : "text-rose-600")}>
+                    <span className={cn("text-[11px] font-mono tabular-nums", delivery.response_status >= 200 && delivery.response_status < 300 ? "text-emerald-600" : "text-rose-600")} dir="ltr">
                         {delivery.response_status}
                     </span>
                 )}
-                <span className="text-[10.5px] text-slate-400 tabular-nums shrink-0">
+                <span className="text-[10.5px] text-slate-400 tabular-nums shrink-0" dir="ltr">
                     {delivery.attempt_count}/{delivery.max_attempts}
                 </span>
                 <span className="text-[10.5px] text-slate-400 shrink-0 hidden sm:inline">{formatRelative(delivery.created_at)}</span>
@@ -930,26 +936,26 @@ function DeliveryRow({ delivery }: { delivery: WebhookDelivery }) {
                         <div className="px-3 py-2.5 space-y-2.5">
                             {delivery.error_reason && (
                                 <div className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-700 leading-relaxed">
-                                    <span className="font-medium">Error:</span> {delivery.error_reason}
+                                    <span className="font-medium">שגיאה:</span> {delivery.error_reason}
                                 </div>
                             )}
                             {delivery.response_body_excerpt && (
                                 <div>
-                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1">Response body</div>
-                                    <pre className="rounded-md border border-slate-200 bg-white p-2 text-[10.5px] font-mono text-slate-600 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
+                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1">גוף התגובה (Response body)</div>
+                                    <pre className="rounded-md border border-slate-200 bg-white p-2 text-[10.5px] font-mono text-slate-600 whitespace-pre-wrap break-words max-h-32 overflow-y-auto" dir="ltr">
                                         {delivery.response_body_excerpt}
                                     </pre>
                                 </div>
                             )}
                             <div>
-                                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1">Payload</div>
-                                <pre className="rounded-md border border-slate-200 bg-white p-2 text-[10.5px] font-mono text-slate-600 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
+                                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1">מטען נתונים (Payload)</div>
+                                <pre className="rounded-md border border-slate-200 bg-white p-2 text-[10.5px] font-mono text-slate-600 whitespace-pre-wrap break-words max-h-64 overflow-y-auto" dir="ltr">
                                     {prettyPayload}
                                 </pre>
                             </div>
                             <div className="flex items-center justify-between gap-2">
                                 <span className="text-[10.5px] text-slate-400">
-                                    Last attempt {formatRelative(delivery.last_attempt_at ?? delivery.created_at)}
+                                    ניסיון אחרון {formatRelative(delivery.last_attempt_at ?? delivery.created_at)}
                                 </span>
                                 <button
                                     type="button"
@@ -958,7 +964,7 @@ function DeliveryRow({ delivery }: { delivery: WebhookDelivery }) {
                                     className="h-7 px-2.5 rounded-md border border-slate-200 text-[11.5px] text-slate-700 hover:bg-white disabled:opacity-60 inline-flex items-center gap-1.5"
                                 >
                                     {redeliver.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <RefreshCwIcon className="w-3.5 h-3.5" />}
-                                    Redeliver
+                                    שלח שוב
                                 </button>
                             </div>
                         </div>
@@ -998,7 +1004,7 @@ function SettingsTab({
 
     const save = async () => {
         if (!urlValid) {
-            toast.error("Enter a valid endpoint URL");
+            toast.error("הזן כתובת URL חוקית לנקודת הקצה");
             return;
         }
         try {
@@ -1006,14 +1012,14 @@ function SettingsTab({
                 id: endpoint.id,
                 data: { url: url.trim(), description: description.trim(), event_types: events, enabled },
             });
-            toast.success("Endpoint updated");
+            toast.success("נקודת הקצה עודכנה בהצלחה");
         } catch (e) {
-            toast.error((e as { message?: string })?.message ?? "Could not update the endpoint");
+            toast.error((e as { message?: string })?.message ?? "לא ניתן לעדכן את נקודת הקצה");
         }
     };
 
     const onDelete = () =>
-        confirm.show(`Delete this endpoint? Deliveries to ${endpoint.url} stop immediately.`, async () => {
+        confirm.show(`למחוק נקודת קצה זו? המסירות אל ${endpoint.url} ייפסקו מיידית.`, async () => {
             await del.mutateAsync(endpoint.id);
             onClose();
         });
@@ -1021,27 +1027,27 @@ function SettingsTab({
     return (
         <div className="p-5 space-y-5">
             <div>
-                <Label>Endpoint URL</Label>
-                <TextInput value={url} onChange={setUrl} placeholder="https://acme.com/webhooks/warmbly" className="w-full" />
+                <Label>כתובת URL של נקודת הקצה</Label>
+                <TextInput value={url} onChange={setUrl} placeholder="https://acme.com/webhooks/warmbly" className="w-full" dir="ltr" />
                 {urlChanged && (
                     <p className="mt-1 text-[11px] text-amber-700">
-                        Changing the URL re-arms verification. The endpoint must reply 2xx to a fresh test event.
+                        שינוי כתובת ה-URL יחייב אימות מחדש. נקודת הקצה תצטרך להשיב 2xx לאירוע בדיקה חדש.
                     </p>
                 )}
             </div>
             <div>
-                <Label>Description</Label>
-                <TextInput value={description} onChange={setDescription} placeholder="What this endpoint is for" className="w-full" />
+                <Label>תיאור</Label>
+                <TextInput value={description} onChange={setDescription} placeholder="למה נקודת קצה זו משמשת" className="w-full" />
             </div>
             <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                    <div className="text-[12.5px] font-medium text-slate-900">Enabled</div>
-                    <div className="text-[11.5px] text-slate-500">When off, no deliveries are attempted.</div>
+                    <div className="text-[12.5px] font-medium text-slate-900">פעיל</div>
+                    <div className="text-[11.5px] text-slate-500">כאשר מושבת, לא מבוצעים ניסיונות מסירה.</div>
                 </div>
                 <Toggle on={enabled} onChange={setEnabled} />
             </div>
             <div>
-                <Label>Events</Label>
+                <Label>אירועים</Label>
                 <EventPicker catalog={catalog} value={events} onChange={setEvents} />
             </div>
 
@@ -1053,18 +1059,18 @@ function SettingsTab({
                     className="h-8 px-3 rounded-md bg-sky-600 text-white text-[12.5px] font-medium hover:bg-sky-700 disabled:opacity-60 inline-flex items-center gap-1.5"
                 >
                     {update.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <CheckIcon className="w-3.5 h-3.5" />}
-                    Save changes
+                    שמור שינויים
                 </button>
             </div>
 
             <div className="border-t border-slate-200 pt-4">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-2">Danger zone</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-2">אזור מסוכן (Danger zone)</div>
                 <button
                     type="button"
                     onClick={onDelete}
                     className="h-8 px-3 rounded-md border border-rose-200 text-[12.5px] text-rose-600 hover:bg-rose-50 inline-flex items-center gap-1.5"
                 >
-                    <Trash2Icon className="w-3.5 h-3.5" /> Delete endpoint
+                    <Trash2Icon className="w-3.5 h-3.5" /> מחק נקודת קצה
                 </button>
             </div>
         </div>
@@ -1080,20 +1086,19 @@ function DropsStrip() {
     return (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
             <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-amber-800">
-                <AlertTriangleIcon className="w-3.5 h-3.5" /> Rate-limited events
+                <AlertTriangleIcon className="w-3.5 h-3.5" /> אירועים שהוגבלו בקצב (Rate-limited)
             </div>
             <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
-                Some high-volume events were throttled and not delivered. Subscribe to fewer firehose events, or expect gaps in
-                these streams.
+                חלק מהאירועים בנפח גבוה הוגבלו בקצב ולא נמסרו. הירשם לפחות אירועי firehose, או צפה לפערים בזרמים אלה.
             </p>
             <div className="mt-2 space-y-1">
                 {list.map((d) => (
                     <div key={`${d.event_type}-${d.day}`} className="flex items-center gap-2 text-[11px] text-amber-800">
-                        <code className="font-mono">{d.event_type}</code>
+                        <code className="font-mono" dir="ltr">{d.event_type}</code>
                         <span className="text-amber-600">·</span>
-                        <span>{d.dropped_windows} {d.dropped_windows === 1 ? "window" : "windows"} dropped</span>
+                        <span>{d.dropped_windows} {d.dropped_windows === 1 ? "חלון נשמט" : "חלונות נשמטו"}</span>
                         <span className="text-amber-600">·</span>
-                        <span>last {formatRelative(d.last_dropped_at)}</span>
+                        <span>אחרון {formatRelative(d.last_dropped_at)}</span>
                     </div>
                 ))}
             </div>
@@ -1109,7 +1114,7 @@ export default function WebhooksPage() {
     const [createOpen, setCreateOpen] = React.useState(false);
     const [openId, setOpenId] = React.useState<string | null>(null);
 
-    if (!canManage) return <NoAccess feature="Webhooks" permissionLabel="Manage settings" />;
+    if (!canManage) return <NoAccess feature="וובהוקים (Webhooks)" permissionLabel="ניהול הגדרות" />;
 
     const endpoints = webhooks.data?.endpoints ?? [];
     const catalog = webhooks.data?.event_types ?? [];
@@ -1117,14 +1122,14 @@ export default function WebhooksPage() {
 
     return (
         <SectionShell
-            title="Webhooks"
-            description="Receive realtime HTTP callbacks when things happen in your workspace."
+            title="וובהוקים (Webhooks)"
+            description="קבל קריאות HTTP חוזרות בזמן אמת כשאירועים מתרחשים בסביבת העבודה שלך."
             actions={
                 <button
                     onClick={() => setCreateOpen(true)}
                     className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5"
                 >
-                    <PlusIcon className="w-3.5 h-3.5" /> Add endpoint
+                    <PlusIcon className="w-3.5 h-3.5" /> הוסף נקודת קצה
                 </button>
             }
         >
@@ -1132,11 +1137,11 @@ export default function WebhooksPage() {
                 <DropsStrip />
 
                 {webhooks.isPending ? (
-                    <div className="py-12 text-center text-[12px] text-slate-400">Loading endpoints…</div>
+                    <div className="py-12 text-center text-[12px] text-slate-400">טוען נקודות קצה…</div>
                 ) : endpoints.length === 0 ? (
                     <EmptyBlock
-                        title="No webhook endpoints yet"
-                        body="Add an HTTPS endpoint and we'll POST a signed callback for the events you subscribe to."
+                        title="אין עדיין נקודות קצה של Webhook"
+                        body="הוסף נקודת קצה של HTTPS ואנו נשלח קריאה חתומה עבור האירועים אליהם נרשמת."
                     />
                 ) : (
                     <div className="space-y-2">

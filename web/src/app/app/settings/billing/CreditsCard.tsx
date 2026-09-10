@@ -33,8 +33,8 @@ export default function CreditsCard({ isPaid }: { isPaid: boolean }) {
                     cancel_url: `${base}?topup=cancel`,
                 }),
                 {
-                    loading: "Starting checkout…",
-                    success: "Redirecting to checkout…",
+                    loading: "מתחיל תשלום…",
+                    success: "מעביר לתשלום…",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -55,8 +55,8 @@ export default function CreditsCard({ isPaid }: { isPaid: boolean }) {
 
     return (
         <Section
-            eyebrow="AI credits"
-            description="Credits power AI features (writing, research, the assistant, automation steps). Your plan grants a monthly allowance that resets each cycle; top-ups never expire."
+            eyebrow="קרדיטים ל-AI"
+            description="קרדיטים מפעילים תכונות AI (כתיבה, מחקר, העוזר, שלבי אוטומציה). התוכנית שלך מעניקה מכסה חודשית המתאפסת בכל מחזור; רכישות נוספות אינן פגות תוקף לעולם."
         >
             {credits.isPending ? (
                 <div className="h-24 rounded bg-slate-100 animate-pulse" />
@@ -69,17 +69,17 @@ export default function CreditsCard({ isPaid }: { isPaid: boolean }) {
                                 value={total}
                                 className="text-[22px] font-semibold text-slate-900 tabular-nums"
                             />
-                            <span className="text-[12px] text-slate-500">credits available</span>
+                            <span className="text-[12px] text-slate-500">קרדיטים זמינים</span>
                         </div>
                         <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-[11.5px]">
                             <Stat
-                                label="Monthly allowance"
+                                label="מכסה חודשית"
                                 value={`${monthly.toLocaleString()} / ${allowance.toLocaleString()}`}
                             />
-                            <Stat label="Purchased" value={purchased.toLocaleString()} />
-                            <Stat label="Resets" value={formatReset(data?.next_reset_at)} />
+                            <Stat label="נרכשו" value={purchased.toLocaleString()} />
+                            <Stat label="מתאפס" value={formatReset(data?.next_reset_at)} />
                             <Stat
-                                label="Lifetime purchased"
+                                label="סך הכל נרכשו"
                                 value={(data?.total_purchased ?? 0).toLocaleString()}
                             />
                         </div>
@@ -90,15 +90,15 @@ export default function CreditsCard({ isPaid }: { isPaid: boolean }) {
             {/* Top-up packs */}
             <div className="mt-1">
                 <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">
-                    Buy more credits
+                    רכישת קרדיטים נוספים
                 </div>
                 {!isPaid ? (
                     <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                        Credit top-ups are available on paid plans. Upgrade above to buy packs.
+                        רכישת קרדיטים זמינה בתוכניות בתשלום. שדרג למעלה כדי לרכוש חבילות.
                     </p>
                 ) : packs.length === 0 ? (
                     <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                        Credit packs aren't configured for this workspace yet.
+                        חבילות קרדיטים טרם הוגדרו עבור סביבת עבודה זו.
                     </p>
                 ) : (
                     <div className="flex flex-wrap gap-2">
@@ -115,7 +115,7 @@ export default function CreditsCard({ isPaid }: { isPaid: boolean }) {
                                 ) : (
                                     <PlusIcon className="w-3 h-3" />
                                 )}
-                                {p.credits.toLocaleString()} credits
+                                {p.credits.toLocaleString()} קרדיטים
                             </button>
                         ))}
                     </div>
@@ -156,24 +156,24 @@ function TransactionTable() {
     return (
         <div className="mt-1">
             <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">
-                Transactions
+                עסקאות ופעולות
             </div>
             {txns.isPending ? (
                 <div className="h-16 rounded bg-slate-100 animate-pulse" />
             ) : rows.length === 0 ? (
                 <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                    No credit activity yet.
+                    אין פעילות קרדיטים עדיין.
                 </p>
             ) : (
                 <>
                     <TableSurface>
                         <table className="w-full text-[12px]">
                             <thead>
-                                <tr className="text-left text-[10.5px] uppercase tracking-[0.08em] text-slate-400 border-b border-slate-200">
-                                    <th className="font-medium px-3 py-2">Activity</th>
-                                    <th className="font-medium px-3 py-2 text-right">Amount</th>
-                                    <th className="font-medium px-3 py-2 text-right">Balance</th>
-                                    <th className="font-medium px-3 py-2 text-right">When</th>
+                                <tr className="text-start text-[10.5px] uppercase tracking-[0.08em] text-slate-400 border-b border-slate-200">
+                                    <th className="font-medium px-3 py-2 text-start">פעילות</th>
+                                    <th className="font-medium px-3 py-2 text-end">סכום</th>
+                                    <th className="font-medium px-3 py-2 text-end">יתרה</th>
+                                    <th className="font-medium px-3 py-2 text-end">מועד</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -193,7 +193,7 @@ function TransactionTable() {
                             {txns.isFetchingNextPage && (
                                 <Loader2Icon className="w-3 h-3 animate-spin" />
                             )}
-                            Load more
+                            טען עוד
                         </button>
                     )}
                 </>
@@ -206,16 +206,16 @@ function TransactionRow({ row }: { row: CreditTransaction }) {
     const positive = row.amount >= 0;
     return (
         <tr className="text-slate-700">
-            <td className="px-3 py-2">
+            <td className="px-3 py-2 text-start">
                 <span className="text-slate-900">{describeReason(row.reason)}</span>
                 {row.model_used && (
-                    <span className="ml-1.5 text-[10.5px] text-slate-400 font-mono">
+                    <span className="ms-1.5 text-[10.5px] text-slate-400 font-mono">
                         {row.model_used}
                     </span>
                 )}
                 {row.tokens_used > 0 && (
-                    <span className="ml-1.5 text-[10.5px] text-slate-400 tabular-nums">
-                        {row.tokens_used.toLocaleString()} tok
+                    <span className="ms-1.5 text-[10.5px] text-slate-400 tabular-nums">
+                        {row.tokens_used.toLocaleString()} טוקנים
                     </span>
                 )}
                 {describeContext(row) && (
@@ -225,17 +225,17 @@ function TransactionRow({ row }: { row: CreditTransaction }) {
                 )}
             </td>
             <td
-                className={`px-3 py-2 text-right font-mono tabular-nums ${
+                className={`px-3 py-2 text-end font-mono tabular-nums ${
                     positive ? "text-emerald-700" : "text-slate-600"
                 }`}
             >
                 {positive ? "+" : ""}
                 {row.amount.toLocaleString()}
             </td>
-            <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-500">
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-slate-500">
                 {(row.balance_after + row.purchased_balance_after).toLocaleString()}
             </td>
-            <td className="px-3 py-2 text-right text-slate-500 tabular-nums">
+            <td className="px-3 py-2 text-end text-slate-500 tabular-nums">
                 {formatWhen(row.created_at)}
             </td>
         </tr>
@@ -247,53 +247,53 @@ function TransactionRow({ row }: { row: CreditTransaction }) {
 function describeContext(row: CreditTransaction): string {
     const c = row.context ?? {};
     const parts: string[] = [];
-    if (c.campaign_name || c.campaign_id) parts.push(`Campaign “${c.campaign_name || c.campaign_id}”`);
+    if (c.campaign_name || c.campaign_id) parts.push(`קמפיין ”${c.campaign_name || c.campaign_id}”`);
     if (c.contact_email) parts.push(c.contact_email);
-    if (c.automation_name || c.automation_id) parts.push(`Automation “${c.automation_name || c.automation_id}”`);
-    if (c.thread_id) parts.push(`thread ${c.thread_id.slice(0, 8)}`);
-    if (c.session_id) parts.push("assistant session");
+    if (c.automation_name || c.automation_id) parts.push(`אוטומציה ”${c.automation_name || c.automation_id}”`);
+    if (c.thread_id) parts.push(`שרשור ${c.thread_id.slice(0, 8)}`);
+    if (c.session_id) parts.push("הפעלת עוזר");
     if (c.detail) parts.push(c.detail);
-    if (row.actor_user_id) parts.push("triggered by a teammate");
+    if (row.actor_user_id) parts.push("הופעל על ידי חבר צוות");
     return parts.join(" · ");
 }
 
 // describeReason maps a ledger reason code to a short human label.
 function describeReason(reason: string): string {
     const map: Record<string, string> = {
-        writing_assistant: "Writing assistant",
-        writing_assistant_refund: "Writing assistant refund",
-        writing_edit: "Selection edit",
-        writing_edit_refund: "Selection edit refund",
-        agent_iteration: "AI assistant",
-        reply_draft: "Reply draft",
-        research_run: "Contact research",
-        automation_ai: "Automation AI step",
-        automation_ai_refund: "Automation AI refund",
-        campaign_ai: "Campaign switch",
-        campaign_ai_refund: "Campaign switch refund",
-        campaign_ai_search: "Campaign switch web search",
-        reply_draft_refund: "Reply draft refund",
-        agent_iteration_refund: "AI assistant refund",
-        inbox_agent_draft: "Inbox agent",
-        credit_topup: "Top-up purchase",
-        credit_auto_topup: "Auto top-up",
-        monthly_reset: "Monthly allowance",
-        trial_grant: "Trial credits",
+        writing_assistant: "עוזר כתיבה",
+        writing_assistant_refund: "החזר עוזר כתיבה",
+        writing_edit: "עריכת מקטע",
+        writing_edit_refund: "החזר עריכת מקטע",
+        agent_iteration: "עוזר AI",
+        reply_draft: "טיוטת תשובה",
+        research_run: "מחקר איש קשר",
+        automation_ai: "שלב AI באוטומציה",
+        automation_ai_refund: "החזר שלב AI באוטומציה",
+        campaign_ai: "החלפת קמפיין",
+        campaign_ai_refund: "החזר החלפת קמפיין",
+        campaign_ai_search: "חיפוש רשת להחלפת קמפיין",
+        reply_draft_refund: "החזר טיוטת תשובה",
+        agent_iteration_refund: "החזר עוזר AI",
+        inbox_agent_draft: "סוכן תיבת דואר",
+        credit_topup: "רכישת קרדיטים",
+        credit_auto_topup: "מילוי אוטומטי",
+        monthly_reset: "מכסה חודשית",
+        trial_grant: "קרדיטים לתקופת ניסיון",
     };
     return map[reason] ?? reason.replace(/_/g, " ");
 }
 
 function formatReset(value: string | null | undefined): string {
-    if (!value) return "on renewal";
+    if (!value) return "בחידוש";
     const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "on renewal";
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (Number.isNaN(d.getTime())) return "בחידוש";
+    return d.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
 }
 
 function formatWhen(value: string): string {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "—";
-    return d.toLocaleDateString("en-US", {
+    return d.toLocaleDateString("he-IL", {
         month: "short",
         day: "numeric",
         hour: "numeric",

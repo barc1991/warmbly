@@ -79,54 +79,56 @@ export default function ProfileSettingsPage() {
 
     return (
         <SectionShell
-            title="Profile"
-            description="Used in emails sent on your behalf, the sidebar avatar, and any invitation you send out."
+            title="פרופיל"
+            description="משמש באימיילים הנשלחים מטעמך, בתמונת הפרופיל בסרגל הצד ובכל הזמנה שתישלח."
             actions={<SaveStatus status={status} onRetry={retry} />}
         >
-            <Section eyebrow="Identity" description="Names appear on outgoing emails.">
+            <Section eyebrow="זהות" description="השמות מופיעים באימיילים יוצאים.">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <FieldLabel>First name</FieldLabel>
+                        <FieldLabel>שם פרטי</FieldLabel>
                         <TextInput value={firstName} onChange={setFirstName} className="w-full" />
                     </div>
                     <div>
-                        <FieldLabel>Last name</FieldLabel>
+                        <FieldLabel>שם משפחה</FieldLabel>
                         <TextInput value={lastName} onChange={setLastName} className="w-full" />
                     </div>
                 </div>
                 <Row
-                    label="Email"
-                    description="Email changes go through support for now."
+                    label="אימייל"
+                    description="שינוי כתובת אימייל מתבצע דרך התמיכה כעת."
                     align="start"
                 >
                     <input
                         type="email"
                         value={user.email}
                         readOnly
-                        className="w-full max-w-[280px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12.5px] text-slate-500 font-mono"
+                        dir="ltr"
+                        className="w-full max-w-[280px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12.5px] text-slate-500 font-mono text-left rtl:text-right"
                     />
                 </Row>
                 <Row
-                    label="Timezone"
-                    description="Detected from your browser. Used to render campaign schedules in local time."
+                    label="אזור זמן"
+                    description="מזוהה מהדפדפן שלך. משמש להצגת לוחות זמנים של קמפיינים בזמן מקומי."
                     align="start"
                 >
                     <input
                         type="text"
                         value={Intl.DateTimeFormat().resolvedOptions().timeZone}
                         readOnly
-                        className="w-full max-w-[280px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12.5px] text-slate-500 font-mono"
+                        dir="ltr"
+                        className="w-full max-w-[280px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12.5px] text-slate-500 font-mono text-left rtl:text-right"
                     />
                 </Row>
             </Section>
 
             <Section
-                eyebrow="Undo send"
-                description="Outgoing emails wait this long before sending so you can cancel them from the top bar."
+                eyebrow="ביטול שליחה"
+                description="אימיילים יוצאים ממתינים פרק זמן זה לפני שליחה כדי שתוכל לבטל אותם מהסרגל העליון."
             >
                 <Row
-                    label="Undo window"
-                    description="Between 5 and 120 seconds. Applies to instant sends from the composer and replies."
+                    label="חלון ביטול"
+                    description="בין 5 ל-120 שניות. חל על שליחות מיידיות מתיבת החיבור ועל מענה להודעות."
                 >
                     <NumberInput
                         value={undoSeconds}
@@ -134,15 +136,15 @@ export default function ProfileSettingsPage() {
                         min={5}
                         max={120}
                         step={5}
-                        suffix="seconds"
+                        suffix="שניות"
                         className="w-[150px]"
                     />
                 </Row>
             </Section>
 
             <Section
-                eyebrow="Avatar"
-                description="Shown in the sidebar, on email previews, and next to your activity. Resized to 512px before upload."
+                eyebrow="תמונת פרופיל"
+                description="מוצגת בסרגל הצד, בתצוגות מקדימות של אימייל ולצד הפעילות שלך. מותאמת לגודל 512px בעת העלאה."
             >
                 <AvatarUploader
                     current={user.avatar_url}

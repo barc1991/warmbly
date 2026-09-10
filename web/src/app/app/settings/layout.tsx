@@ -55,42 +55,42 @@ interface SectionGroup {
 
 const GROUPS: SectionGroup[] = [
     {
-        label: "Account",
+        label: "חשבון",
         items: [
-            { path: "profile", label: "Profile", icon: UserIcon, description: "Personal information." },
-            { path: "notifications", label: "Notifications", icon: BellIcon, description: "What you get notified about." },
-            { path: "security", label: "Security", icon: ShieldIcon, description: "Password, 2FA, active sessions." },
+            { path: "profile", label: "פרופיל", icon: UserIcon, description: "פרטים אישיים והגדרות חשבון." },
+            { path: "notifications", label: "התראות", icon: BellIcon, description: "הגדרת אירועים וערוצי התראה." },
+            { path: "security", label: "אבטחה", icon: ShieldIcon, description: "סיסמה, אימות דו-שלבי והפעלות פעילות." },
         ],
     },
     {
-        label: "Workspace",
+        label: "סביבת עבודה",
         items: [
-            { path: "members", label: "Members", icon: UsersIcon, description: "Team and invitations." },
-            { path: "teams", label: "Teams", icon: UsersIcon, description: "Group members into teams." },
-            { path: "roles", label: "Roles & access", icon: ShieldCheckIcon, description: "Who can do what.", ownerOnly: true },
-            { path: "workspace", label: "Workspace", icon: BriefcaseIcon, description: "Org-wide settings.", ownerOnly: true },
-            { path: "sending", label: "Sending", icon: SendIcon, description: "When campaign mail reaches each recipient.", permission: "MANAGE_SETTINGS" },
-            { path: "tracking", label: "Website tracking", icon: GlobeIcon, description: "Page views on your site, in the contact timeline.", permission: "MANAGE_SETTINGS" },
-            { path: "ai-skills", label: "AI skills", icon: SparklesIcon, description: "Playbooks your AI features follow.", permission: "MANAGE_SETTINGS" },
-            { path: "billing", label: "Billing", icon: CreditCardIcon, description: "Plan, payment, invoices.", ownerOnly: true, billingOnly: true },
-            { path: "referral", label: "Refer & earn", icon: GiftIcon, description: "Invite teams and earn account credit.", ownerOnly: true, billingOnly: true },
-            { path: "limits", label: "Limits", icon: GaugeIcon, description: "Ask for a higher cap on mailboxes, contacts, seats or sends.", ownerOnly: true },
+            { path: "members", label: "חברי צוות", icon: UsersIcon, description: "ניהול צוות והזמנות חברים." },
+            { path: "teams", label: "צוותים", icon: UsersIcon, description: "חלוקת חברים לצוותים ייעודיים." },
+            { path: "roles", label: "תפקידים והרשאות", icon: ShieldCheckIcon, description: "ניהול הרשאות וסמכויות.", ownerOnly: true },
+            { path: "workspace", label: "סביבת עבודה", icon: BriefcaseIcon, description: "הגדרות כלל-ארגוניות ומיתוג.", ownerOnly: true },
+            { path: "sending", label: "שליחה", icon: SendIcon, description: "מועדי מסירה, אימות כתובות והסרות.", permission: "MANAGE_SETTINGS" },
+            { path: "tracking", label: "מעקב אתר", icon: GlobeIcon, description: "צפיות באתר בציר הזמן של אנשי הקשר.", permission: "MANAGE_SETTINGS" },
+            { path: "ai-skills", label: "כישורי AI", icon: SparklesIcon, description: "הוראות ונהלים לתכונות ה-AI.", permission: "MANAGE_SETTINGS" },
+            { path: "billing", label: "חיוב ומנוי", icon: CreditCardIcon, description: "תוכנית, תשלום וחשבוניות.", ownerOnly: true, billingOnly: true },
+            { path: "referral", label: "הפנה והרווח", icon: GiftIcon, description: "הזמן צוותים וצבור קרדיט לחשבון.", ownerOnly: true, billingOnly: true },
+            { path: "limits", label: "מגבלות", icon: GaugeIcon, description: "בקשת הגדלת מכסות לתיבות, אנשי קשר או שליחות.", ownerOnly: true },
         ],
     },
     {
-        label: "Developers",
+        label: "מפתחים",
         items: [
-            { path: "oauth-apps", label: "OAuth apps", icon: BoxesIcon, description: "Apps that connect via OAuth2, and the apps you've authorized.", permission: "MANAGE_API_KEYS" },
-            { path: "webhooks", label: "Webhooks", icon: WebhookIcon, description: "Realtime HTTP callbacks for workspace events.", permission: "MANAGE_SETTINGS" },
-            { path: "connections", label: "Connections", icon: PlugIcon, description: "External MCP servers that add tools to the AI.", permission: "MANAGE_SETTINGS" },
+            { path: "oauth-apps", label: "יישומי OAuth", icon: BoxesIcon, description: "אפליקציות מחוברות והרשאות OAuth2.", permission: "MANAGE_API_KEYS" },
+            { path: "webhooks", label: "וובהוקים", icon: WebhookIcon, description: "התראות HTTP בזמן אמת על אירועי המערכת.", permission: "MANAGE_SETTINGS" },
+            { path: "connections", label: "חיבורים", icon: PlugIcon, description: "שרתי MCP חיצוניים להרחבת כלי ה-AI.", permission: "MANAGE_SETTINGS" },
         ],
     },
     {
-        label: "Advanced",
+        label: "מתקדם",
         items: [
-            { path: "warmbly-cloud", label: "Warmbly Cloud", icon: CloudIcon, description: "Warm your mailboxes in the Warmbly pool.", permission: "MANAGE_SETTINGS" },
-            { path: "data", label: "Data", icon: DatabaseIcon, description: "Export this workspace, or import one from another instance.", ownerOnly: true },
-            { path: "danger", label: "Danger zone", icon: AlertOctagonIcon, description: "Irreversible actions." },
+            { path: "warmbly-cloud", label: "ענן Warmbly", icon: CloudIcon, description: "חימום תיבות דואר במאגר הקהילתי המשותף.", permission: "MANAGE_SETTINGS" },
+            { path: "data", label: "נתונים", icon: DatabaseIcon, description: "ייצוא או ייבוא ארכיון נתונים של הארגון.", ownerOnly: true },
+            { path: "danger", label: "אזור מסוכן", icon: AlertOctagonIcon, description: "פעולות בלתי הפיכות ומחיקת סביבת עבודה." },
         ],
     },
 ];
@@ -143,7 +143,7 @@ function SettingsLayoutInner() {
             blocker.proceed?.();
         } catch {
             setSavingLeave(false);
-            toast.error("Couldn't save your changes — fix them or discard to leave.");
+            toast.error("לא ניתן היה לשמור את השינויים — תקן אותם או בטל כדי לעזוב.");
         }
     }
     function discardAndLeave() {
@@ -187,15 +187,15 @@ function SettingsLayoutInner() {
     return (
         <Page className="h-full min-h-0">
             <PageTopbar
-                eyebrow="Settings"
-                subtitle={current?.description ?? "Account and workspace"}
+                eyebrow="הגדרות"
+                subtitle={current?.description ?? "חשבון וסביבת עבודה"}
             />
 
             <div className="flex-1 min-h-0 flex flex-col md:flex-row">
                 {/* Mobile: a horizontally-scrollable tab strip. >=md: vertical rail. */}
                 <nav
                     ref={navRef}
-                    className="flex md:flex-col shrink-0 gap-0.5 md:gap-0 overflow-x-auto md:overflow-y-auto border-b md:border-b-0 md:border-r border-slate-200/70 px-2 md:px-2.5 py-2 md:py-3 md:w-[236px]"
+                    className="flex md:flex-col shrink-0 gap-0.5 md:gap-0 overflow-x-auto md:overflow-y-auto border-b md:border-b-0 md:border-r rtl:md:border-r-0 rtl:md:border-l border-slate-200/70 px-2 md:px-2.5 py-2 md:py-3 md:w-[236px]"
                 >
                     {visibleGroups.map((g, gi) => (
                         <div key={g.label} className="contents md:block md:mb-1">
@@ -243,35 +243,35 @@ function SettingsLayoutInner() {
                             exit={{ opacity: 0, y: 8, scale: 0.98 }}
                             className="w-full max-w-sm rounded-lg bg-white border border-slate-200 shadow-xl p-5"
                         >
-                            <h3 className="text-[14px] font-semibold text-slate-900">Unsaved changes</h3>
+                            <h3 className="text-[14px] font-semibold text-slate-900">שינויים שלא נשמרו</h3>
                             <p className="text-[12.5px] text-slate-500 leading-relaxed mt-1">
-                                Some changes on this tab haven't finished saving. Save them before leaving, or discard them.
+                                חלק מהשינויים בלשונית זו עדיין לא נשמרו. שמור אותם לפני עזיבה, או בטל אותם.
                             </p>
                             <div className="mt-4 flex items-center justify-end gap-2">
                                 <button
                                     type="button"
                                     onClick={() => blocker.reset?.()}
                                     disabled={savingLeave}
-                                    className="h-8 px-3 rounded-md text-[12.5px] font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-60"
+                                    className="h-8 px-3 rounded-md text-[12.5px] font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-60 cursor-pointer"
                                 >
-                                    Stay
+                                    הישאר
                                 </button>
                                 <button
                                     type="button"
                                     onClick={discardAndLeave}
                                     disabled={savingLeave}
-                                    className="h-8 px-3 rounded-md text-[12.5px] font-medium text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-60"
+                                    className="h-8 px-3 rounded-md text-[12.5px] font-medium text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-60 cursor-pointer"
                                 >
-                                    Discard
+                                    בטל שינויים
                                 </button>
                                 <button
                                     type="button"
                                     onClick={saveAndLeave}
                                     disabled={savingLeave}
-                                    className="h-8 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                                    className="h-8 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60 cursor-pointer"
                                 >
                                     {savingLeave && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
-                                    Save changes
+                                    שמור שינויים
                                 </button>
                             </div>
                         </motion.div>
@@ -287,7 +287,7 @@ function SectionLink({ section }: { section: SectionDef }) {
         <NavLink
             to={`/app/settings/${section.path}`}
             className={({ isActive }) =>
-                `group relative shrink-0 md:w-full flex items-center gap-2.5 px-2.5 h-8 rounded-md text-[12.5px] whitespace-nowrap text-left transition-colors ${
+                `group relative shrink-0 md:w-full flex items-center gap-2.5 px-2.5 h-8 rounded-md text-[12.5px] whitespace-nowrap text-left rtl:text-right transition-colors ${
                     isActive ? "text-slate-900 font-medium" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/40"
                 }`
             }

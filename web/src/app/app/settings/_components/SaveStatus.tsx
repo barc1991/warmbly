@@ -10,26 +10,26 @@ export default function SaveStatus({ status, onRetry }: { status: AutosaveStatus
             {status === "saving" && (
                 <Pill key="saving" className="text-slate-500">
                     <Loader2Icon className="w-3 h-3 animate-spin" />
-                    Saving…
+                    שומר…
                 </Pill>
             )}
             {status === "saved" && (
                 <Pill key="saved" className="text-emerald-600">
                     <CheckIcon className="w-3 h-3" />
-                    Saved
+                    נשמר
                 </Pill>
             )}
             {status === "error" && (
                 <Pill key="error" className="text-rose-600">
                     <AlertCircleIcon className="w-3 h-3" />
-                    Couldn't save
+                    שמירה נכשלה
                     {onRetry && (
                         <button
                             type="button"
                             onClick={onRetry}
-                            className="ml-1 underline underline-offset-2 hover:text-rose-700"
+                            className="mr-1 ml-1 underline underline-offset-2 hover:text-rose-700 cursor-pointer"
                         >
-                            Retry
+                            נסה שוב
                         </button>
                     )}
                 </Pill>

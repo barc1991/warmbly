@@ -13,12 +13,12 @@ import { Row, Section, ToggleRow } from "@/app/app/settings/_components/SectionS
 import { useAdvisorSettings, useUpdateAdvisorSettings } from "@/lib/api/hooks/app/advisor/useAdvisor";
 
 const CATEGORIES: { key: AdvisorCategory; description: string }[] = [
-    { key: "deliverability", description: "Complaints, bounces, spam placement, and domain authentication" },
-    { key: "mailbox", description: "Daily caps, send pacing, and mailbox health" },
-    { key: "warmup", description: "Warmup coverage, volume, and pool standing" },
-    { key: "campaign", description: "Sequence shape, reply rate, capacity, and scheduling" },
-    { key: "copy", description: "Merge variables, length, subject lines, and bulk-mail phrasing" },
-    { key: "list", description: "Shared inboxes, consumer domains, and suppressed contacts" },
+    { key: "deliverability", description: "תלונות, החזרות (bounces), מיקום בספאם ואימות דומיינים" },
+    { key: "mailbox", description: "מגבלות יומיות, קצב שליחה ובריאות תיבות הדואר" },
+    { key: "warmup", description: "כיסוי חימום, נפח ומעמד ברשת החימום" },
+    { key: "campaign", description: "מבנה רצף, אחוזי מענה, קיבולת ותזמון" },
+    { key: "copy", description: "משתני שילוב, אורך, שורות נושא וניסוח הודעות המוניות" },
+    { key: "list", description: "תיבות שיתופיות, דומיינים פרטיים ואנשי קשר מושתקים" },
 ];
 
 const SEVERITIES: AdvisorSeverity[] = ["low", "medium", "high", "critical"];
@@ -63,12 +63,12 @@ export default function AdvisorSettingsSection({ canManage }: { canManage: boole
 
     return (
         <Section
-            eyebrow="Advisor"
-            description="Warmbly checks your sending continuously and surfaces what to fix on the page where the fix lives. Detection runs on your own data with fixed thresholds; AI only rewrites the explanation, and never spends credits."
+            eyebrow="יועץ (Advisor)"
+            description="Warmbly בודק את השליחה שלך ברציפות ומציג מה לתקן בעמוד שבו התיקון מתבצע. הזיהוי פועל על הנתונים שלך עם ספים קבועים; AI רק מנסח מחדש את ההסבר, ולעולם אינו גובה נקודות זכות."
         >
             <ToggleRow
-                label="Show recommendations"
-                description="Turning this off hides every suggestion and clears the nav badges. Nothing is deleted, and turning it back on restores the current findings."
+                label="הצג המלצות"
+                description="כיבוי יסתיר את כל ההצעות וינקה את תגי הניווט. שום דבר לא יימחק, והדלקה חוזרת תשחזר את הממצאים הנוכחיים."
                 checked={enabled}
                 onChange={(v) => save({ enabled: v })}
                 disabled={disabled}
@@ -77,16 +77,16 @@ export default function AdvisorSettingsSection({ canManage }: { canManage: boole
             {enabled ? (
                 <>
                     <ToggleRow
-                        label="Autopilot"
-                        description="Applies the safe fixes on its own: lowering a cap that is above the safe band, widening a send gap, matching a campaign limit to what its mailboxes can carry, turning on one-click unsubscribe. It never pauses sending, edits your copy, or makes a change it cannot undo. Every fix runs with your permissions and appears in the audit log as you, and it stops if you leave the workspace."
+                        label="טייס אוטומטי (Autopilot)"
+                        description="מחיל את התיקונים הבטוחים בעצמו: הורדת מכסה שנמצאת מעל הטווח הבטוח, הרחבת מרווחי שליחה, התאמת מגבלת קמפיין ליכולת תיבות הדואר שלו, והפעלת הסרה מרשימה בלחיצה אחת. הוא לעולם לא משהה שליחה, לא עורך את התוכן שלך ולא מבצע שינוי שאינו ניתן לביטול. כל תיקון פועל עם ההרשאות שלך ומופיע ביומן הביקורת בשמך, ומפסיק אם אתה עוזב את סביבת העבודה."
                         checked={autopilot}
                         onChange={(v) => save({ autopilot: v })}
                         disabled={disabled}
                     />
 
                     <Row
-                        label="Minimum severity"
-                        description="Hide anything less urgent than this. Only critical and needs-attention findings ever badge a nav tab, whatever this is set to."
+                        label="רמת חומרה מינימלית"
+                        description="הסתר כל ממצא שפחות דחוף מרמה זו. רק ממצאים קריטיים וכאלה שדורשים טיפול יציגו תג בלשונית הניווט, ללא תלות בהגדרה זו."
                     >
                         <div className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5">
                             {SEVERITIES.map((s) => (

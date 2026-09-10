@@ -32,16 +32,16 @@ import { TextInput } from "@/components/ui/field";
 import { Link } from "react-router-dom";
 
 const UNSUB_MODES: SelectOption[] = [
-    { value: "text", label: "Reply to opt out (text line)" },
-    { value: "link", label: "Unsubscribe link" },
-    { value: "off", label: "Nothing" },
+    { value: "text", label: "השב כדי לבטל הצטרפות (שורת טקסט)" },
+    { value: "link", label: "קישור להסרה מרשימת תפוצה" },
+    { value: "off", label: "ללא שורה" },
 ];
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default function SendingSettingsPage() {
     const canManage = usePermission("MANAGE_SETTINGS");
-    if (!canManage) return <NoAccess feature="Sending" permissionLabel="Manage settings" />;
+    if (!canManage) return <NoAccess feature="שליחה" permissionLabel="ניהול הגדרות" />;
     return <SendingSettings />;
 }
 
@@ -131,25 +131,25 @@ function SendingSettings() {
 
     return (
         <SectionShell
-            title="Sending"
-            description="When campaign mail goes out, measured in your recipient's day."
+            title="שליחה"
+            description="מועדי יציאת הודעות הקמפיין, מחושבים לפי יומו של הנמען."
             actions={<SaveStatus status={autosave.status} onRetry={autosave.retry} />}
         >
             <VerificationSettings />
             <Section
-                eyebrow="Send-time optimization"
-                description="Hold each campaign email until it lands inside the hours you pick, in the recipient's own timezone. It only ever delays a send, never brings one forward, and it still obeys the campaign schedule and each mailbox's working hours."
+                eyebrow="אופטימיזציית זמן שליחה"
+                description="השהה כל אימייל של קמפיין עד שהוא נוחת בתוך השעות שתבחר, באזור הזמן של הנמען עצמו. זה רק מעכב שליחה ולעולם אינו מקדים אותה, ועדיין מציית ללוח הזמנים של הקמפיין ולשעות העבודה של כל תיבת דואר."
             >
                 {isLoading || !sto ? (
                     <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
                 ) : (
                     <>
                         <Row
-                            label="Use the recipient's local hours"
+                            label="השתמש בשעות המקומיות של הנמען"
                             description={
                                 enabled
-                                    ? "On. Sends aim for the hours below."
-                                    : "Off. Sends follow the campaign schedule and the sending mailbox's hours only."
+                                    ? "פעיל. השליחות מכוונות לשעות שלמטה."
+                                    : "כבוי. השליחות פועלות לפי לוח הזמנים של הקמפיין ושעות תיבת הדואר השולחת בלבד."
                             }
                         >
                             <Toggle on={enabled} onChange={(on) => patch({ enabled: on })} />
@@ -158,8 +158,8 @@ function SendingSettings() {
                         {enabled && (
                             <>
                                 <Row
-                                    label="Read each contact's timezone"
-                                    description="Uses the contact's timezone field, then the country its email domain points at. Falls back to the timezone below."
+                                    label="קרא את אזור הזמן של כל איש קשר"
+                                    description="משתמש בשדה אזור הזמן של איש הקשר, ולאחר מכן במדינה שאליה מפנה דומיין האימייל שלו. ברירת המחדל היא אזור הזמן שלמטה."
                                 >
                                     <Toggle
                                         on={!!sto.use_contact_timezone}
@@ -168,22 +168,22 @@ function SendingSettings() {
                                 </Row>
 
                                 <Row
-                                    label="Fallback timezone"
-                                    description="Used when a contact's timezone cannot be worked out."
+                                    label="אזור זמן כברירת מחדל"
+                                    description="משמש כאשר לא ניתן לקבוע את אזור הזמן של איש הקשר."
                                 >
                                     <SelectMenu
                                         value={sto.default_contact_timezone || "UTC"}
                                         onChange={(v) => patch({ default_contact_timezone: v })}
                                         options={tzOptions}
-                                        aria-label="Fallback timezone"
+                                        aria-label="אזור זמן כברירת מחדל"
                                         minWidth={240}
                                         align="end"
                                     />
                                 </Row>
 
                                 <Row
-                                    label="Skip weekends"
-                                    description="Push a send that would land on Saturday or Sunday to the next weekday."
+                                    label="דלג על סופי שבוע"
+                                    description="דחה שליחה שהייתה אמורה לנחות בשבת או ראשון ליום החול הבא."
                                 >
                                     <Toggle
                                         on={(sto.weekend_weight_multiplier ?? 1) < 1}
@@ -191,9 +191,9 @@ function SendingSettings() {
                                     />
                                 </Row>
 
-                                <Row label="Delivery hours" align="start">
+                                <Row label="שעות מסירה" align="start">
                                     <div className="w-full sm:w-[320px]">
-                                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-1">
+                                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-1" dir="ltr">
                                             {HOURS.map((h) => {
                                                 const on = hours.includes(h);
                                                 return (
@@ -202,7 +202,7 @@ function SendingSettings() {
                                                         type="button"
                                                         onClick={() => toggleHour(h)}
                                                         aria-pressed={on}
-                                                        className={`h-7 rounded-md border text-[11.5px] transition-colors ${
+                                                        className={`h-7 rounded-md border text-[11.5px] font-mono transition-colors ${
                                                             on
                                                                 ? "bg-sky-50 text-sky-700 border-sky-200"
                                                                 : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
@@ -216,7 +216,7 @@ function SendingSettings() {
                                         <p className="mt-2 text-[11.5px] text-slate-500 leading-relaxed inline-flex items-start gap-1.5">
                                             <ClockIcon className="w-3.5 h-3.5 mt-px shrink-0 text-slate-400" />
                                             <span>
-                                                Mail arrives around {describeHours(hours)} for each recipient
+                                                האימייל יגיע בסביבות <span dir="ltr">{describeHours(hours)}</span> עבור כל נמען
                                                 {sto.use_contact_timezone ? "" : ` (${sto.default_contact_timezone || "UTC"})`}.
                                             </span>
                                         </p>
@@ -229,8 +229,8 @@ function SendingSettings() {
             </Section>
 
             <Section
-                eyebrow="Unsubscribe"
-                description="The opt-out every campaign email carries, added after the signature. A reply that asks to stop, a click on the link, and the mail client's own unsubscribe button all put the recipient on the suppression list, and no campaign emails them again. For cold outreach the List-Unsubscribe header (per campaign, on by default) is what satisfies the bulk-sender rules, so this line can stay a plain sentence. A campaign can override this in its preferences."
+                eyebrow="הסרה מרשימת תפוצה (Unsubscribe)"
+                description="שורת ביטול ההצטרפות שכל אימייל של קמפיין נושא, המתווספת לאחר החתימה. מענה המבקש להפסיק, לחיצה על הקישור, או כפתור ההסרה של תוכנת הדואר עצמה – כולם מכניסים את הנמען לרשימת ההשתקה, ואף קמפיין לא ישלח אליו שוב. עבור פנייה קרה כותרת List-Unsubscribe (לכל קמפיין, מופעלת כברירת מחדל) היא זו שמספקת את חוקי השולח ההמוני, כך ששורה זו יכולה להישאר משפט פשוט. קמפיין יכול לדרוס זאת בהגדרותיו."
             >
                 {isLoading || !draft ? (
                     <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
@@ -238,8 +238,8 @@ function SendingSettings() {
                     <>
                         <UnsubscribeRows value={draft.unsubscribe ?? DEFAULT_UNSUBSCRIBE} onChange={patchUnsubscribe} />
                         <Row
-                            label="Honour replies that ask to stop"
-                            description="A reply saying unsubscribe, remove me, stop emailing me and the like puts the sender on the suppression list at once. This is what makes the reply-to-opt-out line a real mechanism."
+                            label="כבד מענה המבקש להפסיק"
+                            description="מענה המכיל 'בטל מנוי', 'הסר אותי', 'הפסק לשלוח לי' וכדומה מכניס את הנמען מיד לרשימת ההשתקה. זה מה שהופך את שורת ביטול ההצטרפות במענה למנגנון אמיתי."
                         >
                             <Toggle
                                 on={draft.reply_intent?.auto_suppress_on_unsubscribe_keyword !== false}
@@ -251,16 +251,16 @@ function SendingSettings() {
             </Section>
 
             <Section
-                eyebrow="Content checks"
-                description="Score each step's copy for the signals spam filters weight: trigger wording, stacked punctuation, link and image counts, attachments. Checked when you launch, and again per send against the copy the recipient actually receives once merge fields and spintax have resolved."
+                eyebrow="בדיקות תוכן וספאם"
+                description="ציון התוכן של כל שלב לפי האותות שמסנני ספאם מודדים: מילות טריגר, סימני פיסוק מרובים, ספירת קישורים ותמונות, וקבצים מצורפים. נבדק בעת ההשקה, ושוב בכל שליחה מול התוכן שהנמען מקבל בפועל לאחר פריסת משתנים ו-spintax."
             >
                 {isLoading || !draft ? (
                     <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
                 ) : (
                     <>
                         <Row
-                            label="Flag risky copy"
-                            description="Advisory only. It warns in the launch dialog and the campaign activity feed, and never blocks or delays a send."
+                            label="סמן תוכן בסיכון"
+                            description="המלצה בלבד. מתריע בדיאלוג ההשקה ובעדכוני הקמפיין, ולעולם אינו חוסם או מעכב שליחה."
                         >
                             <Toggle
                                 on={!!draft.preflight?.check_content_score}
@@ -269,8 +269,8 @@ function SendingSettings() {
                         </Row>
                         {draft.preflight?.check_content_score && (
                             <Row
-                                label="Minimum score"
-                                description="Copy scoring below this out of 100 is flagged. Higher is stricter."
+                                label="ציון מינימלי"
+                                description="תוכן שמקבל ציון מתחת למספר זה מתוך 100 יסומן. ציון גבוה יותר מחמיר יותר."
                             >
                                 <NumberInput
                                     min={1}
@@ -306,26 +306,26 @@ function UnsubscribeRows({
     return (
         <>
             <Row
-                label="Opt-out line"
+                label="שורת ביטול הצטרפות"
                 description={
                     mode === "text"
-                        ? "A plain sentence inviting a reply. Reads like a personal email; the reply is detected and honoured automatically."
+                        ? "משפט פשוט המזמין מענה. נקרא כמו אימייל אישי; המענה מזוהה ומכובד אוטומטית."
                         : mode === "link"
-                          ? "A sentence with a real unsubscribe link. One click on a confirmation page; the mail client may also show its own Unsubscribe button. Reads as bulk mail where a reply reads as a person, so keep it for lists that need a link. On a plain-text campaign it prints the full address in the copy."
-                          : "No opt-out in the body. Keep the unsubscribe header on in each campaign, or you are relying on recipients replying."
+                          ? "משפט עם קישור ממשי להסרה מרשימת התפוצה. לחיצה אחת בעמוד אישור; תוכנת הדואר עשויה להציג גם כפתור הסרה משלה. נקרא כמו דיוור המוני בניגוד למענה אישי, לכן מומלץ לרשימות המחייבות קישור."
+                          : "ללא שורת ביטול הצטרפות בגוף ההודעה. יש לוודא שכותרת ה-unsubscribe פעילה בכל קמפיין."
                 }
             >
                 <SelectMenu
                     value={mode}
                     onChange={(v) => onChange({ mode: v as UnsubscribeMode })}
                     options={UNSUB_MODES}
-                    aria-label="Opt-out line"
+                    aria-label="שורת ביטול הצטרפות"
                     minWidth={240}
                     align="end"
                 />
             </Row>
             {mode === "text" && (
-                <Row label="Wording" description="One sentence, appended after the signature." align="start">
+                <Row label="ניסוח" description="משפט אחד, מתווסף לאחר החתימה." align="start">
                     <TextInput
                         value={value.text}
                         onChange={(v) => onChange({ text: v })}
@@ -336,7 +336,7 @@ function UnsubscribeRows({
             )}
             {mode === "link" && (
                 <>
-                    <Row label="Wording" description="The sentence before the link." align="start">
+                    <Row label="ניסוח" description="המשפט שלפני הקישור." align="start">
                         <TextInput
                             value={value.link_intro}
                             onChange={(v) => onChange({ link_intro: v })}
@@ -344,7 +344,7 @@ function UnsubscribeRows({
                             className="w-full sm:w-[420px]"
                         />
                     </Row>
-                    <Row label="Link text" description="What the link itself says.">
+                    <Row label="טקסט הקישור" description="מה שהקישור עצמו מציג.">
                         <TextInput
                             value={value.link_text}
                             onChange={(v) => onChange({ link_text: v })}
@@ -355,7 +355,7 @@ function UnsubscribeRows({
                 </>
             )}
             {mode !== "off" && (
-                <Row label="Preview" align="start">
+                <Row label="תצוגה מקדימה" align="start">
                     <p className="w-full sm:w-[420px] rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2 text-[12px] text-slate-500">
                         {mode === "text" ? (
                             text
@@ -368,11 +368,11 @@ function UnsubscribeRows({
                 </Row>
             )}
             <Row
-                label="Suppression list"
-                description="Everyone who opted out, bounced or complained, plus anything added by hand. No campaign emails an entry on it."
+                label="רשימת השתקה (Suppression)"
+                description="כל מי שביטל הצטרפות, חזר כ-bounce או התלונן, בתוספת כתובות שנוספו ידנית. אף קמפיין לא ישלח לכתובת הנמצאת ברשימה זו."
             >
                 <Link to="/app/contacts/suppressions" className="text-[12px] text-sky-700 hover:text-sky-800 font-medium">
-                    Open the list
+                    פתח את הרשימה
                 </Link>
             </Row>
         </>

@@ -9,11 +9,11 @@ import useRevokeOtherSessions from "@/lib/api/hooks/auth/useRevokeOtherSessions"
 import type ActiveSession from "@/lib/api/models/auth/ActiveSession";
 
 const PROVIDER_LABELS: Record<string, string> = {
-    email: "Email",
+    email: "אימייל",
     google: "Google",
     apple: "Apple",
-    oidc: "Single sign-on",
-    webauthn: "Passkey",
+    oidc: "SSO (חיבור יחיד)",
+    webauthn: "מפתח גישה (Passkey)",
 };
 
 function providerLabel(p: string): string | null {
@@ -24,15 +24,15 @@ function providerLabel(p: string): string | null {
 function deviceLabel(s: ActiveSession): string {
     const browser = s.browser?.trim();
     const os = s.os?.trim();
-    if (browser && os) return `${browser} on ${os}`;
-    return browser || os || "Unknown device";
+    if (browser && os) return `${browser} ב-${os}`;
+    return browser || os || "מכשיר לא ידוע";
 }
 
 function locationLabel(s: ActiveSession): string {
     const parts = [s.location_city, s.location_region, s.location_country]
         .map((p) => p?.trim())
         .filter((p): p is string => !!p && p.toLowerCase() !== "unknown");
-    return parts.length ? Array.from(new Set(parts)).join(", ") : "Unknown location";
+    return parts.length ? Array.from(new Set(parts)).join(", ") : "מיקום לא ידוע";
 }
 
 function DeviceIcon({ os }: { os: string }) {
@@ -45,14 +45,14 @@ function DeviceIcon({ os }: { os: string }) {
 function relTime(d: Date | string): string {
     const date = new Date(d);
     const sec = Math.floor((Date.now() - date.getTime()) / 1000);
-    if (sec < 45) return "just now";
+    if (sec < 45) return "כרגע";
     const min = Math.floor(sec / 60);
-    if (min < 60) return `${Math.max(min, 1)}m ago`;
+    if (min < 60) return `לפני ${Math.max(min, 1)} דק'`;
     const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}h ago`;
+    if (hr < 24) return `לפני ${hr} שע'`;
     const day = Math.floor(hr / 24);
-    if (day < 30) return `${day}d ago`;
-    return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    if (day < 30) return `לפני ${day} ימ'`;
+    return date.toLocaleDateString("he-IL", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export default function SessionManager() {
@@ -65,13 +65,13 @@ export default function SessionManager() {
 
     const handleRevoke = (s: ActiveSession) => {
         confirm?.show(
-            `Sign out ${deviceLabel(s)}? That device will need to sign in again.`,
+            `לנתק את ${deviceLabel(s)}? מכשיר זה יידרש להתחבר שוב.`,
             async () => {
                 try {
                     await revoke.mutateAsync(s.id);
-                    toast.success("Session signed out");
+                    toast.success("ההפעלה נותקה בהצלחה");
                 } catch {
-                    toast.error("Couldn't sign out that session.");
+                    toast.error("ניתוק ההפעלה נכשל.");
                 }
             },
         );
@@ -79,13 +79,13 @@ export default function SessionManager() {
 
     const handleRevokeOthers = () => {
         confirm?.show(
-            "Sign out of all other sessions? Every device except this one will need to sign in again.",
+            "לנתק את כל שאר ההפעלות? כל מכשיר מלבד מכשיר זה יידרש להתחבר שוב.",
             async () => {
                 try {
                     await revokeOthers.mutateAsync();
-                    toast.success("Signed out everywhere else");
+                    toast.success("כל שאר המכשירים נותקו בהצלחה");
                 } catch {
-                    toast.error("Couldn't sign out the other sessions.");
+                    toast.error("ניתוק שאר המכשירים נכשל.");
                 }
             },
         );
@@ -93,13 +93,13 @@ export default function SessionManager() {
 
     return (
         <Section
-            eyebrow="Sessions"
-            description="Devices currently signed in to your account. Sign out any you don't recognize."
+            eyebrow="הפעלות פעילות (Sessions)"
+            description="מכשירים המחוברים כעת לחשבונך. נתק כל מכשיר שאינך מזהה."
         >
             <div className="space-y-3">
                 {isLoading ? (
                     <div className="flex items-center gap-2 text-[12px] text-slate-400 py-2">
-                        <Loading className="!w-4 h-4 text-slate-400" /> Loading sessions...
+                        <Loading className="!w-4 h-4 text-slate-400" /> טוען הפעלות פעילות…
                     </div>
                 ) : sessions && sessions.length > 0 ? (
                     <div className="rounded-md border border-slate-200 divide-y divide-slate-200 bg-white">
@@ -117,7 +117,7 @@ export default function SessionManager() {
                                             </span>
                                             {s.current && (
                                                 <span className="text-[10px] uppercase tracking-[0.08em] font-medium rounded-sm px-1 bg-sky-50 text-sky-700">
-                                                    This device
+                                                    מכשיר זה
                                                 </span>
                                             )}
                                         </div>
@@ -125,7 +125,7 @@ export default function SessionManager() {
                                             {locationLabel(s)}
                                             {provider ? ` · ${provider}` : ""}
                                             {" · "}
-                                            {s.current ? "Active now" : `Active ${relTime(s.last_active_at)}`}
+                                            {s.current ? "פעיל כעת" : `פעיל ${relTime(s.last_active_at)}`}
                                         </div>
                                     </div>
                                     {!s.current && (
@@ -133,9 +133,9 @@ export default function SessionManager() {
                                             type="button"
                                             onClick={() => handleRevoke(s)}
                                             disabled={revoke.isPending}
-                                            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md text-[12px] text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 shrink-0"
+                                            className="h-7 px-2.5 inline-flex items-center justify-center rounded-md text-[12px] text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
                                         >
-                                            Sign out
+                                            התנתק
                                         </button>
                                     )}
                                 </div>
@@ -144,7 +144,7 @@ export default function SessionManager() {
                     </div>
                 ) : (
                     <p className="text-[12px] text-slate-500 leading-relaxed">
-                        No active sessions found.
+                        לא נמצאו הפעלות פעילות.
                     </p>
                 )}
 
@@ -153,14 +153,14 @@ export default function SessionManager() {
                         type="button"
                         onClick={handleRevokeOthers}
                         disabled={revokeOthers.isPending}
-                        className="h-8 px-3 rounded-md border border-slate-200 hover:border-red-300 hover:bg-red-50/50 text-[12.5px] font-medium text-slate-700 hover:text-red-700 inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                        className="h-8 px-3 rounded-md border border-slate-200 hover:border-red-300 hover:bg-red-50/50 text-[12.5px] font-medium text-slate-700 hover:text-red-700 inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
                     >
                         {revokeOthers.isPending ? (
                             <Loading className="!w-3.5 h-3.5 text-slate-500" />
                         ) : (
                             <LogOut className="w-3.5 h-3.5" />
                         )}
-                        Sign out other sessions
+                        נתק את כל שאר המכשירים
                     </button>
                 )}
             </div>

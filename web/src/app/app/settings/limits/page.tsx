@@ -20,12 +20,12 @@ import type {
 } from "@/lib/api/models/app/organizations/LimitIncreaseRequest";
 
 const FIELD_OPTIONS: { value: LimitField; label: string; hint: string }[] = [
-    { value: "max_email_accounts", label: "Mailboxes", hint: "More connected sending mailboxes" },
-    { value: "max_campaigns", label: "Campaigns (lifetime)", hint: "Higher cap on total campaigns created" },
-    { value: "max_active_campaigns", label: "Active campaigns", hint: "More campaigns running at the same time" },
-    { value: "max_team_members", label: "Team members", hint: "More seats on this workspace" },
-    { value: "max_contacts", label: "Contacts", hint: "Store more recipient records" },
-    { value: "daily_campaign_limit", label: "Daily sends", hint: "Send more campaign emails per day" },
+    { value: "max_email_accounts", label: "תיבות דואר", hint: "יותר תיבות דואר מחוברות לשליחה" },
+    { value: "max_campaigns", label: "קמפיינים (מצטבר)", hint: "מכסה גבוהה יותר לסך כל הקמפיינים שנוצרו" },
+    { value: "max_active_campaigns", label: "קמפיינים פעילים", hint: "יותר קמפיינים שפועלים במקביל" },
+    { value: "max_team_members", label: "חברי צוות", hint: "יותר מושבים (seats) בסביבת עבודה זו" },
+    { value: "max_contacts", label: "אנשי קשר", hint: "שמירת יותר רשומות נמענים" },
+    { value: "daily_campaign_limit", label: "שליחות יומיות", hint: "שליחת יותר הודעות קמפיין ביום" },
 ];
 
 const STATUS_TONE: Record<LimitRequestStatus, string> = {
@@ -33,6 +33,13 @@ const STATUS_TONE: Record<LimitRequestStatus, string> = {
     approved: "bg-emerald-50 text-emerald-700 border-emerald-200",
     rejected: "bg-red-50 text-red-700 border-red-200",
     cancelled: "bg-slate-50 text-slate-600 border-slate-200",
+};
+
+const STATUS_LABEL: Record<LimitRequestStatus, string> = {
+    pending: "ממתין לבדיקה",
+    approved: "אושר",
+    rejected: "נדחה",
+    cancelled: "בוטל",
 };
 
 export default function LimitsSettingsPage() {
@@ -68,24 +75,24 @@ export default function LimitsSettingsPage() {
                 reason,
             }),
         onSuccess: () => {
-            toast.success("Request submitted — an admin will review shortly.");
+            toast.success("הבקשה נשלחה — מנהל מערכת יבדוק אותה בהקדם.");
             qc.invalidateQueries({ queryKey: ["app", "organizations", orgId, "limit-requests"] });
             setRequested(Number.NaN);
             setReason("");
         },
         onError: (err: Error) => {
-            toast.error(err.message || "Could not submit — please try again.");
+            toast.error(err.message || "השליחה נכשלה — נסה שוב.");
         },
     });
 
     const cancel = useMutation({
         mutationFn: (id: string) => cancelLimitRequest(id),
         onSuccess: () => {
-            toast.success("Request cancelled");
+            toast.success("הבקשה בוטלה");
             qc.invalidateQueries({ queryKey: ["app", "organizations", orgId, "limit-requests"] });
         },
         onError: (err: Error) => {
-            toast.error(err.message || "Cancel failed");
+            toast.error(err.message || "ביטול הבקשה נכשל");
         },
     });
 
@@ -95,11 +102,11 @@ export default function LimitsSettingsPage() {
         e.preventDefault();
         const n = requested;
         if (!Number.isInteger(n) || n <= 0) {
-            toast.error("Requested value must be a positive integer");
+            toast.error("הערך המבוקש חייב להיות מספר שלם חיובי");
             return;
         }
         if (reason.trim().length < 10) {
-            toast.error("Please include a reason (at least a sentence)");
+            toast.error("נא לפרט סיבה (לפחות משפט אחד)");
             return;
         }
         submit.mutate();
@@ -107,22 +114,22 @@ export default function LimitsSettingsPage() {
 
     return (
         <SectionShell
-            title="Limits"
-            description="Ask for more capacity than your plan or our product-level cap allows. Increases are reviewed and may be refused per our terms of service."
+            title="מגבלות"
+            description="בקש קיבולת גבוהה מזו שהתוכנית שלך או המערכת מאפשרת. הבקשות נבדקות ועשויות להידחות בהתאם לתנאי השירות."
         >
             <Section
-                eyebrow="Request an increase"
-                description="Tell us what you need and why. We aim to respond within one business day."
+                eyebrow="בקש הגדלת מכסה"
+                description="ספר לנו מה דרוש לך ומדוע. אנו משתדלים להשיב בתוך יום עסקים אחד."
             >
                 <form onSubmit={onSubmit} className="space-y-3">
                     <div>
-                        <label className="text-[12px] font-medium text-slate-700">Resource</label>
+                        <label className="text-[12px] font-medium text-slate-700">משאב</label>
                         <SelectMenu
                             value={field}
                             onChange={(v) => setField(v as LimitField)}
                             options={fieldSelectOptions}
                             className="mt-1 w-full"
-                            aria-label="Resource"
+                            aria-label="משאב"
                         />
                         <p className="text-[11px] text-slate-500 mt-1">
                             {FIELD_OPTIONS.find((o) => o.value === field)?.hint}
@@ -130,24 +137,24 @@ export default function LimitsSettingsPage() {
                     </div>
                     <div>
                         <label className="text-[12px] font-medium text-slate-700">
-                            Requested value
+                            ערך מבוקש
                         </label>
                         <NumberInput
                             min={1}
                             value={requested}
                             onChange={setRequested}
                             className="mt-1 flex w-full"
-                            placeholder="e.g. 50"
+                            placeholder="לדוגמה 50"
                         />
                     </div>
                     <div>
-                        <label className="text-[12px] font-medium text-slate-700">Reason</label>
+                        <label className="text-[12px] font-medium text-slate-700">סיבה</label>
                         <textarea
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             rows={3}
                             className="mt-1 block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
-                            placeholder="Why does this matter for your team? Volume, customer commitments, ramp plans, etc."
+                            placeholder="מדוע זה חשוב לצוות שלך? נפח שליחה, התחייבויות ללקוחות, תוכניות התרחבות וכו'."
                         />
                     </div>
                     <div className="flex items-center gap-3">
@@ -156,30 +163,30 @@ export default function LimitsSettingsPage() {
                             disabled={submit.isPending || !orgId}
                             className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
                         >
-                            {submit.isPending ? "Submitting…" : "Submit request"}
+                            {submit.isPending ? "שולח…" : "שלח בקשה"}
                         </button>
                         <p className="text-[11px] text-slate-500">
                             {brand.terms_url ? (
                                 <>
-                                    Subject to review per our{" "}
-                                    <a href={brand.terms_url} target="_blank" rel="noreferrer" className="underline">
-                                        terms of service
+                                    בכפוף לבדיקה בהתאם ל
+                                    <a href={brand.terms_url} target="_blank" rel="noreferrer" className="underline mx-1">
+                                        תנאי השירות
                                     </a>
-                                    .
+                                    שלנו.
                                 </>
                             ) : (
-                                "Subject to review."
+                                "בכפוף לבדיקה."
                             )}
                         </p>
                     </div>
                 </form>
             </Section>
 
-            <Section eyebrow="Your requests" description="Pending, approved, and historical decisions.">
+            <Section eyebrow="הבקשות שלך" description="בקשות בהמתנה, מאושרות והחלטות קודמות.">
                 {requestsQuery.isLoading ? (
-                    <p className="text-[12px] text-slate-500">Loading…</p>
+                    <p className="text-[12px] text-slate-500">טוען…</p>
                 ) : rows.length === 0 ? (
-                    <p className="text-[12px] text-slate-500">No requests yet.</p>
+                    <p className="text-[12px] text-slate-500">אין בקשות עדיין.</p>
                 ) : (
                     <ul className="space-y-2">
                         {rows.map((r) => {
@@ -194,15 +201,15 @@ export default function LimitsSettingsPage() {
                                         <div className="min-w-0">
                                             <div className="text-sm font-medium">
                                                 {fieldLabel}: {r.current_effective.toLocaleString()}
-                                                {" → "}
+                                                {" ← "}
                                                 {r.requested.toLocaleString()}
                                             </div>
                                             <div className="text-[11px] text-slate-500 mt-1 break-words">
-                                                {new Date(r.submitted_at).toLocaleDateString()} · "{r.reason}"
+                                                {new Date(r.submitted_at).toLocaleDateString("he-IL")} · "{r.reason}"
                                             </div>
                                             {r.review_notes && r.status !== "pending" && (
                                                 <div className="text-[11px] text-slate-600 mt-1 italic break-words">
-                                                    Reviewer: "{r.review_notes}"
+                                                    הערת בודק: "{r.review_notes}"
                                                 </div>
                                             )}
                                         </div>
@@ -210,7 +217,7 @@ export default function LimitsSettingsPage() {
                                             <span
                                                 className={`text-[10px] px-1.5 py-0.5 rounded border ${STATUS_TONE[r.status]}`}
                                             >
-                                                {r.status}
+                                                {STATUS_LABEL[r.status] ?? r.status}
                                             </span>
                                             {r.status === "pending" && (
                                                 <button
@@ -218,7 +225,7 @@ export default function LimitsSettingsPage() {
                                                     disabled={cancel.isPending}
                                                     className="text-[11px] text-slate-500 hover:text-slate-800 underline"
                                                 >
-                                                    Cancel
+                                                    בטל
                                                 </button>
                                             )}
                                         </div>

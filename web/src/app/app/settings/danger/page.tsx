@@ -45,47 +45,47 @@ export default function DangerSettingsPage() {
 
     return (
         <SectionShell
-            title="Danger zone"
-            description="Irreversible actions. Read carefully — each one has a recovery window."
+            title="אזור מסוכן"
+            description="פעולות בלתי הפיכות. קרא בעיון — לכל פעולה יש חלון התאוששות."
         >
             <Section
-                eyebrow="Account"
-                description="Affects you across every workspace."
+                eyebrow="חשבון"
+                description="משפיע עליך בכל סביבות העבודה."
             >
                 {accPending ? (
                     <PendingDeletionBanner
-                        title="Your account is scheduled for deletion"
+                        title="החשבון שלך מתוזמן למחיקה"
                         deletion={accPending}
                         onCancel={() => cancelAcc.mutateAsync(undefined)}
                     />
                 ) : (
                     <DangerRow
-                        title="Delete account"
-                        body="Permanently delete your account and every workspace you own. You'll have 30 days to cancel before the data is gone."
-                        cta="Delete account…"
+                        title="מחק חשבון"
+                        body="מחק לצמיתות את החשבון שלך ואת כל סביבות העבודה שבבעלותך. יהיו לך 30 יום לבטל לפני שהנתונים יימחקו לצמיתות."
+                        cta="מחק חשבון…"
                         onClick={() => setOpenAcc(true)}
                     />
                 )}
             </Section>
 
             <Section
-                eyebrow="Workspace"
-                description="Affects only the workspace you're viewing."
+                eyebrow="סביבת עבודה"
+                description="משפיע רק על סביבת העבודה שאתה צופה בה כעת."
             >
                 {orgPending ? (
                     <PendingDeletionBanner
-                        title={`"${orgDanger.data?.resource_name}" is scheduled for deletion`}
+                        title={`"${orgDanger.data?.resource_name}" מתוזמנת למחיקה`}
                         deletion={orgPending}
                         onCancel={() => cancelOrg.mutateAsync(undefined)}
                     />
                 ) : (
                     <DangerRow
-                        title="Delete workspace"
-                        body="Permanently delete this workspace and every campaign, contact and mailbox it contains. You'll have 30 days to cancel."
-                        cta="Delete workspace…"
+                        title="מחק סביבת עבודה"
+                        body="מחק לצמיתות את סביבת העבודה הזו ואת כל הקמפיינים, אנשי הקשר ותיבות הדואר שבתוכה. יהיו לך 30 יום לבטל."
+                        cta="מחק סביבת עבודה…"
                         onClick={() => setOpenOrg(true)}
                         disabled={!access.isOwner}
-                        disabledReason="Only the workspace owner can schedule deletion."
+                        disabledReason="רק בעל סביבת העבודה רשאי לתזמן מחיקה."
                     />
                 )}
             </Section>
@@ -94,17 +94,17 @@ export default function DangerSettingsPage() {
                 <ScheduleDeletionModal
                     open={openAcc}
                     onClose={() => setOpenAcc(false)}
-                    title="Delete your account"
+                    title="מחק את חשבונך"
                     body={
                         <>
-                            This will schedule your <strong>entire account</strong>{" "}
-                            for permanent deletion, including any workspaces you own
-                            and every campaign / contact / mailbox inside them.
+                            פעולה זו תתזמן את <strong>כל החשבון שלך</strong>{" "}
+                            למחיקה לצמיתות, כולל כל סביבות העבודה שבבעלותך
+                            וכל קמפיין / איש קשר / תיבת דואר שבתוכם.
                         </>
                     }
                     confirmationHint={accountDanger.data.confirmation_hint}
                     graceDays={accountDanger.data.grace_days}
-                    submitLabel="Schedule account deletion"
+                    submitLabel="תזמן מחיקת חשבון"
                     onSubmit={(d) => scheduleAcc.mutateAsync(d)}
                 />
             )}
@@ -113,19 +113,18 @@ export default function DangerSettingsPage() {
                 <ScheduleDeletionModal
                     open={openOrg}
                     onClose={() => setOpenOrg(false)}
-                    title={`Delete ${orgDanger.data.resource_name}`}
+                    title={`מחק את ${orgDanger.data.resource_name}`}
                     body={
                         <>
-                            This will schedule the workspace{" "}
-                            <strong>"{orgDanger.data.resource_name}"</strong> for
-                            permanent deletion. Campaigns keep running during the
-                            grace period — members keep their access until the
-                            deletion runs.
+                            פעולה זו תתזמן את סביבת העבודה{" "}
+                            <strong>"{orgDanger.data.resource_name}"</strong> למחיקה
+                            לצמיתות. קמפיינים ימשיכו לרוץ במהלך תקופת החסד —
+                            חברי הצוות ישמרו על הגישה שלהם עד להפעלת המחיקה בפועל.
                         </>
                     }
                     confirmationHint={orgDanger.data.confirmation_hint}
                     graceDays={orgDanger.data.grace_days}
-                    submitLabel="Schedule workspace deletion"
+                    submitLabel="תזמן מחיקת סביבת עבודה"
                     onSubmit={(d) => scheduleOrg.mutateAsync(d)}
                 />
             )}
@@ -149,7 +148,7 @@ function DangerRow({
     disabledReason?: string;
 }) {
     return (
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center border-l-2 border-red-200 pl-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center border-s-2 border-red-200 ps-3">
             <div className="min-w-0 flex-1">
                 <div className="text-[12.5px] font-medium text-red-700 leading-tight flex items-center gap-1.5">
                     <TrashIcon className="w-3 h-3" />
@@ -168,7 +167,7 @@ function DangerRow({
                 type="button"
                 onClick={onClick}
                 disabled={disabled}
-                className="self-start sm:ml-auto h-7 px-2.5 rounded-md border border-red-300 hover:border-red-400 text-red-700 hover:text-red-800 hover:bg-red-100/60 text-[12px] font-medium transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-red-300 disabled:hover:text-red-700 disabled:hover:bg-transparent"
+                className="self-start sm:ms-auto h-7 px-2.5 rounded-md border border-red-300 hover:border-red-400 text-red-700 hover:text-red-800 hover:bg-red-100/60 text-[12px] font-medium transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-red-300 disabled:hover:text-red-700 disabled:hover:bg-transparent"
             >
                 {cta}
             </button>

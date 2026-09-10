@@ -12,12 +12,12 @@ export function formatBytes(n: number | undefined): string {
     return `${unit === 0 ? value : value.toFixed(1)} ${units[unit]}`;
 }
 
-/** "in 6 days" / "in 3 hours" / "expired", for an archive's retention. */
+/** "בעוד 6 ימ'" / "בעוד 3 שע'" / "פג תוקף", for an archive's retention. */
 export function formatExpiry(at: Date | string | undefined): string {
     if (!at) return "";
     const ms = new Date(at).getTime() - Date.now();
-    if (ms <= 0) return "expired";
+    if (ms <= 0) return "פג תוקף";
     const hours = Math.round(ms / 3_600_000);
-    if (hours < 24) return `expires in ${hours}h`;
-    return `expires in ${Math.round(hours / 24)}d`;
+    if (hours < 24) return `פג בעוד ${hours} שע'`;
+    return `פג בעוד ${Math.round(hours / 24)} ימ'`;
 }

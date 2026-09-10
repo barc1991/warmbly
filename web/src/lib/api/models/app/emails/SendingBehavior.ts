@@ -85,7 +85,7 @@ export const DEFAULT_SENDING_BEHAVIOR: SendingBehaviorPatch = {
 };
 
 // Monday-first labels, matching the campaign schedule grid.
-export const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+export const WEEKDAY_LABELS = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"] as const;
 
 /** Renders minutes-since-midnight as a 24h clock string. */
 export function minutesToClock(minutes: number): string {
@@ -105,10 +105,10 @@ export function clockToMinutes(value: string): number | null {
 
 /** "1m 30s" style rendering for a gap expressed in seconds. */
 export function secondsToLabel(seconds: number): string {
-    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 60) return `${seconds} שנ'`;
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    return s === 0 ? `${m}m` : `${m}m ${s}s`;
+    return s === 0 ? `${m} דק'` : `${m} דק' ${s} שנ'`;
 }
 
 /**
@@ -117,21 +117,21 @@ export function secondsToLabel(seconds: number): string {
  * Returns null when the profile is valid.
  */
 export function validateSendingBehavior(b: SendingBehavior): string | null {
-    if (b.daily_limit_min < 1 || b.daily_limit_max > 500) return "Daily volume must be between 1 and 500 emails.";
-    if (b.daily_limit_min > b.daily_limit_max) return "The daily minimum cannot be above the maximum.";
-    if (b.hourly_limit_min < 1 || b.hourly_limit_max > 200) return "Hourly volume must be between 1 and 200 emails.";
-    if (b.hourly_limit_min > b.hourly_limit_max) return "The hourly minimum cannot be above the maximum.";
-    if (b.gap_min_seconds < 30 || b.gap_max_seconds > 86400) return "The delay between emails must be between 30 seconds and 24 hours.";
-    if (b.gap_min_seconds > b.gap_max_seconds) return "The shortest delay cannot be above the longest.";
-    if (b.work_start_min > b.work_start_max) return "The earliest start cannot be after the latest start.";
-    if (b.work_end_min > b.work_end_max) return "The earliest finish cannot be after the latest finish.";
-    if (b.work_start_max >= b.work_end_min) return "The workday has to end after the latest possible start.";
-    if (b.lunch_earliest > b.lunch_latest) return "The lunch window is inverted.";
-    if (b.lunch_min_minutes > b.lunch_max_minutes) return "The shortest break cannot be longer than the longest.";
-    if (b.lunch_max_minutes > 240) return "A break cannot run longer than 4 hours.";
+    if (b.daily_limit_min < 1 || b.daily_limit_max > 500) return "נפח השליחה היומי חייב להיות בין 1 ל-500 אימיילים.";
+    if (b.daily_limit_min > b.daily_limit_max) return "המינימום היומי אינו יכול לעלות על המקסימום.";
+    if (b.hourly_limit_min < 1 || b.hourly_limit_max > 200) return "נפח השליחה השעתי חייב להיות בין 1 ל-200 אימיילים.";
+    if (b.hourly_limit_min > b.hourly_limit_max) return "המינימום השעתי אינו יכול לעלות על המקסימום.";
+    if (b.gap_min_seconds < 30 || b.gap_max_seconds > 86400) return "ההשהיה בין אימיילים חייבת להיות בין 30 שניות ל-24 שעות.";
+    if (b.gap_min_seconds > b.gap_max_seconds) return "ההשהיה הקצרה ביותר אינה יכולה לעלות על הארוכה ביותר.";
+    if (b.work_start_min > b.work_start_max) return "שעת ההתחלה המוקדמת אינה יכולה להיות אחרי שעת ההתחלה המאוחרת.";
+    if (b.work_end_min > b.work_end_max) return "שעת הסיום המוקדמת אינה יכולה להיות אחרי שעת הסיום המאוחרת.";
+    if (b.work_start_max >= b.work_end_min) return "יום העבודה חייב להסתיים לאחר שעת ההתחלה המאוחרת ביותר.";
+    if (b.lunch_earliest > b.lunch_latest) return "חלון הפסקת הצהריים הפוך.";
+    if (b.lunch_min_minutes > b.lunch_max_minutes) return "משך ההפסקה הקצר ביותר אינו יכול לעלות על הארוך ביותר.";
+    if (b.lunch_max_minutes > 240) return "הפסקה אינה יכולה להימשך מעל 4 שעות.";
     if (b.lunch_enabled && (b.lunch_earliest < b.work_start_max || b.lunch_latest + b.lunch_max_minutes > b.work_end_min)) {
-        return "The break has to fit inside the shortest possible workday.";
+        return "ההפסקה חייבת להתאים לתוך יום העבודה הקצר ביותר.";
     }
-    if (b.enabled && b.weekdays === 0) return "Pick at least one sending day.";
+    if (b.enabled && b.weekdays === 0) return "יש לבחור לפחות יום שליחה אחד.";
     return null;
 }

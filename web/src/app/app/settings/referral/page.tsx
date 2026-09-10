@@ -39,20 +39,18 @@ export default function ReferralSettingsPage() {
 
     if (!access.loading && !access.isOwner) {
         return (
-            <SectionShell title="Refer & earn" description="Owner only.">
-                <Section eyebrow="Permission denied">
+            <SectionShell title="הפנה והרווח" description="לבעלים בלבד.">
+                <Section eyebrow="הרשאה נדחתה">
                     <div className="flex items-start gap-3">
                         <div className="size-9 rounded-md bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
                             <LockIcon className="w-4 h-4" />
                         </div>
                         <div>
                             <div className="text-[13px] font-semibold text-slate-900">
-                                Only the workspace owner can manage referrals
+                                רק בעל סביבת העבודה רשאי לנהל הפניות
                             </div>
                             <p className="text-[12px] text-slate-500 leading-relaxed mt-1 max-w-md">
-                                Referral credit is applied to this workspace's invoices, so the
-                                program is scoped to the owner role. Ask your owner to share the
-                                link if you'd like to refer someone.
+                                קרדיט ההפניה מוחל על חשבוניות סביבת עבודה זו, ולכן התוכנית מוגבלת לתפקיד הבעלים. בקש מבעל החשבון לשתף את הקישור אם ברצונך להפנות מישהו.
                             </p>
                         </div>
                     </div>
@@ -63,12 +61,12 @@ export default function ReferralSettingsPage() {
 
     return (
         <SectionShell
-            title="Refer & earn"
-            description="Invite other teams to Warmbly and earn account credit on your invoices."
+            title="הפנה והרווח"
+            description="הזמן צוותים נוספים ל-Warmbly וצבור קרדיט לחשבון על גבי החשבוניות שלך."
         >
             <Section
-                eyebrow="How it works"
-                description="Share your link, they save, you earn."
+                eyebrow="כיצד זה עובד"
+                description="שתף את הקישור שלך, הם חוסכים, אתה מרוויח."
             >
                 <div className="rounded-md border border-sky-100 bg-sky-50/60 p-4">
                     <div className="flex items-start gap-3">
@@ -77,20 +75,20 @@ export default function ReferralSettingsPage() {
                         </div>
                         <div className="min-w-0">
                             <div className="text-[13px] font-semibold text-slate-900">
-                                Give {summary?.invitee_percent_off ?? 0}%, get a month of credit
+                                הענק {summary?.invitee_percent_off ?? 0}%, קבל חודש של קרדיט
                             </div>
                             <p className="text-[12px] text-slate-600 leading-relaxed mt-1 max-w-lg">
-                                Anyone who signs up with your link gets{" "}
+                                כל מי שנרשם דרך הקישור שלך מקבל{" "}
                                 <span className="font-medium text-slate-900">
-                                    {summary?.invitee_percent_off ?? 0}% off
+                                    {summary?.invitee_percent_off ?? 0}% הנחה
                                 </span>{" "}
-                                for their first{" "}
+                                עבור{" "}
                                 <span className="font-medium text-slate-900">
-                                    {summary?.invitee_months ?? 0}{" "}
-                                    {(summary?.invitee_months ?? 0) === 1 ? "month" : "months"}
+                                    {(summary?.invitee_months ?? 0) === 1
+                                        ? "החודש הראשון שלו"
+                                        : `${summary?.invitee_months ?? 0} החודשים הראשונים שלו`}
                                 </span>
-                                . Once they're a paying customer you earn account credit equal to
-                                one month of their plan, applied automatically to your invoices.
+                                . ברגע שהוא הופך ללקוח משלם, תצבור קרדיט לחשבון השווה לחודש אחד בתוכנית שלו, אשר יוחל אוטומטית על החשבוניות שלך.
                             </p>
                         </div>
                     </div>
@@ -98,79 +96,79 @@ export default function ReferralSettingsPage() {
             </Section>
 
             <Section
-                eyebrow="Your link"
-                description="Share this link or code. New signups are attributed to you automatically."
+                eyebrow="הקישור שלך"
+                description="שתף קישור זה או קוד. נרשמים חדשים ישויכו אליך באופן אוטומטי."
             >
                 {referral.isPending ? (
                     <div className="h-9 rounded bg-slate-100 animate-pulse" />
                 ) : referral.isError || !summary ? (
                     <p className="text-[12px] text-slate-500">
-                        Couldn't load your referral link. Reload the page to try again.
+                        לא ניתן היה לטעון את קישור ההפניה שלך. רענן את הדף כדי לנסות שוב.
                     </p>
                 ) : (
                     <>
                         <Row
-                            label="Share link"
-                            description="A direct signup link with your code attached."
+                            label="קישור לשיתוף"
+                            description="קישור ישיר להרשמה המכיל את הקוד שלך."
                             align="start"
                         >
-                            <CopyChip value={summary.share_url} label="Copy link" mono />
+                            <CopyChip value={summary.share_url} label="העתק קישור" mono />
                         </Row>
                         <Row
-                            label="Referral code"
-                            description="For anyone entering a code manually at signup."
+                            label="קוד הפניה"
+                            description="עבור מי שמזין קוד באופן ידני בעת ההרשמה."
                             align="start"
                         >
-                            <CopyChip value={summary.code} label="Copy code" mono uppercase />
+                            <CopyChip value={summary.code} label="העתק קוד" mono uppercase />
                         </Row>
                     </>
                 )}
             </Section>
 
             <Section
-                eyebrow="Earnings"
-                description="Credit you've earned. Balance is applied to your invoices automatically."
+                eyebrow="רווחים וקרדיטים"
+                description="הקרדיט שצברת. היתרה מוחלת אוטומטית על החשבוניות שלך."
             >
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <StatCard
-                        label="Available credit"
+                        label="קרדיט זמין"
                         value={formatMoney(summary?.balance_cents ?? 0, currency)}
                         loading={referral.isPending}
                         accent
                     />
                     <StatCard
-                        label="Lifetime earned"
+                        label="סך הכל נצבר"
                         value={formatMoney(summary?.lifetime_earned_cents ?? 0, currency)}
                         loading={referral.isPending}
                     />
                     <StatCard
-                        label="Total referred"
+                        label="סך הכל הופנו"
                         value={String(summary?.total_referred ?? 0)}
                         loading={referral.isPending}
                     />
                     <StatCard
-                        label="Rewarded"
+                        label="תוגמלו"
                         value={String(summary?.rewarded ?? 0)}
                         loading={referral.isPending}
                     />
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px] text-slate-500">
-                    <CountPill tone="muted" label="Pending" value={summary?.pending ?? 0} />
-                    <CountPill tone="sky" label="Qualified" value={summary?.qualified ?? 0} />
-                    <CountPill tone="emerald" label="Rewarded" value={summary?.rewarded ?? 0} />
+                    <CountPill tone="muted" label="ממתין" value={summary?.pending ?? 0} />
+                    <CountPill tone="sky" label="זכאי" value={summary?.qualified ?? 0} />
+                    <CountPill tone="emerald" label="תוגמל" value={summary?.rewarded ?? 0} />
                 </div>
             </Section>
 
             <Section
-                eyebrow="Your referrals"
-                description="Teams that signed up with your link and where they are in the reward flow."
+                eyebrow="ההפניות שלך"
+                description="צוותים שנרשמו עם הקישור שלך והסטטוס שלהם בתהליך התגמול."
             >
                 <AttributionsTable currency={currency} />
             </Section>
 
             <Section
-                eyebrow="Earnings history"
-                description="Every credit and adjustment applied to your balance."
+                eyebrow="היסטוריית רווחים"
+                description="כל קרדיט והתאמה שהוחלו על היתרה שלך."
             >
                 <EarningsTable currency={currency} />
             </Section>
@@ -195,10 +193,10 @@ function CopyChip({
         navigator.clipboard.writeText(value).then(
             () => {
                 setCopied(true);
-                toast.success("Copied to clipboard");
+                toast.success("הועתק ללוח");
                 setTimeout(() => setCopied(false), 2000);
             },
-            () => toast.error("Couldn't copy to clipboard"),
+            () => toast.error("לא ניתן היה להעתיק ללוח"),
         );
     }
     return (
@@ -208,6 +206,7 @@ function CopyChip({
                     mono ? "font-mono" : ""
                 } ${uppercase ? "uppercase" : ""}`}
                 title={value}
+                dir="ltr"
             >
                 <span className="truncate">{value}</span>
             </div>
@@ -217,7 +216,7 @@ function CopyChip({
                 className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors shrink-0"
             >
                 {copied ? <CheckIcon className="w-3 h-3" /> : <CopyIcon className="w-3 h-3" />}
-                {copied ? "Copied" : label}
+                {copied ? "הועתק" : label}
             </button>
         </div>
     );
@@ -292,7 +291,7 @@ function AttributionsTable({ currency }: { currency: string }) {
     if (rows.length === 0) {
         return (
             <p className="text-[12px] text-slate-500 leading-relaxed">
-                No referrals yet. Share your link to get started.
+                אין עדיין הפניות. שתף את הקישור שלך כדי להתחיל.
             </p>
         );
     }
@@ -302,11 +301,11 @@ function AttributionsTable({ currency }: { currency: string }) {
             <TableSurface>
                 <table className="w-full text-[12px]">
                     <thead>
-                        <tr className="text-left text-[10.5px] uppercase tracking-[0.08em] text-slate-400 border-b border-slate-200">
-                            <th className="font-medium px-3 py-2">Referred org</th>
-                            <th className="font-medium px-3 py-2">Status</th>
-                            <th className="font-medium px-3 py-2 text-right">Reward</th>
-                            <th className="font-medium px-3 py-2 text-right">Date</th>
+                        <tr className="text-start text-[10.5px] uppercase tracking-[0.08em] text-slate-400 border-b border-slate-200">
+                            <th className="font-medium px-3 py-2 text-start">ארגון מופנה</th>
+                            <th className="font-medium px-3 py-2 text-start">סטטוס</th>
+                            <th className="font-medium px-3 py-2 text-end">תגמול</th>
+                            <th className="font-medium px-3 py-2 text-end">תאריך</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -330,23 +329,23 @@ function AttributionRow({
 }) {
     return (
         <tr className="text-slate-700">
-            <td className="px-3 py-2">
+            <td className="px-3 py-2 text-start">
                 <span className="inline-flex items-center gap-1.5">
-                    <span className="text-slate-500">Referred org</span>
-                    <span className="font-mono text-[11px] text-slate-400">
+                    <span className="text-slate-500">ארגון מופנה</span>
+                    <span className="font-mono text-[11px] text-slate-400" dir="ltr">
                         {shortId(row.invitee_org_id)}
                     </span>
                 </span>
             </td>
-            <td className="px-3 py-2">
+            <td className="px-3 py-2 text-start">
                 <AttributionStatusBadge status={row.status} />
             </td>
-            <td className="px-3 py-2 text-right font-mono tabular-nums">
+            <td className="px-3 py-2 text-end font-mono tabular-nums">
                 {row.reward_cents > 0
                     ? formatMoney(row.reward_cents, row.reward_currency || fallbackCurrency)
                     : "—"}
             </td>
-            <td className="px-3 py-2 text-right text-slate-500 tabular-nums">
+            <td className="px-3 py-2 text-end text-slate-500 tabular-nums">
                 {formatDate(row.rewarded_at ?? row.qualified_at ?? row.created_at)}
             </td>
         </tr>
@@ -355,10 +354,10 @@ function AttributionRow({
 
 function AttributionStatusBadge({ status }: { status: ReferralAttributionStatus }) {
     const map: Record<ReferralAttributionStatus, { label: string; cls: string }> = {
-        pending: { label: "Pending", cls: "bg-slate-100 text-slate-500 border-slate-200" },
-        qualified: { label: "Qualified", cls: "bg-sky-50 text-sky-700 border-sky-100" },
-        rewarded: { label: "Rewarded", cls: "bg-emerald-50 text-emerald-700 border-emerald-100" },
-        void: { label: "Void", cls: "bg-slate-100 text-slate-400 border-slate-200" },
+        pending: { label: "ממתין", cls: "bg-slate-100 text-slate-500 border-slate-200" },
+        qualified: { label: "זכאי", cls: "bg-sky-50 text-sky-700 border-sky-100" },
+        rewarded: { label: "תוגמל", cls: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+        void: { label: "בוטל", cls: "bg-slate-100 text-slate-400 border-slate-200" },
     };
     const { label, cls } = map[status];
     return (
@@ -380,7 +379,7 @@ function EarningsTable({ currency }: { currency: string }) {
     if (rows.length === 0) {
         return (
             <p className="text-[12px] text-slate-500 leading-relaxed">
-                No earnings yet. Credit shows up here once a referral is rewarded.
+                אין עדיין רווחים. הקרדיט יוצג כאן ברגע שהפניה תתוגמל.
             </p>
         );
     }
@@ -390,11 +389,11 @@ function EarningsTable({ currency }: { currency: string }) {
             <TableSurface>
                 <table className="w-full text-[12px]">
                     <thead>
-                        <tr className="text-left text-[10.5px] uppercase tracking-[0.08em] text-slate-400 border-b border-slate-200">
-                            <th className="font-medium px-3 py-2">Reason</th>
-                            <th className="font-medium px-3 py-2 text-right">Amount</th>
-                            <th className="font-medium px-3 py-2 text-right">Balance</th>
-                            <th className="font-medium px-3 py-2 text-right">Date</th>
+                        <tr className="text-start text-[10.5px] uppercase tracking-[0.08em] text-slate-400 border-b border-slate-200">
+                            <th className="font-medium px-3 py-2 text-start">סיבה</th>
+                            <th className="font-medium px-3 py-2 text-end">סכום</th>
+                            <th className="font-medium px-3 py-2 text-end">יתרה</th>
+                            <th className="font-medium px-3 py-2 text-end">תאריך</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -420,19 +419,19 @@ function EarningsRow({
     const cur = row.currency || fallbackCurrency;
     return (
         <tr className="text-slate-700">
-            <td className="px-3 py-2">{humanizeReason(row.reason)}</td>
+            <td className="px-3 py-2 text-start">{humanizeReason(row.reason)}</td>
             <td
-                className={`px-3 py-2 text-right font-mono tabular-nums ${
+                className={`px-3 py-2 text-end font-mono tabular-nums ${
                     positive ? "text-emerald-700" : "text-rose-700"
                 }`}
             >
                 {positive ? "+" : "−"}
                 {formatMoney(Math.abs(row.amount_cents), cur)}
             </td>
-            <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-500">
+            <td className="px-3 py-2 text-end font-mono tabular-nums text-slate-500">
                 {formatMoney(row.balance_after_cents, cur)}
             </td>
-            <td className="px-3 py-2 text-right text-slate-500 tabular-nums">
+            <td className="px-3 py-2 text-end text-slate-500 tabular-nums">
                 {formatDate(row.created_at)}
             </td>
         </tr>
@@ -457,7 +456,7 @@ function LoadMore({
             className="mt-2 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-60"
         >
             {query.isFetchingNextPage && <Loader2Icon className="w-3 h-3 animate-spin" />}
-            Load more
+            טען עוד
         </button>
     );
 }
@@ -470,7 +469,17 @@ function shortId(id: string): string {
 }
 
 function humanizeReason(reason: string): string {
-    if (!reason) return "Adjustment";
+    if (!reason) return "התאמה";
+    const map: Record<string, string> = {
+        reward: "תגמול הפניה",
+        referral_reward: "תגמול הפניה",
+        invoice_credit: "זיכוי חשבונית",
+        credit_applied: "זיכוי שיושם",
+        adjustment: "התאמה",
+        manual_adjustment: "התאמה ידנית",
+        expired: "פג תוקף",
+    };
+    if (map[reason]) return map[reason];
     return reason
         .replace(/[_-]+/g, " ")
         .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -479,7 +488,7 @@ function humanizeReason(reason: string): string {
 // formatMoney renders minor units (cents) as a localized currency string.
 function formatMoney(cents: number, currency: string): string {
     try {
-        return new Intl.NumberFormat("en-US", {
+        return new Intl.NumberFormat("he-IL", {
             style: "currency",
             currency: (currency || "usd").toUpperCase(),
         }).format(cents / 100);
@@ -492,7 +501,7 @@ function formatDate(value?: string): string {
     if (!value) return "—";
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return "—";
-    return d.toLocaleDateString("en-US", {
+    return d.toLocaleDateString("he-IL", {
         month: "short",
         day: "numeric",
         year: "numeric",

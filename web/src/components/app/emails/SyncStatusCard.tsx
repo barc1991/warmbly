@@ -5,34 +5,32 @@ import type { SyncThrottleReason } from "@/lib/api/models/app/emails/SyncState";
 import { cn } from "@/lib/utils";
 
 // Sync card in the mailbox drawer: what the initial import has done, whether
-// fair use is holding new mail, and when the last pass ran. Copy stays
-// concrete (numbers, times) because "syncing..." with no progress is what
-// makes a fresh mailbox feel broken.
+// fair use is holding new mail, and when the last pass ran.
 
 const REASON_COPY: Record<SyncThrottleReason, string> = {
-    burst: "a lot of mail arrived at once",
-    hourly: "the hourly limit for this mailbox was reached",
-    daily: "the daily limit for this mailbox was reached",
-    org_daily: "the workspace's daily limit was reached",
-    priority_daily: "the daily limit for replies was reached",
+    burst: "הגיע נפח דואר גדול בבת אחת",
+    hourly: "הושגה המגבלה השעתית לתיבת דואר זו",
+    daily: "הושגה המגבלה היומית לתיבת דואר זו",
+    org_daily: "הושגה המגבלה היומית של סביבת העבודה",
+    priority_daily: "הושגה המגבלה היומית למענות",
 };
 
 function relative(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime();
     const m = Math.round(diff / 60_000);
-    if (m < 1) return "just now";
-    if (m < 60) return `${m} min ago`;
+    if (m < 1) return "ממש עכשיו";
+    if (m < 60) return `לפני ${m} דק'`;
     const h = Math.round(m / 60);
-    if (h < 24) return `${h} h ago`;
-    return new Date(iso).toLocaleDateString();
+    if (h < 24) return `לפני ${h} שע'`;
+    return new Date(iso).toLocaleDateString("he-IL");
 }
 
 function until(iso: string): string {
     const d = new Date(iso);
     const sameDay = d.toDateString() === new Date().toDateString();
     return sameDay
-        ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        : d.toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+        ? d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })
+        : d.toLocaleString("he-IL", { weekday: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 export default function SyncStatusCard({ mailboxId }: { mailboxId: string }) {
@@ -65,25 +63,25 @@ export default function SyncStatusCard({ mailboxId }: { mailboxId: string }) {
         const reason = state.throttle_reason ? REASON_COPY[state.throttle_reason as SyncThrottleReason] : undefined;
         headline = (
             <>
-                Waiting on the sync budget until {until(state.throttled_until)}
+                ממתין לתקציב סנכרון עד {until(state.throttled_until)}
                 {reason ? <span className="text-slate-500"> ({reason})</span> : null}
             </>
         );
     } else if (status === "complete") {
-        headline = state?.last_synced_at ? `Up to date, last checked ${relative(state.last_synced_at)}` : "Up to date";
+        headline = state?.last_synced_at ? `מעודכן, נבדק לאחרונה ${relative(state.last_synced_at)}` : "מעודכן";
     } else if (status === "running") {
         Icon = DownloadIcon;
         tone = "text-sky-600";
-        headline = `Importing recent mail: ${synced.toLocaleString()} message${synced === 1 ? "" : "s"} so far`;
+        headline = `מייבא דואר אחרון: ${synced.toLocaleString()} הודעות עד כה`;
     } else {
         Icon = RefreshCwIcon;
         tone = "text-sky-600";
-        headline = "Import starts on the next pass";
+        headline = "הייבוא יתחיל בסבב הבא";
     }
 
     return (
         <div className="px-5 py-4">
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Sync</div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">סנכרון</div>
             <div className={cn("mt-2 inline-flex items-start gap-1.5 text-[12.5px] font-medium", tone)}>
                 <Icon className={cn("w-3.5 h-3.5 mt-0.5 shrink-0", status === "running" && !throttled && "animate-pulse")} />
                 <span className="text-slate-900">{headline}</span>
@@ -102,31 +100,28 @@ export default function SyncStatusCard({ mailboxId }: { mailboxId: string }) {
 
             <p className="mt-2 text-[11.5px] leading-relaxed text-slate-500">
                 {status === "complete" && policy
-                    ? `Imported ${synced.toLocaleString()} message${synced === 1 ? "" : "s"} from the last ${policy.backfill_days} days. New mail syncs as it arrives.`
+                    ? `ייבאנו ${synced.toLocaleString()} הודעות מ-${policy.backfill_days} הימים האחרונים. דואר חדש מסתנכרן עם הגעתו.`
                     : policy
-                        ? `The last ${policy.backfill_days} days come in newest first, up to ${cap.toLocaleString()} messages. New mail syncs alongside.`
+                        ? `${policy.backfill_days} הימים האחרונים נטענים מהחדש לישן, עד ${cap.toLocaleString()} הודעות. דואר חדש מסתנכרן במקביל.`
                         : null}
-                {throttled ? " Replies to your outreach keep syncing; the rest resumes automatically." : null}
+                {throttled ? " מענות לפנייה שלך ממשיכים להסתנכרן; שאר הדואר יתחדש אוטומטית." : null}
             </p>
 
             {(state?.deferred ?? 0) > 0 && (
                 <p className="mt-1 text-[11.5px] text-amber-700">
-                    {state!.deferred.toLocaleString()} message{state!.deferred === 1 ? "" : "s"} waiting on the server.
+                    {state!.deferred.toLocaleString()} הודעות ממתינות בשרת.
                 </p>
             )}
 
             {(state?.folders_skipped_cap ?? 0) > 0 && (
                 <p className="mt-1 text-[11.5px] text-amber-700">
-                    {state!.folders_skipped_cap!.toLocaleString()} folder{state!.folders_skipped_cap === 1 ? " is" : "s are"} not synced: this mailbox has more
-                    folders than Warmbly follows. Your inbox, sent, drafts, archive, spam and trash are always included.
+                    {state!.folders_skipped_cap!.toLocaleString()} תיקיות לא סונכרנו: בתיבת דואר זו יש יותר תיקיות ממה ש-Warmbly עוקב אחריו. דואר נכנס, נשלח, טיוטות, ארכיון, ספאם ואשפה תמיד כלולים.
                 </p>
             )}
 
             {(state?.folders_skipped_conflict ?? 0) > 0 && (
                 <p className="mt-1 text-[11.5px] text-amber-700">
-                    Your mail server listed {state!.folders_skipped_conflict!.toLocaleString()} folder
-                    {state!.folders_skipped_conflict === 1 ? " name" : " names"} more than once, so only the first of each is
-                    synced. Renaming one of them on your mail server clears this.
+                    שרת הדואר שלך הציג {state!.folders_skipped_conflict!.toLocaleString()} שמות תיקיות יותר מפעם אחת, לכן רק הראשונה מביניהן סונכרנה. שינוי שם של אחת מהן בשרת הדואר יפתור זאת.
                 </p>
             )}
         </div>

@@ -17,19 +17,18 @@ export default function RolesSettingsPage() {
 
     if (!access.loading && !access.canManage) {
         return (
-            <SectionShell title="Roles & access" description="Team managers only.">
-                <Section eyebrow="Permission denied">
+            <SectionShell title="תפקידים והרשאות" description="למנהלי צוות בלבד.">
+                <Section eyebrow="הגישה נדחתה">
                     <div className="flex items-start gap-3">
                         <div className="size-9 rounded-md bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
                             <LockIcon className="w-4 h-4" />
                         </div>
                         <div>
                             <div className="text-[13px] font-semibold text-slate-900">
-                                You need team management access to manage roles
+                                דרושה לך הרשאת ניהול צוות כדי לנהל תפקידים
                             </div>
                             <p className="text-[12px] text-slate-500 leading-relaxed mt-1 max-w-md">
-                                Roles control who can do what inside this workspace. Ask someone
-                                with team access to review or change your permissions.
+                                תפקידים קובעים מי יכול לעשות מה בסביבת עבודה זו. בקש ממישהו בעל גישת ניהול צוות לבדוק או לשנות את ההרשאות שלך.
                             </p>
                         </div>
                     </div>
@@ -40,21 +39,21 @@ export default function RolesSettingsPage() {
 
     return (
         <SectionShell
-            title="Roles & access"
-            description={`What each role can do inside ${currentOrg?.name ?? "this workspace"}.`}
+            title="תפקידים והרשאות"
+            description={`מה כל תפקיד יכול לעשות ב-${currentOrg?.name ?? "סביבת עבודה זו"}.`}
         >
             <Section
-                eyebrow="Workspace roles"
-                description="Every workspace starts with Admin, Manager, and Viewer. Rename, recolor, reshape, or delete them — and add your own. Editing a role updates everyone assigned to it."
+                eyebrow="תפקידי סביבת העבודה"
+                description="כל סביבת עבודה מתחילה עם מנהל מערכת, מנהל וצופה. שנה את שמם, צבעם, הרשאותיהם או מחק אותם – והוסף תפקידים משלך. עריכת תפקיד מעדכנת מיד את כל המשויכים אליו."
             >
                 <RolesSection canManage={access.canManage} />
                 <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                    Assign roles from the member roster or the invite flow.{" "}
+                    שייך תפקידים מרשימת החברים או מתהליך ההזמנה.{" "}
                     <Link
                         to="/app/settings/members"
                         className="text-slate-700 underline-offset-2 hover:underline"
                     >
-                        Open Members →
+                        פתח את רשימת החברים ←
                     </Link>
                 </p>
             </Section>

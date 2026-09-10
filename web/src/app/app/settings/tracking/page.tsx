@@ -29,14 +29,14 @@ import {
 } from "@/lib/api/models/app/websitetracking/WebsiteTrackingSettings";
 
 const CONSENT_OPTIONS: SelectOption[] = [
-    { value: "explicit", label: "Ask first (recommended)" },
-    { value: "implicit", label: "Record on load" },
+    { value: "explicit", label: "בקש רשות תחילה (מומלץ)" },
+    { value: "implicit", label: "הקלט בטעינת העמוד" },
 ];
 
 const LOCATION_OPTIONS: SelectOption[] = [
-    { value: "none", label: "Do not keep" },
-    { value: "country", label: "Country only" },
-    { value: "city", label: "Country, region and city" },
+    { value: "none", label: "אל תשמור מיקום" },
+    { value: "country", label: "מדינה בלבד" },
+    { value: "city", label: "מדינה, מחוז ועיר" },
 ];
 
 type Draft = Pick<
@@ -69,7 +69,7 @@ function toPatch(d: Draft): UpdateWebsiteTrackingSettings {
 
 export default function WebsiteTrackingSettingsPage() {
     const canManage = usePermission("MANAGE_SETTINGS");
-    if (!canManage) return <NoAccess feature="Website tracking" permissionLabel="Manage settings" />;
+    if (!canManage) return <NoAccess feature="מעקב אתר" permissionLabel="ניהול הגדרות" />;
     return <WebsiteTrackingSettingsView />;
 }
 
@@ -110,64 +110,64 @@ function WebsiteTrackingSettingsView() {
 
     return (
         <SectionShell
-            title="Website tracking"
-            description="See which pages a contact visits on your own site, in their activity timeline."
+            title="מעקב אתר"
+            description="ראה באילו דפים איש קשר מבקר באתר שלך, ישירות בציר הזמן של הפעילות שלו."
             actions={<SaveStatus status={autosave.status} onRetry={autosave.retry} />}
         >
             <Section
-                eyebrow="Collection"
-                description="Nothing is recorded until this is on. Page views reach a contact only when they arrive from a link in an email you sent them; nobody can be attached to a visit by guessing."
+                eyebrow="איסוף נתונים"
+                description="שום דבר אינו מוקלט עד שהגדרה זו פעילה. צפיות בעמוד מיוחסות לאיש קשר רק כאשר הוא מגיע מקישור באימייל שנשלח אליו; לא ניתן לייחס מבקר לפי ניחוש."
             >
                 {isLoading || !draft ? (
                     <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
                 ) : (
                     <>
                         <Row
-                            label="Record website visits"
+                            label="הקלט ביקורים באתר"
                             description={
                                 draft.enabled
-                                    ? "On. The snippet below reports page views for this workspace."
-                                    : "Off. Installed snippets send nothing that is kept."
+                                    ? "פעיל. הקוד שלמטה מדווח על צפיות בעמוד עבור סביבת עבודה זו."
+                                    : "כבוי. קודים מותקנים אינם שולחים נתונים שנשמרים."
                             }
                         >
                             <Toggle on={draft.enabled} onChange={(on) => patch({ enabled: on })} />
                         </Row>
 
                         <Row
-                            label="Consent"
+                            label="הסכמת משתמש (Consent)"
                             description={
                                 draft.consent_mode === "explicit"
-                                    ? "The snippet stores and sends nothing until your page calls warmbly('consent', 'granted'), typically from your cookie banner."
-                                    : "Views are recorded as soon as the page loads. Choose this only where you have a lawful basis without a prior opt-in."
+                                    ? "הקוד אינו שומר ושולח דבר עד שהעמוד קורא ל-warmbly('consent', 'granted'), בדרך כלל מבנר קובצי ה-Cookie שלך."
+                                    : "צפיות מוקלטות ברגע שהעמוד נטען. בחר באפשרות זו רק כאשר יש לך בסיס חוקי ללא הסכמה מוקדמת."
                             }
                         >
                             <SelectMenu
                                 value={draft.consent_mode}
                                 onChange={(v) => patch({ consent_mode: v as Draft["consent_mode"] })}
                                 options={CONSENT_OPTIONS}
-                                aria-label="Consent mode"
+                                aria-label="הסכמת משתמש"
                                 minWidth={220}
                                 align="end"
                             />
                         </Row>
 
                         <Row
-                            label="Location from IP address"
-                            description="Worked out on the server from the visitor's address, which is never stored itself."
+                            label="מיקום מכתובת IP"
+                            description="מחושב בשרת מכתובת המבקר, שלעולם אינה נשמרת בעצמה."
                         >
                             <SelectMenu
                                 value={draft.location_precision}
                                 onChange={(v) => patch({ location_precision: v as Draft["location_precision"] })}
                                 options={LOCATION_OPTIONS}
-                                aria-label="Location precision"
+                                aria-label="דיוק מיקום"
                                 minWidth={220}
                                 align="end"
                             />
                         </Row>
 
                         <Row
-                            label="Keep visits for"
-                            description={`Days. Older page views are deleted automatically (${WEBSITE_RETENTION_MIN_DAYS} to ${WEBSITE_RETENTION_MAX_DAYS}).`}
+                            label="שמור ביקורים למשך"
+                            description={`ימים. צפיות ישנות נמחקות אוטומטית (${WEBSITE_RETENTION_MIN_DAYS} עד ${WEBSITE_RETENTION_MAX_DAYS}).`}
                         >
                             <NumberInput
                                 min={WEBSITE_RETENTION_MIN_DAYS}
@@ -185,8 +185,8 @@ function WebsiteTrackingSettingsView() {
                         </Row>
 
                         <Row
-                            label="Your website hosts"
-                            description="One per line, for example example.com. Views from other hosts are ignored, and links in your emails only identify a visitor when they point at one of these."
+                            label="דומיינים של האתר שלך"
+                            description="אחד בכל שורה, לדוגמה example.com. צפיות מדומיינים אחרים יזכו להתעלמות, וקישורים במיילים שלך מזהים מבקר רק כשהם מפנים לאחד מאלה."
                             align="start"
                         >
                             <div className="w-full sm:w-[320px]">
@@ -194,12 +194,13 @@ function WebsiteTrackingSettingsView() {
                                     value={draft.hosts}
                                     onChange={(e) => patch({ hosts: e.target.value })}
                                     placeholder={"example.com\napp.example.com"}
+                                    dir="ltr"
                                     rows={3}
-                                    className="text-[12.5px] font-mono"
+                                    className="text-[12.5px] font-mono text-left"
                                 />
                                 {draft.enabled && hostCount === 0 && (
                                     <p className="mt-1.5 text-[11.5px] text-amber-700">
-                                        Add at least one host, or visits are recorded but never tied to a contact.
+                                        הוסף לפחות דומיין אחד, אחרת הביקורים יוקלטו אך לעולם לא יקושרו לאיש קשר.
                                     </p>
                                 )}
                             </div>
@@ -209,8 +210,8 @@ function WebsiteTrackingSettingsView() {
             </Section>
 
             <Section
-                eyebrow="Install"
-                description="Paste this before the closing </head> tag on every page. The first line lets you call warmbly() before the script has loaded."
+                eyebrow="התקנה"
+                description="הדבק מקטע זה לפני תגית הסגירה </head> בכל עמוד. השורה הראשונה מאפשרת לקרוא ל-warmbly() לפני שהסקריפט נטען."
             >
                 {isLoading || !data ? (
                     <div className="h-16 rounded bg-slate-100 animate-pulse" />
@@ -219,19 +220,18 @@ function WebsiteTrackingSettingsView() {
                         <Snippet code={trackingSnippet(data)} />
                         {!data.tracking_host && (
                             <p className="text-[11.5px] text-amber-700">
-                                This install has no tracking host configured (TRACKING_DOMAIN), so the snippet cannot
-                                load. Ask your operator to set one.
+                                בהתקנה זו לא הוגדר דומיין מעקב (TRACKING_DOMAIN), לכן הקוד אינו יכול להיטען. פנה למנהל המערכת.
                             </p>
                         )}
                         <Row
-                            label="Site key"
-                            description="Public: it only says which workspace a view belongs to. Rotate it if a copy of the snippet ends up somewhere it should not be; the old key stops working at once."
+                            label="מפתח אתר (Site key)"
+                            description="ציבורי: מציין רק לאיזו סביבת עבודה שייכת הצפייה. החלף אותו אם עותק של הקוד הגיע למקום לא מורשה; המפתח הישן יפסיק לעבוד מיד."
                         >
                             <button
                                 type="button"
                                 onClick={() =>
                                     confirm.show(
-                                        "Rotate the site key? Every installed snippet must be updated to the new one before it reports again.",
+                                        "להחליף את מפתח האתר? יהיה עליך לעדכן את כל הקודים המותקנים למפתח החדש כדי שיחזרו לדווח.",
                                         async () => {
                                             await rotate.mutateAsync();
                                         },
@@ -239,7 +239,7 @@ function WebsiteTrackingSettingsView() {
                                 }
                                 className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors"
                             >
-                                Rotate key
+                                החלף מפתח
                             </button>
                         </Row>
                     </>
@@ -247,14 +247,14 @@ function WebsiteTrackingSettingsView() {
             </Section>
 
             <Section
-                eyebrow="What is collected"
-                description="Page URL and title, referrer, UTM parameters, language, timezone and screen size come from the browser. Device, operating system and browser are read on the server from the request. Visitors who send Global Privacy Control or Do Not Track are never recorded, and a contact's visits are deleted with the contact."
+                eyebrow="מה נאסף"
+                description="כתובת וכותרת העמוד, מפנה (referrer), פרמטרי UTM, שפה, אזור זמן וגודל מסך מתקבלים מהדפדפן. סוג המכשיר, מערכת ההפעלה והדפדפן נקראים בשרת מהבקשה. מבקרים ששולחים Global Privacy Control או Do Not Track לעולם אינם מוקלטים, וביקורי איש קשר נמחקים יחד עם מחיקת איש הקשר."
             >
                 <p className="text-[11.5px] text-slate-500">
-                    Call <code className="font-mono text-slate-700">warmbly(&apos;consent&apos;, &apos;denied&apos;)</code> to
-                    clear the visitor id on this browser, or{" "}
-                    <code className="font-mono text-slate-700">warmbly(&apos;reset&apos;)</code> when a shared device changes
-                    hands.
+                    קרא ל-<code className="font-mono text-slate-700" dir="ltr">warmbly(&apos;consent&apos;, &apos;denied&apos;)</code> כדי
+                    לנקות את מזהה המבקר בדפדפן זה, או ל-{" "}
+                    <code className="font-mono text-slate-700" dir="ltr">warmbly(&apos;reset&apos;)</code> כאשר מכשיר משותף עובר
+                    ידיים.
                 </p>
             </Section>
         </SectionShell>
@@ -265,7 +265,7 @@ function Snippet({ code }: { code: string }) {
     const [copied, setCopied] = React.useState(false);
     return (
         <div className="relative rounded-md border border-slate-200 bg-slate-50">
-            <pre className="overflow-x-auto px-3 py-2.5 pr-20 text-[11.5px] leading-relaxed font-mono text-slate-700 whitespace-pre">
+            <pre className="overflow-x-auto px-3 py-2.5 rtl:pl-20 ltr:pr-20 text-[11.5px] leading-relaxed font-mono text-slate-700 whitespace-pre" dir="ltr">
                 {code}
             </pre>
             <button
@@ -279,10 +279,10 @@ function Snippet({ code }: { code: string }) {
                         /* clipboard blocked */
                     }
                 }}
-                className="absolute top-1.5 right-1.5 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 h-7 text-[11.5px] text-slate-600 hover:bg-slate-50"
+                className="absolute top-1.5 rtl:left-1.5 ltr:right-1.5 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 h-7 text-[11.5px] text-slate-600 hover:bg-slate-50"
             >
                 {copied ? <CheckIcon className="w-3.5 h-3.5 text-emerald-600" /> : <CopyIcon className="w-3.5 h-3.5" />}
-                {copied ? "Copied" : "Copy"}
+                {copied ? "הועתק" : "העתק"}
             </button>
         </div>
     );

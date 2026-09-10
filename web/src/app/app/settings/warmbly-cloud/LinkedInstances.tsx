@@ -30,13 +30,13 @@ export default function LinkedInstances() {
             {plan && (
                 <p className="text-[12.5px] text-slate-500">
                     {plan.mailbox_limit === null
-                        ? `Unlimited linked mailboxes · ${plan.enrolled} enrolled`
-                        : `${plan.enrolled} of ${plan.mailbox_limit} free linked mailboxes used`}
+                        ? `ללא הגבלת תיבות דואר מקושרות · ${plan.enrolled} רשומות`
+                        : `${plan.enrolled} מתוך ${plan.mailbox_limit} תיבות דואר מקושרות חינמיות בשימוש`}
                 </p>
             )}
             {list.length === 0 ? (
                 <p className="text-[12.5px] text-slate-500">
-                    No self-hosted instance is linked. On your instance, open Settings, Warmbly Cloud and press Connect; approve the code at /connect here.
+                    אין מופעים בהתקנה עצמית שמקושרים. במופע שלך, פתח את הגדרות, Warmbly Cloud ולחץ על "התחבר"; אשר את הקוד בכתובת /connect כאן.
                 </p>
             ) : (
                 <TableSurface>
@@ -49,18 +49,18 @@ export default function LinkedInstances() {
                                 <div className="min-w-0 flex-1">
                                     <p className="text-[12.5px] text-slate-900 truncate">{inst.name}</p>
                                     <p className="text-[11px] text-slate-400 truncate">
-                                        {inst.mailbox_count} mailbox{inst.mailbox_count === 1 ? "" : "es"}
-                                        {inst.version && ` · v${inst.version}`}
-                                        {inst.last_seen_at && ` · seen ${new Date(inst.last_seen_at).toLocaleString()}`}
+                                        {inst.mailbox_count} {inst.mailbox_count === 1 ? "תיבת דואר" : "תיבות דואר"}
+                                        {inst.version && ` · גרסה v${inst.version}`}
+                                        {inst.last_seen_at && ` · נראה לאחרונה ${new Date(inst.last_seen_at).toLocaleString("he-IL")}`}
                                     </p>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() =>
-                                        confirm.show(`Unlink ${inst.name}? Its ${inst.mailbox_count} enrolled mailboxes stop warming and are removed.`, async () => {
+                                        confirm.show(`לבטל את הקישור ל-${inst.name}? ${inst.mailbox_count} תיבות הדואר הרשומות שלו יפסיקו להתחמם ויוסרו מהמאגר.`, async () => {
                                             try {
                                                 await revoke.mutateAsync(inst.id);
-                                                toast.success("Instance unlinked");
+                                                toast.success("הקישור למופע בוטל בהצלחה");
                                             } catch (e) {
                                                 toast.error(buildError(e as AppError));
                                             }
@@ -68,7 +68,7 @@ export default function LinkedInstances() {
                                     }
                                     className="h-7 px-2.5 rounded-md text-[12px] text-rose-600 hover:bg-rose-50 transition-colors"
                                 >
-                                    Unlink
+                                    בטל קישור
                                 </button>
                             </li>
                         ))}

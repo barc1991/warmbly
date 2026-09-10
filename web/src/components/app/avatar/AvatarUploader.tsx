@@ -70,7 +70,7 @@ export function AvatarUploader({
         try {
             resized = await resizeAvatar(f);
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Couldn't process that image.");
+            toast.error(err instanceof Error ? err.message : "לא ניתן לעבד תמונה זו.");
             return;
         }
 
@@ -80,7 +80,7 @@ export function AvatarUploader({
         try {
             await onUpload(resized.blob);
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Upload failed.");
+            toast.error(err instanceof Error ? err.message : "ההעלאה נכשלה.");
             // Drop the optimistic preview on failure.
             URL.revokeObjectURL(resized.previewUrl);
             setPreview(null);
@@ -97,7 +97,7 @@ export function AvatarUploader({
             if (preview) URL.revokeObjectURL(preview.previewUrl);
             setPreview(null);
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Couldn't remove the avatar.");
+            toast.error(err instanceof Error ? err.message : "לא ניתן להסיר את התמונה.");
         } finally {
             setRemoving(false);
         }
@@ -114,7 +114,7 @@ export function AvatarUploader({
                 onClick={pick}
                 disabled={uploading || removing}
                 aria-label="Change avatar"
-                className={`group relative ${dim} ${radius} bg-slate-900 text-white flex items-center justify-center shrink-0 overflow-hidden disabled:opacity-60 transition-shadow hover:ring-2 hover:ring-slate-300 ring-offset-1`}
+                className={`group relative ${dim} ${radius} bg-slate-900 text-white flex items-center justify-center shrink-0 overflow-hidden disabled:opacity-60 transition-shadow hover:ring-2 hover:ring-slate-300 ring-offset-1 cursor-pointer`}
             >
                 {displayUrl ? (
                     <img
@@ -138,32 +138,32 @@ export function AvatarUploader({
             <div className="min-w-0 flex-1">
                 <div className="text-[11px] text-slate-500 leading-snug">
                     {uploading
-                        ? "Uploading…"
-                        : `PNG or JPG. We resize to ${AVATAR_OUTPUT_DIMENSION}px before upload.`}
+                        ? "מעלה…"
+                        : `PNG או JPG. התמונה מותאמת לגודל ${AVATAR_OUTPUT_DIMENSION}px בעת העלאה.`}
                 </div>
                 <div className="flex items-center gap-1 mt-1.5">
                     <button
                         type="button"
                         onClick={pick}
                         disabled={uploading || removing}
-                        className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
+                        className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60 cursor-pointer"
                     >
                         <ImageIcon className="w-3 h-3" />
-                        {current || preview ? "Replace" : "Upload"}
+                        {current || preview ? "החלף" : "העלאה"}
                     </button>
                     {(current || preview) && onRemove && (
                         <button
                             type="button"
                             onClick={doRemove}
                             disabled={uploading || removing}
-                            className="h-7 px-2.5 rounded-md text-[12px] text-slate-500 hover:text-red-700 hover:bg-red-50 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60"
+                            className="h-7 px-2.5 rounded-md text-[12px] text-slate-500 hover:text-red-700 hover:bg-red-50 transition-colors inline-flex items-center gap-1.5 disabled:opacity-60 cursor-pointer"
                         >
                             {removing ? (
                                 <Loader2Icon className="w-3 h-3 animate-spin" />
                             ) : (
                                 <TrashIcon className="w-3 h-3" />
                             )}
-                            Remove
+                            הסר
                         </button>
                     )}
                 </div>
