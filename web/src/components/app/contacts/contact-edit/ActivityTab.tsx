@@ -76,15 +76,15 @@ type FilterId =
     | "website";
 
 const FILTERS: { id: FilterId; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "emails", label: "Emails" },
-    { id: "replies", label: "Replies" },
-    { id: "deliv", label: "Deliv." },
-    { id: "notes", label: "Notes" },
-    { id: "meetings", label: "Meetings" },
-    { id: "campaigns", label: "Campaigns" },
-    { id: "lifecycle", label: "Lifecycle" },
-    { id: "website", label: "Website" },
+    { id: "all", label: "הכל" },
+    { id: "emails", label: "הודעות דוא״ל" },
+    { id: "replies", label: "תשובות" },
+    { id: "deliv", label: "עבירות" },
+    { id: "notes", label: "הערות" },
+    { id: "meetings", label: "פגישות" },
+    { id: "campaigns", label: "קמפיינים" },
+    { id: "lifecycle", label: "מחזור חיים" },
+    { id: "website", label: "אתר אינטרנט" },
 ];
 
 const EMAIL_TYPES: ContactTimelineEventType[] = [
@@ -203,13 +203,13 @@ export default function ActivityTab({ contactId }: { contactId: string }) {
                         onClick={resetFilters}
                         className="h-6 px-2 rounded text-[11px] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
-                        Reset
+                        איפוס
                     </button>
                 )}
-                <span className="ml-auto text-[10.5px] text-slate-400 tabular-nums">
+                <span className="mr-auto text-[10.5px] text-slate-400 tabular-nums">
                     {isLoading
                         ? ""
-                        : `${visible.length}${anyFilter ? ` of ${events.length}` : ""}`}
+                        : `${visible.length}${anyFilter ? ` מתוך ${events.length}` : ""}`}
                 </span>
             </div>
 
@@ -217,7 +217,7 @@ export default function ActivityTab({ contactId }: { contactId: string }) {
                 <SkeletonList />
             ) : error ? (
                 <div className="rounded-md border border-red-200 bg-red-50/60 px-3 py-2.5 text-[11.5px] text-red-700">
-                    Failed to load activity.
+                    טעינת הפעילות נכשלה.
                 </div>
             ) : visible.length === 0 ? (
                 <EmptyState anyFilter={anyFilter} onReset={resetFilters} />
@@ -240,11 +240,11 @@ export default function ActivityTab({ contactId }: { contactId: string }) {
                 {isFetchingNextPage ? (
                     <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-400">
                         <Loader2Icon className="w-3 h-3 animate-spin" />
-                        Loading more
+                        טוען עוד…
                     </span>
                 ) : !hasNextPage && events.length > 0 ? (
                     <span className="text-[10.5px] text-slate-300">
-                        End of history
+                        סוף ההיסטוריה
                     </span>
                 ) : null}
             </div>
@@ -273,7 +273,7 @@ function CampaignPanel({ contactId }: { contactId: string }) {
     return (
         <section>
             <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                Campaigns
+                קמפיינים
             </h2>
             <div className="space-y-2">
                 {states.map((s) => (
@@ -294,7 +294,7 @@ function CampaignCard({ state }: { state: ContactCampaignState }) {
                 type="button"
                 onClick={() => setOpen((v) => !v)}
                 aria-expanded={open}
-                className="w-full text-left px-3 py-2.5 hover:bg-slate-50/70 transition-colors"
+                className="w-full text-right px-3 py-2.5 hover:bg-slate-50/70 transition-colors"
             >
                 <div className="flex items-center gap-2 min-w-0">
                     <MegaphoneIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -307,8 +307,8 @@ function CampaignCard({ state }: { state: ContactCampaignState }) {
                             {campaignStatusLabel(state.campaign_status)}
                         </span>
                     )}
-                    <span className="ml-auto text-[10.5px] text-slate-400 tabular-nums shrink-0">
-                        {state.completed_steps}/{state.total_steps} steps
+                    <span className="mr-auto text-[10.5px] text-slate-400 tabular-nums shrink-0">
+                        {state.completed_steps}/{state.total_steps} שלבים
                     </span>
                     <ChevronDownIcon
                         className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
@@ -317,13 +317,13 @@ function CampaignCard({ state }: { state: ContactCampaignState }) {
 
                 <StepRail steps={state.steps} />
 
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5">
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 text-right">
                     <PanelFact
-                        label="Current step"
-                        value={current ? current.label : "Not started"}
+                        label="שלב נוכחי"
+                        value={current ? current.label : "טרם התחיל"}
                     />
                     <PanelFact
-                        label="Last action"
+                        label="פעולה אחרונה"
                         value={
                             state.last_action && state.last_action_at ? (
                                 <span title={fmtAbsolute(state.last_action_at)}>
@@ -331,20 +331,20 @@ function CampaignCard({ state }: { state: ContactCampaignState }) {
                                     {fmtRelative(state.last_action_at)}
                                 </span>
                             ) : (
-                                "Nothing yet"
+                                "אין עדיין"
                             )
                         }
                     />
                     <PanelFact
-                        label="Sender"
+                        label="שולח"
                         value={
                             state.sender_email ? (
-                                <span title={`Every step of this sequence sends from ${state.sender_email}`}>
+                                <span title={`כל שלב בסדרה זו נשלח מ-${state.sender_email}`}>
                                     {state.sender_email}
                                 </span>
                             ) : (
-                                <span title="Picked when the first email goes out; every follow-up then keeps it.">
-                                    Chosen at the first email
+                                <span title="ייבחר בעת שליחת הודעת הדוא״ל הראשונה; כל הודעות ההמשך ישמרו עליו.">
+                                    ייבחר בהודעה הראשונה
                                 </span>
                             )
                         }
@@ -417,10 +417,10 @@ function NextActionFact({
     if (!next) {
         return (
             <PanelFact
-                label="Next"
+                label="הבא בתור"
                 value={
                     <span className="text-slate-500">
-                        {endedReason || "Nothing scheduled"}
+                        {endedReason || "שום דבר לא מתוזמן"}
                         {failureReason ? ` · ${failureReason}` : ""}
                     </span>
                 }
@@ -445,17 +445,17 @@ function NextActionFact({
                 : "bg-amber-50 text-amber-700";
     const stateLabel =
         next.state === "due"
-            ? "Due"
+            ? "מועד לביצוע"
             : next.state === "waiting"
-              ? "Waiting"
+              ? "ממתין"
               : next.state === "paused"
-                ? "Paused"
-                : "Blocked";
+                ? "מושהה"
+                : "חסום";
 
     return (
         <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
-                Next
+                הבא בתור
             </div>
             <div className="text-[11.5px] text-slate-700 flex items-center gap-1.5 flex-wrap">
                 <span className="font-medium text-slate-900">{next.step_label}</span>
@@ -469,13 +469,13 @@ function NextActionFact({
                     {stateLabel}
                 </span>
                 {next.state === "due" && next.scheduled_at && (
-                    <span title="The slot the scheduler would give this step on its next pass. Leads queued ahead can still push it later.">
-                        next slot {fmtAbsolute(next.scheduled_at)}
+                    <span title="חלון הזמן שהמתזמן יקצה לשלב זה בריצה הבאה שלו. לידים שממתינים לפניו עשויים לדחות אותו.">
+                        מועד הבא {fmtAbsolute(next.scheduled_at)}
                     </span>
                 )}
                 {next.state !== "due" && next.not_before && (
                     <span title={fmtAbsolute(next.not_before)}>
-                        not before {fmtAbsolute(next.not_before)}
+                        לא לפני {fmtAbsolute(next.not_before)}
                     </span>
                 )}
             </div>
@@ -510,7 +510,7 @@ function StepRail({ steps }: { steps: ContactCampaignStep[] }) {
                             />
                         )}
                         <span
-                            title={`${s.label}${s.sent_at ? ` · sent ${fmtAbsolute(s.sent_at)}` : ""}`}
+                            title={`${s.label}${s.sent_at ? ` · נשלח ${fmtAbsolute(s.sent_at)}` : ""}`}
                             className={`w-2.5 h-2.5 rounded-full border shrink-0 ${dot}`}
                         />
                     </React.Fragment>
@@ -532,15 +532,15 @@ function stepState(s: ContactCampaignStep): StepState {
 function StepRow({ step, isNext }: { step: ContactCampaignStep; isNext: boolean }) {
     const st = stepState(step);
     const facts: string[] = [];
-    if (step.sent_at) facts.push(`sent ${fmtRelative(step.sent_at)}`);
-    if (step.opened_at) facts.push("opened");
-    if (step.clicked_at) facts.push("clicked");
-    if (step.replied_at) facts.push("replied");
-    if (step.bounced_at) facts.push("bounced");
+    if (step.sent_at) facts.push(`נשלח ${fmtRelative(step.sent_at)}`);
+    if (step.opened_at) facts.push("נפתח");
+    if (step.clicked_at) facts.push("נלחץ");
+    if (step.replied_at) facts.push("נענה");
+    if (step.bounced_at) facts.push("נדחה");
     if (!step.sent_at && step.failed_at)
-        facts.push(`failed ${step.attempts ?? 0}x`);
-    if (st === "in_flight") facts.push("sending");
-    if (isNext) facts.push("next");
+        facts.push(`נכשל ${step.attempts ?? 0} פעמים`);
+    if (st === "in_flight") facts.push("בשליחה");
+    if (isNext) facts.push("הבא");
 
     return (
         <div className="px-3 py-1.5 border-b last:border-b-0 border-slate-100 flex items-center gap-2 text-[11.5px]">
@@ -565,7 +565,7 @@ function StepRow({ step, isNext }: { step: ContactCampaignStep; isNext: boolean 
                     <span className="text-slate-400"> · {step.subject}</span>
                 )}
             </span>
-            <span className="ml-auto text-[10.5px] text-slate-400 shrink-0">
+            <span className="mr-auto text-[10.5px] text-slate-400 shrink-0">
                 {facts.join(" · ")}
             </span>
         </div>
@@ -574,14 +574,14 @@ function StepRow({ step, isNext }: { step: ContactCampaignStep; isNext: boolean 
 
 function LeadStatusPill({ status }: { status: LeadStatus }) {
     const map: Record<LeadStatus, { label: string; cls: string }> = {
-        pending: { label: "Queued", cls: "bg-slate-100 text-slate-600" },
-        active: { label: "Processing", cls: "bg-sky-50 text-sky-700" },
-        completed: { label: "Done", cls: "bg-emerald-50 text-emerald-700" },
-        replied: { label: "Replied", cls: "bg-emerald-50 text-emerald-700" },
-        bounced: { label: "Bounced", cls: "bg-red-50 text-red-700" },
-        failed: { label: "Failed", cls: "bg-red-50 text-red-700" },
-        unsubscribed: { label: "Unsubscribed", cls: "bg-slate-100 text-slate-600" },
-        undeliverable: { label: "Undeliverable", cls: "bg-amber-50 text-amber-700" },
+        pending: { label: "בתור", cls: "bg-slate-100 text-slate-600" },
+        active: { label: "בעיבוד", cls: "bg-sky-50 text-sky-700" },
+        completed: { label: "הושלם", cls: "bg-emerald-50 text-emerald-700" },
+        replied: { label: "נענה", cls: "bg-emerald-50 text-emerald-700" },
+        bounced: { label: "נדחה", cls: "bg-red-50 text-red-700" },
+        failed: { label: "נכשל", cls: "bg-red-50 text-red-700" },
+        unsubscribed: { label: "הסיר הרשמה", cls: "bg-slate-100 text-slate-600" },
+        undeliverable: { label: "לא בר-מסירה", cls: "bg-amber-50 text-amber-700" },
     };
     const m = map[status] ?? { label: status, cls: "bg-slate-100 text-slate-600" };
     return (
@@ -596,19 +596,19 @@ function LeadStatusPill({ status }: { status: LeadStatus }) {
 function campaignStatusLabel(status: string): string {
     switch (status) {
         case "paused":
-            return "paused";
+            return "מושהה";
         case "paused_guardrail":
-            return "auto-paused";
+            return "הושהה אוטומטית";
         case "paused_undeliverable":
-            return "paused, needs verification";
+            return "מושהה, דורש אימות";
         case "paused_no_accounts":
-            return "paused, no accounts";
+            return "מושהה, אין חשבונות";
         case "paused_trial_expired":
-            return "paused, trial expired";
+            return "מושהה, תקופת ניסיון הסתיימה";
         case "completed":
-            return "finished";
+            return "הסתיים";
         case "draft":
-            return "not started";
+            return "טרם התחיל";
         default:
             return status.replace(/_/g, " ");
     }
@@ -701,20 +701,20 @@ function SearchBar({
 }) {
     return (
         <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <SearchIcon className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
             <input
                 type="text"
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                placeholder="Search subject, content, campaign…"
-                className="w-full h-8 pl-8 pr-7 rounded-md border border-slate-200 bg-white text-[12px] text-slate-900 placeholder:text-slate-400 focus:border-slate-400 outline-none transition-colors"
+                placeholder="חיפוש נושא, תוכן, קמפיין…"
+                className="w-full h-8 pr-8 pl-7 rounded-md border border-slate-200 bg-white text-[12px] text-slate-900 placeholder:text-slate-400 focus:border-slate-400 outline-none transition-colors text-right"
             />
             {value && (
                 <button
                     type="button"
                     onClick={() => onChange("")}
-                    aria-label="Clear search"
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 size-5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
+                    aria-label="נקה חיפוש"
+                    className="absolute left-1.5 top-1/2 -translate-y-1/2 size-5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
                 >
                     <XIcon className="w-3 h-3" />
                 </button>
@@ -788,8 +788,8 @@ function DateRange({
 
     const active = !!from || !!to;
     const label = active
-        ? `${fmtChip(from) || "…"} → ${fmtChip(to) || "today"}`
-        : "Any date";
+        ? `${fmtChip(from) || "…"} ← ${fmtChip(to) || "היום"}`
+        : "כל התאריכים";
 
     function setPreset(days: number) {
         const end = new Date();
@@ -817,45 +817,45 @@ function DateRange({
                 <div
                     className={`absolute ${align === "right" ? "right-0" : "left-0"} top-7 z-50 w-64 max-w-[min(256px,calc(100vw-2rem))] p-2.5 rounded-md border border-slate-200 bg-white shadow-lg`}
                 >
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2 text-right">
                         <div>
                             <label className="block text-[10px] uppercase tracking-[0.12em] font-medium text-slate-500 mb-1">
-                                From
+                                מתאריך
                             </label>
                             <DatePicker
                                 value={from}
                                 onChange={setFrom}
-                                placeholder="From"
+                                placeholder="מתאריך"
                                 clearable={false}
                                 className="w-full"
                             />
                         </div>
                         <div>
                             <label className="block text-[10px] uppercase tracking-[0.12em] font-medium text-slate-500 mb-1">
-                                To
+                                עד תאריך
                             </label>
                             <DatePicker
                                 value={to}
                                 onChange={setTo}
-                                placeholder="To"
+                                placeholder="עד תאריך"
                                 clearable={false}
                                 className="w-full"
                             />
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-1 mt-2.5">
-                        <Preset onClick={() => setPreset(7)}>Last 7d</Preset>
-                        <Preset onClick={() => setPreset(30)}>Last 30d</Preset>
-                        <Preset onClick={() => setPreset(90)}>Last 90d</Preset>
+                        <Preset onClick={() => setPreset(7)}>7 ימים אחרונים</Preset>
+                        <Preset onClick={() => setPreset(30)}>30 ימים אחרונים</Preset>
+                        <Preset onClick={() => setPreset(90)}>90 ימים אחרונים</Preset>
                         <button
                             type="button"
                             onClick={() => {
                                 setFrom("");
                                 setTo("");
                             }}
-                            className="h-6 px-2 ml-auto rounded text-[10.5px] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                            className="h-6 px-2 mr-auto rounded text-[10.5px] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100"
                         >
-                            Clear
+                            נקה
                         </button>
                     </div>
                 </div>
@@ -892,7 +892,7 @@ function EmptyState({
     return (
         <div className="rounded-md border border-dashed border-slate-200 px-3 py-10 text-center">
             <div className="text-[11.5px] text-slate-500">
-                {anyFilter ? "No events match these filters." : "No activity yet."}
+                {anyFilter ? "אין אירועים התואמים מסננים אלה." : "אין עדיין פעילות."}
             </div>
             {anyFilter && (
                 <button
@@ -900,7 +900,7 @@ function EmptyState({
                     onClick={onReset}
                     className="mt-2 h-6 px-2 rounded text-[11px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100"
                 >
-                    Reset filters
+                    איפוס מסננים
                 </button>
             )}
         </div>
@@ -957,7 +957,7 @@ function EventRow({
                 type="button"
                 onClick={() => setOpen((v) => !v)}
                 aria-expanded={open}
-                className="w-full text-left px-3 py-2 hover:bg-slate-50/70 transition-colors"
+                className="w-full text-start px-3 py-2 hover:bg-slate-50/70 transition-colors"
             >
                 <div className="flex items-start gap-2.5">
                     <Icon className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
@@ -991,7 +991,7 @@ function EventRow({
                     />
                 </div>
                 {event.content && !open && (
-                    <div className="text-[11.5px] text-slate-700 mt-1.5 ml-6 whitespace-pre-wrap break-words border-l-2 border-slate-100 pl-2 line-clamp-3">
+                    <div className="text-[11.5px] text-slate-700 mt-1.5 ms-6 whitespace-pre-wrap break-words border-s-2 border-slate-100 ps-2 line-clamp-3">
                         <Highlight text={event.content} q={highlight} />
                     </div>
                 )}
@@ -1006,7 +1006,7 @@ function EventRow({
                         transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}
                         className="overflow-hidden"
                     >
-                        <div className="mx-3 mb-2.5 ml-9 rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px]">
+                        <div className="mx-3 mb-2.5 ms-9 rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px]">
                             {details.map(([k, v]) => (
                                 <React.Fragment key={k}>
                                     <span className="text-slate-400 uppercase tracking-[0.1em] text-[10px] font-medium pt-px">
@@ -1036,36 +1036,36 @@ function detailsFor(e: ContactTimelineEvent): [string, React.ReactNode][] {
     const add = (k: string, v?: React.ReactNode | null) => {
         if (v !== undefined && v !== null && v !== "") out.push([k, v]);
     };
-    add("When", fmtAbsolute(e.at));
+    add("מתי", fmtAbsolute(e.at));
     if (e.type === "contact_created") {
-        add("Source", sourceLabel(e.source));
-        add("Detail", e.source_detail);
+        add("מקור", sourceLabel(e.source));
+        add("פרטים", e.source_detail);
     }
-    add("Campaign", e.campaign_name);
-    add("Step", e.step_name);
-    add("Subject", e.subject);
+    add("קמפיין", e.campaign_name);
+    add("שלב", e.step_name);
+    add("נושא", e.subject);
     if (e.email_account_email) {
         add(
-            "Mailbox",
+            "תיבת דואר",
             e.email_account_name
                 ? `${e.email_account_name} <${e.email_account_email}>`
                 : e.email_account_email,
         );
     }
-    add("Category", e.category_title);
-    add("Intent", e.intent);
+    add("קטגוריה", e.category_title);
+    add("כוונת מענה", e.intent);
     if (e.type === "deliverability" || e.type === "suppressed") {
-        add("Type", e.source);
-        add("Provider", e.provider && e.provider !== "manual" ? e.provider : null);
+        add("סוג", e.source);
+        add("ספק", e.provider && e.provider !== "manual" ? e.provider : null);
     }
     if (e.type.startsWith("meeting_")) {
-        add("Scheduled for", e.scheduled_for ? fmtAbsolute(e.scheduled_for) : null);
-        add("Calendar", providerLabel(e.source));
-        add("State", e.meeting_state);
+        add("נקבע ל-", e.scheduled_for ? fmtAbsolute(e.scheduled_for) : null);
+        add("לוח שנה", providerLabel(e.source));
+        add("מצב", e.meeting_state);
         const joinUrl = safeHttpUrl(e.join_url);
         if (joinUrl && e.type !== "meeting_canceled") {
             add(
-                "Join",
+                "הצטרפות",
                 <a
                     href={joinUrl}
                     target="_blank"
@@ -1089,29 +1089,29 @@ function detailsFor(e: ContactTimelineEvent): [string, React.ReactNode][] {
                 {u}
             </a>
         );
-        add("Page URL", safeHttpUrl(h.url) ? link(h.url) : h.url);
-        add("Page title", h.title);
-        add("Referrer", safeHttpUrl(h.referrer) ? link(h.referrer) : h.referrer);
-        add("Device", cap(h.device_type));
-        add("Operating system", h.os);
-        add("Browser", [h.browser, h.browser_version].filter(Boolean).join(" "));
-        add("Device brand", h.device_brand);
-        add("Language", h.language);
-        add("Timezone", h.timezone);
-        add("Screen", h.screen_width && h.screen_height ? `${h.screen_width} × ${h.screen_height}` : null);
-        add("Location", [h.city, h.region, h.country_code].filter(Boolean).join(", "));
-        add("UTM source", h.utm_source);
-        add("UTM medium", h.utm_medium);
-        add("UTM campaign", h.utm_campaign);
-        add("UTM term", h.utm_term);
-        add("UTM content", h.utm_content);
-        add("Session", <span className="font-mono">{h.session_key.slice(0, 8)}</span>);
+        add("כתובת עמוד", safeHttpUrl(h.url) ? link(h.url) : h.url);
+        add("כותרת עמוד", h.title);
+        add("מפנה", safeHttpUrl(h.referrer) ? link(h.referrer) : h.referrer);
+        add("מכשיר", cap(h.device_type));
+        add("מערכת הפעלה", h.os);
+        add("דפדפן", [h.browser, h.browser_version].filter(Boolean).join(" "));
+        add("מותג מכשיר", h.device_brand);
+        add("שפה", h.language);
+        add("אזור זמן", h.timezone);
+        add("מסך", h.screen_width && h.screen_height ? `${h.screen_width} × ${h.screen_height}` : null);
+        add("מיקום", [h.city, h.region, h.country_code].filter(Boolean).join(", "));
+        add("מקור UTM", h.utm_source);
+        add("ערוץ UTM", h.utm_medium);
+        add("קמפיין UTM", h.utm_campaign);
+        add("מונח UTM", h.utm_term);
+        add("תוכן UTM", h.utm_content);
+        add("הפעלה", <span className="font-mono">{h.session_key.slice(0, 8)}</span>);
     }
     if (e.link) {
         const l = e.link;
-        add("Link text", l.label);
+        add("טקסט קישור", l.label);
         add(
-            "Link URL",
+            "כתובת קישור",
             safeHttpUrl(l.url) ? (
                 <a
                     href={l.url}
@@ -1125,27 +1125,27 @@ function detailsFor(e: ContactTimelineEvent): [string, React.ReactNode][] {
                 l.url
             ),
         );
-        add("UTM source", l.utm_source);
-        add("UTM medium", l.utm_medium);
-        add("UTM campaign", l.utm_campaign);
-        add("UTM term", l.utm_term);
-        add("UTM content", l.utm_content);
-        add("Browser", l.user_agent);
+        add("מקור UTM", l.utm_source);
+        add("ערוץ UTM", l.utm_medium);
+        add("קמפיין UTM", l.utm_campaign);
+        add("מונח UTM", l.utm_term);
+        add("תוכן UTM", l.utm_content);
+        add("דפדפן", l.user_agent);
     }
     if (e.origin) {
         const o = e.origin;
-        add("Client", o.client);
-        add("Device", cap(o.device_type ?? ""));
-        add("Operating system", o.os);
-        add("Browser", [o.browser, o.browser_version].filter(Boolean).join(" "));
-        add("Location", [o.city, o.region, o.country_code].filter(Boolean).join(", "));
+        add("תוכנת דואר", o.client);
+        add("מכשיר", cap(o.device_type ?? ""));
+        add("מערכת הפעלה", o.os);
+        add("דפדפן", [o.browser, o.browser_version].filter(Boolean).join(" "));
+        add("מיקום", [o.city, o.region, o.country_code].filter(Boolean).join(", "));
     }
     if (e.type === "email_opened" || e.type === "email_clicked") {
-        add("Classified as", e.machine ? machineLabel(e.machine_reason) : "A person");
+        add("סווג כ-", e.machine ? machineLabel(e.machine_reason) : "אדם אמיתי");
     }
-    add("Reason", e.reason);
-    add("Content", e.content);
-    if (e.task_id) add("Task", <span className="font-mono">{e.task_id}</span>);
+    add("סיבה", e.reason);
+    add("תוכן", e.content);
+    if (e.task_id) add("משימה", <span className="font-mono">{e.task_id}</span>);
     return out;
 }
 
@@ -1153,13 +1153,13 @@ function detailsFor(e: ContactTimelineEvent): [string, React.ReactNode][] {
 function machineLabel(reason?: string | null): string {
     switch (reason) {
         case "instant":
-            return "Automated: fetched within seconds of sending, before anyone could have read it";
+            return "אוטומטי: נטען שניות ספורות לאחר השליחה, עוד לפני שמישהו הספיק לקרוא";
         case "burst":
-            return "Automated: several links followed within seconds, the way a security scanner walks an email";
+            return "אוטומטי: לחיצה על מספר קישורים בו-זמנית תוך שניות, דפוס אופייני לסורק אבטחה";
         case "prefetch":
-            return "Automated: fetched by a mail proxy or a client with no browser";
+            return "אוטומטי: נטען על ידי פרוקסי דואר או לקוח ללא דפדפן";
         default:
-            return "Automated: a mail privacy proxy or scanner, not a person";
+            return "אוטומטי: פרוקסי פרטיות או סורק דואר, לא אדם אמיתי";
     }
 }
 
@@ -1177,7 +1177,7 @@ function MachineBadge({ reason }: { reason?: string | null }) {
             className="inline-flex items-center rounded-sm bg-amber-50 text-amber-700 border border-amber-200 px-1 text-[9.5px] font-medium uppercase tracking-[0.1em] shrink-0"
             title={machineLabel(reason)}
         >
-            auto
+            אוטומטי
         </span>
     );
 }
@@ -1192,7 +1192,7 @@ function cap(s: string): string {
 function originLabel(o: EngagementOrigin): string {
     if (o.client) return o.client;
     const browser = [o.browser, o.browser_version ? o.browser_version.split(".")[0] : ""].filter(Boolean).join(" ");
-    if (browser && o.os) return `${browser} on ${o.os}`;
+    if (browser && o.os) return `${browser} ב-${o.os}`;
     if (browser) return browser;
     if (o.os) return o.os;
     return cap(o.device_type ?? "");
@@ -1217,7 +1217,7 @@ function EventMeta({
         if (h.referrer_domain) {
             bits.push(
                 <span key="ref">
-                    from <Highlight text={h.referrer_domain} q={highlight} />
+                    מ-<Highlight text={h.referrer_domain} q={highlight} />
                 </span>,
             );
         }
@@ -1225,7 +1225,7 @@ function EventMeta({
         if (h.utm_source) {
             bits.push(
                 <span key="utm">
-                    utm <Highlight text={h.utm_source} q={highlight} />
+                    UTM <Highlight text={h.utm_source} q={highlight} />
                 </span>,
             );
         }
@@ -1245,7 +1245,7 @@ function EventMeta({
     // calendar it came from, and a one-click join link (when not canceled).
     if (event.type.startsWith("meeting_")) {
         const when = event.scheduled_for
-            ? new Date(event.scheduled_for).toLocaleString(undefined, {
+            ? new Date(event.scheduled_for).toLocaleString("he-IL", {
                   month: "short",
                   day: "numeric",
                   hour: "numeric",
@@ -1256,9 +1256,9 @@ function EventMeta({
         const joinUrl = safeHttpUrl(event.join_url);
         return (
             <div className="text-[11px] text-slate-500 mt-0.5 flex gap-1.5 flex-wrap items-center">
-                {when && <span>for {when}</span>}
+                {when && <span>ל-{when}</span>}
                 {when && provider && <span className="text-slate-300">·</span>}
-                {provider && <span>via {provider}</span>}
+                {provider && <span>דרך {provider}</span>}
                 {event.reason && (
                     <>
                         <span className="text-slate-300">·</span>
@@ -1275,7 +1275,7 @@ function EventMeta({
                             onClick={(e) => e.stopPropagation()}
                             className="text-sky-600 hover:text-sky-700 font-medium"
                         >
-                            Join
+                            הצטרפות
                         </a>
                     </>
                 )}
@@ -1324,7 +1324,7 @@ function EventMeta({
         if (event.email_account_email) {
             parts.push(
                 <span key="mailbox" className="font-mono">
-                    from{" "}
+                    מ-{" "}
                     <Highlight text={event.email_account_email} q={highlight} />
                 </span>,
             );
@@ -1332,21 +1332,21 @@ function EventMeta({
         if (event.campaign_name) {
             parts.push(
                 <span key="campaign">
-                    in <Highlight text={event.campaign_name} q={highlight} />
+                    ב-<Highlight text={event.campaign_name} q={highlight} />
                 </span>,
             );
         }
         if (event.step_name) {
             parts.push(
                 <span key="sequence">
-                    step <Highlight text={event.step_name} q={highlight} />
+                    שלב <Highlight text={event.step_name} q={highlight} />
                 </span>,
             );
         }
         if (event.link?.utm_content) {
             parts.push(
                 <span key="utm">
-                    utm <Highlight text={event.link.utm_content} q={highlight} />
+                    UTM <Highlight text={event.link.utm_content} q={highlight} />
                 </span>,
             );
         }
@@ -1363,13 +1363,13 @@ function EventMeta({
             }
         }
         if (event.intent) {
-            parts.push(<span key="intent">intent: {event.intent}</span>);
+            parts.push(<span key="intent">כוונה: {event.intent}</span>);
         }
         if (event.provider && event.provider !== "manual") {
-            parts.push(<span key="provider">via {event.provider}</span>);
+            parts.push(<span key="provider">דרך {event.provider}</span>);
         }
         if (event.source) {
-            parts.push(<span key="source">type: {event.source}</span>);
+            parts.push(<span key="source">סוג: {event.source}</span>);
         }
         if (event.reason) {
             parts.push(
@@ -1436,25 +1436,25 @@ function providerLabel(source?: string | null): string | null {
 export function sourceLabel(source?: string | null): string {
     switch (source) {
         case "manual":
-            return "Added manually";
+            return "נוסף ידנית";
         case "campaign":
-            return "Added from a campaign";
+            return "נוסף מקמפיין";
         case "import":
-            return "Imported from a file";
+            return "יובא מקובץ";
         case "sheet_sync":
-            return "Synced from Google Sheets";
+            return "סונכרן מ-Google Sheets";
         case "api":
-            return "Created via the API";
+            return "נוצר דרך ה-API";
         case "ai_assistant":
-            return "Created by the AI assistant";
+            return "נוצר על ידי עוזר ה-AI";
         case "form":
-            return "Submitted a form";
+            return "הגיש טופס";
         case "automation":
-            return "Created by an automation";
+            return "נוצר באוטומציה";
         case "unknown":
         case undefined:
         case null:
-            return "Unknown";
+            return "לא ידוע";
         default:
             return source;
     }
@@ -1466,43 +1466,43 @@ function visualFor(e: ContactTimelineEvent): {
 } {
     switch (e.type) {
         case "email_sent":
-            return { Icon: MailIcon, label: "Email sent" };
+            return { Icon: MailIcon, label: "אימייל נשלח" };
         case "email_opened":
-            return { Icon: MailOpenIcon, label: "Opened" };
+            return { Icon: MailOpenIcon, label: "נפתח" };
         case "email_clicked":
-            return { Icon: MousePointerClickIcon, label: e.link ? "Clicked" : "Clicked link" };
+            return { Icon: MousePointerClickIcon, label: e.link ? "נלחץ" : "נלחץ קישור" };
         case "email_replied":
-            return { Icon: ReplyIcon, label: "Replied" };
+            return { Icon: ReplyIcon, label: "נענה" };
         case "reply_received":
-            return { Icon: MessageSquareIcon, label: "Reply received" };
+            return { Icon: MessageSquareIcon, label: "התקבלה תשובה" };
         case "email_bounced":
-            return { Icon: MailWarningIcon, label: "Bounced" };
+            return { Icon: MailWarningIcon, label: "קפץ חזרה (Bounce)" };
         case "deliverability":
-            return { Icon: AlertOctagonIcon, label: "Deliverability event" };
+            return { Icon: AlertOctagonIcon, label: "אירוע עבירות דואר" };
         case "suppressed":
-            return { Icon: BanIcon, label: "Suppressed" };
+            return { Icon: BanIcon, label: "נחסם לשליחה (Suppressed)" };
         case "note":
-            return { Icon: StickyNoteIcon, label: "Note added" };
+            return { Icon: StickyNoteIcon, label: "הערה נוספה" };
         case "meeting_booked":
-            return { Icon: CalendarPlusIcon, label: "Meeting booked" };
+            return { Icon: CalendarPlusIcon, label: "פגישה נקבעה" };
         case "meeting_rescheduled":
-            return { Icon: CalendarClockIcon, label: "Meeting rescheduled" };
+            return { Icon: CalendarClockIcon, label: "פגישה נדחתה/הוזזה" };
         case "meeting_canceled":
-            return { Icon: CalendarXIcon, label: "Meeting canceled" };
+            return { Icon: CalendarXIcon, label: "פגישה בוטלה" };
         case "contact_created":
             return { Icon: UserPlusIcon, label: createdLabel(e.source) };
         case "campaign_added":
-            return { Icon: MegaphoneIcon, label: "Added to campaign" };
+            return { Icon: MegaphoneIcon, label: "נוסף לקמפיין" };
         case "campaign_removed":
-            return { Icon: MegaphoneIcon, label: "Removed from campaign" };
+            return { Icon: MegaphoneIcon, label: "הוסר מקמפיין" };
         case "category_added":
-            return { Icon: TagIcon, label: "Added to category" };
+            return { Icon: TagIcon, label: "נוסף לקטגוריה" };
         case "category_removed":
-            return { Icon: TagIcon, label: "Removed from category" };
+            return { Icon: TagIcon, label: "הוסר מקטגוריה" };
         case "form_submitted":
-            return { Icon: ClipboardListIcon, label: "Submitted a form" };
+            return { Icon: ClipboardListIcon, label: "טופס הוגש" };
         case "page_hit":
-            return { Icon: GlobeIcon, label: e.page_hit?.landing ? "Landed on" : "Page hit" };
+            return { Icon: GlobeIcon, label: e.page_hit?.landing ? "דף נחיתה נצפה" : "צפייה בעמוד" };
         default:
             return { Icon: MailIcon, label: e.type };
     }
@@ -1511,23 +1511,23 @@ function visualFor(e: ContactTimelineEvent): {
 function createdLabel(source?: string | null): string {
     switch (source) {
         case "import":
-            return "Imported";
+            return "יובא מקובץ";
         case "sheet_sync":
-            return "Synced from sheet";
+            return "סונכרן מגיליון";
         case "api":
-            return "Created via API";
+            return "נוצר דרך API";
         case "campaign":
-            return "Added from campaign";
+            return "נוסף מקמפיין";
         case "ai_assistant":
-            return "Created by AI assistant";
+            return "נוצר על ידי עוזר AI";
         case "form":
-            return "Submitted a form";
+            return "הגיש טופס";
         case "automation":
-            return "Created by automation";
+            return "נוצר באוטומציה";
         case "manual":
-            return "Created manually";
+            return "נוצר ידנית";
         default:
-            return "Contact created";
+            return "איש קשר נוצר";
     }
 }
 
@@ -1535,7 +1535,7 @@ function fmtChip(d: string): string {
     if (!d) return "";
     const dt = new Date(d + "T00:00:00");
     if (Number.isNaN(dt.getTime())) return d;
-    return dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return dt.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
 }
 
 function toInput(d: Date): string {

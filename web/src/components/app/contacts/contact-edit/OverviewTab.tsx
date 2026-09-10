@@ -49,14 +49,14 @@ export default function OverviewTab({
     function askLift() {
         if (!supp) return;
         const own = supp.source === "unsubscribe" || supp.source === "complaint" || supp.source === "bounce";
-        const what = supp.kind === "domain" ? `the whole @${supp.value} domain` : contact.email;
+        const what = supp.kind === "domain" ? `כל הדומיין @${supp.value}` : contact.email;
         const text = own
-            ? `${contact.email} ${SOURCE_LABEL[supp.source]?.toLowerCase() ?? "was suppressed"} on their own. Removing the entry lets campaigns email ${what} again, and that is recorded in the audit log. Continue?`
-            : `Remove ${what} from the suppression list? Campaigns can email them again.`;
+            ? `${contact.email} ${SOURCE_LABEL[supp.source]?.toLowerCase() ?? "הושתק"}. הסרת הרשומה תאפשר לקמפיינים לשלוח שוב דוא״ל אל ${what}, והפעולה תירשם ביומן הביקורת. להמשיך?`
+            : `האם להסיר את ${what} מרשימת ההשתקה? קמפיינים יוכלו לשלוח אליהם דוא״ל שוב.`;
         confirm.show(text, async () => {
             try {
                 await removeSuppression.mutateAsync(supp.id);
-                toast.success("Removed from the suppression list");
+                toast.success("הוסר מרשימת ההשתקה");
             } catch (err) {
                 toast.error(buildError(err as AppError));
             }
@@ -70,11 +70,11 @@ export default function OverviewTab({
                     <BanIcon className="w-3.5 h-3.5 text-red-600 mt-px shrink-0" />
                     <div className="min-w-0 flex-1">
                         <div className="text-[12px] font-medium text-red-900 leading-tight">
-                            {SOURCE_LABEL[supp.source] ?? "Suppressed"}
-                            {supp.kind === "domain" ? ` · whole @${supp.value} domain` : ""}
+                            {SOURCE_LABEL[supp.source] ?? "מושתק"}
+                            {supp.kind === "domain" ? ` · כל הדומיין @${supp.value}` : ""}
                         </div>
                         <div className="text-[11px] text-red-700/90 mt-0.5">
-                            {supp.reason || "No reason given"} · since{" "}
+                            {supp.reason || "לא צוינה סיבה"} · מאז{" "}
                             {fmtAbsolute(supp.created_at)}
                         </div>
                     </div>
@@ -84,40 +84,40 @@ export default function OverviewTab({
                         disabled={removeSuppression.isPending}
                         className="shrink-0 h-6 px-2 rounded-md border border-red-200 bg-white text-[11px] font-medium text-red-700 hover:bg-red-50 transition-colors disabled:opacity-50"
                     >
-                        Remove
+                        הסר
                     </button>
                 </div>
             )}
 
-            <Section title="Deliverability">
+            <Section title="עבירות מסירה">
                 <VerificationCard detail={detail?.verification} loading={detailLoading} />
             </Section>
 
-            <Section title="Engagement">
+            <Section title="מעורבות">
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
                     <StatTile
                         icon={<MailIcon className="w-3 h-3" />}
-                        label="Sent"
+                        label="נשלחו"
                         value={sent}
                         loading={detailLoading}
                     />
                     <StatTile
                         icon={<MailOpenIcon className="w-3 h-3" />}
-                        label="Opened"
+                        label="נפתחו"
                         value={eng?.total_opened ?? 0}
                         loading={detailLoading}
                         ratioOf={sent}
                     />
                     <StatTile
                         icon={<MousePointerClickIcon className="w-3 h-3" />}
-                        label="Clicked"
+                        label="נלחצו"
                         value={eng?.total_clicked ?? 0}
                         loading={detailLoading}
                         ratioOf={sent}
                     />
                     <StatTile
                         icon={<ReplyIcon className="w-3 h-3" />}
-                        label="Replied"
+                        label="נענו"
                         value={eng?.total_replied ?? 0}
                         loading={detailLoading}
                         ratioOf={sent}
@@ -127,7 +127,7 @@ export default function OverviewTab({
                     />
                     <StatTile
                         icon={<MailWarningIcon className="w-3 h-3" />}
-                        label="Bounced"
+                        label="נדחו"
                         value={eng?.total_bounced ?? 0}
                         loading={detailLoading}
                         ratioOf={sent}
@@ -137,7 +137,7 @@ export default function OverviewTab({
                     />
                     <StatTile
                         icon={<AlertOctagonIcon className="w-3 h-3" />}
-                        label="Complained"
+                        label="תלונות"
                         value={eng?.total_complained ?? 0}
                         loading={detailLoading}
                         ratioOf={sent}
@@ -150,45 +150,45 @@ export default function OverviewTab({
                 </div>
             </Section>
 
-            <Section title="Latest activity">
+            <Section title="פעילות אחרונה">
                 <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
                     <LatestRow
-                        label="Last sent"
+                        label="שליחה אחרונה"
                         ts={eng?.last_sent_at}
                         icon={<MailIcon className="w-3 h-3" />}
                     />
                     <LatestRow
-                        label="Last opened"
+                        label="פתיחה אחרונה"
                         ts={eng?.last_opened_at}
                         icon={<MailOpenIcon className="w-3 h-3" />}
                     />
                     <LatestRow
-                        label="Last clicked"
+                        label="לחיצה אחרונה"
                         ts={eng?.last_clicked_at}
                         icon={<MousePointerClickIcon className="w-3 h-3" />}
                     />
                     <LatestRow
-                        label="Last replied"
+                        label="תשובה אחרונה"
                         ts={eng?.last_replied_at}
                         icon={<ReplyIcon className="w-3 h-3" />}
                     />
                     <LatestRow
-                        label="Last bounced"
+                        label="דחייה אחרונה"
                         ts={eng?.last_bounced_at}
                         icon={<MailWarningIcon className="w-3 h-3" />}
                     />
                 </div>
             </Section>
 
-            <Section title="Profile">
+            <Section title="פרופיל">
                 <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
                     <ProfileRow
-                        label="Company"
+                        label="חברה"
                         value={contact.company || "—"}
                     />
-                    <ProfileRow label="Phone" value={contact.phone || "—"} />
+                    <ProfileRow label="טלפון" value={contact.phone || "—"} />
                     <ProfileRow
-                        label="Categories"
+                        label="קטגוריות"
                         value={
                             contact.categories.length > 0 ? (
                                 <span className="flex flex-wrap gap-1 justify-end">
@@ -206,16 +206,16 @@ export default function OverviewTab({
                                     ))}
                                 </span>
                             ) : (
-                                "None"
+                                "ללא"
                             )
                         }
                     />
                     <ProfileRow
-                        label="Campaigns"
+                        label="קמפיינים"
                         value={
                             contact.campaigns.length > 0
-                                ? `${contact.campaigns.length} active`
-                                : "None"
+                                ? `${contact.campaigns.length} פעילים`
+                                : "ללא"
                         }
                     />
                 </div>
@@ -224,10 +224,10 @@ export default function OverviewTab({
             <ContactSegmentsSection contactId={contact.id} />
 
             {detail && (
-                <Section title="Source">
+                <Section title="מקור">
                     <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
                         <ProfileRow
-                            label="Came from"
+                            label="הגיע מ-"
                             value={
                                 detail.source_detail
                                     ? `${sourceLabel(detail.source)} · ${detail.source_detail}`
@@ -235,7 +235,7 @@ export default function OverviewTab({
                             }
                         />
                         <ProfileRow
-                            label="First seen"
+                            label="נצפה לראשונה"
                             value={fmtAbsolute(detail.first_seen_at)}
                         />
                     </div>
@@ -243,7 +243,7 @@ export default function OverviewTab({
             )}
 
             {Object.keys(contact.custom_fields || {}).length > 0 && (
-                <Section title="Custom fields">
+                <Section title="שדות מותאמים אישית">
                     <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
                         {Object.entries(contact.custom_fields).map(([k, v]) => (
                             <ProfileRow key={k} label={k} value={v} mono />
@@ -356,7 +356,7 @@ function LatestRow({
                     ts ? "text-slate-600" : "text-slate-300"
                 }`}
             >
-                {ts ? fmtRelative(ts) : "never"}
+                {ts ? fmtRelative(ts) : "אף פעם"}
             </div>
         </div>
     );

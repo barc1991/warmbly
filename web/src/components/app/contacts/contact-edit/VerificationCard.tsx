@@ -20,20 +20,20 @@ import { fmtRelative } from "./format";
 import { cn } from "@/lib/utils";
 
 const STATUS = {
-    valid: { label: "Deliverable", ring: "stroke-emerald-500", text: "text-emerald-700", Icon: ShieldCheckIcon },
-    risky: { label: "Risky", ring: "stroke-amber-500", text: "text-amber-700", Icon: AlertTriangleIcon },
-    invalid: { label: "Undeliverable", ring: "stroke-rose-500", text: "text-rose-700", Icon: ShieldXIcon },
-    unknown: { label: "Not verified", ring: "stroke-slate-300", text: "text-slate-500", Icon: CircleDashedIcon },
+    valid: { label: "בר-מסירה", ring: "stroke-emerald-500", text: "text-emerald-700", Icon: ShieldCheckIcon },
+    risky: { label: "בסיכון", ring: "stroke-amber-500", text: "text-amber-700", Icon: AlertTriangleIcon },
+    invalid: { label: "לא בר-מסירה", ring: "stroke-rose-500", text: "text-rose-700", Icon: ShieldXIcon },
+    unknown: { label: "לא מאומת", ring: "stroke-slate-300", text: "text-slate-500", Icon: CircleDashedIcon },
 } as const;
 
 const EVIDENCE: Record<VerificationEvidenceKind, { label: string; Icon: typeof MailCheckIcon; tone: string }> = {
-    delivered: { label: "Delivered, no bounce", Icon: MailCheckIcon, tone: "text-emerald-600" },
-    opened: { label: "Opened by a person", Icon: MailOpenIcon, tone: "text-emerald-600" },
-    clicked: { label: "Clicked a link", Icon: MousePointerClickIcon, tone: "text-emerald-600" },
-    replied: { label: "Replied", Icon: ReplyIcon, tone: "text-emerald-600" },
-    auto_replied: { label: "Automatic reply (mailbox is live)", Icon: ReplyIcon, tone: "text-emerald-600" },
-    bounced_recipient: { label: "Bounced: mailbox does not exist", Icon: MailWarningIcon, tone: "text-rose-600" },
-    bounced_other: { label: "Bounced for another reason", Icon: MailWarningIcon, tone: "text-slate-500" },
+    delivered: { label: "נמסר, ללא דחייה", Icon: MailCheckIcon, tone: "text-emerald-600" },
+    opened: { label: "נפתח על ידי אדם", Icon: MailOpenIcon, tone: "text-emerald-600" },
+    clicked: { label: "לחיצה על קישור", Icon: MousePointerClickIcon, tone: "text-emerald-600" },
+    replied: { label: "נענה", Icon: ReplyIcon, tone: "text-emerald-600" },
+    auto_replied: { label: "מענה אוטומטי (תיבה פעילה)", Icon: ReplyIcon, tone: "text-emerald-600" },
+    bounced_recipient: { label: "נדחה: תיבת הדואר אינה קיימת", Icon: MailWarningIcon, tone: "text-rose-600" },
+    bounced_other: { label: "נדחה מסיבה אחרת", Icon: MailWarningIcon, tone: "text-slate-500" },
 };
 
 export default function VerificationCard({
@@ -86,10 +86,10 @@ export default function VerificationCard({
                 <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-1.5">
                         <span className={cn("text-[13px] font-semibold", meta.text)}>{meta.label}</span>
-                        <span className="text-[11px] text-slate-400 tabular-nums">{pct}% sure</span>
+                        <span className="text-[11px] text-slate-400 tabular-nums">{pct}% ודאות</span>
                         {detail.decisive && (
-                            <span className="ml-auto text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
-                                from real mail
+                            <span className="mr-auto text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
+                                מדוא״ל אמיתי
                             </span>
                         )}
                     </div>
@@ -125,7 +125,7 @@ export default function VerificationCard({
                             >
                                 <EIcon className={cn("w-3 h-3 shrink-0", m.tone)} />
                                 <span className="text-slate-700 truncate">{m.label}</span>
-                                <span className="ml-auto text-slate-400 shrink-0">{fmtRelative(e.observed_at)}</span>
+                                <span className="mr-auto text-slate-400 shrink-0">{fmtRelative(e.observed_at)}</span>
                             </motion.div>
                         );
                     })}

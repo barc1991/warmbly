@@ -44,9 +44,9 @@ export default function NotesTab({ contactId }: { contactId: string }) {
             await toast.promise(
                 create.mutateAsync({ contactId, data: { content } }),
                 {
-                    loading: "Adding note…",
-                    success: "Note added",
-                    error: "Could not add note",
+                    loading: "מוסיף הערה…",
+                    success: "ההערה נוספה",
+                    error: "לא ניתן להוסיף הערה",
                 },
             );
             setDraft("");
@@ -56,14 +56,14 @@ export default function NotesTab({ contactId }: { contactId: string }) {
     }
 
     function onDelete(noteId: string) {
-        confirm.show("Delete this note? This cannot be undone.", async () => {
+        confirm.show("האם למחוק הערה זו? פעולה זו אינה ניתנת לביטול.", async () => {
             try {
                 await toast.promise(
                     remove.mutateAsync({ contactId, noteId }),
                     {
-                        loading: "Deleting…",
-                        success: "Note deleted",
-                        error: "Could not delete note",
+                        loading: "מוחק…",
+                        success: "ההערה נמחקה",
+                        error: "לא ניתן למחוק את ההערה",
                     },
                 );
             } catch {
@@ -78,9 +78,9 @@ export default function NotesTab({ contactId }: { contactId: string }) {
                 <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Add a note about this contact — context for the next person who looks them up."
+                    placeholder="הוסף הערה לגבי איש קשר זה: הקשר שיסייע לאדם הבא שיבדוק אותו."
                     rows={3}
-                    className="w-full resize-none px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-400 outline-none bg-transparent"
+                    className="w-full resize-none px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-400 outline-none bg-transparent text-right"
                 />
                 <div className="flex items-center justify-between border-t border-slate-100 px-2 py-1.5">
                     <span className="text-[10.5px] text-slate-400">
@@ -97,7 +97,7 @@ export default function NotesTab({ contactId }: { contactId: string }) {
                         ) : (
                             <PlusIcon className="w-3 h-3" />
                         )}
-                        Add note
+                        הוסף הערה
                     </button>
                 </div>
             </div>
@@ -108,12 +108,11 @@ export default function NotesTab({ contactId }: { contactId: string }) {
                 </div>
             ) : notes.isError ? (
                 <div className="rounded-md border border-red-200 bg-red-50/50 px-3 py-2.5 text-[11.5px] text-red-700">
-                    Failed to load notes.
+                    טעינת ההערות נכשלה.
                 </div>
             ) : items.length === 0 ? (
                 <div className="rounded-md border border-dashed border-slate-200 px-3 py-8 text-[11.5px] text-slate-400 text-center">
-                    No notes yet. The first one usually saves the next person
-                    an hour.
+                    אין עדיין הערות. הערה ראשונה בדרך כלל חוסכת שעה שלמה לאדם הבא.
                 </div>
             ) : (
                 <div className="space-y-1.5">
@@ -153,7 +152,7 @@ function NoteRow({
         try {
             await toast.promise(
                 update.mutateAsync({ contactId, noteId: note.id, data: { content } }),
-                { loading: "Saving…", success: "Note updated", error: "Could not save" },
+                { loading: "שומר…", success: "ההערה עודכנה", error: "לא ניתן לשמור" },
             );
             setEditing(false);
         } catch {
@@ -179,7 +178,7 @@ function NoteRow({
                                 setEditing(true);
                             }}
                             className="size-6 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center"
-                            aria-label="Edit note"
+                            aria-label="ערוך הערה"
                         >
                             <PencilIcon className="w-3 h-3" />
                         </button>
@@ -188,7 +187,7 @@ function NoteRow({
                         type="button"
                         onClick={onDelete}
                         className="size-6 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center"
-                        aria-label="Delete note"
+                        aria-label="מחק הערה"
                     >
                         <TrashIcon className="w-3 h-3" />
                     </button>
@@ -200,7 +199,7 @@ function NoteRow({
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         rows={3}
-                        className="w-full resize-none px-2 py-1.5 text-[12px] text-slate-900 border border-slate-200 rounded outline-none focus:border-slate-400"
+                        className="w-full resize-none px-2 py-1.5 text-[12px] text-slate-900 border border-slate-200 rounded outline-none focus:border-slate-400 text-right"
                         autoFocus
                     />
                     <div className="flex items-center gap-1 mt-1.5">
@@ -215,7 +214,7 @@ function NoteRow({
                             ) : (
                                 <CheckIcon className="w-3 h-3" />
                             )}
-                            Save
+                            שמור
                         </button>
                         <button
                             type="button"
@@ -223,12 +222,12 @@ function NoteRow({
                             className="h-6 px-2 rounded text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors"
                         >
                             <XIcon className="w-3 h-3" />
-                            Cancel
+                            ביטול
                         </button>
                     </div>
                 </div>
             ) : (
-                <div className="mt-1 text-[12px] text-slate-700 whitespace-pre-wrap break-words">
+                <div className="mt-1 text-[12px] text-slate-700 whitespace-pre-wrap break-words text-right">
                     {note.content}
                 </div>
             )}

@@ -41,7 +41,7 @@ interface Props {
 export default function CategoryPicker({
     value,
     onChange,
-    placeholder = "Click to add categories…",
+    placeholder = "לחץ להוספת קטגוריות…",
     className,
     allowCreate = true,
 }: Props) {
@@ -98,7 +98,7 @@ export default function CategoryPicker({
             onChange([...value, c.id]);
             setQuery("");
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed to create category");
+            toast.error(err instanceof Error ? err.message : "יצירת הקטגוריה נכשלה");
         }
     }
 
@@ -108,7 +108,7 @@ export default function CategoryPicker({
                 {selectedChips.length === 0 ? (
                     <div
                         onClick={() => setOpen((o) => !o)}
-                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600"
+                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600 text-right"
                     >
                         {placeholder}
                     </div>
@@ -127,7 +127,7 @@ export default function CategoryPicker({
                             className="inline-flex items-center gap-1 h-5 px-1.5 rounded text-[11px] font-medium border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
                         >
                             <PlusIcon className="w-2.5 h-2.5" />
-                            Add
+                            הוסף
                         </button>
                     </div>
                 )}
@@ -149,15 +149,15 @@ export default function CategoryPicker({
                             <input
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                placeholder={allowCreate ? "Search or create…" : "Search…"}
+                                placeholder={allowCreate ? "חיפוש או יצירה…" : "חיפוש…"}
                                 autoFocus
-                                className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
+                                className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-right"
                             />
                         </div>
                         <div className="max-h-56 overflow-y-auto py-1">
                             {filtered.length === 0 && !allowCreate && (
                                 <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                                    No categories.
+                                    אין קטגוריות.
                                 </div>
                             )}
                             {filtered.map((c) => {
@@ -167,22 +167,24 @@ export default function CategoryPicker({
                                         key={c.id}
                                         type="button"
                                         onClick={() => toggle(c.id)}
-                                        className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-100 transition-colors"
+                                        className="w-full px-2.5 h-7 flex items-center justify-between text-[12px] text-slate-700 hover:bg-slate-100 transition-colors"
                                     >
-                                        <span
-                                            className={`size-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                                                checked
-                                                    ? "border-slate-900 bg-slate-900"
-                                                    : "border-slate-300 bg-white"
-                                            }`}
-                                        >
-                                            {checked && <CheckIcon className="w-2 h-2 text-white" />}
-                                        </span>
-                                        <span
-                                            className="size-2.5 rounded-full shrink-0"
-                                            style={{ backgroundColor: c.color }}
-                                        />
-                                        <span className="truncate">{c.title}</span>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <span
+                                                className={`size-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                                                    checked
+                                                        ? "border-slate-900 bg-slate-900"
+                                                        : "border-slate-300 bg-white"
+                                                }`}
+                                            >
+                                                {checked && <CheckIcon className="w-2 h-2 text-white" />}
+                                            </span>
+                                            <span
+                                                className="size-2.5 rounded-full shrink-0"
+                                                style={{ backgroundColor: c.color }}
+                                            />
+                                            <span className="truncate">{c.title}</span>
+                                        </div>
                                     </button>
                                 );
                             })}
@@ -198,7 +200,7 @@ export default function CategoryPicker({
                                     ) : (
                                         <PlusIcon className="w-3 h-3 text-sky-600" />
                                     )}
-                                    Create "{query.trim()}"
+                                    צור את "{query.trim()}"
                                 </button>
                             )}
                         </div>
@@ -245,7 +247,7 @@ export function CategoryChip({
                         onRemove();
                     }}
                     className="opacity-70 hover:opacity-100"
-                    aria-label={`Remove ${category.title}`}
+                    aria-label={`הסר את ${category.title}`}
                 >
                     <XIcon className="w-2.5 h-2.5" />
                 </button>

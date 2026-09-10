@@ -39,8 +39,8 @@ export default function ResearchTab({ contactId }: { contactId: string }) {
     async function runResearch() {
         try {
             await toast.promise(run.mutateAsync(objective.trim()), {
-                loading: "Researching…",
-                success: "Research complete",
+                loading: "מבצע מחקר…",
+                success: "המחקר הושלם",
                 error: (e: AppError) => buildError(e),
             });
             setObjective("");
@@ -55,17 +55,16 @@ export default function ResearchTab({ contactId }: { contactId: string }) {
             <div className="rounded-md border border-slate-200 p-3">
                 <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-slate-900">
                     <SparklesIcon className="w-3.5 h-3.5 text-sky-600" />
-                    Research this contact
+                    חקור איש קשר זה
                 </div>
                 <p className="text-[11.5px] text-slate-500 mt-1 leading-relaxed">
-                    Warmbly searches the public web for current, cited facts about this person and
-                    their company.{metered ? " Costs 2 AI credits per run." : ""}
+                    Warmbly מחפש באינטרנט הציבורי עובדות עדכניות ומאומתות עם מקורות לגבי אדם זה והחברה שלו.{metered ? " עלות: 2 קרדיטים של AI לכל הרצה." : ""}
                 </p>
                 <div className="mt-2.5 flex items-center gap-2">
                     <TextInput
                         value={objective}
                         onChange={setObjective}
-                        placeholder="Optional focus, e.g. recent funding or hiring"
+                        placeholder="מיקוד אופציונלי, לדוגמה: גיוס כספים או גיוס עובדים לאחרונה"
                         className="flex-1"
                         onKeyDown={(e) => {
                             if (e.key === "Enter") runResearch();
@@ -82,7 +81,7 @@ export default function ResearchTab({ contactId }: { contactId: string }) {
                         ) : (
                             <SparklesIcon className="w-3 h-3" />
                         )}
-                        {run.isPending || inFlight ? "Researching" : "Run research"}
+                        {run.isPending || inFlight ? "חוקר…" : "הפעל מחקר"}
                     </button>
                 </div>
             </div>
@@ -105,7 +104,7 @@ function ResearchView({ run }: { run: ContactResearchRun }) {
             <div className="rounded-md border border-slate-200 p-3">
                 <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-slate-700">
                     <SearchXIcon className="w-3.5 h-3.5 text-slate-400" />
-                    Nothing solid found
+                    לא נמצא מידע מוצק
                 </div>
                 {r.research_notes && (
                     <p className="text-[11.5px] text-slate-500 mt-1 leading-relaxed">{r.research_notes}</p>
@@ -116,7 +115,7 @@ function ResearchView({ run }: { run: ContactResearchRun }) {
     return (
         <div className="space-y-4">
             {r.company?.summary && (
-                <Block label="Company">
+                <Block label="חברה">
                     <p className="text-[12px] text-slate-700 leading-relaxed">{r.company.summary}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10.5px]">
                         {r.company.industry && <Chip>{r.company.industry}</Chip>}
@@ -129,7 +128,7 @@ function ResearchView({ run }: { run: ContactResearchRun }) {
             )}
 
             {(r.signals?.length ?? 0) > 0 && (
-                <Block label="Signals">
+                <Block label="אותות וסימנים">
                     <div className="space-y-2">
                         {r.signals!.map((s, i) => (
                             <SignalRow key={i} signal={s} />
@@ -139,7 +138,7 @@ function ResearchView({ run }: { run: ContactResearchRun }) {
             )}
 
             {(r.hooks?.length ?? 0) > 0 && (
-                <Block label="Openers">
+                <Block label="משפטי פתיחה">
                     <div className="space-y-2">
                         {r.hooks!.map((h, i) => (
                             <HookRow key={i} line={h.opener_line} why={h.why_relevant} />
@@ -149,7 +148,7 @@ function ResearchView({ run }: { run: ContactResearchRun }) {
             )}
 
             {r.research_notes && (
-                <Block label="Notes">
+                <Block label="הערות">
                     <p className="text-[11.5px] text-slate-500 leading-relaxed">{r.research_notes}</p>
                 </Block>
             )}
@@ -176,7 +175,7 @@ function SignalRow({ signal }: { signal: ResearchSignal }) {
                     className="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 truncate"
                 >
                     <ExternalLinkIcon className="w-3 h-3 shrink-0" />
-                    source
+                    מקור
                 </a>
             </div>
         </div>
@@ -198,7 +197,7 @@ function HookRow({ line, why }: { line: string; why?: string }) {
                 <button
                     type="button"
                     onClick={copy}
-                    title="Copy opener"
+                    title="העתק משפט פתיחה"
                     className="size-6 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center shrink-0 transition-colors"
                 >
                     {copied ? <CheckIcon className="w-3 h-3 text-emerald-600" /> : <CopyIcon className="w-3 h-3" />}
@@ -216,9 +215,10 @@ function ConfidenceChip({ level }: { level: "high" | "medium" | "low" }) {
             : level === "medium"
                 ? "bg-amber-50 text-amber-700 border-amber-100"
                 : "bg-slate-100 text-slate-500 border-slate-200";
+    const label = level === "high" ? "גבוהה" : level === "medium" ? "בינונית" : "נמוכה";
     return (
         <span className={`shrink-0 text-[9px] uppercase tracking-[0.08em] font-semibold rounded-sm px-1 py-0.5 border ${cls}`}>
-            {level}
+            {label}
         </span>
     );
 }
@@ -247,8 +247,7 @@ function EmptyResearch() {
                 <SparklesIcon className="w-4 h-4" />
             </div>
             <p className="text-[12px] text-slate-500 leading-relaxed max-w-[260px] mx-auto">
-                No research yet. Run research to gather cited facts and ready-to-use openers for this
-                contact.
+                אין עדיין מחקר. הפעל מחקר כדי לאסוף עובדות עם מקורות ומשפטי פתיחה מוכנים לשימוש עבור איש קשר זה.
             </p>
         </div>
     );

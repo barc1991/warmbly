@@ -54,7 +54,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
     async function submit() {
         const e = email.trim();
         if (!isValidEmail(e)) {
-            toast.error("Enter a valid email");
+            toast.error("הזן כתובת דוא״ל תקינה");
             return;
         }
         const contact: AddContact = {
@@ -71,8 +71,8 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
         };
         try {
             await toast.promise(add.mutateAsync([contact]), {
-                loading: "Adding contact…",
-                success: segment ? `Contact added to ${segment.name}` : "Contact added",
+                loading: "מוסיף איש קשר…",
+                success: segment ? `איש הקשר נוסף אל ${segment.name}` : "איש הקשר נוסף",
                 error: (err: AppError) => buildError(err),
             });
             onClose();
@@ -107,11 +107,11 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                                 <UserPlusIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                New
+                                חדש
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
                             <span className="text-[12.5px] text-slate-900 font-medium">
-                                Contact
+                                איש קשר
                             </span>
                             {segment && (
                                 <span className="hidden sm:inline-flex items-center h-5 px-1.5 rounded bg-sky-50 text-sky-700 text-[10px] font-medium max-w-[160px] truncate">
@@ -121,8 +121,8 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגור"
+                                className="mr-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -136,7 +136,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                             className="px-4 py-4 space-y-3 flex-1 min-h-0 overflow-y-auto"
                         >
                             <div>
-                                <Label>Email</Label>
+                                <Label>כתובת דוא״ל</Label>
                                 <TextInput
                                     value={email}
                                     onChange={setEmail}
@@ -148,24 +148,24 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                    <Label>First name</Label>
+                                    <Label>שם פרטי</Label>
                                     <TextInput value={firstName} onChange={setFirstName} className="w-full" />
                                 </div>
                                 <div>
-                                    <Label>Last name</Label>
+                                    <Label>שם משפחה</Label>
                                     <TextInput value={lastName} onChange={setLastName} className="w-full" />
                                 </div>
                             </div>
                             <div>
-                                <Label>Company</Label>
+                                <Label>חברה</Label>
                                 <TextInput value={company} onChange={setCompany} className="w-full" />
                             </div>
                             <div>
-                                <Label>Phone</Label>
+                                <Label>טלפון</Label>
                                 <TextInput value={phone} onChange={setPhone} className="w-full" />
                             </div>
                             <div>
-                                <Label>Categories</Label>
+                                <Label>קטגוריות</Label>
                                 <CategoryPicker value={categories} onChange={setCategories} />
                             </div>
                         </form>
@@ -174,9 +174,9 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="mr-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -185,7 +185,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                                 className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 {add.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                                Add
+                                הוסף
                             </button>
                         </div>
                     </motion.div>

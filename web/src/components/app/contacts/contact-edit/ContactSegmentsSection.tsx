@@ -26,7 +26,7 @@ export function ContactSegmentsSection({ contactId }: { contactId: string }) {
         try {
             await set.mutateAsync({ id: seg.id, selection: selectionOf(contactId), mode });
             toast.success(
-                mode === "include" ? `Pinned into ${seg.name}` : mode === "exclude" ? `Pinned out of ${seg.name}` : `${seg.name} is automatic again`,
+                mode === "include" ? `הוצמד אל ${seg.name}` : mode === "exclude" ? `הוחרג מתוך ${seg.name}` : `${seg.name} הוחזר למצב אוטומטי`,
             );
         } catch (err) {
             toast.error(buildError(err as AppError));
@@ -42,17 +42,17 @@ export function ContactSegmentsSection({ contactId }: { contactId: string }) {
     return (
         <section>
             <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2 flex items-center gap-2">
-                Segments
-                {list.length > 0 && <span className="font-mono text-[10px] text-slate-400 tabular-nums normal-case tracking-normal">{members.length} of {list.length}</span>}
+                סגמנטים
+                {list.length > 0 && <span className="font-mono text-[10px] text-slate-400 tabular-nums normal-case tracking-normal">{members.length} מתוך {list.length}</span>}
             </h2>
             <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
                 {segments.isPending ? (
-                    <div className="px-3 py-2.5 text-[11.5px] text-slate-400">Loading…</div>
+                    <div className="px-3 py-2.5 text-[11.5px] text-slate-400">טוען…</div>
                 ) : list.length === 0 ? (
                     <div className="px-3 py-2.5 text-[11.5px] text-slate-400">
-                        No segments yet.{" "}
+                        אין עדיין סגמנטים.{" "}
                         <Link to="/app/contacts/segments" className="text-sky-700 hover:underline">
-                            Create one
+                            צור אחד
                         </Link>
                         .
                     </div>
@@ -70,28 +70,28 @@ export function ContactSegmentsSection({ contactId }: { contactId: string }) {
                                         {s.name}
                                     </Link>
                                     {s.mode === "include" && (
-                                        <span className="inline-flex items-center h-4 px-1 rounded bg-emerald-50 text-emerald-700 text-[10px] font-medium">pinned in</span>
+                                        <span className="inline-flex items-center h-4 px-1 rounded bg-emerald-50 text-emerald-700 text-[10px] font-medium">הוצמד פנימה</span>
                                     )}
                                     {s.mode === "exclude" && (
-                                        <span className="inline-flex items-center h-4 px-1 rounded bg-amber-50 text-amber-700 text-[10px] font-medium">pinned out</span>
+                                        <span className="inline-flex items-center h-4 px-1 rounded bg-amber-50 text-amber-700 text-[10px] font-medium">הוחרג החוצה</span>
                                     )}
-                                    <div className="ml-auto flex items-center gap-0.5">
+                                    <div className="mr-auto flex items-center gap-0.5">
                                         {busy ? (
                                             <Loader2Icon className="w-3 h-3 animate-spin text-slate-400" />
                                         ) : (
                                             <>
                                                 {s.mode !== undefined && (
-                                                    <IconButton title="Back to automatic" onClick={write.guard(() => apply(s, "auto"))}>
+                                                    <IconButton title="חזרה למצב אוטומטי" onClick={write.guard(() => apply(s, "auto"))}>
                                                         <RotateCcwIcon className="w-3 h-3" />
                                                     </IconButton>
                                                 )}
                                                 {s.mode !== "include" && (
-                                                    <IconButton title="Pin into segment" onClick={write.guard(() => apply(s, "include"))}>
+                                                    <IconButton title="הצמד אל הסגמנט" onClick={write.guard(() => apply(s, "include"))}>
                                                         <CheckIcon className="w-3 h-3" />
                                                     </IconButton>
                                                 )}
                                                 {s.mode !== "exclude" && (
-                                                    <IconButton title="Pin out of segment" onClick={write.guard(() => apply(s, "exclude"))}>
+                                                    <IconButton title="החרג מתוך הסגמנט" onClick={write.guard(() => apply(s, "exclude"))}>
                                                         <MinusIcon className="w-3 h-3" />
                                                     </IconButton>
                                                 )}

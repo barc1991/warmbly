@@ -16,9 +16,9 @@ import {
 export type ContactSlideTab = "overview" | "activity" | "notes" | "details" | "research";
 
 export const CONTACT_SLIDE_TABS: { id: ContactSlideTab; label: string; icon: LucideIcon }[] = [
-    { id: "overview", label: "Overview", icon: GaugeIcon },
-    { id: "activity", label: "Activity", icon: ActivityIcon },
-    { id: "notes", label: "Notes", icon: StickyNoteIcon },
-    { id: "research", label: "Research", icon: SparklesIcon },
-    { id: "details", label: "Details", icon: SlidersHorizontalIcon },
+    { id: "overview", label: "סקירה כללית", icon: GaugeIcon },
+    { id: "activity", label: "פעילות", icon: ActivityIcon },
+    { id: "notes", label: "הערות", icon: StickyNoteIcon },
+    { id: "research", label: "מחקר ומידע", icon: SparklesIcon },
+    { id: "details", label: "פרטים", icon: SlidersHorizontalIcon },
 ];

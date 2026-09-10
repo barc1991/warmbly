@@ -77,39 +77,39 @@ export default function DetailsTab({
 }) {
     return (
         <div className="space-y-6">
-            <Section title="Identity">
+            <Section title="זהות">
                 <div className="grid grid-cols-2 gap-2">
-                    <Field label="First name" icon={<UserIcon className="w-3 h-3" />}>
-                        <TextInput value={firstName} onChange={setFirstName} className="w-full" placeholder="John" />
+                    <Field label="שם פרטי" icon={<UserIcon className="w-3 h-3" />}>
+                        <TextInput value={firstName} onChange={setFirstName} className="w-full" placeholder="ישראל" />
                     </Field>
-                    <Field label="Last name">
-                        <TextInput value={lastName} onChange={setLastName} className="w-full" placeholder="Doe" />
+                    <Field label="שם משפחה">
+                        <TextInput value={lastName} onChange={setLastName} className="w-full" placeholder="ישראלי" />
                     </Field>
                 </div>
-                <Field label="Email" icon={<MailIcon className="w-3 h-3" />}>
+                <Field label="כתובת דוא״ל" icon={<MailIcon className="w-3 h-3" />}>
                     <TextInput value={email} onChange={setEmail} className="w-full" placeholder="name@company.com" type="email" />
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
-                    <Field label="Company" icon={<BuildingIcon className="w-3 h-3" />}>
-                        <TextInput value={company} onChange={setCompany} className="w-full" placeholder="Acme Inc." />
+                    <Field label="חברה" icon={<BuildingIcon className="w-3 h-3" />}>
+                        <TextInput value={company} onChange={setCompany} className="w-full" placeholder="שם החברה" />
                     </Field>
-                    <Field label="Phone" icon={<PhoneIcon className="w-3 h-3" />}>
-                        <TextInput value={phone} onChange={setPhone} className="w-full" placeholder="+1 555…" />
+                    <Field label="טלפון" icon={<PhoneIcon className="w-3 h-3" />}>
+                        <TextInput value={phone} onChange={setPhone} className="w-full" placeholder="+972…" />
                     </Field>
                 </div>
             </Section>
 
-            <Section title="Subscription">
+            <Section title="הרשמה לדיוור">
                 <ToggleRow
-                    label="Subscribed"
-                    description="Unsubscribed contacts are skipped by every campaign."
+                    label="רשום לדיוור"
+                    description="אנשי קשר שהסירו הרשמה מדולגים בכל קמפיין."
                     on={subscribed}
                     onChange={setSubscribed}
                 />
             </Section>
 
             <Section
-                title="Categories"
+                title="קטגוריות"
                 accessory={
                     <span className="text-[10.5px] text-slate-400 tabular-nums">
                         {categoryIds.length}
@@ -120,10 +120,10 @@ export default function DetailsTab({
             </Section>
 
             <Section
-                title="Campaigns"
+                title="קמפיינים"
                 accessory={
                     <span className="text-[10.5px] text-slate-400 tabular-nums">
-                        {campaigns.length} active
+                        {campaigns.length} פעילים
                     </span>
                 }
             >
@@ -131,7 +131,7 @@ export default function DetailsTab({
             </Section>
 
             <Section
-                title="Custom fields"
+                title="שדות מותאמים אישית"
                 accessory={
                     <button
                         type="button"
@@ -139,13 +139,13 @@ export default function DetailsTab({
                         className="h-6 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-[11px] text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 transition-colors"
                     >
                         <PlusIcon className="w-3 h-3" />
-                        Add field
+                        הוסף שדה
                     </button>
                 }
             >
                 {customFields.length === 0 ? (
                     <div className="rounded-md border border-dashed border-slate-200 px-3 py-4 text-[11.5px] text-slate-400 text-center">
-                        No custom fields. Add one to attach extra metadata.
+                        אין שדות מותאמים אישית. הוסף שדה כדי לצרף מידע נוסף.
                     </div>
                 ) : (
                     <div className="space-y-1.5">
@@ -158,7 +158,7 @@ export default function DetailsTab({
                                             cur.map((c, i) => (i === idx ? { ...c, name: v } : c)),
                                         )
                                     }
-                                    placeholder="key"
+                                    placeholder="שם השדה (key)"
                                     className="w-[110px] md:w-[140px]"
                                 />
                                 <TextInput
@@ -168,7 +168,7 @@ export default function DetailsTab({
                                             cur.map((c, i) => (i === idx ? { ...c, value: v } : c)),
                                         )
                                     }
-                                    placeholder="value"
+                                    placeholder="ערך (value)"
                                     className="flex-1"
                                 />
                                 <button
@@ -176,7 +176,7 @@ export default function DetailsTab({
                                     onClick={() =>
                                         setCustomFields((cur) => cur.filter((_, i) => i !== idx))
                                     }
-                                    aria-label="Remove field"
+                                    aria-label="הסר שדה"
                                     className="size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors shrink-0"
                                 >
                                     <TrashIcon className="w-3 h-3" />
@@ -187,16 +187,16 @@ export default function DetailsTab({
                 )}
             </Section>
 
-            <Section title="Metadata">
+            <Section title="מטא-דאטה">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11.5px]">
                     <MetaRow
                         icon={<CalendarIcon className="w-3 h-3 text-slate-400" />}
-                        label="Created"
+                        label="נוצר"
                         value={fmtAbsolute(contact.created_at)}
                     />
                     <MetaRow
                         icon={<CalendarIcon className="w-3 h-3 text-slate-400" />}
-                        label="Updated"
+                        label="עודכן"
                         value={fmtAbsolute(contact.updated_at)}
                     />
                 </div>
@@ -335,9 +335,9 @@ function CampaignPicker({
                 {selected.length === 0 ? (
                     <div
                         onClick={() => setOpen((o) => !o)}
-                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600"
+                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600 text-right"
                     >
-                        No campaigns selected. Click to add.
+                        לא נבחרו קמפיינים. לחץ להוספה.
                     </div>
                 ) : (
                     <div className="px-2 py-2 flex flex-wrap gap-1">
@@ -355,7 +355,7 @@ function CampaignPicker({
                                         toggle(c);
                                     }}
                                     className="opacity-70 hover:opacity-100"
-                                    aria-label={`Remove ${c.name}`}
+                                    aria-label={`הסר את ${c.name}`}
                                 >
                                     <XIcon className="w-2.5 h-2.5" />
                                 </button>
@@ -367,7 +367,7 @@ function CampaignPicker({
                             className="inline-flex items-center gap-1 h-5 px-1.5 rounded text-[11px] font-medium border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
                         >
                             <PlusIcon className="w-2.5 h-2.5" />
-                            Add
+                            הוסף
                         </button>
                     </div>
                 )}
@@ -389,15 +389,15 @@ function CampaignPicker({
                             <input
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Search campaigns…"
+                                placeholder="חיפוש קמפיינים…"
                                 autoFocus
-                                className="flex-1 h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
+                                className="flex-1 h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-right"
                             />
                         </div>
                         <div className="max-h-56 overflow-y-auto py-1">
                             {campaigns.length === 0 ? (
                                 <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                                    No campaigns found.
+                                    לא נמצאו קמפיינים.
                                 </div>
                             ) : (
                                 campaigns.map((c) => {
