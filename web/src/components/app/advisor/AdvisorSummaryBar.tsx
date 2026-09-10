@@ -88,7 +88,7 @@ export default function AdvisorSummaryBar({
                     type="button"
                     onClick={() => setManuallyOpen(!expanded)}
                     aria-expanded={expanded}
-                    className="flex w-full items-center gap-2 px-2.5 py-2 text-left transition hover:bg-slate-500/[0.04]"
+                    className="flex w-full items-center gap-2 px-2.5 py-2 text-start transition hover:bg-slate-500/[0.04]"
                 >
                     <SparklesIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
 
@@ -97,7 +97,7 @@ export default function AdvisorSummaryBar({
                         {view.subjects > 0 ? (
                             <span className="hidden text-slate-500 sm:inline">
                                 {" "}
-                                · each one is flagged on its row
+                                · כל אחד מסומן בשורה שלו
                             </span>
                         ) : null}
                     </span>
@@ -120,7 +120,7 @@ export default function AdvisorSummaryBar({
                     </span>
 
                     <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-[11.5px] text-slate-500">
-                        {expanded ? "Hide" : "Review"}
+                        {expanded ? "הסתרה" : "סקירה"}
                         <ChevronDownIcon
                             className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`}
                         />
@@ -169,11 +169,11 @@ function summaryLine(
     noun: string,
     nounPlural: string,
 ): string {
-    if (view.open.length === 0) return "Everything suggested here has been applied";
+    if (view.open.length === 0) return "כל ההמלצות המוצעות כאן יושמו במלואן";
     if (view.subjects === 0) {
-        return `${view.open.length} ${view.open.length === 1 ? "suggestion" : "suggestions"} for this workspace`;
+        return `${view.open.length} ${view.open.length === 1 ? "המלצה" : "המלצות"} עבור סביבת עבודה זו`;
     }
     const subject = view.subjects === 1 ? noun : nounPlural;
-    if (view.critical > 0) return `${view.subjects} ${subject} need urgent attention`;
-    return `${view.subjects} ${subject} could be doing better`;
+    if (view.critical > 0) return `${view.subjects} ${subject} דורשים תשומת לב דחופה`;
+    return `${view.subjects} ${subject} יכולים להציג ביצועים טובים יותר`;
 }

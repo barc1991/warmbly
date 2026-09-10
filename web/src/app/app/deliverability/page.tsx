@@ -28,26 +28,26 @@ type Metric = "bounces" | "complaints" | "opens" | "replies" | "sent";
 type SectionKey = "chart" | "totals" | "providers" | "warmup" | "mailboxes" | "campaigns";
 
 const RANGE_LABEL: Record<Range, string> = {
-    "7d": "Last 7 days",
-    "30d": "Last 30 days",
-    "90d": "Last 90 days",
+    "7d": "7 הימים האחרונים",
+    "30d": "30 הימים האחרונים",
+    "90d": "90 הימים האחרונים",
 };
 
 const METRICS: { key: Metric; label: string; tone: DitherTone }[] = [
-    { key: "bounces", label: "Bounces", tone: "rose" },
-    { key: "complaints", label: "Complaints", tone: "amber" },
-    { key: "opens", label: "Opens", tone: "emerald" },
-    { key: "replies", label: "Replies", tone: "sky" },
-    { key: "sent", label: "Sent", tone: "slate" },
+    { key: "bounces", label: "החזרות", tone: "rose" },
+    { key: "complaints", label: "תלונות", tone: "amber" },
+    { key: "opens", label: "פתיחות", tone: "emerald" },
+    { key: "replies", label: "תשובות", tone: "sky" },
+    { key: "sent", label: "נשלחו", tone: "slate" },
 ];
 
 const SECTIONS: { key: SectionKey; label: string }[] = [
-    { key: "chart", label: "Over time" },
-    { key: "totals", label: "Window totals" },
-    { key: "providers", label: "Placement by provider" },
-    { key: "warmup", label: "Warmup placement by domain" },
-    { key: "mailboxes", label: "Mailboxes at risk" },
-    { key: "campaigns", label: "Campaigns at risk" },
+    { key: "chart", label: "לאורך זמן" },
+    { key: "totals", label: "סיכום לתקופה" },
+    { key: "providers", label: "מיקום לפי ספק" },
+    { key: "warmup", label: "מיקום חימום לפי דומיין" },
+    { key: "mailboxes", label: "תיבות דואר בסיכון" },
+    { key: "campaigns", label: "קמפיינים בסיכון" },
 ];
 
 const BAND_CHIP: Record<DeliverabilityBand, string> = {
@@ -63,10 +63,10 @@ const BAND_DOT: Record<DeliverabilityBand, string> = {
     blocked: "bg-rose-500",
 };
 const BAND_LABEL: Record<DeliverabilityBand, string> = {
-    healthy: "Healthy",
-    warning: "Watch",
-    quarantine: "Quarantine",
-    blocked: "Blocked",
+    healthy: "תקין",
+    warning: "במעקב",
+    quarantine: "הסגר",
+    blocked: "חסום",
 };
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -76,11 +76,11 @@ const PROVIDER_LABEL: Record<string, string> = {
 };
 
 function providerLabel(p: string): string {
-    return PROVIDER_LABEL[p] ?? (p ? p : "Other");
+    return PROVIDER_LABEL[p] ?? (p ? p : "אחר");
 }
 
 function pct(v: number | null | undefined): string {
-    return v == null ? "—" : `${v.toFixed(2)}%`;
+    return v == null ? "-" : `${v.toFixed(2)}%`;
 }
 function num(v: number | undefined): string {
     return (v ?? 0).toLocaleString();
@@ -163,14 +163,14 @@ export default function DeliverabilityPage() {
 
     return (
         <Page>
-            <PageTopbar eyebrow="Deliverability" subtitle="Inbox placement, bounce, and complaint health across your mailboxes">
+            <PageTopbar eyebrow="עבירות מסירה" subtitle="מיקום בתיבת הדואר הנכנס, החזרות ובריאות תלונות בכל תיבות הדואר שלך">
                 <CustomizeMenu hidden={view.hidden} onToggle={toggleSection} />
                 <RangeTabs value={view.range} onChange={(range) => updateView({ ...view, range })} />
             </PageTopbar>
 
             <StatStrip cols={5}>
                 <Stat
-                    label="Deliverability score"
+                    label="ציון עבירות מסירה"
                     value={
                         hasActivity ? (
                             <span className="inline-flex items-center gap-2">
@@ -178,32 +178,32 @@ export default function DeliverabilityPage() {
                                 <BandChip band={d!.band} />
                             </span>
                         ) : (
-                            "—"
+                            "-"
                         )
                     }
-                    sub={hasActivity ? "out of 100" : "no activity in this window"}
+                    sub={hasActivity ? "מתוך 100" : "אין פעילות בטווח זה"}
                 />
                 <Stat
-                    label="Bounce rate"
+                    label="שיעור החזרות"
                     value={pct(d?.bounce_rate)}
-                    sub={`${num(d?.bounce_count)} of ${num(d?.emails_sent)} sent`}
+                    sub={`${num(d?.bounce_count)} מתוך ${num(d?.emails_sent)} שנשלחו`}
                     accent={!!d && d.bounce_rate >= 5}
                 />
-                <Stat label="Complaint rate" value={pct(d?.complaint_rate)} sub={`${num(d?.complaint_count)} complaints`} accent={!!d && d.complaint_rate >= 0.1} />
+                <Stat label="שיעור תלונות" value={pct(d?.complaint_rate)} sub={`${num(d?.complaint_count)} תלונות`} accent={!!d && d.complaint_rate >= 0.1} />
                 <Stat
-                    label="Spam placement"
-                    value={d?.placement_samples ? pct(d?.spam_placement_rate) : "—"}
-                    sub={d?.placement_samples ? `${num(d?.placement_samples)} seed samples` : "no seed data"}
+                    label="מיקום בספאם"
+                    value={d?.placement_samples ? pct(d?.spam_placement_rate) : "-"}
+                    sub={d?.placement_samples ? `${num(d?.placement_samples)} דגימות בדיקה` : "אין נתוני בדיקה"}
                 />
-                <Stat label="Suppressed" value={num(d?.suppressed_recipients)} sub="active suppressions" last />
+                <Stat label="נחסמו (Suppressed)" value={num(d?.suppressed_recipients)} sub="חסימות פעילות" last />
             </StatStrip>
 
             {/* The Advisor's deliverability findings, above the numbers that
                 produced them. Absent entirely when there is nothing wrong. */}
             <AdvisorSummaryBar
                 surface="deliverability"
-                noun="mailbox"
-                nounPlural="mailboxes"
+                noun="תיבת דואר"
+                nounPlural="תיבות דואר"
                 className="mx-5 mt-3"
             />
 
@@ -216,8 +216,8 @@ export default function DeliverabilityPage() {
                     {(show("chart") || show("totals")) && (
                         <div className={`grid min-h-0 ${show("chart") && show("totals") ? "lg:grid-cols-[1fr_320px]" : ""}`}>
                             {show("chart") && (
-                                <section className="flex flex-col min-h-0 lg:border-r lg:border-slate-200">
-                                    <SectionBar label="Over time">
+                                <section className="flex flex-col min-h-0 lg:border-e lg:border-slate-200">
+                                    <SectionBar label="לאורך זמן">
                                         <div className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5 max-w-full overflow-x-auto">
                                             {METRICS.map((m) => {
                                                 const visible = !hiddenMetrics.includes(m.key);
@@ -244,7 +244,7 @@ export default function DeliverabilityPage() {
                                                 labels={trend.labels}
                                                 series={trend.series}
                                                 height={280}
-                                                emptyLabel="No activity in this window yet"
+                                                emptyLabel="אין פעילות בטווח זמנים זה עדיין"
                                             />
                                         )}
                                     </div>
@@ -253,35 +253,35 @@ export default function DeliverabilityPage() {
 
                             {show("totals") && (
                                 <aside className="flex flex-col min-h-0 bg-slate-50/40">
-                                    <SectionBar label="Window totals" />
+                                    <SectionBar label="סיכום לתקופה" />
                                     <div className="divide-y divide-slate-200/60">
                                         {[
-                                            { label: "Sent", value: d?.emails_sent, dot: "bg-slate-400" },
-                                            { label: "Opens", value: d?.open_count, dot: "bg-emerald-500" },
-                                            { label: "Clicks", value: d?.click_count, dot: "bg-violet-500" },
-                                            { label: "Replies", value: d?.reply_count, dot: "bg-sky-500" },
-                                            { label: "Bounces", value: d?.bounce_count, dot: "bg-rose-500" },
-                                            { label: "Complaints", value: d?.complaint_count, dot: "bg-amber-500" },
-                                            { label: "Unsubscribes", value: d?.unsubscribe_count, dot: "bg-orange-500" },
+                                            { label: "נשלחו", value: d?.emails_sent, dot: "bg-slate-400" },
+                                            { label: "פתיחות", value: d?.open_count, dot: "bg-emerald-500" },
+                                            { label: "לחיצות", value: d?.click_count, dot: "bg-violet-500" },
+                                            { label: "תשובות", value: d?.reply_count, dot: "bg-sky-500" },
+                                            { label: "החזרות (Bounces)", value: d?.bounce_count, dot: "bg-rose-500" },
+                                            { label: "תלונות ספאם", value: d?.complaint_count, dot: "bg-amber-500" },
+                                            { label: "ביטולי הרשמה", value: d?.unsubscribe_count, dot: "bg-orange-500" },
                                         ].map((row) => (
                                             <div key={row.label} className="h-9 px-4 flex items-center gap-2">
                                                 <span className={`size-1.5 rounded-full ${row.dot}`} />
                                                 <span className="text-[12px] text-slate-700">{row.label}</span>
-                                                <span className="ml-auto font-mono text-[11px] text-slate-500 tabular-nums">{q.isPending ? "—" : num(row.value)}</span>
+                                                <span className="ms-auto font-mono text-[11px] text-slate-500 tabular-nums">{q.isPending ? "-" : num(row.value)}</span>
                                             </div>
                                         ))}
                                     </div>
                                     {d?.placement_samples ? (
                                         <>
-                                            <SectionBar label="Inbox placement" />
+                                            <SectionBar label="מיקום בתיבת הדואר" />
                                             <div className="px-4 py-3 grid grid-cols-2 gap-2 text-center">
                                                 <div>
                                                     <div className="text-[18px] font-semibold text-emerald-600 tabular-nums">{pct(d.inbox_placement_rate)}</div>
-                                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Inbox</div>
+                                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">דואר נכנס</div>
                                                 </div>
                                                 <div>
                                                     <div className="text-[18px] font-semibold text-rose-600 tabular-nums">{pct(d.spam_placement_rate)}</div>
-                                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">Spam</div>
+                                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400">ספאם</div>
                                                 </div>
                                             </div>
                                         </>
@@ -293,13 +293,13 @@ export default function DeliverabilityPage() {
 
                     {show("providers") && (
                         <>
-                            <SectionBar label="Placement by provider" count={d?.by_provider?.length || undefined} />
+                            <SectionBar label="מיקום לפי ספק" count={d?.by_provider?.length || undefined} />
                             {q.isPending ? (
                                 <SkeletonRows />
                             ) : (d?.by_provider?.length ?? 0) === 0 ? (
                                 <EmptyBlock
-                                    title="No placement test samples in this window"
-                                    body="Run a seed placement test to see where your mail lands (inbox, promotions, or spam) at each provider."
+                                    title="אין דגימות בדיקת מיקום בטווח זמנים זה"
+                                    body="הפעל בדיקת מיקום כדי לראות היכן הדוא״ל שלך נוחת (דואר נכנס, קידומי מכירות או ספאם) בכל ספק."
                                 />
                             ) : (
                                 <div className="divide-y divide-slate-200/60">
@@ -313,13 +313,13 @@ export default function DeliverabilityPage() {
 
                     {show("warmup") && (
                         <>
-                            <SectionBar label="Warmup placement by domain" count={d?.warmup_placement?.length || undefined} />
+                            <SectionBar label="מיקום חימום לפי דומיין" count={d?.warmup_placement?.length || undefined} />
                             {q.isPending ? (
                                 <SkeletonRows />
                             ) : (d?.warmup_placement?.length ?? 0) === 0 ? (
                                 <EmptyBlock
-                                    title="No warmup deliveries in this window"
-                                    body="Once warmup is running, every verified delivery reports whether it reached the inbox or the spam folder, broken down by the recipient's domain."
+                                    title="אין מסירות חימום בטווח זמנים זה"
+                                    body="כאשר החימום פעיל, כל מסירה מאומתת מדווחת האם הגיעה לדואר הנכנס או לתיקיית הספאם, בפילוח לפי דומיין הנמען."
                                 />
                             ) : (
                                 <>
@@ -329,10 +329,7 @@ export default function DeliverabilityPage() {
                                         ))}
                                     </div>
                                     <p className="px-4 py-3 text-[11.5px] text-slate-500 leading-relaxed">
-                                        Warmup partner selection reads these numbers: a mailbox landing in spam at one
-                                        provider is sent fewer partners there while the rate stays high, and more again
-                                        once it recovers. It is never cut off entirely, because a sender that stops
-                                        mailing a provider can never find out that it recovered.
+                                        בחירת שותפי החימום מתבססת על נתונים אלו: תיבת דואר הנוחתת בספאם אצל ספק מסוים תקבל פחות שותפים מאותו ספק כל עוד השיעור נשאר גבוה, ויותר שותפים ברגע שהיא מתאוששת. היא לעולם אינה מנותקת לחלוטין, מכיוון ששולח שמפסיק לשלוח לספק מסוים לא יוכל לעולם לגלות שהמוניטין שלו התאושש.
                                     </p>
                                 </>
                             )}
@@ -341,26 +338,26 @@ export default function DeliverabilityPage() {
 
                     {show("mailboxes") && (
                         <>
-                            <SectionBar label="Mailboxes at risk" count={d?.by_mailbox?.length || undefined}>
+                            <SectionBar label="תיבות דואר בסיכון" count={d?.by_mailbox?.length || undefined}>
                                 <Link to="/app/emails" className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-900 transition-colors">
-                                    All mailboxes
-                                    <ArrowUpRightIcon className="w-3 h-3" />
+                                    כל תיבות הדואר
+                                    <ArrowUpRightIcon className="w-3 h-3 rtl:rotate-[-90deg]" />
                                 </Link>
                             </SectionBar>
                             {q.isPending ? (
                                 <SkeletonRows />
                             ) : (d?.by_mailbox?.length ?? 0) === 0 ? (
-                                <EmptyBlock title="No bounce or complaint activity" body="Mailboxes with bounces or complaints in this window will show up here, ranked by risk." />
+                                <EmptyBlock title="אין פעילות החזרות או תלונות" body="תיבות דואר עם החזרות או תלונות בטווח זמנים זה יוצגו כאן, מדורגות לפי רמת סיכון." />
                             ) : (
                                 <div className="divide-y divide-slate-200/60">
                                     {d!.by_mailbox.map((m) => (
                                         <div key={m.email_account_id} className="h-11 px-5 flex items-center gap-3">
                                             <span className={`size-1.5 rounded-full shrink-0 ${BAND_DOT[m.band]}`} />
                                             <span className="text-[12.5px] font-medium text-slate-900 truncate max-w-[36%]">{m.email}</span>
-                                            <span className="ml-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
-                                                <span title="Sent" className="hidden md:inline">{num(m.sent)} sent</span>
-                                                <span title="Bounce rate" className="text-rose-600">{pct(m.bounce_rate)} bounce</span>
-                                                <span title="Complaint rate" className="hidden md:inline text-amber-600">{pct(m.complaint_rate)} spam</span>
+                                            <span className="ms-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
+                                                <span title="נשלחו" className="hidden md:inline">{num(m.sent)} נשלחו</span>
+                                                <span title="שיעור החזרות" className="text-rose-600">{pct(m.bounce_rate)} החזרות</span>
+                                                <span title="שיעור תלונות" className="hidden md:inline text-amber-600">{pct(m.complaint_rate)} ספאם</span>
                                             </span>
                                             <BandChip band={m.band} />
                                         </div>
@@ -371,14 +368,14 @@ export default function DeliverabilityPage() {
                     )}
 
                     {show("campaigns") && (
-                        <SectionBar label="Campaigns at risk" count={d?.by_campaign?.length || undefined} />
+                        <SectionBar label="קמפיינים בסיכון" count={d?.by_campaign?.length || undefined} />
                     )}
                     <PageBody>
                         {show("campaigns") &&
                             (q.isPending ? (
                                 <SkeletonRows />
                             ) : (d?.by_campaign?.length ?? 0) === 0 ? (
-                                <EmptyBlock title="No campaign deliverability issues" body="Campaigns with bounces or complaints in this window will appear here." />
+                                <EmptyBlock title="אין בעיות עבירות בקמפיינים" body="קמפיינים עם החזרות או תלונות בטווח זמנים זה יופיעו כאן." />
                             ) : (
                                 <div className="divide-y divide-slate-200/60">
                                     {d!.by_campaign.map((c) => (
@@ -389,10 +386,10 @@ export default function DeliverabilityPage() {
                                         >
                                             <span className={`size-1.5 rounded-full shrink-0 ${BAND_DOT[c.band]}`} />
                                             <span className="text-[12.5px] font-medium text-slate-900 truncate max-w-[36%]">{c.name}</span>
-                                            <span className="ml-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
-                                                <span title="Sent" className="hidden md:inline">{num(c.sent)} sent</span>
-                                                <span title="Bounce rate" className="text-rose-600">{pct(c.bounce_rate)} bounce</span>
-                                                <span title="Complaint rate" className="hidden md:inline text-amber-600">{pct(c.complaint_rate)} spam</span>
+                                            <span className="ms-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
+                                                <span title="נשלחו" className="hidden md:inline">{num(c.sent)} נשלחו</span>
+                                                <span title="שיעור החזרות" className="text-rose-600">{pct(c.bounce_rate)} החזרות</span>
+                                                <span title="שיעור תלונות" className="hidden md:inline text-amber-600">{pct(c.complaint_rate)} ספאם</span>
                                             </span>
                                             <BandChip band={c.band} />
                                         </Link>
@@ -410,10 +407,10 @@ export default function DeliverabilityPage() {
 // bar plus the two rates that matter.
 function ProviderRow({ p }: { p: ProviderPlacement }) {
     const segments = [
-        { n: p.inbox, tone: "emerald" as DitherTone, label: "Inbox" },
-        { n: p.promotions, tone: "violet" as DitherTone, label: "Promotions" },
-        { n: p.spam, tone: "rose" as DitherTone, label: "Spam" },
-        { n: p.other, tone: "slate" as DitherTone, label: "Other" },
+        { n: p.inbox, tone: "emerald" as DitherTone, label: "דואר נכנס" },
+        { n: p.promotions, tone: "violet" as DitherTone, label: "קידומי מכירות" },
+        { n: p.spam, tone: "rose" as DitherTone, label: "ספאם" },
+        { n: p.other, tone: "slate" as DitherTone, label: "אחר" },
     ].filter((s) => s.n > 0);
     return (
         <div className="h-11 px-5 flex items-center gap-3">
@@ -425,9 +422,9 @@ function ProviderRow({ p }: { p: ProviderPlacement }) {
                 />
             </div>
             <span className="flex items-center gap-2 md:gap-4 font-mono text-[11px] tabular-nums shrink-0">
-                <span title="Inbox rate" className="text-emerald-600">{pct(p.inbox_rate)} inbox</span>
-                <span title="Spam rate" className="text-rose-600">{pct(p.spam_rate)} spam</span>
-                <span title="Samples" className="hidden md:inline text-slate-500">{num(p.samples)} samples</span>
+                <span title="שיעור דואר נכנס" className="text-emerald-600">{pct(p.inbox_rate)} נכנס</span>
+                <span title="שיעור ספאם" className="text-rose-600">{pct(p.spam_rate)} ספאם</span>
+                <span title="דגימות" className="hidden md:inline text-slate-500">{num(p.samples)} דגימות</span>
             </span>
         </div>
     );
@@ -440,10 +437,10 @@ function WarmupDomainRow({ w }: { w: WarmupDomainPlacement }) {
             <span className={`size-1.5 rounded-full shrink-0 ${w.spam_rate >= 20 ? "bg-rose-500" : w.spam_rate >= 10 ? "bg-amber-500" : "bg-emerald-500"}`} />
             <span className="text-[12.5px] font-medium text-slate-900 truncate max-w-[36%]">{w.domain}</span>
             <span className="hidden md:inline text-[11px] text-slate-400">{providerLabel(w.provider)}</span>
-            <span className="ml-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] tabular-nums shrink-0">
-                <span title="Warmup deliveries" className="hidden md:inline text-slate-500">{num(w.delivered)} delivered</span>
-                <span title="Inbox rate" className="text-emerald-600">{pct(w.inbox_rate)} inbox</span>
-                <span title="Spam rate" className="text-rose-600">{pct(w.spam_rate)} spam</span>
+            <span className="ms-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] tabular-nums shrink-0">
+                <span title="מסירות חימום" className="hidden md:inline text-slate-500">{num(w.delivered)} נמסרו</span>
+                <span title="שיעור דואר נכנס" className="text-emerald-600">{pct(w.inbox_rate)} נכנס</span>
+                <span title="שיעור ספאם" className="text-rose-600">{pct(w.spam_rate)} ספאם</span>
             </span>
         </div>
     );
@@ -453,10 +450,10 @@ function CustomizeMenu({ hidden, onToggle }: { hidden: SectionKey[]; onToggle: (
     return (
         <PopoverMenu align="end">
             <PopoverMenuTrigger asChild>
-                <SelectButton icon={<SlidersHorizontalIcon className="w-3.5 h-3.5" />} label="Customize" />
+                <SelectButton icon={<SlidersHorizontalIcon className="w-3.5 h-3.5" />} label="התאמה אישית" />
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={230}>
-                <PopoverMenuLabel>Visible sections</PopoverMenuLabel>
+                <PopoverMenuLabel>קטעים מוצגים</PopoverMenuLabel>
                 {SECTIONS.map((s) => {
                     const on = !hidden.includes(s.key);
                     return (
@@ -493,7 +490,7 @@ function RangeTabs({ value, onChange }: { value: Range; onChange: (r: Range) => 
                         value === r ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"
                     }`}
                 >
-                    {r}
+                    {RANGE_LABEL[r]}
                 </button>
             ))}
         </div>
@@ -507,7 +504,7 @@ function SkeletonRows() {
                 <div key={i} className="h-11 px-5 flex items-center gap-3">
                     <div className="size-1.5 rounded-full bg-slate-200" />
                     <div className="h-3 w-40 bg-slate-100 rounded animate-pulse" />
-                    <div className="ml-auto h-3 w-32 bg-slate-100 rounded animate-pulse" />
+                    <div className="ms-auto h-3 w-32 bg-slate-100 rounded animate-pulse" />
                 </div>
             ))}
         </div>
@@ -520,7 +517,7 @@ function ErrorState({ onRetry, isRefetching }: { onRetry: () => void; isRefetchi
             <span className="inline-flex size-9 items-center justify-center rounded-full bg-rose-50 text-rose-600">
                 <AlertTriangleIcon className="w-4 h-4" />
             </span>
-            <div className="text-[13px] font-medium text-slate-900">Couldn't load deliverability</div>
+            <div className="text-[13px] font-medium text-slate-900">לא ניתן לטעון נתוני עבירות מסירה</div>
             <button
                 type="button"
                 onClick={onRetry}
@@ -528,7 +525,7 @@ function ErrorState({ onRetry, isRefetching }: { onRetry: () => void; isRefetchi
                 className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 inline-flex items-center gap-1.5 disabled:opacity-60"
             >
                 <RefreshCcwIcon className={`w-3.5 h-3.5 ${isRefetching ? "animate-spin" : ""}`} />
-                Retry
+                נסה שוב
             </button>
         </div>
     );

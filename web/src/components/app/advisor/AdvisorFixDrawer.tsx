@@ -118,7 +118,7 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
         } catch {
             // Stay on the change screen with the reason visible. Closing the
             // drawer on failure would leave the row flagged with no explanation.
-            setFailed("That change did not go through. Nothing was modified.");
+            setFailed("השינוי לא בוצע. דבר לא שונה.");
         } finally {
             setApplying(false);
         }
@@ -135,7 +135,7 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
         } catch {
             // Not an error state to alarm anyone with: the steps above are still
             // the answer, and nothing was touched.
-            setFailed("The agent could not finish this one, so nothing was changed. The steps above still apply.");
+            setFailed("הסוכן לא הצליח להשלים את הפעולה, ולכן דבר לא שונה. השלבים לעיל עדיין רלוונטיים.");
         }
     }
 
@@ -149,13 +149,13 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
     const rail: { id: Stage; label: string }[] =
         action || canAgentFix
             ? [
-                  { id: "why", label: "Why" },
-                  { id: "change", label: action ? "What changes" : "How to fix it" },
-                  { id: "done", label: "Done" },
+                  { id: "why", label: "סיבה" },
+                  { id: "change", label: action ? "מה ישתנה" : "כיצד לתקן" },
+                  { id: "done", label: "הושלם" },
               ]
             : [
-                  { id: "why", label: "Why" },
-                  { id: "change", label: "How to fix it" },
+                  { id: "why", label: "סיבה" },
+                  { id: "change", label: "כיצד לתקן" },
               ];
     const railIndex = Math.max(0, rail.findIndex((s) => s.id === stage));
 

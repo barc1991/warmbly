@@ -95,7 +95,7 @@ export function useApplyAdvisorFinding() {
         mutationFn: (id: string) => applyAdvisorFinding(id),
         onSuccess: (finding) => {
             invalidate(finding);
-            toast.success("Applied");
+            toast.success("השינוי הוחל");
         },
     });
 }
@@ -108,8 +108,8 @@ export function useAgentFixAdvisorFinding() {
         mutationFn: (finding: AdvisorFinding) => agentFixAdvisorFinding(finding.id),
         onSuccess: (result, finding) => {
             invalidate(finding);
-            if (result.applied) toast.success("The agent made the change");
-            else toast("The agent found nothing to change", { icon: "🤔" });
+            if (result.applied) toast.success("הסוכן ביצע את השינוי");
+            else toast("הסוכן לא מצא דבר שדורש שינוי", { icon: "🤔" });
         },
     });
 }
@@ -120,7 +120,7 @@ export function useUndoAdvisorFinding() {
         mutationFn: (id: string) => undoAdvisorFinding(id),
         onSuccess: (finding) => {
             invalidate(finding);
-            toast.success("Reverted");
+            toast.success("השינוי בוטל");
         },
     });
 }

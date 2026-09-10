@@ -74,7 +74,7 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
 
     async function onDismiss() {
         confirm.show(
-            "Stop suggesting this? It won't come back unless the problem clears and then happens again.",
+            "להפסיק להציע זאת? ההמלצה לא תחזור אלא אם הבעיה תיפתר ולאחר מכן תתרחש שוב.",
             async () => {
                 await dismiss.mutateAsync({ id: finding.id, reason: "" });
             },
@@ -104,7 +104,7 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                     type="button"
                     onClick={() => setOpen((v) => !v)}
                     aria-expanded={open}
-                    className="min-w-0 flex-1 text-left"
+                    className="min-w-0 flex-1 text-start"
                 >
                     <div className="flex items-center gap-1.5">
                         <span className="truncate text-[12.5px] font-medium text-slate-900">{finding.title}</span>
@@ -113,17 +113,17 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                             allowed to take, whether or not it is switched on. */}
                         {finding.action?.auto && !applied ? (
                             <span
-                                title="Autopilot can apply this one on its own when it is switched on"
+                                title="טייס אוטומטי יכול להחיל המלצה זו בעצמו כאשר הוא מופעל"
                                 className="inline-flex shrink-0 items-center gap-1 rounded-md border border-sky-500/25 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
                             >
                                 <ZapIcon className="h-2.5 w-2.5" />
-                                Auto
+                                אוטומטי
                             </span>
                         ) : null}
                         {applied ? (
                             <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
                                 <CheckCircle2Icon className="h-2.5 w-2.5" />
-                                Applied
+                                הוחל
                             </span>
                         ) : null}
                     </div>
@@ -149,7 +149,7 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                                     : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                             }`}
                         >
-                            {finding.action ? "Fix" : finding.agent_fixable ? "Fix with agent" : "How to fix"}
+                            {finding.action ? "תיקון" : finding.agent_fixable ? "תיקון באמצעות סוכן" : "כיצד לתקן"}
                         </button>
                     ) : null}
 
@@ -164,7 +164,7 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                             className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 px-2 text-[12px] text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
                         >
                             <Undo2Icon className="h-3 w-3" />
-                            Undo
+                            ביטול
                         </button>
                     ) : null}
 
@@ -172,7 +172,7 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                         <PopoverMenuTrigger asChild>
                             <button
                                 type="button"
-                                aria-label="More options"
+                                aria-label="אפשרויות נוספות"
                                 onClick={(e) => e.stopPropagation()}
                                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                             >
@@ -180,24 +180,24 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                             </button>
                         </PopoverMenuTrigger>
                         <PopoverMenuContent>
-                            <PopoverMenuLabel>Remind me later</PopoverMenuLabel>
+                            <PopoverMenuLabel>הזכר לי מאוחר יותר</PopoverMenuLabel>
                             <PopoverMenuItem
                                 icon={<ClockIcon className="h-3.5 w-3.5" />}
                                 onSelect={() => void snooze.mutateAsync({ id: finding.id, days: 7 })}
                             >
-                                Snooze for a week
+                                נודניק למשך שבוע
                             </PopoverMenuItem>
                             <PopoverMenuItem
                                 icon={<ClockIcon className="h-3.5 w-3.5" />}
                                 onSelect={() => void snooze.mutateAsync({ id: finding.id, days: 30 })}
                             >
-                                Snooze for a month
+                                נודניק למשך חודש
                             </PopoverMenuItem>
                             <PopoverMenuItem
                                 icon={<XIcon className="h-3.5 w-3.5" />}
                                 onSelect={() => void onDismiss()}
                             >
-                                Stop suggesting this
+                                הפסק להציע המלצה זו
                             </PopoverMenuItem>
                         </PopoverMenuContent>
                     </PopoverMenu>
@@ -205,7 +205,7 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                     <button
                         type="button"
                         onClick={() => setOpen((v) => !v)}
-                        aria-label={open ? "Collapse" : "Expand"}
+                        aria-label={open ? "כיווץ" : "הרחבה"}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                     >
                         <ChevronDownIcon
@@ -229,7 +229,7 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
 
                             <div className="rounded-md border border-slate-200/70 bg-white/50 px-2.5 py-2">
                                 <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                                    What to do
+                                    מה כדאי לעשות
                                 </p>
                                 <p className="mt-1 text-[12.5px] leading-relaxed text-slate-700">{finding.remedy}</p>
                             </div>
@@ -237,7 +237,7 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                             {!compact && evidence.length > 0 ? (
                                 <div>
                                     <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                                        What we measured
+                                        מה מדדנו
                                     </p>
                                     <dl className="mt-1.5 flex flex-wrap gap-1.5">
                                         {evidence.map(([key, value]) => (
@@ -273,11 +273,11 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                                     detector that everybody marks unhelpful is a detector that
                                     is wrong, not a user who is wrong. */}
                                 <div className="flex items-center gap-0.5">
-                                    <span className="mr-1 text-[11px] text-slate-400">Useful?</span>
+                                    <span className="me-1 text-[11px] text-slate-400">מועיל?</span>
                                     <button
                                         type="button"
                                         onClick={() => void vote(true)}
-                                        aria-label="This was useful"
+                                        aria-label="זה היה מועיל"
                                         aria-pressed={voted === true}
                                         className={`inline-flex h-6 w-6 items-center justify-center rounded-md transition ${
                                             voted === true
@@ -290,7 +290,7 @@ export default function AdvisorCard({ finding, onFix, compact = false, defaultOp
                                     <button
                                         type="button"
                                         onClick={() => void vote(false)}
-                                        aria-label="This was not useful"
+                                        aria-label="זה לא היה מועיל"
                                         aria-pressed={voted === false}
                                         className={`inline-flex h-6 w-6 items-center justify-center rounded-md transition ${
                                             voted === false

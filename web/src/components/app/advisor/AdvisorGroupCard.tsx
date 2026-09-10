@@ -43,12 +43,12 @@ export default function AdvisorGroupCard({ group, onFix }: Props) {
         if (fixable.length === 0) return;
         const preview = fixable
             .slice(0, 6)
-            .map((m) => `• ${m.entity_label}: ${m.action?.label ?? "apply the fix"}`)
+            .map((m) => `• ${m.entity_label}: ${m.action?.label ?? "החלת התיקון"}`)
             .join("\n");
-        const more = fixable.length > 6 ? `\n…and ${fixable.length - 6} more` : "";
+        const more = fixable.length > 6 ? `\n...ועוד ${fixable.length - 6}` : "";
 
         confirm.show(
-            `Apply this fix to ${fixable.length} of them?\n\n${preview}${more}\n\nEach change runs as you and is written to the audit log.`,
+            `להחיל תיקון זה על ${fixable.length} פריטים?\n\n${preview}${more}\n\nכל שינוי מתבצע בשמך ונרשם ביומן הביקורת (Audit log).`,
             async () => {
                 setProgress({ done: 0, total: fixable.length });
                 try {
@@ -80,7 +80,7 @@ export default function AdvisorGroupCard({ group, onFix }: Props) {
                     type="button"
                     onClick={() => setOpen((v) => !v)}
                     aria-expanded={open}
-                    className="min-w-0 flex-1 text-left"
+                    className="min-w-0 flex-1 text-start"
                 >
                     <div className="flex items-center gap-1.5">
                         <span className="truncate text-[12.5px] font-medium text-slate-900">{title}</span>
@@ -105,14 +105,14 @@ export default function AdvisorGroupCard({ group, onFix }: Props) {
                             className="inline-flex h-7 items-center gap-1.5 rounded-md bg-sky-600 px-2 text-[12px] font-medium text-white transition hover:bg-sky-700 disabled:opacity-60"
                         >
                             {busy ? <Loader2Icon className="h-3 w-3 animate-spin" /> : null}
-                            {busy ? `${progress?.done}/${progress?.total}` : `Fix all ${fixable.length}`}
+                            {busy ? `${progress?.done}/${progress?.total}` : `תקן את כל ${fixable.length}`}
                         </button>
                     ) : null}
 
                     <button
                         type="button"
                         onClick={() => setOpen((v) => !v)}
-                        aria-label={open ? "Collapse" : "Expand"}
+                        aria-label={open ? "כיווץ" : "הרחבה"}
                         className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                     >
                         <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -134,30 +134,30 @@ export default function AdvisorGroupCard({ group, onFix }: Props) {
 
                             <div className="rounded-md border border-slate-200/70 bg-white/50 px-2.5 py-2">
                                 <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                                    What to do
+                                    מה כדאי לעשות
                                 </p>
                                 <p className="mt-1 text-[12.5px] leading-relaxed text-slate-700">{lead.remedy}</p>
                             </div>
 
                             <div>
                                 <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                                    Affected
+                                    מושפעים
                                 </p>
                                 <ul className="mt-1.5 divide-y divide-slate-200/50 rounded-md border border-slate-200/70">
                                     {members.map((m) => (
                                         <li key={m.id} className="flex items-center gap-2 px-2 py-1.5">
                                             <span className="min-w-0 flex-1 truncate text-[12px] text-slate-700">
-                                                {m.entity_label || "This workspace"}
+                                                {m.entity_label || "סביבת עבודה זו"}
                                             </span>
                                             {m.status === "applied" ? (
-                                                <span className="shrink-0 text-[11px] text-emerald-600">Applied</span>
+                                                <span className="shrink-0 text-[11px] text-emerald-600">הוחל</span>
                                             ) : (
                                                 <button
                                                     type="button"
                                                     onClick={() => onFix(m)}
                                                     className="shrink-0 rounded-md border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-600 transition hover:bg-slate-50"
                                                 >
-                                                    {m.action ? "Fix" : "How"}
+                                                    {m.action ? "תיקון" : "כיצד"}
                                                 </button>
                                             )}
                                         </li>

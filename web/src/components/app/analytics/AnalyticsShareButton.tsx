@@ -28,7 +28,7 @@ function withPresetSuffix(filename: string, suffix: string): string {
 export default function AnalyticsShareButton({
     data,
     filename,
-    label = "Share image",
+    label = "שיתוף תמונה",
 }: {
     data: ShareCardData;
     filename: string;
@@ -94,10 +94,10 @@ export default function AnalyticsShareButton({
             const item = new ClipboardItem({ "image/png": fetch(url).then((r) => r.blob()) });
             await navigator.clipboard.write([item]);
             setCopied(true);
-            toast.success("Image copied to clipboard");
+            toast.success("התמונה הועתקה ללוח");
             setTimeout(() => setCopied(false), 1500);
         } catch {
-            toast.error("Couldn't copy — download instead");
+            toast.error("לא ניתן להעתיק: נסה להוריד במקום");
         }
     }
 
@@ -134,17 +134,17 @@ export default function AnalyticsShareButton({
                         >
                             <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-2 shrink-0">
                                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                    Share image
+                                    שיתוף תמונה
                                 </span>
                                 <div className="h-4 w-px bg-slate-200" />
                                 <span className="text-[12.5px] text-slate-600 truncate">
-                                    Preview before download
+                                    תצוגה מקדימה לפני הורדה
                                 </span>
                                 <button
                                     type="button"
                                     onClick={() => setOpen(false)}
-                                    aria-label="Close"
-                                    className="ml-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                    aria-label="סגירה"
+                                    className="ms-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                                 >
                                     <XIcon className="w-4 h-4" />
                                 </button>
@@ -152,7 +152,7 @@ export default function AnalyticsShareButton({
 
                             {/* aspect preset selector (house theme segmented control) */}
                             <div className="px-4 pt-3 flex items-center gap-2 shrink-0">
-                                <span className="text-[11px] text-slate-500 font-medium">Aspect</span>
+                                <span className="text-[11px] text-slate-500 font-medium">יחס ממדים</span>
                                 <div className="inline-flex items-center gap-1 rounded-md bg-slate-100 p-0.5">
                                     {ASPECTS.map((a) => {
                                         const active = a.value === aspect;
@@ -186,13 +186,13 @@ export default function AnalyticsShareButton({
                                     {url ? (
                                         <img
                                             src={url}
-                                            alt="Analytics share preview"
+                                            alt="תצוגה מקדימה לשיתוף נתונים"
                                             className="block w-full h-full object-contain"
                                         />
                                     ) : (
                                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400">
                                             <Loader2Icon className="w-5 h-5 animate-spin" />
-                                            <span className="text-[11.5px]">Rendering…</span>
+                                            <span className="text-[11.5px]">מעבד תמונה...</span>
                                         </div>
                                     )}
                                 </div>
@@ -210,7 +210,7 @@ export default function AnalyticsShareButton({
                                     ) : (
                                         <CopyIcon className="w-3.5 h-3.5" />
                                     )}
-                                    {copied ? "Copied" : "Copy"}
+                                    {copied ? "הועתק" : "העתקה"}
                                 </button>
                                 <button
                                     type="button"
@@ -221,7 +221,7 @@ export default function AnalyticsShareButton({
                                     className="h-8 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                                 >
                                     <DownloadIcon className="w-3.5 h-3.5" />
-                                    Download PNG
+                                    הורדת PNG
                                 </button>
                             </div>
                         </motion.div>

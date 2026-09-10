@@ -275,21 +275,21 @@ export function resolutionSteps(finding: AdvisorFinding): string[] {
 // step's problem sends you to its campaign, since a step has no page of its own.
 export function findingLink(finding: AdvisorFinding): { href: string; label: string } | null {
     if (finding.entity_type === "campaign" && finding.entity_id) {
-        return { href: `/app/campaigns/${finding.entity_id}`, label: "Open the campaign" };
+        return { href: `/app/campaigns/${finding.entity_id}`, label: "פתיחת הקמפיין" };
     }
     if (finding.entity_type === "step" && finding.parent_id) {
-        return { href: `/app/campaigns/${finding.parent_id}`, label: "Open the campaign" };
+        return { href: `/app/campaigns/${finding.parent_id}`, label: "פתיחת הקמפיין" };
     }
     if (finding.entity_type === "email_account" && finding.entity_id) {
-        return { href: `/app/emails?mailbox=${finding.entity_id}`, label: "Open the mailbox" };
+        return { href: `/app/emails?mailbox=${finding.entity_id}`, label: "פתיחת תיבת הדואר" };
     }
     switch (finding.surface) {
         case "deliverability":
-            return { href: "/app/deliverability", label: "Open deliverability" };
+            return { href: "/app/deliverability", label: "פתיחת עבירות מסירה" };
         case "contacts":
-            return { href: "/app/contacts", label: "Open contacts" };
+            return { href: "/app/contacts", label: "פתיחת אנשי קשר" };
         case "settings":
-            return { href: "/app/settings/workspace", label: "Open workspace settings" };
+            return { href: "/app/settings/workspace", label: "פתיחת הגדרות סביבת העבודה" };
         default:
             return null;
     }
@@ -369,14 +369,14 @@ export function evidenceLabel(key: string): string {
     return key
         .replace(/_percent$/, " (%)")
         .replace(/_/g, " ")
-        .replace(/\b7d\b/, "last 7 days")
-        .replace(/\b30d\b/, "last 30 days")
+        .replace(/\b7d\b/, "7 ימים אחרונים")
+        .replace(/\b30d\b/, "30 ימים אחרונים")
         .replace(/^./, (c) => c.toUpperCase());
 }
 
 export function evidenceValue(value: unknown): string {
-    if (value === null || value === undefined) return "—";
-    if (typeof value === "boolean") return value ? "yes" : "no";
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "boolean") return value ? "כן" : "לא";
     if (Array.isArray(value)) return value.map((v) => String(v)).join(", ");
     if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(2);
     return String(value);

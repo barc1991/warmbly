@@ -69,7 +69,7 @@ function SkyBackdrop() {
 
 function Stat({ metric, valueSize }: { metric: ShareMetric; valueSize: number }) {
     return (
-        <div className="px-7 first:pl-0 last:pr-0">
+        <div className="px-7 first:ps-0 last:pe-0">
             <div className="text-[14px] font-medium uppercase tracking-[0.14em] text-slate-400">{metric.label}</div>
             <div className="mt-2.5 font-mono leading-none tabular-nums text-slate-900" style={{ fontSize: valueSize }}>
                 {metric.value}
@@ -140,7 +140,7 @@ function ShareAreaChart({ points }: { points: ChartPoint[] }) {
                 </svg>
                 {!hasData && (
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[16px] text-slate-300">No sends in this window yet</span>
+                        <span className="text-[16px] text-slate-300">אין שליחות בטווח זמנים זה עדיין</span>
                     </div>
                 )}
             </div>
@@ -210,7 +210,7 @@ const StatsShareCard = React.forwardRef<HTMLDivElement, { data: ShareCardData; a
 
                             {/* divided metric row */}
                             <div
-                                className="mt-8 grid divide-x divide-slate-200"
+                                className="mt-8 grid divide-x rtl:divide-x-reverse divide-slate-200"
                                 style={{ gridTemplateColumns: `repeat(${metrics.length || 1}, minmax(0, 1fr))` }}
                             >
                                 {metrics.map((m) => (
@@ -223,7 +223,7 @@ const StatsShareCard = React.forwardRef<HTMLDivElement, { data: ShareCardData; a
                             {/* long area chart */}
                             <div className="mt-6 flex items-center justify-between">
                                 <span className="text-[14px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                                    Sends over time
+                                    שליחות לאורך זמן
                                 </span>
                             </div>
                             <div className="mt-4 flex-1 min-h-0 flex flex-col">
@@ -239,7 +239,7 @@ const StatsShareCard = React.forwardRef<HTMLDivElement, { data: ShareCardData; a
                                 {brand.website_label}
                             </span>
                             <span className="text-white/80">
-                                Cold email, warmed up.
+                                דוא״ל קר, מחומם כהלכה.
                             </span>
                         </div>
                     )}
