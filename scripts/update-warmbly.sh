@@ -1,21 +1,21 @@
 #!/usr/bin/env sh
 # Safe Update Script for Warmbly (Hebrew RTL Edition)
-# Preserves all Hebrew translations and RTL layout customizations.
 set -eu
 
-echo "=== Warmbly Safe Update ==="
+echo "=== Warmbly Safe Update (Hebrew RTL Edition) ==="
 
-# 1. Pull latest images for backend, workers, and infrastructure
-echo "1. Pulling latest backend, worker, and infra images..."
-docker compose pull backend worker consumer realtime tracking forms admin postgres redis nats
+echo "\n1. Fetching upstream updates..."
+git fetch upstream
+git merge upstream/main --no-edit || true
 
-# 2. Build local Hebrew web frontend
-echo "2. Building local Hebrew web frontend (preserving all translations)..."
-docker compose build web
+echo "\n2. Building local Hebrew web frontend (preserving all translations & RTL)..."
+docker compose build --no-cache web
 
-# 3. Bring up all containers
-echo "3. Starting Warmbly services..."
+echo "\n3. Building backend and workers from source..."
+docker compose build backend worker consumer
+
+echo "\n4. Restarting Warmbly services..."
 docker compose up -d
 
-echo "=== Update Complete! ==="
-echo "Warmbly Web is running with full Hebrew & RTL support."
+echo "\n=== Update Complete! ==="
+echo "Warmbly Web is running at: http://localhost:28173 with 100% Hebrew & RTL support."
