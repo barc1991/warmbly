@@ -94,16 +94,16 @@ export interface SequenceConditions {
 }
 
 export const BRANCH_FIELD_LABELS: Record<BranchField, string> = {
-    opened: "opened the email",
-    clicked: "clicked a link",
-    replied: "replied",
-    not_opened: "didn’t open",
-    not_clicked: "didn’t click",
-    not_replied: "didn’t reply",
-    random: "random split",
-    reply_positive: "replied: positive",
-    reply_negative: "replied: negative",
-    reply_neutral: "replied: neutral",
-    reply_automated: "auto-reply / out of office",
-    ai_label: "AI label is",
+    opened: "פתח את הדוא״ל",
+    clicked: "לחץ על קישור",
+    replied: "השיב",
+    not_opened: "לא פתח",
+    not_clicked: "לא לחץ",
+    not_replied: "לא השיב",
+    random: "פיצול אקראי",
+    reply_positive: "מענה: חיובי",
+    reply_negative: "מענה: שלילי",
+    reply_neutral: "מענה: ניטרלי",
+    reply_automated: "מענה אוטומטי / מחוץ למשרד",
+    ai_label: "תווית AI היא",
 };

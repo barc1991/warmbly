@@ -134,7 +134,7 @@ function newBranchId(): string {
 }
 
 const isCond = (b: SequenceBranch) => (b.conditions?.length ?? 0) > 0;
-const stepName = (s: Sequence | undefined) => (s?.name?.trim() ? s.name : "Untitled step");
+const stepName = (s: Sequence | undefined) => (s?.name?.trim() ? s.name : "שלב ללא שם");
 
 // "Positive" reply fields are the ones that route a contact INTO a reply flow
 // (a human reply, or a classified reply intent). Mirrors the backend's
@@ -178,12 +178,12 @@ const caseHandleId = (name: string) => `case:${caseKey(name)}`;
 function conditionText(b: SequenceBranch): string {
     return (b.conditions ?? [])
         .map((c) => {
-            if (c.field === "random") return `${c.value ?? 50}% random`;
+            if (c.field === "random") return `${c.value ?? 50}% אקראי`;
             const f = BRANCH_FIELD_LABELS[c.field] ?? c.field;
             // Reply-class conditions are "ever" (no day window).
-            if (c.field === "ai_label") return `case: ${c.label ?? "…"}`;
+            if (c.field === "ai_label") return `מקרה: ${c.label ?? "…"}`;
             if (isReplyBranchField(c.field)) return f;
-            return `${f} within ${c.value ?? 3}d`;
+            return `${f} תוך ${c.value ?? 3} ימים`;
         })
         .join(" + ");
 }
@@ -307,11 +307,11 @@ function StepNode({ data, selected }: NodeProps) {
                     <MailIcon className="w-3 h-3" />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-slate-800">
-                    {d.label || "Untitled step"}
+                    {d.label || "שלב ללא שם"}
                 </span>
                 {d.isStart && (
                     <span className="shrink-0 rounded bg-sky-600 px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-white">
-                        Start
+                        התחלה
                     </span>
                 )}
                 <button
@@ -320,28 +320,28 @@ function StepNode({ data, selected }: NodeProps) {
                         e.stopPropagation();
                         d.onDelete();
                     }}
-                    title="Delete step"
+                    title="מחיקת שלב"
                     className="nodrag inline-flex size-5 shrink-0 items-center justify-center rounded text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
                 >
                     <Trash2Icon className="w-3 h-3" />
                 </button>
             </div>
             <div className="px-2.5 py-2">
-                <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-300">Email</div>
-                <div className="mt-0.5 truncate text-[11.5px] text-slate-500">{d.subtitle || "No subject yet"}</div>
+                <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-300">דוא״ל</div>
+                <div className="mt-0.5 truncate text-[11.5px] text-slate-500">{d.subtitle || "אין נושא עדיין"}</div>
             </div>
             {d.orphan ? (
                 <div className="flex items-center gap-1 border-t border-amber-200/70 px-2.5 py-1 text-[10.5px] text-amber-600">
                     <UnlinkIcon className="w-3 h-3" />
-                    Not connected — drag a link in
+                    לא מחובר: גרור חיבור לכאן
                 </div>
             ) : d.endsHere ? (
                 <div
                     className="flex items-center gap-1 border-t border-slate-200/70 px-2.5 py-1 text-[10.5px] text-slate-400"
-                    title="No outgoing line, so the sequence ends for contacts who reach this step. Drag the bottom dot to continue it."
+                    title="אין קו יוצא, כך שהרצף מסתיים עבור אנשי קשר שמגיעים לשלב זה. גרור את הנקודה התחתונה כדי להמשיך."
                 >
                     <FlagIcon className="w-3 h-3 text-slate-400" />
-                    Ends here
+                    מסתיים כאן
                 </div>
             ) : null}
             {/* Explicit, discoverable way to build a reply-triggered step (the
@@ -354,18 +354,18 @@ function StepNode({ data, selected }: NodeProps) {
                     e.stopPropagation();
                     d.onAddReply();
                 }}
-                title="Create a step that runs the moment the contact replies"
+                title="יצירת שלב הפועל ברגע שאיש הקשר משיב"
                 className="nodrag flex w-full items-center gap-1.5 border-t border-slate-200/70 px-2.5 py-1.5 text-[10.5px] font-medium text-violet-600 transition-colors hover:bg-violet-50"
             >
                 <ZapIcon className="w-3 h-3" />
-                On reply
+                בעת מענה
             </button>
             {/* One output dot: drag it out to add the next step, action, or condition. */}
             <Handle
                 type="source"
                 id="s"
                 position={Position.Bottom}
-                title="What happens next: drag onto a node to connect, or onto empty space to add a step, action, condition, or Stop"
+                title="מה קורה הלאה: גרור אל צומת לחיבור, או אל שטח ריק כדי להוסיף שלב, פעולה, תנאי או עצירה"
                 className="!h-3 !w-3 pointer-coarse:!h-5 pointer-coarse:!w-5 !border-2 !border-white !bg-sky-500"
             />
         </div>
@@ -385,7 +385,7 @@ function IfNode({ data, selected }: NodeProps) {
         <div
             title={
                 d.instant
-                    ? "Runs the moment it happens (reply / open / click), not at the next scheduled step."
+                    ? "פועל ברגע שזה קורה (מענה / פתיחה / לחיצה), ולא בשלב המתוזמן הבא."
                     : undefined
             }
             className={`rounded-lg border bg-gradient-to-b from-sky-50 to-white px-2 py-1 shadow-sm transition-shadow duration-200 hover:shadow-md ${
@@ -398,17 +398,17 @@ function IfNode({ data, selected }: NodeProps) {
                 type="source"
                 id="out"
                 position={Position.Right}
-                title="Then: where contacts matching this condition go"
+                title="אז: לאן מופנים אנשי קשר התואמים תנאי זה"
                 className="!h-3 !w-3 pointer-coarse:!h-5 pointer-coarse:!w-5 !border-2 !border-white !bg-sky-500"
             />
             <div className="flex items-center gap-1.5">
                 <GitBranchIcon className="w-3 h-3 shrink-0 text-sky-600" />
-                <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-sky-500">if</span>
+                <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-sky-500">אם</span>
                 <span className="max-w-[150px] truncate text-[11px] font-medium text-sky-800">{d.label}</span>
                 {d.instant && (
                     <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-violet-50 px-1 py-px text-[8.5px] font-semibold uppercase tracking-[0.1em] text-violet-600 ring-1 ring-violet-200/70">
                         <ZapIcon className="w-2.5 h-2.5" />
-                        instant
+                        מיידי
                     </span>
                 )}
                 <button
@@ -417,7 +417,7 @@ function IfNode({ data, selected }: NodeProps) {
                         e.stopPropagation();
                         d.onDelete();
                     }}
-                    title="Delete this branch"
+                    title="מחיקת ענף זה"
                     className="nodrag inline-flex size-4 items-center justify-center rounded text-sky-400 hover:bg-rose-50 hover:text-rose-600"
                 >
                     <Trash2Icon className="w-3 h-3" />
@@ -428,7 +428,7 @@ function IfNode({ data, selected }: NodeProps) {
                 type="source"
                 id="else"
                 position={Position.Bottom}
-                title="Else: where contacts NOT matching this condition go"
+                title="אחרת: לאן מופנים אנשי קשר שאינם תואמים תנאי זה"
                 className="!h-3 !w-3 pointer-coarse:!h-5 pointer-coarse:!w-5 !border-2 !border-white !bg-slate-400"
             />
         </div>
@@ -479,31 +479,31 @@ function TriggerNode({ data }: NodeProps) {
                     <LogInIcon className="w-3 h-3" />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-slate-800">
-                    Contact enters
+                    כניסת איש קשר
                 </span>
                 <span className="shrink-0 rounded bg-violet-600 px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-white">
-                    Trigger
+                    טריגר
                 </span>
             </div>
             <div className="px-2.5 py-2">
                 <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-300">
-                    Send the first email
+                    שליחת הדוא״ל הראשון
                 </div>
                 <PopoverMenu>
                     <PopoverMenuTrigger asChild>
                         <button
                             type="button"
-                            title="How long to wait before this contact's first email"
+                            title="כמה זמן להמתין לפני הדוא״ל הראשון של איש קשר זה"
                             className="nodrag mt-0.5 inline-flex h-6 items-center gap-1 rounded-md border border-slate-200 px-1.5 text-[11.5px] text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
                         >
                             <ClockIcon className="w-3 h-3 text-slate-400" />
-                            {minutes > 0 ? `after ${entryDelayLabel(minutes).toLowerCase()}` : "immediately"}
+                            {minutes > 0 ? `לאחר ${entryDelayLabel(minutes)}` : "מיידית"}
                             <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                         </button>
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={280} className="p-2.5">
                         <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                            Wait before the first email
+                            המתנה לפני הדוא״ל הראשון
                         </div>
                         {/* The popover is portaled to <body> but is still a React
                             child of this node, so its clicks would otherwise bubble
@@ -515,7 +515,7 @@ function TriggerNode({ data }: NodeProps) {
                             <EntryDelayPicker value={minutes} onCommit={save} disabled={!canEdit} />
                         </div>
                         <p className="mt-2 text-[11px] leading-snug text-slate-400">
-                            Counted from when the contact entered this campaign.
+                            נספר מרגע כניסת איש הקשר לקמפיין זה.
                         </p>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -535,69 +535,69 @@ function StopNode() {
         <div className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11.5px] font-medium text-rose-600">
             <Handle type="target" position={Position.Top} className="!h-2 !w-2 !bg-rose-300" />
             <FlagIcon className="w-3 h-3" />
-            Stop
+            עצירה
         </div>
     );
 }
 
 // Per-type chrome for action nodes (icon + label + accent).
 const ACTION_META: Record<string, { label: string; Icon: typeof ClockIcon; tint: string }> = {
-    add_tag: { label: "Add tag", Icon: TagIcon, tint: "text-emerald-600" },
-    remove_tag: { label: "Remove tag", Icon: TagIcon, tint: "text-amber-600" },
-    add_to_segment: { label: "Add to segment", Icon: LayersIcon, tint: "text-emerald-600" },
-    remove_from_segment: { label: "Remove from segment", Icon: LayersIcon, tint: "text-amber-600" },
-    label_email: { label: "Label email", Icon: TagsIcon, tint: "text-fuchsia-600" },
-    create_task: { label: "Create task", Icon: CheckSquareIcon, tint: "text-violet-600" },
-    create_deal: { label: "Create deal", Icon: HandshakeIcon, tint: "text-emerald-600" },
-    move_deal_stage: { label: "Move deal stage", Icon: ArrowRightLeftIcon, tint: "text-sky-600" },
-    unsubscribe: { label: "Unsubscribe", Icon: BellOffIcon, tint: "text-rose-600" },
-    run_automation: { label: "Run automation", Icon: ZapIcon, tint: "text-indigo-600" },
-    fire_event: { label: "Fire event", Icon: SendIcon, tint: "text-sky-600" },
-    switch: { label: "Switch", Icon: SplitIcon, tint: "text-purple-600" },
-    ai_step: { label: "AI step", Icon: SparklesIcon, tint: "text-purple-600" },
+    add_tag: { label: "הוספת תגית", Icon: TagIcon, tint: "text-emerald-600" },
+    remove_tag: { label: "הסרת תגית", Icon: TagIcon, tint: "text-amber-600" },
+    add_to_segment: { label: "הוספה למקטע", Icon: LayersIcon, tint: "text-emerald-600" },
+    remove_from_segment: { label: "הסרה ממקטע", Icon: LayersIcon, tint: "text-amber-600" },
+    label_email: { label: "תיוג שיחה", Icon: TagsIcon, tint: "text-fuchsia-600" },
+    create_task: { label: "יצירת משימה", Icon: CheckSquareIcon, tint: "text-violet-600" },
+    create_deal: { label: "יצירת עסקה", Icon: HandshakeIcon, tint: "text-emerald-600" },
+    move_deal_stage: { label: "העברת שלב עסקה", Icon: ArrowRightLeftIcon, tint: "text-sky-600" },
+    unsubscribe: { label: "ביטול הרשמה", Icon: BellOffIcon, tint: "text-rose-600" },
+    run_automation: { label: "הפעלת אוטומציה", Icon: ZapIcon, tint: "text-indigo-600" },
+    fire_event: { label: "שיגור אירוע", Icon: SendIcon, tint: "text-sky-600" },
+    switch: { label: "פיצול (Switch)", Icon: SplitIcon, tint: "text-purple-600" },
+    ai_step: { label: "שלב AI", Icon: SparklesIcon, tint: "text-purple-600" },
 };
 
 // actionSummary is the one-line subtitle shown on an action node.
 function actionSummary(a?: SequenceAction | null): string {
-    if (!a) return "Not configured";
+    if (!a) return "לא מוגדר";
     switch (a.type) {
         case "add_tag":
-            return a.category_id ? "Add a tag" : "Pick a tag…";
+            return a.category_id ? "הוספת תגית" : "בחר תגית…";
         case "remove_tag":
-            return a.category_id ? "Remove a tag" : "Pick a tag…";
+            return a.category_id ? "הסרת תגית" : "בחר תגית…";
         case "add_to_segment":
-            return a.segment_id ? "Pin into a segment" : "Pick a segment…";
+            return a.segment_id ? "צירוף למקטע" : "בחר מקטע…";
         case "remove_from_segment":
-            return a.segment_id ? "Pin out of a segment" : "Pick a segment…";
+            return a.segment_id ? "גריעה ממקטע" : "בחר מקטע…";
         case "label_email":
-            return a.label_ids && a.label_ids.length ? "Label the conversation" : "Pick a label…";
+            return a.label_ids && a.label_ids.length ? "תיוג השיחה" : "בחר תווית…";
         case "create_deal":
-            return a.deal_pipeline_id && a.deal_stage_id ? "Create a CRM deal" : "Pick a pipeline and stage…";
+            return a.deal_pipeline_id && a.deal_stage_id ? "יצירת עסקת CRM" : "בחר צינור ושלב…";
         case "move_deal_stage":
-            return a.deal_pipeline_id && a.deal_stage_id ? "Move the deal forward" : "Pick a pipeline and stage…";
+            return a.deal_pipeline_id && a.deal_stage_id ? "קידום שלב בעסקה" : "בחר צינור ושלב…";
         case "unsubscribe":
-            return "Unsubscribe the contact";
+            return "ביטול הרשמת איש קשר";
         case "run_automation":
-            return a.automation_id ? "Launch an automation" : "Pick an automation…";
+            return a.automation_id ? "הפעלת אוטומציה" : "בחר אוטומציה…";
         case "fire_event":
-            return a.event_name ? `Fire "${a.event_name}"` : "Name the event…";
+            return a.event_name ? `שיגור "${a.event_name}"` : "הגדר שם אירוע…";
         case "switch": {
             if (a.switch_on === "value") {
                 const v = a.switch_value?.trim();
-                return v ? `Match ${v}` : "Pick a value to match…";
+                return v ? `התאמה ל-${v}` : "בחר ערך להתאמה…";
             }
             const t = a.ai_instruction?.trim();
-            if (!t) return "Tell AI how to route…";
+            if (!t) return "הנחה את ה-AI כיצד לנתב…";
             return t.length > 64 ? `${t.slice(0, 61)}…` : t;
         }
         case "ai_step": {
             const n = a.ai_allowed_actions?.length ?? 0;
-            if (!a.ai_instruction?.trim()) return "Tell the agent what to do…";
-            if (n === 0) return "Pick actions the agent may take…";
-            return `Agent · ${n} action${n === 1 ? "" : "s"}`;
+            if (!a.ai_instruction?.trim()) return "הנחה את הסוכן מה לבצע…";
+            if (n === 0) return "בחר פעולות שהסוכן רשאי לבצע…";
+            return `סוכן · ${n} פעולות`;
         }
         default:
-            return "Action";
+            return "פעולה";
     }
 }
 
@@ -612,7 +612,7 @@ type ActionNodeData = {
 
 function ActionNode({ data, selected }: NodeProps) {
     const d = data as ActionNodeData;
-    const meta = ACTION_META[d.actionType] ?? { label: "Action", Icon: ZapIcon, tint: "text-slate-500" };
+    const meta = ACTION_META[d.actionType] ?? { label: "פעולה", Icon: ZapIcon, tint: "text-slate-500" };
     const Icon = meta.Icon;
     return (
         <div
@@ -632,7 +632,7 @@ function ActionNode({ data, selected }: NodeProps) {
                         e.stopPropagation();
                         d.onDelete();
                     }}
-                    title="Delete action"
+                    title="מחיקת פעולה"
                     className="nodrag inline-flex size-5 shrink-0 items-center justify-center rounded text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
                 >
                     <Trash2Icon className="w-3 h-3" />
@@ -645,15 +645,15 @@ function ActionNode({ data, selected }: NodeProps) {
             {d.orphan ? (
                 <div className="flex items-center gap-1 border-t border-amber-200/70 px-2.5 py-1 text-[10.5px] text-amber-600">
                     <UnlinkIcon className="w-3 h-3" />
-                    Not connected — drag a link in
+                    לא מחובר: גרור חיבור לכאן
                 </div>
             ) : d.endsHere ? (
                 <div
                     className="flex items-center gap-1 border-t border-slate-200/70 px-2.5 py-1 text-[10.5px] text-slate-400"
-                    title="No outgoing line, so the sequence ends for contacts who reach this step. Drag the bottom dot to continue it."
+                    title="אין קו יוצא, לכן הרצף מסתיים עבור אנשי קשר שמגיעים לשלב זה. גרור את הנקודה התחתונה כדי להמשיך."
                 >
                     <FlagIcon className="w-3 h-3 text-slate-400" />
-                    Ends here
+                    מסתיים כאן
                 </div>
             ) : null}
             {/* One output dot: drag it out to add the next step, action, or condition. */}
@@ -661,7 +661,7 @@ function ActionNode({ data, selected }: NodeProps) {
                 type="source"
                 id="s"
                 position={Position.Bottom}
-                title="What happens next: drag onto a node to connect, or onto empty space to add a step, action, condition, or Stop"
+                title="מה קורה בהמשך: גרור לצומת כדי לחבר, או לשטח ריק להוספת שלב, פעולה, תנאי או עצירה"
                 className="!h-3 !w-3 pointer-coarse:!h-5 pointer-coarse:!w-5 !border-2 !border-white !bg-sky-500"
             />
         </div>
@@ -687,7 +687,7 @@ function ConditionNode({ data, selected }: NodeProps) {
                     <GitBranchIcon className="w-3 h-3" />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-slate-800">
-                    {d.label || "Condition"}
+                    {d.label || "תנאי"}
                 </span>
                 <button
                     type="button"
@@ -695,21 +695,21 @@ function ConditionNode({ data, selected }: NodeProps) {
                         e.stopPropagation();
                         d.onDelete();
                     }}
-                    title="Delete condition"
+                    title="מחיקת תנאי"
                     className="nodrag inline-flex size-5 shrink-0 items-center justify-center rounded text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
                 >
                     <Trash2Icon className="w-3 h-3" />
                 </button>
             </div>
             <div className="px-2.5 py-1.5 text-[10.5px] text-slate-400">
-                {d.endsHere ? "Drag out to add an if branch" : "Routes by your conditions"}
+                {d.endsHere ? "גרור החוצה להוספת ענף תנאי (if)" : "מנתב לפי התנאים שלך"}
             </div>
             {/* One output dot: drag out to add each conditional path. */}
             <Handle
                 type="source"
                 id="s"
                 position={Position.Bottom}
-                title="Drag out once per path: each line from here is an if branch"
+                title="גרור החוצה פעם אחת לכל נתיב: כל קו מכאן הוא ענף תנאי"
                 className="!h-3 !w-3 pointer-coarse:!h-5 pointer-coarse:!w-5 !border-2 !border-white !bg-sky-500"
             />
         </div>
@@ -756,7 +756,7 @@ function SwitchNode({ id, data, selected }: NodeProps) {
                         e.stopPropagation();
                         d.onDelete();
                     }}
-                    title="Delete switch"
+                    title="מחיקת פיצול"
                     className="nodrag inline-flex size-5 shrink-0 items-center justify-center rounded text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
                 >
                     <Trash2Icon className="w-3 h-3" />
@@ -764,12 +764,12 @@ function SwitchNode({ id, data, selected }: NodeProps) {
             </div>
             <div className="px-2.5 pt-1.5 pb-1">
                 <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-300">
-                    {d.aiMode ? "AI decides" : "Value match"}
+                    {d.aiMode ? "AI מחליט" : "התאמת ערך"}
                 </div>
                 <div className="mt-0.5 truncate text-[11.5px] text-slate-500">{d.subtitle}</div>
             </div>
             {d.cases.length === 0 ? (
-                <div className="px-2.5 pb-2 text-[10.5px] text-slate-400">Open the step to add cases</div>
+                <div className="px-2.5 pb-2 text-[10.5px] text-slate-400">פתח את השלב להוספת מקרים</div>
             ) : (
                 <div className="pb-1.5">
                     {d.cases.map((c) => {
@@ -798,17 +798,17 @@ function SwitchNode({ id, data, selected }: NodeProps) {
             {d.orphan && (
                 <div className="flex items-center gap-1 border-t border-amber-200/70 px-2.5 py-1 text-[10.5px] text-amber-600">
                     <UnlinkIcon className="w-3 h-3" />
-                    Not connected — drag a link in
+                    לא מחובר: גרור חיבור לכאן
                 </div>
             )}
             {/* The "otherwise" fallback gets its own labeled row (same visual
                 language as the cases) instead of an unexplained bottom dot. */}
             <div
                 className="relative flex h-6 items-center rounded-b-xl border-t border-slate-200/70 bg-slate-50/60 pl-2.5 pr-4"
-                title="Where contacts go when no case matched. Drag the dot to a step, or to empty space to add one (or Stop)."
+                title="לאן אנשי קשר מנותבים כשאף מקרה לא תואם. גרור את הנקודה לשלב, או לשטח ריק להוספה (או עצירה)."
             >
                 <span className="min-w-0 flex-1 truncate text-[10.5px] font-medium uppercase tracking-[0.1em] text-slate-400">
-                    Otherwise
+                    אחרת
                 </span>
                 <Handle
                     type="source"
@@ -1113,7 +1113,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
             try {
                 await updateSequence(campaignId, sourceId, { conditions: { branches: b } });
             } catch {
-                toast.error("Couldn't save the connection");
+                toast.error("לא ניתן לשמור את החיבור");
             } finally {
                 invalidate();
             }
@@ -1130,7 +1130,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
             try {
                 await updateSequence(campaignId, targetId, { wait_after: d });
             } catch {
-                toast.error("Couldn't save the wait");
+                toast.error("לא ניתן לשמור את זמן ההמתנה");
             } finally {
                 invalidate();
             }
@@ -1248,8 +1248,8 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
         setAdding(true);
         try {
             await toast.promise(createSequence.mutateAsync(), {
-                loading: "Adding step…",
-                success: "Step added — drag a dot to connect it.",
+                loading: "מוסיף שלב…",
+                success: "שלב נוסף: גרור נקודה כדי לחבר אותו.",
                 error: (err: AppError) => buildError(err),
             });
         } finally {
@@ -1270,7 +1270,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                     action: { type },
                 });
                 invalidate();
-                toast.success("Action added — drag a dot to connect it.");
+                toast.success("פעולה נוספה: גרור נקודה כדי לחבר אותה.");
             } catch (err) {
                 toast.error(buildError(err as AppError));
             } finally {
@@ -1293,7 +1293,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                     { branch_id: newBranchId(), target_step_id: created.id, conditions: [] },
                 ]);
             } catch {
-                toast.error("Couldn't add the step");
+                toast.error("לא ניתן להוסיף את השלב");
             } finally {
                 setAdding(false);
             }
@@ -1314,7 +1314,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                     { branch_id: newBranchId(), target_step_id: created.id, conditions: [] },
                 ]);
             } catch {
-                toast.error("Couldn't add the action");
+                toast.error("לא ניתן להוסיף את הפעולה");
             } finally {
                 setAdding(false);
             }
@@ -1330,13 +1330,13 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
             try {
                 const created = (await createSequence.mutateAsync()) as Sequence;
                 if (choice === "condition") {
-                    await updateSequence(campaignId, created.id, { kind: "wait", name: "Condition" });
+                    await updateSequence(campaignId, created.id, { kind: "wait", name: "תנאי" });
                 } else if (choice !== "email") {
                     await updateSequence(campaignId, created.id, { kind: "action", action: defaultActionFor(choice) });
                 }
                 return created.id;
             } catch {
-                toast.error("Couldn't add the step");
+                toast.error("לא ניתן להוסיף את השלב");
                 return null;
             } finally {
                 setAdding(false);
@@ -1367,9 +1367,9 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                 await saveBranches(sourceId, [...(src?.conditions?.branches ?? []), branch]);
                 invalidate();
                 openCondition(sourceId, branch.branch_id);
-                toast.success("Reply step added. It runs the moment they reply.");
+                toast.success("שלב תגובה נוסף. הוא יופעל ברגע שאיש הקשר ישיב.");
             } catch {
-                toast.error("Couldn't add the reply step");
+                toast.error("לא ניתן להוסיף שלב תגובה");
             } finally {
                 setAdding(false);
             }
@@ -1385,9 +1385,9 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                 (s) => s.id !== id && (s.conditions?.branches ?? []).some((b) => b.target_step_id === id),
             );
             const extra = referencing.length
-                ? ` ${referencing.length} connection${referencing.length === 1 ? "" : "s"} into it will be removed too.`
+                ? ` כמו כן, ${referencing.length} חיבורים המובילים אליו יוסרו.`
                 : "";
-            confirm.show(`Delete “${label}”? This can't be undone.${extra}`, async () => {
+            confirm.show(`למחוק את ״${label}״? פעולה זו אינה ניתנת לביטול.${extra}`, async () => {
                 try {
                     await Promise.all(
                         referencing.map((s) =>
@@ -1402,9 +1402,9 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                     invalidate();
                     setEditStepId((cur) => (cur === id ? null : cur));
                     setSelectedEdge((cur) => (cur?.sourceId === id ? null : cur));
-                    toast.success("Step deleted");
+                    toast.success("השלב נמחק");
                 } catch {
-                    toast.error("Couldn't delete the step");
+                    toast.error("לא ניתן למחוק את השלב");
                     throw new Error("delete-failed");
                 }
             });
@@ -1426,7 +1426,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
         const waitTag = (targetId: string | null) => {
             if (!targetId) return "";
             const w = seqById.get(targetId)?.wait_after ?? 0;
-            return w > 0 ? `wait ${w}d` : "";
+            return w > 0 ? (w === 1 ? "המתנה: יום 1" : `המתנה: ${w} ימים`) : "";
         };
 
         // Steps reachable from the entry (first step). Anything else became an
@@ -1459,7 +1459,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                     type: "condition",
                     position: { x: 0, y: 0 },
                     data: {
-                        label: s.name?.trim() || "Condition",
+                        label: s.name?.trim() || "תנאי",
                         endsHere: branches.length === 0,
                         orphan: !reachable.has(s.id),
                         onDelete: () => deleteStepRef.current(s.id),
@@ -1480,7 +1480,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                         type: "switch",
                         position: { x: 0, y: 0 },
                         data: {
-                            label: s.name?.trim() || "Switch",
+                            label: s.name?.trim() || "פיצול",
                             subtitle: actionSummary(s.action),
                             cases,
                             connected,
@@ -1490,7 +1490,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                         } satisfies SwitchNodeData,
                     };
                 }
-                const fallback = ACTION_META[at]?.label ?? "Action";
+                const fallback = ACTION_META[at]?.label ?? "פעולה";
                 return {
                     id: s.id,
                     type: "action",
@@ -1511,7 +1511,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                 type: "step",
                 position: { x: 0, y: 0 },
                 data: {
-                    label: s.name?.trim() || `Email ${emailNum}`,
+                    label: s.name?.trim() || `דוא״ל ${emailNum}`,
                     subtitle: s.subject,
                     isStart: i === 0,
                     endsHere: branches.length === 0,
@@ -1591,7 +1591,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                         source: ifNodeId(conds[i - 1].branch_id),
                         sourceHandle: "else",
                         target: nid,
-                        label: "else",
+                        label: "אחרת",
                         style: edgeStyle(false),
                         labelStyle: { fill: "#94a3b8", fontSize: 10 },
                         labelBgStyle: { fill: "#fff", stroke: "#e2e8f0" },
@@ -1609,10 +1609,10 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                 const withinDays = (b.conditions ?? []).find((c) => c.operator === "within_days")?.value;
                 const wt = isInstantBranch(b)
                     ? withinDays
-                        ? `instant <=${withinDays}d`
-                        : "instant"
+                        ? `מיידי <= ${withinDays} ימים`
+                        : "מיידי"
                     : withinDays
-                      ? `within ${withinDays}d`
+                      ? `תוך ${withinDays} ימים`
                       : waitTag(b.target_step_id);
                 // A condition with no THEN target yet leaves its right dot OPEN to
                 // drag to the next step, rather than auto-wiring it to STOP.
@@ -1644,7 +1644,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                         source: ifNodeId(conds[conds.length - 1].branch_id),
                         sourceHandle: "else",
                         target,
-                        label: wt ? `else · ${wt}` : "else",
+                        label: wt ? `אחרת · ${wt}` : "אחרת",
                         reconnectable: true,
                         style: edgeStyle(false),
                         labelStyle: { fill: "#475569", fontSize: 10 },
@@ -2056,7 +2056,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                                 }}
                                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-[12px] font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900"
                             >
-                                Tidy up
+                                סדר אוטומטי
                             </button>
                             <StopOnReplyToggle on={!!campaign?.stop_on_reply} onToggle={setStopOnReply} />
                         </div>
@@ -2075,8 +2075,8 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
                         canvas (touch users remove edges via the editor's Disconnect). */}
                     <div className="hidden md:flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-white/95 px-3 py-1.5 text-[11px] text-slate-500 shadow-sm">
                         <span className="text-slate-400">
-                            drag a node’s bottom dot onto another node to connect, or onto empty space to pick what comes next (email, action, condition, or Stop) · click a line to set its condition · add Condition nodes to branch, and chain them for nested trees · click a line then press Delete to remove it · a step with no outgoing line just ends
-                            {live.active ? " · press / to chat" : ""}
+                            גרור את הנקודה התחתונה של צומת אל צומת אחר כדי לחבר, או לשטח ריק כדי לבחור מה יבוא בהמשך (דוא״ל, פעולה, תנאי או עצירה) · לחץ על קו כדי להגדיר את התנאי שלו · הוסף צומתי תנאי לפיצול, ושרשר אותם לעצים מורכבים · לחץ על קו ולאחר מכן הקש Delete להסרתו · שלב ללא קו יוצא פשוט מסתיים
+                            {live.active ? " · הקש / לצ׳אט" : ""}
                         </span>
                     </div>
                 </Panel>
@@ -2182,14 +2182,14 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
             {editStep && (
                 <div className="fixed inset-0 z-30 w-full overflow-y-auto overflow-x-hidden bg-white md:absolute md:left-auto md:z-10 md:max-w-[760px] md:border-l md:border-slate-200 md:shadow-[0_0_40px_-12px_rgba(15,23,42,0.25)] xl:max-w-[880px]">
                     <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-3 py-2">
-                        <span className="truncate text-[12.5px] font-medium text-slate-700">Edit “{stepName(editStep)}”</span>
+                        <span className="truncate text-[12.5px] font-medium text-slate-700">עריכת ״{stepName(editStep)}״</span>
                         <div className="flex items-center gap-1">
                             <button
                                 type="button"
                                 onClick={() => deleteStep(editStep.id)}
                                 className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] text-slate-500 hover:bg-rose-50 hover:text-rose-600"
                             >
-                                <Trash2Icon className="w-3.5 h-3.5" /> Delete
+                                <Trash2Icon className="w-3.5 h-3.5" /> מחק
                             </button>
                             <button
                                 type="button"
@@ -2216,11 +2216,9 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
 
 // ── Stop-on-reply toggle ────────────────────────────────────────────────────
 const STOP_ON_REPLY_HELP =
-    "When a contact replies, the rest of the sequence stops for them, " +
-    "while the reply branch you connected to the email they answered still " +
-    "runs (it fires instantly). So on reply: that reply flow runs, every other " +
-    "remaining step is cancelled. Auto-replies and out-of-office messages don't " +
-    "count as a reply, so the sequence keeps going.";
+    "כאשר איש קשר משיב, שאר הרצף נעצר עבורו, בעוד שענף התגובה שחיברת לדוא״ל שעליו השיב עדיין מופעל (באופן מיידי). " +
+    "כלומר בתגובה: תהליך התגובה רץ, וכל שאר השלבים הנותרים מבוטלים. תגובות אוטומטיות והודעות מחוץ למשרד אינן " +
+    "נחשבות כתגובה, כך שהרצף ממשיך כרגיל.";
 
 function StopOnReplyToggle({ on, onToggle }: { on: boolean; onToggle: (next: boolean) => void }) {
     return (
@@ -2228,14 +2226,14 @@ function StopOnReplyToggle({ on, onToggle }: { on: boolean; onToggle: (next: boo
             className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm"
             title={STOP_ON_REPLY_HELP}
         >
-            <span className="text-[11.5px] text-slate-600">Stop on reply</span>
+            <span className="text-[11.5px] text-slate-600">עצירה בתגובה</span>
             {/* Tooltips never show on touch; surface the same copy on tap. Hidden
                 at md+ where the title attribute keeps desktop pixel-identical. */}
             <PopoverMenu align="start">
                 <PopoverMenuTrigger asChild>
                     <button
                         type="button"
-                        aria-label="What does stop on reply do?"
+                        aria-label="מה עושה עצירה בתגובה?"
                         className="inline-flex size-5 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-600 md:hidden"
                     >
                         <InfoIcon className="w-3.5 h-3.5" />
@@ -2249,7 +2247,7 @@ function StopOnReplyToggle({ on, onToggle }: { on: boolean; onToggle: (next: boo
                 type="button"
                 role="switch"
                 aria-checked={on}
-                aria-label="Stop on reply"
+                aria-label="עצירה בתגובה"
                 onClick={() => onToggle(!on)}
                 className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
                     on ? "bg-sky-600" : "bg-slate-200"
@@ -2277,15 +2275,15 @@ function ReplyStopWarning({ hasReplyBranch, onEnable }: { hasReplyBranch: boolea
             <div className="space-y-1">
                 <p className="leading-snug">
                     {hasReplyBranch
-                        ? "Stop on reply is off. Replies that don't match a reply branch (say, a reply to an older email) keep getting cold emails. Turning it on still runs your reply branches."
-                        : "No reply handling. With stop on reply off, contacts who reply keep moving through the cold sequence. Turn it on, or add a reply branch."}
+                        ? "עצירה בתגובה כבויה. תגובות שאינן תואמות לענף תגובה (למשל, תגובה לדוא״ל קודם) ימשיכו לקבל דוא״ל קר. הפעלת האפשרות תמשיך להפעיל את ענפי התגובה שלך."
+                        : "אין טיפול בתגובות. כאשר עצירה בתגובה כבויה, אנשי קשר שמשיבים ימשיכו לקבל את הרצף הקר. הפעל אפשרות זו, או הוסף ענף תגובה."}
                 </p>
                 <button
                     type="button"
                     onClick={onEnable}
                     className="font-medium text-amber-800 underline underline-offset-2 hover:text-amber-900"
                 >
-                    Turn on stop on reply
+                    הפעל עצירה בתגובה
                 </button>
             </div>
         </div>
@@ -2298,7 +2296,7 @@ function WaitRow({ value, onCommit }: { value: number; onCommit: (v: number) => 
     return (
         <div className="flex items-center gap-1.5 text-[12px] text-slate-600">
             <ClockIcon className="w-3.5 h-3.5 text-slate-400" />
-            <span>wait</span>
+            <span>המתנה של</span>
             <NumberInput
                 value={draft}
                 onChange={setDraft}
@@ -2308,25 +2306,25 @@ function WaitRow({ value, onCommit }: { value: number; onCommit: (v: number) => 
                 className="w-16"
                 align="center"
             />
-            <span>days before it</span>
+            <span>ימים לפני כן</span>
         </div>
     );
 }
 
 // ── Connection editor (optional condition + wait behind a connection) ───────
 const BRANCH_PATH_OPTIONS: SelectOption[] = [
-    { value: "always", label: "always (right after the wait)" },
-    { value: "opened", label: "if opened the email", group: "Engagement" },
-    { value: "clicked", label: "if clicked a link", group: "Engagement" },
-    { value: "replied", label: "if replied", group: "Engagement" },
-    { value: "not_opened", label: "if didn't open", group: "Engagement" },
-    { value: "not_clicked", label: "if didn't click", group: "Engagement" },
-    { value: "not_replied", label: "if didn't reply", group: "Engagement" },
-    { value: "reply_positive", label: "if replied: positive", group: "Reply intent" },
-    { value: "reply_negative", label: "if replied: negative", group: "Reply intent" },
-    { value: "reply_neutral", label: "if replied: neutral", group: "Reply intent" },
-    { value: "reply_automated", label: "if auto-reply / out of office", group: "Reply intent" },
-    { value: "random", label: "random split" },
+    { value: "always", label: "תמיד (מיד לאחר ההמתנה)" },
+    { value: "opened", label: "אם פתח את הדוא״ל", group: "מעורבות" },
+    { value: "clicked", label: "אם לחץ על קישור", group: "מעורבות" },
+    { value: "replied", label: "אם השיב", group: "מעורבות" },
+    { value: "not_opened", label: "אם לא פתח", group: "מעורבות" },
+    { value: "not_clicked", label: "אם לא לחץ", group: "מעורבות" },
+    { value: "not_replied", label: "אם לא השיב", group: "מעורבות" },
+    { value: "reply_positive", label: "אם השיב: תגובה חיובית", group: "כוונת תגובה" },
+    { value: "reply_negative", label: "אם השיב: תגובה שלילית", group: "כוונת תגובה" },
+    { value: "reply_neutral", label: "אם השיב: תגובה ניטרלית", group: "כוונת תגובה" },
+    { value: "reply_automated", label: "אם מענה אוטומטי / מחוץ למשרד", group: "כוונת תגובה" },
+    { value: "random", label: "פיצול אקראי" },
 ];
 
 function ConnectionEditor({
@@ -2370,10 +2368,10 @@ function ConnectionEditor({
     const caseName = isCasePath ? (c0?.label ?? "").trim() : "";
     const isReply = isReplyBranchField(field as BranchField);
     const isInstantCapable = !isCasePath && isInstantCapableField(field as BranchField);
-    const instantVerb = field === "opened" ? "open" : field === "clicked" ? "click" : "reply";
+    const instantVerb = field === "opened" ? "יפתחו" : field === "clicked" ? "ילחצו" : "ישיבו";
     const isNegative = field === "not_opened" || field === "not_clicked" || field === "not_replied";
     const target = steps.find((s) => s.id === branch.target_step_id);
-    const targetLabel = branch.target_step_id === null ? "Stop the sequence" : target ? `“${stepName(target)}”` : "—";
+    const targetLabel = branch.target_step_id === null ? "עצירת הרצף" : target ? `“${stepName(target)}”` : "—";
     const aiSwitch = source.action?.switch_on !== "value";
 
     const buildConditions = (): BranchCondition[] => {
@@ -2399,7 +2397,7 @@ function ConnectionEditor({
         <div className="absolute right-3 top-3 z-20 w-[300px] max-w-[calc(100vw-1.5rem)] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-md border border-slate-200 bg-white p-3 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
             <div className="mb-2 flex items-center justify-between">
                 <span className="truncate text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                    From “{stepName(source)}”
+                    מ-״{stepName(source)}״
                 </span>
                 <button
                     type="button"
@@ -2412,7 +2410,7 @@ function ConnectionEditor({
 
             {order >= 0 && condCount > 1 && (
                 <div className="mb-2 flex items-center justify-between rounded-md bg-slate-50 px-2 py-1 text-[11px] text-slate-500">
-                    <span>When several match, this is checked {order + 1} of {condCount}</span>
+                    <span>כאשר כמה תנאים מתאימים, זה נבדק {order + 1} מתוך {condCount}</span>
                     <span className="flex items-center gap-0.5">
                         <button
                             type="button"
@@ -2436,7 +2434,7 @@ function ConnectionEditor({
 
             <div className="space-y-2 text-[12px] text-slate-600">
                 <div className="flex flex-wrap items-center gap-1.5">
-                    <span>then go to</span>
+                    <span>לאחר מכן עבור אל</span>
                     <span className="font-medium text-slate-800">{targetLabel}</span>
                     {branch.target_step_id !== null && (
                         <button
@@ -2444,14 +2442,14 @@ function ConnectionEditor({
                             onClick={() => save(null)}
                             className="text-[10.5px] font-medium text-rose-500 hover:underline"
                         >
-                            set to stop
+                            הגדר לעצירה
                         </button>
                     )}
                 </div>
 
                 {!isCasePath && (
                     <div>
-                        <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Take this path</p>
+                        <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">מעבר בנתיב זה</p>
                         <SelectMenu
                             className="w-full"
                             value={field}
@@ -2469,21 +2467,21 @@ function ConnectionEditor({
                 {isRandom && (
                     <div className="flex flex-wrap items-center gap-1.5">
                         <NumberInput value={value} onChange={(v) => setValue(Math.max(1, Math.min(99, Math.round(v) || 1)))} min={1} max={99} className="w-16" align="center" />
-                        <span>% of contacts (chosen at random)</span>
+                        <span>% מאנשי הקשר (נבחרים באקראי)</span>
                     </div>
                 )}
                 {isCasePath && (
                     <p className="rounded-md bg-slate-50 px-2 py-1.5 text-[11px] leading-relaxed text-slate-600 ring-1 ring-slate-200">
-                        The “{caseName}” case of this switch: contacts take this path when{" "}
-                        {aiSwitch ? "the AI picks" : "the value matches"} “{caseName}”. Rename or remove the case on the
-                        step itself; routing happens at the step boundary with no extra credits.
+                        מקרה ״{caseName}״ של פיצול זה: אנשי קשר עוברים בנתיב זה כאשר{" "}
+                        {aiSwitch ? "ה-AI בוחר" : "הערך תואם"} ״{caseName}״. ניתן לשנות שם או להסיר את המקרה בשלב
+                        עצמו; הניתוב מתבצע בגבול השלב ללא נקודות זכות נוספות.
                     </p>
                 )}
                 {!isAlways && !isRandom && !isReply && !isCasePath && (
                     <div className="flex flex-wrap items-center gap-1.5">
-                        <span>within</span>
+                        <span>תוך</span>
                         <NumberInput value={value} onChange={(v) => setValue(Math.max(1, Math.min(60, Math.round(v) || 1)))} min={1} max={60} className="w-16" align="center" />
-                        <span>days</span>
+                        <span>ימים</span>
                     </div>
                 )}
                 {isInstantCapable && (
@@ -2503,15 +2501,15 @@ function ConnectionEditor({
                                     instant ? "text-violet-700" : "text-slate-500"
                                 }`}
                             >
-                                {instant ? `Instant: runs the moment they ${instantVerb}` : "Routes at the next step"}
+                                {instant ? `מיידי: מופעל ברגע שאיש הקשר ${instantVerb}` : "מנתב בשלב הבא"}
                             </span>
                             <button
                                 type="button"
                                 role="switch"
                                 aria-checked={instant}
-                                aria-label="Run instantly"
+                                aria-label="הפעלה מיידית"
                                 onClick={() => setInstant((v) => !v)}
-                                title="Toggle whether this path fires the moment it happens or waits for the next step"
+                                title="קבע אם נתיב זה מופעל ברגע שהאירוע מתרחש או ממתין לשלב הבא"
                                 className={`relative inline-flex h-[18px] w-8 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 ${
                                     instant ? "bg-violet-600" : "bg-slate-300"
                                 }`}
@@ -2527,25 +2525,25 @@ function ConnectionEditor({
                             <>
                                 <p className="text-[10.5px] text-slate-400">
                                     {field === "reply_automated"
-                                        ? "Routes when the contact's reply is an auto-reply or out-of-office bounce, not a real human reply. Pair this with action steps (create deal, move stage, notify) to react."
-                                        : "Routes when the contact's reply is classified this way. Chain action steps after it, for example create deal then move stage then notify."}
+                                        ? "מנתב כאשר תגובת איש הקשר היא מענה אוטומטי או הודעת מחוץ למשרד, ולא תגובה אנושית אמיתית. שלב זאת עם שלבי פעולה (יצירת עסקה, העברת שלב, התראה) כדי להגיב."
+                                        : "מנתב כאשר תגובת איש הקשר מסווגת באופן זה. שרשר שלבי פעולה בהמשך, למשל יצירת עסקה, קידום שלב והתראה."}
                                 </p>
                                 <p className="text-[10.5px] text-amber-600">
-                                    A reply triggers the reply path of the specific email it answers (matched by the reply's threading headers): the earlier email, not the latest step, and never both. It falls back to the latest step only when the reply can't be threaded. With stop-on-reply on, the sequence also pauses.
+                                    תגובה מפעילה את נתיב התגובה של הדוא״ל הספציפי שעליו נענתה (לפי כותרות השרשור של התגובה): הדוא״ל המקורי, לא השלב האחרון, ולעולם לא שניהם יחד. המערכת חוזרת לשלב האחרון רק כאשר לא ניתן לשרשר את התגובה. כאשר עצירה בתגובה מופעלת, הרצף גם מושהה.
                                 </p>
                             </>
                         ) : (
                             <p className="text-[10.5px] text-slate-400">
                                 {instant
-                                    ? `Runs the moment they ${instantVerb}, as long as they ${instantVerb} within the ${value}-day window above. If they don't ${instantVerb} in that time, this path never runs. Chain action steps after it (create deal, move stage, notify).`
-                                    : `Waits up to ${value} day${value === 1 ? "" : "s"} for them to ${instantVerb}, then checks at the next step. If they don't ${instantVerb} in that window, this path never runs.`}
+                                    ? `מופעל ברגע שאיש הקשר ${instantVerb}, כל עוד זה מתרחש בתוך חלון של ${value} ימים שלמעלה. אם זה לא מתרחש בזמן זה, נתיב זה לא יופעל לעולם. שרשר שלבי פעולה בהמשך (יצירת עסקה, קידום שלב, התראה).`
+                                    : `ממתין עד ${value} ימים שאיש הקשר ${instantVerb}, ולאחר מכן בודק בשלב הבא. אם לא ${instantVerb} בחלון זה, נתיב זה לא יופעל לעולם.`}
                             </p>
                         )}
                     </div>
                 )}
                 {isNegative && (
                     <p className="text-[10.5px] text-slate-400">
-                        We keep checking until {value} day{value === 1 ? "" : "s"} pass, then take this path if it still hasn’t happened.
+                        המערכת תמשיך לבדוק עד שיחלפו {value} ימים, ואז תעבור בנתיב זה אם הפעולה עדיין לא התרחשה.
                     </p>
                 )}
 
@@ -2558,18 +2556,18 @@ function ConnectionEditor({
                 <button
                     type="button"
                     onClick={onDelete}
-                    title="Remove this line and the branch it represents"
+                    title="הסרת קו זה והענף שהוא מייצג"
                     className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium text-rose-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
                 >
                     <Trash2Icon className="w-3.5 h-3.5" />
-                    Disconnect
+                    ניתוק
                 </button>
                 <button
                     type="button"
                     onClick={() => save(branch.target_step_id)}
                     className="ml-auto h-7 rounded-md bg-sky-600 px-3 text-[12px] font-medium text-white hover:bg-sky-700"
                 >
-                    Save
+                    שמור
                 </button>
             </div>
         </div>
@@ -2581,23 +2579,23 @@ function ConnectionEditor({
 // bottom dot unconnected (shows "Ends here") or routing a branch to Stop. That
 // keeps the cleaner Stop/"Ends here" visual instead of a configurable end node.
 const ADD_ACTION_OPTIONS: { type: SequenceActionType; label: string }[] = [
-    { type: "add_tag", label: "Add tag" },
-    { type: "remove_tag", label: "Remove tag" },
-    { type: "add_to_segment", label: "Add to segment" },
-    { type: "remove_from_segment", label: "Remove from segment" },
-    { type: "label_email", label: "Label email" },
-    { type: "create_task", label: "Create task" },
-    { type: "create_deal", label: "Create deal" },
-    { type: "move_deal_stage", label: "Move deal stage" },
-    { type: "unsubscribe", label: "Unsubscribe" },
-    { type: "run_automation", label: "Run automation" },
-    { type: "fire_event", label: "Fire event" },
+    { type: "add_tag", label: "הוספת תגית" },
+    { type: "remove_tag", label: "הסרת תגית" },
+    { type: "add_to_segment", label: "הוספה למקטע" },
+    { type: "remove_from_segment", label: "הסרה ממקטע" },
+    { type: "label_email", label: "תיוג שיחה" },
+    { type: "create_task", label: "יצירת משימה" },
+    { type: "create_deal", label: "יצירת עסקה" },
+    { type: "move_deal_stage", label: "העברת שלב עסקה" },
+    { type: "unsubscribe", label: "ביטול הרשמה" },
+    { type: "run_automation", label: "הפעלת אוטומציה" },
+    { type: "fire_event", label: "שיגור אירוע" },
 ];
 
 // Switch is a router like Condition, not a side effect — the menus list it in
 // the routing group, so it stays out of ADD_ACTION_OPTIONS.
-const SWITCH_OPTION = { type: "switch" as SequenceActionType, label: "Switch (AI / value)" };
-const AI_STEP_OPTION = { type: "ai_step" as SequenceActionType, label: "AI step (agent)" };
+const SWITCH_OPTION = { type: "switch" as SequenceActionType, label: "פיצול (AI / ערך)" };
+const AI_STEP_OPTION = { type: "ai_step" as SequenceActionType, label: "שלב AI (סוכן)" };
 
 // "stop" is not a node: picking it routes the dragged path to the red Stop
 // terminal (a null branch target), so "in this case, end the sequence" is a
@@ -2655,13 +2653,13 @@ function DragCreateMenu({
                             y: { duration: 0.18, ease: [0.16, 1, 0.3, 1] },
                         }}
                     >
-                        <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Add</div>
-                        <CreateRow icon={<MailIcon className="w-3.5 h-3.5 text-sky-600" />} label="Email step" onClick={() => pick("email")} />
-                        <CreateRow icon={<GitBranchIcon className="w-3.5 h-3.5 text-amber-600" />} label="Condition (branch)" onClick={() => pick("condition")} />
+                        <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">הוספה</div>
+                        <CreateRow icon={<MailIcon className="w-3.5 h-3.5 text-sky-600" />} label="שלב דוא״ל" onClick={() => pick("email")} />
+                        <CreateRow icon={<GitBranchIcon className="w-3.5 h-3.5 text-amber-600" />} label="תנאי (ענף)" onClick={() => pick("condition")} />
                         <CreateRow icon={<SplitIcon className="w-3.5 h-3.5 text-purple-600" />} label={SWITCH_OPTION.label} onClick={() => pick("switch")} />
                         <CreateRow icon={<SparklesIcon className="w-3.5 h-3.5 text-purple-600" />} label={AI_STEP_OPTION.label} onClick={() => pick("ai_step")} />
                         <div className="my-1 h-px bg-slate-100" />
-                        <div className="px-2 pt-0.5 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Actions</div>
+                        <div className="px-2 pt-0.5 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">פעולות</div>
                         {ADD_ACTION_OPTIONS.map((o) => {
                             const meta = ACTION_META[o.type];
                             const Icon = meta?.Icon ?? ZapIcon;
@@ -2675,7 +2673,7 @@ function DragCreateMenu({
                             );
                         })}
                         <div className="my-1 h-px bg-slate-100" />
-                        <CreateRow icon={<FlagIcon className="w-3.5 h-3.5 text-rose-500" />} label="Stop here" onClick={() => pick("stop")} />
+                        <CreateRow icon={<FlagIcon className="w-3.5 h-3.5 text-rose-500" />} label="עצירה כאן" onClick={() => pick("stop")} />
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -2729,14 +2727,14 @@ function AddNodeMenu({
                 ) : (
                     <PlusIcon className="w-3.5 h-3.5" />
                 )}
-                Add step
+                הוסף שלב
             </button>
             {/* Chevron = the full list of node types (email + actions). */}
             <button
                 type="button"
                 disabled={disabled}
                 onClick={() => setOpen((o) => !o)}
-                aria-label="More step types"
+                aria-label="סוגי שלבים נוספים"
                 className="inline-flex h-8 items-center rounded-r-md border-l border-sky-500/60 bg-sky-600 px-1.5 text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-60"
             >
                 <ChevronDownIcon className="w-3.5 h-3.5" />
@@ -2765,9 +2763,9 @@ function AddNodeMenu({
                             className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] font-medium text-slate-800 transition-colors hover:bg-slate-100"
                         >
                             <MailIcon className="w-3.5 h-3.5 text-sky-600" />
-                            Send email
+                            שליחת דוא״ל
                             <span className="ml-auto rounded bg-slate-100 px-1 py-px text-[9px] uppercase tracking-[0.1em] text-slate-400">
-                                default
+                                ברירת מחדל
                             </span>
                         </button>
                         <button
@@ -2867,7 +2865,7 @@ function NodeTypeSwitcher({
         sequence.kind === "email" ? "email" : sequence.action?.type ?? "add_tag";
 
     const items: { value: "email" | SequenceActionType; label: string; Icon: typeof MailIcon; tint: string }[] = [
-        { value: "email", label: "Send email", Icon: MailIcon, tint: "text-sky-600" },
+        { value: "email", label: "שליחת דוא״ל", Icon: MailIcon, tint: "text-sky-600" },
         { value: "switch", label: SWITCH_OPTION.label, Icon: SplitIcon, tint: "text-purple-600" },
         { value: "ai_step", label: AI_STEP_OPTION.label, Icon: SparklesIcon, tint: "text-purple-600" },
         ...ADD_ACTION_OPTIONS.map((o) => ({
@@ -2900,7 +2898,7 @@ function NodeTypeSwitcher({
 
     return (
         <div className="mb-4">
-            <Label>Step type</Label>
+            <Label>סוג השלב</Label>
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                 {items.map((it) => {
                     const active = it.value === current;
@@ -2968,7 +2966,7 @@ function ActionEditor({
                 ...(healed ? { conditions: { branches: healed } } : {}),
             });
             onSaved();
-            toast.success("Action saved");
+            toast.success("הפעולה נשמרה");
         } catch (err) {
             toast.error(buildError(err as AppError));
         } finally {
@@ -2979,14 +2977,14 @@ function ActionEditor({
     return (
         <div className="space-y-5">
             <div>
-                <Label>Step name</Label>
+                <Label>שם השלב</Label>
                 <TextInput
                     value={name}
                     onChange={setName}
-                    placeholder={ACTION_META[action.type]?.label ?? "Action"}
+                    placeholder={ACTION_META[action.type]?.label ?? "פעולה"}
                     className="w-full max-w-[320px]"
                 />
-                <p className="mt-1.5 text-[11px] text-slate-400">Internal label only — shown on the node.</p>
+                <p className="mt-1.5 text-[11px] text-slate-400">תווית פנימית בלבד: מוצגת על גבי הצומת.</p>
             </div>
 
             <ActionConfigFields action={action} setAction={setAction} />
@@ -3000,7 +2998,7 @@ function ActionEditor({
                     disabled={saving}
                     className="h-7 rounded-md bg-sky-600 px-3 text-[12px] font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60"
                 >
-                    {saving ? "Saving…" : "Save action"}
+                    {saving ? "שומר…" : "שמור פעולה"}
                 </button>
             </div>
         </div>
@@ -3021,21 +3019,21 @@ function ActionConfigFields({
         <>
             {(action.type === "add_tag" || action.type === "remove_tag") && (
                 <div>
-                    <Label>{action.type === "add_tag" ? "Tag to add" : "Tag to remove"}</Label>
+                    <Label>{action.type === "add_tag" ? "תגית להוספה" : "תגית להסרה"}</Label>
                     <CategoryPicker
                         value={action.category_id ? [action.category_id] : []}
                         onChange={(ids) =>
                             setAction((a) => ({ ...a, category_id: ids.length ? ids[ids.length - 1] : null }))
                         }
-                        placeholder="Pick a tag…"
+                        placeholder="בחר תגית…"
                     />
-                    <p className="mt-1.5 text-[11px] text-slate-400">Tags are your contact categories.</p>
+                    <p className="mt-1.5 text-[11px] text-slate-400">תגיות הן קטגוריות אנשי הקשר שלך.</p>
                 </div>
             )}
 
             {(action.type === "add_to_segment" || action.type === "remove_from_segment") && (
                 <div>
-                    <Label>{action.type === "add_to_segment" ? "Segment to add to" : "Segment to remove from"}</Label>
+                    <Label>{action.type === "add_to_segment" ? "מקטע להוספה" : "מקטע להסרה"}</Label>
                     <SegmentMultiPicker
                         value={action.segment_id ? [action.segment_id] : []}
                         onChange={(ids) =>
@@ -3044,51 +3042,50 @@ function ActionConfigFields({
                     />
                     <p className="mt-1.5 text-[11px] text-slate-400">
                         {action.type === "add_to_segment"
-                            ? "The contact stays in the segment whatever its conditions say."
-                            : "The contact stays out of the segment even while its conditions match."}
+                            ? "איש הקשר יישאר במקטע ללא קשר לתנאים שלו."
+                            : "איש הקשר יישאר מחוץ למקטע גם כאשר התנאים שלו מתאימים."}
                     </p>
                 </div>
             )}
 
             {action.type === "label_email" && (
                 <div>
-                    <Label>Labels to apply</Label>
+                    <Label>תוויות להחלה</Label>
                     <CategoryPicker
                         value={action.label_ids ?? []}
                         onChange={(ids) => setAction((a) => ({ ...a, label_ids: ids }))}
-                        placeholder="Pick one or more labels…"
+                        placeholder="בחר תווית אחת או יותר…"
                     />
                     <p className="mt-1.5 rounded-md border border-fuchsia-200 bg-fuchsia-50/60 px-2.5 py-2 text-[11px] leading-relaxed text-fuchsia-700">
-                        Labels the conversation in your inbox (the same labels you set by hand in the unibox). Place this
-                        on a reply branch — it runs once the contact has replied, so there is a thread to label, and is a
-                        no-op otherwise.
+                        מתייג את השיחה בתיבת הדואר הנכנס שלך (אותן תוויות שאתה מגדיר ידנית ב-unibox). מקם פעולה זו בענף
+                        תגובה: היא מופעלת לאחר שאיש הקשר השיב, כך שיש שרשור לתיוג, ואחרת אינה מבצעת דבר.
                     </p>
                 </div>
             )}
 
             {action.type === "unsubscribe" && (
                 <p className="rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-[11.5px] leading-relaxed text-slate-600">
-                    Suppresses this contact across your workspace — they won't receive further campaign emails, and a{" "}
-                    <code className="font-mono">campaign.unsubscribed</code> event fires to your integrations.
+                    משעה איש קשר זה בכל סביבת העבודה שלך: הוא לא יקבל הודעות דוא״ל נוספות מקמפיינים, ואירוע{" "}
+                    <code className="font-mono">campaign.unsubscribed</code> יישלח לאינטגרציות שלך.
                 </p>
             )}
 
             {action.type === "create_task" && (
                 <div className="space-y-4">
                     <div>
-                        <Label>Task title</Label>
+                        <Label>כותרת המשימה</Label>
                         <TextInput
                             value={action.task_title ?? ""}
                             onChange={(v) => setAction((a) => ({ ...a, task_title: v }))}
-                            placeholder="e.g. Call this lead"
+                            placeholder="לדוגמה: התקשר לליד זה"
                             className="w-full max-w-[320px]"
                         />
                         <p className="mt-1.5 text-[11px] text-slate-400">
-                            Left blank, it defaults to “Follow up: {"{contact}"}”.
+                            אם נותר ריק, ברירת המחדל היא ״מעקב: {"{contact}"}״.
                         </p>
                     </div>
                     <div>
-                        <Label>Task type</Label>
+                        <Label>סוג המשימה</Label>
                         <TaskTypePicker
                             value={action.task_type ?? ""}
                             onChange={(name) => setAction((a) => ({ ...a, task_type: name }))}
@@ -3097,26 +3094,33 @@ function ActionConfigFields({
                     </div>
                     <div className="flex flex-wrap items-end gap-4">
                         <div>
-                            <Label>Priority</Label>
+                            <Label>עדיפות</Label>
                             <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
-                                {(["low", "medium", "high", "urgent"] as const).map((p) => (
+                                {(
+                                    [
+                                        { p: "low", l: "נמוכה" },
+                                        { p: "medium", l: "בינונית" },
+                                        { p: "high", l: "גבוהה" },
+                                        { p: "urgent", l: "דחופה" },
+                                    ] as const
+                                ).map(({ p, l }) => (
                                     <button
                                         key={p}
                                         type="button"
                                         onClick={() => setAction((a) => ({ ...a, task_priority: p }))}
-                                        className={`h-7 px-2.5 rounded text-[11px] font-medium capitalize transition-colors ${
+                                        className={`h-7 px-2.5 rounded text-[11px] font-medium transition-colors ${
                                             (action.task_priority ?? "medium") === p
                                                 ? "bg-sky-600 text-white shadow-sm"
                                                 : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                                         }`}
                                     >
-                                        {p}
+                                        {l}
                                     </button>
                                 ))}
                             </div>
                         </div>
                         <div>
-                            <Label>Due in (days)</Label>
+                            <Label>יעד לביצוע (ימים)</Label>
                             <NumberInput
                                 value={action.task_due_offset_days ?? 1}
                                 onChange={(n) => setAction((a) => ({ ...a, task_due_offset_days: n }))}
@@ -3127,16 +3131,16 @@ function ActionConfigFields({
                         </div>
                     </div>
                     <div>
-                        <Label>Assign to</Label>
+                        <Label>הקצאה אל</Label>
                         <AssigneeTeamPicker
                             className="w-full max-w-[320px]"
-                            fallbackLabel="Campaign owner"
+                            fallbackLabel="בעל הקמפיין"
                             value={{ userId: action.task_assigned_to ?? null, teamId: action.task_assigned_team_id ?? null }}
                             onChange={(v: AssigneeValue) =>
                                 setAction((a) => ({ ...a, task_assigned_to: v.userId ?? null, task_assigned_team_id: v.teamId ?? null }))
                             }
                         />
-                        <p className="mt-1.5 text-[11px] text-slate-400">Assign to a teammate or a whole team. Unassigned falls back to the campaign owner.</p>
+                        <p className="mt-1.5 text-[11px] text-slate-400">הקצה לחבר צוות או לצוות שלם. ללא הקצאה, ברירת המחדל היא בעל הקמפיין.</p>
                     </div>
                 </div>
             )}
@@ -3144,7 +3148,7 @@ function ActionConfigFields({
             {(action.type === "create_deal" || action.type === "move_deal_stage") && (
                 <div className="space-y-4">
                     <div>
-                        <Label>{action.type === "create_deal" ? "Create the deal in" : "Move the deal to"}</Label>
+                        <Label>{action.type === "create_deal" ? "צור את העסקה ב-" : "העבר את העסקה אל"}</Label>
                         <DealStagePicker
                             pipelineId={action.deal_pipeline_id}
                             stageId={action.deal_stage_id}
@@ -3154,8 +3158,8 @@ function ActionConfigFields({
                         />
                         {action.type === "move_deal_stage" && (
                             <p className="mt-1.5 text-[11px] text-slate-400">
-                                Moves the contact's most recent open deal in this pipeline to this stage. If they have no
-                                open deal here, nothing happens.
+                                מעביר את העסקה הפתוחה האחרונה של איש הקשר בצינור זה לשלב זה. אם אין לו עסקה פתוחה
+                                כאן, לא יקרה דבר.
                             </p>
                         )}
                     </div>
@@ -3164,7 +3168,7 @@ function ActionConfigFields({
                         <>
                             <div>
                                 <div className="mb-1.5 flex items-center justify-between gap-2">
-                                    <Label className="mb-0">Deal name</Label>
+                                    <Label className="mb-0">שם העסקה</Label>
                                     <DealNameVariableMenu
                                         onPick={(token) =>
                                             setAction((a) => ({ ...a, deal_name: (a.deal_name ?? "") + token }))
@@ -3178,12 +3182,12 @@ function ActionConfigFields({
                                     className="w-full max-w-[320px]"
                                 />
                                 <p className="mt-1.5 text-[11px] text-slate-400">
-                                    Supports the same {"{{.FirstName}}"} / {"{{.Company}}"} variables as your email copy.
+                                    תומך באותם משתנים כגון {"{{.FirstName}}"} / {"{{.Company}}"} כמו בתוכן הדוא״ל.
                                 </p>
                             </div>
                             <div className="flex flex-wrap items-end gap-4">
                                 <div>
-                                    <Label>Value (optional)</Label>
+                                    <Label>שווי (אופציונלי)</Label>
                                     <NumberInput
                                         value={action.deal_value ?? 0}
                                         onChange={(n) =>
@@ -3195,7 +3199,7 @@ function ActionConfigFields({
                                     />
                                 </div>
                                 <div>
-                                    <Label>Currency</Label>
+                                    <Label>מטבע</Label>
                                     <CurrencyPicker
                                         value={action.deal_currency ?? "USD"}
                                         onChange={(c) => setAction((a) => ({ ...a, deal_currency: c }))}
@@ -3226,7 +3230,7 @@ function RunAutomationFields({
     const automations = data?.automations ?? [];
     const options: SelectOption[] = automations.map((a) => ({
         value: a.id,
-        label: (a.name || "Untitled automation") + (a.enabled ? "" : " · disabled"),
+        label: (a.name || "אוטומציה ללא שם") + (a.enabled ? "" : " · מושבתת"),
     }));
     const selected = automations.find((a) => a.id === action.automation_id);
     const values = action.automation_values ?? [];
@@ -3239,52 +3243,52 @@ function RunAutomationFields({
     return (
         <div className="space-y-4">
             <div>
-                <Label>Automation to run</Label>
+                <Label>אוטומציה להפעלה</Label>
                 <SelectMenu
                     value={action.automation_id ?? ""}
                     onChange={(id) => setAction((a) => ({ ...a, automation_id: id }))}
                     options={options}
-                    placeholder={options.length ? "Choose an automation…" : "No automations yet"}
+                    placeholder={options.length ? "בחר אוטומציה…" : "אין עדיין אוטומציות"}
                     className="w-full max-w-[320px]"
                     fullWidth
                 />
                 <p className="mt-1.5 text-[11px] text-slate-400">
-                    Launches the automation's flow for this contact when they reach this step. The automation receives{" "}
+                    מפעיל את תהליך האוטומציה עבור איש קשר זה כאשר הוא מגיע לשלב זה. האוטומציה מקבלת את{" "}
                     <span className="font-mono text-slate-500">contact_email</span>,{" "}
                     <span className="font-mono text-slate-500">first_name</span>,{" "}
                     <span className="font-mono text-slate-500">last_name</span>,{" "}
                     <span className="font-mono text-slate-500">company</span>,{" "}
-                    <span className="font-mono text-slate-500">campaign_name</span> plus your values below. Reference them as{" "}
-                    <span className="font-mono text-slate-500">{"{{.key}}"}</span> in the automation's actions.
+                    <span className="font-mono text-slate-500">campaign_name</span> בתוספת הערכים שלך למטה. התייחס אליהם כ-{" "}
+                    <span className="font-mono text-slate-500">{"{{.key}}"}</span> בפעולות האוטומציה.
                 </p>
                 {selected && !selected.enabled && (
                     <p className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700">
-                        This automation is disabled, so this step will be skipped (and logged) until you enable it.
+                        אוטומציה זו מושבתת, לכן שלב זה יידלג (ויתועד) עד שתפעיל אותה.
                     </p>
                 )}
                 {selected && selected.enabled && selected.trigger_event !== "campaign.action" && (
                     <p className="mt-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[11px] leading-relaxed text-sky-700">
-                        Built for the "{triggerLabel(selected.trigger_event)}" trigger. It still runs here, but only contact and
-                        campaign variables are filled in. Its trigger-specific variables (like{" "}
-                        <span className="font-mono">{"{{.invitee_name}}"}</span>) will be empty.
+                        נבנתה עבור טריגר "{triggerLabel(selected.trigger_event)}". היא עדיין תפעל כאן, אך רק משתני איש הקשר
+                        והקמפיין ימולאו. משתנים ספציפיים לטריגר (כמו{" "}
+                        <span className="font-mono">{"{{.invitee_name}}"}</span>) יהיו ריקים.
                     </p>
                 )}
             </div>
 
             <div>
                 <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <Label className="mb-0">Pass values (optional)</Label>
+                    <Label className="mb-0">העברת ערכים (אופציונלי)</Label>
                     <button
                         type="button"
                         onClick={addRow}
                         className="inline-flex h-6 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[11.5px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
                     >
-                        <PlusIcon className="w-3 h-3" /> Add value
+                        <PlusIcon className="w-3 h-3" /> הוסף ערך
                     </button>
                 </div>
                 {values.length === 0 ? (
                     <p className="text-[11px] text-slate-400">
-                        Add key/value pairs to pass into the automation. Values support {"{{.FirstName}}"} / {"{{.Company}}"}.
+                        הוסף צמדי מפתח/ערך להעברה לאוטומציה. ערכים תומכים ב-{"{{.FirstName}}"} / {"{{.Company}}"}.
                     </p>
                 ) : (
                     <div className="space-y-1.5">
@@ -3293,7 +3297,7 @@ function RunAutomationFields({
                                 <TextInput
                                     value={row.key}
                                     onChange={(v) => updateRow(i, { key: v })}
-                                    placeholder="key"
+                                    placeholder="מפתח"
                                     className="w-28 shrink-0"
                                 />
                                 <span className="text-slate-300">=</span>
@@ -3307,7 +3311,7 @@ function RunAutomationFields({
                                 <button
                                     type="button"
                                     onClick={() => removeRow(i)}
-                                    title="Remove"
+                                    title="הסר"
                                     className="inline-flex size-6 shrink-0 items-center justify-center rounded text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
                                 >
                                     <Trash2Icon className="w-3.5 h-3.5" />
@@ -3340,39 +3344,39 @@ function FireEventStepFields({
     return (
         <div className="space-y-3">
             <div>
-                <Label>Event name</Label>
+                <Label>שם האירוע</Label>
                 <TextInput
                     value={action.event_name ?? ""}
                     onChange={(v) => setAction((a) => ({ ...a, event_name: v }))}
                     placeholder="lead.reached_step"
                     className="w-full font-mono"
                 />
-                <p className="mt-1 text-[11px] text-slate-400">What your app subscribes to over the realtime websocket.</p>
+                <p className="mt-1 text-[11px] text-slate-400">מה שהאפליקציה שלך מאזינה לו דרך חיבור ה-websocket בזמן אמת.</p>
             </div>
             <div>
                 <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <Label className="mb-0">Payload (optional)</Label>
+                    <Label className="mb-0">נתוני אירוע (אופציונלי)</Label>
                     <button
                         type="button"
                         onClick={addRow}
                         className="inline-flex h-6 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[11.5px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
                     >
-                        <PlusIcon className="w-3 h-3" /> Add field
+                        <PlusIcon className="w-3 h-3" /> הוסף שדה
                     </button>
                 </div>
                 {fields.length === 0 ? (
-                    <p className="text-[11px] text-slate-400">Add key/value fields. Values support {"{{.FirstName}}"} / {"{{.Company}}"}.</p>
+                    <p className="text-[11px] text-slate-400">הוסף שדות מפתח/ערך. ערכים תומכים ב-{"{{.FirstName}}"} / {"{{.Company}}"}.</p>
                 ) : (
                     <div className="space-y-1.5">
                         {fields.map((row, i) => (
                             <div key={i} className="flex items-center gap-1.5">
-                                <TextInput value={row.key} onChange={(v) => updateRow(i, { key: v })} placeholder="field" className="w-28 shrink-0 font-mono" />
+                                <TextInput value={row.key} onChange={(v) => updateRow(i, { key: v })} placeholder="שדה" className="w-28 shrink-0 font-mono" />
                                 <span className="text-slate-300">=</span>
                                 <TextInput value={row.value} onChange={(v) => updateRow(i, { value: v })} placeholder="{{.Email}}" className="flex-1 min-w-0 font-mono" />
                                 <button
                                     type="button"
                                     onClick={() => removeRow(i)}
-                                    title="Remove"
+                                    title="הסר"
                                     className="inline-flex size-6 shrink-0 items-center justify-center rounded text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
                                 >
                                     <XIcon className="w-3.5 h-3.5" />
@@ -3439,12 +3443,12 @@ function TagPoolField({
             <CategoryPicker
                 value={value.map((r) => r.id)}
                 onChange={(ids) => onChange(ids.map((id) => ({ id, name: titleById.get(id) ?? knownName.get(id) ?? id })))}
-                placeholder="Any — leave empty to let the agent choose"
+                placeholder="הכל: השאר ריק כדי לאפשר לסוכן לבחור"
             />
             <p className="mt-1.5 text-[11px] text-slate-400">
                 {value.length
-                    ? "The agent chooses among these for each contact."
-                    : "Empty, so the agent may use any of your tags for each contact."}
+                    ? "הסוכן בוחר מתוכן עבור כל איש קשר."
+                    : "ריק, כך שהסוכן רשאי להשתמש בכל אחת מהתגיות שלך עבור כל איש קשר."}
             </p>
         </div>
     );
@@ -3476,18 +3480,18 @@ function AIStepFields({
     return (
         <div className="space-y-4">
             <div>
-                <Label>Instruction</Label>
+                <Label>הוראה לסוכן</Label>
                 <textarea
                     value={action.ai_instruction ?? ""}
                     onChange={(e) => setAction((a) => ({ ...a, ai_instruction: e.target.value }))}
                     rows={3}
-                    placeholder="Read the reply. If they ask about pricing, tag them 'pricing' and create a follow-up task."
+                    placeholder="קרא את התשובה. אם הם שואלים לגבי תמחור, הוסף להם תגית 'pricing' וצור משימת המשך טיפול."
                     className="w-full resize-y rounded-md border border-slate-200 px-2.5 py-1.5 text-[12.5px] text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
                 />
             </div>
             <div>
                 <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    Actions the agent can take
+                    פעולות שהסוכן יכול לבצע
                 </div>
                 <div className="divide-y divide-slate-100">
                     {CAMPAIGN_AI_ALLOWLIST.map((id) => {
@@ -3499,7 +3503,7 @@ function AIStepFields({
                                 <button
                                     type="button"
                                     onClick={() => toggle(id)}
-                                    className="flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left text-[12.5px] text-slate-700 transition-colors hover:bg-slate-50"
+                                    className="flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-right text-[12.5px] text-slate-700 transition-colors hover:bg-slate-50"
                                 >
                                     <span
                                         className={`inline-flex size-4 shrink-0 items-center justify-center rounded border ${
@@ -3514,14 +3518,14 @@ function AIStepFields({
                                     </span>
                                 </button>
                                 {on && hasConfig && CAMPAIGN_AI_POOL_KEY[id] && (
-                                    <div className="ml-[1.35rem] mt-1 space-y-3 border-l border-slate-200 pl-3 pb-1.5">
+                                    <div className="mr-[1.35rem] mt-1 space-y-3 border-r border-slate-200 pr-3 pb-1.5">
                                         <TagPoolField
                                             label={
                                                 id === "add_tag"
-                                                    ? "Tags the agent can add"
+                                                    ? "תגיות שהסוכן רשאי להוסיף"
                                                     : id === "remove_tag"
-                                                      ? "Tags the agent can remove"
-                                                      : "Labels the agent can apply"
+                                                      ? "תגיות שהסוכן רשאי להסיר"
+                                                      : "תוויות שהסוכן רשאי להחיל"
                                             }
                                             value={action[CAMPAIGN_AI_POOL_KEY[id]!] ?? []}
                                             onChange={(refs) =>
@@ -3538,7 +3542,7 @@ function AIStepFields({
                     <button
                         type="button"
                         onClick={() => setAction((a) => ({ ...a, ai_allow_create_tags: !a.ai_allow_create_tags }))}
-                        className="mt-2 flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left text-[12px] text-slate-600 transition-colors hover:bg-slate-50"
+                        className="mt-2 flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-right text-[12px] text-slate-600 transition-colors hover:bg-slate-50"
                     >
                         <span
                             className={`inline-flex size-4 shrink-0 items-center justify-center rounded border ${
@@ -3547,13 +3551,11 @@ function AIStepFields({
                         >
                             {action.ai_allow_create_tags && <CheckIcon className="w-3 h-3" />}
                         </span>
-                        Let the agent create a new tag/label when none fits
+                        אפשר לסוכן ליצור תגית/תווית חדשה כאשר אף אחת אינה מתאימה
                     </button>
                 )}
                 <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-                    The agent decides which of these to use for each contact, writes any task or deal details itself, and
-                    can chain several. It only takes the actions you enable, never sending or replying. Billed 1 credit
-                    per step it takes.
+                    הסוכן מחליט באילו פעולות להשתמש עבור כל איש קשר, מנסח בעצמו את פרטי המשימה או העסקה, ויכול לשרשר מספר פעולות ברצף. הוא מבצע אך ורק את הפעולות שתאפשר לו, ולעולם אינו שולח או משיב להודעות. חיוב: קרדיט 1 לכל שלב שבוצע.
                 </p>
             </div>
         </div>
@@ -3576,21 +3578,21 @@ function SwitchStepFields({
     return (
         <div className="space-y-4">
             <div>
-                <Label>Decided by</Label>
+                <Label>אופן ההחלטה</Label>
                 <div className="grid grid-cols-2 gap-1.5">
                     {(
                         [
                             {
                                 mode: true,
                                 Icon: SparklesIcon,
-                                title: "AI prompt",
-                                detail: "A model reads the contact and picks a case. 1 credit per contact.",
+                                title: "הנחיית AI",
+                                detail: "המודל קורא את נתוני איש הקשר ובוחר נתיב. קרדיט 1 לכל איש קשר.",
                             },
                             {
                                 mode: false,
                                 Icon: BracesIcon,
-                                title: "Value",
-                                detail: "A field or template is matched to the cases. Free, deterministic.",
+                                title: "התאמת ערך",
+                                detail: "שדה או תבנית מותאמים לשמות הנתיבים. חינמי, דטרמיניסטי.",
                             },
                         ] as const
                     ).map(({ mode, Icon, title, detail }) => {
@@ -3600,7 +3602,7 @@ function SwitchStepFields({
                                 key={title}
                                 type="button"
                                 onClick={() => setAction((a) => ({ ...a, switch_on: mode ? "ai" : "value" }))}
-                                className={`flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-left transition-colors ${
+                                className={`flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-right transition-colors ${
                                     active
                                         ? "border-purple-300 bg-purple-50"
                                         : "border-slate-200 bg-white hover:border-slate-300"
@@ -3622,7 +3624,7 @@ function SwitchStepFields({
             {aiMode ? (
                 <div>
                     <div className="mb-1.5 flex items-center justify-between gap-2">
-                        <Label className="mb-0">Tell AI how to route</Label>
+                        <Label className="mb-0">הנחה את ה-AI כיצד לנתב</Label>
                         <DealNameVariableMenu
                             onPick={(token) => setAction((a) => ({ ...a, ai_instruction: (a.ai_instruction ?? "") + token }))}
                         />
@@ -3632,28 +3634,24 @@ function SwitchStepFields({
                         onChange={(e) => setAction((a) => ({ ...a, ai_instruction: e.target.value }))}
                         rows={4}
                         maxLength={4000}
-                        placeholder={
-                            "Read this contact's reply and company details. Decide whether they're interested, not ready yet, or the wrong person."
-                        }
+                        placeholder="קרא את התשובה ופרטי החברה של איש קשר זה. החלט האם הוא מעוניין, לא מוכן עדיין, או שאינו האדם הנכון לתקשר עמו."
                         className="w-full px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 resize-y leading-relaxed"
                     />
                     <p className="mt-1 text-[11px] text-slate-400">
-                        One model call per contact reaching this step picks exactly one case. Supports the same{" "}
-                        {"{{.FirstName}}"} / {"{{.Company}}"} variables as your email copy. Costs 1 credit per contact
-                        plus usage on long calls.
+                        קריאת מודל אחת לכל איש קשר שמגיע לשלב זה בוחרת במדויק נתיב אחד. תומך באותם משתנים כמו תוכן הדוא״ל (כגון {"{{.FirstName}}"} / {"{{.Company}}"}). עלות: קרדיט 1 לכל איש קשר בתוספת שימוש בקריאות ארוכות.
                     </p>
                     <div className="mt-3">
-                        <Label>Capabilities</Label>
+                        <Label>יכולות</Label>
                         <div className="space-y-1">
                             <AIContextToggle
-                                label="Web search"
-                                detail="Looks up the contact's company on the web before deciding. +1 credit when results are found"
+                                label="חיפוש באינטרנט"
+                                detail="מחפש מידע על חברת איש הקשר באינטרנט לפני קבלת ההחלטה. +1 קרדיט בעת מציאת תוצאות"
                                 on={!!action.ai_web_search}
                                 onToggle={() => setAction((a) => ({ ...a, ai_web_search: !a.ai_web_search || undefined }))}
                             />
                             <AIContextToggle
-                                label="Extended thinking"
-                                detail="Uses the stronger model with a bigger reasoning budget. Costs more through usage metering"
+                                label="חשיבה מורחבת"
+                                detail="משתמש במודל מתקדם עם תקציב הסקת מסקנות מוגדל. כרוך בעלות נוספת לפי שימוש"
                                 on={!!action.ai_thinking}
                                 onToggle={() => setAction((a) => ({ ...a, ai_thinking: !a.ai_thinking || undefined }))}
                             />
@@ -3663,7 +3661,7 @@ function SwitchStepFields({
             ) : (
                 <div>
                     <div className="mb-1.5 flex items-center justify-between gap-2">
-                        <Label className="mb-0">Value to match</Label>
+                        <Label className="mb-0">ערך להתאמה</Label>
                         <DealNameVariableMenu
                             onPick={(token) => setAction((a) => ({ ...a, switch_value: (a.switch_value ?? "") + token }))}
                         />
@@ -3671,21 +3669,18 @@ function SwitchStepFields({
                     <TextInput
                         value={action.switch_value ?? ""}
                         onChange={(v) => setAction((a) => ({ ...a, switch_value: v.slice(0, 500) }))}
-                        placeholder="e.g. {{.Industry}}"
+                        placeholder="לדוגמה {{.Industry}}"
                         className="w-full font-mono"
                     />
                     <p className="mt-1 text-[11px] text-slate-400">
-                        Rendered per contact and matched to the case names. Matching ignores casing and extra spaces
-                        (“ VIP  Customer” matches the case “vip customer”); wrap a case in slashes for a regex, e.g.{" "}
-                        <code className="font-mono">/^(vip|enterprise)/</code>. First matching case wins. No model call,
-                        no credits.
+                        מפוענח עבור כל איש קשר ומושווה מול שמות המקרים (cases). ההתאמה אינה רגישה לאותיות גדולות/קטנות או לרווחים עודפים (" VIP Customer" יותאם ל-"vip customer"). כדי להשתמש ב-regex, עטוף את המקרה בלוכסנים, לדוגמה: <code className="font-mono">/^(vip|enterprise)/</code>. המקרה הראשון שמתאים מנצח. ללא קריאת מודל, ללא חיוב קרדיטים.
                     </p>
                 </div>
             )}
 
             <div>
                 <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <Label className="mb-0">Cases</Label>
+                    <Label className="mb-0">מקרים (נתיבים)</Label>
                     <button
                         type="button"
                         onClick={() => {
@@ -3694,12 +3689,12 @@ function SwitchStepFields({
                         }}
                         className="inline-flex h-6 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[11.5px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
                     >
-                        <PlusIcon className="w-3 h-3" /> Add case
+                        <PlusIcon className="w-3 h-3" /> הוסף מקרה
                     </button>
                 </div>
                 {cases.length === 0 ? (
                     <p className="text-[11px] text-slate-400">
-                        Each case becomes its own dot on the node — drag it to the step that path leads to.
+                        כל מקרה מקבל נקודת חיבור משלו על גבי הצומת: גרור אותה אל השלב אליו נתיב זה מוביל.
                     </p>
                 ) : (
                     <div className="space-y-1.5">
@@ -3708,13 +3703,13 @@ function SwitchStepFields({
                                 <TextInput
                                     value={row}
                                     onChange={(v) => setCases(cases.map((x, idx) => (idx === i ? v.slice(0, 80) : x)))}
-                                    placeholder="e.g. interested"
+                                    placeholder="לדוגמה מעוניין"
                                     className="flex-1 min-w-0"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setCases(cases.filter((_, idx) => idx !== i))}
-                                    title="Remove case"
+                                    title="הסר מקרה"
                                     className="inline-flex size-6 shrink-0 items-center justify-center rounded text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
                                 >
                                     <XIcon className="w-3.5 h-3.5" />
@@ -3727,29 +3722,27 @@ function SwitchStepFields({
 
             {aiMode && (
                 <div>
-                    <Label>What AI can see</Label>
+                    <Label>מה ה-AI יכול לראות</Label>
                     <div className="space-y-1">
                         <AIContextToggle
-                            label="Campaign history"
-                            detail="Which steps ran, opens, clicks, replies, and earlier outcomes"
+                            label="היסטוריית קמפיין"
+                            detail="אילו שלבים רצו, פתיחות, לחיצות, תשובות ותוצאות קודמות"
                             on={!action.ai_no_engagement}
                             onToggle={() => setAction((a) => ({ ...a, ai_no_engagement: !a.ai_no_engagement || undefined }))}
                         />
                         <AIContextToggle
-                            label="Incoming email"
-                            detail="The newest email received from the contact (subject + preview)"
+                            label="דוא״ל נכנס"
+                            detail="הדוא״ל האחרון שהתקבל מאיש הקשר (נושא + תצוגה מקדימה)"
                             on={!action.ai_no_replies}
                             onToggle={() => setAction((a) => ({ ...a, ai_no_replies: !a.ai_no_replies || undefined }))}
                         />
                     </div>
-                    <p className="mt-1 text-[11px] text-slate-400">Contact fields are always included.</p>
+                    <p className="mt-1 text-[11px] text-slate-400">שדות איש הקשר נכללים תמיד.</p>
                 </div>
             )}
 
             <p className="rounded-md bg-slate-50 px-2.5 py-2 text-[11px] leading-relaxed text-slate-600 ring-1 ring-slate-200">
-                Every case gets its own dot on the node — drag each dot to the step that path leads to, and the bottom
-                dot is the “otherwise” fallback for contacts no case matched. Put normal action steps (tag, deal, task…)
-                on a path to make things happen for the contacts routed down it.
+                כל מקרה מקבל נקודת חיבור ייעודית על גבי הצומת: גרור כל נקודה לשלב שאליו מוביל הנתיב. הנקודה התחתונה היא ברירת המחדל ("אחרת") עבור אנשי קשר שאף מקרה לא התאים להם. הוסף שלבי פעולות רגילים (תגית, עסקה, משימה וכד') בנתיב כדי לבצע פעולות עבור אנשי הקשר שינותבו אליו.
             </p>
         </div>
     );
@@ -3809,7 +3802,7 @@ function DealNameVariableMenu({ onPick }: { onPick: (token: string) => void }) {
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                title="Insert a personalization variable"
+                title="הוספת משתנה התאמה אישית"
                 className="inline-flex h-7 items-center gap-1 rounded px-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
             >
                 <BracesIcon className="w-3.5 h-3.5" />
@@ -3825,7 +3818,7 @@ function DealNameVariableMenu({ onPick }: { onPick: (token: string) => void }) {
                                 onPick(v);
                                 setOpen(false);
                             }}
-                            className="flex w-full items-center px-2.5 py-1.5 text-left font-mono text-[11.5px] text-slate-700 transition-colors hover:bg-slate-100"
+                            className="flex w-full items-center px-2.5 py-1.5 text-right font-mono text-[11.5px] text-slate-700 transition-colors hover:bg-slate-100"
                         >
                             {v}
                         </button>
@@ -3838,7 +3831,7 @@ function DealNameVariableMenu({ onPick }: { onPick: (token: string) => void }) {
 
 // CurrencyPicker — a small themed dropdown for the deal currency (ISO code).
 // Defaults to USD; the value persisted is the bare ISO code (e.g. "USD").
-const DEAL_CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "INR", "BRL"];
+const DEAL_CURRENCIES = ["ILS", "USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "INR", "BRL"];
 
 function CurrencyPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
     const [open, setOpen] = React.useState(false);
@@ -3851,7 +3844,7 @@ function CurrencyPicker({ value, onChange }: { value: string; onChange: (c: stri
                 onClick={() => setOpen((o) => !o)}
                 className="inline-flex h-7 w-24 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-[12px] text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
             >
-                <span className="flex-1 truncate text-left">{value || "USD"}</span>
+                <span className="flex-1 truncate text-right">{value || "ILS"}</span>
                 <ChevronDownIcon className="w-3 h-3 text-slate-400" />
             </button>
             {open && (
@@ -3864,7 +3857,7 @@ function CurrencyPicker({ value, onChange }: { value: string; onChange: (c: stri
                                 onChange(c);
                                 setOpen(false);
                             }}
-                            className={`flex w-full items-center px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-slate-100 ${
+                            className={`flex w-full items-center px-2.5 py-1.5 text-right text-[12px] transition-colors hover:bg-slate-100 ${
                                 c === value ? "font-medium text-slate-900" : "text-slate-700"
                             }`}
                         >
