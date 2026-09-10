@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { Logo } from "@/components/svg";
 import { TextInput } from "@/components/ui/field";
@@ -140,6 +141,8 @@ function openCentered(url: string, name: string): Window | null {
 export default function AddEmailModal() {
     const user = useUserProfile();
     const qc = useQueryClient();
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
 
     const [view, setView] = React.useState<View>("pick");
     const [oauthBusy, setOauthBusy] = React.useState<OAuthProvider | null>(null);
@@ -196,7 +199,16 @@ export default function AddEmailModal() {
             if (data.status !== "ok") {
                 setOauthBusy(null);
                 if (data.error !== "access_denied") {
-                    toast.error(data.message || (data.error ? `Provider error: ${data.error}` : "Connection was cancelled."));
+                    toast.error(
+                        data.message ||
+                            (data.error
+                                ? isHe
+                                    ? `שגיאת ספק: ${data.error}`
+                                    : `Provider error: ${data.error}`
+                                : isHe
+                                  ? "ההתחברות בוטלה."
+                                  : "Connection was cancelled."),
+                    );
                 }
                 return;
             }
@@ -209,8 +221,10 @@ export default function AddEmailModal() {
                     return inbox;
                 }),
                 {
-                    loading: "Adding the mailbox…",
-                    success: "Mailbox connected. Warmbly Cloud warms it from now on.",
+                    loading: isHe ? "מחבר את התיבה…" : "Adding the mailbox…",
+                    success: isHe
+                        ? "תיבת הדואר חוברה בהצלחה. Warmbly Cloud יחמם אותה מעכשיו."
+                        : "Mailbox connected. Warmbly Cloud warms it from now on.",
                     error: (e: AppError) => buildError(e),
                 },
             )
@@ -219,7 +233,7 @@ export default function AddEmailModal() {
         }
         window.addEventListener("message", onMessage);
         return () => window.removeEventListener("message", onMessage);
-    }, [qc, user, onConnectError]);
+    }, [qc, user, onConnectError, isHe]);
 
     // Listen for the OAuth popup's postMessage. We only honour messages from an
     // origin we own and whose state matches the one we issued, which is what
@@ -239,7 +253,15 @@ export default function AddEmailModal() {
             if (data.error || !data.code) {
                 setOauthBusy(null);
                 if (data.error !== "access_denied") {
-                    toast.error(data.error ? `Provider error: ${data.error}` : "Connection was cancelled.");
+                    toast.error(
+                        data.error
+                            ? isHe
+                                ? `שגיאת ספק: ${data.error}`
+                                : `Provider error: ${data.error}`
+                            : isHe
+                              ? "ההתחברות בוטלה."
+                              : "Connection was cancelled.",
+                    );
                 }
                 return;
             }
@@ -252,8 +274,8 @@ export default function AddEmailModal() {
                     return inbox;
                 }),
                 {
-                    loading: "Connecting…",
-                    success: "Mailbox connected",
+                    loading: isHe ? "מתחבר…" : "Connecting…",
+                    success: isHe ? "תיבת הדואר חוברה בהצלחה" : "Mailbox connected",
                     error: (e: AppError) => buildError(e),
                 },
             )
@@ -262,7 +284,7 @@ export default function AddEmailModal() {
         }
         window.addEventListener("message", onMessage);
         return () => window.removeEventListener("message", onMessage);
-    }, [qc, user, onConnectError]);
+    }, [qc, user, onConnectError, isHe]);
 
     async function startOAuth(provider: OAuthProvider) {
         if (oauthBusy) return;
@@ -276,7 +298,11 @@ export default function AddEmailModal() {
                 if (!popup) {
                     pendingCloud.current = null;
                     setOauthBusy(null);
-                    toast.error("Could not open the authorization window. Please allow popups and try again.");
+                    toast.error(
+                        isHe
+                            ? "לא ניתן לפתוח את חלון האישור. נא לאפשר חלונות קופצים (Popups) ולנסות שוב."
+                            : "Could not open the authorization window. Please allow popups and try again.",
+                    );
                 }
             } catch (err) {
                 pendingCloud.current = null;
@@ -296,7 +322,11 @@ export default function AddEmailModal() {
             if (!popup) {
                 pendingState.current = null;
                 setOauthBusy(null);
-                toast.error("Could not open the authorization window. Please allow popups and try again.");
+                toast.error(
+                    isHe
+                        ? "לא ניתן לפתוח את חלון האישור. נא לאפשר חלונות קופצים (Popups) ולנסות שוב."
+                        : "Could not open the authorization window. Please allow popups and try again.",
+                );
             }
         } catch (err) {
             pendingState.current = null;
@@ -435,6 +465,9 @@ export default function AddEmailModal() {
 // clear "full" state that leads to the request dialog rather than letting the
 // user type credentials that will be refused.
 function AllowanceStrip({ allowance: a, onOpen }: { allowance: MailboxAllowance | undefined; onOpen: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
+
     if (!a || a.allowance == null) return null;
     const cap = a.allowance;
     const remaining = a.remaining ?? 0;
@@ -447,10 +480,10 @@ function AllowanceStrip({ allowance: a, onOpen }: { allowance: MailboxAllowance 
                 <span className="font-mono tabular-nums text-slate-700">
                     {a.used.toLocaleString()} / {cap.toLocaleString()}
                 </span>
-                <span>mailboxes on this workspace</span>
-                {a.pending_request && <span className="text-amber-600">· increase requested</span>}
-                <button type="button" onClick={onOpen} className="ml-auto underline hover:text-slate-900 transition-colors">
-                    Need more?
+                <span>{isHe ? "תיבות דואר במרחב עבודה זה" : "mailboxes on this workspace"}</span>
+                {a.pending_request && <span className="text-amber-600">{isHe ? "· בקשת הגדלה נשלחה" : "· increase requested"}</span>}
+                <button type="button" onClick={onOpen} className="ms-auto underline hover:text-slate-900 transition-colors">
+                    {isHe ? "צריך עוד?" : "Need more?"}
                 </button>
             </div>
         );
@@ -461,8 +494,12 @@ function AllowanceStrip({ allowance: a, onOpen }: { allowance: MailboxAllowance 
             <div className="flex items-baseline justify-between gap-2 mb-1">
                 <span className={cn("text-[12px] font-medium", full ? "text-rose-900" : "text-amber-900")}>
                     {full
-                        ? "Every mailbox slot is used"
-                        : `${remaining.toLocaleString()} ${remaining === 1 ? "slot" : "slots"} left`}
+                        ? isHe
+                            ? "כל מכסת תיבות הדואר נוצלה"
+                            : "Every mailbox slot is used"
+                        : isHe
+                          ? `נותרו ${remaining.toLocaleString()} תיבות פנויות`
+                          : `${remaining.toLocaleString()} ${remaining === 1 ? "slot" : "slots"} left`}
                 </span>
                 <span className="text-[11px] font-mono tabular-nums text-slate-700">
                     {a.used.toLocaleString()} / {cap.toLocaleString()}
@@ -472,10 +509,16 @@ function AllowanceStrip({ allowance: a, onOpen }: { allowance: MailboxAllowance 
             <div className="flex items-center justify-between gap-2 mt-1.5">
                 <span className={cn("text-[11px]", full ? "text-rose-800/90" : "text-amber-800/90")}>
                     {a.pending_request
-                        ? `Increase to ${a.pending_request.requested.toLocaleString()} requested, pending review`
+                        ? isHe
+                          ? `נשלחה בקשה להגדלה ל-${a.pending_request.requested.toLocaleString()}, בהמתנה לאישור`
+                          : `Increase to ${a.pending_request.requested.toLocaleString()} requested, pending review`
                         : full
-                          ? "New connects are refused until the allowance is raised"
-                          : "Ask for more before a large batch"}
+                          ? isHe
+                            ? "חיבורים חדשים יידחו עד להגדלת המכסה"
+                            : "New connects are refused until the allowance is raised"
+                          : isHe
+                            ? "מומלץ לבקש הגדלה לפני חיבור כמות גדולה"
+                            : "Ask for more before a large batch"}
                 </span>
                 <button
                     type="button"
@@ -485,7 +528,7 @@ function AllowanceStrip({ allowance: a, onOpen }: { allowance: MailboxAllowance 
                         full ? "bg-rose-600 hover:bg-rose-700 text-white" : "bg-amber-600 hover:bg-amber-700 text-white",
                     )}
                 >
-                    {a.pending_request ? "View request" : full ? "Get more mailboxes" : "Request more"}
+                    {a.pending_request ? (isHe ? "צפה בבקשה" : "View request") : full ? (isHe ? "הגדל מכסה" : "Get more mailboxes") : (isHe ? "בקש עוד" : "Request more")}
                 </button>
             </div>
         </div>
@@ -501,12 +544,15 @@ function Header({
     onBack: () => void;
     onClose: () => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
+
     const sub: Record<View, string> = {
-        pick: "Connect a sending account",
-        gmail: "Gmail or Google Workspace",
-        outlook: "Outlook or Microsoft 365",
-        smtp_imap: "Any provider via SMTP / IMAP",
-        bulk: "Many mailboxes from one CSV",
+        pick: isHe ? "חיבור תיבת דואר לשליחה" : "Connect a sending account",
+        gmail: isHe ? "Gmail או Google Workspace" : "Gmail or Google Workspace",
+        outlook: isHe ? "Outlook או Microsoft 365" : "Outlook or Microsoft 365",
+        smtp_imap: isHe ? "כל ספק באמצעות SMTP / IMAP" : "Any provider via SMTP / IMAP",
+        bulk: isHe ? "ייבוא תיבות מרובות מקובץ CSV" : "Many mailboxes from one CSV",
     };
     return (
         <div className="h-12 px-3 border-b border-slate-200 flex items-center gap-2.5 shrink-0">
@@ -514,22 +560,22 @@ function Header({
                 <button
                     type="button"
                     onClick={onBack}
-                    aria-label="Back"
+                    aria-label={isHe ? "חזרה" : "Back"}
                     className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                 >
-                    <ArrowLeftIcon className="w-3.5 h-3.5" />
+                    <ArrowLeftIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                 </button>
             )}
             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                Mailbox
+                {isHe ? "תיבת דואר" : "Mailbox"}
             </span>
             <div className="h-4 w-px bg-slate-200" />
             <span className="text-[12px] text-slate-600 truncate">{sub[view]}</span>
             <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
-                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                aria-label={isHe ? "סגור" : "Close"}
+                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
             >
                 <XIcon className="w-3.5 h-3.5" />
             </button>
@@ -552,6 +598,8 @@ const PROVIDER_SETUP: Record<OAuthProvider, { label: string; vars: string[] }> =
 };
 
 function ProviderNotConfigured({ provider, selfHosted }: { provider: OAuthProvider; selfHosted: boolean }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const { label, vars } = PROVIDER_SETUP[provider];
     return (
         <div className="p-4">
@@ -559,12 +607,19 @@ function ProviderNotConfigured({ provider, selfHosted }: { provider: OAuthProvid
                 <div className="mb-3 rounded-md border border-sky-200 bg-sky-50 p-3 flex items-start gap-2.5">
                     <CloudIcon className="w-4 h-4 text-sky-600 mt-0.5 shrink-0" />
                     <div className="min-w-0">
-                        <p className="text-[12.5px] font-medium text-sky-900">Skip the OAuth setup: connect Warmbly Cloud</p>
-                        <p className="text-[12.5px] text-sky-800 mt-1">
-                            Linked instances sign mailboxes in through Warmbly's own Google and Microsoft apps, and the cloud warms them. Free for 10 mailboxes.
+                        <p className="text-[12.5px] font-medium text-sky-900">
+                            {isHe ? "דלג על הגדרות OAuth: התחבר ל-Warmbly Cloud" : "Skip the OAuth setup: connect Warmbly Cloud"}
                         </p>
-                        <a href="/app/settings/warmbly-cloud" className="mt-2 inline-flex h-7 px-2.5 items-center gap-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors">
-                            Connect Warmbly Cloud
+                        <p className="text-[12.5px] text-sky-800 mt-1">
+                            {isHe
+                                ? "מופעים מקושרים מתחברים לתיבות דרך האפליקציות של Google ו-Microsoft של Warmbly, והענן מחמם אותן. חינם עבור 10 תיבות."
+                                : "Linked instances sign mailboxes in through Warmbly's own Google and Microsoft apps, and the cloud warms them. Free for 10 mailboxes."}
+                        </p>
+                        <a
+                            href="/app/settings/warmbly-cloud"
+                            className="mt-2 inline-flex h-7 px-2.5 items-center gap-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors"
+                        >
+                            {isHe ? "התחבר ל-Warmbly Cloud" : "Connect Warmbly Cloud"}
                         </a>
                     </div>
                 </div>
@@ -574,19 +629,30 @@ function ProviderNotConfigured({ provider, selfHosted }: { provider: OAuthProvid
                     <SettingsIcon className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                         <p className="text-[12.5px] font-medium text-amber-900">
-                            {label} is not configured on this deployment
+                            {isHe ? `${label} אינו מוגדר בהתקנה זו` : `${label} is not configured on this deployment`}
                         </p>
                         <p className="text-[12.5px] text-amber-800 mt-1">
-                            Connecting these mailboxes needs an OAuth client. Add both values to
-                            the <code className="bg-white/70 px-1 rounded">.env</code> at the root of
-                            your Warmbly install, then restart with{" "}
-                            <code className="bg-white/70 px-1 rounded">make up</code>.
+                            {isHe ? (
+                                <>
+                                    חיבור תיבות אלו דורש לקוח OAuth. הוסף את שני הערכים לקובץ{" "}
+                                    <code className="bg-white/70 px-1 rounded font-mono">.env</code> בתיקיית השורש של התקנת Warmbly, ולאחר מכן הפעל מחדש באמצעות{" "}
+                                    <code className="bg-white/70 px-1 rounded font-mono">make up</code>.
+                                </>
+                            ) : (
+                                <>
+                                    Connecting these mailboxes needs an OAuth client. Add both values to
+                                    the <code className="bg-white/70 px-1 rounded font-mono">.env</code> at the root of
+                                    your Warmbly install, then restart with{" "}
+                                    <code className="bg-white/70 px-1 rounded font-mono">make up</code>.
+                                </>
+                            )}
                         </p>
                         <ul className="mt-2 space-y-1">
                             {vars.map((v) => (
                                 <li
                                     key={v}
-                                    className="text-[12px] font-mono text-amber-900 bg-white/70 rounded px-1.5 py-1"
+                                    dir="ltr"
+                                    className="text-[12px] font-mono text-amber-900 bg-white/70 rounded px-1.5 py-1 text-left"
                                 >
                                     {v}=
                                 </li>
@@ -603,17 +669,22 @@ function ProviderNotConfigured({ provider, selfHosted }: { provider: OAuthProvid
                 className="mt-3 h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md border border-slate-200 text-[12.5px] text-slate-700 hover:bg-slate-50 transition-colors"
             >
                 <ExternalLinkIcon className="w-3.5 h-3.5" />
-                Full environment setup guide
+                {isHe ? "מדריך מלא להגדרת הסביבה" : "Full environment setup guide"}
             </a>
 
             <p className="mt-3 text-[12px] text-slate-500">
-                No setup needed for any other provider: connect it over SMTP and IMAP instead.
+                {isHe
+                    ? "אין צורך בהגדרות מיוחדות עבור ספקים אחרים: ניתן להתחבר אליהם ישירות דרך SMTP ו-IMAP."
+                    : "No setup needed for any other provider: connect it over SMTP and IMAP instead."}
             </p>
         </div>
     );
 }
 
 function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => void; viaCloud: boolean; onAdopted: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
+
     const rows: Array<{
         key: View;
         icon: React.ReactNode;
@@ -624,29 +695,33 @@ function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => vo
         {
             key: "gmail",
             icon: <Google className="w-5 h-5" />,
-            title: "Gmail / Google Workspace",
-            sub: viaCloud ? "Sign in through Warmbly Cloud. Warmup included, no OAuth app needed." : "OAuth via Google. Best deliverability for Gmail.",
+            title: isHe ? "Gmail / Google Workspace" : "Gmail / Google Workspace",
+            sub: viaCloud
+                ? (isHe ? "התחברות דרך Warmbly Cloud. חימום כלול, ללא צורך באפליקציית OAuth." : "Sign in through Warmbly Cloud. Warmup included, no OAuth app needed.")
+                : (isHe ? "חיבור OAuth מאובטח מול Google. עבירות מיטבית עבור Gmail." : "OAuth via Google. Best deliverability for Gmail."),
             tone: "primary",
         },
         {
             key: "outlook",
             icon: <Outlook className="w-5 h-5" />,
-            title: "Outlook / Microsoft 365",
-            sub: viaCloud ? "Sign in through Warmbly Cloud. Warmup included, no OAuth app needed." : "OAuth via Microsoft. Native sync for Outlook accounts.",
+            title: isHe ? "Outlook / Microsoft 365" : "Outlook / Microsoft 365",
+            sub: viaCloud
+                ? (isHe ? "התחברות דרך Warmbly Cloud. חימום כלול, ללא צורך באפליקציית OAuth." : "Sign in through Warmbly Cloud. Warmup included, no OAuth app needed.")
+                : (isHe ? "חיבור OAuth מאובטח מול Microsoft. סנכרון טבעי לחשבונות Outlook." : "OAuth via Microsoft. Native sync for Outlook accounts."),
             tone: "primary",
         },
         {
             key: "smtp_imap",
             icon: <Logo className="w-4 h-5 text-slate-700" />,
-            title: "Other (SMTP / IMAP)",
-            sub: "Any provider with manual host, port, and app password.",
+            title: isHe ? "ספק אחר (SMTP / IMAP)" : "Other (SMTP / IMAP)",
+            sub: isHe ? "התחברות לכל ספק עם הגדרות שרת, פורט וסיסמת אפליקציה." : "Any provider with manual host, port, and app password.",
             tone: "neutral",
         },
         {
             key: "bulk",
             icon: <FileSpreadsheetIcon className="w-4 h-4 text-slate-700" />,
-            title: "Bulk import from CSV",
-            sub: "Hundreds or thousands of SMTP / IMAP mailboxes in one go, with a report of anything that failed.",
+            title: isHe ? "ייבוא המוני מקובץ CSV" : "Bulk import from CSV",
+            sub: isHe ? "ייבוא מאות או אלפי תיבות SMTP / IMAP בפעימה אחת, עם דוח מפורט." : "Hundreds or thousands of SMTP / IMAP mailboxes in one go, with a report of anything that failed.",
             tone: "neutral",
         },
     ];
@@ -660,7 +735,7 @@ function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => vo
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.04 + i * 0.04, duration: 0.18, ease: "easeOut" }}
-                    className="w-full px-4 py-3.5 flex items-center gap-3 text-left group hover:bg-slate-50 transition-colors"
+                    className="w-full px-4 py-3.5 flex items-center gap-3 text-start rtl:text-right group hover:bg-slate-50 transition-colors"
                 >
                     <div className="size-9 rounded-md border border-slate-200 bg-white flex items-center justify-center shrink-0 transition-colors group-hover:border-slate-300">
                         {r.icon}
@@ -669,7 +744,7 @@ function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => vo
                         <div className="text-[13px] font-medium text-slate-900 truncate">{r.title}</div>
                         <div className="text-[11.5px] text-slate-500 truncate">{r.sub}</div>
                     </div>
-                    <ChevronRightIcon className="w-4 h-4 text-slate-300 shrink-0 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
+                    <ChevronRightIcon className="w-4 h-4 text-slate-300 shrink-0 group-hover:text-slate-500 rtl:rotate-180 group-hover:ltr:translate-x-0.5 group-hover:rtl:-translate-x-0.5 transition-all" />
                 </motion.button>
             ))}
             {viaCloud && <WorkspaceMailboxes onAdopted={onAdopted} />}
@@ -680,6 +755,8 @@ function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => vo
 // Mailboxes connected directly on the linked Warmbly Cloud workspace: one
 // click brings each one here, sending with tokens the cloud brokers.
 function WorkspaceMailboxes({ onAdopted }: { onAdopted: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const list = useCloudWorkspaceMailboxes();
     const adopt = useAdoptCloudMailbox();
     const [busy, setBusy] = React.useState<string | null>(null);
@@ -690,7 +767,7 @@ function WorkspaceMailboxes({ onAdopted }: { onAdopted: () => void }) {
         setBusy(id);
         try {
             await adopt.mutateAsync(id);
-            toast.success(`${email} connected`);
+            toast.success(isHe ? `${email} חובר בהצלחה` : `${email} connected`);
             onAdopted();
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -703,7 +780,9 @@ function WorkspaceMailboxes({ onAdopted }: { onAdopted: () => void }) {
         <div className="px-4 py-3 bg-sky-50/40">
             <div className="flex items-center gap-1.5 mb-2">
                 <CloudIcon className="w-3.5 h-3.5 text-sky-600" />
-                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">In your Warmbly Cloud workspace</span>
+                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
+                    {isHe ? "במרחב העבודה שלך ב-Warmbly Cloud" : "In your Warmbly Cloud workspace"}
+                </span>
             </div>
             <div className="space-y-1.5">
                 {items.map((m) => (
@@ -713,7 +792,9 @@ function WorkspaceMailboxes({ onAdopted }: { onAdopted: () => void }) {
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="text-[12.5px] text-slate-900 truncate">{m.email}</div>
-                            <div className="text-[11px] text-slate-500 truncate">Connected on the cloud. Add it here to send campaigns from it.</div>
+                            <div className="text-[11px] text-slate-500 truncate">
+                                {isHe ? "מחובר בענן. הוסף אותו כאן כדי לשלוח קמפיינים דרכו." : "Connected on the cloud. Add it here to send campaigns from it."}
+                            </div>
                         </div>
                         <button
                             type="button"
@@ -722,7 +803,7 @@ function WorkspaceMailboxes({ onAdopted }: { onAdopted: () => void }) {
                             className="shrink-0 h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                         >
                             {busy === m.id ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                            Connect
+                            {isHe ? "התחבר" : "Connect"}
                         </button>
                     </div>
                 ))}
@@ -742,6 +823,9 @@ function OAuthPanel({
     viaCloud: boolean;
     onConnect: () => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
+
     const label = provider === "gmail" ? "Google" : "Microsoft";
     const Icon = provider === "gmail" ? Google : Outlook;
     return (
@@ -752,27 +836,31 @@ function OAuthPanel({
                 </div>
                 <div>
                     <div className="text-[13.5px] font-medium text-slate-900">
-                        Connect with {label}
+                        {isHe ? `התחברות באמצעות ${label}` : `Connect with ${label}`}
                     </div>
                     <div className="text-[11.5px] text-slate-500">
                         {viaCloud
-                            ? `Warmbly Cloud opens the ${label} window on its own app. Approve and you're done.`
-                            : `We'll open a ${label} window. Approve the scopes and you're done.`}
+                            ? (isHe
+                                ? `Warmbly Cloud יפתח חלון של ${label} באפליקציה שלו. מאשרים ומסיימים.`
+                                : `Warmbly Cloud opens the ${label} window on its own app. Approve and you're done.`)
+                            : (isHe
+                                ? `נפתח חלון התחברות של ${label}. יש לאשר את ההרשאות כדי לסיים.`
+                                : `We'll open a ${label} window. Approve the scopes and you're done.`)}
                     </div>
                 </div>
             </div>
 
             {viaCloud ? (
                 <ul className="text-[11.5px] text-slate-600 space-y-1.5 px-1">
-                    <Scope>Sends campaigns and syncs replies from this server, as usual</Scope>
-                    <Scope>Warmbly Cloud keeps the sign-in and warms the mailbox in its pool</Scope>
-                    <Scope>The mailbox also appears in your cloud workspace; remove it from either side</Scope>
+                    <Scope>{isHe ? "שליחת קמפיינים וסנכרון תגובות משרת זה, כרגיל" : "Sends campaigns and syncs replies from this server, as usual"}</Scope>
+                    <Scope>{isHe ? "Warmbly Cloud שומר על החיבור ומחמם את התיבה במאגר שלו" : "Warmbly Cloud keeps the sign-in and warms the mailbox in its pool"}</Scope>
+                    <Scope>{isHe ? "התיבה תופיע גם במרחב העבודה בענן; ניתן להסירה מכל צד" : "The mailbox also appears in your cloud workspace; remove it from either side"}</Scope>
                 </ul>
             ) : (
                 <ul className="text-[11.5px] text-slate-600 space-y-1.5 px-1">
-                    <Scope>Send and read mail on your behalf</Scope>
-                    <Scope>Track replies and deliveries</Scope>
-                    <Scope>Refresh tokens are stored encrypted; revoke any time</Scope>
+                    <Scope>{isHe ? "שליחה וקריאה של מיילים בשמך" : "Send and read mail on your behalf"}</Scope>
+                    <Scope>{isHe ? "מעקב אחר מענים ומסירות" : "Track replies and deliveries"}</Scope>
+                    <Scope>{isHe ? "אסימוני הגישה נשמרים מוצפנים; ניתן לבטל גישה בכל עת" : "Refresh tokens are stored encrypted; revoke any time"}</Scope>
                 </ul>
             )}
 
@@ -788,7 +876,9 @@ function OAuthPanel({
                 ) : (
                     <ShieldCheckIcon className="w-3.5 h-3.5" />
                 )}
-                {busy ? "Waiting for authorization…" : `Continue with ${label}`}
+                {busy
+                    ? (isHe ? "ממתין לאישור ההרשאות…" : "Waiting for authorization…")
+                    : (isHe ? `המשך עם ${label}` : `Continue with ${label}`)}
             </motion.button>
         </div>
     );
@@ -796,7 +886,7 @@ function OAuthPanel({
 
 function Scope({ children }: { children: React.ReactNode }) {
     return (
-        <li className="flex items-start gap-2">
+        <li className="flex items-start gap-2 text-start rtl:text-right">
             <CheckIcon className="w-3 h-3 text-slate-400 mt-1 shrink-0" />
             <span>{children}</span>
         </li>
@@ -804,6 +894,9 @@ function Scope({ children }: { children: React.ReactNode }) {
 }
 
 function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: unknown) => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
+
     const [name, setName] = React.useState("");
     const [email, setEmail] = React.useState("");
 
@@ -909,8 +1002,8 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                     },
                 }),
                 {
-                    loading: "Verifying credentials…",
-                    success: "Mailbox connected",
+                    loading: isHe ? "בודק את פרטי ההתחברות…" : "Verifying credentials…",
+                    success: isHe ? "תיבת הדואר חוברה בהצלחה" : "Mailbox connected",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -925,17 +1018,17 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
 
     return (
         <div>
-            <Section title="Account" sub="Name and address you send from" icon={<MailIcon className="w-3.5 h-3.5" />}>
-                <Field label="Name">
+            <Section title={isHe ? "חשבון" : "Account"} sub={isHe ? "שם וכתובת האימייל שמהם תישלח ההודעה" : "Name and address you send from"} icon={<MailIcon className="w-3.5 h-3.5" />}>
+                <Field label={isHe ? "שם" : "Name"}>
                     <TextInput value={name} onChange={setName} placeholder="Alex Rivera" />
                 </Field>
-                <Field label="Email">
+                <Field label={isHe ? "אימייל" : "Email"}>
                     <TextInput value={email} onChange={setEmail} placeholder="alex@company.com" />
                 </Field>
             </Section>
 
-            <Section title="IMAP" sub="Incoming, usually 993" icon={<InboxIcon className="w-3.5 h-3.5" />}>
-                <Field label="Server">
+            <Section title="IMAP" sub={isHe ? "דואר נכנס, בדרך כלל 993" : "Incoming, usually 993"} icon={<InboxIcon className="w-3.5 h-3.5" />}>
+                <Field label={isHe ? "שרת" : "Server"}>
                     <HostPortInput
                         host={imapHost}
                         onHost={setImapHost}
@@ -945,7 +1038,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                         portPlaceholder="993"
                     />
                 </Field>
-                <Field label="Security">
+                <Field label={isHe ? "אבטחה" : "Security"}>
                     <SecuritySelect
                         value={imapSecurity}
                         host={imapHost}
@@ -956,7 +1049,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                         }}
                     />
                 </Field>
-                <Field label="Username">
+                <Field label={isHe ? "שם משתמש" : "Username"}>
                     <TextInput
                         value={imapUser}
                         onChange={(v) => {
@@ -966,13 +1059,13 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                         placeholder={email || "alex@company.com"}
                     />
                 </Field>
-                <Field label="Password">
-                    <TextInput value={imapPass} onChange={setImapPass} placeholder="App password" type="password" />
+                <Field label={isHe ? "סיסמה" : "Password"}>
+                    <TextInput value={imapPass} onChange={setImapPass} placeholder={isHe ? "סיסמת אפליקציה" : "App password"} type="password" />
                 </Field>
             </Section>
 
-            <Section title="SMTP" sub="Outgoing, usually 587 or 465" icon={<SendIcon className="w-3.5 h-3.5" />}>
-                <Field label="Server">
+            <Section title="SMTP" sub={isHe ? "דואר יוצא, בדרך כלל 587 או 465" : "Outgoing, usually 587 or 465"} icon={<SendIcon className="w-3.5 h-3.5" />}>
+                <Field label={isHe ? "שרת" : "Server"}>
                     <HostPortInput
                         host={smtpHost}
                         onHost={setSmtpHost}
@@ -982,7 +1075,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                         portPlaceholder="587"
                     />
                 </Field>
-                <Field label="Security">
+                <Field label={isHe ? "אבטחה" : "Security"}>
                     <SecuritySelect
                         value={smtpSecurity}
                         host={smtpHost}
@@ -993,7 +1086,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                         }}
                     />
                 </Field>
-                <label className="flex items-center gap-2 pl-[76px] pt-0.5 cursor-pointer">
+                <label className="flex items-center gap-2 ltr:pl-[76px] rtl:pr-[76px] pt-0.5 cursor-pointer">
                     <input
                         type="checkbox"
                         checked={sameCreds}
@@ -1001,7 +1094,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                         className="size-3.5 rounded border-slate-300 accent-slate-900"
                     />
                     <span className="text-[11.5px] text-slate-600">
-                        Use the same login as IMAP
+                        {isHe ? "השתמש באותם פרטי התחברות כמו ב-IMAP" : "Use the same login as IMAP"}
                     </span>
                 </label>
                 <AnimatePresence initial={false}>
@@ -1015,7 +1108,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                             className="overflow-hidden"
                         >
                             <div className="space-y-2 pt-2">
-                                <Field label="Username">
+                                <Field label={isHe ? "שם משתמש" : "Username"}>
                                     <TextInput
                                         value={smtpUser}
                                         onChange={(v) => {
@@ -1025,8 +1118,8 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                                         placeholder={email || "alex@company.com"}
                                     />
                                 </Field>
-                                <Field label="Password">
-                                    <TextInput value={smtpPass} onChange={setSmtpPass} placeholder="App password" type="password" />
+                                <Field label={isHe ? "סיסמה" : "Password"}>
+                                    <TextInput value={smtpPass} onChange={setSmtpPass} placeholder={isHe ? "סיסמת אפליקציה" : "App password"} type="password" />
                                 </Field>
                             </div>
                         </motion.div>
@@ -1037,7 +1130,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
             <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50/60 flex items-center gap-2 min-w-0 sticky bottom-0">
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500 min-w-0 flex-1">
                     <KeyRoundIcon className="w-3 h-3 shrink-0" />
-                    <span className="truncate">Verified against your server before saving.</span>
+                    <span className="truncate">{isHe ? "הפרטים נבדקים מול השרת שלך לפני השמירה." : "Verified against your server before saving."}</span>
                 </div>
                 <motion.button
                     type="button"
@@ -1050,7 +1143,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                     )}
                 >
                     {submitting ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                    Connect
+                    {submitting ? (isHe ? "בודק פרטים…" : "Verifying…") : (isHe ? "התחבר" : "Connect")}
                 </motion.button>
             </div>
         </div>

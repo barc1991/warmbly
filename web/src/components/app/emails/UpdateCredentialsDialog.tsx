@@ -9,6 +9,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CheckIcon, InboxIcon, KeyRoundIcon, Loader2Icon, SendIcon, XIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { TextInput } from "@/components/ui/field";
 import type { AppError } from "@/lib/api/client/normalizeError";
@@ -36,6 +37,8 @@ export default function UpdateCredentialsDialog({
     onClose: () => void;
 }) {
     const qc = useQueryClient();
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
 
     const [imapHost, setImapHost] = React.useState("");
     const [imapPort, setImapPort] = React.useState("993");
@@ -132,8 +135,8 @@ export default function UpdateCredentialsDialog({
                     security: imapSecurity,
                 }),
                 {
-                    loading: "Verifying credentials…",
-                    success: "Credentials updated. The mailbox is back online.",
+                    loading: isHe ? "בודק את פרטי ההתחברות…" : "Verifying credentials…",
+                    success: isHe ? "פרטי הגישה עודכנו בהצלחה. התיבה חזרה לפעילות." : "Credentials updated. The mailbox is back online.",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -169,66 +172,80 @@ export default function UpdateCredentialsDialog({
                         className="w-full max-w-[480px] rounded-lg bg-white border border-slate-200 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.18),0_8px_16px_-8px_rgba(15,23,42,0.1)] overflow-hidden flex flex-col max-h-[88dvh]"
                     >
                         <div className="h-12 px-3 border-b border-slate-200 flex items-center gap-2.5 shrink-0">
-                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Mailbox</span>
+                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
+                                {isHe ? "תיבת דואר" : "Mailbox"}
+                            </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12px] text-slate-600 truncate">Update credentials for {mailboxEmail}</span>
+                            <span className="text-[12px] text-slate-600 truncate">
+                                {isHe ? `עדכון פרטי גישה עבור ${mailboxEmail}` : `Update credentials for ${mailboxEmail}`}
+                            </span>
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label={isHe ? "סגור" : "Close"}
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
                         </div>
 
                         <div className="flex-1 min-h-0 overflow-y-auto">
-                            <Section title="IMAP" sub="Incoming, usually 993" icon={<InboxIcon className="w-3.5 h-3.5" />}>
-                                <Field label="Server">
+                            <Section
+                                title="IMAP"
+                                sub={isHe ? "דואר נכנס, בדרך כלל 993" : "Incoming, usually 993"}
+                                icon={<InboxIcon className="w-3.5 h-3.5" />}
+                            >
+                                <Field label={isHe ? "שרת" : "Server"}>
                                     <HostPortInput host={imapHost} onHost={setImapHost} hostPlaceholder="imap.example.com" port={imapPort} onPort={setImapPort} portPlaceholder="993" />
                                 </Field>
-                                <Field label="Security">
+                                <Field label={isHe ? "אבטחה" : "Security"}>
                                     <SecuritySelect
                                         value={imapSecurity}
                                         host={imapHost}
                                         selfHosted={selfHosted}
                                         onChange={(v) => {
-                                            imapSecurityTouched.current = true;
-                                            setImapSecurity(v);
+                                             imapSecurityTouched.current = true;
+                                             setImapSecurity(v);
                                         }}
                                     />
                                 </Field>
-                                <Field label="Username">
+                                <Field label={isHe ? "שם משתמש" : "Username"}>
                                     <TextInput value={imapUser} onChange={setImapUser} placeholder={mailboxEmail} />
                                 </Field>
-                                <Field label="Password">
-                                    <TextInput value={imapPass} onChange={setImapPass} placeholder="New app password" type="password" />
+                                <Field label={isHe ? "סיסמה" : "Password"}>
+                                    <TextInput value={imapPass} onChange={setImapPass} placeholder={isHe ? "סיסמת אפליקציה חדשה" : "New app password"} type="password" />
                                 </Field>
                             </Section>
 
-                            <Section title="SMTP" sub="Outgoing, 465 or 587" icon={<SendIcon className="w-3.5 h-3.5" />}>
-                                <Field label="Server">
+                            <Section
+                                title="SMTP"
+                                sub={isHe ? "דואר יוצא, בדרך כלל 587 או 465" : "Outgoing, 465 or 587"}
+                                icon={<SendIcon className="w-3.5 h-3.5" />}
+                            >
+                                <Field label={isHe ? "שרת" : "Server"}>
                                     <HostPortInput host={smtpHost} onHost={setSmtpHost} hostPlaceholder="smtp.example.com" port={smtpPort} onPort={setSmtpPort} portPlaceholder="587" />
                                 </Field>
-                                <Field label="Security">
+                                <Field label={isHe ? "אבטחה" : "Security"}>
                                     <SecuritySelect
                                         value={smtpSecurity}
                                         host={smtpHost}
                                         selfHosted={selfHosted}
                                         onChange={(v) => {
-                                            smtpSecurityTouched.current = true;
-                                            setSmtpSecurity(v);
+                                             smtpSecurityTouched.current = true;
+                                             setSmtpSecurity(v);
                                         }}
                                     />
                                 </Field>
-                                <label className="flex items-center gap-2 pl-[76px] pt-0.5 cursor-pointer">
+                                <label className="flex items-center gap-2 ltr:pl-[76px] rtl:pr-[76px] pt-0.5 cursor-pointer">
                                     <input
                                         type="checkbox"
                                         checked={sameCreds}
                                         onChange={(e) => setSameCreds(e.target.checked)}
                                         className="size-3.5 rounded border-slate-300 accent-slate-900"
                                     />
-                                    <span className="text-[11.5px] text-slate-600">Use the same login as IMAP</span>
+                                    <span className="text-[11.5px] text-slate-600">
+                                        {isHe ? "השתמש באותם פרטי התחברות כמו ב-IMAP" : "Use the same login as IMAP"}
+                                    </span>
                                 </label>
                                 <AnimatePresence initial={false}>
                                     {!sameCreds && (
@@ -241,11 +258,11 @@ export default function UpdateCredentialsDialog({
                                             className="overflow-hidden"
                                         >
                                             <div className="space-y-2 pt-2">
-                                                <Field label="Username">
+                                                <Field label={isHe ? "שם משתמש" : "Username"}>
                                                     <TextInput value={smtpUser} onChange={setSmtpUser} placeholder={mailboxEmail} />
                                                 </Field>
-                                                <Field label="Password">
-                                                    <TextInput value={smtpPass} onChange={setSmtpPass} placeholder="New app password" type="password" />
+                                                <Field label={isHe ? "סיסמה" : "Password"}>
+                                                    <TextInput value={smtpPass} onChange={setSmtpPass} placeholder={isHe ? "סיסמת אפליקציה חדשה" : "New app password"} type="password" />
                                                 </Field>
                                             </div>
                                         </motion.div>
@@ -257,7 +274,9 @@ export default function UpdateCredentialsDialog({
                         <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50/60 flex items-center gap-2 min-w-0 shrink-0">
                             <div className="flex items-center gap-1.5 text-[11px] text-slate-500 min-w-0 flex-1">
                                 <KeyRoundIcon className="w-3 h-3 shrink-0" />
-                                <span className="truncate">Verified against your server before saving.</span>
+                                <span className="truncate">
+                                    {isHe ? "הפרטים נבדקים מול השרת שלך לפני השמירה." : "Verified against your server before saving."}
+                                </span>
                             </div>
                             <motion.button
                                 type="button"
@@ -267,7 +286,7 @@ export default function UpdateCredentialsDialog({
                                 className="shrink-0 h-7 px-3 rounded-md text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors bg-slate-900 hover:bg-slate-800 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {submitting ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                                Update credentials
+                                {submitting ? (isHe ? "בודק פרטים…" : "Verifying…") : (isHe ? "עדכן פרטי גישה" : "Update credentials")}
                             </motion.button>
                         </div>
                     </motion.div>

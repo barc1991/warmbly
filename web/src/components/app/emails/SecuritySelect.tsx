@@ -7,14 +7,9 @@
 // only shape the backend and the worker accept, so the form never offers a
 // mode that is going to be refused.
 
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { allowsNoEncryption, type MailSecurity } from "@/lib/api/models/app/emails/Service";
-
-const OPTIONS: { value: MailSecurity; label: string; hint: string }[] = [
-    { value: "tls", label: "SSL / TLS", hint: "Encrypted from the first byte (SMTP 465, IMAP 993)" },
-    { value: "starttls", label: "STARTTLS", hint: "Upgrades after connecting (SMTP 587 or 2525, IMAP 143)" },
-    { value: "none", label: "None", hint: "No encryption. Only to a mail server on this machine, such as Proton Bridge" },
-];
 
 export default function SecuritySelect({
     value,
@@ -29,13 +24,34 @@ export default function SecuritySelect({
     /** Hosted instances never run the worker on the customer's machine. */
     selfHosted?: boolean;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
+
+    const options: { value: MailSecurity; label: string; hint: string }[] = [
+        {
+            value: "tls",
+            label: "SSL / TLS",
+            hint: isHe ? "מוצפן מהבייט הראשון (SMTP 465, IMAP 993)" : "Encrypted from the first byte (SMTP 465, IMAP 993)",
+        },
+        {
+            value: "starttls",
+            label: "STARTTLS",
+            hint: isHe ? "משתדרג להצפנה לאחר התחברות (SMTP 587 או 2525, IMAP 143)" : "Upgrades after connecting (SMTP 587 or 2525, IMAP 143)",
+        },
+        {
+            value: "none",
+            label: isHe ? "ללא הצפנה" : "None",
+            hint: isHe ? "ללא הצפנה. רק עבור שרת דואר מקומי במחשב זה, כגון Proton Bridge" : "No encryption. Only to a mail server on this machine, such as Proton Bridge",
+        },
+    ];
+
     const allowNone = allowsNoEncryption(host, selfHosted);
-    const options = OPTIONS.filter((o) => o.value !== "none" || allowNone);
+    const visibleOptions = options.filter((o) => o.value !== "none" || allowNone);
 
     return (
         <div>
             <div className="flex items-stretch h-7 rounded-md border border-slate-200 bg-white overflow-hidden">
-                {options.map((o, i) => (
+                {visibleOptions.map((o, i) => (
                     <button
                         key={o.value}
                         type="button"
@@ -44,7 +60,7 @@ export default function SecuritySelect({
                         onClick={() => onChange(o.value)}
                         className={cn(
                             "flex-1 min-w-0 px-2 text-[12.5px] transition-colors",
-                            i > 0 && "border-l border-slate-200",
+                            i > 0 && "border-l rtl:border-l-0 rtl:border-r border-slate-200",
                             value === o.value
                                 ? o.value === "none"
                                     ? "bg-amber-50 text-amber-700 font-medium"
@@ -58,8 +74,9 @@ export default function SecuritySelect({
             </div>
             {value === "none" && allowNone && (
                 <p className="mt-1 text-[11.5px] leading-[1.4] text-slate-500">
-                    Credentials go over an unencrypted connection to this machine only. Warmbly refuses this mode for any
-                    other host.
+                    {isHe
+                        ? "פרטי ההתחברות מועברים בחיבור לא מוצפן למחשב זה בלבד. המערכת דוחה מצב זה עבור כל שרת אחר."
+                        : "Credentials go over an unencrypted connection to this machine only. Warmbly refuses this mode for any other host."}
                 </p>
             )}
         </div>

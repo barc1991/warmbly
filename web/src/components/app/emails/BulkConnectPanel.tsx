@@ -14,6 +14,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import {
@@ -51,6 +52,9 @@ export default function BulkConnectPanel({
 }) {
     const qc = useQueryClient();
     const allowance = useMailboxAllowance();
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
+
     // The unencrypted security mode is self-host only, so a row asking for it
     // on the hosted product is invalid here rather than at the API. Only a
     // loaded config can say that, and while it is loading the row is left for
@@ -182,34 +186,52 @@ export default function BulkConnectPanel({
                     ) : (
                         <UploadIcon className="w-5 h-5 text-slate-400" />
                     )}
-                    <p className="text-[13px] font-medium text-slate-900 mt-2">Drop a CSV here, or click to choose one</p>
+                    <p className="text-[13px] font-medium text-slate-900 mt-2">
+                        {isHe ? "גרור קובץ CSV לכאן, או לחץ לבחירה" : "Drop a CSV here, or click to choose one"}
+                    </p>
                     <p className="text-[11.5px] text-slate-500 mt-0.5">
-                        One mailbox per row. Any provider that speaks SMTP and IMAP.
+                        {isHe ? "תיבת דואר אחת בכל שורה. כל ספק התומך ב-SMTP וב-IMAP." : "One mailbox per row. Any provider that speaks SMTP and IMAP."}
                     </p>
                 </div>
 
                 <div className="rounded-md border border-slate-200 bg-slate-50/40 p-3">
                     <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Columns</span>
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">
+                            {isHe ? "עמודות" : "Columns"}
+                        </span>
                         <button
                             type="button"
                             onClick={downloadTemplate}
                             className="h-6 px-2 rounded text-[11px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors"
                         >
                             <DownloadIcon className="w-3 h-3" />
-                            Download template
+                            {isHe ? "הורד תבנית לדוגמה" : "Download template"}
                         </button>
                     </div>
                     <p className="text-[11.5px] text-slate-600 leading-relaxed mt-1.5">
-                        <code className="font-mono text-[11px]">email</code>, <code className="font-mono text-[11px]">smtp_host</code> and{" "}
-                        <code className="font-mono text-[11px]">imap_host</code> are required, plus a password. Everything else
-                        has a default: ports 587 and 993, security from the port, the address as the login, the name from
-                        the address. One <code className="font-mono text-[11px]">password</code> column covers both legs when
-                        they share a login.
+                        {isHe ? (
+                            <>
+                                העמודות <code className="font-mono text-[11px]">email</code>,{" "}
+                                <code className="font-mono text-[11px]">smtp_host</code> ו-
+                                <code className="font-mono text-[11px]">imap_host</code> הן עמודות חובה, בתוספת סיסמה.
+                                לכל השאר יש ברירות מחדל: פורטים 587 ו-993, סוג אבטחה לפי הפורט, כתובת האימייל כשם המשתמש,
+                                והשם מתוך הכתובת. עמודת <code className="font-mono text-[11px]">password</code> אחת
+                                מכסה את שני החיבורים כשהם חולקים אותם פרטים.
+                            </>
+                        ) : (
+                            <>
+                                <code className="font-mono text-[11px]">email</code>,{" "}
+                                <code className="font-mono text-[11px]">smtp_host</code> and{" "}
+                                <code className="font-mono text-[11px]">imap_host</code> are required, plus a password. Everything else
+                                has a default: ports 587 and 993, security from the port, the address as the login, the name from
+                                the address. One <code className="font-mono text-[11px]">password</code> column covers both legs when
+                                they share a login.
+                            </>
+                        )}
                     </p>
                 </div>
 
-                <AllowanceNote allowance={allowance.data} onAllowance={onAllowance} />
+                <AllowanceNote allowance={allowance.data} onAllowance={onAllowance} isHe={isHe} />
             </div>
         );
     }
@@ -225,51 +247,60 @@ export default function BulkConnectPanel({
                         <button
                             type="button"
                             onClick={reset}
-                            className="ml-auto h-6 px-2 rounded text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors shrink-0"
+                            className="ms-auto h-6 px-2 rounded text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors shrink-0"
                         >
                             <XIcon className="w-3 h-3" />
-                            Choose another file
+                            {isHe ? "בחר קובץ אחר" : "Choose another file"}
                         </button>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
-                        <StatCard label="Rows" value={rows.length} accent="slate" />
-                        <StatCard label="Ready" value={ready} accent="emerald" />
-                        <StatCard label="Invalid" value={invalid} accent={invalid > 0 ? "red" : "slate"} />
+                        <StatCard label={isHe ? "שורות" : "Rows"} value={rows.length} accent="slate" />
+                        <StatCard label={isHe ? "מוכנות" : "Ready"} value={ready} accent="emerald" />
+                        <StatCard label={isHe ? "לא תקינות" : "Invalid"} value={invalid} accent={invalid > 0 ? "red" : "slate"} />
                     </div>
 
                     {full ? (
-                        <Banner tone="red" title="Your mailbox allowance is full">
-                            Nothing in this file can be connected until the allowance is raised.{" "}
+                        <Banner tone="red" title={isHe ? "מכסת תיבות הדואר שלך מלאה" : "Your mailbox allowance is full"}>
+                            {isHe ? "לא ניתן לחבר אף תיבה מקובץ זה עד להגדלת המכסה. " : "Nothing in this file can be connected until the allowance is raised. "}
                             <button type="button" onClick={onAllowance} className="underline font-medium">
-                                Request more
+                                {isHe ? "בקש הגדלה" : "Request more"}
                             </button>{" "}
-                            and come back to this file; it can be re-uploaded as it is.
+                            {isHe ? "ולאחר מכן חזור לקובץ זה; ניתן להעלותו שוב כפי שהוא." : "and come back to this file; it can be re-uploaded as it is."}
                         </Banner>
                     ) : overBy > 0 ? (
-                        <Banner tone="amber" title={`Room for ${remaining!.toLocaleString()} more mailboxes, ${ready.toLocaleString()} in this file`}>
-                            The first {remaining!.toLocaleString()} rows will be connected and the remaining{" "}
-                            {overBy.toLocaleString()} listed as failed so you can{" "}
+                        <Banner
+                            tone="amber"
+                            title={
+                                isHe
+                                    ? `מקום ל-${remaining!.toLocaleString()} תיבות נוספות, ${ready.toLocaleString()} בקובץ זה`
+                                    : `Room for ${remaining!.toLocaleString()} more mailboxes, ${ready.toLocaleString()} in this file`
+                            }
+                        >
+                            {isHe
+                                ? `השורות הראשונות (${remaining!.toLocaleString()}) יחוברו וה-${overBy.toLocaleString()} הנותרות יירשמו כשגיאה כדי שתוכל `
+                                : `The first ${remaining!.toLocaleString()} rows will be connected and the remaining ${overBy.toLocaleString()} listed as failed so you can `}
                             <button type="button" onClick={onAllowance} className="underline font-medium">
-                                request more
+                                {isHe ? "לבקש הגדלה" : "request more"}
                             </button>{" "}
-                            and re-upload only those.
+                            {isHe ? "ולהעלות מחדש רק אותן." : "and re-upload only those."}
                         </Banner>
                     ) : null}
 
                     {invalid > 0 && (
-                        <Banner tone="amber" title={`${invalid.toLocaleString()} rows cannot be sent`}>
-                            They are missing something the connect needs. They are left out of the run and included in
-                            the failed rows download at the end, with the reason.
+                        <Banner tone="amber" title={isHe ? `${invalid.toLocaleString()} שורות אינן תקינות לשליחה` : `${invalid.toLocaleString()} rows cannot be sent`}>
+                            {isHe
+                                ? "חסרים בהן פרטים הדרושים לחיבור. הן יושמטו מההרצה וייכללו בהורדת השורות שנכשלו בסיום, יחד עם סיבת השגיאה."
+                                : "They are missing something the connect needs. They are left out of the run and included in the failed rows download at the end, with the reason."}
                         </Banner>
                     )}
 
-                    <RowsTable rows={sample} more={rows.length - sample.length} />
+                    <RowsTable rows={sample} more={rows.length - sample.length} isHe={isHe} />
                 </div>
 
                 <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50/60 flex items-center gap-2 min-w-0 sticky bottom-0">
                     <div className="text-[11px] text-slate-500 min-w-0 flex-1 truncate">
-                        Every credential is verified against its server before it is saved.
+                        {isHe ? "כל הפרטים נבדקים מול השרת לפני השמירה." : "Every credential is verified against its server before it is saved."}
                     </div>
                     <motion.button
                         type="button"
@@ -282,7 +313,7 @@ export default function BulkConnectPanel({
                         )}
                     >
                         <UploadIcon className="w-3 h-3" />
-                        Connect {ready.toLocaleString()} {ready === 1 ? "mailbox" : "mailboxes"}
+                        {isHe ? `חבר ${ready.toLocaleString()} תיבות דואר` : `Connect ${ready.toLocaleString()} ${ready === 1 ? "mailbox" : "mailboxes"}`}
                     </motion.button>
                 </div>
             </div>
@@ -306,17 +337,18 @@ export default function BulkConnectPanel({
                     <Loader2Icon className="w-5 h-5 text-sky-600 animate-spin shrink-0" />
                     <div className="min-w-0 flex-1">
                         <p className="text-[13.5px] text-slate-900 font-semibold">
-                            Connecting {total.toLocaleString()} {total === 1 ? "mailbox" : "mailboxes"}
+                            {isHe ? `מחבר ${total.toLocaleString()} תיבות דואר` : `Connecting ${total.toLocaleString()} ${total === 1 ? "mailbox" : "mailboxes"}`}
                         </p>
                         <p className="text-[11.5px] text-slate-500 leading-snug mt-0.5">
-                            Each one is verified against its server, so this takes a few seconds per mailbox. You can keep
-                            this open in the background; the list fills in live.
+                            {isHe
+                                ? "כל תיבה נבדקת מול השרת שלה, ולכן התהליך לוקח מספר שניות לתיבה. ניתן להשאיר חלון זה פתוח ברקע; הרשימה מתעדכנת בזמן אמת."
+                                : "Each one is verified against its server, so this takes a few seconds per mailbox. You can keep this open in the background; the list fills in live."}
                         </p>
                     </div>
                 </div>
                 <div>
                     <div className="flex items-baseline justify-between gap-2 mb-1">
-                        <span className="text-[12px] text-slate-700 font-medium">Progress</span>
+                        <span className="text-[12px] text-slate-700 font-medium">{isHe ? "התקדמות" : "Progress"}</span>
                         <span className="text-[11.5px] font-mono tabular-nums text-slate-700">
                             {done.toLocaleString()}
                             <span className="text-slate-400"> / {total.toLocaleString()}</span>
@@ -325,9 +357,9 @@ export default function BulkConnectPanel({
                     <DitherMeter frac={frac} tone="sky" height={6} />
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                    <StatCard label="Connected" value={connected} accent="emerald" />
-                    <StatCard label="Skipped" value={skipped} accent="slate" />
-                    <StatCard label="Failed" value={failed} accent={failed > 0 ? "red" : "slate"} />
+                    <StatCard label={isHe ? "חוברו" : "Connected"} value={connected} accent="emerald" />
+                    <StatCard label={isHe ? "דולגו" : "Skipped"} value={skipped} accent="slate" />
+                    <StatCard label={isHe ? "נכשלו" : "Failed"} value={failed} accent={failed > 0 ? "red" : "slate"} />
                 </div>
                 <div className="flex items-center justify-end">
                     <button
@@ -340,7 +372,7 @@ export default function BulkConnectPanel({
                         className="h-7 px-3 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                     >
                         <XIcon className="w-3 h-3" />
-                        {cancelling ? "Stopping after this batch…" : "Stop"}
+                        {cancelling ? (isHe ? "עוצר לאחר פעימה זו…" : "Stopping after this batch…") : (isHe ? "עצור" : "Stop")}
                     </button>
                 </div>
             </div>
@@ -374,34 +406,40 @@ export default function BulkConnectPanel({
                     <div className="min-w-0 flex-1">
                         <p className="text-[13.5px] text-slate-900 font-semibold">
                             {notSent > 0
-                                ? "Stopped early"
+                                ? isHe
+                                    ? "התהליך נעצר לפני סיום"
+                                    : "Stopped early"
                                 : failedRows.length === 0
-                                  ? "All mailboxes connected"
-                                  : "Finished with some failures"}
+                                  ? isHe
+                                    ? "כל תיבות הדואר חוברו בהצלחה"
+                                    : "All mailboxes connected"
+                                  : isHe
+                                    ? "הסתיים עם מספר שגיאות"
+                                    : "Finished with some failures"}
                         </p>
                         <p className="text-[11.5px] text-slate-500 leading-snug mt-0.5">
-                            {connected.toLocaleString()} connected
-                            {skipped > 0 ? `, ${skipped.toLocaleString()} already here` : ""}
-                            {failedRows.length > 0 ? `, ${failedRows.length.toLocaleString()} did not connect` : ""}
-                            {notSent > 0 ? `, ${notSent.toLocaleString()} not attempted` : ""}
-                            {elapsed > 0 ? ` in ${durationText(elapsed)}` : ""}.
+                            {connected.toLocaleString()} {isHe ? "חוברו" : "connected"}
+                            {skipped > 0 ? (isHe ? `, ${skipped.toLocaleString()} כבר קיימות` : `, ${skipped.toLocaleString()} already here`) : ""}
+                            {failedRows.length > 0 ? (isHe ? `, ${failedRows.length.toLocaleString()} לא חוברו` : `, ${failedRows.length.toLocaleString()} did not connect`) : ""}
+                            {notSent > 0 ? (isHe ? `, ${notSent.toLocaleString()} לא נוסו` : `, ${notSent.toLocaleString()} not attempted`) : ""}
+                            {elapsed > 0 ? (isHe ? ` בתוך ${durationText(elapsed, true)}` : ` in ${durationText(elapsed)}`) : ""}.
                         </p>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                    <StatCard label="Connected" value={connected} accent="emerald" />
-                    <StatCard label="Skipped" value={skipped} accent="slate" />
-                    <StatCard label="Failed" value={failedRows.length} accent={failedRows.length > 0 ? "red" : "slate"} />
+                    <StatCard label={isHe ? "חוברו" : "Connected"} value={connected} accent="emerald" />
+                    <StatCard label={isHe ? "דולגו" : "Skipped"} value={skipped} accent="slate" />
+                    <StatCard label={isHe ? "נכשלו" : "Failed"} value={failedRows.length} accent={failedRows.length > 0 ? "red" : "slate"} />
                 </div>
 
                 {failedRows.some((r) => r.code === "mailbox_allowance_reached") && (
-                    <Banner tone="amber" title="Some rows were past your mailbox allowance">
-                        They were not tried.{" "}
+                    <Banner tone="amber" title={isHe ? "חלק מהשורות חרגו ממכסת תיבות הדואר שלך" : "Some rows were past your mailbox allowance"}>
+                        {isHe ? "הן לא נוסו. " : "They were not tried. "}
                         <button type="button" onClick={onAllowance} className="underline font-medium">
-                            Request more
+                            {isHe ? "בקש הגדלה" : "Request more"}
                         </button>
-                        , then re-upload the failed rows download; everything already connected is skipped.
+                        {isHe ? ", ולאחר מכן העלה מחדש את קובץ השורות שנכשלו; כל מה שכבר מחובר ידלג." : ", then re-upload the failed rows download; everything already connected is skipped."}
                     </Banner>
                 )}
 
@@ -409,26 +447,32 @@ export default function BulkConnectPanel({
                     <div className="rounded-md border border-slate-200 overflow-hidden">
                         <div className="px-3 h-9 border-b border-slate-200 bg-slate-50/60 flex items-center gap-2">
                             <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 font-medium">
-                                Did not connect
+                                {isHe ? "לא חוברו" : "Did not connect"}
                             </span>
                             <span className="text-[11px] text-slate-500">{failedRows.length.toLocaleString()}</span>
                             <button
                                 type="button"
                                 onClick={downloadFailed}
-                                title="The rows as you uploaded them, minus passwords, plus an error column"
-                                className="ml-auto h-6 px-2 rounded text-[11px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors"
+                                title={isHe ? "השורות כפי שהועלו, ללא סיסמאות, בתוספת עמודת שגיאה" : "The rows as you uploaded them, minus passwords, plus an error column"}
+                                className="ms-auto h-6 px-2 rounded text-[11px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors"
                             >
                                 <DownloadIcon className="w-3 h-3" />
-                                Download failed rows
+                                {isHe ? "הורד שורות שנכשלו" : "Download failed rows"}
                             </button>
                         </div>
                         <div className="max-h-52 overflow-y-auto">
-                            <table className="w-full text-left">
+                            <table className="w-full text-left rtl:text-right">
                                 <thead className="bg-white sticky top-0">
                                     <tr className="border-b border-slate-100">
-                                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12">Line</th>
-                                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Email</th>
-                                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Reason</th>
+                                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12">
+                                            {isHe ? "שורה" : "Line"}
+                                        </th>
+                                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">
+                                            {isHe ? "אימייל" : "Email"}
+                                        </th>
+                                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">
+                                            {isHe ? "סיבה" : "Reason"}
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -453,8 +497,12 @@ export default function BulkConnectPanel({
             <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50/60 flex items-center gap-2 min-w-0 sticky bottom-0">
                 <div className="text-[11px] text-slate-500 min-w-0 flex-1 truncate">
                     {failedRows.length > 0
-                        ? "Retry keeps the passwords in memory. The download leaves them out; add them back before re-uploading."
-                        : "Warmup and sync start on every new mailbox right away."}
+                        ? isHe
+                          ? "ניסיון חוזר שומר את הסיסמאות בזיכרון. הקובץ להורדה אינו כולל סיסמאות; יש להזינן שוב לפני העלאה מחדש."
+                          : "Retry keeps the passwords in memory. The download leaves them out; add them back before re-uploading."
+                        : isHe
+                          ? "החימום והסנכרון מתחילים מיד עבור כל תיבה חדשה."
+                          : "Warmup and sync start on every new mailbox right away."}
                 </div>
                 {(canRetry || notSent > 0) && (
                     <button
@@ -463,7 +511,7 @@ export default function BulkConnectPanel({
                         className="shrink-0 h-7 px-3 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5 transition-colors"
                     >
                         <RotateCcwIcon className="w-3 h-3" />
-                        {notSent > 0 ? "Continue" : "Retry failed"}
+                        {notSent > 0 ? (isHe ? "המשך" : "Continue") : (isHe ? "נסה שוב שנכשלו" : "Retry failed")}
                     </button>
                 )}
                 <button
@@ -472,7 +520,7 @@ export default function BulkConnectPanel({
                     className="shrink-0 h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                 >
                     <CheckCircle2Icon className="w-3 h-3" />
-                    Done
+                    {isHe ? "סיום" : "Done"}
                 </button>
             </div>
         </div>
@@ -484,34 +532,54 @@ export default function BulkConnectPanel({
 function AllowanceNote({
     allowance,
     onAllowance,
+    isHe,
 }: {
     allowance: ReturnType<typeof useMailboxAllowance>["data"];
     onAllowance: () => void;
+    isHe?: boolean;
 }) {
     if (!allowance || allowance.allowance == null) return null;
     const remaining = allowance.remaining ?? 0;
     return (
         <p className="text-[11.5px] text-slate-500 leading-relaxed">
-            This workspace holds {allowance.used.toLocaleString()} of {allowance.allowance.toLocaleString()} mailboxes,
-            so {remaining.toLocaleString()} more fit right now.{" "}
-            <button type="button" onClick={onAllowance} className="underline text-slate-700 hover:text-slate-900">
-                {remaining === 0 ? "Request more before uploading" : "Need more?"}
-            </button>
+            {isHe ? (
+                <>
+                    מרחב עבודה זה מכיל {allowance.used.toLocaleString()} מתוך {allowance.allowance.toLocaleString()} תיבות דואר,
+                    כך שנותרו {remaining.toLocaleString()} תיבות פנויות כעת.{" "}
+                    <button type="button" onClick={onAllowance} className="underline text-slate-700 hover:text-slate-900">
+                        {remaining === 0 ? "בקש הגדלה לפני העלאה" : "צריך עוד?"}
+                    </button>
+                </>
+            ) : (
+                <>
+                    This workspace holds {allowance.used.toLocaleString()} of {allowance.allowance.toLocaleString()} mailboxes,
+                    so {remaining.toLocaleString()} more fit right now.{" "}
+                    <button type="button" onClick={onAllowance} className="underline text-slate-700 hover:text-slate-900">
+                        {remaining === 0 ? "Request more before uploading" : "Need more?"}
+                    </button>
+                </>
+            )}
         </p>
     );
 }
 
-function RowsTable({ rows, more }: { rows: BulkRow[]; more: number }) {
+function RowsTable({ rows, more, isHe }: { rows: BulkRow[]; more: number; isHe?: boolean }) {
     return (
         <div className="rounded-md border border-slate-200 overflow-hidden">
-            <table className="w-full text-left">
+            <table className="w-full text-left rtl:text-right">
                 <thead className="bg-slate-50/60">
                     <tr className="border-b border-slate-200">
-                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12">Line</th>
-                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Email</th>
+                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12">
+                            {isHe ? "שורה" : "Line"}
+                        </th>
+                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">
+                            {isHe ? "אימייל" : "Email"}
+                        </th>
                         <th className="hidden md:table-cell px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">SMTP</th>
                         <th className="hidden md:table-cell px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">IMAP</th>
-                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Status</th>
+                        <th className="px-3 py-1.5 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">
+                            {isHe ? "סטטוס" : "Status"}
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -531,7 +599,7 @@ function RowsTable({ rows, more }: { rows: BulkRow[]; more: number }) {
                                         {r.problem}
                                     </span>
                                 ) : (
-                                    <span className="text-emerald-600">Ready</span>
+                                    <span className="text-emerald-600">{isHe ? "מוכן" : "Ready"}</span>
                                 )}
                             </td>
                         </tr>
@@ -540,7 +608,7 @@ function RowsTable({ rows, more }: { rows: BulkRow[]; more: number }) {
             </table>
             {more > 0 && (
                 <div className="px-3 py-1.5 text-[11px] text-slate-400 border-t border-slate-100 bg-slate-50/40">
-                    and {more.toLocaleString()} more
+                    {isHe ? `ועוד ${more.toLocaleString()} נוספות` : `and ${more.toLocaleString()} more`}
                 </div>
             )}
         </div>
@@ -577,9 +645,9 @@ function StatCard({ label, value, accent }: { label: string; value: number; acce
     );
 }
 
-function durationText(ms: number): string {
-    if (ms < 1000) return `${ms} ms`;
+function durationText(ms: number, isHe?: boolean): string {
+    if (ms < 1000) return isHe ? `${ms} מ״ש` : `${ms} ms`;
     const sec = ms / 1000;
-    if (sec < 60) return `${sec.toFixed(0)} s`;
-    return `${(sec / 60).toFixed(1)} min`;
+    if (sec < 60) return isHe ? `${sec.toFixed(0)} שנ׳` : `${sec.toFixed(0)} s`;
+    return isHe ? `${(sec / 60).toFixed(1)} דק׳` : `${(sec / 60).toFixed(1)} min`;
 }
