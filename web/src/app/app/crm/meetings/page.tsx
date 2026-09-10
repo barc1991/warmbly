@@ -58,29 +58,29 @@ import { cn } from "@/lib/utils";
 type Timeframe = "upcoming" | "past" | "all";
 
 const TABS: { id: Timeframe; label: string }[] = [
-    { id: "upcoming", label: "Upcoming" },
-    { id: "past", label: "Past" },
-    { id: "all", label: "All" },
+    { id: "upcoming", label: "קרובות" },
+    { id: "past", label: "קודמות" },
+    { id: "all", label: "הכל" },
 ];
 
 const STATUS_STYLE: Record<MeetingStatus, { label: string; cls: string }> = {
-    booked: { label: "Booked", cls: "bg-sky-50 text-sky-700 border-sky-200" },
-    rescheduled: { label: "Rescheduled", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-    canceled: { label: "Canceled", cls: "bg-slate-100 text-slate-500 border-slate-200" },
-    completed: { label: "Completed", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    no_show: { label: "No-show", cls: "bg-red-50 text-red-700 border-red-200" },
+    booked: { label: "נקבעה", cls: "bg-sky-50 text-sky-700 border-sky-200" },
+    rescheduled: { label: "נקבעה מחדש", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+    canceled: { label: "בוטלה", cls: "bg-slate-100 text-slate-500 border-slate-200" },
+    completed: { label: "הושלמה", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    no_show: { label: "לא הגיע", cls: "bg-red-50 text-red-700 border-red-200" },
 };
 
 function formatWhen(iso?: string): { date: string; time: string; rel: string } {
-    if (!iso) return { date: "No time set", time: "", rel: "" };
+    if (!iso) return { date: "לא נקבע מועד", time: "", rel: "" };
     const d = new Date(iso);
-    if (isNaN(d.getTime())) return { date: "No time set", time: "", rel: "" };
-    const date = d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-    const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    if (isNaN(d.getTime())) return { date: "לא נקבע מועד", time: "", rel: "" };
+    const date = d.toLocaleDateString("he-IL", { month: "short", day: "numeric", year: "numeric" });
+    const time = d.toLocaleTimeString("he-IL", { hour: "numeric", minute: "2-digit" });
     const diffDays = Math.round((d.getTime() - Date.now()) / 86_400_000);
     let rel = "";
     if (Math.abs(diffDays) <= 14) {
-        rel = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(diffDays, "day");
+        rel = new Intl.RelativeTimeFormat("he-IL", { numeric: "auto" }).format(diffDays, "day");
     }
     return { date, time, rel };
 }
@@ -98,7 +98,7 @@ function endStamp(m: MeetingBooking): string {
 }
 
 function googleCalURL(m: MeetingBooking): string {
-    const params = new URLSearchParams({ action: "TEMPLATE", text: m.event_name || "Meeting" });
+    const params = new URLSearchParams({ action: "TEMPLATE", text: m.event_name || "פגישה" });
     if (m.scheduled_for) params.set("dates", `${gcalStamp(m.scheduled_for)}/${endStamp(m)}`);
     const details = [m.invitee_name && `With ${m.invitee_name}`, m.invitee_email, m.join_url]
         .filter(Boolean)
@@ -157,24 +157,24 @@ export default function MeetingsPage() {
 
     return (
         <Page>
-            <PageTopbar eyebrow="Meetings / Calls" subtitle="Calls you schedule, and calls prospects book with you">
+            <PageTopbar eyebrow="פגישות / שיחות" subtitle="שיחות שקבעת, ושיחות שלידים קבעו איתך">
                 <TopbarAction href="/app/integrations" variant="ghost" icon={<CableIcon className="w-3.5 h-3.5" />}>
-                    Calendars
+                    לוחות שנה
                 </TopbarAction>
                 <TopbarAction onClick={() => setCreating(true)} icon={<PlusIcon className="w-3.5 h-3.5" />}>
-                    New meeting
+                    פגישה חדשה
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={4}>
-                <Stat label="Upcoming" accent={(summary?.upcoming ?? 0) > 0} value={<AnimatedNumber value={summary?.upcoming ?? 0} />} />
-                <Stat label="Today" value={<AnimatedNumber value={summary?.today ?? 0} />} />
-                <Stat label="Total booked" value={<AnimatedNumber value={summary?.total ?? 0} />} />
-                <Stat label="Canceled" value={<AnimatedNumber value={summary?.canceled ?? 0} />} last />
+                <Stat label="קרובות" accent={(summary?.upcoming ?? 0) > 0} value={<AnimatedNumber value={summary?.upcoming ?? 0} />} />
+                <Stat label="היום" value={<AnimatedNumber value={summary?.today ?? 0} />} />
+                <Stat label="סך הכל נקבעו" value={<AnimatedNumber value={summary?.total ?? 0} />} />
+                <Stat label="בוטלו" value={<AnimatedNumber value={summary?.canceled ?? 0} />} last />
             </StatStrip>
 
             <PageBody>
-                <SectionBar label="Meetings" count={total ? `${rows.length} of ${total}` : undefined}>
+                <SectionBar label="פגישות" count={total ? `נטענו ${rows.length} מתוך ${total}` : undefined}>
                     <div className="flex items-center gap-0.5 rounded-md border border-slate-200 p-0.5">
                         {TABS.map((tab) => (
                             <button
@@ -195,7 +195,7 @@ export default function MeetingsPage() {
                     <SearchInput
                         value={searchRaw}
                         onChange={(v) => setSearchRaw(v)}
-                        placeholder="Search name, email, or event…"
+                        placeholder="חיפוש לפי שם, אימייל או אירוע…"
                         className="w-full sm:w-56"
                     />
                 </SectionBar>
@@ -206,15 +206,15 @@ export default function MeetingsPage() {
                     </div>
                 ) : rows.length === 0 ? (
                     <EmptyBlock
-                        title={timeframe === "upcoming" ? "No upcoming meetings" : "No meetings yet"}
-                        body="Schedule a call with a contact, or connect Calendly / Cal.com so calls prospects book land here automatically."
+                        title={timeframe === "upcoming" ? "אין פגישות קרובות" : "אין פגישות עדיין"}
+                        body="קבע שיחה עם איש קשר, או חבר את Calendly / Cal.com כדי ששיחות שלקוחות קובעים יופיעו כאן באופן אוטומטי."
                         cta={
                             <>
                                 <TopbarAction onClick={() => setCreating(true)} icon={<PlusIcon className="w-3.5 h-3.5" />}>
-                                    New meeting
+                                    פגישה חדשה
                                 </TopbarAction>
                                 <TopbarAction href="/app/integrations" variant="ghost" icon={<CableIcon className="w-3.5 h-3.5" />}>
-                                    Connect a calendar
+                                    חבר לוח שנה
                                 </TopbarAction>
                             </>
                         }
@@ -222,12 +222,12 @@ export default function MeetingsPage() {
                 ) : (
                     <div>
                         <div className="h-8 px-5 flex items-center gap-3 border-b border-slate-200 bg-slate-50/60 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                            <span className="w-28 md:w-40 shrink-0">When</span>
-                            <span className="flex-1 min-w-0">Contact</span>
-                            <span className="hidden md:block flex-1 min-w-0">Meeting</span>
-                            <span className="hidden md:block w-24 shrink-0">Source</span>
-                            <span className="w-20 md:w-28 shrink-0">Status</span>
-                            <span className="w-auto md:w-28 shrink-0 text-right">Actions</span>
+                            <span className="w-28 md:w-40 shrink-0 text-start">מועד</span>
+                            <span className="flex-1 min-w-0 text-start">איש קשר</span>
+                            <span className="hidden md:block flex-1 min-w-0 text-start">פגישה</span>
+                            <span className="hidden md:block w-24 shrink-0 text-start">מקור</span>
+                            <span className="w-20 md:w-28 shrink-0 text-start">סטטוס</span>
+                            <span className="w-auto md:w-28 shrink-0 text-end">פעולות</span>
                         </div>
                         {rows.map((m) => (
                             <MeetingRow key={m.id} m={m} />
@@ -241,7 +241,7 @@ export default function MeetingsPage() {
                                     className="h-7 px-3 rounded-md border border-slate-200 text-[12px] text-slate-600 hover:text-slate-900 hover:border-slate-300 inline-flex items-center gap-1.5 disabled:opacity-60"
                                 >
                                     {isFetchingNextPage && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
-                                    Load more
+                                    טען עוד
                                 </button>
                             </div>
                         )}
@@ -257,26 +257,26 @@ export default function MeetingsPage() {
 function MeetingRow({ m }: { m: MeetingBooking }) {
     const when = formatWhen(m.scheduled_for);
     const status = STATUS_STYLE[m.status] ?? STATUS_STYLE.booked;
-    const contactLabel = m.contact_name || m.invitee_name || m.invitee_email || "Unknown";
+    const contactLabel = m.contact_name || m.invitee_name || m.invitee_email || "לא ידוע";
     const canceled = m.status === "canceled";
     const isManual = m.source === "manual";
     const confirm = useConfirm();
     const del = useDeleteMeeting();
 
     const remove = () =>
-        confirm.show("Delete this meeting? This only removes it from Warmbly.", async () => {
+        confirm.show("למחוק פגישה זו? פעולה זו תסיר אותה מ-Warmbly בלבד.", async () => {
             await del.mutateAsync(m.id);
-            toast.success("Meeting deleted");
+            toast.success("הפגישה נמחקה");
         });
 
     return (
-        <div className="group min-h-11 px-5 py-1.5 flex items-center gap-3 border-b border-slate-200/60 hover:bg-slate-50/80 transition-colors">
+        <div className="group min-h-11 px-5 py-1.5 flex items-center gap-3 border-b border-slate-200/60 hover:bg-slate-50/80 transition-colors text-start">
             <div className="w-28 md:w-40 shrink-0">
                 <div className="flex items-center gap-1.5 text-[12.5px] text-slate-800">
                     <CalendarClockIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">{when.date}</span>
                 </div>
-                <div className="text-[11px] text-slate-400 pl-5 truncate">
+                <div className="text-[11px] text-slate-400 ps-5 truncate">
                     {when.time}
                     {when.rel ? ` · ${when.rel}` : ""}
                 </div>
@@ -288,13 +288,13 @@ function MeetingRow({ m }: { m: MeetingBooking }) {
             </div>
 
             <div className="hidden md:block flex-1 min-w-0">
-                <div className="text-[12.5px] text-slate-700 truncate">{m.event_name || "Meeting"}</div>
+                <div className="text-[12.5px] text-slate-700 truncate">{m.event_name || "פגישה"}</div>
                 {m.location && <div className="text-[11px] text-slate-400 truncate">{m.location}</div>}
             </div>
 
             <div className="hidden md:block w-24 shrink-0">
                 <span className="text-[11.5px] text-slate-500">
-                    {isManual ? "Manual" : PROVIDER_LABELS[m.source as keyof typeof PROVIDER_LABELS] ?? m.source}
+                    {isManual ? "ידני" : PROVIDER_LABELS[m.source as keyof typeof PROVIDER_LABELS] ?? m.source}
                 </span>
             </div>
 
@@ -310,7 +310,7 @@ function MeetingRow({ m }: { m: MeetingBooking }) {
                         <PopoverMenuTrigger asChild>
                             <button
                                 type="button"
-                                title="Add to your calendar"
+                                title="הוסף ללוח השנה שלך"
                                 className="h-6 w-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-sky-600 hover:bg-sky-50"
                             >
                                 <CalendarPlusIcon className="w-3.5 h-3.5" />
@@ -320,9 +320,9 @@ function MeetingRow({ m }: { m: MeetingBooking }) {
                             <PopoverMenuItem
                                 onSelect={() => window.open(googleCalURL(m), "_blank", "noopener,noreferrer")}
                             >
-                                Google Calendar
+                                יומן Google
                             </PopoverMenuItem>
-                            <PopoverMenuItem onSelect={() => downloadICS(m)}>Download .ics</PopoverMenuItem>
+                            <PopoverMenuItem onSelect={() => downloadICS(m)}>הורד קובץ .ics</PopoverMenuItem>
                         </PopoverMenuContent>
                     </PopoverMenu>
                 )}
@@ -331,7 +331,7 @@ function MeetingRow({ m }: { m: MeetingBooking }) {
                         href={m.join_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="Join call"
+                        title="הצטרף לשיחה"
                         className="h-6 w-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-sky-600 hover:bg-sky-50"
                     >
                         <VideoIcon className="w-3.5 h-3.5" />
@@ -342,7 +342,7 @@ function MeetingRow({ m }: { m: MeetingBooking }) {
                         href={m.reschedule_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="Reschedule"
+                        title="קבע מועד מחדש"
                         className="h-6 w-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-amber-600 hover:bg-amber-50"
                     >
                         <RotateCcwIcon className="w-3.5 h-3.5" />
@@ -353,7 +353,7 @@ function MeetingRow({ m }: { m: MeetingBooking }) {
                         href={m.cancel_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="Cancel"
+                        title="בטל פגישה"
                         className="h-6 w-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50"
                     >
                         <XCircleIcon className="w-3.5 h-3.5" />
@@ -363,7 +363,7 @@ function MeetingRow({ m }: { m: MeetingBooking }) {
                     <button
                         type="button"
                         onClick={remove}
-                        title="Delete meeting"
+                        title="מחק פגישה"
                         className="h-6 w-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50"
                     >
                         <Trash2Icon className="w-3.5 h-3.5" />
