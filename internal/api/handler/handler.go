@@ -28,6 +28,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/feature"
 	"github.com/warmbly/warmbly/internal/app/fleetnode"
 	"github.com/warmbly/warmbly/internal/app/form"
+	"github.com/warmbly/warmbly/internal/app/geminikeys"
 	"github.com/warmbly/warmbly/internal/app/group"
 	"github.com/warmbly/warmbly/internal/app/instancecheck"
 	"github.com/warmbly/warmbly/internal/app/instanceconfig"
@@ -225,6 +226,9 @@ type Handler struct {
 
 	// MCPService manages org-connected MCP servers (external tools).
 	MCPService mcp.Service
+
+	// GeminiKeysService manages org-scoped Gemini API keys, multi-key rotation, and fallback configuration.
+	GeminiKeysService geminikeys.Service
 
 	// AIDraftRepo stores inbox-agent reply drafts awaiting human review (M10).
 	// The draft is created in the consumer; these list/approve/discard handlers

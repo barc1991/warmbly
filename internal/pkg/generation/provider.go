@@ -148,9 +148,11 @@ type AgentResult struct {
 var (
 	_ Provider         = (*openAIProvider)(nil)
 	_ Provider         = (*anthropicProvider)(nil)
+	_ Provider         = (*geminiProvider)(nil)
 	_ WritingGenerator = (*openAIProvider)(nil)
 	_ WritingGenerator = (*AnthropicClient)(nil)
 	_ WritingGenerator = (*GenerationClient)(nil)
+	_ WritingGenerator = (*geminiProvider)(nil)
 )
 
 // CompletionRequest is a single, tool-less generation with an explicit system
@@ -233,16 +235,30 @@ type ProviderConfig struct {
 	// key is set).
 	AnthropicAPIKey string
 
+	// Gemini configuration
+	GeminiAPIKey        string
+	GeminiKeys          []string
+	GeminiRotator       *GeminiKeyRotator
+	GeminiPrimaryModel  string
+	GeminiFallbackChain []string
+
 	// Search is the pluggable web-search client used by the search_web tool
 	// (M2). Optional; when nil the tool returns a clean not-configured error.
 	Search SearchClient
 }
 
-// NewProvider selects and constructs the active provider. OpenAI is preferred
-// (Warmbly's hosted default and the pluggable self-host path); the Anthropic
-// connector is used only when no OpenAI key is present. Returns
-// ErrProviderNotConfigured when neither is set.
+// NewProvider selects and constructs the active provider. If Gemini keys or rotator
+// are configured, the Gemini provider is constructed with rotation and fallback.
+// Otherwise OpenAI is preferred (Warmbly's hosted default and the pluggable self-host path);
+// the Anthropic connector is used when an Anthropic key is present. Returns
+// ErrProviderNotConfigured when none is set.
 func NewProvider(cfg ProviderConfig) (Provider, error) {
+	if cfg.GeminiRotator != nil && cfg.GeminiRotator.KeyCount() > 0 {
+		return newGeminiProvider(cfg), nil
+	}
+	if cfg.GeminiAPIKey != "" || len(cfg.GeminiKeys) > 0 {
+		return newGeminiProvider(cfg), nil
+	}
 	if cfg.OpenAIAPIKey != "" {
 		return newOpenAIProvider(cfg), nil
 	}

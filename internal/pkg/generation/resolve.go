@@ -35,6 +35,7 @@ type providerPreset struct {
 	defaultModel string
 	free         bool
 	anthropic    bool
+	gemini       bool
 	// needsKey is false for local backends that ignore the bearer token.
 	needsKey bool
 }
@@ -46,6 +47,8 @@ func presetFor(name string) (providerPreset, bool) {
 	case "openai":
 		// Model default handled by newOpenAIProvider (gpt-4o-mini / gpt-4o).
 		return providerPreset{baseURL: defaultOpenAIBaseURL, needsKey: true}, true
+	case "gemini", "google":
+		return providerPreset{gemini: true, defaultModel: GeminiModelPrimary, needsKey: true}, true
 	case "openrouter":
 		return providerPreset{baseURL: "https://openrouter.ai/api/v1", defaultModel: "meta-llama/llama-3.1-8b-instruct:free", needsKey: true}, true
 	case "groq":
@@ -75,6 +78,13 @@ func Resolve(s ProviderSettings) (ProviderConfig, error) {
 
 	if preset.anthropic {
 		return ProviderConfig{AnthropicAPIKey: s.APIKey, Search: s.Search}, nil
+	}
+	if preset.gemini {
+		return ProviderConfig{
+			GeminiAPIKey:       s.APIKey,
+			GeminiPrimaryModel: firstNonEmpty(s.Model, preset.defaultModel),
+			Search:             s.Search,
+		}, nil
 	}
 
 	free := preset.free

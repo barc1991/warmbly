@@ -1256,6 +1256,15 @@ func Run(
 				ai.PATCH("/connections/:id", m.RequirePermission(models.PermManageSettings), h.UpdateMCPServer)
 				ai.DELETE("/connections/:id", m.RequirePermission(models.PermManageSettings), h.DeleteMCPServer)
 				ai.POST("/connections/:id/refresh", m.RequirePermission(models.PermManageSettings), h.RefreshMCPServer)
+
+				// Gemini API keys, multi-key rotator, and cascading fallback configuration.
+				ai.GET("/gemini-keys", m.RequirePermission(models.PermManageSettings), h.ListGeminiKeys)
+				ai.POST("/gemini-keys", m.RequirePermission(models.PermManageSettings), h.CreateGeminiKeys)
+				ai.DELETE("/gemini-keys/:id", m.RequirePermission(models.PermManageSettings), h.DeleteGeminiKey)
+				ai.PATCH("/gemini-keys/:id/status", m.RequirePermission(models.PermManageSettings), h.UpdateGeminiKeyStatus)
+				ai.POST("/gemini-keys/:id/test", m.RequirePermission(models.PermManageSettings), h.TestGeminiKey)
+				ai.GET("/gemini-config", useAI, h.GetGeminiConfig)
+				ai.PUT("/gemini-config", m.RequirePermission(models.PermManageSettings), h.UpdateGeminiConfig)
 			}
 
 			// Cloud side of the self-hosted warmup pool link: a member approves

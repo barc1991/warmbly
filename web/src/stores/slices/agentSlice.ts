@@ -42,6 +42,7 @@ export type AgentTab = {
   key: string
   sessionId: string | null
   title: string
+  model: string
   turns: AgentTurn[]
   pending: AgentPending | null
   running: boolean
@@ -79,7 +80,8 @@ function makeTab(partial?: Partial<AgentTab>): AgentTab {
   return {
     key: newTabKey(),
     sessionId: null,
-    title: 'New chat',
+    title: 'שיחה חדשה',
+    model: 'gemini-3.8-flash',
     turns: [],
     pending: null,
     running: false,

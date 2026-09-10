@@ -56,6 +56,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/fleet"
 	"github.com/warmbly/warmbly/internal/app/fleetnode"
 	"github.com/warmbly/warmbly/internal/app/form"
+	"github.com/warmbly/warmbly/internal/app/geminikeys"
 	"github.com/warmbly/warmbly/internal/app/group"
 	"github.com/warmbly/warmbly/internal/app/guardrail"
 	idempotencyapp "github.com/warmbly/warmbly/internal/app/idempotency"
@@ -197,6 +198,7 @@ func main() {
 	var researchService research.Service
 	var skillsService skills.Service
 	var mcpService mcp.Service
+	var geminiKeysService geminikeys.Service
 	var emailVerifyService emailverifyapp.Service
 	var placementRepository repository.PlacementRepository
 	var placementService placement.Service
@@ -1404,23 +1406,33 @@ func main() {
 		mcpService = mcp.NewService(repository.NewMCPRepository(primaryDB), cipherService)
 		aiToolRegistry.AddDynamicSource(mcpService)
 
+		// Gemini API keys & multi-key rotation service
+		geminiKeysRepo := repository.NewGeminiKeysRepository(primaryDB)
+		geminiKeysService = geminikeys.NewService(geminiKeysRepo, cipherService)
+
 		// Dashboard AI agent: sessions + streamed, approval-gated, credit-charged
-		// runs over the tool registry. Only constructed when a provider is set.
-		if aiProvider != nil {
+		// runs over the tool registry. Constructed when a provider or Gemini keys are configured.
+		if aiProvider != nil || geminiKeysService != nil {
 			aiAgentService = aiagent.NewService(
 				repository.NewAgentRepository(primaryDB),
 				aiToolRegistry, aiProvider, creditService, featureGateService, auditService, skillsService,
 				aiagent.NewVoicePreamble(organizationService),
 				organizationService,
 			)
+			if geminiKeysService != nil {
+				aiAgentService.SetGeminiService(geminiKeysService)
+			}
 			// Contact research agent + its bounded background drain pool.
-			researchService = research.NewService(
-				repository.NewResearchRepository(primaryDB),
-				aiToolRegistry, aiProvider, creditService, featureGateService,
-				contactService, organizationService, streamingPublisher, skillsService,
-			)
-			researchService.StartDrainPool(ctx)
+			if aiProvider != nil {
+				researchService = research.NewService(
+					repository.NewResearchRepository(primaryDB),
+					aiToolRegistry, aiProvider, creditService, featureGateService,
+					contactService, organizationService, streamingPublisher, skillsService,
+				)
+				researchService.StartDrainPool(ctx)
+			}
 		}
+
 		// Fan reply + bounce events from the advanced-outreach brain out to
 		// customer webhooks AND third-party integration actions (Slack / CRM).
 		advancedService.WireDispatcher(webhookService)
@@ -1943,16 +1955,17 @@ func main() {
 		WarmupContentService: warmupContentService,
 
 		// AI writing assistant + credit ledger
-		CreditService:    creditService,
-		WritingGenerator: writingGenerator,
-		AIProvider:       aiProvider,
-		AISearch:         aiSearch,
-		AITools:          aiToolRegistry,
-		AIAgentService:   aiAgentService,
-		ResearchService:  researchService,
-		SkillsService:    skillsService,
-		MCPService:       mcpService,
-		AIDraftRepo:      aiDraftRepo,
+		CreditService:     creditService,
+		WritingGenerator:  writingGenerator,
+		AIProvider:        aiProvider,
+		AISearch:          aiSearch,
+		AITools:           aiToolRegistry,
+		AIAgentService:    aiAgentService,
+		ResearchService:   researchService,
+		SkillsService:     skillsService,
+		MCPService:        mcpService,
+		GeminiKeysService: geminiKeysService,
+		AIDraftRepo:       aiDraftRepo,
 
 		// Pre-send email verification
 		EmailVerifyService: emailVerifyService,

@@ -134,7 +134,7 @@ const (
 
 // Service is the dashboard-agent application API.
 type Service interface {
-	CreateSession(ctx context.Context, orgID, userID uuid.UUID, page, resource string) (*models.AgentSession, *errx.Error)
+	CreateSession(ctx context.Context, orgID, userID uuid.UUID, page, resource, model string) (*models.AgentSession, *errx.Error)
 	ListSessions(ctx context.Context, orgID, userID uuid.UUID, limit int, beforeCreatedAt time.Time, beforeID uuid.UUID) ([]models.AgentSession, error)
 	GetSession(ctx context.Context, orgID, userID, sessionID uuid.UUID) (*models.AgentSession, error)
 	DeleteSession(ctx context.Context, orgID, userID, sessionID uuid.UUID) *errx.Error
@@ -149,11 +149,18 @@ type Service interface {
 
 	// RunMessage streams a new user message's run. inv carries the caller's
 	// identity + org permission bits. emit is called for each SSE step.
-	RunMessage(ctx context.Context, inv aitools.Invocation, sessionID uuid.UUID, messageID, text, page, resource string, emit func(StreamEvent)) *errx.Error
+	RunMessage(ctx context.Context, inv aitools.Invocation, sessionID uuid.UUID, messageID, text, page, resource, model string, emit func(StreamEvent)) *errx.Error
 
 	// Resume continues a paused run after the user's decision
 	// (approve | deny | always_allow).
 	Resume(ctx context.Context, inv aitools.Invocation, sessionID uuid.UUID, decision string, emit func(StreamEvent)) *errx.Error
+
+	// SetGeminiService attaches the Gemini keys and runtime provider resolver.
+	SetGeminiService(gemini any)
+}
+
+type geminiProviderGetter interface {
+	GetProviderForOrg(ctx context.Context, orgID uuid.UUID) (generation.Provider, error)
 }
 
 type service struct {
@@ -167,11 +174,18 @@ type service struct {
 	voice    VoicePreamble
 	// orgs resolves the workspace's assistant_shared_history flag (same
 	// getter slice the voice preamble uses). Nil means always-private.
-	orgs OrgVoiceGetter
+	orgs   OrgVoiceGetter
+	gemini geminiProviderGetter
 }
 
 func NewService(repo repository.AgentRepository, registry *aitools.Registry, provider generation.Provider, creditSvc credits.CreditService, feature FeatureGate, audit AuditLogger, skills SkillPreamble, voice VoicePreamble, orgs OrgVoiceGetter) Service {
 	return &service{repo: repo, registry: registry, provider: provider, credits: creditSvc, feature: feature, audit: audit, skills: skills, voice: voice, orgs: orgs}
+}
+
+func (s *service) SetGeminiService(gemini any) {
+	if g, ok := gemini.(geminiProviderGetter); ok {
+		s.gemini = g
+	}
 }
 
 // sharedHistory reports whether this workspace shares assistant conversations
@@ -196,8 +210,8 @@ func (s *service) sessionScope(ctx context.Context, orgID, callerID, sessionID u
 	return callerID
 }
 
-func (s *service) CreateSession(ctx context.Context, orgID, userID uuid.UUID, page, resource string) (*models.AgentSession, *errx.Error) {
-	sess, err := s.repo.CreateSession(ctx, orgID, userID, "", models.AgentSessionContext{Page: page, Resource: resource})
+func (s *service) CreateSession(ctx context.Context, orgID, userID uuid.UUID, page, resource, model string) (*models.AgentSession, *errx.Error) {
+	sess, err := s.repo.CreateSession(ctx, orgID, userID, "", models.AgentSessionContext{Page: page, Resource: resource, Model: model})
 	if err != nil {
 		return nil, errx.New(errx.Internal, "failed to create session")
 	}
@@ -324,8 +338,8 @@ var (
 	errStopped      = errors.New("stopped")
 )
 
-func (s *service) RunMessage(ctx context.Context, inv aitools.Invocation, sessionID uuid.UUID, messageID, text, page, resource string, emit func(StreamEvent)) *errx.Error {
-	if s.provider == nil {
+func (s *service) RunMessage(ctx context.Context, inv aitools.Invocation, sessionID uuid.UUID, messageID, text, page, resource, model string, emit func(StreamEvent)) *errx.Error {
+	if s.provider == nil && s.gemini == nil {
 		return errx.New(errx.ServiceUnavailable, "the AI assistant is not configured")
 	}
 	owner := s.sessionScope(ctx, inv.OrgID, inv.UserID, sessionID)
@@ -349,8 +363,11 @@ func (s *service) RunMessage(ctx context.Context, inv aitools.Invocation, sessio
 	}
 	genMsgs = append(genMsgs, userMsg)
 
-	// Update session context (page/resource) and set a title from the first
+	// Update session context (page/resource/model) and set a title from the first
 	// message.
+	if strings.TrimSpace(model) != "" {
+		sess.Context.Model = strings.TrimSpace(model)
+	}
 	sess.Context.Page = page
 	sess.Context.Resource = resource
 	sess.Context.Pending = nil
@@ -425,10 +442,29 @@ func (s *service) Resume(ctx context.Context, inv aitools.Invocation, sessionID 
 // persisted (new tail beyond it is written on completion).
 func (s *service) runLoop(ctx context.Context, inv aitools.Invocation, sess *models.AgentSession, genMsgs []generation.AgentMessage, baseline int, messageID string, emit func(StreamEvent)) *errx.Error {
 	paid, _ := s.feature.IsPaidOrganization(ctx, inv.OrgID)
-	model := s.provider.ModelForTier(paid)
+	activeProvider := s.provider
+
+	// If org has configured Gemini keys or if a Gemini model is requested, resolve org Gemini provider
+	if s.gemini != nil {
+		if orgProv, err := s.gemini.GetProviderForOrg(ctx, inv.OrgID); err == nil && orgProv != nil {
+			if strings.HasPrefix(strings.ToLower(sess.Context.Model), "gemini") || sess.Context.Model == "" {
+				activeProvider = orgProv
+			}
+		}
+	}
+
+	if activeProvider == nil {
+		return errx.New(errx.ServiceUnavailable, "the AI assistant is not configured")
+	}
+
+	model := activeProvider.ModelForTier(paid)
+	if strings.TrimSpace(sess.Context.Model) != "" {
+		model = sess.Context.Model
+	}
 	sess.Context.Model = model
-	// Free/local backends (AI_FREE) run un-metered and warn the user.
-	freeModel := s.provider.IsLocal()
+
+	// Free/local backends (AI_FREE) or org Gemini rotators run un-metered
+	freeModel := activeProvider.IsLocal() || activeProvider.Name() == "gemini"
 	chargeCredits := !freeModel
 	sess.Context.FreeModel = freeModel
 
@@ -515,11 +551,11 @@ func (s *service) runLoop(ctx context.Context, inv aitools.Invocation, sess *mod
 		},
 	}
 
-	result, rerr := s.provider.RunAgent(ctx, req)
+	result, rerr := activeProvider.RunAgent(ctx, req)
 	if rerr != nil {
 		// The client only ever sees the generic message; the real cause goes to
 		// the server log so a failing provider is debuggable.
-		log.Printf("aiagent: run failed (org=%s session=%s provider=%s model=%s): %v", inv.OrgID, sess.ID, s.provider.Name(), model, rerr)
+		log.Printf("aiagent: run failed (org=%s session=%s provider=%s model=%s): %v", inv.OrgID, sess.ID, activeProvider.Name(), model, rerr)
 		// The credit for the failed iteration was charged before the model call
 		// (PreIteration); refund it so the user is not billed for output they
 		// never received. Nothing to refund on the free/local path.
@@ -687,7 +723,7 @@ func summarizeArgs(args json.RawMessage) string {
 }
 
 // summarize renders a short human line for a tool result step row.
-func summarize(tool, result string) string {
+func summarize(_ string, result string) string {
 	var m map[string]any
 	if err := json.Unmarshal([]byte(result), &m); err == nil {
 		if c, ok := m["count"]; ok {

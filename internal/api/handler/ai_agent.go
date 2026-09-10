@@ -60,10 +60,11 @@ func (h *Handler) CreateAgentSession(c *gin.Context) {
 	var req struct {
 		Page     string `json:"page"`
 		Resource string `json:"resource"`
+		Model    string `json:"model"`
 	}
 	_ = c.ShouldBindJSON(&req)
 
-	sess, serr := h.AIAgentService.CreateSession(c.Request.Context(), inv.OrgID, inv.UserID, req.Page, req.Resource)
+	sess, serr := h.AIAgentService.CreateSession(c.Request.Context(), inv.OrgID, inv.UserID, req.Page, req.Resource, req.Model)
 	if serr != nil {
 		errx.JSON(c, serr)
 		return
@@ -209,6 +210,7 @@ func (h *Handler) AgentMessage(c *gin.Context) {
 		Text      string `json:"text"`
 		Page      string `json:"page"`
 		Resource  string `json:"resource"`
+		Model     string `json:"model"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		errx.JSON(c, errx.New(errx.BadRequest, "invalid request body"))
@@ -219,7 +221,7 @@ func (h *Handler) AgentMessage(c *gin.Context) {
 	}
 
 	emit := sseEmitter(c)
-	if serr := h.AIAgentService.RunMessage(c.Request.Context(), inv, sessionID, req.MessageID, req.Text, req.Page, req.Resource, emit); serr != nil {
+	if serr := h.AIAgentService.RunMessage(c.Request.Context(), inv, sessionID, req.MessageID, req.Text, req.Page, req.Resource, req.Model, emit); serr != nil {
 		emit(aiagent.StreamEvent{Type: "error", Code: string(codeIdentifier(serr)), Message: serr.Message})
 	}
 }

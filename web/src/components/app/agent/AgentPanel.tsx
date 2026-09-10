@@ -60,6 +60,7 @@ import streamAgentRun from "@/lib/api/client/app/agent/streamAgentRun";
 import useAgentSessions from "@/lib/api/hooks/app/agent/useAgentSessions";
 import Markdown from "./Markdown";
 import AgentMark from "./AgentMark";
+import AgentModelPicker from "./AgentModelPicker";
 import { Kbd } from "@/components/ui/shortcut-tooltip";
 import type {
     AgentStreamEvent,
@@ -357,6 +358,7 @@ export default function AgentPanel() {
                 const sess = await createAgentSession({
                     page: location.pathname,
                     resource,
+                    model: tab.model || "gemini-3.8-flash",
                 });
                 sid = sess.id;
                 store.agentPatchTab(tab.key, { sessionId: sid });
@@ -377,6 +379,7 @@ export default function AgentPanel() {
             text,
             page: location.pathname,
             resource,
+            model: tab.model || "gemini-3.8-flash",
         });
     }
 
@@ -689,6 +692,7 @@ export default function AgentPanel() {
                         <div className="text-[13px] font-semibold text-slate-900">
                             עוזר AI
                         </div>
+                        <AgentModelPicker />
                         <div className="ms-auto flex items-center gap-1">
                             {!isFloat && (
                                 <button
