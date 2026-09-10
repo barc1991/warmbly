@@ -62,9 +62,9 @@ import buildError from "@/lib/helper/buildError";
 import DealsTable from "@/components/app/crm/DealsTable";
 
 const STATUS_LABEL = {
-    open: { label: "Open",  tone: "text-slate-700",   dot: "bg-slate-400" },
-    won:  { label: "Won",   tone: "text-emerald-700", dot: "bg-emerald-500" },
-    lost: { label: "Lost",  tone: "text-red-700",     dot: "bg-red-500" },
+    open: { label: "פתוח",  tone: "text-slate-700",   dot: "bg-slate-400" },
+    won:  { label: "נסגר בהצלחה",   tone: "text-emerald-700", dot: "bg-emerald-500" },
+    lost: { label: "אבוד",  tone: "text-red-700",     dot: "bg-red-500" },
 } as const;
 
 export default function DealsPage() {
@@ -160,7 +160,7 @@ export default function DealsPage() {
         try {
             await toast.promise(
                 updateDeal.mutateAsync({ id: dealId, data: { stage_id: newStageId } as Partial<Deal> }),
-                { loading: "Moving…", success: "Moved", error: (e: AppError) => buildError(e) },
+                { loading: "מעביר…", success: "הועבר", error: (e: AppError) => buildError(e) },
             );
             // Nudge teammates on the same board to update now (the audit refetch is
             // the durable backstop if this best-effort frame is dropped).
@@ -173,13 +173,13 @@ export default function DealsPage() {
     return (
         <Page>
             <PageTopbar
-                eyebrow="Deals"
+                eyebrow="עסקאות"
                 subtitle={
                     list.length === 0
-                        ? "Create a pipeline first to start tracking deals."
+                        ? "צור צינור מכירות תחילה כדי להתחיל במעקב אחר עסקאות."
                         : view === "board"
-                          ? (currentPipeline?.name ?? "—")
-                          : "Every deal, across all pipelines"
+                          ? (currentPipeline?.name ?? "-")
+                          : "כל העסקאות, בכל צינורות המכירה"
                 }
             >
                 {list.length > 0 && (
@@ -199,7 +199,7 @@ export default function DealsPage() {
                             icon={<PlusIcon className="w-3 h-3" />}
                             onClick={() => currentPipeline && setNewOpen(true)}
                         >
-                            New deal
+                            עסקה חדשה
                         </TopbarAction>
                     </>
                 )}
@@ -218,21 +218,21 @@ export default function DealsPage() {
             ) : (
                 <>
                     <StatStrip cols={4}>
-                        <Stat label="Open" value={boardSummary ? boardSummary.open_count : "—"} sub="open deals" />
+                        <Stat label="פתוחות" value={boardSummary ? boardSummary.open_count : "-"} sub="עסקאות פתוחות" />
                         <Stat
-                            label="Pipeline value"
-                            value={boardSummary ? formatMoney(boardSummary.open_value, boardSummary.currency) : "—"}
-                            sub={boardSummary?.mixed_currency ? "mixed currencies" : "open · server total"}
+                            label="שווי צינור"
+                            value={boardSummary ? formatMoney(boardSummary.open_value, boardSummary.currency) : "-"}
+                            sub={boardSummary?.mixed_currency ? "מטבעות מעורבים" : "פתוח · סה״כ בשרת"}
                         />
                         <Stat
-                            label="Won"
-                            value={boardSummary ? formatMoney(boardSummary.won_value, boardSummary.currency) : "—"}
-                            sub="closed won"
+                            label="נסגרו בהצלחה"
+                            value={boardSummary ? formatMoney(boardSummary.won_value, boardSummary.currency) : "-"}
+                            sub="עסקאות שנסגרו"
                         />
-                        <Stat label="Stages" value={stages.length} sub="on this pipeline" last />
+                        <Stat label="שלבים" value={stages.length} sub="בצינור מכירות זה" last />
                     </StatStrip>
 
-                    <SectionBar label={`${stages.length} stages`}>
+                    <SectionBar label={`${stages.length} שלבים`}>
                         <div className="contents md:hidden">
                             <PipelinePicker
                                 pipelines={list}
@@ -289,8 +289,8 @@ function ViewToggle({
         <div className="inline-flex rounded-md bg-slate-100 p-0.5 gap-0.5">
             {(
                 [
-                    ["table", "Table", Table2Icon],
-                    ["board", "Board", LayoutGridIcon],
+                    ["table", "טבלה", Table2Icon],
+                    ["board", "לוח", LayoutGridIcon],
                 ] as const
             ).map(([id, label, Icon]) => (
                 <button
@@ -413,12 +413,12 @@ function BoardColumn({
                 <span className="text-[11px] uppercase tracking-[0.1em] font-semibold text-slate-700 truncate">
                     {stage.name}
                 </span>
-                <span className="ml-auto font-mono text-[10.5px] text-slate-400 tabular-nums">{count}</span>
+                <span className="ms-auto font-mono text-[10.5px] text-slate-400 tabular-nums">{count}</span>
             </div>
             {value > 0 && (
                 <div className="px-3 py-1 border-b border-slate-200/60 bg-white shrink-0">
                     <span className="text-[10.5px] text-emerald-700 font-mono tabular-nums">
-                        {formatMoney(value)} open
+                        {formatMoney(value)} פתוח
                     </span>
                 </div>
             )}
@@ -430,7 +430,7 @@ function BoardColumn({
                     </>
                 ) : deals.length === 0 ? (
                     <div className="h-20 rounded-md border border-dashed border-slate-200 flex items-center justify-center text-[10.5px] text-slate-400">
-                        Drop deals here
+                        גרור עסקאות לכאן
                     </div>
                 ) : (
                     <>
@@ -453,7 +453,7 @@ function BoardColumn({
                                 {q.isFetchingNextPage ? (
                                     <Loader2Icon className="w-3 h-3 animate-spin" />
                                 ) : (
-                                    `Load ${Math.max(0, count - deals.length)} more`
+                                    `טען עוד ${Math.max(0, count - deals.length)}`
                                 )}
                             </button>
                         )}
@@ -487,7 +487,7 @@ function DealCard({
             onDragEnd={() => onDragLive?.(deal.id, false)}
             onClick={() => onOpen(deal)}
             style={peerColor ? { boxShadow: `0 0 0 2px ${peerColor}` } : undefined}
-            className={`cursor-pointer rounded-md bg-white border px-2.5 py-2 transition-all ${
+            className={`cursor-pointer rounded-md bg-white border px-2.5 py-2 transition-all text-start ${
                 peerColor
                     ? "border-transparent opacity-80 animate-pulse"
                     : "border-slate-200 hover:border-slate-300 hover:shadow-sm"
@@ -504,22 +504,22 @@ function DealCard({
                 )}
             </div>
             {deal.contact?.email && (
-                <div className="flex items-center gap-1 text-[10.5px] text-slate-500 truncate mb-1.5">
+                <div className="flex items-center gap-1 text-[10.5px] text-slate-500 truncate mb-1.5" dir="ltr">
                     <UserIcon className="w-2.5 h-2.5 shrink-0" />
                     <span className="truncate">{deal.contact.email}</span>
                 </div>
             )}
             <div className="flex items-center gap-2 text-[10.5px]">
                 {deal.value !== undefined && deal.value !== null ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-600 font-mono tabular-nums">
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-mono tabular-nums" dir="ltr">
                         <CircleDollarSignIcon className="w-2.5 h-2.5" />
                         {formatMoney(deal.value, deal.currency)}
                     </span>
                 ) : (
-                    <span className="text-slate-300">—</span>
+                    <span className="text-slate-300">-</span>
                 )}
                 {deal.expected_close_date && (
-                    <span className="inline-flex items-center gap-1 text-slate-400 ml-auto">
+                    <span className="inline-flex items-center gap-1 text-slate-400 ms-auto">
                         <CalendarIcon className="w-2.5 h-2.5" />
                         {fmtDate(deal.expected_close_date)}
                     </span>
@@ -548,11 +548,11 @@ function PipelinePicker({
                     type="button"
                     className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5 min-w-0"
                 >
-                    <span className="truncate max-w-[110px] md:max-w-[200px]">{cur?.name ?? "Pick pipeline"}</span>
+                    <span className="truncate max-w-[110px] md:max-w-[200px]">{cur?.name ?? "בחר צינור מכירות"}</span>
                     <span className="text-slate-400">▾</span>
                 </button>
             </PopoverMenuTrigger>
-            <PopoverMenuContent minWidth={200}>
+            <PopoverMenuContent minWidth={200} className="text-start">
                 {pipelines.map((p) => (
                     <PopoverMenuItem
                         key={p.id}
@@ -574,11 +574,11 @@ function SearchPill({ value, onChange }: { value: string; onChange: (v: string) 
             <input
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                placeholder="Search deals…"
-                className="w-[120px] md:w-[160px] h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
+                placeholder="חיפוש עסקאות…"
+                className="w-[120px] md:w-[160px] h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
             />
             {value && (
-                <button type="button" onClick={() => onChange("")} aria-label="Clear" className="text-slate-400 hover:text-slate-700">
+                <button type="button" onClick={() => onChange("")} aria-label="נקה" className="text-slate-400 hover:text-slate-700">
                     <XIcon className="w-3 h-3" />
                 </button>
             )}
@@ -610,15 +610,15 @@ function NoPipelinesYet() {
             <div className="mx-auto size-9 rounded-md bg-white border border-slate-200 flex items-center justify-center mb-3">
                 <TrophyIcon className="w-4 h-4 text-slate-400" />
             </div>
-            <h3 className="text-[13px] font-semibold text-slate-900 mb-1">No pipelines yet</h3>
+            <h3 className="text-[13px] font-semibold text-slate-900 mb-1">אין צינורות מכירות עדיין</h3>
             <p className="text-[12px] text-slate-500 max-w-md mx-auto mb-4 leading-relaxed">
-                Deals live inside pipelines. Head to the Pipelines tab to define one first.
+                עסקאות מנוהלות בתוך צינורות מכירה. עבור ללשונית צינורות כדי להגדיר אחד תחילה.
             </p>
             <a
                 href="/app/crm/pipelines"
                 className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
             >
-                Open Pipelines
+                מעבר לצינורות מכירה
             </a>
         </div>
     );
@@ -628,7 +628,7 @@ function NoStagesYet() {
     return (
         <div className="rounded-md border border-dashed border-slate-300 bg-slate-50/40 p-6 text-center">
             <p className="text-[12px] text-slate-600 leading-relaxed">
-                This pipeline has no stages yet. Add at least one in the Pipelines tab.
+                לצינור מכירות זה אין שלבים עדיין. הוסף לפחות שלב אחד בלשונית הצינורות.
             </p>
         </div>
     );
@@ -687,11 +687,11 @@ function DealDialog({
 
     async function submit() {
         if (!name.trim()) {
-            toast.error("Deal name required");
+            toast.error("יש להזין שם לעסקה");
             return;
         }
         if (!stageId) {
-            toast.error("Pick a stage");
+            toast.error("יש לבחור שלב");
             return;
         }
         const data: Partial<Deal> = {
@@ -703,7 +703,7 @@ function DealDialog({
         if (value.trim()) {
             const num = Number(value);
             if (!Number.isFinite(num)) {
-                toast.error("Value must be a number");
+                toast.error("השווי חייב להיות מספר");
                 return;
             }
             data.value = num;
@@ -714,14 +714,14 @@ function DealDialog({
         try {
             if (editing) {
                 await toast.promise(update.mutateAsync({ id: editing.id, data }), {
-                    loading: "Saving…",
-                    success: "Deal updated",
+                    loading: "שומר…",
+                    success: "העסקה עודכנה",
                     error: (e: AppError) => buildError(e),
                 });
             } else {
                 await toast.promise(create.mutateAsync(data), {
-                    loading: "Creating deal…",
-                    success: "Deal created",
+                    loading: "יוצר עסקה…",
+                    success: "העסקה נוצרה",
                     error: (e: AppError) => buildError(e),
                 });
             }
@@ -733,11 +733,11 @@ function DealDialog({
 
     function doDelete() {
         if (!editing) return;
-        confirm?.show(`Delete deal "${editing.name}"?`, async () => {
+        confirm?.show(`למחוק את העסקה "${editing.name}"?`, async () => {
             try {
                 await toast.promise(del.mutateAsync(editing.id), {
-                    loading: "Deleting…",
-                    success: "Deal deleted",
+                    loading: "מוחק…",
+                    success: "העסקה נמחקה",
                     error: (e: AppError) => buildError(e),
                 });
                 onClose();
@@ -766,17 +766,17 @@ function DealDialog({
                         exit={{ y: 8, opacity: 0 }}
                         transition={{ duration: 0.16 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full max-w-[480px] max-h-[calc(100dvh-2rem)] flex flex-col rounded-lg bg-white border border-slate-200 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden"
+                        className="w-full max-w-[480px] max-h-[calc(100dvh-2rem)] flex flex-col rounded-lg bg-white border border-slate-200 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden text-start"
                     >
                         <div className="h-12 shrink-0 px-4 border-b border-slate-200 flex items-center gap-2.5">
                             <div className="size-5 rounded bg-slate-100 text-slate-600 flex items-center justify-center">
                                 <TrophyIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                {editing ? "Edit" : "New"}
+                                {editing ? "עריכה" : "חדשה"}
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-900 font-medium">Deal</span>
+                            <span className="text-[12.5px] text-slate-900 font-medium">עסקה</span>
                             <ResourceViewers
                                 resource={editing?.id ? `deal:${editing.id}` : null}
                                 className="shrink-0"
@@ -785,8 +785,8 @@ function DealDialog({
                                 <button
                                     type="button"
                                     onClick={doDelete}
-                                    className="ml-2 size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors"
-                                    aria-label="Delete deal"
+                                    className="me-2 size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors"
+                                    aria-label="מחק עסקה"
                                 >
                                     <TrashIcon className="w-3 h-3" />
                                 </button>
@@ -794,8 +794,8 @@ function DealDialog({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגור"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -803,17 +803,17 @@ function DealDialog({
 
                         <div className="px-4 py-4 space-y-3 min-h-0 overflow-y-auto">
                             <div>
-                                <Label>Deal name</Label>
-                                <TextInput value={name} onChange={setName} placeholder="e.g. Q1 outbound · Acme" autoFocus className="w-full" />
+                                <Label>שם העסקה</Label>
+                                <TextInput value={name} onChange={setName} placeholder="לדוגמה: פנייה לרבעון 1 · אקמי" autoFocus className="w-full" />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
-                                    <Label>Stage</Label>
+                                    <Label>שלב</Label>
                                     <StagePill stages={stages} value={stageId} onChange={setStageId} />
                                 </div>
                                 {editing && (
                                     <div>
-                                        <Label>Status</Label>
+                                        <Label>סטטוס</Label>
                                         <div className="inline-flex rounded-md bg-slate-100 p-0.5 gap-0.5 w-full">
                                             {(["open", "won", "lost"] as const).map((s) => (
                                                 <button
@@ -835,22 +835,22 @@ function DealDialog({
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <div className="sm:col-span-2">
-                                    <Label>Value</Label>
+                                    <Label>שווי</Label>
                                     <TextInput value={value} onChange={setValue} placeholder="12000" className="w-full" />
                                 </div>
                                 <div>
-                                    <Label>Currency</Label>
+                                    <Label>מטבע</Label>
                                     <TextInput value={currency} onChange={setCurrency} placeholder="USD" className="w-full uppercase" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
-                                    <Label>Expected close</Label>
-                                    <DatePicker value={closeDate} onChange={setCloseDate} placeholder="Pick a date" className="w-full" />
+                                    <Label>תאריך סגירה צפוי</Label>
+                                    <DatePicker value={closeDate} onChange={setCloseDate} placeholder="בחר תאריך" className="w-full" />
                                 </div>
                                 <div>
-                                    <Label>Contact (read-only)</Label>
-                                    <TextInput value={contactEmail} onChange={setContactEmail} disabled placeholder="—" className="w-full" />
+                                    <Label>איש קשר (לקריאה בלבד)</Label>
+                                    <TextInput value={contactEmail} onChange={setContactEmail} disabled placeholder="-" className="w-full" />
                                 </div>
                             </div>
                         </div>
@@ -859,9 +859,9 @@ function DealDialog({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -872,7 +872,7 @@ function DealDialog({
                                 {(create.isPending || update.isPending) && (
                                     <Loader2Icon className="w-3 h-3 animate-spin" />
                                 )}
-                                {editing ? "Save deal" : "Create deal"}
+                                {editing ? "שמור עסקה" : "צור עסקה"}
                             </button>
                         </div>
                     </motion.div>
@@ -910,12 +910,12 @@ function StagePill({
                             <span className="truncate">{cur.name}</span>
                         </>
                     ) : (
-                        <span className="text-slate-400">Select…</span>
+                        <span className="text-slate-400">בחר…</span>
                     )}
-                    <span className="ml-auto text-slate-400">▾</span>
+                    <span className="ms-auto text-slate-400">▾</span>
                 </button>
             </PopoverMenuTrigger>
-            <PopoverMenuContent minWidth={200} className="max-h-56 overflow-y-auto">
+            <PopoverMenuContent minWidth={200} className="max-h-56 overflow-y-auto text-start">
                 {stages.map((s) => (
                     <PopoverMenuItem
                         key={s.id}
@@ -937,23 +937,24 @@ function StagePill({
 }
 
 function formatMoney(n: number | undefined, currency = "USD") {
-    if (n === undefined || n === null) return "—";
+    if (n === undefined || n === null) return "-";
     try {
-        return new Intl.NumberFormat("en-US", {
+        return new Intl.NumberFormat("he-IL", {
             style: "currency",
             currency: currency || "USD",
             maximumFractionDigits: 0,
         }).format(n);
     } catch {
-        return `$${n.toLocaleString()}`;
+        return `${n.toLocaleString()}`;
     }
 }
 
 function fmtDate(d: string | undefined) {
-    if (!d) return "—";
+    if (!d) return "-";
     try {
-        return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return new Date(d).toLocaleDateString("he-IL", { month: "short", day: "numeric" });
     } catch {
-        return "—";
+        return "-";
     }
 }
+

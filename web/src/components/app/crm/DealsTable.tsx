@@ -43,25 +43,25 @@ import type { DealSortBy } from "@/lib/api/models/app/crm/SearchDeals";
 import { EMPTY_DEAL_SEARCH } from "@/lib/api/models/app/crm/SearchDeals";
 
 const STATUS_TABS: { id: "all" | "open" | "won" | "lost"; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "open", label: "Open" },
-    { id: "won", label: "Won" },
-    { id: "lost", label: "Lost" },
+    { id: "all", label: "הכל" },
+    { id: "open", label: "פתוח" },
+    { id: "won", label: "נסגר בהצלחה" },
+    { id: "lost", label: "אבוד" },
 ];
 
 const STATUS_STYLE: Record<Deal["status"], { label: string; cls: string; dot: string }> = {
-    open: { label: "Open", cls: "text-slate-600", dot: "bg-slate-400" },
-    won: { label: "Won", cls: "text-emerald-700", dot: "bg-emerald-500" },
-    lost: { label: "Lost", cls: "text-red-700", dot: "bg-red-500" },
+    open: { label: "פתוח", cls: "text-slate-600", dot: "bg-slate-400" },
+    won: { label: "נסגר בהצלחה", cls: "text-emerald-700", dot: "bg-emerald-500" },
+    lost: { label: "אבוד", cls: "text-red-700", dot: "bg-red-500" },
 };
 
 const SORTS: { id: string; label: string; sort_by: DealSortBy; reverse: boolean }[] = [
-    { id: "newest", label: "Newest", sort_by: "created_at", reverse: false },
-    { id: "oldest", label: "Oldest", sort_by: "created_at", reverse: true },
-    { id: "value_desc", label: "Value · high → low", sort_by: "value", reverse: false },
-    { id: "value_asc", label: "Value · low → high", sort_by: "value", reverse: true },
-    { id: "closing", label: "Closing soonest", sort_by: "expected_close_date", reverse: true },
-    { id: "name", label: "Name · A → Z", sort_by: "name", reverse: true },
+    { id: "newest", label: "החדש ביותר", sort_by: "created_at", reverse: false },
+    { id: "oldest", label: "הישן ביותר", sort_by: "created_at", reverse: true },
+    { id: "value_desc", label: "שווי · מהגבוה לנמוך", sort_by: "value", reverse: false },
+    { id: "value_asc", label: "שווי · מהנמוך לגבוה", sort_by: "value", reverse: true },
+    { id: "closing", label: "סגירה קרובה ביותר", sort_by: "expected_close_date", reverse: true },
+    { id: "name", label: "שם · א׳ עד ת׳", sort_by: "name", reverse: true },
 ];
 
 export default function DealsTable({
@@ -106,28 +106,28 @@ export default function DealsTable({
         <>
             <StatStrip cols={4}>
                 <Stat
-                    label="Open"
-                    value={sum ? sum.open_count : "—"}
-                    sub="open deals"
+                    label="פתוחות"
+                    value={sum ? sum.open_count : "-"}
+                    sub="עסקאות פתוחות"
                 />
                 <Stat
-                    label="Pipeline value"
-                    value={sum ? money(sum.open_value, sum.currency) : "—"}
-                    sub={sum?.mixed_currency ? "mixed currencies" : "open · server total"}
+                    label="שווי צינור"
+                    value={sum ? money(sum.open_value, sum.currency) : "-"}
+                    sub={sum?.mixed_currency ? "מטבעות מעורבים" : "פתוח · סה״כ בשרת"}
                 />
                 <Stat
-                    label="Won"
-                    value={sum ? money(sum.won_value, sum.currency) : "—"}
-                    sub={`${sum?.won_count ?? 0} closed won`}
+                    label="נסגרו בהצלחה"
+                    value={sum ? money(sum.won_value, sum.currency) : "-"}
+                    sub={`${sum?.won_count ?? 0} נסגרו בהצלחה`}
                 />
-                <Stat label="Total" value={sum ? sum.total : total} sub="matching filter" last />
+                <Stat label="סה״כ" value={sum ? sum.total : total} sub="תואם סינון" last />
             </StatStrip>
 
-            <SectionBar label={search.isPending ? "Loading…" : `${total} ${total === 1 ? "deal" : "deals"}`}>
+            <SectionBar label={search.isPending ? "טוען…" : `${total} ${total === 1 ? "עסקה" : "עסקאות"}`}>
                 <SearchInput
                     value={filters.query}
                     onChange={(v) => setFilters((f) => ({ ...f, query: v }))}
-                    placeholder="Search deals…"
+                    placeholder="חיפוש עסקאות…"
                     className="w-full sm:w-[180px]"
                 />
                 <div className="inline-flex rounded-md bg-slate-100 p-0.5 gap-0.5">
@@ -157,7 +157,7 @@ export default function DealsTable({
 
             {search.isError ? (
                 <div className="px-5 py-16 text-center text-[12.5px] text-red-600">
-                    Couldn’t load deals. Try again.
+                    לא ניתן לטעון עסקאות. נסה שוב.
                 </div>
             ) : !search.isPending && deals.length === 0 ? (
                 <EmptyDeals hasFilters={total === 0 && hasAnyFilter(filters)} onClear={() => setFilters(EMPTY_DEAL_SEARCH)} />
@@ -166,13 +166,13 @@ export default function DealsTable({
                     <table className="w-full border-collapse">
                         <thead className="sticky top-0 bg-white z-[1]">
                             <tr className="border-b border-slate-200">
-                                <Th className="text-left">Deal</Th>
-                                <Th className="text-left hidden md:table-cell">Contact</Th>
-                                <Th className="text-left hidden md:table-cell">Pipeline</Th>
-                                <Th className="text-left">Stage</Th>
-                                <Th className="text-right">Value</Th>
-                                <Th className="text-left hidden md:table-cell">Status</Th>
-                                <Th className="text-left hidden md:table-cell">Close</Th>
+                                <Th className="text-start">עסקה</Th>
+                                <Th className="text-start hidden md:table-cell">איש קשר</Th>
+                                <Th className="text-start hidden md:table-cell">צינור מכירות</Th>
+                                <Th className="text-start">שלב</Th>
+                                <Th className="text-end">שווי</Th>
+                                <Th className="text-start hidden md:table-cell">סטטוס</Th>
+                                <Th className="text-start hidden md:table-cell">סגירה</Th>
                             </tr>
                         </thead>
                         <tbody>
@@ -200,20 +200,20 @@ export default function DealsTable({
                                 {search.isFetchingNextPage ? (
                                     <>
                                         <Loader2Icon className="w-3 h-3 animate-spin" />
-                                        Loading…
+                                        טוען…
                                     </>
                                 ) : (
                                     <>
                                         <PlusIcon className="w-3 h-3" />
-                                        Load more
+                                        טען עוד
                                     </>
                                 )}
                             </button>
                         ) : null}
                         <span className="font-mono text-[10.5px] text-slate-400 tabular-nums">
                             {search.hasNextPage
-                                ? `${deals.length} of ${total} loaded`
-                                : `${total} ${total === 1 ? "deal" : "deals"}`}
+                                ? `${deals.length} מתוך ${total} נטענו`
+                                : `${total} ${total === 1 ? "עסקה" : "עסקאות"}`}
                         </span>
                     </div>
                 </div>
@@ -252,13 +252,13 @@ function DealRow({
                         <span className="truncate">{contactLabel}</span>
                     </div>
                 ) : (
-                    <span className="text-slate-300 text-[11.5px]">—</span>
+                    <span className="text-slate-300 text-[11.5px]">-</span>
                 )}
             </td>
             <td className="px-3 whitespace-nowrap hidden md:table-cell">
                 <span className="inline-flex items-center gap-1.5 text-[11.5px] text-slate-500">
                     <GitBranchIcon className="w-3 h-3 text-slate-400" />
-                    {pipelineName ?? "—"}
+                    {pipelineName ?? "-"}
                 </span>
             </td>
             <td className="px-3 whitespace-nowrap">
@@ -271,16 +271,16 @@ function DealRow({
                         {deal.stage.name}
                     </span>
                 ) : (
-                    <span className="text-slate-300 text-[11.5px]">—</span>
+                    <span className="text-slate-300 text-[11.5px]">-</span>
                 )}
             </td>
-            <td className="px-3 text-right whitespace-nowrap">
+            <td className="px-3 text-end whitespace-nowrap">
                 {deal.value != null ? (
-                    <span className="font-mono text-[11.5px] text-emerald-700 tabular-nums">
+                    <span className="font-mono text-[11.5px] text-emerald-700 tabular-nums" dir="ltr">
                         {money(deal.value, deal.currency)}
                     </span>
                 ) : (
-                    <span className="text-slate-300">—</span>
+                    <span className="text-slate-300">-</span>
                 )}
             </td>
             <td className="px-3 whitespace-nowrap hidden md:table-cell">
@@ -296,7 +296,7 @@ function DealRow({
                         {fmtDate(deal.expected_close_date)}
                     </span>
                 ) : (
-                    <span className="text-slate-300 text-[11.5px]">—</span>
+                    <span className="text-slate-300 text-[11.5px]">-</span>
                 )}
             </td>
         </tr>
@@ -313,7 +313,7 @@ function PipelineFacet({
     onChange: (ids: string[]) => void;
 }) {
     const [open, setOpen] = React.useState(false);
-    const label = selected.length === 0 ? "All pipelines" : `${selected.length} pipeline${selected.length === 1 ? "" : "s"}`;
+    const label = selected.length === 0 ? "כל הצינורות" : `${selected.length} ${selected.length === 1 ? "צינור" : "צינורות"}`;
 
     function toggle(id: string) {
         onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
@@ -335,9 +335,9 @@ function PipelineFacet({
                     <span className="text-slate-400">▾</span>
                 </button>
             </PopoverMenuTrigger>
-            <PopoverMenuContent minWidth={200} className="max-h-64 overflow-y-auto">
+            <PopoverMenuContent minWidth={200} className="max-h-64 overflow-y-auto text-start">
                 {pipelines.length === 0 ? (
-                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">No pipelines yet</div>
+                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">אין צינורות עדיין</div>
                 ) : (
                     pipelines.map((p) => (
                         <PopoverMenuItem
@@ -376,7 +376,7 @@ function SortPopover({
                     <span className="text-slate-400">▾</span>
                 </button>
             </PopoverMenuTrigger>
-            <PopoverMenuContent minWidth={180}>
+            <PopoverMenuContent minWidth={180} className="text-start">
                 {SORTS.map((s) => (
                     <PopoverMenuItem key={s.id} onSelect={() => onChange(s)} selected={s.id === active}>
                         {s.label}
@@ -415,7 +415,7 @@ function FilterPopover({
                     }`}
                 >
                     <FilterIcon className="w-3 h-3" />
-                    Filters
+                    מסננים
                     {activeCount > 0 && (
                         <span className="size-4 rounded-full bg-sky-600 text-white text-[9.5px] inline-flex items-center justify-center tabular-nums">
                             {activeCount}
@@ -423,40 +423,40 @@ function FilterPopover({
                     )}
                 </button>
             </PopoverMenuTrigger>
-            <PopoverMenuContent minWidth={260} className="p-3">
+            <PopoverMenuContent minWidth={260} className="p-3 text-start">
                 <div className="space-y-3">
                     <div>
-                        <Label>Value range</Label>
+                        <Label>טווח שווי</Label>
                         <div className="flex items-center gap-1.5">
                             <TextInput
                                 value={filters.min_value != null ? String(filters.min_value) : ""}
                                 onChange={(v) => setNum("min_value", v)}
-                                placeholder="Min"
+                                placeholder="מינימום"
                                 className="w-full"
                             />
-                            <span className="text-slate-300">–</span>
+                            <span className="text-slate-300">-</span>
                             <TextInput
                                 value={filters.max_value != null ? String(filters.max_value) : ""}
                                 onChange={(v) => setNum("max_value", v)}
-                                placeholder="Max"
+                                placeholder="מקסימום"
                                 className="w-full"
                             />
                         </div>
                     </div>
                     <div>
-                        <Label>Expected close</Label>
+                        <Label>תאריך סגירה צפוי</Label>
                         <div className="flex items-center gap-1.5">
                             <DatePicker
                                 value={filters.close_after ? String(filters.close_after).split("T")[0] : ""}
                                 onChange={(v) => setDate("close_after", v)}
-                                placeholder="From"
+                                placeholder="מתאריך"
                                 className="flex-1"
                             />
-                            <span className="text-slate-300">–</span>
+                            <span className="text-slate-300">-</span>
                             <DatePicker
                                 value={filters.close_before ? String(filters.close_before).split("T")[0] : ""}
                                 onChange={(v) => setDate("close_before", v)}
-                                placeholder="To"
+                                placeholder="עד תאריך"
                                 className="flex-1"
                             />
                         </div>
@@ -476,14 +476,14 @@ function FilterPopover({
                             className="text-[11.5px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1"
                         >
                             <XIcon className="w-3 h-3" />
-                            Clear
+                            נקה
                         </button>
                         <button
                             type="button"
                             onClick={() => setOpen(false)}
                             className="h-6 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium transition-colors"
                         >
-                            Done
+                            סיום
                         </button>
                     </div>
                 </div>
@@ -499,12 +499,12 @@ function EmptyDeals({ hasFilters, onClear }: { hasFilters: boolean; onClear: () 
                 <CircleDollarSignIcon className="w-4 h-4 text-slate-400" />
             </div>
             <p className="text-[12.5px] text-slate-700 font-medium mb-1">
-                {hasFilters ? "No deals match these filters" : "No deals yet"}
+                {hasFilters ? "לא נמצאו עסקאות התואמות את המסננים" : "אין עסקאות עדיין"}
             </p>
             <p className="text-[11.5px] text-slate-400 mb-4 max-w-[40ch] mx-auto leading-relaxed">
                 {hasFilters
-                    ? "Try widening or clearing the filters to see more."
-                    : "Deals you create across any pipeline show up here: searchable, sortable, and totalled across every pipeline."}
+                    ? "נסה להרחיב או לנקות את המסננים כדי לראות עוד."
+                    : "עסקאות שתיצור בכל צינור מכירות יופיעו כאן: ניתנות לחיפוש, למיון ולסיכום כולל."}
             </p>
             {hasFilters && (
                 <button
@@ -513,7 +513,7 @@ function EmptyDeals({ hasFilters, onClear }: { hasFilters: boolean; onClear: () 
                     className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
                 >
                     <XIcon className="w-3 h-3" />
-                    Clear filters
+                    נקה מסננים
                 </button>
             )}
         </div>
@@ -523,7 +523,7 @@ function EmptyDeals({ hasFilters, onClear }: { hasFilters: boolean; onClear: () 
 function Th({ children, className }: { children: React.ReactNode; className?: string }) {
     return (
         <th
-            className={`px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] ${className ?? ""}`}
+            className={`px-3 py-2 text-start text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] ${className ?? ""}`}
         >
             {children}
         </th>
@@ -558,23 +558,24 @@ function hasAnyFilter(f: SearchDeals): boolean {
 }
 
 function money(n: number | undefined, currency = "USD") {
-    if (n == null) return "—";
+    if (n == null) return "-";
     try {
-        return new Intl.NumberFormat("en-US", {
+        return new Intl.NumberFormat("he-IL", {
             style: "currency",
             currency: currency || "USD",
             maximumFractionDigits: 0,
         }).format(n);
     } catch {
-        return `$${Math.round(n).toLocaleString()}`;
+        return `${Math.round(n).toLocaleString()}`;
     }
 }
 
 function fmtDate(d: string | undefined) {
-    if (!d) return "—";
+    if (!d) return "-";
     try {
-        return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return new Date(d).toLocaleDateString("he-IL", { month: "short", day: "numeric" });
     } catch {
-        return "—";
+        return "-";
     }
 }
+
