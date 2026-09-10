@@ -46,5 +46,14 @@
     "warmupActive": "חימום פועל",
     "inboxMonitoring": "ניטור תיבות",
     "commandPalette": "חיפוש או ניווט מהיר... (⌘K)"
+  },
+  "commandPalette": {
+    "title": "לוח פקודות",
+    "description": "חיפוש פקודה או מעבר לעמוד...",
+    "placeholder": "הקלד פקודה או חפש... (⌘K)",
+    "noResults": "לא נמצאו תוצאות.",
+    "navigation": "ניווט",
+    "actions": "פעולות",
+    "shortcuts": "קיצורי מקשים"
   }
 }

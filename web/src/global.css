@@ -636,3 +636,18 @@ svg.loading circle {
   text-align: right;
 }
 
+/* Neutralize monospace on Hebrew text in RTL so system Courier/Consolas fonts do not render broken disjointed glyphs */
+[dir="rtl"] .font-mono:not(code):not(pre):not([dir="ltr"]):not([dir="ltr"] *),
+.rtl .font-mono:not(code):not(pre):not([dir="ltr"]):not([dir="ltr"] *),
+[dir="rtl"] input.font-mono,
+.rtl input.font-mono {
+  font-family: 'Assistant', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
+  letter-spacing: normal !important;
+}
+
+[dir="rtl"] code,
+[dir="rtl"] pre {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+

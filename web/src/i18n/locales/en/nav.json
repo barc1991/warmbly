@@ -46,5 +46,14 @@
     "warmupActive": "Warmup active",
     "inboxMonitoring": "Inbox monitoring",
     "commandPalette": "Search or jump to... (⌘K)"
+  },
+  "commandPalette": {
+    "title": "Command Palette",
+    "description": "Search for a command or page...",
+    "placeholder": "Type a command or search... (⌘K)",
+    "noResults": "No results found.",
+    "navigation": "Navigation",
+    "actions": "Actions",
+    "shortcuts": "Keyboard shortcuts"
   }
 }

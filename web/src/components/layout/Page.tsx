@@ -198,7 +198,7 @@ export function Stat({
     const inner = (
         <>
             <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
+                <span className="text-[10px] uppercase tracking-[0.14em] rtl:tracking-normal text-slate-400 font-medium">
                     {label}
                 </span>
                 {accent && (
@@ -214,7 +214,7 @@ export function Stat({
                 {typeof value === "number" ? value.toLocaleString() : value}
             </div>
             {sub && (
-                <div className="text-[10px] text-slate-400 mt-1.5 font-mono truncate">{sub}</div>
+                <div className="text-[10.5px] text-slate-400 mt-1.5 ltr:font-mono rtl:font-sans truncate">{sub}</div>
             )}
         </>
     );

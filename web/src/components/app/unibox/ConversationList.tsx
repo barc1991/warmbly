@@ -14,6 +14,7 @@
 
 import React from "react";
 import { Loader2Icon, SearchIcon, Settings2Icon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ConversationItem } from "./ConversationItem";
 import useUniboxSearch from "@/lib/api/hooks/app/unibox/useUniboxSearch";
 import useDebouncedValue from "@/hooks/useDebouncedValue";
@@ -24,12 +25,14 @@ import type { UniboxSearchParams } from "@/lib/api/models/app/unibox/UniboxSearc
 
 type Bucket = "today" | "yesterday" | "week" | "earlier";
 
-const BUCKET_LABELS: Record<Bucket, string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  week: "This week",
-  earlier: "Earlier",
-};
+function getBucketLabel(b: Bucket, isHe: boolean): string {
+  switch (b) {
+    case "today": return isHe ? "היום" : "Today";
+    case "yesterday": return isHe ? "אתמול" : "Yesterday";
+    case "week": return isHe ? "השבוע" : "This week";
+    case "earlier": return isHe ? "מוקדם יותר" : "Earlier";
+  }
+}
 
 function bucketFor(d: Date): Bucket {
   const now = new Date();
@@ -61,6 +64,8 @@ export function ConversationList({
   params,
   setParams,
 }: ConversationListProps) {
+  const { i18n } = useTranslation();
+  const isHe = i18n.language === "he";
   const [search, setSearch] = React.useState("");
   const [sheetOpen, setSheetOpen] = React.useState(false);
 
@@ -233,8 +238,8 @@ export function ConversationList({
           ref={searchRef}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={`Search ${scopeLabel.toLowerCase()}… (/)`}
-          className="flex-1 min-w-0 h-7 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
+          placeholder={isHe ? `חיפוש ב${scopeLabel}… (/)` : `Search ${scopeLabel.toLowerCase()}… (/)`}
+          className="flex-1 min-w-0 h-7 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none text-start rtl:text-right"
         />
         {totalShown > 0 && (
           <span className="font-mono tabular-nums text-[10.5px] text-slate-400 shrink-0">
@@ -245,7 +250,7 @@ export function ConversationList({
           type="button"
           onClick={() => setSheetOpen(true)}
           className="size-7 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
-          aria-label="Advanced filters"
+          aria-label={isHe ? "מסננים מתקדמים" : "Advanced filters"}
         >
           <Settings2Icon className="w-3.5 h-3.5" />
         </button>
@@ -257,30 +262,30 @@ export function ConversationList({
         ) : q.isError && emails.length === 0 ? (
           <div className="px-5 py-12 text-center">
             <p className="text-[12.5px] text-slate-900 font-medium mb-1">
-              Couldn't load inbox
+              {isHe ? "לא ניתן לטעון את תיבת הדואר" : "Couldn't load inbox"}
             </p>
             <p className="text-[11.5px] text-slate-500 mb-3">
-              {q.error?.message ?? "Request failed"}
+              {q.error?.message ?? (isHe ? "הבקשה נכשלה" : "Request failed")}
             </p>
             <button
               type="button"
               onClick={() => q.refetch()}
               className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
             >
-              Try again
+              {isHe ? "נסה שוב" : "Try again"}
             </button>
           </div>
         ) : emails.length === 0 ? (
           <div className="px-5 py-16 text-center">
             <p className="text-[12.5px] text-slate-700 font-medium mb-1">
               {hasActiveFilters(merged) || search.trim()
-                ? "No matches"
-                : "Nothing here yet"}
+                ? (isHe ? "אין תוצאות מתאימות" : "No matches")
+                : (isHe ? "אין כאן הודעות עדיין" : "Nothing here yet")}
             </p>
             <p className="text-[11.5px] text-slate-400 max-w-[28ch] mx-auto leading-relaxed">
               {hasActiveFilters(merged) || search.trim()
-                ? "Try a different scope or clear the filters."
-                : "Pick a different scope from the rail, or wait for new mail."}
+                ? (isHe ? "נסה תחום אחר או נקה את המסננים." : "Try a different scope or clear the filters.")
+                : (isHe ? "בחר תצוגה אחרת בסרגל הצד, או המתן לקבלת דואר חדש." : "Pick a different scope from the rail, or wait for new mail.")}
             </p>
           </div>
         ) : (
@@ -288,8 +293,8 @@ export function ConversationList({
             {grouped.map((g) => (
               <section key={g.bucket}>
                 <div className="sticky top-0 z-10 px-3 py-1 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200/60 flex items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-semibold">
-                    {BUCKET_LABELS[g.bucket]}
+                  <span className="text-[10px] uppercase tracking-normal text-slate-500 font-semibold">
+                    {getBucketLabel(g.bucket, isHe)}
                   </span>
                   <span className="font-mono text-[10px] text-slate-400 tabular-nums">
                     {g.rows.length}
@@ -328,13 +333,13 @@ export function ConversationList({
                 {isFetchingNextPage ? (
                   <span className="h-7 text-[12px] text-slate-400 inline-flex items-center gap-1.5">
                     <Loader2Icon className="w-3 h-3 animate-spin" />
-                    Loading more…
+                    {isHe ? "טוען עוד…" : "Loading more…"}
                   </span>
                 ) : (
                   <>
                     {isFetchNextPageError && (
                       <span className="text-[11.5px] text-rose-600">
-                        Couldn't load more conversations
+                        {isHe ? "לא ניתן לטעון שיחות נוספות" : "Couldn't load more conversations"}
                       </span>
                     )}
                     <button
@@ -342,8 +347,8 @@ export function ConversationList({
                       className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
                     >
                       {isFetchNextPageError
-                        ? "Try again"
-                        : `Load more · ${totalShown} shown`}
+                        ? (isHe ? "נסה שוב" : "Try again")
+                        : (isHe ? `טען עוד · ${totalShown} מוצגים` : `Load more · ${totalShown} shown`)}
                     </button>
                   </>
                 )}
@@ -357,13 +362,13 @@ export function ConversationList({
                 makes the shortcuts discoverable without a help menu. */}
       <div className="h-6 px-2 shrink-0 border-t border-slate-200/80 bg-slate-50/60 hidden md:flex items-center gap-2 text-[10px] text-slate-500 overflow-x-auto">
         <Kbd>j</Kbd>/<Kbd>k</Kbd>
-        <span className="text-slate-400">move</span>
+        <span className="text-slate-400">{isHe ? "תנועה" : "move"}</span>
         <Kbd>↵</Kbd>
-        <span className="text-slate-400">open</span>
+        <span className="text-slate-400">{isHe ? "פתיחה" : "open"}</span>
         <Kbd>esc</Kbd>
-        <span className="text-slate-400">close</span>
+        <span className="text-slate-400">{isHe ? "סגירה" : "close"}</span>
         <Kbd>/</Kbd>
-        <span className="text-slate-400">search</span>
+        <span className="text-slate-400">{isHe ? "חיפוש" : "search"}</span>
       </div>
 
       <UniboxFilterSheet

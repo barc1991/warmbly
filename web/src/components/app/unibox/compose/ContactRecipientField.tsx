@@ -340,7 +340,7 @@ export default function ContactRecipientField({
                         onChange(fresh);
                     }
                 }}
-                className="flex-1 min-w-[14ch] h-5 bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none font-mono"
+                className="flex-1 min-w-[14ch] h-5 bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none ltr:font-mono rtl:font-sans text-start rtl:text-right"
             />
             {focused && searching && (
                 <Loader2Icon className="w-3 h-3 animate-spin text-slate-300 shrink-0" />

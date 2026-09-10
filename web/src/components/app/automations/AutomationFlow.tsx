@@ -238,9 +238,9 @@ function TriggerNode({ data, selected }: NodeProps) {
                 <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-md bg-sky-100 text-sky-600 ring-1 ring-sky-200/70">
                     <ZapIcon className="w-3 h-3" />
                 </span>
-                <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-sky-500">When</span>
-                <span className="ml-auto shrink-0 rounded bg-sky-600 px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-white">
-                    Trigger
+                <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-sky-500">כאשר</span>
+                <span className="ms-auto shrink-0 rounded bg-sky-600 px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.12em] text-white">
+                    טריגר
                 </span>
             </div>
             <div className="px-2.5 py-2">
@@ -265,7 +265,7 @@ function ConditionNode({ data, selected }: NodeProps) {
             <Handle type="source" id="out" position={Position.Right} className="!h-4 !w-4 md:!h-3 md:!w-3 !border-2 !border-white !bg-sky-500" />
             <div className="flex items-center gap-1.5">
                 <GitBranchIcon className="w-3 h-3 shrink-0 text-sky-600" />
-                <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-sky-500">if</span>
+                <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-sky-500">אם</span>
                 <span className="max-w-[150px] truncate text-[11px] font-medium text-sky-800">{d.label}</span>
                 <button
                     type="button"
@@ -273,7 +273,7 @@ function ConditionNode({ data, selected }: NodeProps) {
                         e.stopPropagation();
                         d.onDelete();
                     }}
-                    title="Delete this condition"
+                    title="מחק תנאי זה"
                     className="nodrag inline-flex size-4 items-center justify-center rounded text-sky-400 hover:bg-rose-50 hover:text-rose-600"
                 >
                     <Trash2Icon className="w-3 h-3" />
@@ -357,7 +357,7 @@ function ActionNode({ id, data, selected }: NodeProps) {
                     e.stopPropagation();
                     d.onDelete();
                 }}
-                title="Delete action"
+                title="מחק פעולה זו"
                 className="nodrag inline-flex size-5 shrink-0 items-center justify-center rounded text-slate-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
             >
                 <Trash2Icon className="w-3 h-3" />
@@ -382,12 +382,12 @@ function ActionNode({ id, data, selected }: NodeProps) {
                 {header}
                 <div className="px-2.5 pt-1.5 pb-1">
                     <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-300">
-                        {aiMode ? "AI decides" : "Value match"}
+                        {aiMode ? "AI מחליט" : "התאמת ערך"}
                     </div>
                     {d.sub && <div className="mt-0.5 truncate text-[11.5px] text-slate-500">{d.sub}</div>}
                 </div>
                 {cases.length === 0 ? (
-                    <div className="px-2.5 pb-2 text-[10.5px] text-slate-400">Open the step to add cases</div>
+                    <div className="px-2.5 pb-2 text-[10.5px] text-slate-400">פתח את השלב להוספת מקרים</div>
                 ) : (
                     <div className="pb-1.5">
                         {cases.map((c) => {
@@ -412,9 +412,9 @@ function ActionNode({ id, data, selected }: NodeProps) {
                 {/* The "otherwise" fallback: events no case matched follow this dot. */}
                 <div
                     className="relative flex h-6 items-center rounded-b-xl border-t border-slate-200/70 bg-slate-50/60 pl-2.5 pr-4"
-                    title="Where events go when no case matched. Drag the dot to the next step."
+                    title="לאן עוברים האירועים אם אף מקרה לא התאים. גרור את הנקודה לשלב הבא."
                 >
-                    <span className="min-w-0 flex-1 truncate text-[10.5px] font-medium uppercase tracking-[0.1em] text-slate-400">Otherwise</span>
+                    <span className="min-w-0 flex-1 truncate text-[10.5px] font-medium uppercase tracking-[0.1em] text-slate-400">אחרת (ברירת מחדל)</span>
                     <Handle
                         type="source"
                         id="s"
@@ -436,12 +436,12 @@ function ActionNode({ id, data, selected }: NodeProps) {
             <Handle type="target" position={Position.Top} className="!h-3 !w-3 md:!h-2 md:!w-2 !border-2 !border-white !bg-slate-300" />
             {header}
             <div className="px-2.5 py-2">
-                <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-300">Then</div>
-                <div className="mt-0.5 truncate text-[11.5px] text-slate-500">{d.sub || "Pick an integration…"}</div>
+                <div className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-slate-300">ואז</div>
+                <div className="mt-0.5 truncate text-[11.5px] text-slate-500">{d.sub || "בחר אינטגרציה…"}</div>
             </div>
             <Handle type="source" id="s" position={Position.Bottom} className="!h-4 !w-4 md:!h-3 md:!w-3 !border-2 !border-white !bg-sky-500" />
             {/* "On error" branch: drag from here to route a failed action down a recovery path. */}
-            <Handle type="source" id="err" position={Position.Right} title="On error" className="!h-3.5 !w-3.5 md:!h-2.5 md:!w-2.5 !border-2 !border-white !bg-rose-500" />
+            <Handle type="source" id="err" position={Position.Right} title="במקרה של שגיאה" className="!h-3.5 !w-3.5 md:!h-2.5 md:!w-2.5 !border-2 !border-white !bg-rose-500" />
         </div>
     );
 }
@@ -459,14 +459,14 @@ function StopNode({ data, selected }: NodeProps) {
         >
             <Handle type="target" position={Position.Top} className="!h-3 !w-3 md:!h-2 md:!w-2 !border-2 !border-white !bg-slate-300" />
             <FlagIcon className="w-3.5 h-3.5 text-rose-500" />
-            <span className="text-[12px] font-semibold text-rose-600">Stop</span>
+            <span className="text-[12px] font-semibold text-rose-600">עצירה</span>
             <button
                 type="button"
                 onClick={(e) => {
                     e.stopPropagation();
                     d.onDelete();
                 }}
-                title="Delete stop"
+                title="מחק נקודת עצירה"
                 className="nodrag inline-flex size-4 shrink-0 items-center justify-center rounded text-rose-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
             >
                 <XIcon className="w-3 h-3" />
@@ -565,7 +565,7 @@ function ConvergeEdge({
                                     color: (labelStyle as { fill?: string } | undefined)?.fill ?? "#475569",
                                 }}
                             >
-                                {label}
+                                {label === "yes" ? "כן" : label === "no" ? "לא" : label === "error" ? "שגיאה" : label}
                             </div>
                         ) : null}
                         {/* Touch-reachable delete: phones have no Delete key, so a
@@ -620,7 +620,7 @@ function styledEdge(id: string, source: string, target: string, sourceHandle: st
         sourceHandle,
         type: "converge",
         data: { when },
-        label: when === "true" ? "yes" : when === "false" ? "no" : when === "error" ? "error" : aiLabel || undefined,
+        label: when === "true" ? "כן" : when === "false" ? "לא" : when === "error" ? "שגיאה" : aiLabel || undefined,
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
         style: { stroke: color, strokeWidth: 1.5 },
         labelStyle: { fill: color },
@@ -1341,24 +1341,24 @@ export default function AutomationFlow({
                         />
                     </span>
                     <span className={cn("text-[12px] font-medium transition-colors", enabled ? "text-slate-700" : "text-slate-400")}>
-                        {enabled ? "Active" : "Off"}
+                        {enabled ? "פעיל" : "כבוי"}
                     </span>
                 </button>
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="ms-auto flex items-center gap-1.5">
                     <button
                         type="button"
                         onClick={() => {
                             setSelectedId(null);
                             setPanel((p) => (p === "history" ? null : "history"));
                         }}
-                        aria-label="History"
+                        aria-label="היסטוריה"
                         className={cn(
                             "h-7 px-2.5 rounded-md border text-[12px] inline-flex items-center gap-1.5 transition-colors",
                             panel === "history" ? "border-sky-300 bg-sky-50 text-sky-700" : "border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900",
                         )}
                     >
                         <HistoryIcon className="w-3.5 h-3.5" />
-                        <span className="hidden md:inline">History</span>
+                        <span className="hidden md:inline">היסטוריה</span>
                     </button>
                     <button
                         type="button"
@@ -1366,7 +1366,7 @@ export default function AutomationFlow({
                             setSelectedId(null);
                             setPanel((p) => (p === "test" ? null : "test"));
                         }}
-                        aria-label="Test"
+                        aria-label="בדיקה"
                         className={cn(
                             "h-7 px-2.5 rounded-md border text-[12px] inline-flex items-center gap-1.5 transition-colors",
                             panel === "test"
@@ -1375,7 +1375,7 @@ export default function AutomationFlow({
                         )}
                     >
                         <PlayIcon className="w-3.5 h-3.5" />
-                        <span className="hidden md:inline">Test</span>
+                        <span className="hidden md:inline">בדיקה</span>
                     </button>
                     <button
                         type="button"
@@ -1383,19 +1383,19 @@ export default function AutomationFlow({
                             setNodes((ns) => stackComponents(layoutGraph(ns, edges), edges));
                             commitLayout();
                         }}
-                        aria-label="Tidy up"
+                        aria-label="סדר תרשים"
                         className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center transition-colors"
                     >
                         <WandSparklesIcon className="w-3.5 h-3.5 md:hidden" />
-                        <span className="hidden md:inline">Tidy up</span>
+                        <span className="hidden md:inline">סדר תרשים</span>
                     </button>
                     <PermissionButton
                         permission="USE_INTEGRATIONS"
                         type="button"
                         onClick={save}
                         disabled={!dirty || update.isPending}
-                        aria-label={dirty ? "Save" : "Saved"}
-                        title={dirty ? "Save changes" : "No unsaved changes"}
+                        aria-label={dirty ? "שמור" : "נשמר"}
+                        title={dirty ? "שמור שינויים" : "אין שינויים לא שמורים"}
                         className={cn(
                             "h-7 px-3 rounded-md text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors",
                             dirty
@@ -1410,7 +1410,7 @@ export default function AutomationFlow({
                         ) : (
                             <CheckIcon className="w-3.5 h-3.5 text-slate-300" />
                         )}
-                        <span className="hidden md:inline">{dirty ? "Save" : "Saved"}</span>
+                        <span className="hidden md:inline">{dirty ? "שמור" : "נשמר"}</span>
                     </PermissionButton>
                 </div>
             </header>
@@ -1507,7 +1507,7 @@ export default function AutomationFlow({
                         <Panel position="top-center">
                             <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 shadow-sm">
                                 <span className="text-[12px] font-medium text-amber-800">
-                                    A teammate changed this automation.
+                                    חבר צוות ביצע שינויים באוטומציה זו.
                                 </span>
                                 <button
                                     type="button"
@@ -1517,14 +1517,14 @@ export default function AutomationFlow({
                                     }}
                                     className="h-6 px-2 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11.5px] font-medium transition-colors"
                                 >
-                                    Load their version
+                                    טען את הגרסה שלו
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setRemoteUpdate(null)}
                                     className="h-6 px-2 rounded text-[11.5px] font-medium text-amber-700 hover:bg-amber-100 transition-colors"
                                 >
-                                    Keep mine
+                                    השאר את שלי
                                 </button>
                             </div>
                         </Panel>
@@ -1541,14 +1541,14 @@ export default function AutomationFlow({
                                 className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-[12px] font-medium text-slate-700 shadow-sm hover:border-slate-300 hover:text-slate-900"
                             >
                                 <GitBranchIcon className="w-3.5 h-3.5" />
-                                Add condition
+                                הוסף תנאי
                             </button>
                         </div>
                     </Panel>
                     <Panel position="bottom-center">
                         <div className="hidden md:block rounded-md bg-white/95 px-3 py-1.5 text-[11px] text-slate-500 shadow-sm">
-                            drag a node's dot to connect · IF block: right dot = yes, bottom dot = no · drag to empty canvas to pick what comes next · click a line then Delete to remove
-                            {live.active ? " · press / to chat" : ""}
+                            גרור נקודה מצומת כדי לחבר · בלוק IF: נקודה ימנית = כן, תחתונה = לא · גרור לקנבס ריק כדי לבחור את השלב הבא · לחץ על קו ואז Delete כדי להסיר
+                            {live.active ? " · לחץ על / כדי לשוחח" : ""}
                         </div>
                     </Panel>
                 </ReactFlow>
@@ -2368,18 +2368,18 @@ function DragCreateMenu({
                             y: { duration: 0.18, ease: [0.16, 1, 0.3, 1] },
                         }}
                     >
-                        <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Add</div>
+                        <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">הוספה</div>
                         <CreateRow icon={actionGlyph("warmbly.ai_step")} label={actionLabel("warmbly.ai_step")} onClick={() => pick("warmbly.ai_step")} />
                         <CreateRow icon={actionGlyph("warmbly.ai_switch")} label={actionLabel("warmbly.ai_switch")} onClick={() => pick("warmbly.ai_switch")} />
-                        <CreateRow icon={<GitBranchIcon className="w-3.5 h-3.5 text-amber-600" />} label="Condition (branch)" onClick={() => pick("condition")} />
+                        <CreateRow icon={<GitBranchIcon className="w-3.5 h-3.5 text-amber-600" />} label="תנאי (פיצול)" onClick={() => pick("condition")} />
                         <div className="my-1 h-px bg-slate-100" />
-                        <div className="px-2 pt-0.5 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Actions</div>
-                        <CreateRow icon={<ZapIcon className="w-3.5 h-3.5 text-sky-600" />} label="Integration action" onClick={() => pick("action")} />
+                        <div className="px-2 pt-0.5 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">פעולות</div>
+                        <CreateRow icon={<ZapIcon className="w-3.5 h-3.5 text-sky-600" />} label="פעולת אינטגרציה" onClick={() => pick("action")} />
                         {NATIVE_ACTIONS.filter((a) => !isAIAction(a)).map((a) => (
                             <CreateRow key={a} icon={actionGlyph(a)} label={actionLabel(a)} onClick={() => pick(a)} />
                         ))}
                         <div className="my-1 h-px bg-slate-100" />
-                        <CreateRow icon={<FlagIcon className="w-3.5 h-3.5 text-rose-500" />} label="Stop here" onClick={() => pick("stop")} />
+                        <CreateRow icon={<FlagIcon className="w-3.5 h-3.5 text-rose-500" />} label="עצור כאן" onClick={() => pick("stop")} />
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -2393,7 +2393,7 @@ function CreateRow({ icon, label, onClick }: { icon: React.ReactNode; label: str
         <button
             type="button"
             onClick={onClick}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12.5px] text-slate-700 transition-colors hover:bg-slate-100"
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-start rtl:text-right text-[12.5px] text-slate-700 transition-colors hover:bg-slate-100"
         >
             {icon}
             {label}
@@ -2418,11 +2418,11 @@ function AddStepMenu({ onAdd, onAddCondition }: { onAdd: (choice: string) => voi
                 className="inline-flex h-8 items-center gap-1.5 rounded-l-md bg-sky-600 px-2.5 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-sky-700"
             >
                 <PlusIcon className="w-3.5 h-3.5" />
-                Add action
+                הוסף פעולה
             </button>
             <button
                 type="button"
-                aria-label="More step types"
+                aria-label="סוגי שלבים נוספים"
                 onClick={() => setOpen((o) => !o)}
                 className="inline-flex h-8 items-center rounded-r-md border-l border-sky-500/60 bg-sky-600 px-1.5 text-white shadow-sm transition-colors hover:bg-sky-700"
             >
@@ -2446,9 +2446,9 @@ function AddStepMenu({ onAdd, onAddCondition }: { onAdd: (choice: string) => voi
                             <CreateRow icon={actionGlyph("warmbly.ai_step")} label={actionLabel("warmbly.ai_step")} onClick={() => pick(() => onAdd("warmbly.ai_step"))} />
                             <CreateRow icon={actionGlyph("warmbly.ai_switch")} label={actionLabel("warmbly.ai_switch")} onClick={() => pick(() => onAdd("warmbly.ai_switch"))} />
                             <div className="my-1 h-px bg-slate-100" />
-                            <CreateRow icon={<GitBranchIcon className="w-3.5 h-3.5 text-amber-600" />} label="Condition (branch)" onClick={() => pick(onAddCondition)} />
+                            <CreateRow icon={<GitBranchIcon className="w-3.5 h-3.5 text-amber-600" />} label="תנאי (פיצול)" onClick={() => pick(onAddCondition)} />
                             <div className="my-1 h-px bg-slate-100" />
-                            <div className="px-2 pt-0.5 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Built-in actions</div>
+                            <div className="px-2 pt-0.5 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">פעולות מובנות</div>
                             {NATIVE_ACTIONS.filter((a) => !isAIAction(a)).map((a) => (
                                 <CreateRow key={a} icon={actionGlyph(a)} label={actionLabel(a)} onClick={() => pick(() => onAdd(a))} />
                             ))}

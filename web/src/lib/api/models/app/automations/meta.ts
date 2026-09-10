@@ -484,28 +484,28 @@ const prettyKey = (k: string) => k.replace(/_/g, " ");
 
 // A short human summary of a condition, used as the IF node label.
 export function conditionLabel(c?: AutomationCondition): string {
-    if (!c || !c.field) return "Set a condition";
+    if (!c || !c.field) return "הגדר תנאי";
     // Random split (its own field type).
-    if (c.field === "random") return `${Number(c.value ?? 50)}% random`;
+    if (c.field === "random") return `${Number(c.value ?? 50)}% אקראי`;
     // Advanced free-form expression.
     if (c.field === "expression") {
         const e = (c.expression ?? "").trim();
-        if (!e) return "Set an expression";
-        return `if ${e.length > 30 ? e.slice(0, 30) + "…" : e}`;
+        if (!e) return "הגדר ביטוי";
+        return `אם ${e.length > 30 ? e.slice(0, 30) + "…" : e}`;
     }
     // Ask AI yes/no question.
     if (c.field === "ai") {
         const p = (c.prompt ?? "").trim();
-        if (!p) return "Ask AI a question";
+        if (!p) return "שאל את ה-AI שאלה";
         return `AI: ${p.length > 30 ? p.slice(0, 30) + "…" : p}`;
     }
     // Generic field condition.
     if (c.field === "field") {
         const key = c.key ?? "";
         const op = c.operator;
-        if (op === "exists") return `${prettyKey(key)} is present`;
-        if (op === "is_true") return `${prettyKey(key)} is true`;
-        if (key === "confidence") return `confidence ≥ ${Math.round(Number(c.value ?? 0) * 100)}%`;
+        if (op === "exists") return `${prettyKey(key)} קיים`;
+        if (op === "is_true") return `${prettyKey(key)} הוא אמת (true)`;
+        if (key === "confidence") return `רמת ודאות ≥ ${Math.round(Number(c.value ?? 0) * 100)}%`;
         const opLbl = OPERATOR_LABELS[op] ?? op;
         const valLbl =
             REPLY_INTENT_OPTIONS.find((o) => o.value === c.value)?.label ??
@@ -517,13 +517,13 @@ export function conditionLabel(c?: AutomationCondition): string {
     // Legacy semantic fields (older saved automations).
     switch (c.field) {
         case "confidence":
-            return `confidence ≥ ${Math.round(Number(c.value ?? 0) * 100)}%`;
+            return `רמת ודאות ≥ ${Math.round(Number(c.value ?? 0) * 100)}%`;
         case "has_contact":
-            return "has a contact";
+            return "מכיל איש קשר";
         case "intent":
-            return `intent is ${REPLY_INTENT_OPTIONS.find((o) => o.value === c.value)?.label ?? String(c.value ?? "…")}`;
+            return `כוונת מענה היא ${REPLY_INTENT_OPTIONS.find((o) => o.value === c.value)?.label ?? String(c.value ?? "…")}`;
         case "source":
-            return `source is ${String(c.value ?? "…")}`;
+            return `מקור הוא ${String(c.value ?? "…")}`;
         default:
             return c.field;
     }
