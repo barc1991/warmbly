@@ -45,6 +45,56 @@ import {
 import type AuditLog from "@/lib/api/models/app/audit/AuditLog";
 import type { AuditAction, AuditEntityType } from "@/lib/api/models/app/audit/AuditLog";
 
+const ACTION_LABELS: Record<string, string> = {
+    create:     "יצירה",
+    update:     "עדכון",
+    delete:     "מחיקה",
+    invite:     "הזמנה",
+    remove:     "הסרה",
+    transfer:   "העברה",
+    start:      "הפעלה",
+    stop:       "עצירה",
+    pause:      "השהיה",
+    resume:     "חידוש",
+    send:       "שליחה",
+    connect:    "חיבור",
+    disconnect: "ניתוק",
+    rotate:     "החלפה",
+    revoke:     "ביטול",
+    duplicate:  "שכפול",
+    export:     "ייצוא",
+    import:     "ייבוא",
+    api_call:   "קריאת API",
+};
+
+const ENTITY_LABELS: Record<string, string> = {
+    campaign:             "קמפיין",
+    contact:              "איש קשר",
+    email_account:        "תיבת אימייל",
+    step:                 "שלב",
+    template:             "תבנית",
+    email_image:          "תמונת אימייל",
+    api_key:              "מפתח API",
+    webhook:              "וובהוק",
+    integration:          "אינטגרציה",
+    warmup_routing_rule:  "כלל ניתוב חימום",
+    organization:         "ארגון",
+    organization_member:  "חבר ארגון",
+    invitation:           "הזמנה",
+    folder:               "תיקייה",
+    tag:                  "תגית",
+    category:             "קטגוריה",
+    subscription:         "מנוי",
+    settings:             "הגדרות",
+    crm_pipeline:         "צינור CRM",
+    crm_stage:            "שלב CRM",
+    crm_deal:             "עסקה",
+    crm_task:             "משימה",
+    crm_note:             "הערה",
+    unibox:               "תיבה מאוחדת",
+    user:                 "משתמש",
+};
+
 const ACTIONS: AuditAction[] = [
     "create", "update", "delete",
     "invite", "remove", "transfer",
@@ -123,11 +173,11 @@ export default function AuditPage() {
     if (!access.loading && !access.canManage) {
         return (
             <Page>
-                <PageTopbar eyebrow="Audit" subtitle="Owner + admin only" />
+                <PageTopbar eyebrow="יומן ביקורת" subtitle="לבעלים ומנהלים בלבד" />
                 <PageBody>
                     <EmptyBlock
-                        title="Only owners and admins can view the audit log"
-                        body="Audit entries can contain sensitive identifiers. Ask your owner if you need access."
+                        title="רק בעלים ומנהלים יכולים לצפות ביומן הביקורת"
+                        body="רשומות ביקורת עשויות להכיל מזהים רגישים. פנה לבעל הארגון אם אתה זקוק לגישה."
                     />
                 </PageBody>
             </Page>
@@ -161,15 +211,17 @@ export default function AuditPage() {
         <>
             <SearchPill value={search} onChange={setSearch} />
             <FilterPopover
-                label="Action"
+                label="פעולה"
                 value={action ?? ""}
                 options={ACTIONS}
+                optionLabels={ACTION_LABELS}
                 onChange={(v) => setAction(v ? (v as AuditAction) : undefined)}
             />
             <FilterPopover
-                label="Entity"
+                label="ישות"
                 value={entityType ?? ""}
                 options={ENTITY_TYPES}
+                optionLabels={ENTITY_LABELS}
                 onChange={(v) => setEntityType(v ? (v as AuditEntityType) : undefined)}
             />
             <DatePill value={date} onChange={setDate} />
@@ -177,11 +229,11 @@ export default function AuditPage() {
                 <button
                     type="button"
                     onClick={reset}
-                    title="Clear filters"
+                    title="נקה מסננים"
                     className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-[11.5px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 transition-colors"
                 >
                     <FilterXIcon className="w-3 h-3" />
-                    Clear ({activeFilterCount})
+                    נקה ({activeFilterCount})
                 </button>
             )}
         </>
@@ -189,12 +241,12 @@ export default function AuditPage() {
 
     return (
         <Page>
-            <PageTopbar eyebrow="Audit log" subtitle="Mutating actions on this workspace · last 90 days">
+            <PageTopbar eyebrow="יומן ביקורת" subtitle="פעולות שינוי במרחב עבודה זה · 90 הימים האחרונים">
                 <div className="hidden md:contents">{filterControls}</div>
                 <button
                     type="button"
                     onClick={() => audit.refetch()}
-                    aria-label="Refresh"
+                    aria-label="רענן"
                     className="h-7 w-7 rounded-md border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-900 inline-flex items-center justify-center transition-colors"
                 >
                     {audit.isFetching ? (
@@ -210,14 +262,14 @@ export default function AuditPage() {
             </div>
 
             <StatStrip cols={4}>
-                <Stat label="Total events" value={stats.total ?? 0} sub="this page" />
-                <Stat label="Creates" value={stats.create ?? 0} sub="new objects" />
-                <Stat label="Updates" value={stats.update ?? 0} sub="edits" />
-                <Stat label="Deletes" value={stats.delete ?? 0} sub="removed" last />
+                <Stat label="סה״כ אירועים" value={stats.total ?? 0} sub="בעמוד זה" />
+                <Stat label="יצירות" value={stats.create ?? 0} sub="אובייקטים חדשים" />
+                <Stat label="עדכונים" value={stats.update ?? 0} sub="עריכות" />
+                <Stat label="מחיקות" value={stats.delete ?? 0} sub="הוסרו" last />
             </StatStrip>
 
             <SectionBar
-                label={audit.isPending ? "Loading…" : `${filtered.length} entries${cursors.length ? ` · page ${cursors.length + 1}` : ""}`}
+                label={audit.isPending ? "טוען…" : `${filtered.length} רשומות${cursors.length ? ` · עמוד ${cursors.length + 1}` : ""}`}
             />
             <PageBody>
                 {audit.isPending ? (
@@ -229,26 +281,26 @@ export default function AuditPage() {
                 ) : filtered.length === 0 ? (
                     <div className="px-5 py-12">
                         <EmptyBlock
-                            title="No audit entries"
+                            title="אין רשומות ביקורת"
                             body={
                                 activeFilterCount > 0
-                                    ? "Nothing matches the active filters."
-                                    : "Actions are logged automatically. Make a change and they'll show up here."
+                                    ? "לא נמצאו תוצאות עבור המסננים הפעילים."
+                                    : "פעולות נרשמות באופן אוטומטי. בצע שינוי והוא יופיע כאן."
                             }
                         />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-start">
                             <thead className="border-b border-slate-200">
                                 <tr>
                                     <th className="w-6"></th>
-                                    <Th className="md:w-40">When</Th>
-                                    <Th className="md:w-48">Who</Th>
-                                    <Th className="md:w-32">Action</Th>
-                                    <Th>Entity</Th>
-                                    <Th className="hidden md:table-cell w-32">IP</Th>
-                                    <th className="hidden md:table-cell w-12" aria-label="Details"></th>
+                                    <Th className="md:w-40">מתי</Th>
+                                    <Th className="md:w-48">מי</Th>
+                                    <Th className="md:w-32">פעולה</Th>
+                                    <Th>ישות</Th>
+                                    <Th className="hidden md:table-cell w-32">כתובת IP</Th>
+                                    <th className="hidden md:table-cell w-12" aria-label="פרטים"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -263,8 +315,8 @@ export default function AuditPage() {
                 {filtered.length > 0 && (
                     <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-between">
                         <span className="text-[11px] text-slate-400">
-                            {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
-                            {cursors.length > 0 && ` · page ${cursors.length + 1}`}
+                            {filtered.length} {filtered.length === 1 ? "רשומה" : "רשומות"}
+                            {cursors.length > 0 && ` · עמוד ${cursors.length + 1}`}
                         </span>
                         <div className="flex items-center gap-1.5">
                             <button
@@ -273,7 +325,7 @@ export default function AuditPage() {
                                 disabled={cursors.length === 0}
                                 className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-40"
                             >
-                                ← Prev
+                                הקודם
                             </button>
                             <button
                                 type="button"
@@ -281,7 +333,7 @@ export default function AuditPage() {
                                 disabled={!(audit.data?.pagination?.next_cursor || audit.data?.pagination?.cursor)}
                                 className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-40"
                             >
-                                Next →
+                                הבא
                             </button>
                         </div>
                     </div>
@@ -294,7 +346,7 @@ export default function AuditPage() {
 function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
     return (
         <th
-            className={`px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] ${className ?? ""}`}
+            className={`px-3 py-2 text-start text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] ${className ?? ""}`}
         >
             {children}
         </th>
@@ -320,45 +372,45 @@ function AuditRow({ log }: { log: AuditLog }) {
                         open ? (
                             <ChevronDownIcon className="w-3 h-3 inline" />
                         ) : (
-                            <ChevronRightIcon className="w-3 h-3 inline" />
+                            <ChevronRightIcon className="w-3 h-3 inline rtl:rotate-180" />
                         )
                     ) : null}
                 </td>
-                <td className="px-3 font-mono text-[11px] text-slate-500 tabular-nums whitespace-nowrap">
+                <td className="px-3 font-mono text-[11px] text-slate-500 tabular-nums whitespace-nowrap text-start" dir="ltr">
                     {fmt(log.timestamp || log.action_date)}
                 </td>
-                <td className="px-3">
+                <td className="px-3 text-start">
                     <div className="flex flex-col leading-tight min-w-0">
                         <span className="text-[12px] text-slate-900 font-medium truncate">
                             {actorLabel(log)}
                         </span>
                         {log.actor?.email && (
-                            <span className="text-[10.5px] text-slate-400 truncate">
+                            <span className="text-[10.5px] text-slate-400 truncate" dir="ltr">
                                 {log.actor.email}
                             </span>
                         )}
                     </div>
                 </td>
-                <td className="px-3">
+                <td className="px-3 text-start">
                     <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${tone.text}`}>
                         <span className={`size-1.5 rounded-full ${tone.dot}`} />
-                        {log.action}
+                        {ACTION_LABELS[log.action] ?? log.action}
                     </span>
                 </td>
-                <td className="px-3">
+                <td className="px-3 text-start">
                     <div className="flex items-center gap-1.5">
-                        <span className="text-[12px] text-slate-900 font-medium">{log.entity_type}</span>
+                        <span className="text-[12px] text-slate-900 font-medium">{ENTITY_LABELS[log.entity_type] ?? log.entity_type}</span>
                         {log.entity_id && (
-                            <span className="font-mono text-[10.5px] text-slate-400 truncate">
+                            <span className="font-mono text-[10.5px] text-slate-400 truncate" dir="ltr">
                                 {log.entity_id.slice(0, 8)}…
                             </span>
                         )}
                     </div>
                 </td>
-                <td className="hidden md:table-cell px-3 font-mono text-[10.5px] text-slate-500 truncate">
-                    {log.ip_address || "—"}
+                <td className="hidden md:table-cell px-3 font-mono text-[10.5px] text-slate-500 truncate text-start" dir="ltr">
+                    {log.ip_address || "-"}
                 </td>
-                <td className="hidden md:table-cell px-3 text-right">
+                <td className="hidden md:table-cell px-3 text-end">
                     {hasDetails && (
                         <InfoIcon className="w-3 h-3 text-slate-300 group-hover:text-slate-500 inline" />
                     )}
@@ -370,15 +422,15 @@ function AuditRow({ log }: { log: AuditLog }) {
                     <td colSpan={6} className="px-3 py-3">
                         <div className="space-y-2">
                             {log.changes && Object.keys(log.changes).length > 0 && (
-                                <DetailsBlock label="Changes" data={log.changes} />
+                                <DetailsBlock label="שינויים" data={log.changes} />
                             )}
                             {log.metadata && Object.keys(log.metadata).length > 0 && (
-                                <DetailsBlock label="Metadata" data={log.metadata} />
+                                <DetailsBlock label="מטא-נתונים" data={log.metadata} />
                             )}
                             {log.user_agent && (
                                 <div className="text-[11px] text-slate-500">
-                                    <span className="text-slate-400">User agent: </span>
-                                    <span className="font-mono break-all">{log.user_agent}</span>
+                                    <span className="text-slate-400">סוכן משתמש: </span>
+                                    <span className="font-mono break-all" dir="ltr">{log.user_agent}</span>
                                 </div>
                             )}
                         </div>
@@ -395,7 +447,7 @@ function DetailsBlock({ label, data }: { label: string; data: Record<string, str
             <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1">
                 {label}
             </div>
-            <pre className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-700 font-mono overflow-x-auto">
+            <pre className="rounded border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-700 font-mono overflow-x-auto text-start" dir="ltr">
                 {JSON.stringify(data, null, 2)}
             </pre>
         </div>
@@ -412,14 +464,14 @@ function actorLabel(log: AuditLog): string {
     if (log.user_id && log.user_id !== "00000000-0000-0000-0000-000000000000") {
         return `${log.user_id.slice(0, 8)}…`;
     }
-    return "System";
+    return "מערכת";
 }
 
 function fmt(d: string) {
-    if (!d) return "—";
+    if (!d) return "-";
     try {
         const dt = new Date(d);
-        return dt.toLocaleString("en-US", {
+        return dt.toLocaleString("he-IL", {
             month: "short",
             day: "numeric",
             hour: "2-digit",
@@ -427,7 +479,7 @@ function fmt(d: string) {
             second: "2-digit",
         });
     } catch {
-        return "—";
+        return "-";
     }
 }
 
@@ -438,14 +490,14 @@ function SearchPill({ value, onChange }: { value: string; onChange: (v: string) 
             <input
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                placeholder="Search…"
-                className="w-[100px] sm:w-[140px] h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
+                placeholder="חיפוש…"
+                className="w-[100px] sm:w-[140px] h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
             />
             {value && (
                 <button
                     type="button"
                     onClick={() => onChange("")}
-                    aria-label="Clear"
+                    aria-label="נקה"
                     className="text-slate-400 hover:text-slate-700"
                 >
                     <XIcon className="w-3 h-3" />
@@ -459,11 +511,13 @@ function FilterPopover({
     label,
     value,
     options,
+    optionLabels,
     onChange,
 }: {
     label: string;
     value: string;
     options: string[];
+    optionLabels?: Record<string, string>;
     onChange: (v: string) => void;
 }) {
     const [open, setOpen] = React.useState(false);
@@ -481,20 +535,20 @@ function FilterPopover({
                 >
                     {label}
                     {value && (
-                        <span className="text-[11px] font-mono text-slate-500 max-w-[80px] truncate">
-                            {value}
+                        <span className="text-[11px] font-medium text-slate-700 max-w-[90px] truncate">
+                            {optionLabels?.[value] ?? value}
                         </span>
                     )}
                     <ChevronDownIcon className="w-3 h-3 opacity-60" />
                 </button>
             </PopoverMenuTrigger>
-            <PopoverMenuContent minWidth={180} className="max-h-72 overflow-y-auto">
+            <PopoverMenuContent minWidth={180} className="max-h-72 overflow-y-auto text-start">
                 <PopoverMenuItem onSelect={() => onChange("")} selected={value === ""}>
-                    All
+                    הכל
                 </PopoverMenuItem>
                 {options.map((o) => (
                     <PopoverMenuItem key={o} onSelect={() => onChange(o)} selected={value === o}>
-                        {o}
+                        {optionLabels?.[o] ?? o}
                     </PopoverMenuItem>
                 ))}
             </PopoverMenuContent>
@@ -503,7 +557,7 @@ function FilterPopover({
 }
 
 function DatePill({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-    return <DatePicker value={value} onChange={onChange} placeholder="Any date" />;
+    return <DatePicker value={value} onChange={onChange} placeholder="כל תאריך" />;
 }
 
 void AlertCircleIcon;
