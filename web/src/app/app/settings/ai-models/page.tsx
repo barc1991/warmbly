@@ -378,7 +378,7 @@ export default function AIModelsSettingsPage() {
                                 גיבוי אוטומטי
                             </span>
                             <Toggle
-                                checked={config.fallback_enabled}
+                                on={config.fallback_enabled}
                                 onChange={handleToggleFallback}
                                 disabled={!canManage}
                             />
@@ -579,8 +579,8 @@ export default function AIModelsSettingsPage() {
                                 </p>
                             </div>
                             <Toggle
-                                checked={bdrSettings.inbox_auto_send_enabled}
-                                onChange={(checked) => handleUpdateBDR({ inbox_auto_send_enabled: checked })}
+                                on={bdrSettings.inbox_auto_send_enabled}
+                                onChange={(on) => handleUpdateBDR({ inbox_auto_send_enabled: on })}
                                 disabled={!canManage}
                             />
                         </div>
@@ -627,8 +627,8 @@ export default function AIModelsSettingsPage() {
                                 </p>
                             </div>
                             <Toggle
-                                checked={bdrSettings.first_reply_website_crawl}
-                                onChange={(checked) => handleUpdateBDR({ first_reply_website_crawl: checked })}
+                                on={bdrSettings.first_reply_website_crawl}
+                                onChange={(on) => handleUpdateBDR({ first_reply_website_crawl: on })}
                                 disabled={!canManage}
                             />
                         </div>
@@ -646,8 +646,8 @@ export default function AIModelsSettingsPage() {
                                 </p>
                             </div>
                             <Toggle
-                                checked={bdrSettings.signature_extraction_enabled}
-                                onChange={(checked) => handleUpdateBDR({ signature_extraction_enabled: checked })}
+                                on={bdrSettings.signature_extraction_enabled}
+                                onChange={(on) => handleUpdateBDR({ signature_extraction_enabled: on })}
                                 disabled={!canManage}
                             />
                         </div>
@@ -659,7 +659,7 @@ export default function AIModelsSettingsPage() {
             <Section
                 eyebrow="רוטטור מפתחות Serper (חיפוש Google)"
                 description="חיפוש Google בזמן אמת להעשרת לידים, חקירת חברות ומציאת אתרים. כולל מעקב מדויק אחר מכסת 2,500 השאילתות לכל מפתח חינמי ורוטציה אוטומטית."
-                action={
+                actions={
                     canManage && (
                         <div className="flex items-center gap-2">
                             <button
@@ -1017,7 +1017,7 @@ function AddSingleKeyModal({
                         </label>
                         <TextInput
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={setName}
                             placeholder="למשל: Free Tier Key 1"
                         />
                     </div>
@@ -1029,9 +1029,8 @@ function AddSingleKeyModal({
                         <TextInput
                             type="password"
                             value={key}
-                            onChange={(e) => setKey(e.target.value)}
+                            onChange={setKey}
                             placeholder="AIzaSy..."
-                            required
                         />
                         <p className="mt-1 text-[11px] text-slate-500">
                             המפתח מוצפן במערכת באמצעות המפתח הארגוני (DEK) ולעולם אינו נחשף לצד לקוח.
@@ -1255,7 +1254,7 @@ function AddSingleSerperKeyModal({
                         </label>
                         <TextInput
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={setName}
                             placeholder="Serper Account 1"
                             className="w-full"
                         />
@@ -1268,9 +1267,8 @@ function AddSingleSerperKeyModal({
                         <TextInput
                             type="password"
                             value={key}
-                            onChange={(e) => setKey(e.target.value)}
+                            onChange={setKey}
                             placeholder="הזן מפתח API של Serper"
-                            required
                             className="w-full font-mono text-[12px]"
                         />
                         <p className="mt-1 text-[11px] text-slate-500">

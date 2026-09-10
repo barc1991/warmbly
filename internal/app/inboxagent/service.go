@@ -242,15 +242,21 @@ func (s *service) draft(ctx context.Context, r models.InboxAgentReply) {
 
 	var researchNotesBuilder strings.Builder
 	if analysis.Rationale != "" {
-		researchNotesBuilder.WriteString("Intent Rationale: " + analysis.Rationale + "\n")
+		researchNotesBuilder.WriteString("Intent Rationale: ")
+		researchNotesBuilder.WriteString(analysis.Rationale)
+		researchNotesBuilder.WriteString("\n")
 	}
 	if analysis.KeyInsight != "" {
-		researchNotesBuilder.WriteString("Key Insight: " + analysis.KeyInsight + "\n")
+		researchNotesBuilder.WriteString("Key Insight: ")
+		researchNotesBuilder.WriteString(analysis.KeyInsight)
+		researchNotesBuilder.WriteString("\n")
 	}
 	if bdr != nil && bdr.FirstReplyWebsiteCrawl {
 		webText, _ := InspectWebsiteForFirstReply(ctx, r.Counterpart, analysis.SignatureWeb)
 		if webText != "" {
-			researchNotesBuilder.WriteString("Website Research:\n" + webText + "\n")
+			researchNotesBuilder.WriteString("Website Research:\n")
+			researchNotesBuilder.WriteString(webText)
+			researchNotesBuilder.WriteString("\n")
 		}
 	}
 	researchNotes := strings.TrimSpace(researchNotesBuilder.String())
@@ -412,9 +418,11 @@ func (s *service) contactGrounding(ctx context.Context, contactID uuid.UUID) str
 	}
 	var b strings.Builder
 	if name := strings.TrimSpace(c.FirstName + " " + c.LastName); name != "" {
-		b.WriteString("Contact: " + name)
+		b.WriteString("Contact: ")
+		b.WriteString(name)
 		if c.Company != "" {
-			b.WriteString(" at " + c.Company)
+			b.WriteString(" at ")
+			b.WriteString(c.Company)
 		}
 		b.WriteString("\n")
 	}
@@ -426,7 +434,9 @@ func (s *service) contactGrounding(ctx context.Context, contactID uuid.UUID) str
 			}
 		}
 		if len(parts) > 0 {
-			b.WriteString("Known details: " + strings.Join(parts, ", ") + "\n")
+			b.WriteString("Known details: ")
+			b.WriteString(strings.Join(parts, ", "))
+			b.WriteString("\n")
 		}
 	}
 	return strings.TrimSpace(b.String())

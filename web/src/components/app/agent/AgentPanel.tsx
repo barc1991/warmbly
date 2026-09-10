@@ -1000,7 +1000,7 @@ export default function AgentPanel() {
                                     </button>
                                 ) : (
                                     <button
-                                        onClick={send}
+                                        onClick={() => void send()}
                                         disabled={!draft.trim() || composerLocked}
                                         title="שליחה"
                                         aria-label="שלח הודעה"

@@ -758,9 +758,7 @@ func main() {
 		subscriptionService = subscription.NewService(subscriptionRepository, planRepository)
 		// dailyThrottleService needs the cache that's constructed
 		// earlier in main; instantiate up here so org create can use it.
-		if dailyThrottleService == nil {
-			dailyThrottleService = dailythrottle.NewService(cache)
-		}
+		dailyThrottleService = dailythrottle.NewService(cache)
 		organizationService = organization.NewService(organizationRepository, subscriptionRepository, userRepostory, dailyThrottleService)
 
 		// Plan-based webhook/integration fan-out throttle. The cap scales with
