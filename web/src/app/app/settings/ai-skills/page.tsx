@@ -253,7 +253,6 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
                                     onChange={(e) => setContent(e.target.value)}
                                     rows={12}
                                     dir="auto"
-                                    maxLength={32 * 1024}
                                     placeholder={
                                         isHe
                                             ? "כאשר לקוח פוטנציאלי אומר שזה יקר מדי:\n- הכר בחשש שלו\n- שאל למה הוא משווה\n- ..."

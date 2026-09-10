@@ -211,7 +211,7 @@ export default function WorkspaceSettingsPage() {
             >
                 <Row
                     label="מה אתה מוכר"
-                    description="משפט או שניים על המוצר שלך והתוצאה שהוא מספק."
+                    description="פירוט מלא על המוצר, השירותים והערך שאתה מספק (ללא הגבלת תווים)."
                     align="start"
                 >
                     <Textarea
@@ -219,15 +219,14 @@ export default function WorkspaceSettingsPage() {
                         onChange={(e) => setProductDesc(e.target.value)}
                         onBlur={() => saveVoiceField("product_description", productDesc, orgQuery.data?.product_description ?? "")}
                         disabled={!canManageSettings}
-                        rows={3}
-                        maxLength={2000}
+                        rows={4}
                         placeholder="אנחנו עוזרים לצוותי מכירות לשמור על CRM נקי על ידי..."
-                        className="w-full max-w-[420px] text-[12.5px]"
+                        className="w-full max-w-[640px] text-[12.5px]"
                     />
                 </Row>
                 <Row
                     label="למי אתה מוכר"
-                    description="הלקוח האידיאלי שלך: תפקיד, סוג חברה, והכאב שהם חווים."
+                    description="פרופיל הלקוח האידיאלי (ICP): תפקידים, ענף, גודל חברות והכאבים שהם חווים."
                     align="start"
                 >
                     <Textarea
@@ -235,15 +234,14 @@ export default function WorkspaceSettingsPage() {
                         onChange={(e) => setIcpNotes(e.target.value)}
                         onBlur={() => saveVoiceField("icp_notes", icpNotes, orgQuery.data?.icp_notes ?? "")}
                         disabled={!canManageSettings}
-                        rows={3}
-                        maxLength={2000}
+                        rows={4}
                         placeholder="מנהלי מכירות בחברות SaaS B2B של 50-500 עובדים ש..."
-                        className="w-full max-w-[420px] text-[12.5px]"
+                        className="w-full max-w-[640px] text-[12.5px]"
                     />
                 </Row>
                 <Row
                     label="טון דיבור וסגנון"
-                    description="איך אתה רוצה להישמע. נינוח או רשמי, ביטויים לשימוש או להימנעות."
+                    description="איך אתה רוצה להישמע: הנחיות סגנון, אישיות, ביטויים לשימוש או להימנעות, חוקים ספציפיים."
                     align="start"
                 >
                     <Textarea
@@ -251,10 +249,9 @@ export default function WorkspaceSettingsPage() {
                         onChange={(e) => setVoiceProfile(e.target.value)}
                         onBlur={() => saveVoiceField("voice_profile", voiceProfile, orgQuery.data?.voice_profile ?? "")}
                         disabled={!canManageSettings}
-                        rows={3}
-                        maxLength={2000}
-                        placeholder="ישיר וחם, אותיות קטנות בהתחלה זה בסדר, לעולם לא מכירתי מדי."
-                        className="w-full max-w-[420px] text-[12.5px]"
+                        rows={5}
+                        placeholder="ישיר וחם, שאל שאלות קצרות, הימנע מביטויי שיווק קלישאתיים, הצע תמיד ערך מוחשי לפני קריאה לפעולה."
+                        className="w-full max-w-[640px] text-[12.5px]"
                     />
                 </Row>
             </Section>
