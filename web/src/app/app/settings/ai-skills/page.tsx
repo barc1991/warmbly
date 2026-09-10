@@ -14,6 +14,11 @@ import {
     Trash2Icon,
     Loader2Icon,
     CheckIcon,
+    ChevronDownIcon,
+    ChevronUpIcon,
+    SearchIcon,
+    Code2Icon,
+    PlusCircleIcon,
 } from "lucide-react";
 import {
     useSkills,
@@ -246,7 +251,7 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
                                 <Textarea
                                     value={content}
                                     onChange={(e) => setContent(e.target.value)}
-                                    rows={14}
+                                    rows={12}
                                     dir="auto"
                                     maxLength={32 * 1024}
                                     placeholder={
@@ -257,6 +262,14 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
                                     className="w-full font-mono text-[12px]"
                                 />
                             </Field>
+
+                            {/* Catalog of Available AI Tools */}
+                            <AvailableToolsCatalog
+                                isHe={isHe}
+                                onInsert={(snippet) => {
+                                    setContent((prev) => (prev ? prev.trimEnd() + "\n" + snippet : snippet));
+                                }}
+                            />
                         </div>
 
                         <div className="shrink-0 h-14 px-5 flex items-center gap-2 border-t border-slate-200 bg-slate-50/60">
@@ -296,3 +309,334 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
         </div>
     );
 }
+
+interface ToolItem {
+    name: string;
+    category: "bdr" | "crm" | "unibox" | "contacts" | "campaigns" | "suppression";
+    categoryLabelHe: string;
+    descriptionHe: string;
+    exampleInstructionHe: string;
+    isWriteAction?: boolean;
+}
+
+const AVAILABLE_AI_TOOLS: ToolItem[] = [
+    // BDR, Enrichment & Web
+    {
+        name: "serper_google_search",
+        category: "bdr",
+        categoryLabelHe: "BDR ומחקר",
+        descriptionHe: "חיפוש Google בזמן אמת לאיתור אתרים, בעלי תפקידים, חברות ומידע עסקי (מגובה רוטטור Serper ומטמון ל-7 ימים).",
+        exampleInstructionHe: "למצוא את אתר החברה של הליד ואת שמות המייסדים.",
+        isWriteAction: false,
+    },
+    {
+        name: "fetch_url_content",
+        category: "bdr",
+        categoryLabelHe: "BDR ומחקר",
+        descriptionHe: "סריקה וקריאה מאובטחת של אתר הליד (עמוד ראשי, אודות, צור קשר) עם הגנת SSRF וחילוץ תוכן נקי.",
+        exampleInstructionHe: "לקרוא את עמוד האודות של הליד ולחלץ מה העסק שלו מציע.",
+        isWriteAction: false,
+    },
+    {
+        name: "update_lead_fields",
+        category: "bdr",
+        categoryLabelHe: "BDR ומחקר",
+        descriptionHe: "עדכון כרטיס איש הקשר ונרמול שמות חכם (הסרת סיומות בע\"מ, LTD, LLC והפרדת תפקידים משמות).",
+        exampleInstructionHe: "לעדכן שם חברה נקי, תפקיד ומספר טלפון מחתימת המייל.",
+        isWriteAction: true,
+    },
+    {
+        name: "frappe_crm_sync",
+        category: "bdr",
+        categoryLabelHe: "BDR ומחקר",
+        descriptionHe: "סנכרון דו-כיווני ישיר ל-Frappe CRM – יצירה או עדכון של CRM Lead, שדות מותאמים ומשימות מעקב.",
+        exampleInstructionHe: "לסנכרן את הליד ל-Frappe CRM כולל יצירת משימת מעקב.",
+        isWriteAction: true,
+    },
+    {
+        name: "mark_do_not_contact",
+        category: "bdr",
+        categoryLabelHe: "BDR ומחקר",
+        descriptionHe: "סימון הסרה (DNC) ואיסור פנייה גלובלי גם ב-Warmbly וגם ב-Frappe CRM עבור לידים שביקשו הסרה.",
+        exampleInstructionHe: "לסמן כ-DNC בעקבות בקשת הסרה.",
+        isWriteAction: true,
+    },
+    // CRM, Tasks & Deals
+    {
+        name: "create_task",
+        category: "crm",
+        categoryLabelHe: "CRM ומשימות",
+        descriptionHe: "יצירת משימת מעקב ב-CRM עבור איש הקשר עם תאריך יעד ועדיפות.",
+        exampleInstructionHe: "לתזמן שיחת המשך ביומן לעוד 3 ימים.",
+        isWriteAction: true,
+    },
+    {
+        name: "list_tasks",
+        category: "crm",
+        categoryLabelHe: "CRM ומשימות",
+        descriptionHe: "שליפת רשימת המשימות הפתוחות לארגון או לליד ספציפי.",
+        exampleInstructionHe: "לבדוק אילו משימות פתוחות קיימות כרגע.",
+        isWriteAction: false,
+    },
+    {
+        name: "complete_task",
+        category: "crm",
+        categoryLabelHe: "CRM ומשימות",
+        descriptionHe: "סימון משימת CRM קיימת כהושלמה.",
+        exampleInstructionHe: "לסגור את משימת המעקב לאחר שנענתה.",
+        isWriteAction: true,
+    },
+    {
+        name: "create_deal",
+        category: "crm",
+        categoryLabelHe: "CRM ומשימות",
+        descriptionHe: "פתיחת עסקת מכירה (Deal) חדשה ב-Pipeline של ה-CRM.",
+        exampleInstructionHe: "לפתוח הזדמנות מכירה בשלב 'פגישה תואמה'.",
+        isWriteAction: true,
+    },
+    {
+        name: "move_deal_stage",
+        category: "crm",
+        categoryLabelHe: "CRM ומשימות",
+        descriptionHe: "העברת עסקה לשלב הבא ב-Pipeline (למשל: מפגישה להצעת מחיר או לסגירה).",
+        exampleInstructionHe: "להעביר את העסקה לשלב הבא.",
+        isWriteAction: true,
+    },
+    {
+        name: "add_contact_note",
+        category: "crm",
+        categoryLabelHe: "CRM ומשימות",
+        descriptionHe: "הוספת פתק או הערה פנימית על כרטיס איש הקשר ב-CRM.",
+        exampleInstructionHe: "לתעד סיכום נקודות מפתח מהתשובה של הליד.",
+        isWriteAction: true,
+    },
+    // Unibox & Email
+    {
+        name: "draft_reply",
+        category: "unibox",
+        categoryLabelHe: "תיבת דואר",
+        descriptionHe: "ניסוח טיוטת תגובה חכמה המותאמת להקשר השרשור והקול של הארגון.",
+        exampleInstructionHe: "לנסח מענה משכנע המציע שני מועדים לשיחה.",
+        isWriteAction: true,
+    },
+    {
+        name: "send_reply",
+        category: "unibox",
+        categoryLabelHe: "תיבת דואר",
+        descriptionHe: "שליחת מענה ישיר לשרשור המייל (דורש אישור).",
+        exampleInstructionHe: "לשלוח את התשובה המאושרת לליד.",
+        isWriteAction: true,
+    },
+    {
+        name: "compose_email",
+        category: "unibox",
+        categoryLabelHe: "תיבת דואר",
+        descriptionHe: "כתיבת מייל חדש מאפס לנמען מתוך אחת מתיבות הדואר המחוברות.",
+        exampleInstructionHe: "לפתוח מייל חדש עם נושא ותוכן מותאמים.",
+        isWriteAction: true,
+    },
+    {
+        name: "snooze_thread",
+        category: "unibox",
+        categoryLabelHe: "תיבת דואר",
+        descriptionHe: "השהיית שרשור בתיבת הדואר עד לתאריך עתידי או חזרת הליד מחופשה.",
+        exampleInstructionHe: "להשהות את השיחה עד תאריך החזרה של הליד מחופשה.",
+        isWriteAction: true,
+    },
+    // Contacts & Leads
+    {
+        name: "search_contacts",
+        category: "contacts",
+        categoryLabelHe: "אנשי קשר",
+        descriptionHe: "חיפוש אנשי קשר במערכת לפי שם, כתובת אימייל, חברה או תגית.",
+        exampleInstructionHe: "למצוא האם איש הקשר כבר קיים בסביבת העבודה.",
+        isWriteAction: false,
+    },
+    {
+        name: "create_contact",
+        category: "contacts",
+        categoryLabelHe: "אנשי קשר",
+        descriptionHe: "יצירת איש קשר חדש בסביבת העבודה.",
+        exampleInstructionHe: "להוסיף את הליד החדש למאגר.",
+        isWriteAction: true,
+    },
+    {
+        name: "add_contact_tag",
+        category: "contacts",
+        categoryLabelHe: "אנשי קשר",
+        descriptionHe: "הוספת תגית קטגוריה או סיווג לכרטיס איש הקשר.",
+        exampleInstructionHe: "להוסיף תגית 'ליד חם - מעוניין בפגישה'.",
+        isWriteAction: true,
+    },
+    // Campaigns & Sequences
+    {
+        name: "list_campaigns",
+        category: "campaigns",
+        categoryLabelHe: "קמפיינים",
+        descriptionHe: "שליפת כל הקמפיינים הקיימים, אחוזי הפתיחה והתגובה, ומצב הריצה.",
+        exampleInstructionHe: "לבדוק אילו קמפיינים פעילים כרגע.",
+        isWriteAction: false,
+    },
+    {
+        name: "add_campaign_step",
+        category: "campaigns",
+        categoryLabelHe: "קמפיינים",
+        descriptionHe: "הוספת שלב המשך (Follow-up) לרצף השליחה של קמפיין.",
+        exampleInstructionHe: "להוסיף שלב תזכורת 3 ימים לאחר הפנייה.",
+        isWriteAction: true,
+    },
+    // Suppressions
+    {
+        name: "add_suppressions",
+        category: "suppression",
+        categoryLabelHe: "חסימות והסרות",
+        descriptionHe: "הוספת כתובת אימייל או דומיין שלם לרשימת החסימה/ההשתקה (לעולם לא יקבל מייל).",
+        exampleInstructionHe: "להוסיף את הדומיין לרשימת ההשתקה.",
+        isWriteAction: true,
+    },
+];
+
+function AvailableToolsCatalog({
+    isHe,
+    onInsert,
+}: {
+    isHe: boolean;
+    onInsert: (snippet: string) => void;
+}) {
+    const [open, setOpen] = React.useState(false);
+    const [search, setSearch] = React.useState("");
+    const [category, setCategory] = React.useState<string>("all");
+
+    const categories = [
+        { id: "all", labelHe: "הכל", labelEn: "All" },
+        { id: "bdr", labelHe: "BDR ומחקר", labelEn: "BDR & Web" },
+        { id: "crm", labelHe: "CRM ומשימות", labelEn: "CRM & Tasks" },
+        { id: "unibox", labelHe: "תיבת דואר", labelEn: "Unibox" },
+        { id: "contacts", labelHe: "אנשי קשר", labelEn: "Contacts" },
+        { id: "campaigns", labelHe: "קמפיינים", labelEn: "Campaigns" },
+        { id: "suppression", labelHe: "חסימות", labelEn: "Suppressions" },
+    ];
+
+    const filtered = React.useMemo(() => {
+        return AVAILABLE_AI_TOOLS.filter((t) => {
+            if (category !== "all" && t.category !== category) return false;
+            if (!search.trim()) return true;
+            const q = search.toLowerCase();
+            return (
+                t.name.toLowerCase().includes(q) ||
+                t.descriptionHe.includes(q) ||
+                t.categoryLabelHe.includes(q)
+            );
+        });
+    }, [search, category]);
+
+    return (
+        <div className="rounded-lg border border-slate-200 bg-slate-50/50 overflow-hidden text-[12px]">
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="w-full px-3.5 py-2.5 flex items-center justify-between hover:bg-slate-100/70 transition-colors"
+            >
+                <div className="flex items-center gap-2">
+                    <Code2Icon className="w-4 h-4 text-sky-600" />
+                    <span className="font-semibold text-slate-800">
+                        {isHe ? "כלי AI זמינים לפלייבוק (AI Tools Catalog)" : "Available AI Tools"}
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-sky-100 text-sky-700">
+                        {AVAILABLE_AI_TOOLS.length} {isHe ? "כלים" : "tools"}
+                    </span>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                    <span>{open ? (isHe ? "סגור קטלוג" : "Collapse") : (isHe ? "הצג קטלוג כלים" : "Explore tools")}</span>
+                    {open ? <ChevronUpIcon className="w-3.5 h-3.5" /> : <ChevronDownIcon className="w-3.5 h-3.5" />}
+                </div>
+            </button>
+
+            {open && (
+                <div className="p-3 border-t border-slate-200 bg-white space-y-2.5">
+                    {/* Search & Category Filter */}
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="relative flex-1">
+                            <SearchIcon className="w-3.5 h-3.5 text-slate-400 absolute start-2.5 top-1/2 -translate-y-1/2" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder={isHe ? "חיפוש כלי (לפי שם או תיאור)..." : "Search tool by name..."}
+                                className="w-full ps-8 pe-2.5 py-1 text-[11.5px] border border-slate-200 rounded-md outline-none focus:border-sky-400"
+                            />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1">
+                            {categories.map((c) => (
+                                <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => setCategory(c.id)}
+                                    className={`px-2 py-0.5 rounded text-[10.5px] font-medium transition-colors ${
+                                        category === c.id
+                                            ? "bg-sky-600 text-white"
+                                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    }`}
+                                >
+                                    {isHe ? c.labelHe : c.labelEn}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Scrollable list of tools */}
+                    <div className="max-h-[220px] overflow-y-auto space-y-1.5 pe-1 divide-y divide-slate-100">
+                        {filtered.length === 0 ? (
+                            <div className="text-center py-4 text-[11.5px] text-slate-400">
+                                {isHe ? "לא נמצאו כלים תואמים" : "No matching tools found"}
+                            </div>
+                        ) : (
+                            filtered.map((t) => (
+                                <div
+                                    key={t.name}
+                                    className="pt-1.5 first:pt-0 flex items-start justify-between gap-2"
+                                >
+                                    <div className="space-y-0.5 flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <code className="text-[11px] font-mono font-semibold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/80">
+                                                {t.name}
+                                            </code>
+                                            <span
+                                                className={`text-[9.5px] font-medium px-1.5 py-0.2 rounded-full ${
+                                                    t.isWriteAction
+                                                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                                        : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                }`}
+                                            >
+                                                {t.isWriteAction ? (isHe ? "כתיבה / פעולה" : "Write") : (isHe ? "קריאה" : "Read")}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400">
+                                                {t.categoryLabelHe}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-600 leading-snug">
+                                            {t.descriptionHe}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            onInsert(`- השתמש ב-${t.name} כדי ${t.exampleInstructionHe}`);
+                                            toast.success(isHe ? `נוסף לפלייבוק: ${t.name}` : `Added ${t.name}`);
+                                        }}
+                                        title={isHe ? "הוסף הנחיית שימוש לפלייבוק" : "Add to playbook"}
+                                        className="shrink-0 mt-0.5 h-6 px-2 rounded border border-slate-200 bg-white hover:bg-sky-50 hover:text-sky-700 hover:border-sky-200 text-slate-600 text-[10.5px] font-medium inline-flex items-center gap-1 transition-colors shadow-xs"
+                                    >
+                                        <PlusCircleIcon className="w-3 h-3 text-sky-600" />
+                                        {isHe ? "הוסף" : "Insert"}
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
