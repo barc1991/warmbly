@@ -475,6 +475,130 @@ func closeJSON(ctx context.Context, method, reqURL, apiKey string, body []byte, 
 	return nil
 }
 
+// frappeCRMUpsertLead creates or updates a Frappe CRM Lead keyed by email
+// using the caller-projected props. It queries /api/resource/CRM Lead first,
+// falls back to /api/resource/Lead if CRM Lead is not found, and updates existing or creates new.
+func frappeCRMUpsertLead(ctx context.Context, serverURL, apiKey, apiSecret, email string, props map[string]any) error {
+	serverURL = strings.TrimRight(strings.TrimSpace(serverURL), "/")
+	if serverURL == "" {
+		return fmt.Errorf("frappe crm server url unavailable; reconnect the integration")
+	}
+	if email == "" {
+		return nil
+	}
+
+	docType := "CRM Lead"
+	filters := fmt.Sprintf(`[["%s","email","=","%s"]]`, docType, email)
+	searchURL := fmt.Sprintf("%s/api/resource/%s?filters=%s&fields=%s",
+		serverURL, url.PathEscape(docType), url.QueryEscape(filters), url.QueryEscape(`["name","email"]`))
+
+	var search struct {
+		Data []struct {
+			Name string `json:"name"`
+		} `json:"data"`
+	}
+
+	err := frappeJSON(ctx, http.MethodGet, searchURL, apiKey, apiSecret, nil, &search)
+	if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+		docType = "Lead"
+		filters = fmt.Sprintf(`[["%s","email_id","=","%s"]]`, docType, email)
+		searchURL = fmt.Sprintf("%s/api/resource/%s?filters=%s&fields=%s",
+			serverURL, url.PathEscape(docType), url.QueryEscape(filters), url.QueryEscape(`["name","email_id"]`))
+		err = frappeJSON(ctx, http.MethodGet, searchURL, apiKey, apiSecret, nil, &search)
+	}
+	if err != nil {
+		return err
+	}
+
+	firstName := strProp(props, "first_name")
+	lastName := strProp(props, "last_name")
+	if firstName == "" {
+		if name := strProp(props, "name"); name != "" {
+			parts := strings.SplitN(name, " ", 2)
+			firstName = parts[0]
+			if len(parts) > 1 {
+				lastName = parts[1]
+			}
+		} else {
+			firstName = email
+		}
+	}
+
+	payload := map[string]any{
+		"first_name": firstName,
+	}
+	if lastName != "" {
+		payload["last_name"] = lastName
+	}
+	if docType == "CRM Lead" {
+		payload["email"] = email
+		if org := strProp(props, "organization"); org != "" {
+			payload["organization"] = org
+		} else if comp := strProp(props, "company"); comp != "" {
+			payload["organization"] = comp
+		}
+		if phone := strProp(props, "phone"); phone != "" {
+			payload["mobile_no"] = phone
+			payload["phone"] = phone
+		}
+		if title := strProp(props, "job_title"); title != "" {
+			payload["job_title"] = title
+		}
+	} else {
+		payload["email_id"] = email
+		if comp := strProp(props, "company"); comp != "" {
+			payload["company_name"] = comp
+		}
+		if phone := strProp(props, "phone"); phone != "" {
+			payload["mobile_no"] = phone
+			payload["phone"] = phone
+		}
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	if len(search.Data) > 0 {
+		leadName := search.Data[0].Name
+		putURL := fmt.Sprintf("%s/api/resource/%s/%s", serverURL, url.PathEscape(docType), url.PathEscape(leadName))
+		return frappeJSON(ctx, http.MethodPut, putURL, apiKey, apiSecret, body, nil)
+	}
+
+	postURL := fmt.Sprintf("%s/api/resource/%s", serverURL, url.PathEscape(docType))
+	return frappeJSON(ctx, http.MethodPost, postURL, apiKey, apiSecret, body, nil)
+}
+
+func frappeJSON(ctx context.Context, method, reqURL, apiKey, apiSecret string, body []byte, dst any) error {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, reqURL, reader)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("token %s:%s", apiKey, apiSecret))
+	req.Header.Set("Accept", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := actionHTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("frappe %s: HTTP %d", method, resp.StatusCode)
+	}
+	if dst != nil && len(raw) > 0 {
+		return json.Unmarshal(raw, dst)
+	}
+	return nil
+}
+
 // salesforceAPIVersion is the REST API version actions target. Salesforce keeps
 // old versions live for years, so pinning one keeps request shapes stable.
 const salesforceAPIVersion = "v59.0"

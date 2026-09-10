@@ -89,6 +89,18 @@ func Catalog() []models.IntegrationCatalogEntry {
 			ActionTypes:  []string{string(models.IntegrationActionCloseUpsert)},
 			SupportsPush: true,
 		},
+		{
+			Provider:     models.IntegrationFrappeCRM,
+			Name:         "Frappe CRM",
+			Tagline:      "Open-source modern CRM for leads, deals, and communication tracking.",
+			Category:     models.IntegrationCategoryCRM,
+			AuthMethod:   string(models.IntegrationAuthAPIKey),
+			DocsURL:      "https://frappe.io/crm",
+			Highlights:   []string{"Connect with Frappe Server URL, API key, and API secret", "Upsert leads on reply or on demand"},
+			Events:       crmEvents,
+			ActionTypes:  []string{string(models.IntegrationActionFrappeCRMUpsert)},
+			SupportsPush: true,
+		},
 
 		// Automation --------------------------------------------------------
 		{

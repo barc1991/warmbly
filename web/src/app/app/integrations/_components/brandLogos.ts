@@ -58,8 +58,20 @@ const PIPEDRIVE: RawBrandLogo = {
     ].join(""),
 };
 
+// Frappe CRM official monogram ("F") on Frappe royal blue (#0066FF).
+const FRAPPE_CRM: RawBrandLogo = {
+    viewBox: "0 0 256 256",
+    fullBleed: true,
+    inner: [
+        '<rect width="256" height="256" rx="36" fill="#0066FF"/>',
+        '<path fill="#ffffff" d="M72 64h112v28h-80v36h68v28h-68v44H72V64z"/>',
+    ].join(""),
+};
+
 export const RAW_BRAND_LOGOS: Record<string, RawBrandLogo> = {
     slack: SLACK,
     close: CLOSE,
     pipedrive: PIPEDRIVE,
+    frappe_crm: FRAPPE_CRM,
 };
+

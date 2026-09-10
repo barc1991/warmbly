@@ -33,7 +33,7 @@ export interface AddSuppressionsResult {
 }
 
 export const SOURCE_LABEL: Record<string, string> = {
-    bounce: "נדחה (Bounce)",
+    bounce: "הודעה שנדחתה",
     complaint: "תלונת ספאם",
     unsubscribe: "ביטל הרשמה",
     manual: "נוסף ידנית",

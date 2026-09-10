@@ -32,40 +32,47 @@ import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 // Pretty labels for path segments. Anything missing falls back to the
 // raw segment with its first letter capitalised.
 const labelMap: Record<string, string> = {
-    app: "Home",
-    emails: "Accounts",
-    unibox: "Inbox",
-    contacts: "Contacts",
-    segments: "Segments",
-    categories: "Categories",
-    campaigns: "Campaigns",
-    analytics: "Analytics",
-    crm: "CRM",
-    pipelines: "Pipelines",
-    deals: "Deals",
-    tasks: "Tasks",
-    templates: "Templates",
-    "api-keys": "API Keys",
-    settings: "Settings",
-    billing: "Billing",
-    team: "Team",
-    admin: "Admin",
-    workers: "Workers",
-    credentials: "Credentials",
-    audit: "Audit",
-    leads: "Leads",
-    preferences: "Preferences",
-    schedule: "Schedule",
-    steps: "Steps",
+    app: "בית",
+    emails: "תיבות דואר",
+    unibox: "תיבת דואר מאוחדת",
+    contacts: "אנשי קשר",
+    segments: "סגמנטים",
+    categories: "קטגוריות",
+    campaigns: "קמפיינים",
+    analytics: "אנליטיקה",
+    crm: "ניהול לקוחות",
+    pipelines: "צינורות מכירה",
+    deals: "עסקאות",
+    tasks: "משימות",
+    templates: "תבניות",
+    "api-keys": "מפתחות API",
+    settings: "הגדרות",
+    billing: "חיוב ומנוי",
+    team: "צוות",
+    admin: "ניהול",
+    workers: "עובדים",
+    credentials: "אישורים",
+    audit: "יומן פעילות",
+    leads: "לידים",
+    preferences: "העדפות",
+    schedule: "לוח זמנים",
+    steps: "שלבים",
+    suppressions: "רשימת חסימה",
+    integrations: "אינטגרציות",
+    automations: "אוטומציות",
+    deliverability: "דיוור",
 };
 
 const segToI18n: Record<string, string> = {
     emails: "nav:items.mailboxes",
     unibox: "nav:items.unibox",
     contacts: "nav:items.contacts",
+    segments: "nav:items.segments",
+    categories: "nav:items.categories",
+    suppressions: "nav:items.suppressions",
     campaigns: "nav:items.campaigns",
     analytics: "nav:items.analytics",
-    crm: "nav:items.pipelines",
+    crm: "nav:items.crm",
     pipelines: "nav:items.pipelines",
     deals: "nav:items.deals",
     tasks: "nav:items.tasks",
@@ -182,7 +189,7 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
                     className="flex items-center gap-2 px-2 h-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors text-[12.5px]"
                 >
                     <Search className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{t("actions.search", "Search")}</span>
+                    <span className="hidden sm:inline">חיפוש בכל המערכת...</span>
                     <kbd className="hidden md:inline-flex h-4 items-center px-1 rounded border border-slate-300/70 bg-white/60 font-mono text-[10px] text-slate-500 ms-0.5">
                         ⌘K
                     </kbd>
@@ -214,7 +221,7 @@ function AssistantButton() {
     const unseen = tabs.some((t) => t.unseen);
 
     return (
-        <ShortcutTooltip label="AI assistant" combo="mod+I" side="bottom">
+        <ShortcutTooltip label="עוזר AI" combo="mod+I" side="bottom">
         <button
             onClick={() => {
                 if (open && minimized) {
@@ -227,14 +234,14 @@ function AssistantButton() {
                     setOpen(true);
                 }
             }}
-            aria-label="AI assistant"
+            aria-label="עוזר AI"
             className="relative flex items-center justify-center size-7 rounded-md text-slate-500 hover:text-sky-700 hover:bg-sky-50 transition-colors"
         >
             <AgentMark className="w-4 h-4" />
             {(running || pending || unseen) && (
                 <span
                     className={
-                        "absolute top-0.5 right-0.5 size-1.5 rounded-full ring-2 ring-white " +
+                        "absolute top-0.5 ltr:right-0.5 rtl:left-0.5 size-1.5 rounded-full ring-2 ring-white " +
                         (running
                             ? "bg-sky-500 animate-pulse"
                             : pending

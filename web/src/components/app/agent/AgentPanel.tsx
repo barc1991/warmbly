@@ -76,7 +76,7 @@ const nextId = () => `m${++mid}`;
 
 function deriveTitle(text: string): string {
     const t = text.trim().replace(/\s+/g, " ");
-    return t.length > 40 ? t.slice(0, 40).trimEnd() + "…" : t || "New chat";
+    return t.length > 40 ? t.slice(0, 40).trimEnd() + "…" : t || "שיחה חדשה";
 }
 
 // Keep the floating window fully on screen and inside its size bounds.
@@ -687,9 +687,9 @@ export default function AgentPanel() {
                     >
                         <AgentMark className="w-4 h-4 text-sky-600" />
                         <div className="text-[13px] font-semibold text-slate-900">
-                            Assistant
+                            עוזר AI
                         </div>
-                        <div className="ml-auto flex items-center gap-1">
+                        <div className="ms-auto flex items-center gap-1">
                             {!isFloat && (
                                 <button
                                     onClick={() =>
@@ -697,10 +697,10 @@ export default function AgentPanel() {
                                     }
                                     title={
                                         side === "right"
-                                            ? "Move to the left edge"
-                                            : "Move to the right edge"
+                                            ? "העבר לצד שמאל"
+                                            : "העבר לצד ימין"
                                     }
-                                    aria-label="Switch panel side"
+                                    aria-label="החלף צד חלון"
                                     className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 hidden sm:inline-flex items-center justify-center transition-colors"
                                 >
                                     {side === "right" ? (
@@ -715,11 +715,11 @@ export default function AgentPanel() {
                                     onClick={() => setFloating(!floating)}
                                     title={
                                         isFloat
-                                            ? `Dock to the ${side} edge (⌥P)`
-                                            : "Pop out into a window (⌥P)"
+                                            ? `עגן לצד ${side === "right" ? "ימין" : "שמאל"} (⌥P)`
+                                            : "פתח כחלון צף (⌥P)"
                                     }
                                     aria-label={
-                                        isFloat ? "Dock panel" : "Pop out into a floating window"
+                                        isFloat ? "עגן חלון" : "פתח כחלון צף"
                                     }
                                     className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 hidden sm:inline-flex items-center justify-center transition-colors"
                                 >
@@ -736,17 +736,17 @@ export default function AgentPanel() {
                             )}
                             <button
                                 onClick={() => setMinimized(true)}
-                                title="Minimize to dock (⌥M)"
-                                aria-label="Minimize to dock"
+                                title="מזער (⌥M)"
+                                aria-label="מזער"
                                 className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <MinusIcon className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setExpanded(!expanded)}
-                                title={expanded ? "Collapse" : "Expand to workspace"}
+                                title={expanded ? "צמצם" : "הרחב לסביבת עבודה"}
                                 aria-label={
-                                    expanded ? "Collapse" : "Expand to workspace"
+                                    expanded ? "צמצם" : "הרחב לסביבת עבודה"
                                 }
                                 className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 hidden sm:inline-flex items-center justify-center transition-colors"
                             >
@@ -758,8 +758,8 @@ export default function AgentPanel() {
                             </button>
                             <button
                                 onClick={closePanel}
-                                title="Close"
-                                aria-label="Close assistant"
+                                title="סגור (Esc)"
+                                aria-label="סגור עוזר AI"
                                 className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-4 h-4" />
@@ -883,8 +883,8 @@ export default function AgentPanel() {
                                     rows={1}
                                     placeholder={
                                         activeTab?.pending
-                                            ? "Respond to the approval above first"
-                                            : "Ask about contacts, campaigns, your inbox…"
+                                            ? "הגב לבקשת האישור למעלה תחילה"
+                                            : "שאל על אנשי קשר, קמפיינים, תיבת הדואר..."
                                     }
                                     disabled={composerLocked}
                                     className="flex-1 resize-none bg-transparent py-1 text-[13px] leading-5 text-slate-900 placeholder:text-slate-400 outline-none max-h-32 disabled:opacity-60"
@@ -892,8 +892,8 @@ export default function AgentPanel() {
                                 {activeTab?.running ? (
                                     <button
                                         onClick={() => stop(activeTab.key)}
-                                        title="Stop"
-                                        aria-label="Stop run"
+                                        title="עצור"
+                                        aria-label="עצור יצירה"
                                         className="size-7 rounded-md bg-slate-900 hover:bg-slate-700 text-white inline-flex items-center justify-center transition-colors"
                                     >
                                         <SquareIcon
@@ -905,8 +905,8 @@ export default function AgentPanel() {
                                     <button
                                         onClick={send}
                                         disabled={!draft.trim() || composerLocked}
-                                        title="Send"
-                                        aria-label="Send message"
+                                        title="שליחה"
+                                        aria-label="שלח הודעה"
                                         className="size-7 rounded-md bg-sky-600 hover:bg-sky-700 text-white inline-flex items-center justify-center transition-colors disabled:opacity-40"
                                     >
                                         <ArrowUpIcon className="w-4 h-4" />
@@ -1075,7 +1075,7 @@ function DockBar({
         status = (
             <span className="inline-flex items-center gap-1.5 text-slate-500">
                 <Loader2Icon className="w-3 h-3 animate-spin text-sky-500" />
-                Working
+                מעבד...
                 {focus.iteration > 0 && (
                     <span className="font-mono tabular-nums text-slate-400">
                         {focus.iteration}/{focus.budget}
@@ -1087,7 +1087,7 @@ function DockBar({
         status = (
             <span className="inline-flex items-center gap-1.5 text-amber-700">
                 <span className="size-1.5 rounded-full bg-amber-500" />
-                Needs approval
+                נדרש אישור
             </span>
         );
     } else if (focus?.unseen) {
@@ -1097,7 +1097,7 @@ function DockBar({
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-sky-500" />
                 </span>
-                Response ready
+                תשובה מוכנה
             </span>
         );
     } else {
@@ -1171,10 +1171,10 @@ function historyBucket(iso: string): string {
     const t = new Date(iso).getTime();
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    if (t >= today) return "Today";
-    if (t >= today - 24 * 60 * 60 * 1000) return "Yesterday";
-    if (t >= today - 6 * 24 * 60 * 60 * 1000) return "This week";
-    return "Earlier";
+    if (t >= today) return "היום";
+    if (t >= today - 24 * 60 * 60 * 1000) return "אתמול";
+    if (t >= today - 6 * 24 * 60 * 60 * 1000) return "השבוע";
+    return "מוקדם יותר";
 }
 
 function SessionSidebar({
@@ -1218,7 +1218,7 @@ function SessionSidebar({
 
     const remove = (s: AgentSession) => {
         confirm.show(
-            `Delete "${s.title || "this conversation"}"? Its transcript is removed for good.`,
+            `למחוק את "${s.title || "השיחה הזו"}"? התמליל יימחק לצמיתות.`,
             async () => {
                 await deleteAgentSession(s.id);
                 // If the conversation is open as a tab, close it too.
@@ -1239,7 +1239,7 @@ function SessionSidebar({
                     className="w-full h-8 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12.5px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors"
                 >
                     <PlusIcon className="w-3.5 h-3.5" />
-                    New chat
+                    שיחה חדשה
                     <Kbd combo="alt+n" variant="dark" />
                 </button>
                 <div className="flex items-center gap-1.5 px-2 h-7 rounded-md border border-slate-200 bg-white focus-within:border-sky-300 focus-within:ring-1 focus-within:ring-sky-100 transition-colors">
@@ -1247,13 +1247,13 @@ function SessionSidebar({
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search history…"
+                        placeholder="חיפוש בהיסטוריית שיחות..."
                         className="flex-1 min-w-0 bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none"
                     />
                     {search && (
                         <button
                             onClick={() => setSearch("")}
-                            aria-label="Clear search"
+                            aria-label="נקה חיפוש"
                             className="size-4 shrink-0 inline-flex items-center justify-center rounded text-slate-400 hover:text-slate-600"
                         >
                             <XIcon className="w-3 h-3" />
@@ -1265,8 +1265,8 @@ function SessionSidebar({
                 {filtered.length === 0 && !q.isLoading && (
                     <p className="px-1.5 py-3 text-[11.5px] text-slate-400 leading-relaxed">
                         {search
-                            ? "No conversations match."
-                            : "Your past conversations show up here."}
+                            ? "לא נמצאו שיחות תואמות."
+                            : "שיחות העבר שלך יופיעו כאן."}
                     </p>
                 )}
                 {grouped.map((g) => (
@@ -1285,7 +1285,7 @@ function SessionSidebar({
                                         if (e.key === "Enter") onOpen(s);
                                     }}
                                     className={cn(
-                                        "group w-full text-left px-2 py-1.5 rounded-md flex items-start gap-2 cursor-pointer transition-colors",
+                                        "group w-full text-left rtl:text-right px-2 py-1.5 rounded-md flex items-start gap-2 cursor-pointer transition-colors",
                                         s.id === activeSessionId
                                             ? "bg-white ring-1 ring-slate-200"
                                             : "hover:bg-white",
@@ -1294,7 +1294,7 @@ function SessionSidebar({
                                     <ClockIcon className="w-3 h-3 mt-0.5 shrink-0 text-slate-400" />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-[12px] text-slate-700">
-                                            {s.title || "Conversation"}
+                                            {s.title || "שיחה"}
                                         </span>
                                         <span className="block truncate text-[10.5px] text-slate-400">
                                             {relativeTime(s.updated_at || s.created_at)}
@@ -1308,8 +1308,8 @@ function SessionSidebar({
                                             e.stopPropagation();
                                             remove(s);
                                         }}
-                                        title="Delete conversation"
-                                        aria-label={`Delete ${s.title || "conversation"}`}
+                                        title="מחיקת שיחה"
+                                        aria-label={`מחק את ${s.title || "השיחה"}`}
                                         className="size-5 mt-0.5 shrink-0 inline-flex items-center justify-center rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                     >
                                         <Trash2Icon className="w-3 h-3" />
@@ -1325,7 +1325,7 @@ function SessionSidebar({
                         disabled={q.isFetchingNextPage}
                         className="mt-1 w-full h-7 rounded-md text-[11.5px] text-slate-500 hover:text-slate-800 hover:bg-white transition-colors"
                     >
-                        {q.isFetchingNextPage ? "Loading…" : "Load more"}
+                        {q.isFetchingNextPage ? "טוען..." : "טען עוד"}
                     </button>
                 )}
             </div>
@@ -1334,7 +1334,7 @@ function SessionSidebar({
                     <button
                         onClick={() =>
                             confirm.show(
-                                "Clear your entire assistant history in this workspace? Every conversation and transcript is removed for good.",
+                                "האם לנקות את כל היסטוריית השיחות שלך בסביבת עבודה זו? כל השיחות והתמלילים יימחקו לצמיתות.",
                                 async () => {
                                     await clearAgentSessions();
                                     // Close every tab tied to a stored session;
@@ -1350,7 +1350,7 @@ function SessionSidebar({
                         className="w-full h-7 rounded-md inline-flex items-center justify-center gap-1.5 text-[11.5px] text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                     >
                         <Trash2Icon className="w-3 h-3" />
-                        Clear history
+                        ניקוי היסטוריה
                     </button>
                 </div>
             )}
@@ -1667,10 +1667,10 @@ function ApprovalCard({
 }
 
 const STARTERS = [
-    "Which leads went cold and need a follow-up?",
-    "Summarize replies in my inbox from this week",
-    "Draft a reply to my latest positive reply",
-    "How are my campaigns performing?",
+    "אילו לידים התקררו ודורשים פולואו-אפ?",
+    "סכם לי תגובות נכנסות שהתקבלו השבוע בתיבה",
+    "נסח מענה לתגובה החיובית האחרונה שהתקבלה",
+    "מה סטטוס הביצועים של הקמפיינים הפעילים?",
 ];
 
 function EmptyState({ onPick }: { onPick: (q: string) => void }) {
@@ -1678,18 +1678,17 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
         <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
             <AgentMark className="w-6 h-6 text-sky-600 mb-3" />
             <div className="text-[13px] font-semibold text-slate-900">
-                How can I help?
+                איך אפשר לעזור לך היום?
             </div>
             <p className="text-[12px] text-slate-500 mt-1 leading-relaxed max-w-[280px]">
-                Ask me to find contacts, check a campaign, draft a reply, or set up a
-                draft campaign. I ask before changing anything.
+                אפשר לבקש ממני למצוא אנשי קשר, לבדוק קמפיין, לנסח מענה לאימייל, או להכין טיוטת קמפיין. שום שינוי לא מבוצע ללא אישורך.
             </p>
             <div className="mt-4 w-full max-w-[320px] space-y-1.5">
                 {STARTERS.map((q) => (
                     <button
                         key={q}
                         onClick={() => onPick(q)}
-                        className="w-full text-left px-3 py-2 rounded-md border border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 text-[12px] text-slate-600 hover:text-slate-900 transition-colors"
+                        className="w-full text-left rtl:text-right px-3 py-2 rounded-md border border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 text-[12px] text-slate-600 hover:text-slate-900 transition-colors"
                     >
                         {q}
                     </button>
@@ -1697,22 +1696,22 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
             </div>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[10.5px] text-slate-400">
                 <span className="inline-flex items-center gap-1">
-                    <Kbd combo="mod+i" variant="light" /> toggle
+                    <Kbd combo="mod+i" variant="light" /> פתיחה/סגירה
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1">
-                    <Kbd combo="alt+n" variant="light" /> new chat
+                    <Kbd combo="alt+n" variant="light" /> שיחה חדשה
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1">
-                    <Kbd combo="alt+p" variant="light" /> pop out
+                    <Kbd combo="alt+p" variant="light" /> חלון צף
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1">
-                    <Kbd combo="alt+m" variant="light" /> minimize
+                    <Kbd combo="alt+m" variant="light" /> מזעור
                 </span>
                 <button
                     onClick={() => useAppStore.getState().setShortcutsModalOpen(true)}
                     className="underline decoration-dotted underline-offset-2 hover:text-slate-600 transition-colors"
                 >
-                    all shortcuts
+                    כל הקיצורים
                 </button>
             </div>
         </div>
@@ -1722,22 +1721,22 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
 // toolLabel renders a friendly label for a tool name.
 function toolLabel(tool: string): string {
     const map: Record<string, string> = {
-        search_contacts: "Searched contacts",
-        get_contact: "Read contact",
-        update_contact_fields: "Update contact",
-        add_tag: "Add tag",
-        remove_tag: "Remove tag",
-        list_campaigns: "Listed campaigns",
-        get_campaign_stats: "Campaign stats",
-        create_campaign_draft: "Create campaign draft",
-        create_automation_draft: "Create automation draft",
-        create_task: "Create task",
-        create_deal: "Create deal",
-        list_threads: "Listed threads",
-        get_thread: "Read thread",
-        draft_reply: "Drafted reply",
-        search_web: "Searched the web",
-        fetch_url: "Fetched a page",
+        search_contacts: "חיפוש אנשי קשר",
+        get_contact: "קריאת איש קשר",
+        update_contact_fields: "עדכון איש קשר",
+        add_tag: "הוספת תגית",
+        remove_tag: "הסרת תגית",
+        list_campaigns: "הצגת קמפיינים",
+        get_campaign_stats: "נתוני קמפיין",
+        create_campaign_draft: "יצירת טיוטת קמפיין",
+        create_automation_draft: "יצירת טיוטת אוטומציה",
+        create_task: "יצירת משימה",
+        create_deal: "יצירת עסקה",
+        list_threads: "הצגת שרשורים",
+        get_thread: "קריאת שרשור",
+        draft_reply: "ניסוח מענה",
+        search_web: "חיפוש באינטרנט",
+        fetch_url: "טעינת דף אינטרנט",
     };
     return map[tool] || tool.replace(/_/g, " ");
 }
@@ -1770,12 +1769,12 @@ function relativeTime(value: string | Date): string {
     const date = typeof value === "string" ? new Date(value) : value;
     const diff = Date.now() - date.getTime();
     const sec = Math.round(diff / 1000);
-    if (sec < 60) return "just now";
+    if (sec < 60) return "הרגע";
     const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m ago`;
+    if (min < 60) return `לפני ${min} דק'`;
     const hr = Math.floor(min / 60);
-    if (hr < 24) return `${hr}h ago`;
+    if (hr < 24) return `לפני ${hr} שע'`;
     const day = Math.floor(hr / 24);
-    if (day < 7) return `${day}d ago`;
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (day < 7) return `לפני ${day} ימים`;
+    return date.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
 }

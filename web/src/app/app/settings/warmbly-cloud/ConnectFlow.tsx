@@ -151,7 +151,7 @@ function Stepper({ step, canReach, goTo }: { step: Step; canReach: (s: Step) => 
                                             initial={{ scale: 0.4, opacity: 0 }}
                                             animate={{ scale: 1, opacity: 1 }}
                                             exit={{ scale: 0.4, opacity: 0 }}
-                                            className="flex size-full items-center justify-center text-[10px] font-semibold tabular-nums leading-none"
+                                            className="flex size-full items-center justify-center text-[10px] font-semibold leading-none"
                                         >
                                             {i + 1}
                                         </motion.span>

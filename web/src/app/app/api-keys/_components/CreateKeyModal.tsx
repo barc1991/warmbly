@@ -29,6 +29,7 @@ import toast from "react-hot-toast";
 import useCreateAPIKey from "@/lib/api/hooks/app/api-keys/useCreateAPIKey";
 import useAPIPermissions from "@/lib/api/hooks/app/api-keys/useAPIPermissions";
 import type APIPermission from "@/lib/api/models/app/apikeys/APIPermission";
+import { getPermissionDescription } from "@/lib/api/models/app/apikeys/APIPermission";
 import type { APIKeyWithSecret } from "@/lib/api/models/app/apikeys/APIKey";
 
 type Step = "configure" | "reveal";
@@ -557,7 +558,7 @@ function PermissionMatrix({
                                             {on && <CheckIcon className="w-2.5 h-2.5" strokeWidth={3} />}
                                         </div>
                                         <span className="font-mono text-[11px] text-slate-900">{p.name}</span>
-                                        <span className="text-[10.5px] text-slate-500 truncate">{p.description}</span>
+                                        <span className="text-[10.5px] text-slate-500 truncate">{getPermissionDescription(p.name, p.description)}</span>
                                     </button>
                                 );
                             })}

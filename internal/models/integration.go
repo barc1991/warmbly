@@ -19,6 +19,7 @@ const (
 	IntegrationSalesforce IntegrationProvider = "salesforce"
 	IntegrationPipedrive  IntegrationProvider = "pipedrive"
 	IntegrationClose      IntegrationProvider = "close"
+	IntegrationFrappeCRM  IntegrationProvider = "frappe_crm"
 
 	// Automation
 	IntegrationZapier IntegrationProvider = "zapier"
@@ -51,6 +52,7 @@ var AllIntegrationProviders = []IntegrationProvider{
 	IntegrationSalesforce,
 	IntegrationPipedrive,
 	IntegrationClose,
+	IntegrationFrappeCRM,
 	IntegrationZapier,
 	IntegrationMake,
 	IntegrationN8N,
@@ -262,6 +264,7 @@ const (
 	IntegrationActionPipedriveUpsert    IntegrationAction = "pipedrive.upsert_person"
 	IntegrationActionSalesforceUpsert   IntegrationAction = "salesforce.upsert_contact"
 	IntegrationActionCloseUpsert        IntegrationAction = "close.upsert_lead"
+	IntegrationActionFrappeCRMUpsert    IntegrationAction = "frappe_crm.upsert_lead"
 	IntegrationActionGenericWebhookPing IntegrationAction = "webhook.ping"
 
 	// Native (Warmbly-internal) actions: CRM/contact mutations that need no

@@ -87,6 +87,29 @@ const FIELDS_BY_PROVIDER: Record<string, FieldDef[]> = {
             helper: "Edit Channel → Integrations → Webhooks → New Webhook → Copy URL.",
         },
     ],
+    frappe_crm: [
+        {
+            key: "server_url",
+            label: "Frappe CRM server URL",
+            placeholder: "https://crm.yourdomain.com",
+            required: true,
+            helper: "Base URL of your Frappe CRM instance (e.g. https://crm.yourdomain.com).",
+        },
+        {
+            key: "api_key",
+            label: "API Key",
+            placeholder: "e.g. 9a8b7c...",
+            required: true,
+            helper: "Generated under User Settings → API Access in Frappe CRM.",
+        },
+        {
+            key: "api_secret",
+            label: "API Secret",
+            type: "password",
+            required: true,
+            helper: "The secret revealed when your Frappe CRM API Key was created.",
+        },
+    ],
 };
 
 const FIELDS_BY_PROVIDER_HE: Record<string, FieldDef[]> = {
@@ -117,6 +140,29 @@ const FIELDS_BY_PROVIDER_HE: Record<string, FieldDef[]> = {
             type: "password",
             required: true,
             helper: "ערוך ערוץ ← אינטגרציות ← Webhooks ← Webhook חדש ← העתק כתובת URL.",
+        },
+    ],
+    frappe_crm: [
+        {
+            key: "server_url",
+            label: "כתובת שרת Frappe CRM",
+            placeholder: "https://crm.yourdomain.com",
+            required: true,
+            helper: "כתובת ה-URL הראשית של מופע ה-Frappe CRM (לדוגמה: https://crm.yourdomain.com).",
+        },
+        {
+            key: "api_key",
+            label: "מפתח API (API Key)",
+            placeholder: "לדוגמה: 9a8b7c...",
+            required: true,
+            helper: "נוצר בהגדרות המשתמש ב-Frappe CRM (תחת גישת API).",
+        },
+        {
+            key: "api_secret",
+            label: "סוד API (API Secret)",
+            type: "password",
+            required: true,
+            helper: "הסוד שהונפק בעת יצירת מפתח ה-API במערכת Frappe CRM.",
         },
     ],
 };

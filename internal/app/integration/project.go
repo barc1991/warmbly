@@ -69,7 +69,7 @@ func defaultObject(provider models.IntegrationProvider) string {
 	switch provider {
 	case models.IntegrationPipedrive:
 		return "person"
-	case models.IntegrationClose:
+	case models.IntegrationClose, models.IntegrationFrappeCRM:
 		return "lead"
 	default:
 		return "contact"
@@ -107,6 +107,14 @@ func defaultFieldMap(provider models.IntegrationProvider) []models.FieldMapEntry
 			{WarmblyField: "email", ExternalField: "email"},
 			{WarmblyField: "phone", ExternalField: "phone"},
 			{WarmblyField: "company", ExternalField: "company"},
+		}
+	case models.IntegrationFrappeCRM:
+		return []models.FieldMapEntry{
+			{WarmblyField: "first_name", ExternalField: "first_name"},
+			{WarmblyField: "last_name", ExternalField: "last_name"},
+			{WarmblyField: "email", ExternalField: "email"},
+			{WarmblyField: "phone", ExternalField: "phone"},
+			{WarmblyField: "company", ExternalField: "organization"},
 		}
 	}
 	return nil

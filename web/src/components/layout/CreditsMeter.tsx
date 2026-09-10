@@ -100,7 +100,7 @@ export function CreditsMeter() {
                             <AnimatedNumber value={spendWindow.spent} format={(n) => formatCredits(Math.round(n))} />
                             <span className="opacity-60 font-normal">/{formatCredits(spendWindow.limit)}</span>
                         </span>
-                        <span className="opacity-60 font-normal">{spendWindow.word === "today" ? "today" : spendWindow.word === "this week" ? "wk" : "mo"}</span>
+                        <span className="opacity-60 font-normal">{spendWindow.word === "today" ? "היום" : spendWindow.word === "this week" ? "השבוע" : "החודש"}</span>
                     </span>
                 ) : c.monthly_allowance > 0 ? (
                     <span className="flex items-baseline">
@@ -124,7 +124,7 @@ export function CreditsMeter() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute right-0 top-full mt-1.5 w-72 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] z-50 overflow-hidden"
+                        className="absolute ltr:right-0 rtl:left-0 top-full mt-1.5 w-72 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] z-50 overflow-hidden"
                     >
                         <MeterPanel credits={c} settings={settings.data} low={low} empty={empty} />
                         <Link
@@ -132,8 +132,8 @@ export function CreditsMeter() {
                             onClick={close}
                             className="flex items-center gap-1 px-3 h-9 border-t border-slate-200 text-[11.5px] font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                         >
-                            Usage &amp; spend controls
-                            <ArrowUpRightIcon className="w-3 h-3" />
+                            הגדרות שימוש ותקציב
+                            <ArrowUpRightIcon className="w-3 h-3 rtl:rotate-180" />
                         </Link>
                     </motion.div>
                 )}
@@ -166,7 +166,7 @@ function MeterPanel({
             <div className="flex items-end justify-between">
                 <div>
                     <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                        AI credits
+                        קרדיטים ל-AI
                     </div>
                     <div className="mt-1 flex items-baseline gap-1.5">
                         <AnimatedNumber
@@ -176,7 +176,7 @@ function MeterPanel({
                                 empty ? "text-red-600" : "text-slate-900",
                             )}
                         />
-                        <span className="text-[11px] text-slate-400">left</span>
+                        <span className="text-[11px] text-slate-400">נותרו</span>
                     </div>
                 </div>
                 {(empty || low || (settings?.auto_topup_enabled && pack)) && (
@@ -192,14 +192,14 @@ function MeterPanel({
                                 empty ? "bg-red-500" : low ? "bg-amber-500" : "bg-emerald-500",
                             )}
                         />
-                        {empty ? "Out of credits" : low ? "Running low" : "Auto top-up on"}
+                        {empty ? "אזלו הקרדיטים" : low ? "עומד להסתיים" : "טעינה אוטומטית פעילה"}
                     </div>
                 )}
             </div>
 
             <div>
                 <div className="flex items-baseline justify-between text-[11.5px]">
-                    <span className="text-slate-600">Plan credits</span>
+                    <span className="text-slate-600">קרדיטים מהתוכנית</span>
                     <span className="tabular-nums text-slate-900 font-medium">
                         {credits.monthly_balance.toLocaleString()}
                         <span className="text-slate-400 font-normal">
@@ -215,13 +215,13 @@ function MeterPanel({
                     className="mt-1.5"
                 />
                 <div className="mt-1 flex justify-between text-[10.5px] text-slate-400">
-                    <span>{planUsed.toLocaleString()} used this cycle</span>
+                    <span>{planUsed.toLocaleString()} נוצלו במחזור זה</span>
                     {reset && <span>{reset}</span>}
                 </div>
             </div>
 
             <div className="flex items-baseline justify-between text-[11.5px]">
-                <span className="text-slate-600">Extra credits</span>
+                <span className="text-slate-600">קרדיטים נוספים</span>
                 <span
                     className={cn(
                         "tabular-nums font-medium",
@@ -229,13 +229,13 @@ function MeterPanel({
                     )}
                 >
                     {credits.purchased_balance.toLocaleString()}
-                    <span className="text-slate-400 font-normal"> never expire</span>
+                    <span className="text-slate-400 font-normal"> ללא תפוגה</span>
                 </span>
             </div>
 
             <div className="space-y-1.5">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    Spent
+                    נוצל
                 </span>
                 {usage.isPending || !usage.data ? (
                     <div className="space-y-1.5 animate-pulse">
@@ -245,16 +245,16 @@ function MeterPanel({
                     </div>
                 ) : (
                     <>
-                        <SpendRow label="Today" spent={usage.data.spent_today} limit={usage.data.limit_daily} />
-                        <SpendRow label="This week" spent={usage.data.spent_week} limit={usage.data.limit_weekly} />
-                        <SpendRow label="This month" spent={usage.data.spent_month} limit={usage.data.limit_monthly} />
+                        <SpendRow label="היום" spent={usage.data.spent_today} limit={usage.data.limit_daily} />
+                        <SpendRow label="השבוע" spent={usage.data.spent_week} limit={usage.data.limit_weekly} />
+                        <SpendRow label="החודש" spent={usage.data.spent_month} limit={usage.data.limit_monthly} />
                     </>
                 )}
             </div>
 
             {settings?.auto_topup_enabled && pack && (
                 <div className="text-[10.5px] text-slate-400">
-                    Buys {pack.credits.toLocaleString()} credits automatically when the balance drops below{" "}
+                    רכישה אוטומטית של {pack.credits.toLocaleString()} קרדיטים כאשר היתרה יורדת מתחת ל-{" "}
                     {settings.auto_topup_threshold.toLocaleString()}.
                 </div>
             )}
@@ -273,7 +273,7 @@ function SpendRow({ label, spent, limit }: { label: string; spent: number; limit
                 <span className="tabular-nums text-slate-900 font-medium">
                     {spent.toLocaleString()}
                     {limit != null && (
-                        <span className="text-slate-400 font-normal"> of {limit.toLocaleString()}</span>
+                        <span className="text-slate-400 font-normal"> מתוך {limit.toLocaleString()}</span>
                     )}
                 </span>
             </div>
@@ -323,8 +323,10 @@ function formatCredits(n: number): string {
 // resetLabel turns next_reset_at into a short relative note for the panel.
 function resetLabel(iso: string | null): string | null {
     if (!iso) return null;
-    const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
-    if (days <= 0) return "Resets soon";
-    if (days === 1) return "Resets tomorrow";
-    return `Resets in ${days} days`;
+    const date = new Date(iso);
+    const days = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
+    const formatted = date.toLocaleDateString("he-IL", { day: "numeric", month: "long" });
+    if (days <= 0) return `מתאפס בקרוב (ב-${formatted})`;
+    if (days === 1) return `מתאפס מחר (ב-${formatted})`;
+    return `מתאפס בעוד ${days} ימים (ב-${formatted})`;
 }

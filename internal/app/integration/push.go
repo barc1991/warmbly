@@ -80,7 +80,7 @@ func (s *service) PushContacts(ctx context.Context, orgID, connID uuid.UUID, con
 	}
 
 	// Resolve auth once for the whole batch.
-	var token, apiKey, instanceURL string
+	var token, apiKey, apiSecret, serverURL, instanceURL string
 	switch conn.Provider {
 	case models.IntegrationClose:
 		cfg, cerr := s.openConfig(ctx, sec)
@@ -90,6 +90,20 @@ func (s *service) PushContacts(ctx context.Context, orgID, connID uuid.UUID, con
 		apiKey = stringFromMap(cfg, "api_key", "api_token")
 		if apiKey == "" {
 			return nil, errors.New("no close api key configured")
+		}
+	case models.IntegrationFrappeCRM:
+		cfg, cerr := s.openConfig(ctx, sec)
+		if cerr != nil {
+			return nil, fmt.Errorf("decrypt config: %w", cerr)
+		}
+		apiKey = stringFromMap(cfg, "api_key")
+		apiSecret = stringFromMap(cfg, "api_secret")
+		serverURL = stringFromMap(cfg, "server_url")
+		if serverURL == "" {
+			serverURL = configString(sec.Conn.DisplayFields, "server_url")
+		}
+		if apiKey == "" || apiSecret == "" || serverURL == "" {
+			return nil, errors.New("incomplete frappe crm credentials configured")
 		}
 	default: // OAuth CRMs: hubspot, pipedrive, salesforce
 		tok, terr := s.accessTokenFor(ctx, sec)
@@ -139,6 +153,8 @@ func (s *service) PushContacts(ctx context.Context, orgID, connID uuid.UUID, con
 			aerr = salesforceUpsertContact(ctx, token, instanceURL, ct.Email, props)
 		case models.IntegrationClose:
 			aerr = closeUpsertLead(ctx, apiKey, ct.Email, props)
+		case models.IntegrationFrappeCRM:
+			aerr = frappeCRMUpsertLead(ctx, serverURL, apiKey, apiSecret, ct.Email, props)
 		default:
 			aerr = ErrPushUnsupported
 		}

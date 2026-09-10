@@ -83,18 +83,18 @@ export default function ConfirmProvider({ children }: { children: React.ReactNod
                                     <AlertTriangleIcon className="w-3 h-3" />
                                 </div>
                                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                    Confirm
+                                    אישור
                                 </span>
                                 <div className="h-4 w-px bg-slate-200" />
                                 <span className="text-[12.5px] text-slate-900 font-medium truncate">
-                                    Are you sure?
+                                    האם אתה בטוח?
                                 </span>
                                 <button
                                     type="button"
                                     onClick={() => !loading && setVisible(false)}
                                     disabled={loading}
-                                    aria-label="Close"
-                                    className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors disabled:opacity-50"
+                                    aria-label="סגור"
+                                    className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors disabled:opacity-50"
                                 >
                                     <XIcon className="w-3.5 h-3.5" />
                                 </button>
@@ -109,9 +109,9 @@ export default function ConfirmProvider({ children }: { children: React.ReactNod
                                     type="button"
                                     onClick={() => !loading && setVisible(false)}
                                     disabled={loading}
-                                    className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                    className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
                                 >
-                                    Cancel
+                                    ביטול
                                 </button>
                                 <button
                                     type="button"
@@ -120,7 +120,7 @@ export default function ConfirmProvider({ children }: { children: React.ReactNod
                                     className="h-7 px-2.5 rounded-md bg-red-600 hover:bg-red-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                                 >
                                     {loading && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                                    Confirm
+                                    אישור
                                 </button>
                             </div>
                         </motion.div>

@@ -193,6 +193,19 @@ func (s *service) execAction(ctx context.Context, target repository.DispatchTarg
 		props := s.crmProps(ctx, sub, models.IntegrationClose, data, autoCfg)
 		return closeUpsertLead(ctx, apiKey, contactEmail(data), props)
 
+	case models.IntegrationActionFrappeCRMUpsert:
+		serverURL := stringFromMap(secretCfg, "server_url")
+		if serverURL == "" {
+			serverURL = configString(target.Secrets.Conn.DisplayFields, "server_url")
+		}
+		apiKey := stringFromMap(secretCfg, "api_key")
+		apiSecret := stringFromMap(secretCfg, "api_secret")
+		if apiKey == "" || apiSecret == "" || serverURL == "" {
+			return errors.New("incomplete frappe crm credentials configured")
+		}
+		props := s.crmProps(ctx, sub, models.IntegrationFrappeCRM, data, autoCfg)
+		return frappeCRMUpsertLead(ctx, serverURL, apiKey, apiSecret, contactEmail(data), props)
+
 	default:
 		return fmt.Errorf("unknown action: %s", sub.Action)
 	}

@@ -32,6 +32,7 @@ import type APIKey from "@/lib/api/models/app/apikeys/APIKey";
 import useAPIKeyAnalytics from "@/lib/api/hooks/app/api-keys/useAPIKeyAnalytics";
 import useAPIKeyUsageLogs from "@/lib/api/hooks/app/api-keys/useAPIKeyUsageLogs";
 import useAPIPermissions from "@/lib/api/hooks/app/api-keys/useAPIPermissions";
+import { getPermissionDescription } from "@/lib/api/models/app/apikeys/APIPermission";
 import useRevokeAPIKey from "@/lib/api/hooks/app/api-keys/useRevokeAPIKey";
 import useUpdateAPIKey from "@/lib/api/hooks/app/api-keys/useUpdateAPIKey";
 import { StackedBars } from "./Sparkline";
@@ -308,7 +309,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                                 <span
                                     key={p.name}
                                     className="inline-flex items-center gap-1 h-6 px-1.5 rounded text-[10.5px] font-mono border border-slate-200 text-slate-700 bg-white"
-                                    title={p.description}
+                                    title={getPermissionDescription(p.name, p.description)}
                                 >
                                     <span
                                         className={`size-1.5 rounded-full ${

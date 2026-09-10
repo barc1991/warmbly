@@ -207,7 +207,7 @@ function SuppressionRow({ entry }: { entry: Suppression }) {
             <span className="hidden md:inline text-[11px] text-slate-400 tabular-nums w-28 text-end shrink-0">
                 {fmtAbsolute(entry.created_at)}
             </span>
-            <PopoverMenu align="end">
+            <PopoverMenu align="start">
                 <PopoverMenuTrigger asChild>
                     <button
                         type="button"

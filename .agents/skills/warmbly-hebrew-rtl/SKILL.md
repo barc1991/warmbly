@@ -147,12 +147,44 @@ Tabular numbers and monospace IDs inside RTL containers must retain natural left
 * Pre-built template gallery with Hebrew copy.
 
 ### D. CRM Pipelines & Deals
-* Pipeline management: צינורות מכירה, שלבים מותאמים אישית, ממוצע שלבים, יצירה/עריכה/מחיקה, ספירת עסקאות.
-* Kanban board: עסקאות, כרטיסי עסקאות, גרירה בין שלבים, סטטוסים ("פתוח", "מוסמך", "נסגר בהצלחה", "אבוד").
+### E. Frappe CRM Integration
+* **Provider Identifier**: `frappe_crm` (`IntegrationProvider`).
+* **Connection Credentials**: `server_url` (Instance Base URL), `api_key` (API Key), `api_secret` (API Secret).
+* **Doctype Support**: Automatically synchronizes and upserts leads into **`CRM Lead`** (with automatic fallback to ERPNext core **`Lead`** if `CRM Lead` is not installed).
+* **Capabilities**: Synchronous push (`SupportsPush: true`), automated workflow events (reply received, meeting booked, bounced), and bidirectional field mapping (`first_name`, `last_name`, `email`, `phone`, `organization`, `job_title`).
+
+### F. Additional Localized Modules
+* **Notifications Popover (`NotificationBell.tsx`)**: RTL viewport alignment (`ltr:right-0 rtl:left-0`), translated notification types, relative times (`לפני 5 דק'`, `אתמול`), and filter categories.
+* **AI Assistant Drawer (`AgentPanel.tsx`)**: Full Hebrew localization ("עוזר AI"), prompt starters, history drawer recency buckets, and action tags.
+* **Confirm Dialog (`ConfirmProvider.tsx`)**: Unified in-app confirmations ("אישור", "האם אתה בטוח?", "ביטול").
+* **Credits & Activity Meter (`CreditsMeter.tsx`)**: Localized month names (`ב-6 בספטמבר`), balance rows, and inverted popover placement.
+* **API Permission Scopes (`APIPermission.ts`)**: 24 Hebrew descriptions across READ, WRITE, BULK, and REALTIME scopes.
+* **Breadcrumbs & Navigation (`AppHeader.tsx`, `nav.json`)**: Terminology cleaned up without English brackets ("תיבת דואר מאוחדת", "יומן פעילות", "דיוור", "ניהול לקוחות", "קטגוריות", "סגמנטים", "רשימת חסימה").
 
 ---
 
-## 6. Docker Update-Proof Architecture (Preventing Overwrites)
+## 6. Numeric Badge & Circle Centering Rules
+
+To prevent vertical baseline offsets or digit clipping in RTL number badges and step circles (e.g. Sequence steps `1`, `2` in `NewCampaignDialog.tsx`, onboarding wizards, and status counters):
+1. **Remove `tabular-nums`** from circle badge containers or use `tabular-nums leading-none`.
+2. **Container Flexbox**: Use `flex items-center justify-center shrink-0 rounded-full leading-none`.
+3. **Global CSS Enforcement (`web/src/global.css`)**:
+   ```css
+   .rounded-full.flex,
+   .rounded-full.inline-flex {
+       line-height: 1;
+   }
+   .rounded-full > span {
+       display: inline-flex;
+       align-items: center;
+       justify-content: center;
+       line-height: 1;
+   }
+   ```
+
+---
+
+## 7. Docker Update-Proof Architecture (Preventing Overwrites)
 
 ### The Problem
 In standard Warmbly self-hosted setups, `docker-compose.yml` specifies:
@@ -193,20 +225,33 @@ git pull upstream main --rebase
 ```
 Translations remain committed and intact in the repository tree.
 
+#### Layer 4: Disabling In-App UI Updates (Keeping Release Validation Active)
+To ensure that an administrator does not accidentally trigger an automatic update from the dashboard (which would pull upstream images and overwrite local customizations):
+* **UI Update Buttons Disabled**: In `UpdateDialog.tsx` (`web/` and `admin/`), the "עדכן והפעל מחדש" / "Update and restart" button is disabled and displays **"עדכון ידני בלבד"** (**"Manual update only"**).
+* **Release Check Validation Active**: The **"בדוק כעת"** (**"Check now"**) button and GitHub release checks remain 100% active, displaying notifications when a new version is available without executing destructive auto-updates.
+* **Backend API Protection**: The endpoint `POST /admin/instance/update/apply` returns `403 Forbidden` (`errx.Forbidden`), preventing even scripted API executions from running the host updater.
+* **Manual Update Procedure**: Updates must be executed via `scripts/update-warmbly.sh` or Git rebasing.
+
 ---
 
-## 7. Verification & Developer Runbook
+## 8. Verification & Developer Runbook
 
 Always verify changes using the fast feedback loop:
 
 1. **TypeScript Typecheck**:
    ```powershell
    pnpm --filter web typecheck
+   pnpm --filter admin typecheck
    ```
-2. **Rebuild & Deploy Web Container**:
+2. **Go Formatting & Vet**:
+   ```powershell
+   gofmt -w internal/ cmd/
+   go vet ./internal/...
+   ```
+3. **Rebuild & Deploy Web & Backend Containers**:
    ```powershell
    docker compose build --no-cache web
    docker compose up -d --force-recreate web
    ```
-3. **Access the Application**:
+4. **Access the Application**:
    Open `http://localhost:28173` to test live interactions.

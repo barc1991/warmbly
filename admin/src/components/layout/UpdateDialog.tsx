@@ -95,12 +95,8 @@ export function UpdateDialog({ open, onOpenChange }: Props) {
         return "idle";
     }, [state, started, jobQ.isError, stateQ.isError]);
 
-    const canApply =
-        canManage &&
-        state?.updater.status === "ok" &&
-        !!state?.update_available &&
-        !state?.updater.checkout?.dirty &&
-        phase === "idle";
+    // Automated UI updates are disabled to protect custom Hebrew/RTL/integration fork.
+    const canApply = false;
 
     // Leaving the confirmation open once the update can no longer start
     // (a phase change, or the checkout turning dirty) would let a stale
@@ -161,7 +157,16 @@ export function UpdateDialog({ open, onOpenChange }: Props) {
                     <div className="space-y-3">
                         <Overview state={state} />
                         {updater?.status !== "ok" && <UpdaterNotice state={state} />}
-                        {checkout?.dirty && (
+                        {state.update_available && (
+                            <Notice tone="info">
+                                <div className="font-semibold text-foreground">New version available — Manual update required</div>
+                                <div className="mt-1">
+                                    This instance runs a custom edition (Hebrew, RTL, and custom integrations). Automated updates via the UI are disabled to protect local customizations from being overwritten. Please update manually on the host:
+                                </div>
+                                <Cmd>./scripts/update-warmbly.sh</Cmd>
+                            </Notice>
+                        )}
+                        {checkout?.dirty && !state.update_available && (
                             <Notice tone="warning">
                                 The checkout has local modifications. The updater refuses to move it
                                 until they are committed or stashed, or `UPDATER_ALLOW_DIRTY=true`.
@@ -241,6 +246,12 @@ export function UpdateDialog({ open, onOpenChange }: Props) {
                             >
                                 <RefreshCw className={cn("size-4", checkMut.isPending && "animate-spin")} />
                                 {checkMut.isPending ? "Checking..." : "Check now"}
+                            </Button>
+                        )}
+                        {phase === "idle" && state?.update_available && (
+                            <Button size="sm" disabled={true} className="opacity-50 cursor-not-allowed">
+                                <RotateCw className="size-4" />
+                                Manual update only
                             </Button>
                         )}
                         {phase === "idle" && canApply && !confirming && (

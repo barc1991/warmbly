@@ -2,7 +2,7 @@
   "groups": {
     "outreach": "פניות וקמפיינים",
     "intelligence": "מודיעין ואנליטיקה",
-    "crm": "ניהול לקוחות (CRM)",
+    "crm": "ניהול לקוחות",
     "resources": "משאבים",
     "settings": "הגדרות"
   },
@@ -10,7 +10,10 @@
     "mailboxes": "תיבות דואר",
     "campaigns": "קמפיינים",
     "contacts": "אנשי קשר",
-    "unibox": "תיבת דואר מאוחדת (Unibox)",
+    "segments": "סגמנטים",
+    "categories": "קטגוריות",
+    "suppressions": "רשימת חסימה",
+    "unibox": "תיבת דואר מאוחדת",
     "forms": "טפסים",
     "pipelines": "צינורות מכירה",
     "deals": "עסקאות",
@@ -20,9 +23,9 @@
     "integrations": "אינטגרציות",
     "automations": "אוטומציות",
     "apiKeys": "מפתחות API",
-    "auditLog": "יומן פעולות (Audit)",
+    "auditLog": "יומן פעילות",
     "analytics": "אנליטיקה",
-    "deliverability": "עבירות (Deliverability)",
+    "deliverability": "דיוור",
     "settings": "הגדרות"
   },
   "userNav": {

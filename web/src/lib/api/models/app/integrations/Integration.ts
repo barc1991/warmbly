@@ -7,6 +7,7 @@ export type IntegrationProvider =
     | "salesforce"
     | "pipedrive"
     | "close"
+    | "frappe_crm"
     | "zapier"
     | "make"
     | "n8n"

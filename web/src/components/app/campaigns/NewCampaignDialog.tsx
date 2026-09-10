@@ -612,7 +612,7 @@ function Stepper({
                                             animate={{ scale: 1, opacity: 1 }}
                                             exit={{ scale: 0.4, opacity: 0 }}
                                             transition={{ duration: 0.16 }}
-                                            className="flex size-full items-center justify-center text-[10.5px] font-semibold tabular-nums leading-none"
+                                            className="flex size-full items-center justify-center text-[10.5px] font-semibold leading-none"
                                         >
                                             {i + 1}
                                         </motion.span>
@@ -1143,7 +1143,7 @@ function EmailsStep({
                             className="border border-slate-200 rounded-md overflow-hidden"
                         >
                             <div className="h-9 px-3 flex items-center gap-2 bg-slate-50/60 border-b border-slate-100">
-                                <span className="size-5 rounded-full bg-white ring-1 ring-inset ring-slate-200 text-[10.5px] font-semibold text-slate-600 inline-flex items-center justify-center tabular-nums">
+                                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-inset ring-slate-200 text-[10.5px] font-semibold text-slate-600 leading-none">
                                     {i + 1}
                                 </span>
                                 <span className="text-[12px] text-slate-900 font-medium">

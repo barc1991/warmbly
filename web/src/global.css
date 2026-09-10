@@ -658,3 +658,12 @@ svg.loading circle {
   unicode-bidi: isolate;
 }
 
+/* Ensure number badges and step indicator circles are strictly centered across RTL */
+.rounded-full.flex,
+.rounded-full.inline-flex,
+.rounded-full > span,
+.rounded-full > div {
+  line-height: 1;
+}
+
+

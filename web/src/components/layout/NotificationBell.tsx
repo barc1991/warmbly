@@ -47,9 +47,9 @@ const FALLBACK_META = { icon: BellIcon, tone: "bg-slate-100 text-slate-500" };
 type Bucket = "today" | "yesterday" | "earlier";
 
 const BUCKET_LABELS: Record<Bucket, string> = {
-    today: "Today",
-    yesterday: "Yesterday",
-    earlier: "Earlier",
+    today: "היום",
+    yesterday: "אתמול",
+    earlier: "מוקדם יותר",
 };
 
 function startOfToday(): number {
@@ -66,17 +66,17 @@ function bucketFor(d: Date): Bucket {
     return "earlier";
 }
 
-// Compact relative timestamp: "now", "2m", "3h", "Yesterday", then a short date.
+// Compact relative timestamp in Hebrew
 function relTime(iso: string): string {
     const d = new Date(iso);
     const s = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
-    if (s < 60) return "now";
+    if (s < 60) return "עכשיו";
     const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m`;
+    if (m < 60) return `לפני ${m} דק'`;
     const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h`;
-    if (bucketFor(d) === "yesterday") return "Yesterday";
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    if (h < 24) return `לפני ${h} שע'`;
+    if (bucketFor(d) === "yesterday") return "אתמול";
+    return d.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
 }
 
 export function NotificationBell() {
@@ -137,8 +137,10 @@ export function NotificationBell() {
     };
 
     const rowClass = (n: AppNotification) =>
-        `block w-full text-left px-3 py-2 border-l-2 transition-colors hover:bg-slate-50 ${
-            n.read_at ? "border-l-transparent" : "border-l-sky-500 bg-sky-50/40"
+        `block w-full text-left rtl:text-right px-3 py-2 border-l-2 rtl:border-l-0 rtl:border-r-2 transition-colors hover:bg-slate-50 ${
+            n.read_at
+                ? "border-l-transparent rtl:border-r-transparent"
+                : "border-l-sky-500 rtl:border-r-sky-500 bg-sky-50/40"
         }`;
 
     const emptyState = (
@@ -146,7 +148,7 @@ export function NotificationBell() {
             <span className="flex size-8 items-center justify-center rounded-full bg-slate-100 text-slate-400">
                 <BellIcon className="size-4" />
             </span>
-            <span className="text-[12px] text-slate-400">You&apos;re all caught up.</span>
+            <span className="text-[12px] text-slate-400">אין התראות חדשות. הכל מעודכן!</span>
         </div>
     );
 
@@ -169,12 +171,12 @@ export function NotificationBell() {
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                aria-label="Notifications"
+                aria-label="התראות"
                 className="relative w-7 h-7 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors"
             >
                 <BellIcon className="w-4 h-4" />
                 {unread > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-semibold flex items-center justify-center">
+                    <span className="absolute -top-0.5 ltr:-right-0.5 rtl:-left-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-semibold flex items-center justify-center">
                         {unread > 9 ? "9+" : unread}
                     </span>
                 )}
@@ -187,11 +189,11 @@ export function NotificationBell() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute right-0 top-full mt-1.5 w-[340px] max-w-[90vw] rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] z-50 overflow-hidden"
+                        className="absolute ltr:right-0 rtl:left-0 top-full mt-1.5 w-[340px] max-w-[90vw] rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] z-50 overflow-hidden"
                     >
                         <div className="h-9 px-3 flex items-center gap-2 border-b border-slate-200">
-                            <span className="text-[12px] font-medium text-slate-900">Notifications</span>
-                            <div className="ml-auto flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5">
+                            <span className="text-[12px] font-medium text-slate-900">התראות</span>
+                            <div className="ms-auto flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5">
                                 {(["all", "unread"] as const).map((f) => (
                                     <button
                                         key={f}
@@ -203,7 +205,7 @@ export function NotificationBell() {
                                                 : "text-slate-500 hover:text-slate-900"
                                         }`}
                                     >
-                                        {f === "all" ? "All" : "Unread"}
+                                        {f === "all" ? "הכל" : "שלא נקראו"}
                                     </button>
                                 ))}
                             </div>
@@ -213,7 +215,7 @@ export function NotificationBell() {
                                     onClick={() => markAll.mutate()}
                                     className="text-[11px] text-sky-600 hover:text-sky-700 shrink-0"
                                 >
-                                    Mark all read
+                                    סמן הכל כנקרא
                                 </button>
                             )}
                         </div>
@@ -254,7 +256,7 @@ export function NotificationBell() {
                                 className="flex h-8 items-center justify-center gap-1.5 text-[11.5px] text-slate-500 hover:text-slate-900 transition-colors"
                             >
                                 <Settings2Icon className="size-3.5" />
-                                Notification settings
+                                הגדרות התראות
                             </Link>
                         </div>
                     </motion.div>

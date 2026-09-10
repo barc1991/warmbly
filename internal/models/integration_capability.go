@@ -157,6 +157,19 @@ func Capabilities() map[IntegrationProvider]ProviderCapability {
 			{Key: "company", Label: "Company / lead name"},
 		},
 	}
+	frappeLead := CapabilityObject{
+		Name: "lead", Label: "Lead",
+		DedupeKeys: []string{"email"}, Required: []string{"email"},
+		WarmblyFields: warmblyContactFields(),
+		ExternalFields: []FieldDef{
+			{Key: "first_name", Label: "First name"},
+			{Key: "last_name", Label: "Last name"},
+			{Key: "email", Label: "Email"},
+			{Key: "phone", Label: "Phone"},
+			{Key: "organization", Label: "Organization / Company"},
+			{Key: "job_title", Label: "Job title"},
+		},
+	}
 
 	return map[IntegrationProvider]ProviderCapability{
 		IntegrationHubSpot: {
@@ -192,6 +205,15 @@ func Capabilities() map[IntegrationProvider]ProviderCapability {
 			Actions: []CapabilityAction{{
 				ID: IntegrationActionCloseUpsert, Label: "Create or update lead",
 				Description: "Upsert a Close lead with an embedded contact (matched by email).",
+				Object:      "lead",
+			}},
+		},
+		IntegrationFrappeCRM: {
+			Provider: IntegrationFrappeCRM, Directions: pushOnly,
+			Objects: []CapabilityObject{frappeLead},
+			Actions: []CapabilityAction{{
+				ID: IntegrationActionFrappeCRMUpsert, Label: "Create or update lead",
+				Description: "Upsert a Frappe CRM lead (matched by email).",
 				Object:      "lead",
 			}},
 		},

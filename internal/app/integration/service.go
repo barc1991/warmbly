@@ -746,12 +746,13 @@ func (s *service) validateAutomationGraph(ctx context.Context, orgID uuid.UUID, 
 			if !models.ValidAutomationConditionField(n.Condition.Field) {
 				return fmt.Errorf("unknown condition field: %s", n.Condition.Field)
 			}
-			if n.Condition.Field == models.AutoCondExpression {
+			switch n.Condition.Field {
+			case models.AutoCondExpression:
 				// Free-form predicate: no operator; just validate it compiles.
 				if err := ValidExpression(n.Condition.Expression); err != nil {
 					return fmt.Errorf("invalid condition expression: %w", err)
 				}
-			} else if n.Condition.Field == models.AutoCondAI {
+			case models.AutoCondAI:
 				// Ask-AI branch: no operator; just a bounded yes/no question.
 				p := strings.TrimSpace(n.Condition.Prompt)
 				if p == "" {
@@ -760,7 +761,7 @@ func (s *service) validateAutomationGraph(ctx context.Context, orgID uuid.UUID, 
 				if len(p) > maxAIConditionPrompt {
 					return fmt.Errorf("an Ask AI question is limited to %d characters", maxAIConditionPrompt)
 				}
-			} else {
+			default:
 				if !models.ValidAutomationConditionOperator(n.Condition.Operator) {
 					return fmt.Errorf("unknown condition operator: %s", n.Condition.Operator)
 				}
@@ -1343,8 +1344,8 @@ func buildDisplayFields(provider models.IntegrationProvider, config map[string]a
 		pick("organization_uri", "scheduling_url")
 	case models.IntegrationGoogleSheets:
 		pick("sheet_id", "sheet_title")
-	case models.IntegrationHubSpot, models.IntegrationSalesforce, models.IntegrationPipedrive, models.IntegrationClose:
-		pick("workspace", "account_email")
+	case models.IntegrationHubSpot, models.IntegrationSalesforce, models.IntegrationPipedrive, models.IntegrationClose, models.IntegrationFrappeCRM:
+		pick("workspace", "account_email", "server_url")
 	case models.IntegrationSlack:
 		pick("workspace", "channel")
 	case models.IntegrationDiscord:

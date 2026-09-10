@@ -503,7 +503,22 @@ function OverviewPane({
                     </a>
                 </Notice>
             )}
-            {checkout?.dirty && updater.status === "ok" && (
+            {state.update_available && (
+                <Notice tone="info">
+                    <div className="font-medium text-slate-900">
+                        {isHe ? "קיים עדכון גרסה חדש — עדכון ידני נדרש" : "New update available — Manual update required"}
+                    </div>
+                    <div className="mt-0.5">
+                        {isHe
+                            ? "מערכת זו מפעילה מהדורה מותאמת אישית (עברית, RTL ואינטגרציות ייעודיות). העדכון האוטומטי מהממשק חסום כדי למנוע שבירה ודריסה. יש לבצע עדכון ידני באופן עצמאי דרך השרת:"
+                            : "This instance runs a custom edition (Hebrew, RTL, and custom integrations). In-app updates are disabled to prevent overwriting customizations. Please update manually on the host:"}
+                    </div>
+                    <code className="mt-1.5 block rounded bg-white/80 border border-slate-200 px-2 py-1 font-mono text-[11.5px] text-slate-800" dir="ltr">
+                        ./scripts/update-warmbly.sh
+                    </code>
+                </Notice>
+            )}
+            {checkout?.dirty && updater.status === "ok" && !state.update_available && (
                 <Notice tone="warning">
                     {isHe
                         ? "במאגר ישנם שינויים מקומיים שלא נשמרו. המעדכן דורש ביצוע commit או stash לפני עדכון."
@@ -845,7 +860,8 @@ function Footer({
     onClose: () => void;
     isHe?: boolean;
 }) {
-    const canApply = !!state && state.updater.status === "ok" && state.update_available && !state.updater.checkout?.dirty;
+    // Automated UI updates are disabled to protect custom Hebrew/RTL/integration fork.
+    const canApply = false;
     return (
         <div className="flex items-center gap-2 px-5 h-14 border-t border-slate-200 bg-slate-50/60 shrink-0">
             <a
@@ -864,14 +880,18 @@ function Footer({
                         <RefreshCwIcon className={cn("w-3.5 h-3.5", checking && "animate-spin")} />
                         {checking ? (isHe ? "בודק…" : "Checking") : (isHe ? "בדוק כעת" : "Check now")}
                     </GhostButton>
-                    {canApply ? (
-                        <PrimaryButton onClick={onContinue}>
-                            {isHe ? "עדכן והפעל מחדש" : "Update and restart"}
-                            <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
-                        </PrimaryButton>
-                    ) : (
-                        <PrimaryButton onClick={onClose}>{isHe ? "סיום" : "Done"}</PrimaryButton>
+                    {state?.update_available && (
+                        <button
+                            type="button"
+                            disabled={true}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12.5px] font-medium bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed select-none"
+                            title={isHe ? "עדכון דרך הממשק חסום כדי למנוע דריסת התאמות העברית. יש לעדכן ידנית דרך השרת." : "UI update is disabled to protect custom modifications. Please update manually on the host."}
+                        >
+                            <RotateCwIcon className="w-3.5 h-3.5 text-slate-400" />
+                            {isHe ? "עדכון ידני בלבד" : "Manual update only"}
+                        </button>
                     )}
+                    <PrimaryButton onClick={onClose}>{isHe ? "סיום" : "Done"}</PrimaryButton>
                 </>
             )}
             {pane === "confirm" && (
@@ -880,10 +900,13 @@ function Footer({
                         <ChevronLeftIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                         {isHe ? "חזרה" : "Back"}
                     </GhostButton>
-                    <PrimaryButton onClick={onApply} disabled={applying} tone="amber">
-                        {applying ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <RotateCwIcon className="w-3.5 h-3.5" />}
-                        {applying ? (isHe ? "מתחיל…" : "Starting") : (isHe ? "עדכן כעת" : "Update now")}
-                    </PrimaryButton>
+                    <button
+                        type="button"
+                        disabled={true}
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-[12.5px] font-medium bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed select-none"
+                    >
+                        {isHe ? "עדכון ידני בלבד" : "Manual update only"}
+                    </button>
                 </>
             )}
             {pane === "progress" && (
