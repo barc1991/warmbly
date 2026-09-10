@@ -188,7 +188,7 @@ func mailTransportKind(t *notify.Transport) string {
 // warnDeploymentURLs surfaces the configuration mistakes that silently break
 // auth once an operator moves off localhost, each of which previously appeared
 // only as a failure in the browser.
-func warnDeploymentURLs(ctx context.Context, appURL string) {
+func warnDeploymentURLs(_ context.Context, appURL string) {
 	if appURL == "" {
 		if base := config.AppBaseURL(); base != "" {
 			// FRONTEND_BASE_URL is the older name for the same setting, so a
