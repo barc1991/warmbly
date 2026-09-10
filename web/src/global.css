@@ -666,4 +666,28 @@ svg.loading circle {
   line-height: 1;
 }
 
+/* Table headers and cells alignment in RTL.
+   Tailwind's preflight enforces `th { text-align: left }`, which breaks column alignment
+   in RTL where start is right. Neutralize physical left on th so it aligns with start. */
+th {
+  text-align: start;
+}
 
+[dir="rtl"] th:not([class*="text-center"]):not([class*="text-end"]):not([class*="text-left"]):not([class*="text-right"]),
+.rtl th:not([class*="text-center"]):not([class*="text-end"]):not([class*="text-left"]):not([class*="text-right"]) {
+  text-align: right;
+}
+
+[dir="rtl"] th.text-start,
+.rtl th.text-start,
+[dir="rtl"] td.text-start,
+.rtl td.text-start {
+  text-align: right !important;
+}
+
+[dir="rtl"] th.text-end,
+.rtl th.text-end,
+[dir="rtl"] td.text-end,
+.rtl td.text-end {
+  text-align: left !important;
+}

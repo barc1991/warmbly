@@ -656,6 +656,8 @@ function Section({ section, first = false }: { section: NavSection; first?: bool
  * (default 50/day, from internal/config/constants.go).
  */
 function LivePanel() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const emails = useAppStore((s) => s.emails);
     const unseenCount = useAppStore((s) => s.unseenCount);
     const dash = useDashboard("30d");
@@ -710,7 +712,7 @@ function LivePanel() {
                             {scrub.sent.toLocaleString()}
                         </span>
                         <span className="text-[10.5px] text-slate-500">
-                            נשלחו ב-{formatTrendDay(scrub.date)}
+                            נשלחו ב-{formatTrendDay(scrub.date, isHe)}
                         </span>
                     </>
                 ) : (
@@ -785,12 +787,12 @@ function LivePanel() {
     );
 }
 
-/** "2026-08-30" → "Aug 30" for the sparkline scrub readout. */
-function formatTrendDay(iso: string): string {
+/** "2026-08-30" → "Aug 30" or "30 באוג׳" for the sparkline scrub readout. */
+function formatTrendDay(iso: string, isHe?: boolean): string {
     const d = new Date(iso);
     return Number.isNaN(d.getTime())
         ? iso
-        : d.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+        : d.toLocaleDateString(isHe ? "he-IL" : undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 // Sparkline geometry. Width matches the card's inner width (sidebar w-64

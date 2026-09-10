@@ -51,8 +51,8 @@ export function VersionPill() {
         if (!started || !admin || updating || open) return;
         const last = admin?.updater?.last_job;
         const moved =
-            (admin.running.commit && admin.running.commit !== started.fromCommit) ||
-            (admin.running.version && admin.running.version !== started.fromVersion);
+            (admin.running?.commit && admin.running?.commit !== started.fromCommit) ||
+            (admin.running?.version && admin.running?.version !== started.fromVersion);
         if (last?.status === "failed") {
             clearUpdateStarted();
             toast.error(`The update failed: ${last.error ?? "open the version pill for the log"}`);

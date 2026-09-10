@@ -611,9 +611,10 @@ function ComposeWindowInner({
                         <input
                             type="text"
                             value={subject}
+                            dir={isHe ? "rtl" : "auto"}
                             onChange={(e) => setSubject(e.target.value)}
                             placeholder={isHe ? "נושא" : "Subject"}
-                            className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none text-start"
+                            className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none text-start rtl:text-right"
                         />
                         {body.trim() && !subject.trim() && (
                             <button

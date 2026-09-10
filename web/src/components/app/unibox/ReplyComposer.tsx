@@ -156,13 +156,13 @@ function bareEmail(s: string): string {
 // to reply to (or forward). Reply takes the message's "from" as the
 // new "to". Forward leaves "to" empty so the user picks the new
 // recipient.
-function deriveDefaults(replyTo: UniboxEmail, mode: ReplyMode) {
+function deriveDefaults(replyTo: UniboxEmail, mode: ReplyMode, isHe?: boolean) {
     const subjectBase = replyTo.subject?.trim() || "";
     let subject: string;
     if (mode === "forward") {
-        subject = /^fwd:/i.test(subjectBase) ? subjectBase : `Fwd: ${subjectBase || "(no subject)"}`;
+        subject = /^fwd:/i.test(subjectBase) ? subjectBase : `Fwd: ${subjectBase || (isHe ? "(ללא נושא)" : "(no subject)")}`;
     } else {
-        subject = /^re:/i.test(subjectBase) ? subjectBase : `Re: ${subjectBase || "(no subject)"}`;
+        subject = /^re:/i.test(subjectBase) ? subjectBase : `Re: ${subjectBase || (isHe ? "(ללא נושא)" : "(no subject)")}`;
     }
     const fromAddr = replyTo.from ? bareEmail(replyTo.from) : "";
     const to = mode === "reply" && fromAddr ? [fromAddr] : [];
@@ -176,7 +176,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const { user } = useUserProfile();
     const addOutbox = useOutboxStore((s) => s.add);
 
-    const initial = React.useMemo(() => deriveDefaults(replyTo, mode), [replyTo, mode]);
+    const initial = React.useMemo(() => deriveDefaults(replyTo, mode, isHe), [replyTo, mode, isHe]);
 
     const [body, setBody] = React.useState(seed?.body ?? "");
     const [subject, setSubject] = React.useState(seed?.subject ?? initial.subject);
@@ -411,11 +411,12 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             {/* Target strip: one quiet line naming what this composer is
                 doing (same visual language as the compose window's header),
                 plus the close handle. */}
-            <div className="h-8 pl-3.5 pr-1.5 flex items-center gap-2 bg-slate-100/80 border-b border-slate-200 select-none">
+            <div className="h-8 ps-3.5 pe-1.5 flex items-center gap-2 bg-slate-100/80 border-b border-slate-200 select-none">
                 <CornerUpLeftIcon
                     className={cn(
                         "w-3.5 h-3.5 shrink-0",
                         mode === "forward" ? "rotate-180 text-violet-500" : "text-slate-500",
+                        isHe && "rtl:scale-x-[-1]",
                     )}
                     aria-hidden
                 />
@@ -514,10 +515,10 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <input
                         type="text"
                         value={subject}
-                        dir="auto"
+                        dir={isHe ? "rtl" : "auto"}
                         onChange={(e) => setSubject(e.target.value)}
                         placeholder={isHe ? "נושא" : "Subject"}
-                        className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none"
+                        className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none text-start rtl:text-right"
                     />
                 </div>
             </div>
@@ -533,8 +534,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 placeholder={
                     isHe
                         ? mode === "forward"
-                            ? "הוסף הערה לפני ההעברה… (⌘J לבינה מלאכותית, ⌘Enter לשליחה)"
-                            : "כתוב תשובה… (⌘J לבינה מלאכותית, ⌘Enter לשליחה)"
+                            ? "הוסף הערה לפני ההעברה… (שליחה: ⌘Enter · בינה מלאכותית: ⌘J)"
+                            : "כתוב תשובה… (שליחה: ⌘Enter · בינה מלאכותית: ⌘J)"
                         : mode === "forward"
                           ? "Add a note (optional). ⌘J for AI, ⌘Enter to send."
                           : "Write your reply. ⌘J for AI, ⌘Enter to send."
@@ -548,8 +549,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         onClose();
                     }
                 }}
-                className="w-full min-h-[120px] max-h-72 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-y focus:outline-none"
-                dir="auto"
+                className="w-full min-h-[120px] max-h-72 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-y focus:outline-none text-start rtl:text-right"
+                dir={isHe ? "rtl" : "auto"}
             />
             {aiDraft.phase === "busy" && (
                 <div className="ai-sheen pointer-events-none absolute inset-0" aria-hidden />

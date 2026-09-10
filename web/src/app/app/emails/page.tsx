@@ -375,7 +375,7 @@ export default function AddressesPage() {
                     <table className="w-full text-start">
                         <thead className="sticky top-0 bg-white z-[1]">
                             <tr className="border-b border-slate-200">
-                                <th className="ps-5 pe-2 py-2 w-9">
+                                <th className="ps-5 pe-2 py-2 w-9 text-start">
                                     <input
                                         type="checkbox"
                                         className="w-3.5 h-3.5 rounded accent-sky-600"
@@ -396,10 +396,10 @@ export default function AddressesPage() {
                                         }}
                                     />
                                 </th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">{t("mailboxes:columns.account", "Account")}</th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-24 text-end">{t("mailboxes:columns.warmup", "Warmup")}</th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-10 md:w-32"><span className="hidden md:inline">{t("mailboxes:columns.health", "Health")}</span></th>
-                                <th className="px-3 py-2 w-16"></th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] text-start">{t("mailboxes:columns.account", "Account")}</th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-28 text-start">{t("mailboxes:columns.warmup", "Warmup")}</th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12 md:w-36 text-start"><span className="hidden md:inline">{t("mailboxes:columns.health", "Health")}</span></th>
+                                <th className="px-3 py-2 w-16 text-end"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -581,33 +581,64 @@ function MailboxRow({
 
     const run = (action: "start" | "pause" | "resume", verb: string) => {
         life.mutate(action, {
-            onSuccess: () => toast.success(`Warmup ${verb} for ${box.email}`),
-            onError: () => toast.error("Couldn't update warmup"),
+            onSuccess: () =>
+                toast.success(
+                    isHe
+                        ? action === "start"
+                            ? `החימום הופעל עבור ${box.email}`
+                            : action === "pause"
+                              ? `החימום הושהה עבור ${box.email}`
+                              : `החימום חודש עבור ${box.email}`
+                        : `Warmup ${verb} for ${box.email}`,
+                ),
+            onError: () => toast.error(isHe ? "לא ניתן לעדכן את החימום" : "Couldn't update warmup"),
         });
     };
 
     const stopReset = () => {
         confirm.show(
-            `Stop warmup for ${box.email}? This resets ramp progress — restarting begins from the base volume. Use Pause to keep progress.`,
+            isHe
+                ? `לעצור את החימום עבור ${box.email}? פעולה זו מאפסת את קצב ההדרגה והפעלה מחדש תתחיל מנפח הבסיס. השתמש בהשהיה כדי לשמור על ההתקדמות.`
+                : `Stop warmup for ${box.email}? This resets ramp progress — restarting begins from the base volume. Use Pause to keep progress.`,
             async () => {
                 try {
                     await life.mutateAsync("stop");
-                    toast.success(`Warmup stopped for ${box.email}`);
+                    toast.success(isHe ? `החימום נעצר עבור ${box.email}` : `Warmup stopped for ${box.email}`);
                 } catch {
-                    toast.error("Couldn't update warmup");
+                    toast.error(isHe ? "לא ניתן לעדכן את החימום" : "Couldn't update warmup");
                 }
             },
         );
     };
 
-    const upsell = () => toast("Warmup is available on paid plans", { icon: "✨" });
+    const upsell = () => toast(isHe ? "חימום זמין בתוכניות בתשלום" : "Warmup is available on paid plans", { icon: "✨" });
+
+    const warmupMenuStatus = isHe
+        ? inCloud
+            ? cloudPaused
+                ? "מושהה בענן"
+                : "ענן Warmbly"
+            : active
+              ? "פעיל"
+              : paused
+                ? "מושהה"
+                : "כבוי"
+        : inCloud
+          ? cloudPaused
+              ? "Paused in cloud"
+              : "Warmbly Cloud"
+          : active
+            ? "Active"
+            : paused
+              ? "Paused"
+              : "Off";
 
     return (
         <tr
             onClick={() => onOpen(box.id)}
             className="border-b border-slate-200/60 hover:bg-slate-50/80 transition-colors group h-11 cursor-pointer"
         >
-            <td className="ps-5 pe-2">
+            <td className="ps-5 pe-2 w-9 text-start">
                 <input
                     type="checkbox"
                     className="w-3.5 h-3.5 rounded accent-sky-600"
@@ -616,11 +647,11 @@ function MailboxRow({
                     onClick={(e) => e.stopPropagation()}
                 />
             </td>
-            <td className="px-3 max-w-0 md:max-w-none">
+            <td className="px-3 min-w-0 text-start">
                 {/* The flag is a sibling of the open-row button, not a child:
                     it has its own trigger and nesting buttons is invalid. */}
                 <div className="flex w-full min-w-0 items-center gap-2">
-                <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(box.id); }} className="flex min-w-0 flex-1 items-center gap-2.5 text-start">
+                <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(box.id); }} className="flex min-w-0 items-center gap-2.5 text-start shrink-0 max-w-full">
                     <div className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center shrink-0">
                         <span className="text-[9.5px] font-semibold text-sky-700">
                             {box.email.slice(0, 2).toUpperCase()}
@@ -659,14 +690,14 @@ function MailboxRow({
                 <AdvisorRowFlag findings={findings} subject={box.email} />
                 </div>
             </td>
-            <td className={`px-3 text-[12px] tabular-nums text-end font-mono ${warmupTone}`}>
+            <td className={`px-3 text-[12px] tabular-nums text-start font-mono w-28 ${warmupTone}`}>
                 {inCloud ? (
-                    <span className="inline-flex items-center justify-end gap-1.5">
+                    <span className="inline-flex items-center justify-start gap-1.5">
                         <CloudIcon className="w-3 h-3 shrink-0" />
                         <span>{warmupLabel}</span>
                     </span>
                 ) : active ? (
-                    <span className="inline-flex items-center justify-end gap-1.5">
+                    <span className="inline-flex items-center justify-start gap-1.5">
                         <span className="campaign-grid shrink-0" aria-hidden />
                         <span>
                             <AnimatedNumber value={ws?.current_volume ?? 0} />/
@@ -674,14 +705,14 @@ function MailboxRow({
                         </span>
                     </span>
                 ) : (
-                    warmupLabel
+                    <span className="inline-flex items-center justify-start">{warmupLabel}</span>
                 )}
             </td>
-            <td className="px-3">
+            <td className="px-3 w-12 md:w-36 text-start">
                 <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onOpen(box.id, "overview"); }}
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${tone.text}`}
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-medium text-start ${tone.text}`}
                     title="View mailbox health"
                 >
                     <span className="relative flex w-1.5 h-1.5">
@@ -693,8 +724,8 @@ function MailboxRow({
                     <span className="uppercase tracking-[0.08em] hidden md:inline">{tone.label}</span>
                 </button>
             </td>
-            <td className="px-3">
-                <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            <td className="px-3 w-16 text-end">
+                <div className="flex items-center justify-end gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <PopoverMenu align="end">
                         <PopoverMenuTrigger asChild>
                             <button
@@ -707,68 +738,81 @@ function MailboxRow({
                             </button>
                         </PopoverMenuTrigger>
                         <PopoverMenuContent minWidth={208}>
-                            <PopoverMenuLabel>Warmup · {inCloud ? (cloudPaused ? "Paused in cloud" : "Warmbly Cloud") : active ? "Active" : paused ? "Paused" : "Off"}</PopoverMenuLabel>
+                            <PopoverMenuLabel>{isHe ? `חימום · ${warmupMenuStatus}` : `Warmup · ${warmupMenuStatus}`}</PopoverMenuLabel>
                             {inCloud && (
                                 <>
                                     <PopoverMenuItem
-                                        onSelect={() => void cloudRun(() => cloudLifecycle.mutateAsync({ id: box.id, action: cloudPaused ? "resume" : "pause" }), cloudPaused ? "Warmup resumed" : "Warmup paused")}
+                                        onSelect={() => void cloudRun(() => cloudLifecycle.mutateAsync({ id: box.id, action: cloudPaused ? "resume" : "pause" }), isHe ? (cloudPaused ? "החימום חודש" : "החימום הושהה") : (cloudPaused ? "Warmup resumed" : "Warmup paused"))}
                                         icon={cloudPaused ? <PlayIcon className="w-3 h-3" /> : <PauseIcon className="w-3 h-3" />}
                                     >
-                                        {cloudPaused ? "Resume in Warmbly Cloud" : "Pause in Warmbly Cloud"}
+                                        {isHe ? (cloudPaused ? "חידוש בענן Warmbly" : "השהיה בענן Warmbly") : (cloudPaused ? "Resume in Warmbly Cloud" : "Pause in Warmbly Cloud")}
                                     </PopoverMenuItem>
                                     <PopoverMenuItem
                                         danger
                                         onSelect={() =>
                                             confirm.show(
-                                                cloud?.managed
-                                                    ? `Remove ${box.email} from this instance? It stays in your Warmbly Cloud workspace, where its sign-in lives; campaigns here stop sending from it.`
-                                                    : `Stop warming ${box.email} in the Warmbly pool? The cloud deletes its credential right away.`,
+                                                isHe
+                                                    ? cloud?.managed
+                                                        ? `להסיר את ${box.email} מהתקנה זו? החשבון יישאר בסביבת העבודה שלך ב-Warmbly Cloud, שבה שמורה ההתחברות; קמפיינים בהתקנה זו יפסיקו לשלוח דרכו.`
+                                                        : `להפסיק את חימום ${box.email} במאגר Warmbly? הענן ימחק את פרטי ההתחברות מיד.`
+                                                    : cloud?.managed
+                                                        ? `Remove ${box.email} from this instance? It stays in your Warmbly Cloud workspace, where its sign-in lives; campaigns here stop sending from it.`
+                                                        : `Stop warming ${box.email} in the Warmbly pool? The cloud deletes its credential right away.`,
                                                 async () => {
-                                                    await cloudRun(() => cloudUnenroll.mutateAsync(box.id), cloud?.managed ? `${box.email} removed from this instance` : `${box.email} removed from the pool`);
+                                                    await cloudRun(
+                                                        () => cloudUnenroll.mutateAsync(box.id),
+                                                        isHe
+                                                            ? cloud?.managed
+                                                                ? `${box.email} הוסר מהתקנה זו`
+                                                                : `${box.email} הוסר מהמאגר`
+                                                            : cloud?.managed
+                                                                ? `${box.email} removed from this instance`
+                                                                : `${box.email} removed from the pool`,
+                                                    );
                                                 },
                                             )
                                         }
                                         icon={<CloudIcon className="w-3 h-3" />}
                                     >
-                                        {cloud?.managed ? "Remove from this instance" : "Remove from Warmbly Cloud"}
+                                        {isHe ? (cloud?.managed ? "הסרה מהתקנה זו" : "הסרה מענן Warmbly") : (cloud?.managed ? "Remove from this instance" : "Remove from Warmbly Cloud")}
                                     </PopoverMenuItem>
                                     <PopoverMenuSeparator />
                                 </>
                             )}
                             {!inCloud && cloudConnected && cloudSupported && (
                                 <PopoverMenuItem
-                                    onSelect={() => void cloudRun(() => cloudEnroll.mutateAsync(box.id), `${box.email} is now warming in the pool`)}
+                                    onSelect={() => void cloudRun(() => cloudEnroll.mutateAsync(box.id), isHe ? `${box.email} מתחמם כעת במאגר` : `${box.email} is now warming in the pool`)}
                                     icon={<CloudIcon className="w-3 h-3" />}
                                 >
-                                    Warm in Warmbly Cloud
+                                    {isHe ? "חימום בענן Warmbly" : "Warm in Warmbly Cloud"}
                                 </PopoverMenuItem>
                             )}
                             {!inCloud && off && (
                                 <PopoverMenuItem onSelect={canWarmup ? () => run("start", "started") : upsell} icon={<PlayIcon className="w-3 h-3" />}>
-                                    {canWarmup ? "Start warmup" : "Upgrade to start warmup"}
+                                    {isHe ? (canWarmup ? "הפעלת חימום" : "שדרוג להפעלת חימום") : (canWarmup ? "Start warmup" : "Upgrade to start warmup")}
                                 </PopoverMenuItem>
                             )}
                             {!inCloud && paused && (
                                 <PopoverMenuItem onSelect={canWarmup ? () => run("resume", "resumed") : upsell} icon={<PlayIcon className="w-3 h-3" />}>
-                                    {canWarmup ? "Resume warmup" : "Upgrade to resume warmup"}
+                                    {isHe ? (canWarmup ? "חידוש חימום" : "שדרוג לחידוש חימום") : (canWarmup ? "Resume warmup" : "Upgrade to resume warmup")}
                                 </PopoverMenuItem>
                             )}
                             {!inCloud && active && (
                                 <PopoverMenuItem onSelect={() => run("pause", "paused")} icon={<PauseIcon className="w-3 h-3" />}>
-                                    Pause warmup
+                                    {isHe ? "השהיית חימום" : "Pause warmup"}
                                 </PopoverMenuItem>
                             )}
                             {!inCloud && (active || paused) && (
                                 <PopoverMenuItem danger onSelect={stopReset} icon={<RotateCcwIcon className="w-3 h-3" />}>
-                                    Stop &amp; reset
+                                    {isHe ? "עצירה ואיפוס" : "Stop & reset"}
                                 </PopoverMenuItem>
                             )}
                             <PopoverMenuSeparator />
                             <PopoverMenuItem onSelect={() => onOpen(box.id, "warmup")} icon={<RiFireLine className="w-3 h-3" />}>
-                                Warmup settings
+                                {isHe ? "הגדרות חימום" : "Warmup settings"}
                             </PopoverMenuItem>
                             <PopoverMenuItem onSelect={() => onOpen(box.id, "overview")} icon={<GaugeIcon className="w-3 h-3" />}>
-                                Mailbox health
+                                {isHe ? "בריאות תיבת הדואר" : "Mailbox health"}
                             </PopoverMenuItem>
                         </PopoverMenuContent>
                     </PopoverMenu>

@@ -173,6 +173,26 @@ function summaryLine(
     if (view.subjects === 0) {
         return `${view.open.length} ${view.open.length === 1 ? "המלצה" : "המלצות"} עבור סביבת עבודה זו`;
     }
+    if (noun === "mailbox") {
+        if (view.subjects === 1) {
+            return view.critical > 0
+                ? "תיבת דואר אחת דורשת תשומת לב דחופה"
+                : "תיבת דואר אחת יכולה להציג ביצועים טובים יותר";
+        }
+        return view.critical > 0
+            ? `${view.subjects} תיבות דואר דורשות תשומת לב דחופה`
+            : `${view.subjects} תיבות דואר יכולות להציג ביצועים טובים יותר`;
+    }
+    if (noun === "campaign") {
+        if (view.subjects === 1) {
+            return view.critical > 0
+                ? "קמפיין אחד דורש תשומת לב דחופה"
+                : "קמפיין אחד יכול להציג ביצועים טובים יותר";
+        }
+        return view.critical > 0
+            ? `${view.subjects} קמפיינים דורשים תשומת לב דחופה`
+            : `${view.subjects} קמפיינים יכולים להציג ביצועים טובים יותר`;
+    }
     const subject = view.subjects === 1 ? noun : nounPlural;
     if (view.critical > 0) return `${view.subjects} ${subject} דורשים תשומת לב דחופה`;
     return `${view.subjects} ${subject} יכולים להציג ביצועים טובים יותר`;

@@ -60,6 +60,14 @@ const SHELL =
     // Every link in the message leaves the dashboard in a new tab.
     `<base target="_blank"><style>${DOCUMENT_CSS}</style>`;
 
+function stripScripts(html: string): string {
+    return html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script\s*>/gi, "")
+        .replace(/<script\b[^>]*>/gi, "")
+        .replace(/<\/script\s*>/gi, "")
+        .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+}
+
 function buildDocument(body: string): string {
     if (DOCUMENT_ROOT.test(body)) {
         // Our shell goes FIRST in the head, so the message's own stylesheet
@@ -77,7 +85,7 @@ export default function EmailBody({ html, plain }: EmailBodyProps) {
     const [height, setHeight] = React.useState(0);
 
     const srcDoc = React.useMemo(() => {
-        const trimmedHtml = (html ?? "").trim();
+        const trimmedHtml = stripScripts(html ?? "").trim();
         if (trimmedHtml) return buildDocument(trimmedHtml);
         const trimmedPlain = (plain ?? "").trim();
         if (trimmedPlain) return buildDocument(plainToDisplayHtml(trimmedPlain));

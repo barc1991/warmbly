@@ -163,7 +163,7 @@ export default function UpdateDialog({ open, onClose }: Props) {
     const apply = useMutation({
         mutationFn: () => applyInstanceUpdate("latest"),
         onSuccess: (job: UpdateJob) => {
-            markUpdateStarted(state?.running.version ?? "", state?.running.commit ?? job.from_commit);
+            markUpdateStarted(state?.running?.version ?? "", state?.running?.commit ?? job?.from_commit ?? "");
             goTo("progress");
             void qc.invalidateQueries({ queryKey: INSTANCE_UPDATE_KEY });
             void qc.invalidateQueries({ queryKey: INSTANCE_UPDATE_LOG_KEY });
@@ -346,7 +346,7 @@ function OverviewPane({
         );
     }
     const { latest, updater } = state;
-    const checkout = updater.checkout;
+    const checkout = updater?.checkout;
     const available = state.update_available;
 
     return (

@@ -324,7 +324,7 @@ export default function MembersSettingsPage() {
 function Th({ children, className }: { children: React.ReactNode; className?: string }) {
     return (
         <th
-            className={`px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] ${className ?? ""}`}
+            className={`px-3 py-2 text-start text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] ${className ?? ""}`}
         >
             {children}
         </th>

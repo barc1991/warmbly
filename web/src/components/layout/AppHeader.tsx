@@ -76,6 +76,20 @@ const labelMap: Record<string, string> = {
     bounced: "שגיאות מסירה",
     spam: "ספאם",
     archive: "ארכיון",
+    mailbox: "תיבת דואר",
+    trash: "אשפה",
+    today: "היום",
+    week: "השבוע",
+    agent_drafts: "טיוטות סוכן",
+    "agent-drafts": "טיוטות סוכן",
+    agentdrafts: "טיוטות סוכן",
+    snoozed: "נודניק",
+    awaiting: "ממתין לתשובה",
+    awaiting_reply: "ממתין לתשובה",
+    awaiting_agent_draft: "טיוטות סוכן",
+    tag: "תגית",
+    category: "קטגוריה",
+    followup: "מעקב",
 };
 
 const segToI18n: Record<string, string> = {
