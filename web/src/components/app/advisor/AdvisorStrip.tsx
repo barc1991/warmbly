@@ -82,11 +82,11 @@ export default function AdvisorStrip({
 
     if (groups.length === 0) return null;
 
-    const heading = title ?? "Suggestions";
+    const heading = title ?? "המלצות";
 
     return (
         <>
-            <section className={className} aria-label="Advisor suggestions">
+            <section className={className} aria-label="המלצות יועץ">
                 {heading ? (
                     <div className="mb-1.5 flex items-center gap-1.5">
                         <SparklesIcon className="h-3 w-3 text-slate-400" />

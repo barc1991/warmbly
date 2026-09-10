@@ -54,7 +54,7 @@ export default function AdvisorRowFlag({ findings, subject, className = "" }: Pr
                         // No onClick here: PopoverMenuTrigger supplies one that
                         // already stops the row's open handler and a wrapping
                         // link's navigation.
-                        aria-label={`${findings.length} suggestion${findings.length > 1 ? "s" : ""} for this row`}
+                        aria-label={`${findings.length} ${findings.length === 1 ? "הצעה" : "הצעות"} עבור שורה זו`}
                         className={`inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-1.5 text-[10px] font-medium uppercase tracking-[0.08em] transition ${
                             settled ? "bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20" : SEVERITY_ROW[severity]
                         } ${className}`}
@@ -74,7 +74,7 @@ export default function AdvisorRowFlag({ findings, subject, className = "" }: Pr
                             </span>
                         )}
                         <span className="hidden sm:inline">
-                            {settled ? "Applied" : SEVERITY_SHORT[severity]}
+                            {settled ? "הוחל" : SEVERITY_SHORT[severity]}
                         </span>
                         {outstanding.length > 1 ? (
                             <span className="tabular-nums">{outstanding.length}</span>
@@ -92,10 +92,10 @@ export default function AdvisorRowFlag({ findings, subject, className = "" }: Pr
                     <div className="flex items-center gap-1.5 border-b border-slate-200/60 px-2.5 py-2">
                         <SparklesIcon className="h-3 w-3 shrink-0 text-slate-400" />
                         <span className="min-w-0 flex-1 truncate text-[11px] text-slate-500">
-                            {subject || "This row"}
+                            {subject || "שורה זו"}
                         </span>
                         <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                            {findings.length} {findings.length === 1 ? "note" : "notes"}
+                            {findings.length} {findings.length === 1 ? "הערה" : "הערות"}
                         </span>
                     </div>
 
@@ -127,11 +127,11 @@ export default function AdvisorRowFlag({ findings, subject, className = "" }: Pr
                                     </div>
                                 </div>
 
-                                <div className="mt-1.5 pl-3.5">
+                                <div className="mt-1.5 ps-3.5">
                                     {f.status === "applied" ? (
                                         <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600">
                                             <CheckCircle2Icon className="h-3 w-3" />
-                                            Applied, waiting on the next check
+                                            הוחל, ממתין לבדיקה הבאה
                                         </span>
                                     ) : (
                                         <button
@@ -142,8 +142,8 @@ export default function AdvisorRowFlag({ findings, subject, className = "" }: Pr
                                             }}
                                             className="inline-flex h-6 items-center gap-1 rounded-md border border-slate-200 px-1.5 text-[11px] font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
                                         >
-                                            {f.action ? "Review the fix" : f.agent_fixable ? "Fix with agent" : "How to fix it"}
-                                            <ArrowRightIcon className="h-2.5 w-2.5" />
+                                            {f.action ? "סקירת התיקון" : f.agent_fixable ? "תיקון באמצעות סוכן" : "כיצד לתקן"}
+                                            <ArrowRightIcon className="h-2.5 w-2.5 rtl:rotate-180" />
                                         </button>
                                     )}
                                 </div>

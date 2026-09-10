@@ -20,7 +20,7 @@ export default function AdvisorSnippets({ snippets }: { snippets: AdvisorSnippet
     return (
         <div>
             <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                Paste this
+                הדבק ערכים אלו
             </p>
             <div className="mt-1.5 space-y-1">
                 {snippets.map((snippet, i) => (
@@ -69,7 +69,7 @@ function SnippetRow({ snippet }: { snippet: AdvisorSnippet }) {
                         <button
                             type="button"
                             onClick={copy}
-                            aria-label={`Copy ${snippet.label}`}
+                            aria-label={`העתק ${snippet.label}`}
                             className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-500/10 hover:text-slate-700"
                         >
                             <AnimatePresence mode="wait" initial={false}>
@@ -101,13 +101,13 @@ function SnippetRow({ snippet }: { snippet: AdvisorSnippet }) {
                     // No value to give: the note explains why, and a copy button
                     // for an empty string would be a trap.
                     <span className="min-w-0 flex-1 text-[11.5px] italic text-slate-400">
-                        not available
+                        לא זמין
                     </span>
                 )}
             </div>
 
             {snippet.note ? (
-                <p className="mt-1 pl-[112px] text-[11px] leading-relaxed text-slate-500">{snippet.note}</p>
+                <p className="mt-1 ps-[112px] text-[11px] leading-relaxed text-slate-500">{snippet.note}</p>
             ) : null}
         </div>
     );

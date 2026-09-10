@@ -24,8 +24,8 @@ export default function AdvisorNavBadge({ surface }: { surface: AdvisorSurface }
 
     const label =
         counts.critical > 0
-            ? `${counts.urgent} ${counts.urgent === 1 ? "issue" : "issues"} needing attention, ${counts.critical} critical`
-            : `${counts.urgent} ${counts.urgent === 1 ? "issue" : "issues"} needing attention`;
+            ? `${counts.urgent} ${counts.urgent === 1 ? "בעיה שדורשת" : "בעיות שדורשות"} תשומת לב, ${counts.critical} קריטיות`
+            : `${counts.urgent} ${counts.urgent === 1 ? "בעיה שדורשת" : "בעיות שדורשות"} תשומת לב`;
 
     return (
         <motion.span

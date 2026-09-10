@@ -206,7 +206,7 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
                         type="button"
                         onClick={onClose}
                         disabled={applying}
-                        aria-label="Close"
+                        aria-label="סגירה"
                         className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
                     >
                         <XIcon className="h-3.5 w-3.5" />
@@ -287,8 +287,8 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
                                 onClick={() => go("why", -1)}
                                 className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12.5px] text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
                             >
-                                <ArrowLeftIcon className="h-3 w-3" />
-                                Back
+                                <ArrowLeftIcon className="h-3 w-3 rtl:rotate-180" />
+                                חזרה
                             </button>
                         ) : null}
                     </div>
@@ -306,7 +306,7 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
                                 ) : (
                                     <Undo2Icon className="h-3 w-3" />
                                 )}
-                                Undo
+                                ביטול
                             </button>
                         ) : null}
 
@@ -316,8 +316,8 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
                                 onClick={() => go("change", 1)}
                                 className="inline-flex h-7 items-center gap-1.5 rounded-md bg-sky-600 px-2.5 text-[12.5px] font-medium text-white transition hover:bg-sky-700"
                             >
-                                {action ? "See what changes" : "How to fix it"}
-                                <ArrowRightIcon className="h-3 w-3" />
+                                {action ? "ראה מה ישתנה" : "כיצד לתקן"}
+                                <ArrowRightIcon className="h-3 w-3 rtl:rotate-180" />
                             </button>
                         ) : stage === "change" && action ? (
                             <button
@@ -331,7 +331,7 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
                                 ) : (
                                     <CheckIcon className="h-3.5 w-3.5" />
                                 )}
-                                {applying ? "Applying…" : action.label}
+                                {applying ? "מחיל שינויים…" : action.label}
                             </button>
                         ) : stage === "change" && canAgentFix ? (
                             <button
@@ -345,7 +345,7 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
                                 ) : (
                                     <SparklesIcon className="h-3.5 w-3.5" />
                                 )}
-                                {agentFix.isPending ? "Working…" : "Let the agent fix it"}
+                                {agentFix.isPending ? "מעבד…" : "אפשר לסוכן לתקן"}
                             </button>
                         ) : (
                             <button
@@ -353,7 +353,7 @@ export default function AdvisorFixDrawer({ finding, onClose }: Props) {
                                 onClick={onClose}
                                 className="inline-flex h-7 items-center rounded-md bg-slate-900 px-2.5 text-[12.5px] font-medium text-white transition hover:bg-slate-800"
                             >
-                                Done
+                                סיום
                             </button>
                         )}
                     </div>
@@ -379,7 +379,7 @@ function WhyStep({
             {evidence.length > 0 ? (
                 <div>
                     <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                        What we measured
+                        מה שנמדד
                     </p>
                     <dl className="mt-1.5 grid grid-cols-2 gap-1.5">
                         {evidence.map(([key, value], i) => (
@@ -440,7 +440,7 @@ function ChangeStep({
                                     animate={{ x: 0, opacity: 1 }}
                                     transition={{ delay: 0.12 + i * 0.05, duration: 0.24 }}
                                 >
-                                    <ArrowRightIcon className="h-3 w-3 shrink-0 text-slate-400" />
+                                    <ArrowRightIcon className="h-3 w-3 shrink-0 text-slate-400 rtl:rotate-180" />
                                 </motion.span>
                                 <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700">
                                     {change.to}
@@ -482,7 +482,7 @@ function ChangeStep({
                     className="inline-flex h-7 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-[12px] font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
                 >
                     {link.label}
-                    <ArrowRightIcon className="h-3 w-3" />
+                    <ArrowRightIcon className="h-3 w-3 rtl:rotate-180" />
                 </Link>
             ) : null}
 
@@ -490,9 +490,8 @@ function ChangeStep({
                 <div className="flex items-start gap-2 rounded-md border border-slate-200/70 bg-white/40 px-2.5 py-2">
                     <ShieldCheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
                     <p className="text-[11.5px] leading-relaxed text-slate-500">
-                        This runs as you, with your permissions, and is written to the audit log like any
-                        other change you make.
-                        {action.undo ? " You can undo it right after." : ""}
+                        פעולה זו מופעלת בשמך, עם ההרשאות שלך, ונרשמת ביומן הביקורת כמו כל שינוי אחר שתבצע.
+                        {action.undo ? " תוכל לבטל אותה מיד לאחר מכן." : ""}
                     </p>
                 </div>
             ) : null}
@@ -560,9 +559,9 @@ function DoneStep({
             >
                 {agent
                     ? changed
-                        ? "The agent made the change"
-                        : "The agent changed nothing"
-                    : (finding.action?.label ?? "Applied")}
+                        ? "הסוכן ביצע את השינוי"
+                        : "הסוכן לא שינה דבר"
+                    : (finding.action?.label ?? "הוחל")}
             </motion.p>
 
             <motion.p
@@ -573,7 +572,7 @@ function DoneStep({
             >
                 {agent
                     ? agent.summary
-                    : "The next check confirms it and clears the flag. Until then the row stays marked so you can undo without hunting for it."}
+                    : "הבדיקה הבאה תאמת זאת ותנקה את הסימון. עד אז השורה נשארת מסומנת כדי שתוכל לבטל מבלי לחפש אותה."}
             </motion.p>
 
             {/* The receipt. The summary above is the agent's account of itself;
@@ -587,7 +586,7 @@ function DoneStep({
                     className="mt-3 w-full"
                 >
                     <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                        What it ran
+                        מה שהופעל
                     </p>
                     <div className="mt-1.5 flex flex-wrap justify-center gap-1">
                         {agent.steps.map((step, i) => (
