@@ -379,3 +379,28 @@ Always verify changes against the repo's quality gates:
    ```
 4. **Access the Application**:
    Open `http://localhost:28173` to test live interactions.
+
+---
+
+## 11. Multi-Account Google Cloud OAuth Connection Slots Architecture
+
+### Problem & Motivation
+Google Cloud limits unverified OAuth apps ("Testing" status) to **100 test users (email accounts)** per Google Cloud project. In cold outreach, users routinely connect 200–1,000+ mailboxes across multiple domains. Previously, reaching 100 mailboxes blocked adding more accounts, or forced organizations into fragmented workspaces.
+
+### Solution: Per-Organization Connection Slots
+Warmbly supports **Multiple OAuth Connection Slots** within a single workspace:
+- **Unified Workspace**: All mailboxes reside in the **same organization**, appear in the **same mailbox list**, send from the **same campaigns**, and route replies into the **same Unibox**.
+- **Independent Google Cloud Projects**: The user creates additional Google Cloud projects (each supporting 100 accounts) using the exact same Redirect URI (`https://<domain>/addresses/google/callback`).
+- **Database Schema**:
+  - `oauth_connection_slots`: Table with `id`, `org_id`, `provider`, `name`, `client_id`, `encrypted_client_secret`, `max_accounts` (default 100), `is_default`, timestamps.
+  - `email_accounts.oauth_slot_id`: Foreign key pointing to `oauth_connection_slots.id` (`ON DELETE SET NULL`).
+- **OrgTransfer Portability**:
+  - Registered in `internal/app/orgtransfer/spec.go` with `KeyDomainOrgDEK` and `models.OrgDataGroupCore`.
+- **Dynamic Worker Refresh**:
+  - `buildAddWorkerEmail` in `internal/app/email/loader.go` decrypts the slot's Client ID and Secret and passes them inside `AddWorkerEmail` payload to the worker.
+  - `mailmanager/add_email.go` configures token refresh per-mailbox with the slot's credentials, ensuring tokens refresh smoothly without giving workers direct DB access.
+- **Capacity & Routing Guards**:
+  - `GetAvailableSlot` selects active slots with `HAVING COUNT(ea.id) < s.max_accounts`.
+  - When all slots reach 100/100, the UI alerts the user and links directly to `/app/settings/oauth-slots`.
+  - In `AddEmailModal`, users see live remaining capacity per slot and can pick a specific slot or let the system auto-assign.
+

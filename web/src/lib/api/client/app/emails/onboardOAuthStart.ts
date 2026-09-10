@@ -5,11 +5,14 @@ export interface OAuthStartResponse {
     state: string;
 }
 
-export default async function onboardOAuthStart(provider: "gmail" | "outlook"): Promise<OAuthStartResponse> {
+export default async function onboardOAuthStart(
+    provider: "gmail" | "outlook",
+    slotId?: string,
+): Promise<OAuthStartResponse> {
     return await Request<OAuthStartResponse>({
         method: "POST",
         url: `/emails/onboarding/oauth/start`,
-        data: { provider },
+        data: { provider, slot_id: slotId },
         authorization: true,
     });
 }

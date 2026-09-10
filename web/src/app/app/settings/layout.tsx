@@ -74,6 +74,7 @@ const GROUPS: SectionGroup[] = [
             { path: "tracking", label: "מעקב אתר", icon: GlobeIcon, description: "צפיות באתר בציר הזמן של אנשי הקשר.", permission: "MANAGE_SETTINGS" },
             { path: "ai-skills", label: "כישורי AI", icon: SparklesIcon, description: "הוראות ונהלים לתכונות ה-AI.", permission: "MANAGE_SETTINGS" },
             { path: "ai-models", label: "מודלי AI ומפתחות", icon: CpuIcon, description: "הגדרת מודל ג'מיני, שרשרת Fallback ומפתחות API מרובים.", permission: "MANAGE_SETTINGS" },
+            { path: "oauth-slots", label: "סלוטים לחיבורי מייל (OAuth)", icon: BoxesIcon, description: "חיבור פרויקטים מרובים של Google Cloud לעקיפת מגבלת 100 התיבות.", permission: "MANAGE_SETTINGS" },
             { path: "billing", label: "חיוב ומנוי", icon: CreditCardIcon, description: "תוכנית, תשלום וחשבוניות.", ownerOnly: true, billingOnly: true },
             { path: "referral", label: "הפנה והרווח", icon: GiftIcon, description: "הזמן צוותים וצבור קרדיט לחשבון.", ownerOnly: true, billingOnly: true },
             { path: "limits", label: "מגבלות", icon: GaugeIcon, description: "בקשת הגדלת מכסות לתיבות, אנשי קשר או שליחות.", ownerOnly: true },

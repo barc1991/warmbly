@@ -21,6 +21,10 @@ func (m *MailManager) AddWMail(
 	// Cfg is avro-excluded from the payload, so rebuild it from the worker's
 	// local oauth config for token refresh (no-op for smtp_imap).
 	data.Cfg = m.cfgFor(data.Type)
+	if data.OAuthClientID != "" && data.OAuthClientSecret != "" {
+		data.Cfg.ClientID = data.OAuthClientID
+		data.Cfg.ClientSecret = data.OAuthClientSecret
+	}
 	if data.Brokered {
 		if m.tokenBroker == nil {
 			return errBrokerUnavailable

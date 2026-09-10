@@ -47,7 +47,7 @@ func (s *emailService) OAuthReauth(ctx context.Context, userID string, orgID *uu
 		}
 	}
 
-	cfg, xerr := s.oauthConfigFor(provider)
+	cfg, _, xerr := s.oauthConfigForSlot(ctx, orgID, provider, account.OAuthSlotID)
 	if xerr != nil {
 		return nil, xerr
 	}
@@ -64,6 +64,7 @@ func (s *emailService) OAuthReauth(ctx context.Context, userID string, orgID *uu
 		Provider:       string(provider),
 		Nonce:          state,
 		EmailAccountID: &accountID,
+		OAuthSlotID:    account.OAuthSlotID,
 	}); xerr != nil {
 		return nil, xerr
 	}

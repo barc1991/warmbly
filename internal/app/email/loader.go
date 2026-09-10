@@ -273,6 +273,18 @@ func (s *emailService) buildAddWorkerEmail(ctx context.Context, acc *models.Emai
 		SaveToSent: &saveToSent,
 	}
 
+	// Populate slot credentials if the mailbox is bound to a dynamic OAuth slot
+	if acc.OAuthSlotID != nil && s.oauthSlots != nil && acc.OrganizationID != nil {
+		if slot, err := s.oauthSlots.GetRawByID(ctx, *acc.OAuthSlotID); err == nil && slot != nil {
+			if cph, cerr := s.cipherService.Cipher(ctx, *acc.OrganizationID); cerr == nil && cph != nil {
+				if plainSecret, derr := cph.Decrypt(ctx, slot.EncryptedClientSecret); derr == nil {
+					out.OAuthClientID = slot.ClientID
+					out.OAuthClientSecret = plainSecret
+				}
+			}
+		}
+	}
+
 	// A managed mailbox has no local credential; the worker draws brokered tokens.
 	if s.cloudLink != nil {
 		if m, err := s.cloudLink.GetByAccount(ctx, acc.ID); err == nil && m != nil && m.Managed {

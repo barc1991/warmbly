@@ -1,11 +1,17 @@
 package email
 
 import (
+	"context"
+	"errors"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/warmbly/warmbly/internal/app/cipher"
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
+	"github.com/warmbly/warmbly/internal/infrastructure/kms"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/repository"
 	"golang.org/x/oauth2"
 )
 
@@ -110,5 +116,177 @@ func TestValidateMailSecurity_CleartextIsLoopbackOnlyAndSelfHostOnly(t *testing.
 				t.Fatalf("validateMailSecurity() = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+type stubSlotRepo struct {
+	repository.OAuthSlotRepository
+	getByIDFn  func(ctx context.Context, orgID, slotID uuid.UUID) (*models.OAuthConnectionSlot, error)
+	getAvailFn func(ctx context.Context, orgID uuid.UUID, provider string) (*models.OAuthConnectionSlot, error)
+	listFn     func(ctx context.Context, orgID uuid.UUID) ([]*models.OAuthConnectionSlot, error)
+}
+
+func (s *stubSlotRepo) GetByID(ctx context.Context, orgID, slotID uuid.UUID) (*models.OAuthConnectionSlot, error) {
+	if s.getByIDFn != nil {
+		return s.getByIDFn(ctx, orgID, slotID)
+	}
+	return nil, errors.New("not found")
+}
+func (s *stubSlotRepo) GetAvailableSlot(ctx context.Context, orgID uuid.UUID, provider string) (*models.OAuthConnectionSlot, error) {
+	if s.getAvailFn != nil {
+		return s.getAvailFn(ctx, orgID, provider)
+	}
+	return nil, errors.New("no available slot")
+}
+func (s *stubSlotRepo) List(ctx context.Context, orgID uuid.UUID) ([]*models.OAuthConnectionSlot, error) {
+	if s.listFn != nil {
+		return s.listFn(ctx, orgID)
+	}
+	return nil, nil
+}
+
+type stubEKStore struct {
+	store map[uuid.UUID]string
+}
+
+func (s *stubEKStore) Put(ctx context.Context, orgID uuid.UUID, dek string) error {
+	if s.store == nil {
+		s.store = make(map[uuid.UUID]string)
+	}
+	s.store[orgID] = dek
+	return nil
+}
+func (s *stubEKStore) Get(ctx context.Context, orgID uuid.UUID) (string, error) {
+	if s.store == nil {
+		return "", nil
+	}
+	return s.store[orgID], nil
+}
+func (s *stubEKStore) Delete(ctx context.Context, orgID uuid.UUID) error {
+	if s.store != nil {
+		delete(s.store, orgID)
+	}
+	return nil
+}
+func (s *stubEKStore) Name() string { return "stub" }
+
+func TestOAuthConfigForSlot_CapacityAndRouting(t *testing.T) {
+	ctx := context.Background()
+	orgID := uuid.New()
+	slot1ID := uuid.New()
+	slot2ID := uuid.New()
+
+	masterKey := []byte("01234567890123456789012345678901")
+	k, err := kms.NewLocal(masterKey)
+	if err != nil {
+		t.Fatalf("kms: %v", err)
+	}
+	cipherSvc := cipher.NewService(k, nil, &stubEKStore{store: make(map[uuid.UUID]string)})
+	cph, err := cipherSvc.Cipher(ctx, orgID)
+	if err != nil {
+		t.Fatalf("cipher: %v", err)
+	}
+
+	encSecret1, err := cph.Encrypt(ctx, "secret-for-slot-1")
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	encSecret2, err := cph.Encrypt(ctx, "secret-for-slot-2")
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+
+	slot1 := &models.OAuthConnectionSlot{
+		ID:                    slot1ID,
+		OrgID:                 orgID,
+		Provider:              "gmail",
+		Name:                  "Google Project 1",
+		ClientID:              "client-id-1",
+		EncryptedClientSecret: encSecret1,
+		MaxAccounts:           100,
+		ConnectedCount:        100, // Full!
+	}
+	slot2 := &models.OAuthConnectionSlot{
+		ID:                    slot2ID,
+		OrgID:                 orgID,
+		Provider:              "gmail",
+		Name:                  "Google Project 2",
+		ClientID:              "client-id-2",
+		EncryptedClientSecret: encSecret2,
+		MaxAccounts:           100,
+		ConnectedCount:        5, // 95 open slots
+	}
+
+	repo := &stubSlotRepo{
+		getByIDFn: func(ctx context.Context, o, sID uuid.UUID) (*models.OAuthConnectionSlot, error) {
+			if sID == slot1ID {
+				return slot1, nil
+			}
+			if sID == slot2ID {
+				return slot2, nil
+			}
+			return nil, errors.New("not found")
+		},
+		getAvailFn: func(ctx context.Context, o uuid.UUID, prov string) (*models.OAuthConnectionSlot, error) {
+			// Auto-routing selects slot 2 because slot 1 is full
+			return slot2, nil
+		},
+		listFn: func(ctx context.Context, o uuid.UUID) ([]*models.OAuthConnectionSlot, error) {
+			return []*models.OAuthConnectionSlot{slot1, slot2}, nil
+		},
+	}
+
+	svc := &emailService{
+		oauthSlots:    repo,
+		cipherService: cipherSvc,
+		oauthInbox: &config.Oauth2Inbox{
+			Google: &oauth2.Config{
+				RedirectURL: "http://localhost:8080/addresses/google/callback",
+				Scopes:      []string{"https://mail.google.com/"},
+				Endpoint: oauth2.Endpoint{
+					AuthURL:  "https://accounts.google.com/o/oauth2/auth",
+					TokenURL: "https://oauth2.googleapis.com/token",
+				},
+			},
+		},
+	}
+
+	// 1. Explicitly requesting full slot1 must be rejected
+	cfg, chosen, xerr := svc.oauthConfigForSlot(ctx, &orgID, models.InboxProviderGoogle, &slot1ID)
+	if xerr == nil {
+		t.Fatalf("expected error when requesting full slot, got cfg: %+v, slot: %+v", cfg, chosen)
+	}
+	if xerr.Message != "חיבור ה-OAuth הגיע למכסה המרבית (100 תיבות). נא לבחור או להוסיף חיבור אחר." {
+		t.Fatalf("unexpected error message: %s", xerr.Message)
+	}
+
+	// 2. Automatic routing (slotID == nil) picks slot2 and decrypts secret
+	cfg2, chosen2, xerr2 := svc.oauthConfigForSlot(ctx, &orgID, models.InboxProviderGoogle, nil)
+	if xerr2 != nil {
+		t.Fatalf("auto-route to slot2 failed: %v", xerr2)
+	}
+	if chosen2.ID != slot2ID {
+		t.Fatalf("expected slot2, got %v", chosen2.ID)
+	}
+	if cfg2.ClientID != "client-id-2" {
+		t.Fatalf("expected client-id-2, got %q", cfg2.ClientID)
+	}
+	if cfg2.ClientSecret != "secret-for-slot-2" {
+		t.Fatalf("expected decrypted secret 'secret-for-slot-2', got %q", cfg2.ClientSecret)
+	}
+	if cfg2.RedirectURL != "http://localhost:8080/addresses/google/callback" {
+		t.Fatalf("unexpected redirect URL: %q", cfg2.RedirectURL)
+	}
+
+	// 3. When all slots are full, auto routing informs the user with actionable message
+	repo.getAvailFn = func(ctx context.Context, o uuid.UUID, prov string) (*models.OAuthConnectionSlot, error) {
+		return nil, errors.New("all full")
+	}
+	_, _, xerr3 := svc.oauthConfigForSlot(ctx, &orgID, models.InboxProviderGoogle, nil)
+	if xerr3 == nil {
+		t.Fatalf("expected error when all slots are full")
+	}
+	if xerr3.Message != "כל חיבורי ה-OAuth מלאים (הגיעו למגבלת 100 התיבות). נא להוסיף חיבור פרויקט גוגל חדש בהגדרות." {
+		t.Fatalf("unexpected error message: %s", xerr3.Message)
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/behavior"
 	"github.com/warmbly/warmbly/internal/app/bootstrap"
 	"github.com/warmbly/warmbly/internal/app/campaign"
+	"github.com/warmbly/warmbly/internal/app/cipher"
 	"github.com/warmbly/warmbly/internal/app/cliauth"
 	"github.com/warmbly/warmbly/internal/app/cloudlink"
 	"github.com/warmbly/warmbly/internal/app/compose"
@@ -233,6 +234,10 @@ type Handler struct {
 
 	// SerperKeysService manages org-scoped Serper API keys, 2,500-quota rotation, and cached Google search.
 	SerperKeysService serperkeys.Service
+
+	// OAuthSlotRepository manages dynamic OAuth connection slots per org.
+	OAuthSlotRepository repository.OAuthSlotRepository
+	CipherService       cipher.CipherService
 
 	// AIDraftRepo stores inbox-agent reply drafts awaiting human review (M10).
 	// The draft is created in the consumer; these list/approve/discard handlers

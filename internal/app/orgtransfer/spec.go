@@ -145,6 +145,14 @@ var Tables = []Table{
 		Scope: `team_id IN ` + orgTeams,
 	},
 	{
+		Name: "oauth_connection_slots", Group: models.OrgDataGroupCore,
+		Scope: scopeOrgAlt,
+		Secrets: []SecretColumn{
+			{Column: "encrypted_client_secret", Domain: KeyDomainOrgDEK},
+		},
+		Note: "Dynamic OAuth client slots for Google and Microsoft mailboxes.",
+	},
+	{
 		Name: "email_accounts", Group: models.OrgDataGroupCore,
 		Scope: scopeOrg,
 		// Worker placement is a property of the instance the mailbox runs on,

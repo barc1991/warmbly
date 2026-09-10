@@ -9,6 +9,7 @@ export default interface Inbox {
     tags: string[];
     provider: string;
     status: string;
+    oauth_slot_id?: string | null;
     last_synced_at: Date;
     last_id?: number | null;
     campaign_limit: number;

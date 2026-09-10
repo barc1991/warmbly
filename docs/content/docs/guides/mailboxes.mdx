@@ -17,6 +17,15 @@ Open **Accounts** and choose **Add account**.
 
 **OAuth** sends you to your provider's consent screen and returns a token instead of a password. Both OAuth providers use the provider's native API, never IMAP or SMTP, so consent asks to send mail and to read and organize your mailbox. It needs no app passwords or server settings. Note that Google revokes Gmail tokens when the account's password changes, so a password change there means [re-authorizing the mailbox](#reconnecting-an-account) once.
 
+### Multiple OAuth connection slots (Google Cloud & Microsoft)
+
+Google Cloud projects in testing status enforce a strict quota of 100 test accounts (mailboxes) per OAuth client application. To connect hundreds or thousands of mailboxes without fragmenting across multiple workspaces or accounts, Warmbly supports **Connection slots** under **Settings > OAuth slots**.
+
+- **Single workspace:** Every connected mailbox stays in the same organization, appears in the same mailbox table, sends in the same campaigns, and shares the unified Unibox.
+- **Shared redirect URI:** All your Google Cloud projects use the identical redirect URI: `https://<your-domain>/addresses/google/callback`.
+- **Capacity tracking:** Each slot tracks its connected mailbox count up to its cap (default 100). When a slot fills up, the system automatically suggests or routes new sign-ins to the next available slot.
+- **Worker token refresh:** Workers refresh tokens using the specific Client ID and Secret associated with each mailbox's connection slot, fully automated and encrypted with your organization DEK.
+
 **IMAP / SMTP** needs host, port, username, and password for each direction:
 
 ```text

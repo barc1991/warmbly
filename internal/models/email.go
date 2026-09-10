@@ -44,6 +44,8 @@ type Email struct {
 	Provider string `json:"provider"`
 	Status   string `json:"status"`
 
+	OAuthSlotID *uuid.UUID `json:"oauth_slot_id,omitempty"`
+
 	LastSyncedAt time.Time `json:"last_synced_at"`
 	LastID       *int64    `json:"last_id"`
 
@@ -302,6 +304,7 @@ type NewOauthAccount struct {
 	AccessToken  string
 	RefreshToken string
 	ExpiresAt    time.Time
+	OAuthSlotID  *uuid.UUID
 }
 
 type NewSMTPIMAPAccount struct {
@@ -323,6 +326,41 @@ type EmailOnboardingState struct {
 	// EmailAccountID marks a re-authorization round trip: the finish leg
 	// renews this mailbox's tokens instead of connecting a new one.
 	EmailAccountID *uuid.UUID `json:"email_account_id,omitempty"`
+	OAuthSlotID    *uuid.UUID `json:"oauth_slot_id,omitempty"`
+}
+
+// OAuthConnectionSlot is an organization-level OAuth app credential (e.g. Google Cloud Project).
+// Allows scaling beyond 100 test user mailboxes while keeping all accounts in the same workspace.
+type OAuthConnectionSlot struct {
+	ID                    uuid.UUID `json:"id"`
+	OrgID                 uuid.UUID `json:"org_id"`
+	Provider              string    `json:"provider"`
+	Name                  string    `json:"name"`
+	ClientID              string    `json:"client_id"`
+	EncryptedClientSecret string    `json:"-"`
+	MaxAccounts           int       `json:"max_accounts"`
+	IsDefault             bool      `json:"is_default"`
+	ConnectedCount        int       `json:"connected_count"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
+}
+
+// NewOAuthConnectionSlot is the payload for adding an OAuth slot.
+type NewOAuthConnectionSlot struct {
+	Provider     string `json:"provider"`
+	Name         string `json:"name"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	MaxAccounts  int    `json:"max_accounts"`
+	IsDefault    bool   `json:"is_default"`
+}
+
+// UpdateOAuthConnectionSlot is the payload for editing an existing OAuth slot.
+type UpdateOAuthConnectionSlot struct {
+	Name         *string `json:"name,omitempty"`
+	ClientSecret *string `json:"client_secret,omitempty"`
+	MaxAccounts  *int    `json:"max_accounts,omitempty"`
+	IsDefault    *bool   `json:"is_default,omitempty"`
 }
 
 // EmailOnboardingStartResponse is returned from POST /emails/onboarding/oauth/start.

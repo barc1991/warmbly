@@ -472,6 +472,16 @@ func Run(
 				onboardingEmails.PUT("/smtp-imap/:id", m.RequireOrganization(), m.RequirePermission(models.PermManageEmails), h.UpdateEmailSMTPIMAP)
 			}
 
+			// Dynamic OAuth connection slots for multi-app scaling (Google/Outlook).
+			oauthSlots := jwtOnly.Group("/settings/oauth-slots")
+			oauthSlots.Use(m.RequireOrganization(), m.RequirePermission(models.PermManageSettings))
+			{
+				oauthSlots.GET("", h.ListOAuthSlots)
+				oauthSlots.POST("", h.CreateOAuthSlot)
+				oauthSlots.PUT("/:id", h.UpdateOAuthSlot)
+				oauthSlots.DELETE("/:id", h.DeleteOAuthSlot)
+			}
+
 			// Integration OAuth handshake is JWT-only — it writes user-encrypted
 			// provider tokens via the SPA popup flow, same as mailbox onboarding.
 			integrationsOAuth := jwtOnly.Group("/integrations/oauth")

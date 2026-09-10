@@ -53,6 +53,7 @@ import WorkspaceSettingsPage from './app/app/settings/workspace/page';
 import SkillsSettingsPage from './app/app/settings/ai-skills/page';
 import AIModelsSettingsPage from './app/app/settings/ai-models/page';
 import ConnectionsSettingsPage from './app/app/settings/connections/page';
+import OAuthSlotsSettingsPage from './app/app/settings/oauth-slots/page';
 import DangerSettingsPage from './app/app/settings/danger/page';
 import DataSettingsPage from './app/app/settings/data/page';
 import BillingSettingsPage from './app/app/settings/billing/page';
@@ -390,6 +391,7 @@ const router = createBrowserRouter([
               { path: "roles", element: <RolesSettingsPage /> },
               { path: "warmbly-cloud", element: <WarmblyCloudSettingsPage /> },
               { path: "oauth-apps", element: <OAuthAppsPage /> },
+              { path: "oauth-slots", element: <OAuthSlotsSettingsPage /> },
               { path: "webhooks", element: <WebhooksSettingsPage /> },
               { path: "connections", element: <ConnectionsSettingsPage /> },
               { path: "data", element: <DataSettingsPage /> },

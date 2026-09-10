@@ -21,8 +21,8 @@ import (
 
 // OAuthStart issues a fresh state nonce and returns the provider-specific authorization URL.
 // The caller is expected to redirect the user to the URL and post back to OAuthFinish on return.
-func (s *emailService) OAuthStart(ctx context.Context, userID string, orgID *uuid.UUID, provider models.InboxProvider) (*models.EmailOnboardingStartResponse, *errx.Error) {
-	cfg, xerr := s.oauthConfigFor(provider)
+func (s *emailService) OAuthStart(ctx context.Context, userID string, orgID *uuid.UUID, provider models.InboxProvider, slotID *uuid.UUID) (*models.EmailOnboardingStartResponse, *errx.Error) {
+	cfg, slot, xerr := s.oauthConfigForSlot(ctx, orgID, provider, slotID)
 	if xerr != nil {
 		return nil, xerr
 	}
@@ -39,11 +39,17 @@ func (s *emailService) OAuthStart(ctx context.Context, userID string, orgID *uui
 		return nil, errx.InternalError()
 	}
 
+	var chosenSlotID *uuid.UUID
+	if slot != nil {
+		chosenSlotID = &slot.ID
+	}
+
 	if xerr := s.saveOnboardingState(ctx, state, &models.EmailOnboardingState{
 		UserID:         userID,
 		OrganizationID: orgID,
 		Provider:       string(provider),
 		Nonce:          state,
+		OAuthSlotID:    chosenSlotID,
 	}); xerr != nil {
 		return nil, xerr
 	}
@@ -124,7 +130,7 @@ func (s *emailService) OAuthFinish(ctx context.Context, userID, code, state stri
 	}
 
 	provider := models.InboxProvider(sess.Provider)
-	cfg, xerr := s.oauthConfigFor(provider)
+	cfg, _, xerr := s.oauthConfigForSlot(ctx, sess.OrganizationID, provider, sess.OAuthSlotID)
 	if xerr != nil {
 		return nil, false, xerr
 	}
@@ -164,6 +170,7 @@ func (s *emailService) OAuthFinish(ctx context.Context, userID, code, state stri
 		AccessToken:    tok.AccessToken,
 		RefreshToken:   tok.RefreshToken,
 		ExpiresAt:      tok.Expiry,
+		OAuthSlotID:    sess.OAuthSlotID,
 	})
 	if xerr == nil && acc != nil {
 		s.syncWarmupPoolMembership(ctx, acc)
@@ -278,6 +285,81 @@ func (s *emailService) oauthConfigFor(provider models.InboxProvider) (*oauth2.Co
 	default:
 		return nil, errx.ErrEmailOnboardProvider
 	}
+}
+
+// oauthConfigForSlot resolves the OAuth config for a provider, prioritizing
+// organization-level dynamic slots with capacity (connected_count < max_accounts).
+func (s *emailService) oauthConfigForSlot(ctx context.Context, orgID *uuid.UUID, provider models.InboxProvider, slotID *uuid.UUID) (*oauth2.Config, *models.OAuthConnectionSlot, *errx.Error) {
+	if s.oauthSlots != nil && orgID != nil {
+		var slot *models.OAuthConnectionSlot
+		if slotID != nil {
+			sl, serr := s.oauthSlots.GetByID(ctx, *orgID, *slotID)
+			if serr != nil {
+				return nil, nil, errx.New(errx.BadRequest, "חיבור ה-OAuth המבוקש לא נמצא.")
+			}
+			if sl.ConnectedCount >= sl.MaxAccounts {
+				return nil, nil, errx.New(errx.BadRequest, "חיבור ה-OAuth הגיע למכסה המרבית (100 תיבות). נא לבחור או להוסיף חיבור אחר.")
+			}
+			slot = sl
+		} else {
+			sl, serr := s.oauthSlots.GetAvailableSlot(ctx, *orgID, string(provider))
+			if serr == nil && sl != nil {
+				slot = sl
+			} else {
+				// No available slot: check if any slots exist for this provider
+				allSlots, _ := s.oauthSlots.List(ctx, *orgID)
+				hasProviderSlots := false
+				for _, existing := range allSlots {
+					if existing.Provider == string(provider) {
+						hasProviderSlots = true
+						break
+					}
+				}
+				if hasProviderSlots {
+					return nil, nil, errx.New(errx.BadRequest, "כל חיבורי ה-OAuth מלאים (הגיעו למגבלת 100 התיבות). נא להוסיף חיבור פרויקט גוגל חדש בהגדרות.")
+				}
+			}
+		}
+
+		if slot != nil {
+			var baseCfg *oauth2.Config
+			if s.oauthInbox != nil {
+				switch provider {
+				case models.InboxProviderGoogle:
+					baseCfg = s.oauthInbox.Google
+				case models.InboxProviderOutlook:
+					baseCfg = s.oauthInbox.Outlook
+				}
+			}
+			if baseCfg == nil {
+				return nil, nil, errx.ErrEmailOnboardProvider
+			}
+
+			cph, cerr := s.cipherService.Cipher(ctx, *orgID)
+			if cerr != nil {
+				return nil, nil, errx.InternalError()
+			}
+			plainSecret, derr := cph.Decrypt(ctx, slot.EncryptedClientSecret)
+			if derr != nil {
+				return nil, nil, errx.InternalError()
+			}
+
+			cfg := &oauth2.Config{
+				ClientID:     slot.ClientID,
+				ClientSecret: plainSecret,
+				Endpoint:     baseCfg.Endpoint,
+				RedirectURL:  baseCfg.RedirectURL,
+				Scopes:       baseCfg.Scopes,
+			}
+			return cfg, slot, nil
+		}
+	}
+
+	baseCfg, xerr := s.oauthConfigFor(provider)
+	if xerr != nil {
+		return nil, nil, xerr
+	}
+	return baseCfg, nil, nil
 }
 
 func validateSMTPIMAPInput(data *models.NewSMTPIMAPAccount) *errx.Error {

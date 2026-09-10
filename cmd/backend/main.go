@@ -201,6 +201,7 @@ func main() {
 	var mcpService mcp.Service
 	var geminiKeysService geminikeys.Service
 	var serperKeysService serperkeys.Service
+	var oauthSlotRepository repository.OAuthSlotRepository
 	var emailVerifyService emailverifyapp.Service
 	var placementRepository repository.PlacementRepository
 	var placementService placement.Service
@@ -1134,6 +1135,8 @@ func main() {
 		emailSyncStateRepository = repository.NewEmailSyncStateRepository(primaryDB)
 		emailService.WireSyncState(emailSyncStateRepository)
 		emailService.WireMailboxes(repository.NewMailboxRepository(primaryDB))
+		oauthSlotRepository = repository.NewOAuthSlotRepository(primaryDB)
+		emailService.WireOAuthSlots(oauthSlotRepository)
 		if instanceSettings != nil {
 			emailService.WireSyncBudget(instanceSettings)
 		}
@@ -1962,18 +1965,20 @@ func main() {
 		WarmupContentService: warmupContentService,
 
 		// AI writing assistant + credit ledger
-		CreditService:     creditService,
-		WritingGenerator:  writingGenerator,
-		AIProvider:        aiProvider,
-		AISearch:          aiSearch,
-		AITools:           aiToolRegistry,
-		AIAgentService:    aiAgentService,
-		ResearchService:   researchService,
-		SkillsService:     skillsService,
-		MCPService:        mcpService,
-		GeminiKeysService: geminiKeysService,
-		SerperKeysService: serperKeysService,
-		AIDraftRepo:       aiDraftRepo,
+		CreditService:       creditService,
+		WritingGenerator:    writingGenerator,
+		AIProvider:          aiProvider,
+		AISearch:            aiSearch,
+		AITools:             aiToolRegistry,
+		AIAgentService:      aiAgentService,
+		ResearchService:     researchService,
+		SkillsService:       skillsService,
+		MCPService:          mcpService,
+		GeminiKeysService:   geminiKeysService,
+		SerperKeysService:   serperKeysService,
+		OAuthSlotRepository: oauthSlotRepository,
+		CipherService:       cipherService,
+		AIDraftRepo:         aiDraftRepo,
 
 		// Pre-send email verification
 		EmailVerifyService: emailVerifyService,

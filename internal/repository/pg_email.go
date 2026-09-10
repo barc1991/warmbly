@@ -368,8 +368,8 @@ func (r *emailRepository) NewOauthAccount(ctx context.Context, userID string, da
 	// be seeded with a random RID, which silently broke segment-aware content
 	// selection because a random tag never matches a real segment.
 	query := `
-		INSERT INTO email_accounts (id, user_id, organization_id, email, name, provider, signature_plain, signature_html, tracking_domain, last_synced_at, created_at, updated_at, warmup_tag)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11)
+		INSERT INTO email_accounts (id, user_id, organization_id, email, name, provider, signature_plain, signature_html, tracking_domain, last_synced_at, created_at, updated_at, warmup_tag, oauth_slot_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $12)
 	`
 
 	params := []any{
@@ -384,6 +384,7 @@ func (r *emailRepository) NewOauthAccount(ctx context.Context, userID string, da
 		"",
 		t,
 		"",
+		data.OAuthSlotID,
 	}
 
 	_, err = tx.Exec(
@@ -644,7 +645,7 @@ func (r *emailRepository) Search(ctx context.Context, orgID, search string, curs
 		 ea.auth_state, ea.auth_spf, ea.auth_dkim, ea.auth_dmarc, ea.auth_dmarc_policy, ea.auth_reason, ea.auth_checked_at, ea.auth_failing_since,
 		 ea.warmup, ea.warmup_paused_at, ea.warmup_base,
 		 ea.warmup_max, ea.warmup_increase, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.save_to_sent,
-		 ea.created_at, ea.updated_at,
+		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
 		 COALESCE(
 			array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}'
 		 ) AS tags
@@ -695,7 +696,7 @@ func (r *emailRepository) Search(ctx context.Context, orgID, search string, curs
 			&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
 			&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease,
 			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.SaveToSent,
-			&i.CreatedAt, &i.UpdatedAt, &i.Tags,
+			&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
 		)
 		if err != nil {
 			db.CaptureError(err, "", nil, "scan")
@@ -766,7 +767,7 @@ func (r *emailRepository) Get(ctx context.Context, orgID, emailAccountID string)
 		 ea.auth_state, ea.auth_spf, ea.auth_dkim, ea.auth_dmarc, ea.auth_dmarc_policy, ea.auth_reason, ea.auth_checked_at, ea.auth_failing_since,
 		 ea.warmup, ea.warmup_paused_at, ea.warmup_base,
 		 ea.warmup_max, ea.warmup_increase, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.save_to_sent,
-		 ea.created_at, ea.updated_at,
+		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
 		 COALESCE(array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}') AS tags
 		FROM email_accounts ea
 		LEFT JOIN email_tags eat ON eat.email_id = ea.id
@@ -790,7 +791,7 @@ func (r *emailRepository) Get(ctx context.Context, orgID, emailAccountID string)
 		&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
 		&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease,
 		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.SaveToSent,
-		&i.CreatedAt, &i.UpdatedAt, &i.Tags,
+		&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
 	)
 	if err != nil {
 		// A mailbox that does not exist, or belongs to another organization, is
@@ -1412,7 +1413,7 @@ func (r *emailRepository) GetByID(ctx context.Context, emailAccountID uuid.UUID)
 		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, ea.warmup_pool_type,
 		 ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone, ea.save_to_sent,
 		 ea.auth_state, ea.auth_failing_since,
-		 ea.created_at, ea.updated_at,
+		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
 		 COALESCE(array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}') AS tags
 		FROM email_accounts ea
 		LEFT JOIN email_tags eat ON eat.email_id = ea.id
@@ -1428,7 +1429,7 @@ func (r *emailRepository) GetByID(ctx context.Context, emailAccountID uuid.UUID)
 		&i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
 		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone, &i.SaveToSent,
 		&i.AuthState, &i.AuthFailingSince,
-		&i.CreatedAt, &i.UpdatedAt, &i.Tags,
+		&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

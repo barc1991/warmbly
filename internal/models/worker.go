@@ -171,6 +171,10 @@ type AddWorkerEmail struct {
 	// Brokered: no credential travels; the worker fetches access tokens from the backend.
 	Brokered bool `json:"brokered" avro:"brokered"`
 
+	// Dynamic OAuth slot credentials for multi-project Google/Outlook accounts.
+	OAuthClientID     string `json:"oauth_client_id,omitempty" avro:"oauth_client_id"`
+	OAuthClientSecret string `json:"oauth_client_secret,omitempty" avro:"oauth_client_secret"`
+
 	Cfg oauth2.Config `json:"-" avro:"-"`
 	// TokenSource is set by the worker for brokered mailboxes.
 	TokenSource oauth2.TokenSource `json:"-" avro:"-"`

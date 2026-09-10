@@ -24,6 +24,7 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+    AlertCircleIcon,
     ArrowLeftIcon,
     CheckIcon,
     ChevronRightIcon,
@@ -31,9 +32,11 @@ import {
     FileSpreadsheetIcon,
     InboxIcon,
     KeyRoundIcon,
+    LayersIcon,
     Loader2Icon,
     MailIcon,
     ExternalLinkIcon,
+    PlusIcon,
     SendIcon,
     SettingsIcon,
     ShieldCheckIcon,
@@ -42,6 +45,8 @@ import {
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { useOAuthSlots } from "@/lib/api/hooks/app/oauth-slots/useOAuthSlots";
+import type { OAuthSlot } from "@/lib/api/models/app/oauth-slots/OAuthSlot";
 
 import { Logo } from "@/components/svg";
 import { TextInput } from "@/components/ui/field";
@@ -146,6 +151,8 @@ export default function AddEmailModal() {
 
     const [view, setView] = React.useState<View>("pick");
     const [oauthBusy, setOauthBusy] = React.useState<OAuthProvider | null>(null);
+    const [selectedSlotId, setSelectedSlotId] = React.useState<string | null>(null);
+    const slotsQuery = useOAuthSlots();
     // Set when the deployment has no OAuth client for the provider the user
     // picked. Rendered inline rather than as a toast: it is a setup instruction
     // with a link, not a transient failure.
@@ -180,6 +187,7 @@ export default function AddEmailModal() {
         if (!user.addEmail) {
             setView("pick");
             setOauthBusy(null);
+            setSelectedSlotId(null);
             setNotConfigured(null);
             setAllowanceOpen(false);
             pendingState.current = null;
@@ -269,6 +277,7 @@ export default function AddEmailModal() {
             void toast.promise(
                 onboardOAuthFinish(data.code, data.state).then((inbox) => {
                     qc.invalidateQueries({ queryKey: ["emails", "list"] });
+                    qc.invalidateQueries({ queryKey: ["oauth-slots"] });
                     capture("mailbox_connected", { provider: expected.provider, method: "oauth" });
                     user.setAddEmail(false);
                     return inbox;
@@ -286,7 +295,7 @@ export default function AddEmailModal() {
         return () => window.removeEventListener("message", onMessage);
     }, [qc, user, onConnectError, isHe]);
 
-    async function startOAuth(provider: OAuthProvider) {
+    async function startOAuth(provider: OAuthProvider, slotId?: string) {
         if (oauthBusy) return;
         setOauthBusy(provider);
         setNotConfigured(null);
@@ -316,7 +325,8 @@ export default function AddEmailModal() {
             return;
         }
         try {
-            const { url, state } = await onboardOAuthStart(provider);
+            const effSlotId = slotId ?? selectedSlotId ?? undefined;
+            const { url, state } = await onboardOAuthStart(provider, effSlotId);
             pendingState.current = { provider, state };
             const popup = openCentered(url, `connect-${provider}`);
             if (!popup) {
@@ -409,7 +419,10 @@ export default function AddEmailModal() {
                                                 provider="gmail"
                                                 busy={oauthBusy === "gmail"}
                                                 viaCloud={viaCloud}
-                                                onConnect={() => startOAuth("gmail")}
+                                                slots={slotsQuery.data?.filter((s) => s.provider === "gmail") ?? []}
+                                                selectedSlotId={selectedSlotId}
+                                                onSelectSlot={setSelectedSlotId}
+                                                onConnect={(slotId) => startOAuth("gmail", slotId)}
                                             />
                                         )
                                     )}
@@ -421,7 +434,10 @@ export default function AddEmailModal() {
                                                 provider="outlook"
                                                 busy={oauthBusy === "outlook"}
                                                 viaCloud={viaCloud}
-                                                onConnect={() => startOAuth("outlook")}
+                                                slots={slotsQuery.data?.filter((s) => s.provider === "outlook") ?? []}
+                                                selectedSlotId={selectedSlotId}
+                                                onSelectSlot={setSelectedSlotId}
+                                                onConnect={(slotId) => startOAuth("outlook", slotId)}
                                             />
                                         )
                                     )}
@@ -602,22 +618,45 @@ function ProviderNotConfigured({ provider, selfHosted }: { provider: OAuthProvid
     const isHe = i18n.language?.startsWith("he");
     const { label, vars } = PROVIDER_SETUP[provider];
     return (
-        <div className="p-4">
-            {selfHosted && (
-                <div className="mb-3 rounded-md border border-sky-200 bg-sky-50 p-3 flex items-start gap-2.5">
-                    <CloudIcon className="w-4 h-4 text-sky-600 mt-0.5 shrink-0" />
-                    <div className="min-w-0">
+        <div className="p-4 space-y-3">
+            <div className="rounded-md border border-sky-200 bg-sky-50 p-3.5">
+                <div className="flex items-start gap-2.5">
+                    <LayersIcon className="w-4 h-4 text-sky-600 mt-0.5 shrink-0" />
+                    <div className="min-w-0 flex-1">
                         <p className="text-[12.5px] font-medium text-sky-900">
-                            {isHe ? "דלג על הגדרות OAuth: התחבר ל-Warmbly Cloud" : "Skip the OAuth setup: connect Warmbly Cloud"}
+                            {isHe ? "חיבור מהיר: הגדר סלוט חיבור ישירות בממשק (מומלץ)" : "Quick setup: configure a connection slot in settings (Recommended)"}
                         </p>
-                        <p className="text-[12.5px] text-sky-800 mt-1">
+                        <p className="text-[12px] text-sky-800 mt-1">
+                            {isHe
+                                ? "ניתן להגדיר פרויקט Google Cloud ישירות מתוך הממשק, ללא עריכת קבצי שרת (.env) וללא צורך בהפעלה מחדש. תוכל להוסיף סלוטים מרובים ולחבר מאות תיבות ללא הגבלת 100 משתמשים."
+                                : "You can configure an OAuth project directly in the dashboard without editing server files or restarting. Add multiple slots to connect hundreds of mailboxes."}
+                        </p>
+                        <a
+                            href="/app/settings/oauth-slots"
+                            className="mt-2.5 inline-flex h-7 px-2.5 items-center gap-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors shadow-sm"
+                        >
+                            <SettingsIcon className="w-3.5 h-3.5" />
+                            {isHe ? "ניהול והוספת סלוטים של OAuth" : "Manage OAuth Slots"}
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            {selfHosted && (
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 flex items-start gap-2.5">
+                    <CloudIcon className="w-4 h-4 text-slate-600 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                        <p className="text-[12.5px] font-medium text-slate-900">
+                            {isHe ? "אפשרות חלופית: התחבר ל-Warmbly Cloud" : "Alternative: connect Warmbly Cloud"}
+                        </p>
+                        <p className="text-[12px] text-slate-600 mt-1">
                             {isHe
                                 ? "מופעים מקושרים מתחברים לתיבות דרך האפליקציות של Google ו-Microsoft של Warmbly, והענן מחמם אותן. חינם עבור 10 תיבות."
                                 : "Linked instances sign mailboxes in through Warmbly's own Google and Microsoft apps, and the cloud warms them. Free for 10 mailboxes."}
                         </p>
                         <a
                             href="/app/settings/warmbly-cloud"
-                            className="mt-2 inline-flex h-7 px-2.5 items-center gap-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors"
+                            className="mt-2 inline-flex h-6 px-2.5 items-center gap-1.5 rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-[11.5px] font-medium transition-colors"
                         >
                             {isHe ? "התחבר ל-Warmbly Cloud" : "Connect Warmbly Cloud"}
                         </a>
@@ -816,20 +855,41 @@ function OAuthPanel({
     provider,
     busy,
     viaCloud,
+    slots = [],
+    selectedSlotId,
+    onSelectSlot,
     onConnect,
 }: {
     provider: OAuthProvider;
     busy: boolean;
     viaCloud: boolean;
-    onConnect: () => void;
+    slots?: OAuthSlot[];
+    selectedSlotId: string | null;
+    onSelectSlot: (id: string | null) => void;
+    onConnect: (slotId?: string) => void;
 }) {
     const { i18n } = useTranslation();
     const isHe = i18n.language?.startsWith("he");
 
     const label = provider === "gmail" ? "Google" : "Microsoft";
     const Icon = provider === "gmail" ? Google : Outlook;
+
+    const hasSlots = slots.length > 0;
+    const allSlotsFull = hasSlots && slots.every((s) => s.connected_count >= s.max_accounts);
+
+    const activeSlot = React.useMemo(() => {
+        if (!hasSlots) return null;
+        if (selectedSlotId) {
+            const found = slots.find((s) => s.id === selectedSlotId);
+            if (found) return found;
+        }
+        return slots.find((s) => s.connected_count < s.max_accounts) ?? slots[0];
+    }, [slots, selectedSlotId, hasSlots]);
+
+    const isCurrentSlotFull = activeSlot ? activeSlot.connected_count >= activeSlot.max_accounts : false;
+
     return (
-        <div className="px-5 py-6 space-y-5">
+        <div className="px-5 py-6 space-y-4">
             <div className="flex items-center gap-3">
                 <div className="size-11 rounded-md border border-slate-200 bg-white flex items-center justify-center shrink-0">
                     <Icon className="w-6 h-6" />
@@ -850,6 +910,116 @@ function OAuthPanel({
                 </div>
             </div>
 
+            {hasSlots && !viaCloud && (
+                <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/60 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                            <LayersIcon className="w-4 h-4 text-sky-600" />
+                            <span className="text-[12px] font-medium text-slate-800">
+                                {isHe ? "סלוט חיבור (Google Cloud Project)" : "Connection Slot (OAuth Project)"}
+                            </span>
+                        </div>
+                        <a
+                            href="/app/settings/oauth-slots"
+                            className="text-[11px] text-sky-600 hover:text-sky-700 hover:underline font-medium flex items-center gap-1"
+                        >
+                            <SettingsIcon className="w-3 h-3" />
+                            {isHe ? "ניהול סלוטים" : "Manage slots"}
+                        </a>
+                    </div>
+
+                    {slots.length > 1 && (
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] text-slate-500">
+                                {isHe ? "בחר לאיזה סלוט לשייך את התיבה:" : "Select which slot to connect to:"}
+                            </label>
+                            <select
+                                value={activeSlot?.id ?? ""}
+                                onChange={(e) => onSelectSlot(e.target.value)}
+                                className="w-full h-8 px-2.5 rounded-md border border-slate-200 bg-white text-[12px] text-slate-800 focus:outline-none focus:border-sky-400"
+                            >
+                                {slots.map((s) => {
+                                    const full = s.connected_count >= s.max_accounts;
+                                    return (
+                                        <option key={s.id} value={s.id} disabled={full}>
+                                            {s.name} ({s.connected_count}/{s.max_accounts} {isHe ? "תיבות" : "mailboxes"}) {full ? (isHe ? "- מלא!" : "- Full!") : ""}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+                    )}
+
+                    {activeSlot && (
+                        <div className="p-2.5 rounded-md border border-slate-200 bg-white space-y-2">
+                            <div className="flex items-center justify-between text-[11.5px]">
+                                <span className="font-medium text-slate-900 truncate">
+                                    {activeSlot.name}
+                                </span>
+                                <span className={cn(
+                                    "font-mono tabular-nums text-[11px] px-1.5 py-0.5 rounded",
+                                    isCurrentSlotFull ? "bg-rose-50 text-rose-700 font-semibold" : "bg-slate-100 text-slate-700"
+                                )}>
+                                    {activeSlot.connected_count} / {activeSlot.max_accounts} {isHe ? "תיבות" : "mailboxes"}
+                                </span>
+                            </div>
+                            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                <div
+                                    className={cn(
+                                        "h-full rounded-full transition-all duration-300",
+                                        isCurrentSlotFull ? "bg-rose-500" : activeSlot.connected_count / activeSlot.max_accounts > 0.8 ? "bg-amber-500" : "bg-sky-500"
+                                    )}
+                                    style={{ width: `${Math.min(100, Math.round((activeSlot.connected_count / activeSlot.max_accounts) * 100))}%` }}
+                                />
+                            </div>
+                            {isCurrentSlotFull && (
+                                <p className="text-[11px] text-rose-600 flex items-center gap-1 font-medium">
+                                    <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
+                                    {isHe
+                                        ? "סלוט זה הגיע למגבלת 100 תיבות. בחר סלוט אחר או הוסף סלוט חדש בהגדרות."
+                                        : "This slot has reached its 100 mailbox limit. Pick another slot or add one in settings."}
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {allSlotsFull && (
+                        <div className="p-2.5 rounded-md border border-rose-200 bg-rose-50 text-rose-800 text-[11.5px] space-y-1.5">
+                            <div className="font-medium flex items-center gap-1.5 text-rose-900">
+                                <AlertCircleIcon className="w-4 h-4 shrink-0" />
+                                {isHe ? "כל הסלוטים הקיימים מלאים (100/100)" : "All connection slots are full (100/100)"}
+                            </div>
+                            <p>
+                                {isHe
+                                    ? "הגעת למגבלת התיבות בכל הפרויקטים המוגדרים. כדי לחבר תיבות נוספות, יש להוסיף סלוט חיבור חדש (פרויקט Google Cloud נוסף) בהגדרות."
+                                    : "All configured projects have reached their quota. To connect more mailboxes, add a new OAuth slot in settings."}
+                            </p>
+                            <a
+                                href="/app/settings/oauth-slots"
+                                className="inline-flex h-6 px-2.5 items-center gap-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-medium transition-colors"
+                            >
+                                <PlusIcon className="w-3 h-3" />
+                                {isHe ? "הוסף סלוט חיבור חדש" : "Add new slot"}
+                            </a>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {!hasSlots && !viaCloud && (
+                <div className="px-3 py-2 rounded-md bg-slate-50 border border-slate-200/80 flex items-center justify-between text-[11.5px] text-slate-600">
+                    <span>
+                        {isHe ? "רוצה לחבר מאות תיבות ללא הגבלת 100 משתמשים?" : "Need hundreds of mailboxes without the 100 user limit?"}
+                    </span>
+                    <a
+                        href="/app/settings/oauth-slots"
+                        className="text-sky-600 hover:underline font-medium shrink-0 ms-2"
+                    >
+                        {isHe ? "הוסף סלוטים בהגדרות" : "Configure slots"}
+                    </a>
+                </div>
+            )}
+
             {viaCloud ? (
                 <ul className="text-[11.5px] text-slate-600 space-y-1.5 px-1">
                     <Scope>{isHe ? "שליחת קמפיינים וסנכרון תגובות משרת זה, כרגיל" : "Sends campaigns and syncs replies from this server, as usual"}</Scope>
@@ -866,10 +1036,10 @@ function OAuthPanel({
 
             <motion.button
                 type="button"
-                onClick={onConnect}
-                disabled={busy}
-                whileTap={busy ? undefined : { scale: 0.985 }}
-                className="w-full h-9 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12.5px] font-medium inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                onClick={() => onConnect(activeSlot?.id)}
+                disabled={busy || (hasSlots && (allSlotsFull || isCurrentSlotFull))}
+                whileTap={busy || (hasSlots && (allSlotsFull || isCurrentSlotFull)) ? undefined : { scale: 0.985 }}
+                className="w-full h-9 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12.5px] font-medium inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
                 {busy ? (
                     <Loader2Icon className="w-3.5 h-3.5 animate-spin" />

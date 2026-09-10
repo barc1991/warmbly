@@ -61,8 +61,9 @@ type EmailService interface {
 	// Onboarding flow. OAuthFinish's second return is true when the round
 	// trip renewed an existing mailbox (OAuthReauth) rather than connecting
 	// a new one, so the handler can audit and answer accordingly.
-	OAuthStart(ctx context.Context, userID string, orgID *uuid.UUID, provider models.InboxProvider) (*models.EmailOnboardingStartResponse, *errx.Error)
+	OAuthStart(ctx context.Context, userID string, orgID *uuid.UUID, provider models.InboxProvider, slotID *uuid.UUID) (*models.EmailOnboardingStartResponse, *errx.Error)
 	OAuthFinish(ctx context.Context, userID, code, state string) (*models.Email, bool, *errx.Error)
+	WireOAuthSlots(repo repository.OAuthSlotRepository)
 	OnboardSMTPIMAP(ctx context.Context, userID string, orgID *uuid.UUID, data *models.NewSMTPIMAPAccount) (*models.Email, *errx.Error)
 	// OnboardSMTPIMAPBulk connects many SMTP/IMAP mailboxes in one call and
 	// answers per row, so one bad password never fails the file. Rows past the
@@ -150,6 +151,13 @@ type emailService struct {
 	lifecycleRepo repository.SendLifecycleRepository
 	// accountErrors is resolved-on-reconnect error state. Optional/nil-safe.
 	accountErrors repository.EmailAccountErrorRepository
+	// oauthSlots manages dynamic OAuth connection slots per org. Optional/nil-safe.
+	oauthSlots repository.OAuthSlotRepository
+}
+
+// WireOAuthSlots attaches the OAuth slot repository.
+func (s *emailService) WireOAuthSlots(repo repository.OAuthSlotRepository) {
+	s.oauthSlots = repo
 }
 
 // WireAccountErrors attaches the mailbox error log so reconnects can resolve it.
