@@ -28,9 +28,9 @@ export default function FoldersModal() {
         <LabelListModal
             open={user?.foldersEdit ?? false}
             onClose={() => user?.setFoldersEdit(false)}
-            eyebrow="Folders"
-            subtitle="Group campaigns by goal, audience or region"
-            addCta="New folder"
+            eyebrow="תיקיות"
+            subtitle="קיבוץ קמפיינים לפי יעד, קהל או אזור"
+            addCta="תיקייה חדשה"
             items={user?.user.folders ?? []}
             onCreate={async (title, color) => {
                 const f = await createFolder(title, color);

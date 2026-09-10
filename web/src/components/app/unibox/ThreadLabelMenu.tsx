@@ -78,7 +78,7 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
       setQuery("");
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to create category",
+        err instanceof Error ? err.message : "יצירת קטגוריה נכשלה",
       );
     }
   };
@@ -95,8 +95,8 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
     >
       <PopoverMenuTrigger asChild>
         <button
-          aria-label="Label this conversation (press c)"
-          title="Label this conversation (c)"
+          aria-label="תיוג שיחה זו (לחץ c)"
+          title="תיוג שיחה זו (c)"
           className={`h-7 px-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors text-[12px] ${
             open
               ? "bg-slate-100 text-slate-900"
@@ -109,7 +109,7 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
             <TagIcon className="w-3.5 h-3.5" />
           )}
           {current.length === 0 ? (
-            <span className="hidden sm:inline">Label</span>
+            <span className="hidden sm:inline">תגיות</span>
           ) : (
             <span className="hidden sm:inline-flex items-center gap-1">
               {inline.map((c) => (
@@ -138,7 +138,7 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                   void createAndAdd();
                 }
               }}
-              placeholder="Label conversation…"
+              placeholder="תיוג שיחה…"
               autoFocus
               className="flex-1 min-w-0 h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
             />
@@ -163,15 +163,15 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
           <div className="max-h-56 overflow-y-auto py-1">
             {categories.length === 0 && !query.trim() && (
               <div className="px-3 py-4 text-center">
-                <div className="text-[12px] text-slate-500">No labels yet</div>
+                <div className="text-[12px] text-slate-500">אין תגיות עדיין</div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  Type a name above to create your first one.
+                  הקלד שם למעלה כדי ליצור את הראשונה.
                 </div>
               </div>
             )}
             {filtered.length === 0 && categories.length > 0 && queryMatchesExisting && (
               <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                No matches.
+                לא נמצאו תוצאות.
               </div>
             )}
             {filtered.map((c) => {
@@ -199,7 +199,7 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                   />
                   <span className="truncate">{c.title}</span>
                   {checked && (
-                    <span className="ml-auto text-[10px] text-slate-300">assigned</span>
+                    <span className="ms-auto text-[10px] text-slate-300">משויך</span>
                   )}
                 </button>
               );
@@ -216,13 +216,13 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                 ) : (
                   <PlusIcon className="w-3 h-3 text-sky-600" />
                 )}
-                Create "{query.trim()}"
+                צור "{query.trim()}"
               </button>
             )}
           </div>
 
           <div className="px-2.5 h-7 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-            <span>Labels are shared with contact categories</span>
+            <span>תגיות משותפות עם קטגוריות אנשי קשר</span>
             <kbd className="h-4 px-1 rounded border border-slate-200 bg-slate-50 font-mono inline-flex items-center">
               c
             </kbd>

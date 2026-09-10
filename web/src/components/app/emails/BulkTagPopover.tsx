@@ -80,7 +80,7 @@ export default function BulkTagPopover({ ids }: { ids: string[] }) {
             setPicked((p) => [...p, t.id]);
             setQuery("");
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed to create tag");
+            toast.error(err instanceof Error ? err.message : "יצירת התגית נכשלה");
         } finally {
             setCreating(false);
         }
@@ -97,14 +97,14 @@ export default function BulkTagPopover({ ids }: { ids: string[] }) {
             });
             toast.success(
                 mode === "add"
-                    ? `Tags added to ${n} mailbox${n > 1 ? "es" : ""}`
-                    : `Tags removed from ${n} mailbox${n > 1 ? "es" : ""}`,
+                    ? `תגיות נוספו ל-${n} תיבות דואר`
+                    : `תגיות הוסרו מ-${n} תיבות דואר`,
             );
             setOpen(false);
             setPicked([]);
             setQuery("");
         } catch {
-            toast.error("Couldn't update tags");
+            toast.error("לא ניתן היה לעדכן תגיות");
         }
     }
 
@@ -124,7 +124,7 @@ export default function BulkTagPopover({ ids }: { ids: string[] }) {
                 className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors"
             >
                 <TagIcon className="w-3.5 h-3.5" />
-                Tags
+                תגיות
             </button>
 
             <AnimatePresence>
@@ -154,7 +154,7 @@ export default function BulkTagPopover({ ids }: { ids: string[] }) {
                                                     : "text-slate-500 hover:text-slate-700"
                                             }`}
                                         >
-                                            {m === "add" ? "Add" : "Remove"}
+                                            {m === "add" ? "הוספה" : "הסרה"}
                                         </button>
                                     ))}
                                 </div>
@@ -163,7 +163,7 @@ export default function BulkTagPopover({ ids }: { ids: string[] }) {
                                 <input
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="Search or create…"
+                                    placeholder="חיפוש או יצירה…"
                                     autoFocus
                                     className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
                                 />
@@ -171,7 +171,7 @@ export default function BulkTagPopover({ ids }: { ids: string[] }) {
                             <div className="max-h-48 overflow-y-auto py-1">
                                 {filtered.length === 0 && queryMatchesExisting && (
                                     <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                                        {tags.length === 0 ? "No tags yet." : "No matches."}
+                                        {tags.length === 0 ? "אין תגיות עדיין." : "לא נמצאו תוצאות."}
                                     </div>
                                 )}
                                 {filtered.map((t) => {
@@ -203,11 +203,11 @@ export default function BulkTagPopover({ ids }: { ids: string[] }) {
                                         className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-900 font-medium hover:bg-sky-50 border-t border-slate-100 transition-colors"
                                     >
                                         {creating ? (
-                                            <Loader2Icon className="w-3 h-3 animate-spin text-slate-400" />
+                                             <Loader2Icon className="w-3 h-3 animate-spin text-slate-400" />
                                         ) : (
                                             <PlusIcon className="w-3 h-3 text-sky-600" />
                                         )}
-                                        Create "{query.trim()}"
+                                        צור "{query.trim()}"
                                     </button>
                                 )}
                             </div>
@@ -220,8 +220,8 @@ export default function BulkTagPopover({ ids }: { ids: string[] }) {
                                 >
                                     {bulk.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
                                     {mode === "add"
-                                        ? `Add to ${ids.length} mailbox${ids.length > 1 ? "es" : ""}`
-                                        : `Remove from ${ids.length} mailbox${ids.length > 1 ? "es" : ""}`}
+                                        ? `הוסף ל-${ids.length} תיבות דואר`
+                                        : `הסר מ-${ids.length} תיבות דואר`}
                                 </button>
                             </div>
                         </motion.div>

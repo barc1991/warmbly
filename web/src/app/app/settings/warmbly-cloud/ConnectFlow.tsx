@@ -111,6 +111,7 @@ export default function ConnectFlow({
 }
 
 function Stepper({ step, canReach, goTo }: { step: Step; canReach: (s: Step) => boolean; goTo: (s: Step) => void }) {
+    const isRtl = typeof document !== "undefined" && (document.documentElement.dir === "rtl" || document.body.dir === "rtl");
     return (
         <div className="px-5 pt-4 pb-3 border-b border-slate-200/70 flex items-center gap-2">
             {STEPS.map((s, idx) => {
@@ -129,17 +130,29 @@ function Stepper({ step, canReach, goTo }: { step: Step; canReach: (s: Step) => 
                             } ${reachable ? "" : "cursor-not-allowed"}`}
                         >
                             <span
-                                className={`relative size-5 rounded-full inline-flex items-center justify-center text-[10px] border transition-colors ${
+                                className={`relative size-5 rounded-full flex items-center justify-center shrink-0 border transition-colors ${
                                     done ? "bg-sky-600 border-sky-600 text-white" : active ? "border-sky-600 text-sky-700" : "border-slate-300 text-slate-400"
                                 }`}
                             >
                                 <AnimatePresence mode="wait" initial={false}>
                                     {done ? (
-                                        <motion.span key="check" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }}>
-                                            <CheckIcon className="w-3 h-3" />
+                                        <motion.span
+                                            key="check"
+                                            initial={{ scale: 0.4, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            exit={{ scale: 0.4, opacity: 0 }}
+                                            className="flex size-full items-center justify-center"
+                                        >
+                                            <CheckIcon className="size-3 text-white" strokeWidth={2.75} />
                                         </motion.span>
                                     ) : (
-                                        <motion.span key="num" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }}>
+                                        <motion.span
+                                            key="num"
+                                            initial={{ scale: 0.4, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            exit={{ scale: 0.4, opacity: 0 }}
+                                            className="flex size-full items-center justify-center text-[10px] font-semibold tabular-nums leading-none"
+                                        >
                                             {i + 1}
                                         </motion.span>
                                     )}
@@ -151,7 +164,7 @@ function Stepper({ step, canReach, goTo }: { step: Step; canReach: (s: Step) => 
                             <span className="relative flex-1 h-px bg-slate-200 overflow-hidden">
                                 <motion.span
                                     className="absolute inset-0 bg-sky-500"
-                                    style={{ originX: 0 }}
+                                    style={{ originX: isRtl ? 1 : 0 }}
                                     animate={{ scaleX: done ? 1 : 0 }}
                                     transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                                 />

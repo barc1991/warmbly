@@ -24,9 +24,9 @@ export default function TagsModal() {
         <LabelListModal
             open={user?.tagsEdit ?? false}
             onClose={() => user?.setTagsEdit(false)}
-            eyebrow="Tags"
-            subtitle="Label email accounts by purpose, region or audience"
-            addCta="New tag"
+            eyebrow="תגיות"
+            subtitle="תיוג חשבונות אימייל לפי ייעוד, אזור או קהל יעד"
+            addCta="תגית חדשה"
             items={user?.user.tags ?? []}
             onCreate={async (title, color) => {
                 const t = await createTag(title, color);

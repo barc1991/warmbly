@@ -613,10 +613,17 @@ svg.loading circle {
   letter-spacing: 0 !important;
 }
 
-[dir="rtl"] .tabular-nums,
-.rtl .tabular-nums {
+[dir="rtl"] .tabular-nums:not(.flex):not(.inline-flex),
+.rtl .tabular-nums:not(.flex):not(.inline-flex) {
   direction: ltr;
   display: inline-block;
+}
+
+[dir="rtl"] .tabular-nums.flex,
+.rtl .tabular-nums.flex,
+[dir="rtl"] .tabular-nums.inline-flex,
+.rtl .tabular-nums.inline-flex {
+  direction: ltr;
 }
 
 /* RTL alignment for menus, popovers, select buttons, and dropdown items */

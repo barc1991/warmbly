@@ -563,6 +563,7 @@ function Stepper({
     canReach: (s: number) => boolean;
     goTo: (s: number) => void;
 }) {
+    const isRtl = typeof document !== "undefined" && (document.documentElement.dir === "rtl" || document.body.dir === "rtl");
     return (
         <div className="px-4 sm:px-5 h-11 border-b border-slate-100 flex items-center shrink-0 bg-slate-50/40">
             {steps.map((s, i) => {
@@ -577,14 +578,14 @@ function Stepper({
                             disabled={!reachable}
                             aria-current={active ? "step" : undefined}
                             className={cn(
-                                "group inline-flex items-center gap-2 h-7 pl-1 pr-2 rounded-md shrink-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-100",
+                                "group inline-flex items-center gap-2 h-7 ps-1.5 pe-2 rounded-md shrink-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-100",
                                 reachable && !active ? "hover:bg-slate-100" : "",
                                 !reachable ? "cursor-default" : "",
                             )}
                         >
                             <span
                                 className={cn(
-                                    "relative size-5 rounded-full inline-flex items-center justify-center text-[10.5px] font-semibold tabular-nums transition-colors",
+                                    "relative size-5 rounded-full flex items-center justify-center shrink-0 transition-colors",
                                     done
                                         ? "bg-sky-600 text-white"
                                         : active
@@ -600,9 +601,9 @@ function Stepper({
                                             animate={{ scale: 1, opacity: 1 }}
                                             exit={{ scale: 0.4, opacity: 0 }}
                                             transition={{ duration: 0.16 }}
-                                            className="inline-flex"
+                                            className="flex size-full items-center justify-center"
                                         >
-                                            <CheckIcon className="w-3 h-3" strokeWidth={3} />
+                                            <CheckIcon className="size-3 text-white" strokeWidth={2.75} />
                                         </motion.span>
                                     ) : (
                                         <motion.span
@@ -611,6 +612,7 @@ function Stepper({
                                             animate={{ scale: 1, opacity: 1 }}
                                             exit={{ scale: 0.4, opacity: 0 }}
                                             transition={{ duration: 0.16 }}
+                                            className="flex size-full items-center justify-center text-[10.5px] font-semibold tabular-nums leading-none"
                                         >
                                             {i + 1}
                                         </motion.span>
@@ -633,7 +635,7 @@ function Stepper({
                                     initial={false}
                                     animate={{ scaleX: done ? 1 : 0 }}
                                     transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                                    style={{ originX: 0 }}
+                                    style={{ originX: isRtl ? 1 : 0 }}
                                     className="absolute inset-0 bg-sky-600"
                                 />
                             </span>

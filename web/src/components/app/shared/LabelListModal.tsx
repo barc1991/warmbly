@@ -123,12 +123,12 @@ function LabelForm({
         <div className="px-4 py-3 bg-slate-50/60 space-y-2.5">
             <div className="flex items-center gap-3">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium w-12 shrink-0">
-                    Name
+                    שם
                 </span>
                 <TextInput
                     value={title}
                     onChange={onTitleChange}
-                    placeholder="Name…"
+                    placeholder="שם…"
                     autoFocus
                     className="flex-1"
                     onKeyDown={(e) => {
@@ -139,7 +139,7 @@ function LabelForm({
             </div>
             <div className="flex items-center gap-3">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium w-12 shrink-0">
-                    Color
+                    צבע
                 </span>
                 <ColorStrip value={color} onChange={onColorChange} />
             </div>
@@ -183,14 +183,14 @@ export function LabelListModal({
     async function commitAdd() {
         const t = newTitle.trim();
         if (t.length < 1) {
-            toast.error("Name is required");
+            toast.error("נדרש להזין שם");
             return;
         }
         setCreating(true);
         try {
             await toast.promise(onCreate(t, newColor), {
-                loading: "Creating…",
-                success: "Created",
+                loading: "יוצר…",
+                success: "נוצר בהצלחה",
                 error: (e: AppError) => buildError(e),
             });
             setNewTitle("");
@@ -238,8 +238,8 @@ export function LabelListModal({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגירה"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -250,10 +250,10 @@ export function LabelListModal({
                             {sorted.length === 0 && !adding && (
                                 <div className="px-5 py-10 text-center">
                                     <p className="text-[12.5px] text-slate-700 font-medium mb-1">
-                                        Nothing here yet
+                                        אין פריטים עדיין
                                     </p>
                                     <p className="text-[11.5px] text-slate-400">
-                                        Add your first to get started.
+                                        הוסף את הפריט הראשון כדי להתחיל.
                                     </p>
                                 </div>
                             )}
@@ -285,9 +285,9 @@ export function LabelListModal({
                                                         setAdding(false);
                                                         setNewTitle("");
                                                     }}
-                                                    className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                                    className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                                                 >
-                                                    Cancel
+                                                    ביטול
                                                 </button>
                                                 <button
                                                     type="button"
@@ -296,7 +296,7 @@ export function LabelListModal({
                                                     className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                                                 >
                                                     {creating ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                                                    Add
+                                                    הוסף
                                                 </button>
                                             </>
                                         }
@@ -319,15 +319,15 @@ export function LabelListModal({
                             )}
                             {sorted.length >= max && (
                                 <span className="text-[11px] text-slate-400">
-                                    Maximum of {max} items reached
+                                    הגעת למקסימום של {max} פריטים
                                 </span>
                             )}
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
+                                className="ms-auto h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
                             >
-                                Done
+                                סיום
                             </button>
                         </div>
                     </motion.div>
@@ -369,7 +369,7 @@ function ItemRow({
         }
         const t = title.trim();
         if (t.length < 1) {
-            toast.error("Name is required");
+            toast.error("נדרש להזין שם");
             return;
         }
         setSaving(true);
@@ -380,8 +380,8 @@ function ItemRow({
                     color: color !== item.color ? color : undefined,
                 }),
                 {
-                    loading: "Saving…",
-                    success: "Saved",
+                    loading: "שומר…",
+                    success: "נשמר בהצלחה",
                     error: (e: AppError) => buildError(e),
                 },
             );
@@ -397,8 +397,8 @@ function ItemRow({
         setDeleting(true);
         try {
             await toast.promise(onDelete(item.id), {
-                loading: "Deleting…",
-                success: "Deleted",
+                loading: "מוחק…",
+                success: "נמחק בהצלחה",
                 error: (e: AppError) => buildError(e),
             });
         } catch {
@@ -422,7 +422,7 @@ function ItemRow({
                     <>
                         <button
                             type="button"
-                            onClick={() => confirm?.show(`Delete "${item.title}"?`, remove)}
+                            onClick={() => confirm?.show(`האם למחוק את "${item.title}"?`, remove)}
                             disabled={deleting}
                             className="h-7 px-2.5 rounded-md text-[12px] text-red-600 hover:text-white hover:bg-red-600 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                         >
@@ -431,14 +431,14 @@ function ItemRow({
                             ) : (
                                 <TrashIcon className="w-3 h-3" />
                             )}
-                            Delete
+                            מחק
                         </button>
                         <button
                             type="button"
                             onClick={() => setEditing(false)}
-                            className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                         >
-                            Cancel
+                            ביטול
                         </button>
                         <button
                             type="button"
@@ -447,7 +447,7 @@ function ItemRow({
                             className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                         >
                             {saving ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                            Save
+                            שמור
                         </button>
                     </>
                 }
@@ -464,16 +464,16 @@ function ItemRow({
                     type="button"
                     onClick={() => setEditing(true)}
                     className="size-6 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
-                    aria-label="Edit"
+                    aria-label="עריכה"
                 >
                     <PencilIcon className="w-3 h-3" />
                 </button>
                 <button
                     type="button"
-                    onClick={() => confirm?.show(`Delete "${item.title}"?`, remove)}
+                    onClick={() => confirm?.show(`האם למחוק את "${item.title}"?`, remove)}
                     disabled={deleting}
                     className="size-6 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors disabled:opacity-50"
-                    aria-label="Delete"
+                    aria-label="מחיקה"
                 >
                     {deleting ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <TrashIcon className="w-3 h-3" />}
                 </button>

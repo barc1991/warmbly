@@ -64,14 +64,14 @@ export default function TagSelector({
                 <div className="rounded-md border border-slate-200 bg-white min-h-[34px] cursor-pointer">
                     {selectedChips.length === 0 ? (
                         <div className="px-3 py-2 text-[11.5px] text-slate-400 hover:text-slate-600">
-                            Click to add tags…
+                            לחץ להוספת תגיות…
                         </div>
                     ) : (
                         <div className="px-2 py-2 flex flex-wrap gap-1">
                             {selectedChips.map((t) => (
                                 <span
                                     key={t.id}
-                                    className="inline-flex items-center gap-1 h-5 pl-1.5 pr-1 rounded text-[11px] font-medium"
+                                    className="inline-flex items-center gap-1 h-5 ps-1.5 pe-1 rounded text-[11px] font-medium"
                                     style={{
                                         backgroundColor: hexToRgba(t.color, 0.12),
                                         color: t.color,
@@ -87,7 +87,7 @@ export default function TagSelector({
                                             onRemove(t.id);
                                         }}
                                         className="opacity-70 hover:opacity-100 p-1 -m-1 md:p-0 md:m-0"
-                                        aria-label={`Remove ${t.title}`}
+                                        aria-label={`הסר את ${t.title}`}
                                     >
                                         <XIcon className="w-2.5 h-2.5" />
                                     </button>
@@ -98,7 +98,7 @@ export default function TagSelector({
                                 className="inline-flex items-center gap-1 h-5 px-1.5 rounded text-[11px] font-medium border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
                             >
                                 <PlusIcon className="w-2.5 h-2.5" />
-                                Add
+                                הוסף
                             </button>
                         </div>
                     )}
@@ -109,7 +109,7 @@ export default function TagSelector({
                     <input
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search…"
+                        placeholder="חיפוש…"
                         autoFocus
                         className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
                     />
@@ -117,7 +117,7 @@ export default function TagSelector({
                 <div className="max-h-56 overflow-y-auto py-1">
                     {filtered.length === 0 && (
                         <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                            {tags.length === 0 ? "No tags yet." : "No matches."}
+                            {tags.length === 0 ? "אין תגיות עדיין." : "לא נמצאו תוצאות."}
                         </div>
                     )}
                     {filtered.map((t) => {
@@ -149,8 +149,8 @@ export default function TagSelector({
                         }}
                         className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-500 hover:bg-slate-50 hover:text-slate-800 border-t border-slate-100 transition-colors"
                     >
-                        <SlidersHorizontalIcon className="w-3 h-3" />
-                        Manage tags
+                        <SlidersHorizontalIcon className="w-3 h-3 shrink-0" />
+                        ניהול תגיות
                     </button>
                 </div>
             </PopoverMenuContent>
