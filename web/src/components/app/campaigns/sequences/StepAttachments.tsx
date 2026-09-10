@@ -50,7 +50,7 @@ export default function StepAttachments({
                 upload.mutate(
                     { file, opts: { sequenceId } },
                     {
-                        onSuccess: () => toast.success(`Attached "${file.name}"`),
+                        onSuccess: () => toast.success(`הקובץ "${file.name}" צורף`),
                         onError: (e) => toast.error(buildError(e as unknown as AppError)),
                     },
                 );
@@ -68,11 +68,11 @@ export default function StepAttachments({
     const remove = (a: Attachment, everywhere: boolean) => {
         confirm.show(
             everywhere
-                ? `Remove "${a.filename}" from every step of this campaign?`
-                : `Remove "${a.filename}" from this step?`,
+                ? `להסיר את "${a.filename}" מכל שלבי הקמפיין?`
+                : `להסיר את "${a.filename}" משלב זה?`,
             async () => {
                 await del.mutateAsync(a.id);
-                toast.success("Attachment removed.");
+                toast.success("הקובץ המצורף הוסר.");
             },
         );
     };
@@ -98,7 +98,7 @@ export default function StepAttachments({
             <button
                 type="button"
                 onClick={() => remove(a, everywhere)}
-                title={everywhere ? "Remove from every step" : "Remove attachment"}
+                title={everywhere ? "הסר מכל השלבים" : "הסר קובץ מצורף"}
                 className="size-7 shrink-0 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
             >
                 <Trash2Icon className="w-3.5 h-3.5" />
@@ -113,12 +113,12 @@ export default function StepAttachments({
                     <PaperclipIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <div className="min-w-0">
                         <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                            Attachments
+                            קבצים מצורפים
                         </div>
                         <p className="truncate text-[11px] text-slate-400">
                             {carried.length === 0
-                                ? "Attach files to send with this step."
-                                : `${carried.length} file${carried.length === 1 ? "" : "s"} on this step · ${formatBytes(totalSize)}`}
+                                ? "צרף קבצים לשליחה עם שלב זה."
+                                : `${carried.length === 1 ? "קובץ אחד" : `${carried.length} קבצים`} בשלב זה · ${formatBytes(totalSize)}`}
                         </p>
                     </div>
                 </div>
@@ -157,19 +157,19 @@ export default function StepAttachments({
                         <UploadCloudIcon className={`w-5 h-5 ${dragging ? "text-sky-500" : "text-slate-400"}`} />
                     )}
                     <span className="text-[12.5px] font-medium text-slate-700">
-                        {upload.isPending ? "Uploading…" : "Drag files here or click to upload"}
+                        {upload.isPending ? "מעלה קבצים..." : "גרור קבצים לכאן או לחץ להעלאה"}
                     </span>
                     <span className="text-[10.5px] text-slate-400">
-                        Sent with every email from this step, and no other step.
+                        נשלח בכל הודעת דוא״ל משלב זה, ולא משום שלב אחר.
                     </span>
                 </button>
 
                 {isLoading ? (
-                    <div className="text-[11.5px] text-slate-400">Loading attachments…</div>
+                    <div className="text-[11.5px] text-slate-400">טוען קבצים מצורפים...</div>
                 ) : (
                     <>
                         {attachments.length === 0 ? (
-                            <p className="text-[11.5px] text-slate-400">No attachments on this step yet.</p>
+                            <p className="text-[11.5px] text-slate-400">אין קבצים מצורפים לשלב זה עדיין.</p>
                         ) : (
                             <div className="divide-y divide-slate-200/60 rounded-md border border-slate-200">
                                 {attachments.map((a) => row(a, false))}
@@ -180,10 +180,10 @@ export default function StepAttachments({
                             <div>
                                 <div className="mb-1.5 flex items-baseline gap-2">
                                     <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                        Sent with every step
+                                        נשלח בכל שלב
                                     </span>
                                     <span className="text-[10.5px] text-slate-400">
-                                        Attached to the campaign, not to one step
+                                        מצורף לקמפיין כולו, לא לשלב בודד
                                     </span>
                                 </div>
                                 <div className="divide-y divide-slate-200/60 rounded-md border border-slate-200 bg-slate-50/40">

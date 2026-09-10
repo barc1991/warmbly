@@ -9,7 +9,7 @@ import useCampaignSenders from "@/lib/api/hooks/app/campaigns/useCampaignSenders
 import useEmails from "@/lib/api/hooks/app/emails/useEmails";
 import { SAMPLE } from "@/lib/templateVars";
 
-export const SAMPLE_CONTACT_LABEL = `${SAMPLE.FirstName} ${SAMPLE.LastName} (sample)`;
+export const SAMPLE_CONTACT_LABEL = `${SAMPLE.FirstName} ${SAMPLE.LastName} (לדוגמה)`;
 
 export function contactLabel(c: Contact): string {
     const name = `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim();

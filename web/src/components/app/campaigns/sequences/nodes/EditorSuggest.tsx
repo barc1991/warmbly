@@ -41,6 +41,14 @@ const GROUP_ICON: Record<Group, typeof BracesIcon> = {
     Functions: FunctionSquareIcon,
 };
 
+const GROUP_LABELS: Record<Group, string> = {
+    Fields: "שדות",
+    Links: "קישורים",
+    Forms: "טפסים",
+    Logic: "לוגיקה",
+    Functions: "פונקציות",
+};
+
 // The fixed Logic + Functions helpers. Function snippets carry a representative
 // field the user can edit; `default` stays a chip because the variable chip
 // already models a fallback.
@@ -48,31 +56,31 @@ const HELPERS: Item[] = [
     {
         id: "if",
         group: "Logic",
-        label: "If / else condition",
+        label: "תנאי אם / אחרת (if / else)",
         hint: "{{if}}",
-        search: "if else condition when show only",
+        search: "if else condition when show only תנאי אם אחרת",
         insert: { type: "conditional" },
     },
     {
         id: "default",
         group: "Functions",
-        label: "Fallback if empty",
+        label: "ברירת מחדל אם ריק",
         hint: '| default',
-        search: "default fallback empty missing",
-        insert: { type: "chip", token: '{{.FirstName | default "there"}}' },
+        search: "default fallback empty missing ברירת מחדל ריק",
+        insert: { type: "chip", token: '{{.FirstName | default "שלום"}}' },
     },
     {
         id: "title",
         group: "Functions",
-        label: "Title case",
+        label: "אותיות גדולות בראשי תיבות (Title case)",
         hint: "| title",
-        search: "title case capitalize proper",
+        search: "title case capitalize proper אותיות גדולות",
         insert: { type: "text", text: "{{.FirstName | title}}" },
     },
     {
         id: "upper",
         group: "Functions",
-        label: "Uppercase",
+        label: "אותיות גדולות (Uppercase)",
         hint: "| upper",
         search: "upper uppercase caps",
         insert: { type: "text", text: "{{.Company | upper}}" },
@@ -80,7 +88,7 @@ const HELPERS: Item[] = [
     {
         id: "lower",
         group: "Functions",
-        label: "Lowercase",
+        label: "אותיות קטנות (Lowercase)",
         hint: "| lower",
         search: "lower lowercase",
         insert: { type: "text", text: "{{.Email | lower}}" },
@@ -88,9 +96,9 @@ const HELPERS: Item[] = [
     {
         id: "trim",
         group: "Functions",
-        label: "Trim spaces",
+        label: "הסרת רווחים (Trim)",
         hint: "| trim",
-        search: "trim whitespace spaces clean",
+        search: "trim whitespace spaces clean רווחים",
         insert: { type: "text", text: "{{.Company | trim}}" },
     },
 ];
@@ -133,8 +141,8 @@ export default function EditorSuggest({ editor, links = [] }: { editor: Editor; 
                 id: `form:${f.public_id}`,
                 group: "Forms" as const,
                 label: f.name,
-                hint: "personalized link",
-                search: `form link ${f.name}`.toLowerCase(),
+                hint: "קישור אישי",
+                search: `form link טופס קישור ${f.name}`.toLowerCase(),
                 insert: { type: "formLink" as const, publicId: f.public_id },
             }));
         const linkItems: Item[] = LINK_VARS.filter((v) => links.includes(v.token)).map((v) => ({
@@ -274,7 +282,7 @@ export default function EditorSuggest({ editor, links = [] }: { editor: Editor; 
                             <React.Fragment key={item.id}>
                                 {showHeader && (
                                     <div className="px-2.5 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                                        {item.group}
+                                        {GROUP_LABELS[item.group] ?? item.group}
                                     </div>
                                 )}
                                 <button
@@ -284,7 +292,7 @@ export default function EditorSuggest({ editor, links = [] }: { editor: Editor; 
                                         select(item);
                                     }}
                                     onMouseEnter={() => setActive(i)}
-                                    className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition-colors ${
+                                    className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-start transition-colors ${
                                         i === active ? "bg-sky-50" : "hover:bg-slate-50"
                                     }`}
                                 >

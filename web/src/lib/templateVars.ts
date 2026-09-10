@@ -15,11 +15,11 @@ export interface TemplateVar {
 }
 
 export const STANDARD_VARS: TemplateVar[] = [
-    { token: "{{.FirstName}}", key: "FirstName", label: "First name", desc: "The contact's first name", sample: "Alex" },
-    { token: "{{.LastName}}", key: "LastName", label: "Last name", desc: "The contact's last name", sample: "Rivera" },
-    { token: "{{.Email}}", key: "Email", label: "Email", desc: "The contact's email address", sample: "alex@acme.com" },
-    { token: "{{.Company}}", key: "Company", label: "Company", desc: "Where the contact works", sample: "Acme" },
-    { token: "{{.Phone}}", key: "Phone", label: "Phone", desc: "The contact's phone number", sample: "+1 555-0100" },
+    { token: "{{.FirstName}}", key: "FirstName", label: "שם פרטי", desc: "השם הפרטי של איש הקשר", sample: "אלכס" },
+    { token: "{{.LastName}}", key: "LastName", label: "שם משפחה", desc: "שם המשפחה של איש הקשר", sample: "כהן" },
+    { token: "{{.Email}}", key: "Email", label: "דוא״ל", desc: "כתובת הדוא״ל של איש הקשר", sample: "alex@acme.com" },
+    { token: "{{.Company}}", key: "Company", label: "חברה", desc: "מקום העבודה של איש הקשר", sample: "אקמי" },
+    { token: "{{.Phone}}", key: "Phone", label: "טלפון", desc: "מספר הטלפון של איש הקשר", sample: "050-1234567" },
 ];
 
 // The recipient's opt-out link. Named because the editor treats it specially:
@@ -34,8 +34,8 @@ export const LINK_VARS: TemplateVar[] = [
     {
         token: UNSUBSCRIBE_TOKEN,
         key: "UnsubscribeLink",
-        label: "Unsubscribe link",
-        desc: "This recipient's own unsubscribe link, rendered as a link labelled with your unsubscribe link text. Use it to place the opt-out in your copy instead of the footer line",
+        label: "קישור הסרה",
+        desc: "קישור ההסרה הייחודי של נמען זה. השתמש בו כדי למקם את אפשרות ההסרה בגוף ההודעה במקום בשורת השוליים",
         sample: "https://example.com/unsubscribe/preview",
     },
 ];

@@ -73,8 +73,8 @@ export default function SequenceView({
                 ...(draft.body_code !== baseline.body_code && { body_code: draft.body_code }),
             };
             await toast.promise(updateSequence.mutateAsync(data), {
-                loading: "Saving step…",
-                success: "Step saved.",
+                loading: "שומר שלב...",
+                success: "השלב נשמר.",
                 error: (err: AppError) => buildError(err),
             });
         } finally {
@@ -92,12 +92,12 @@ export default function SequenceView({
                 {!embedded && (
                     <div className="min-w-0">
                         <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                            Step {index + 1}
+                            שלב {index + 1}
                         </div>
-                        <p className="mt-0.5 truncate text-[11px] text-slate-400">Compose the email this step sends.</p>
+                        <p className="mt-0.5 truncate text-[11px] text-slate-400">נסח את הודעת הדוא״ל ששלב זה שולח.</p>
                     </div>
                 )}
-                <div className="flex flex-wrap shrink-0 items-center gap-2 sm:ml-auto">
+                <div className="flex flex-wrap shrink-0 items-center gap-2 sm:ms-auto">
                     {headerExtra}
                     <button
                         type="button"
@@ -105,7 +105,7 @@ export default function SequenceView({
                         disabled={!savable || load}
                         className="h-7 px-2.5 rounded-md border border-slate-200 bg-white text-[12px] font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:opacity-40"
                     >
-                        Reset
+                        איפוס
                     </button>
                     <button
                         type="button"
@@ -114,16 +114,16 @@ export default function SequenceView({
                         className="h-7 px-3 rounded-md bg-sky-600 text-[12px] font-medium text-white transition-colors hover:bg-sky-700 inline-flex items-center gap-1.5 disabled:opacity-40"
                     >
                         {load && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                        Save changes
+                        שמור שינויים
                     </button>
                 </div>
             </div>
 
             <div className="space-y-4 p-3">
                 <div>
-                    <Label>Step name</Label>
-                    <TextInput value={draft.name} onChange={(v) => patch({ name: v })} placeholder={`Step ${index + 1}`} />
-                    <p className="mt-1.5 text-[10.5px] text-slate-400">Internal label only — recipients never see it.</p>
+                    <Label>שם השלב</Label>
+                    <TextInput value={draft.name} onChange={(v) => patch({ name: v })} placeholder={`שלב ${index + 1}`} />
+                    <p className="mt-1.5 text-[10.5px] text-slate-400">תווית פנימית בלבד (הנמענים אינם רואים זאת).</p>
                 </div>
 
                 <EmailContentEditor
@@ -144,8 +144,7 @@ export default function SequenceView({
                     <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2.5">
                         <GitBranchIcon className="mt-0.5 w-3.5 h-3.5 shrink-0 text-slate-400" />
                         <p className="text-[11px] leading-relaxed text-slate-500">
-                            Follow-ups thread on the previous step&apos;s subject. Change this subject and the follow-up
-                            starts a new thread instead of replying in the existing one.
+                            הודעות המשך משורשרות לפי נושא השלב הקודם. שינוי נושא זה יפתח שרשור חדש במקום להשיב בקיים.
                         </p>
                     </div>
                 )}

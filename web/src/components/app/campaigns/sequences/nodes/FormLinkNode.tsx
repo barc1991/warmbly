@@ -130,7 +130,7 @@ function FormLinkChip({ node, updateAttributes, deleteNode, selected }: NodeView
                 transition={{ type: "spring", stiffness: 640, damping: 30 }}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setOpen((o) => !o)}
-                title={ok ? token : "Form not found or unpublished"}
+                title={ok ? token : "טופס לא נמצא או שטרם פורסם"}
                 style={ok ? undefined : WARN_STYLE}
                 className={`tpl-var ${selected || open ? "tpl-var-active" : ""}`}
             >
@@ -219,13 +219,13 @@ function FormLinkChipEditor({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1 }}
-            className="z-[60] w-64 overflow-hidden rounded-lg border border-slate-200 bg-white p-2 text-left shadow-[0_10px_30px_-10px_rgba(15,23,42,0.25)]"
+            className="z-[60] w-64 overflow-hidden rounded-lg border border-slate-200 bg-white p-2 text-start shadow-[0_10px_30px_-10px_rgba(15,23,42,0.25)]"
         >
             <div className="px-0.5 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                Form
+                טופס
             </div>
             {published.length === 0 ? (
-                <div className="px-2 py-1.5 text-[12px] text-slate-500">No published forms yet.</div>
+                <div className="px-2 py-1.5 text-[12px] text-slate-500">אין טפסים מפורסמים עדיין.</div>
             ) : (
                 <div className="max-h-44 space-y-0.5 overflow-y-auto">
                     {published.map((f) => {
@@ -236,7 +236,7 @@ function FormLinkChipEditor({
                                 type="button"
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => onChange(f.public_id)}
-                                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-[12px] transition-colors ${
+                                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-start text-[12px] transition-colors ${
                                     active ? "bg-sky-50 text-sky-700" : "text-slate-700 hover:bg-slate-100"
                                 }`}
                             >
@@ -256,7 +256,7 @@ function FormLinkChipEditor({
                 onClick={onRemove}
                 className="mt-1.5 flex w-full items-center gap-1.5 rounded px-2 py-1 text-[12px] text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
             >
-                <XIcon className="h-3 w-3" /> Remove
+                <XIcon className="h-3 w-3" /> הסר
             </button>
         </motion.div>
     );

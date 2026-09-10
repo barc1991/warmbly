@@ -246,20 +246,20 @@ function VariableChipEditor({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1 }}
-            className="z-[60] w-64 overflow-hidden rounded-lg border border-slate-200 bg-white p-2 text-left shadow-[0_10px_30px_-10px_rgba(15,23,42,0.25)]"
+            className="z-[60] w-64 overflow-hidden rounded-lg border border-slate-200 bg-white p-2 text-start shadow-[0_10px_30px_-10px_rgba(15,23,42,0.25)]"
         >
             <div className="flex items-center justify-between px-0.5 pb-1">
                 <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                    {showRaw ? "Raw token" : "Field"}
+                    {showRaw ? "טוקן גולמי" : "שדה"}
                 </span>
                 <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setShowRaw((v) => !v)}
                     className="rounded px-1 font-mono text-[10px] text-slate-400 transition-colors hover:text-sky-600"
-                    title={showRaw ? "Use the field picker" : "Edit the raw token freely"}
+                    title={showRaw ? "השתמש בבורר השדות" : "ערוך טוקן גולמי בחופשיות"}
                 >
-                    {showRaw ? "field picker" : "{ } edit raw"}
+                    {showRaw ? "בורר שדות" : "{ } עריכה חופשית"}
                 </button>
             </div>
             {showRaw ? (
@@ -278,14 +278,14 @@ function VariableChipEditor({
                         className="w-full resize-y rounded-md border border-slate-200 px-2 py-1.5 font-mono text-[11.5px] text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                     />
                     <div className="mt-1 flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400">Any {"{{…}}"} expression</span>
+                        <span className="text-[10px] text-slate-400">כל ביטוי {"{{…}}"}</span>
                         <button
                             type="button"
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => onRaw(raw)}
                             className="h-7 rounded-md bg-slate-900 px-2.5 text-[11.5px] font-medium text-white transition-colors hover:bg-slate-800"
                         >
-                            Apply
+                            החל
                         </button>
                     </div>
                 </div>
@@ -301,7 +301,7 @@ function VariableChipEditor({
                                     type="button"
                                     onMouseDown={(e) => e.preventDefault()}
                                     onClick={() => onChange(buildToken(o.key, fb))}
-                                    className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-left text-[12px] transition-colors ${
+                                    className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1 text-start text-[12px] transition-colors ${
                                         active ? "bg-sky-50 text-sky-700" : "text-slate-700 hover:bg-slate-100"
                                     }`}
                                 >
@@ -313,7 +313,7 @@ function VariableChipEditor({
                     </div>
                     <div className="mt-1.5 border-t border-slate-100 pt-1.5">
                         <div className="px-0.5 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                            Fallback if blank
+                            ברירת מחדל אם ריק
                         </div>
                         <div className="flex items-center gap-1.5">
                             <input
@@ -325,7 +325,7 @@ function VariableChipEditor({
                                         onChange(buildToken(currentKey, fb));
                                     }
                                 }}
-                                placeholder='e.g. "there"'
+                                placeholder='למשל: "שלום"'
                                 className="h-7 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 text-[12px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                             />
                             <button
@@ -334,7 +334,7 @@ function VariableChipEditor({
                                 onClick={() => onChange(buildToken(currentKey, fb))}
                                 className="h-7 shrink-0 rounded-md bg-slate-900 px-2 text-[11.5px] font-medium text-white transition-colors hover:bg-slate-800"
                             >
-                                Apply
+                                החל
                             </button>
                         </div>
                     </div>
@@ -346,7 +346,7 @@ function VariableChipEditor({
                 onClick={onRemove}
                 className="mt-1.5 flex w-full items-center gap-1.5 rounded px-2 py-1 text-[12px] text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
             >
-                <XIcon className="h-3 w-3" /> Remove
+                <XIcon className="h-3 w-3" /> הסר
             </button>
         </motion.div>
     );

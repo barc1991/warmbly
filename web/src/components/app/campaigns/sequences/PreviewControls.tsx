@@ -62,12 +62,12 @@ export function PreviewContactPicker({
                 <SelectButton
                     icon={<UserRoundIcon className="w-3.5 h-3.5" />}
                     label={value ? contactLabel(value) : SAMPLE_CONTACT_LABEL}
-                    title="Contact the preview is rendered for"
+                    title="איש הקשר שעבורו מופקת התצוגה המקדימה"
                 />
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={280} className="p-1">
                 <div className="p-1.5">
-                    <SearchInput value={query} onChange={setQuery} placeholder="Search contacts…" autoFocus />
+                    <SearchInput value={query} onChange={setQuery} placeholder="חפש אנשי קשר..." autoFocus />
                 </div>
                 <PopoverMenuItem
                     selected={value === null}
@@ -77,21 +77,21 @@ export function PreviewContactPicker({
                     {SAMPLE_CONTACT_LABEL}
                 </PopoverMenuItem>
                 <PopoverMenuSeparator />
-                <PopoverMenuLabel>{searching ? "Matches" : "Leads in this campaign"}</PopoverMenuLabel>
+                <PopoverMenuLabel>{searching ? "תוצאות חיפוש" : "לידים בקמפיין זה"}</PopoverMenuLabel>
                 <div className="max-h-56 overflow-y-auto">
                     {search.isLoading && contacts.length === 0 ? (
                         <div className="px-3 py-2 text-[11.5px] text-slate-400 inline-flex items-center gap-1.5">
-                            <Loader2Icon className="w-3 h-3 animate-spin" /> Loading…
+                            <Loader2Icon className="w-3 h-3 animate-spin" /> טוען...
                         </div>
                     ) : contacts.length === 0 ? (
                         <div className="px-3 py-2 text-[11.5px] text-slate-400">
-                            {searching ? "No contact matches that." : "No leads yet. Type to search all contacts."}
+                            {searching ? "לא נמצאו אנשי קשר מתאימים." : "אין לידים עדיין. הקלד לחיפוש בכל אנשי הקשר."}
                         </div>
                     ) : (
                         contacts.map((c) => (
                             <PopoverMenuItem key={c.id} selected={value?.id === c.id} onSelect={() => onChange(c)}>
                                 <span className="text-slate-800">{contactLabel(c)}</span>
-                                <span className="ml-1.5 text-[11px] text-slate-400">{c.email}</span>
+                                <span className="ms-1.5 text-[11px] text-slate-400">{c.email}</span>
                             </PopoverMenuItem>
                         ))
                     )}
@@ -115,21 +115,21 @@ export function PreviewMailboxPicker({
             <PopoverMenuTrigger asChild>
                 <SelectButton
                     icon={<MailIcon className="w-3.5 h-3.5" />}
-                    label={value ? value.email : "No sending mailbox"}
-                    title="Mailbox whose signature and name the preview uses"
+                    label={value ? value.email : "אין תיבת שליחה"}
+                    title="תיבת הדוא״ל שחתימתה ושמה משמשים לתצוגה המקדימה"
                 />
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={260} className="p-1">
-                <PopoverMenuLabel>Sending mailboxes</PopoverMenuLabel>
+                <PopoverMenuLabel>תיבות שליחה</PopoverMenuLabel>
                 {inboxes.length === 0 ? (
                     <div className="px-3 py-2 text-[11.5px] text-slate-400">
-                        Add a mailbox under Senders to preview its signature.
+                        הוסף תיבת דוא״ל תחת שולחים כדי להציג את החתימה שלה.
                     </div>
                 ) : (
                     inboxes.map((i) => (
                         <PopoverMenuItem key={i.id} selected={value?.id === i.id} onSelect={() => onChange(i)}>
                             <span className="text-slate-800">{i.email}</span>
-                            {i.name && <span className="ml-1.5 text-[11px] text-slate-400">{i.name}</span>}
+                            {i.name && <span className="ms-1.5 text-[11px] text-slate-400">{i.name}</span>}
                         </PopoverMenuItem>
                     ))
                 )}
@@ -159,7 +159,11 @@ export function SendTestButton({
     const send = useSendTestEmail(campaignId);
 
     const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.trim());
-    const blocked = !mailbox ? "Add a sending mailbox to the campaign first." : dirty ? "Save the step first so the test carries the latest copy." : null;
+    const blocked = !mailbox
+        ? "יש להוסיף תחילה תיבת שליחה לקמפיין."
+        : dirty
+          ? "יש לשמור את השלב תחילה כדי שהבדיקה תכלול את הנוסח העדכני."
+          : null;
 
     async function submit() {
         if (!mailbox || blocked || !valid) return;
@@ -171,8 +175,8 @@ export function SendTestButton({
                 ...(contact ? { contact_id: contact.id } : {}),
             }),
             {
-                loading: "Sending test…",
-                success: `Test sent to ${recipient.trim()} from ${mailbox.email}.`,
+                loading: "שולח הודעת בדיקה...",
+                success: `בדיקה נשלחה אל ${recipient.trim()} מתוך ${mailbox.email}.`,
                 error: (e: AppError) => buildError(e),
             },
         );
@@ -184,25 +188,24 @@ export function SendTestButton({
             <PopoverMenuTrigger asChild>
                 <button
                     type="button"
-                    title="Send this step to yourself"
+                    title="שלח שלב זה לעצמך כבדיקה"
                     className="h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white text-[12px] font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
                 >
                     <SendIcon className="w-3.5 h-3.5" />
-                    Send test
+                    שליחת בדיקה
                 </button>
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={300} className="p-2.5">
-                <Label>Send to</Label>
+                <Label>שלח אל</Label>
                 <TextInput value={recipient} onChange={setRecipient} placeholder="you@company.com" />
                 <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-                    Rendered for <span className="text-slate-700">{contact ? contactLabel(contact) : SAMPLE_CONTACT_LABEL}</span>
+                    נוצר עבור <span className="text-slate-700">{contact ? contactLabel(contact) : SAMPLE_CONTACT_LABEL}</span>
                     {mailbox && (
                         <>
-                            , sent from <span className="text-slate-700">{mailbox.email}</span>
+                            , נשלח מ-<span className="text-slate-700">{mailbox.email}</span>
                         </>
                     )}
-                    , with the campaign&apos;s attachments, the mailbox signature and the opt-out footer. Opens and clicks on
-                    it are not tracked.
+                    , יחד עם קבצי הקמפיין המצורפים, חתימת התיבה והערת שוליים להסרה. פתיחות ולחיצות על הודעה זו אינן נספרות במעקב.
                 </p>
                 {blocked && <p className="mt-1.5 text-[11px] text-amber-600">{blocked}</p>}
                 <div className="mt-2.5 flex justify-end">
@@ -213,7 +216,7 @@ export function SendTestButton({
                         className="h-7 px-3 rounded-md bg-sky-600 text-[12px] font-medium text-white hover:bg-sky-700 inline-flex items-center gap-1.5 disabled:opacity-50"
                     >
                         {send.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <SendIcon className="w-3.5 h-3.5" />}
-                        Send
+                        שלח
                     </button>
                 </div>
             </PopoverMenuContent>

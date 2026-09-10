@@ -136,14 +136,14 @@ function clip(s: string, n: number): string {
 function condLabel(expr: string): string {
     const e = expr.trim();
     let m = e.match(/^\.([A-Za-z0-9_ -]+)$/);
-    if (m) return `If ${m[1]} is set`;
+    if (m) return `אם ${m[1]} קיים`;
     m = e.match(/^not\s+\.([A-Za-z0-9_ -]+)$/);
-    if (m) return `If ${m[1]} is empty`;
+    if (m) return `אם ${m[1]} ריק`;
     m = e.match(/^eq\s+\.([A-Za-z0-9_ -]+)\s+"([^"]*)"$/);
-    if (m) return `If ${m[1]} = ${m[2]}`;
+    if (m) return `אם ${m[1]} = ${m[2]}`;
     m = e.match(/^ne\s+\.([A-Za-z0-9_ -]+)\s+"([^"]*)"$/);
-    if (m) return `If ${m[1]} ≠ ${m[2]}`;
-    return "Condition";
+    if (m) return `אם ${m[1]} ≠ ${m[2]}`;
+    return "תנאי";
 }
 
 // Chip label shows the condition AND a short preview of each branch, so the
@@ -153,10 +153,10 @@ function summarize(a: ConditionalAttrs): string {
     const els = a.elseText.trim();
     // A brand-new, unconfigured condition reads clearly as a call to action rather
     // than a bare "If Company is set" with no visible effect.
-    if (!then && !els) return "Set up condition";
+    if (!then && !els) return "הגדר תנאי";
     let s = condLabel(a.expr);
-    if (then) s += ` → ${clip(then, 18)}`;
-    if (els) s += ` / else ${clip(els, 14)}`;
+    if (then) s += ` ← ${clip(then, 18)}`;
+    if (els) s += ` / אחרת ${clip(els, 14)}`;
     return s;
 }
 
@@ -265,11 +265,11 @@ function partsToExpr(field: string, op: Op, value: string, raw: string): string 
 }
 
 const OPS: { value: Op; label: string }[] = [
-    { value: "set", label: "is set" },
-    { value: "empty", label: "is empty" },
-    { value: "eq", label: "equals" },
-    { value: "ne", label: "does not equal" },
-    { value: "raw", label: "advanced…" },
+    { value: "set", label: "קיים" },
+    { value: "empty", label: "ריק" },
+    { value: "eq", label: "שווה ל-" },
+    { value: "ne", label: "אינו שווה ל-" },
+    { value: "raw", label: "מתקדם..." },
 ];
 
 function ConditionalBuilder({
@@ -361,28 +361,28 @@ function ConditionalBuilder({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.1 }}
-            className="z-[60] w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-[0_16px_40px_-14px_rgba(15,23,42,0.28)]"
+            className="z-[60] w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white text-start shadow-[0_16px_40px_-14px_rgba(15,23,42,0.28)]"
         >
             <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
                 <span className="flex size-6 items-center justify-center rounded-md bg-slate-100 text-slate-600">
                     <GitBranchIcon className="h-3.5 w-3.5" />
                 </span>
-                <span className="flex-1 text-[12.5px] font-medium text-slate-800">Condition</span>
+                <span className="flex-1 text-[12.5px] font-medium text-slate-800">תנאי</span>
                 <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => (rawMode ? setRawMode(false) : enterRaw())}
                     className="rounded px-1.5 py-0.5 font-mono text-[10px] text-slate-400 transition-colors hover:text-sky-600"
-                    title={rawMode ? "Back to the builder" : "Edit the raw template freely"}
+                    title={rawMode ? "חזרה לבונה התנאים" : "עריכת תבנית גולמית בחופשיות"}
                 >
-                    {rawMode ? "builder" : "{ } raw"}
+                    {rawMode ? "בונה תנאים" : "{ } גולמי"}
                 </button>
                 <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={onClose}
                     className="flex size-6 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                    title="Done"
+                    title="סיום"
                 >
                     <XIcon className="h-3.5 w-3.5" />
                 </button>
@@ -392,7 +392,7 @@ function ConditionalBuilder({
                 {rawMode ? (
                     <div>
                         <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
-                            Raw template
+                            תבנית גולמית
                         </div>
                         <textarea
                             value={rawFull}
@@ -402,7 +402,7 @@ function ConditionalBuilder({
                             className="mt-1 w-full resize-y rounded-md border border-slate-200 px-2 py-1.5 font-mono text-[11.5px] leading-relaxed text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                         />
                         <p className="mt-1 text-[10px] leading-snug text-slate-400">
-                            The full {"{{if …}}…{{end}}"} construct. Any valid Go-template conditional works; press Apply.
+                            מבנה ה-{"{{if …}}…{{end}}"} המלא. כל תנאי Go-template תקין נתמך; לחץ על החל.
                         </p>
                         <button
                             type="button"
@@ -410,14 +410,14 @@ function ConditionalBuilder({
                             onClick={() => onRaw(rawFull)}
                             className="mt-1.5 h-7 rounded-md bg-slate-900 px-2.5 text-[11.5px] font-medium text-white transition-colors hover:bg-slate-800"
                         >
-                            Apply raw
+                            החל גולמי
                         </button>
                     </div>
                 ) : (
                 <>
                 {/* Condition */}
                 <div className="space-y-1.5">
-                    <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Show when</div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">הצג כאשר</div>
                     {op !== "raw" ? (
                         <div className="flex items-center gap-1.5">
                             <Select value={field} onChange={setField} options={fields.map((f) => ({ value: f, label: f }))} />
@@ -447,9 +447,9 @@ function ConditionalBuilder({
                                 type="button"
                                 onClick={() => setOp("set")}
                                 className="text-[11px] text-slate-400 hover:text-slate-600"
-                                title="Back to simple"
+                                title="חזרה לתצוגה פשוטה"
                             >
-                                simple
+                                פשוט
                             </button>
                         </div>
                     )}
@@ -457,7 +457,7 @@ function ConditionalBuilder({
                         <input
                             value={value}
                             onChange={(e) => setValue(e.target.value)}
-                            placeholder="value to match"
+                            placeholder="ערך להתאמה"
                             className="h-7 w-full rounded-md border border-slate-200 px-2 text-[12px] text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                         />
                     )}
@@ -465,12 +465,12 @@ function ConditionalBuilder({
 
                 {/* Then */}
                 <div className="space-y-1">
-                    <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Then show</div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">אז הצג</div>
                     <textarea
                         value={thenText}
                         onChange={(e) => setThenText(e.target.value)}
                         rows={2}
-                        placeholder="Text shown when the condition is true"
+                        placeholder="טקסט שיוצג כאשר התנאי מתקיים"
                         className="w-full resize-y rounded-md border border-slate-200 px-2 py-1.5 text-[12.5px] leading-relaxed text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                     />
                     <VarRow fields={fields} onPick={insertVarInto(setThenText)} />
@@ -480,7 +480,7 @@ function ConditionalBuilder({
                 {showElse ? (
                     <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                            <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Otherwise</div>
+                            <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">אחרת</div>
                             <button
                                 type="button"
                                 onClick={() => {
@@ -489,14 +489,14 @@ function ConditionalBuilder({
                                 }}
                                 className="text-[10.5px] text-slate-400 hover:text-rose-600"
                             >
-                                remove
+                                הסר
                             </button>
                         </div>
                         <textarea
                             value={elseText}
                             onChange={(e) => setElseText(e.target.value)}
                             rows={2}
-                            placeholder="Text shown otherwise"
+                            placeholder="טקסט שיוצג במקרה אחר"
                             className="w-full resize-y rounded-md border border-slate-200 px-2 py-1.5 text-[12.5px] leading-relaxed text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                         />
                         <VarRow fields={fields} onPick={insertVarInto(setElseText)} />
@@ -507,7 +507,7 @@ function ConditionalBuilder({
                         onClick={() => setShowElse(true)}
                         className="inline-flex items-center gap-1 text-[11.5px] text-slate-500 transition-colors hover:text-slate-800"
                     >
-                        <PlusIcon className="h-3 w-3" /> Add an otherwise
+                        <PlusIcon className="h-3 w-3" /> הוסף תנאי אחרת
                     </button>
                 )}
                 </>
@@ -521,7 +521,7 @@ function ConditionalBuilder({
                     onClick={onRemove}
                     className="inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-[11.5px] text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
                 >
-                    <XIcon className="h-3 w-3" /> Remove
+                    <XIcon className="h-3 w-3" /> הסר
                 </button>
                 <button
                     type="button"
@@ -529,7 +529,7 @@ function ConditionalBuilder({
                     onClick={() => (rawMode ? onRaw(rawFull) : onClose())}
                     className="rounded-md bg-slate-900 px-2.5 py-1 text-[11.5px] font-medium text-white transition-colors hover:bg-slate-800"
                 >
-                    Done
+                    סיום
                 </button>
             </div>
         </motion.div>
@@ -545,7 +545,7 @@ function VarRow({ fields, onPick }: { fields: string[]; onPick: (token: string) 
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => onPick(buildToken(f))}
-                    title={`Insert ${buildToken(f)}`}
+                    title={`הוסף ${buildToken(f)}`}
                     className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
                 >
                     {f}
@@ -570,7 +570,7 @@ function Select<T extends string>({
             <select
                 value={value}
                 onChange={(e) => onChange(e.target.value as T)}
-                className="h-7 w-full appearance-none rounded-md border border-slate-200 bg-white pl-2 pr-6 text-[12px] text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                className="h-7 w-full appearance-none rounded-md border border-slate-200 bg-white ps-2 pe-6 text-[12px] text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
             >
                 {options.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -578,7 +578,7 @@ function Select<T extends string>({
                     </option>
                 ))}
             </select>
-            <ChevronDownIcon className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
+            <ChevronDownIcon className="pointer-events-none absolute end-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
         </div>
     );
 }

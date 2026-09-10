@@ -301,7 +301,7 @@ function AIVariableConfigBody({
 
                     {/* tone — quiet chips, all visible */}
                     <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="mr-1 text-[11px] text-slate-500">{isHe ? "טון" : "Tone"}</span>
+                        <span className="me-1 text-[11px] text-slate-500">{isHe ? "טון" : "Tone"}</span>
                         {getWriteTones(isHe).map((t) => {
                             const active = (draft.tone || "") === t.value;
                             return (
@@ -358,7 +358,7 @@ function AIVariableConfigBody({
                     {/* cost — honest: it's metered by usage, not a flat number */}
                     <p className="text-[11px] leading-snug text-slate-400">
                         {isHe
-                            ? `חיוב לפי שימוש — כמות האסימונים שכל מקטע צורך${draft.web_search ? ", בתוספת החיפוש באינטרנט" : ""}. בצע תצוגה מקדימה כדי לראות דוגמה חיה.`
+                            ? `חיוב לפי שימוש: כמות האסימונים שכל מקטע צורך${draft.web_search ? ", בתוספת החיפוש באינטרנט" : ""}. בצע תצוגה מקדימה כדי לראות דוגמה חיה.`
                             : `Billed by usage — the tokens each snippet uses${draft.web_search ? ", plus the web search" : ""}. Preview to see a real example.`}
                     </p>
                 </div>

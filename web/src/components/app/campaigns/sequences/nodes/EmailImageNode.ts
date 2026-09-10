@@ -16,10 +16,10 @@ export type ImageAlign = "left" | "center" | "right";
 export const EMAIL_BODY_WIDTH = 600;
 
 export const IMAGE_SIZE_PRESETS: { label: string; title: string; width: number | null }[] = [
-    { label: "S", title: "Quarter width", width: Math.round(EMAIL_BODY_WIDTH * 0.25) },
-    { label: "M", title: "Half width", width: Math.round(EMAIL_BODY_WIDTH * 0.5) },
-    { label: "L", title: "Full width", width: EMAIL_BODY_WIDTH },
-    { label: "Auto", title: "The image's own size", width: null },
+    { label: "S", title: "רוחב רבע", width: Math.round(EMAIL_BODY_WIDTH * 0.25) },
+    { label: "M", title: "חצי רוחב", width: Math.round(EMAIL_BODY_WIDTH * 0.5) },
+    { label: "L", title: "רוחב מלא", width: EMAIL_BODY_WIDTH },
+    { label: "אוטומטי", title: "גודל מקורי של התמונה", width: null },
 ];
 
 function readWidth(el: HTMLElement): number | null {

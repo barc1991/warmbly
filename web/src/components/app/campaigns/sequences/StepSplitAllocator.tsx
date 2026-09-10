@@ -122,8 +122,8 @@ export default function StepSplitAllocator({
     return (
         <div className="border-b border-slate-200">
             <div className="flex items-center gap-2 px-2 py-2">
-                {/* The split bar: one segment per active arm, draggable dividers. */}
-                <div ref={barRef} className="relative h-8 flex-1 min-w-0 select-none rounded-md overflow-hidden ring-1 ring-inset ring-slate-200 flex">
+                {/* The split bar: one segment per active arm, draggable dividers. Set dir="ltr" so absolute handle coordinates match segment order. */}
+                <div ref={barRef} dir="ltr" className="relative h-8 flex-1 min-w-0 select-none rounded-md overflow-hidden ring-1 ring-inset ring-slate-200 flex">
                     {active.map((a) => {
                         const p = pct[a.key] ?? 0;
                         return (
@@ -135,7 +135,7 @@ export default function StepSplitAllocator({
                                 className={`${colorOf(colorIndex.get(a.key) ?? 0)} h-full min-w-0 flex items-center justify-center text-white transition-[width] duration-75 ${
                                     selectedKey === a.key ? "ring-2 ring-inset ring-white/70" : "hover:brightness-110"
                                 }`}
-                                title={`${a.name} — ${p}%`}
+                                title={`${a.name} (${p}%)`}
                             >
                                 {p >= 10 && (
                                     <span className="px-1 truncate text-[11px] font-medium tabular-nums">
@@ -164,20 +164,20 @@ export default function StepSplitAllocator({
                     type="button"
                     onClick={onEven}
                     disabled={active.length < 2}
-                    title="Even split"
+                    title="חלוקה שווה"
                     className="h-8 shrink-0 px-2 rounded-md text-[12px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
                 >
-                    Even
+                    חלוקה שווה
                 </button>
                 <button
                     type="button"
                     onClick={onAdd}
                     disabled={!canAdd || adding}
-                    title="Add an A/B variant"
+                    title="הוסף גרסת A/B"
                     className="h-8 shrink-0 px-2 inline-flex items-center gap-1 rounded-md bg-sky-600 text-[12px] font-medium text-white hover:bg-sky-700 disabled:opacity-50"
                 >
                     {adding ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                    Variant
+                    גרסה
                 </button>
             </div>
 
@@ -185,7 +185,7 @@ export default function StepSplitAllocator({
             {paused.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2 text-[11px] text-slate-400">
                     <PauseIcon className="w-3 h-3" />
-                    <span>Paused</span>
+                    <span>מושהה:</span>
                     {paused.map((a) => (
                         <button
                             key={a.key}

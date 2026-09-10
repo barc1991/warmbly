@@ -79,7 +79,7 @@ export function ImageMenu({ editor }: { editor: Editor }) {
         // https only: the dashboard is served over TLS, so a http:// image is
         // blocked as mixed content in the preview the author is looking at.
         if (!/^https:\/\//i.test(u)) {
-            toast.error("Enter a full https:// image address.");
+            toast.error("הזן כתובת תמונה מלאה המתחילה ב-https://.");
             return;
         }
         insertImage(editor, { url: u });
@@ -89,10 +89,10 @@ export function ImageMenu({ editor }: { editor: Editor }) {
 
     const remove = (img: EmailImage) => {
         confirm.show(
-            `Delete "${img.filename}" from the library? Emails already sent with it lose the image.`,
+            `האם למחוק את "${img.filename}" מהספרייה? הודעות דוא״ל שכבר נשלחו יאבדו את התמונה.`,
             async () => {
                 await del.mutateAsync(img.id);
-                toast.success("Image deleted.");
+                toast.success("התמונה נמחקה.");
             },
         );
     };
@@ -104,7 +104,7 @@ export function ImageMenu({ editor }: { editor: Editor }) {
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setOpen((o) => !o)}
-                title="Insert an image"
+                title="הוספת תמונה"
                 aria-pressed={open}
                 className={`size-7 inline-flex items-center justify-center rounded transition-colors ${
                     open ? "bg-sky-50 text-sky-700" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
@@ -124,13 +124,12 @@ export function ImageMenu({ editor }: { editor: Editor }) {
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.12 }}
-                                className="z-[60] w-[340px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]"
+                                className="z-[60] w-[340px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] text-start"
                             >
                                 <div className="border-b border-slate-100 px-3 py-2">
-                                    <p className="text-[12px] font-medium text-slate-800">Insert an image</p>
+                                    <p className="text-[12px] font-medium text-slate-800">הוספת תמונה</p>
                                     <p className="mt-0.5 text-[10.5px] text-slate-400">
-                                        Cold email lands better with few images. One signature logo or product shot is
-                                        plenty.
+                                        דוא״ל קר מגיע טוב יותר לתיבת הדואר הנכנס עם מעט תמונות. לוגו חתימה אחד או צילום מוצר מספיקים בהחלט.
                                     </p>
                                 </div>
 
@@ -162,9 +161,9 @@ export function ImageMenu({ editor }: { editor: Editor }) {
                                             <UploadCloudIcon className="w-4 h-4 text-slate-400" />
                                         )}
                                         <span className="text-[11.5px] text-slate-600">
-                                            {isUploading ? "Uploading…" : "Drop an image, or click to choose"}
+                                            {isUploading ? "מעלה…" : "גרור תמונה לכאן, או לחץ לבחירה"}
                                         </span>
-                                        <span className="text-[10px] text-slate-400">PNG, JPG, GIF or WebP · up to 5 MB</span>
+                                        <span className="text-[10px] text-slate-400">PNG, JPG, GIF או WebP · עד 5 MB</span>
                                     </button>
                                     <input
                                         ref={fileRef}
@@ -180,7 +179,7 @@ export function ImageMenu({ editor }: { editor: Editor }) {
 
                                 <div className="px-2 pb-2">
                                     <div className="px-1 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                                        By address
+                                        לפי כתובת URL
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         <input
@@ -202,20 +201,20 @@ export function ImageMenu({ editor }: { editor: Editor }) {
                                             disabled={!url.trim()}
                                             className="h-7 shrink-0 rounded-md bg-sky-600 px-2.5 text-[11.5px] font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
                                         >
-                                            Insert
+                                            הוספה
                                         </button>
                                     </div>
                                 </div>
 
                                 <div className="px-2 pb-2">
                                     <div className="px-1 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                                        Workspace library
+                                        ספריית מרחב עבודה
                                     </div>
                                     {isLoading ? (
-                                        <div className="px-1 py-2 text-[11.5px] text-slate-400">Loading…</div>
+                                        <div className="px-1 py-2 text-[11.5px] text-slate-400">טוען…</div>
                                     ) : images.length === 0 ? (
                                         <div className="px-1 py-2 text-[11.5px] text-slate-400">
-                                            Nothing uploaded yet. Images you add here are reusable across every campaign.
+                                            טרם הועלו תמונות. תמונות שתוסיף כאן ניתנות לשימוש חוזר בכל הקמפיינים.
                                         </div>
                                     ) : (
                                         <div className="grid max-h-56 grid-cols-3 gap-1.5 overflow-y-auto">
@@ -240,10 +239,10 @@ export function ImageMenu({ editor }: { editor: Editor }) {
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        title="Delete from the library"
+                                                        title="מחיקה מהספרייה"
                                                         onMouseDown={(e) => e.preventDefault()}
                                                         onClick={() => remove(img)}
-                                                        className="absolute right-0.5 top-0.5 size-5 inline-flex items-center justify-center rounded bg-white/90 text-slate-400 opacity-100 transition-colors hover:text-rose-600 md:opacity-0 md:group-hover:opacity-100"
+                                                        className="absolute end-0.5 top-0.5 size-5 inline-flex items-center justify-center rounded bg-white/90 text-slate-400 opacity-100 transition-colors hover:text-rose-600 md:opacity-0 md:group-hover:opacity-100"
                                                     >
                                                         <Trash2Icon className="w-3 h-3" />
                                                     </button>
@@ -259,7 +258,7 @@ export function ImageMenu({ editor }: { editor: Editor }) {
                                             disabled={isFetchingNextPage}
                                             className="mt-1.5 h-6 w-full rounded text-[11.5px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50"
                                         >
-                                            {isFetchingNextPage ? "Loading…" : "Show older"}
+                                            {isFetchingNextPage ? "טוען…" : "הצג ישנים יותר"}
                                         </button>
                                     )}
                                 </div>
@@ -370,20 +369,20 @@ export function ImageBubble({ editor }: { editor: Editor }) {
                 </button>
             ))}
             <span className="mx-0.5 h-4 w-px bg-slate-200" />
-            {alignBtn("left", AlignLeftIcon, "Align left")}
-            {alignBtn("center", AlignCenterIcon, "Center")}
-            {alignBtn("right", AlignRightIcon, "Align right")}
+            {alignBtn("left", AlignLeftIcon, "יישור לשמאל")}
+            {alignBtn("center", AlignCenterIcon, "מרכוז")}
+            {alignBtn("right", AlignRightIcon, "יישור לימין")}
             <span className="mx-0.5 h-4 w-px bg-slate-200" />
             <input
                 value={alt}
                 onChange={(e) => set({ alt: e.target.value })}
-                placeholder="Alt text"
-                title="Shown when the recipient's client blocks images, and read aloud by screen readers"
+                placeholder="טקסט חלופי (Alt)"
+                title="מוצג כאשר לקוח הדוא״ל של הנמען חוסם תמונות, ומוקרא על ידי קוראי מסך"
                 className="h-6 w-32 rounded border border-slate-200 px-1.5 text-[11px] text-slate-800 outline-none focus:border-sky-400"
             />
             <button
                 type="button"
-                title="Remove image"
+                title="הסרת תמונה"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => editor.chain().focus().deleteSelection().run()}
                 className="size-6 inline-flex items-center justify-center rounded text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"

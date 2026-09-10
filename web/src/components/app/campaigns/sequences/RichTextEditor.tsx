@@ -243,7 +243,7 @@ export default function RichTextEditor({
         ? (markup: string) => {
               onChange(prettyHTML(markup));
               onCodeChange(true);
-              toast.success("Kept as HTML. Use the toolbar's Visual button to edit it as rich text.");
+              toast.success("נשמר כ-HTML. השתמש בכפתור 'חזותי' בסרגל הכלים כדי לערוך כטקסט עשיר.");
           }
         : null;
 
@@ -279,8 +279,8 @@ export default function RichTextEditor({
         const dropped = unsupportedTags(html || "");
         if (dropped.length > 0) {
             confirm.show(
-                `The visual editor cannot hold ${dropped.map((t) => `<${t}>`).join(", ")}. ` +
-                    "Switching removes those tags and keeps the text inside them. Stay in HTML to keep them.",
+                `העורך החזותי אינו תומך בתגיות ${dropped.map((t) => `<${t}>`).join(", ")}. ` +
+                    "מעבר לעורך החזותי יסיר תגיות אלו וישמור את הטקסט שבתוכן. הישאר במצב HTML כדי לשמור עליהן.",
                 apply,
             );
             return;
@@ -300,7 +300,7 @@ export default function RichTextEditor({
                 <div className="relative">
                     <EditorContent editor={editor} />
                     {placeholder && editor.isEmpty && (
-                        <p className="pointer-events-none absolute left-0 top-0 select-none text-[13px] text-slate-300">
+                        <p className="pointer-events-none absolute start-0 top-0 select-none text-[13px] text-slate-300">
                             {placeholder}
                         </p>
                     )}
@@ -326,7 +326,7 @@ export default function RichTextEditor({
                 <div className="relative">
                     <EditorContent editor={editor} />
                     {placeholder && editor.isEmpty && (
-                        <p className="pointer-events-none absolute left-3 top-2.5 text-[13px] text-slate-300 select-none">
+                        <p className="pointer-events-none absolute start-3 top-2.5 text-[13px] text-slate-300 select-none">
                             {placeholder}
                         </p>
                     )}
@@ -357,11 +357,11 @@ function HTMLSource({ value, onChange }: { value: string; onChange: (v: string) 
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 spellCheck={false}
-                placeholder="<p>Hi {{.FirstName}}, …</p>"
+                placeholder="<p>שלום {{.FirstName}}, …</p>"
                 className="min-h-[260px] w-full resize-y bg-white px-3 py-2.5 font-mono text-[12px] leading-relaxed text-slate-800 outline-none"
             />
             <p className="border-t border-slate-200/70 px-3 py-1.5 text-[10.5px] text-slate-400">
-                This is what the step sends. Merge fields, conditions and spintax all still work here.
+                זה מה שהשלב שולח. שדות מיזוג, תנאים ו-spintax עובדים גם כאן.
             </p>
         </div>
     );
@@ -437,17 +437,17 @@ function Toolbar({
     if (sourceOpen && onToggleSource) {
         return (
             <div className="relative flex flex-wrap items-center gap-0.5 border-b border-slate-200/70 px-1.5 py-1">
-                <span className="px-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400">HTML source</span>
-                <div className="ml-auto">
+                <span className="px-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400">מקור HTML</span>
+                <div className="ms-auto">
                     <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={onToggleSource}
-                        title="Back to the visual editor"
+                        title="חזרה לעורך החזותי"
                         className="h-7 px-2 inline-flex items-center gap-1.5 rounded text-[11.5px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
                     >
                         <PencilLineIcon className="w-3.5 h-3.5" />
-                        Visual
+                        חזותי
                     </button>
                 </div>
             </div>
@@ -459,42 +459,42 @@ function Toolbar({
             <Btn
                 onClick={() => editor.chain().focus().undo().run()}
                 disabled={!editor.can().undo()}
-                title="Undo (Ctrl+Z)"
+                title="ביטול (Ctrl+Z)"
             >
                 <Undo2Icon className="w-3.5 h-3.5" />
             </Btn>
             <Btn
                 onClick={() => editor.chain().focus().redo().run()}
                 disabled={!editor.can().redo()}
-                title="Redo (Ctrl+Shift+Z)"
+                title="ביצוע שוב (Ctrl+Shift+Z)"
             >
                 <Redo2Icon className="w-3.5 h-3.5" />
             </Btn>
             <Divider />
-            <Btn active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold">
+            <Btn active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="מודגש">
                 <BoldIcon className="w-3.5 h-3.5" />
             </Btn>
-            <Btn active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic">
+            <Btn active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} title="נטוי">
                 <ItalicIcon className="w-3.5 h-3.5" />
             </Btn>
-            <Btn active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline">
+            <Btn active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} title="קו תחתי">
                 <UnderlineIcon className="w-3.5 h-3.5" />
             </Btn>
-            <Btn active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough">
+            <Btn active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} title="קו חוצה">
                 <StrikethroughIcon className="w-3.5 h-3.5" />
             </Btn>
             <Divider />
             <Btn
                 active={editor.isActive("heading", { level: 2 })}
                 onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                title="Heading"
+                title="כותרת"
             >
                 <Heading2Icon className="w-3.5 h-3.5" />
             </Btn>
-            <Btn active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list">
+            <Btn active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} title="רשימת תבליטים">
                 <ListIcon className="w-3.5 h-3.5" />
             </Btn>
-            <Btn active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numbered list">
+            <Btn active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="רשימה ממוספרת">
                 <ListOrderedIcon className="w-3.5 h-3.5" />
             </Btn>
             <Btn
@@ -503,7 +503,7 @@ function Toolbar({
                     setLinkUrl(editor.getAttributes("link").href ?? "");
                     setLinkOpen((o) => !o);
                 }}
-                title="Link"
+                title="קישור"
             >
                 <Link2Icon className="w-3.5 h-3.5" />
             </Btn>
@@ -523,7 +523,7 @@ function Toolbar({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => editor.chain().focus().insertAIVariable().run()}
-                title="Insert an AI block — writes unique copy for each recipient"
+                title="הוספת בלוק AI: כותב תוכן ייחודי עבור כל נמען"
                 className="h-7 px-1.5 inline-flex items-center gap-1 rounded text-sky-600 transition-colors hover:bg-sky-50 hover:text-sky-700"
             >
                 <SparklesIcon className="w-3.5 h-3.5" />
@@ -531,21 +531,21 @@ function Toolbar({
             </button>
             <Btn
                 onClick={() => editor.chain().focus().insertConditional().run()}
-                title="Insert a condition — show text only when a field matches"
+                title="הוספת תנאי: הצגת טקסט רק כאשר שדה תואם"
             >
                 <GitBranchIcon className="w-3.5 h-3.5" />
             </Btn>
             <Btn
                 onClick={() => editor.chain().focus().insertContent("{option one|option two}").run()}
-                title="Insert spintax — randomly picks one option per send"
+                title="הוספת spintax: בוחר אפשרות אחת באופן אקראי בכל שליחה"
             >
                 <ShuffleIcon className="w-3.5 h-3.5" />
             </Btn>
             <FormMenu onPick={(publicId) => editor.chain().focus().insertFormLink(publicId).run()} />
 
             {onToggleSource && (
-                <div className="ml-auto">
-                    <Btn onClick={onToggleSource} title="Edit the HTML source">
+                <div className="ms-auto">
+                    <Btn onClick={onToggleSource} title="עריכת קוד מקור HTML">
                         <CodeIcon className="w-3.5 h-3.5" />
                     </Btn>
                 </div>
@@ -558,7 +558,7 @@ function Toolbar({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute left-1.5 top-full z-20 mt-1 flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]"
+                        className="absolute start-1.5 top-full z-20 mt-1 flex items-center gap-1 rounded-md border border-slate-200 bg-white p-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]"
                     >
                         <input
                             autoFocus
@@ -580,17 +580,17 @@ function Toolbar({
                                 type="button"
                                 onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => setLinkUrl(UNSUBSCRIBE_TOKEN)}
-                                title="Point this link at the recipient's unsubscribe page"
+                                title="הפניית קישור זה לדף ביטול ההרשמה של הנמען"
                                 className="h-7 px-2 inline-flex items-center rounded text-[11.5px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                             >
-                                Unsubscribe
+                                ביטול הרשמה
                             </button>
                         )}
                         <button
                             type="button"
                             onClick={applyLink}
                             className="size-7 inline-flex items-center justify-center rounded text-emerald-600 hover:bg-emerald-50"
-                            title="Apply"
+                            title="החלה"
                         >
                             <CheckIcon className="w-3.5 h-3.5" />
                         </button>
@@ -598,7 +598,7 @@ function Toolbar({
                             type="button"
                             onClick={() => setLinkOpen(false)}
                             className="size-7 inline-flex items-center justify-center rounded text-slate-400 hover:bg-slate-100"
-                            title="Cancel"
+                            title="ביטול"
                         >
                             <XIcon className="w-3.5 h-3.5" />
                         </button>
@@ -693,7 +693,7 @@ export function VariableMenu({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setOpen((o) => !o)}
-                title="Insert a personalization variable"
+                title="הוספת שדה התאמה אישית"
                 className="h-7 px-1.5 inline-flex items-center gap-1 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             >
                 <BracesIcon className="w-3.5 h-3.5" />
@@ -711,19 +711,19 @@ export function VariableMenu({
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.12 }}
-                                className="z-[60] w-[340px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]"
+                                className="z-[60] w-[340px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] text-start"
                             >
                         <div className="px-3 py-2 border-b border-slate-100">
-                            <p className="text-[12px] font-medium text-slate-800">Personalization</p>
+                            <p className="text-[12px] font-medium text-slate-800">התאמה אישית</p>
                             <p className="text-[10.5px] text-slate-400 mt-0.5">
-                                Replaced per contact on send · click to insert · hover for what each does
+                                מוחלף לפי איש קשר בעת השליחה · לחץ להוספה · רחף להסבר
                             </p>
                         </div>
 
                         {/* Contact fields — compact 2-column grid (description on hover). */}
                         <div className="px-2 pt-2">
                             <div className="px-1 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                                Contact fields
+                                שדות איש קשר
                             </div>
                             <div className="grid grid-cols-2 gap-1">
                                 {variables.map((v) => {
@@ -738,7 +738,7 @@ export function VariableMenu({
                                                 onPick(v);
                                                 setOpen(false);
                                             }}
-                                            className="flex min-w-0 flex-col items-start rounded-md border border-slate-200 px-2 py-1 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/50"
+                                            className="flex min-w-0 flex-col items-start rounded-md border border-slate-200 px-2 py-1 text-start transition-colors hover:border-sky-300 hover:bg-sky-50/50"
                                         >
                                             <span className="w-full truncate text-[11.5px] text-slate-700">
                                                 {meta?.label ?? v}
@@ -755,7 +755,7 @@ export function VariableMenu({
                         {links.length > 0 && (
                             <div className="px-2 pt-2">
                                 <div className="px-1 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                                    Links
+                                    קישורים
                                 </div>
                                 <div className="grid grid-cols-2 gap-1">
                                     {links.map((v) => {
@@ -770,7 +770,7 @@ export function VariableMenu({
                                                     onPick(v);
                                                     setOpen(false);
                                                 }}
-                                                className="flex min-w-0 flex-col items-start rounded-md border border-slate-200 px-2 py-1 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/50"
+                                                className="flex min-w-0 flex-col items-start rounded-md border border-slate-200 px-2 py-1 text-start transition-colors hover:border-sky-300 hover:bg-sky-50/50"
                                             >
                                                 <span className="w-full truncate text-[11.5px] text-slate-700">
                                                     {meta?.label ?? v}
@@ -787,7 +787,7 @@ export function VariableMenu({
 
                         <div className="px-3 pt-2.5 pb-2">
                             <div className="px-0 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                                Custom field
+                                שדה מותאם אישית
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <input
@@ -799,7 +799,7 @@ export function VariableMenu({
                                             insertCustom();
                                         }
                                     }}
-                                    placeholder="field name (e.g. role)"
+                                    placeholder="שם שדה (למשל role)"
                                     className="h-7 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 text-[12px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                                 />
                                 <button
@@ -809,7 +809,7 @@ export function VariableMenu({
                                     disabled={!customName}
                                     className="h-7 shrink-0 rounded-md bg-sky-600 px-2.5 text-[11.5px] font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
                                 >
-                                    Insert
+                                    הוספה
                                 </button>
                             </div>
 
@@ -820,7 +820,7 @@ export function VariableMenu({
                                         <button
                                             key={k}
                                             type="button"
-                                            title={`Insert {{.${cleanFieldName(k)}}}`}
+                                            title={`הוספת {{.${cleanFieldName(k)}}}`}
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={() => {
                                                 onPick(buildToken(k));
@@ -837,14 +837,14 @@ export function VariableMenu({
 
                             {shadowsStandard ? (
                                 <p className="mt-1 text-[10px] text-amber-600">
-                                    A contact field named <code className="font-mono">{customName}</code> is shadowed by
-                                    the standard field above and always uses that value.
+                                    שדה איש קשר בשם <code className="font-mono">{customName}</code> נעקף על ידי השדה
+                                    הסטנדרטי למעלה ותמיד ישתמש בערכו.
                                 </p>
                             ) : (
                                 <p className="mt-1 text-[10px] text-slate-400">
-                                    Inserts{" "}
-                                    <code className="font-mono text-slate-500">{`{{.${customName || "name"}}}`}</code> —
-                                    exact field name; blank if the contact lacks it.
+                                    מוסיף{" "}
+                                    <code className="font-mono text-slate-500">{`{{.${customName || "name"}}}`}</code>:
+                                    שם שדה מדויק; יישאר ריק אם אינו קיים עבור איש הקשר.
                                 </p>
                             )}
                         </div>
@@ -856,7 +856,7 @@ export function VariableMenu({
                             onMouseDown={(e) => e.preventDefault()}
                             className="flex items-center justify-between gap-2 border-t border-slate-100 px-3 py-2 text-[11.5px] font-medium text-sky-600 transition-colors hover:bg-sky-50/60"
                         >
-                            Full guide &amp; examples
+                            מדריך מלא ודוגמאות
                             <span aria-hidden="true">↗</span>
                         </a>
                             </motion.div>
@@ -901,7 +901,7 @@ function FormMenu({ onPick }: { onPick: (publicId: string) => void }) {
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setOpen((o) => !o)}
-                title="Insert a form: every recipient gets their own link"
+                title="הוספת טופס: כל נמען מקבל קישור ייחודי"
                 className="h-7 px-1.5 inline-flex items-center gap-1 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             >
                 <ClipboardListIcon className="w-3.5 h-3.5" />
@@ -919,17 +919,17 @@ function FormMenu({ onPick }: { onPick: (publicId: string) => void }) {
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 transition={{ duration: 0.12 }}
-                                className="z-[60] w-72 max-w-[calc(100vw-24px)] overflow-hidden rounded-md border border-slate-200 bg-white p-2 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]"
+                                className="z-[60] w-72 max-w-[calc(100vw-24px)] overflow-hidden rounded-md border border-slate-200 bg-white p-2 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] text-start"
                             >
                                 <div className="px-1 pb-1.5">
-                                    <p className="text-[12px] font-medium text-slate-800">Insert a form</p>
+                                    <p className="text-[12px] font-medium text-slate-800">הוספת טופס</p>
                                     <p className="text-[10.5px] text-slate-400 mt-0.5">
-                                        Each recipient gets their own link, so replies land back on their contact.
+                                        כל נמען מקבל קישור ייחודי, כך שהתשובות נרשמות ישירות אצל איש הקשר.
                                     </p>
                                 </div>
                                 {published.length === 0 ? (
                                     <div className="px-2 py-2 text-[12px] text-slate-500">
-                                        No published forms yet. Publish one from the Forms page first.
+                                        אין עדיין טפסים מפורסמים. פרסם טופס מדף הטפסים תחילה.
                                     </div>
                                 ) : (
                                     <div className="max-h-56 space-y-0.5 overflow-y-auto">
@@ -942,7 +942,7 @@ function FormMenu({ onPick }: { onPick: (publicId: string) => void }) {
                                                     onPick(f.public_id);
                                                     setOpen(false);
                                                 }}
-                                                className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-[12px] text-slate-700 transition-colors hover:bg-slate-100"
+                                                className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-start text-[12px] text-slate-700 transition-colors hover:bg-slate-100"
                                             >
                                                 <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                                                 <span className="truncate">{f.name}</span>

@@ -43,12 +43,22 @@ export default function HtmlFindings({ findings }: { findings: TemplateHtmlFindi
         warning: sorted.filter((f) => f.severity === "warning").length,
     };
 
+    const SEVERITY_LABEL = {
+        error: "שגיאה",
+        warning: "אזהרה",
+        info: "מידע",
+    } as const;
+
     const summary =
         counts.error > 0
-            ? `${counts.error} thing${counts.error === 1 ? "" : "s"} clients will strip or clip`
+            ? counts.error === 1
+                ? "בעיה אחת שתוסר או תיחתך בתוכנות דוא״ל"
+                : `${counts.error} בעיות שיוסרו או ייחתכו בתוכנות דוא״ל`
             : counts.warning > 0
-              ? `${counts.warning} thing${counts.warning === 1 ? "" : "s"} to check before sending`
-              : "Email client notes";
+              ? counts.warning === 1
+                  ? "נקודה אחת לבדיקה לפני שליחה"
+                  : `${counts.warning} נקודות לבדיקה לפני שליחה`
+              : "הערות תאימות לתוכנות דוא״ל";
 
     return (
         <div className="mt-1.5 rounded-md border border-slate-200 bg-white">
@@ -56,13 +66,13 @@ export default function HtmlFindings({ findings }: { findings: TemplateHtmlFindi
                 type="button"
                 onClick={() => setOpen((o) => !o)}
                 aria-expanded={open}
-                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left"
+                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-start"
             >
                 <tone.Icon className={`w-3.5 h-3.5 shrink-0 ${tone.text}`} />
                 <span className="text-[11.5px] font-medium text-slate-700">{summary}</span>
-                <span className="ml-auto flex items-center gap-1.5">
+                <span className="ms-auto flex items-center gap-1.5">
                     <span className="text-[10.5px] text-slate-400">
-                        {sorted.length} note{sorted.length === 1 ? "" : "s"}
+                        {sorted.length === 1 ? "הערה אחת" : `${sorted.length} הערות`}
                     </span>
                     <ChevronDownIcon
                         className={`w-3.5 h-3.5 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
@@ -88,7 +98,7 @@ export default function HtmlFindings({ findings }: { findings: TemplateHtmlFindi
                                     <span
                                         className={`mt-px shrink-0 rounded border px-1.5 py-0.5 text-[9.5px] uppercase tracking-[0.1em] ${t.chip}`}
                                     >
-                                        {f.severity}
+                                        {SEVERITY_LABEL[f.severity]}
                                     </span>
                                     <span className="text-[11.5px] leading-relaxed text-slate-600">{f.message}</span>
                                 </li>

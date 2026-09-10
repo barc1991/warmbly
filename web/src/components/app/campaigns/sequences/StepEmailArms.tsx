@@ -70,14 +70,12 @@ export default function StepEmailArms({
         if (selected !== "original" && !variants.some((v) => v.id === selected)) {
             setSelected("original");
         }
-    }, [variants, selected]);
-
-    const originalWeight = controlRow ? controlRow.weight : CONTROL_WEIGHT;
+    }, [variants, selected]);    const originalWeight = controlRow ? controlRow.weight : CONTROL_WEIGHT;
     const arms: SplitArm[] = [
-        { key: "original", name: "Original", weight: originalWeight, active: true, isOriginal: true },
+        { key: "original", name: "מקור", weight: originalWeight, active: true, isOriginal: true },
         ...variants.map((v, i) => ({
             key: v.id,
-            name: v.name || `Variant ${LETTERS[i] ?? i + 1}`,
+            name: v.name || `גרסה ${LETTERS[i] ?? i + 1}`,
             weight: v.weight,
             active: v.is_active,
             isOriginal: false,
@@ -102,7 +100,7 @@ export default function StepEmailArms({
             } else if (ow !== CONTROL_WEIGHT) {
                 tasks.push(
                     create.mutateAsync({
-                        name: "Original",
+                        name: "מקור",
                         step_id: sequence.id,
                         weight: ow,
                         is_control: true,
@@ -138,7 +136,7 @@ export default function StepEmailArms({
     const deleteArm = (variantId: string) => {
         const v = variants.find((x) => x.id === variantId);
         if (!v) return;
-        confirm.show(`Delete "${v.name}"? Its content will be removed from this step.`, async () => {
+        confirm.show(`למחוק את "${v.name}"? התוכן שלה יוסר משלב זה.`, async () => {
             await del.mutateAsync(v.id);
             // Removing the last variant reverts the step to a single arm: drop the
             // control row too so the step stops A/B splitting entirely.
@@ -150,14 +148,14 @@ export default function StepEmailArms({
                 }
             }
             if (selected === v.id) setSelected("original");
-            toast.success("Variant removed.");
+            toast.success("הגרסה הוסרה.");
         });
     };
 
     const addVariant = async () => {
         try {
             const v = await create.mutateAsync({
-                name: `Variant ${LETTERS[variants.length] ?? variants.length + 1}`,
+                name: `גרסה ${LETTERS[variants.length] ?? variants.length + 1}`,
                 step_id: sequence.id,
                 weight: CONTROL_WEIGHT,
                 is_active: true,
@@ -207,7 +205,7 @@ export default function StepEmailArms({
                                 ) : (
                                     <SplitIcon className="w-3.5 h-3.5" />
                                 )}
-                                A/B test
+                                מבחן A/B
                             </button>
                         ) : undefined
                     }
@@ -264,7 +262,7 @@ function VariantEditor({
         update.mutate(
             { variantId: variant.id, input: { name, subject, body_html: bodyHtml, body_plain: htmlToPlain(bodyHtml) } },
             {
-                onSuccess: () => toast.success("Variant saved."),
+                onSuccess: () => toast.success("הגרסה נשמרה."),
                 onError: err,
             },
         );
@@ -274,20 +272,20 @@ function VariantEditor({
         <div className={`space-y-3 p-3 ${isWinner ? "bg-amber-50/30" : ""}`}>
             <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
-                    <Label>Variant name</Label>
-                    <TextInput value={name} onChange={setName} placeholder="Variant B" />
+                    <Label>שם הגרסה</Label>
+                    <TextInput value={name} onChange={setName} placeholder="גרסה B" />
                 </div>
                 <span
                     className={`mt-4 h-7 shrink-0 inline-flex items-center rounded-md px-2 text-[11px] font-medium tabular-nums ${
                         variant.is_active ? "bg-sky-50 text-sky-700" : "bg-slate-100 text-slate-400"
                     }`}
                 >
-                    {variant.is_active ? `${sharePct}% of contacts` : "Paused"}
+                    {variant.is_active ? `${sharePct}% מאנשי הקשר` : "מושהה"}
                 </span>
                 <button
                     type="button"
                     onClick={() => onTogglePause(!variant.is_active)}
-                    title={variant.is_active ? "Pause this variant" : "Resume this variant"}
+                    title={variant.is_active ? "השהה גרסה זו" : "הפעל מחדש גרסה זו"}
                     className="mt-4 size-7 shrink-0 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                 >
                     {variant.is_active ? <PauseIcon className="w-3.5 h-3.5" /> : <PlayIcon className="w-3.5 h-3.5" />}
@@ -295,7 +293,7 @@ function VariantEditor({
                 <button
                     type="button"
                     onClick={onDelete}
-                    title="Delete variant"
+                    title="מחק גרסה"
                     className="mt-4 size-7 shrink-0 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
                 >
                     <Trash2Icon className="w-3.5 h-3.5" />
@@ -306,8 +304,8 @@ function VariantEditor({
                     disabled={!dirty || update.isPending}
                     className="mt-4 h-7 shrink-0 px-3 rounded-md bg-sky-600 text-[12px] font-medium text-white hover:bg-sky-700 inline-flex items-center gap-1.5 disabled:opacity-40"
                 >
-                    {update.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                    Save
+                    {update.isPending && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
+                    שמור
                 </button>
             </div>
 
@@ -315,13 +313,13 @@ function VariantEditor({
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-slate-50 px-2.5 py-1.5 text-[11px]">
                     {isWinner && (
                         <span className="inline-flex items-center gap-1 text-amber-700 font-medium">
-                            <TrophyIcon className="w-3 h-3" /> Winner
+                            <TrophyIcon className="w-3 h-3" /> מנצח
                         </span>
                     )}
-                    <Metric label="Sent" value={stats.total_sent.toLocaleString()} />
-                    <Metric label="Open" value={`${stats.open_rate.toFixed(1)}%`} tone="text-emerald-600" />
-                    <Metric label="Reply" value={`${stats.reply_rate.toFixed(1)}%`} tone="text-sky-600" />
-                    <Metric label="Bounce" value={`${stats.bounce_rate.toFixed(1)}%`} tone="text-rose-600" />
+                    <Metric label="נשלחו" value={stats.total_sent.toLocaleString()} />
+                    <Metric label="פתיחה" value={`${stats.open_rate.toFixed(1)}%`} tone="text-emerald-600" />
+                    <Metric label="מענה" value={`${stats.reply_rate.toFixed(1)}%`} tone="text-sky-600" />
+                    <Metric label="חזרות" value={`${stats.bounce_rate.toFixed(1)}%`} tone="text-rose-600" />
                 </div>
             )}
 
@@ -330,8 +328,8 @@ function VariantEditor({
                 onSubjectChange={setSubject}
                 bodyHtml={bodyHtml}
                 onBodyChange={(html) => setBodyHtml(html)}
-                subjectPlaceholder="Leave blank to reuse the step's subject"
-                bodyPlaceholder="Leave blank to reuse the step's body"
+                subjectPlaceholder="השאר ריק כדי לעשות שימוש חוזר בנושא השלב"
+                bodyPlaceholder="השאר ריק כדי לעשות שימוש חוזר בתוכן השלב"
                 campaignId={campaignId}
                 stepId={variant.step_id ?? undefined}
             />
