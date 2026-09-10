@@ -18,7 +18,7 @@ export interface AssigneeValue {
 export default function AssigneeTeamPicker({
     value,
     onChange,
-    fallbackLabel = "Workspace owner",
+    fallbackLabel = "בעל סביבת העבודה",
     className,
 }: {
     value: AssigneeValue;
@@ -45,17 +45,17 @@ export default function AssigneeTeamPicker({
     const trigger = selectedTeam ? (
         <>
             <span className="size-2.5 shrink-0 rounded-full" style={{ background: selectedTeam.color }} />
-            <span className="flex-1 truncate text-left">{selectedTeam.name}</span>
+            <span className="flex-1 truncate text-start">{selectedTeam.name}</span>
         </>
     ) : selectedMember ? (
         <>
             <UserIcon className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-            <span className="flex-1 truncate text-left">{selectedMember.email || selectedMember.name || "Member"}</span>
+            <span className="flex-1 truncate text-start">{selectedMember.email || selectedMember.name || "חבר צוות"}</span>
         </>
     ) : (
         <>
             <UserIcon className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-            <span className="flex-1 truncate text-left text-slate-500">{fallbackLabel}</span>
+            <span className="flex-1 truncate text-start text-slate-500">{fallbackLabel}</span>
         </>
     );
 
@@ -70,12 +70,12 @@ export default function AssigneeTeamPicker({
                 <ChevronDownIcon className="w-3 h-3 shrink-0 text-slate-400" />
             </button>
             {open && (
-                <div className="absolute right-0 md:right-auto md:left-0 top-full z-30 mt-1 max-h-64 w-full min-w-[15rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
+                <div className="absolute end-0 md:end-auto md:start-0 top-full z-30 mt-1 max-h-64 w-full min-w-[15rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
                     <button
                         type="button"
                         onClick={() => pick({ userId: null, teamId: null })}
                         className={cn(
-                            "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-slate-100",
+                            "flex w-full items-center gap-2 px-2.5 py-1.5 text-start text-[12px] transition-colors hover:bg-slate-100",
                             !value.userId && !value.teamId ? "font-medium text-slate-900" : "text-slate-700",
                         )}
                     >
@@ -83,14 +83,14 @@ export default function AssigneeTeamPicker({
                     </button>
                     {teamList.length > 0 && (
                         <>
-                            <div className="px-2.5 pt-2 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Teams</div>
+                            <div className="px-2.5 pt-2 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">צוותים</div>
                             {teamList.map((t) => (
                                 <button
                                     key={t.id}
                                     type="button"
                                     onClick={() => pick({ teamId: t.id, userId: null })}
                                     className={cn(
-                                        "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-slate-100",
+                                        "flex w-full items-center gap-2 px-2.5 py-1.5 text-start text-[12px] transition-colors hover:bg-slate-100",
                                         value.teamId === t.id ? "font-medium text-slate-900" : "text-slate-700",
                                     )}
                                 >
@@ -103,19 +103,19 @@ export default function AssigneeTeamPicker({
                     )}
                     {memberList.length > 0 && (
                         <>
-                            <div className="px-2.5 pt-2 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Members</div>
+                            <div className="px-2.5 pt-2 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">חברי צוות</div>
                             {memberList.map((m) => (
                                 <button
                                     key={m.id}
                                     type="button"
                                     onClick={() => pick({ userId: m.user_id, teamId: null })}
                                     className={cn(
-                                        "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] transition-colors hover:bg-slate-100",
+                                        "flex w-full items-center gap-2 px-2.5 py-1.5 text-start text-[12px] transition-colors hover:bg-slate-100",
                                         value.userId === m.user_id ? "font-medium text-slate-900" : "text-slate-700",
                                     )}
                                 >
                                     <UserIcon className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                                    <span className="flex-1 truncate">{m.email || m.name || "Member"}</span>
+                                    <span className="flex-1 truncate">{m.email || m.name || "חבר צוות"}</span>
                                     <span className="text-[10px] capitalize text-slate-400">{m.role}</span>
                                 </button>
                             ))}

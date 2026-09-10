@@ -8,10 +8,10 @@ import { CalendarClockIcon, XIcon } from "lucide-react";
 import { NumberInput } from "@/components/ui/field";
 
 const PRESETS = [
-    { label: "Today", days: 0 },
-    { label: "Tomorrow", days: 1 },
-    { label: "3d", days: 3 },
-    { label: "1w", days: 7 },
+    { label: "היום", days: 0 },
+    { label: "מחר", days: 1 },
+    { label: "3 ימים", days: 3 },
+    { label: "שבוע", days: 7 },
 ];
 
 export default function DueInDays({
@@ -31,7 +31,7 @@ export default function DueInDays({
                 className="h-7 px-2.5 rounded-md border border-dashed border-slate-300 text-[12px] text-slate-500 hover:text-slate-900 hover:border-slate-400 inline-flex items-center gap-1.5 transition-colors"
             >
                 <CalendarClockIcon className="w-3 h-3" />
-                Set due date
+                הגדר תאריך יעד
             </button>
         );
     }
@@ -39,18 +39,18 @@ export default function DueInDays({
     return (
         <div className="flex items-center gap-2 flex-wrap">
             <div className="inline-flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-400">Due in</span>
+                <span className="text-[11px] text-slate-400">יעד בעוד</span>
                 <NumberInput
                     value={value}
                     onChange={(n) => onChange(Math.max(0, Math.round(n)))}
                     min={0}
                     className="w-[64px]"
                 />
-                <span className="text-[11px] text-slate-400">{value === 1 ? "day" : "days"}</span>
+                <span className="text-[11px] text-slate-400">{value === 1 ? "יום" : "ימים"}</span>
                 <button
                     type="button"
                     onClick={() => onChange(null)}
-                    aria-label="Clear due date"
+                    aria-label="נקה תאריך יעד"
                     className="size-5 rounded text-slate-400 hover:text-slate-700 inline-flex items-center justify-center"
                 >
                     <XIcon className="w-3 h-3" />

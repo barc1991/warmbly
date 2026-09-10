@@ -116,7 +116,7 @@ export default function TaskTypePicker({
                     className="size-2 rounded-full shrink-0"
                     style={{ backgroundColor: selected?.color ?? "#cbd5e1" }}
                 />
-                <span className="truncate flex-1 text-left">{value || "No type"}</span>
+                <span className="truncate flex-1 text-start">{value || "ללא סוג"}</span>
                 <ChevronDownIcon className="w-3 h-3 text-slate-400" />
             </button>
 
@@ -149,7 +149,7 @@ export default function TaskTypePicker({
                                         setOpen(false);
                                     }
                                 }}
-                                placeholder="Search or create…"
+                                placeholder="חיפוש או יצירה…"
                                 autoFocus
                                 className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
                             />
@@ -162,7 +162,7 @@ export default function TaskTypePicker({
                                 className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-100 transition-colors"
                             >
                                 <span className="size-2.5 rounded-full shrink-0 bg-slate-300" />
-                                <span className="truncate flex-1 text-left">No type</span>
+                                <span className="truncate flex-1 text-start">ללא סוג</span>
                                 {value === "" && (
                                     <CheckIcon className="w-3 h-3 text-sky-600 shrink-0" />
                                 )}
@@ -170,7 +170,7 @@ export default function TaskTypePicker({
 
                             {isPending ? (
                                 <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                                    Loading…
+                                    טוען…
                                 </div>
                             ) : (
                                 filtered.map((t) => (
@@ -198,7 +198,7 @@ export default function TaskTypePicker({
                                     ) : (
                                         <PlusIcon className="w-3 h-3 text-sky-600" />
                                     )}
-                                    Create "{query.trim()}"
+                                    צור "{query.trim()}"
                                 </button>
                             )}
 
@@ -206,7 +206,7 @@ export default function TaskTypePicker({
                                 filtered.length === 0 &&
                                 !query.trim() && (
                                     <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                                        No types yet. Type a name to create one.
+                                        אין סוגים עדיין. הקלד שם כדי ליצור סוג חדש.
                                     </div>
                                 )}
                         </div>
@@ -295,7 +295,7 @@ function TypeRow({
     function remove(e: React.MouseEvent) {
         e.stopPropagation();
         confirm?.show(
-            `Delete the "${type.name}" type? Existing tasks keep the label.`,
+            `למחוק את הסוג "${type.name}"? משימות קיימות ישמרו על התווית.`,
             async () => {
                 try {
                     await del.mutateAsync(type.id);
@@ -355,7 +355,7 @@ function TypeRow({
             <button
                 type="button"
                 onClick={toggleSwatches}
-                aria-label="Recolour type"
+                aria-label="שנה צבע סוג"
                 className="size-2.5 rounded-full shrink-0 ring-offset-1 hover:ring-2 hover:ring-slate-300 transition-shadow"
                 style={{ backgroundColor: type.color }}
             />
@@ -369,7 +369,7 @@ function TypeRow({
                     e.stopPropagation();
                     setRenaming(true);
                 }}
-                aria-label="Rename type"
+                aria-label="שנה שם סוג"
                 className="size-5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 inline-flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
             >
                 <PencilIcon className="w-2.5 h-2.5" />
@@ -377,7 +377,7 @@ function TypeRow({
             <button
                 type="button"
                 onClick={remove}
-                aria-label="Delete type"
+                aria-label="מחק סוג"
                 className="size-5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
             >
                 <Trash2Icon className="w-2.5 h-2.5" />
@@ -426,7 +426,7 @@ function SwatchPopover({
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.1 }}
             onClick={(e) => e.stopPropagation()}
-            className={`absolute left-1.5 z-40 rounded-md border border-slate-200 bg-white p-1.5 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] ${
+            className={`absolute start-1.5 z-40 rounded-md border border-slate-200 bg-white p-1.5 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] ${
                 above ? "bottom-full mb-1" : "top-full mt-1"
             }`}
         >

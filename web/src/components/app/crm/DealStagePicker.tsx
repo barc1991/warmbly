@@ -47,7 +47,7 @@ export default function DealStagePicker({
     if (!isPending && pipelines.length === 0) {
         return (
             <p className="rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-[11.5px] leading-relaxed text-slate-600">
-                You don't have a CRM pipeline yet. Create one under CRM, then come back to choose where deals land.
+                עדיין לא הגדרת צינור מכירות (Pipeline). צור אחד תחת CRM, ולאחר מכן חזור לכאן כדי לבחור היכן עסקאות ייווצרו.
             </p>
         );
     }
@@ -55,7 +55,7 @@ export default function DealStagePicker({
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Pipeline</p>
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">צינור מכירות</p>
                 <PipelineSelect
                     pipelines={pipelines.map((p) => ({ id: p.id, name: p.name }))}
                     value={pipelineId}
@@ -63,7 +63,7 @@ export default function DealStagePicker({
                 />
             </div>
             <div>
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Stage</p>
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">שלב</p>
                 <StageSelect
                     stages={stages}
                     value={stageId}
@@ -93,7 +93,7 @@ function PipelineSelect({
                     type="button"
                     className="h-7 w-full px-2 rounded-md border border-slate-200 hover:border-slate-300 bg-white text-[12px] text-slate-700 inline-flex items-center gap-1.5 transition-colors"
                 >
-                    <span className="truncate flex-1 text-left">{cur?.name ?? "Pick a pipeline…"}</span>
+                    <span className="truncate flex-1 text-start">{cur?.name ?? "בחר צינור מכירות…"}</span>
                     <ChevronDownIcon className="w-3 h-3 text-slate-400 shrink-0" />
                 </button>
             </PopoverMenuTrigger>
@@ -130,7 +130,7 @@ function StageSelect({
                     className="h-7 w-full px-2 rounded-md border border-slate-200 hover:border-slate-300 bg-white text-[12px] text-slate-700 inline-flex items-center gap-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 >
                     <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: cur?.color || "#cbd5e1" }} />
-                    <span className="truncate flex-1 text-left">{cur?.name ?? "Pick a stage…"}</span>
+                    <span className="truncate flex-1 text-start">{cur?.name ?? "בחר שלב…"}</span>
                     <ChevronDownIcon className="w-3 h-3 text-slate-400 shrink-0" />
                 </button>
             </PopoverMenuTrigger>
