@@ -20,6 +20,7 @@ import type { FormIdentifiedVisitor } from "@/lib/api/models/app/forms/FormStats
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
 import timeAgo from "@/lib/helper/timeAgo";
+import { isRTL } from "@/i18n/config";
 
 import { splitPages } from "./designCore";
 import { InitialsAvatar, MiniProgress, StatusPill } from "./RowBits";
@@ -330,9 +331,9 @@ export default function SubmissionsTab({ form }: { form: Form }) {
                         />
                         <motion.aside
                             key="panel"
-                            initial={{ x: "100%" }}
+                            initial={{ x: isRTL() ? "-100%" : "100%" }}
                             animate={{ x: 0 }}
-                            exit={{ x: "100%" }}
+                            exit={{ x: isRTL() ? "-100%" : "100%" }}
                             transition={{ type: "spring", damping: 32, stiffness: 320 }}
                             className="fixed end-0 top-0 bottom-0 z-50 w-[460px] max-w-[95%] bg-white shadow-xl flex flex-col"
                             onMouseDown={(e) => e.stopPropagation()}

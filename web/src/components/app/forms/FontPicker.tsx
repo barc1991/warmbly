@@ -72,7 +72,7 @@ export default function FontPicker({
             <button
                 ref={(el) => setReference(el)}
                 type="button"
-                aria-label="Font"
+                aria-label="גופן"
                 aria-expanded={open}
                 onClick={() => setOpen((o) => !o)}
                 className={`h-7 w-full px-2.5 inline-flex items-center gap-2 rounded-md border bg-white text-[12.5px] text-slate-900 transition-colors ${
@@ -82,7 +82,7 @@ export default function FontPicker({
                 <span className="truncate" style={{ fontFamily: FONT_CATALOG[current].stack }}>
                     {FONT_CATALOG[current].label}
                 </span>
-                <ChevronDownIcon className="w-3 h-3 text-slate-400 ml-auto shrink-0" />
+                <ChevronDownIcon className="w-3 h-3 text-slate-400 ms-auto shrink-0" />
             </button>
             {typeof document !== "undefined" &&
                 createPortal(
@@ -110,14 +110,14 @@ export default function FontPicker({
                                                 onChange(key);
                                                 setOpen(false);
                                             }}
-                                            className={`w-full h-9 px-2.5 rounded flex items-center gap-2 text-left transition-colors ${
+                                            className={`w-full h-9 px-2.5 rounded flex items-center gap-2 text-start transition-colors ${
                                                 active ? "bg-sky-50 text-sky-700" : "text-slate-700 hover:bg-slate-100"
                                             }`}
                                         >
                                             <span className="truncate text-[14px]" style={{ fontFamily: f.stack }}>
                                                 {f.label}
                                             </span>
-                                            {active && <CheckIcon className="w-3 h-3 ml-auto shrink-0" />}
+                                            {active && <CheckIcon className="w-3 h-3 ms-auto shrink-0" />}
                                         </button>
                                     );
                                 })}

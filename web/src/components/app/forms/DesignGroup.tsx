@@ -9,6 +9,8 @@ import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRightIcon } from "lucide-react";
 
+import { isRTL } from "@/i18n/config";
+
 export default function DesignGroup({
     title,
     /** A short summary of the current value, shown while collapsed. */
@@ -29,10 +31,10 @@ export default function DesignGroup({
                 type="button"
                 onClick={onToggle}
                 aria-expanded={open}
-                className="w-full h-10 px-4 flex items-center gap-2 text-left hover:bg-slate-50 transition-colors"
+                className="w-full h-10 px-4 flex items-center gap-2 text-start hover:bg-slate-50 transition-colors"
             >
                 <motion.span
-                    animate={{ rotate: open ? 90 : 0 }}
+                    animate={{ rotate: open ? 90 : (isRTL() ? 180 : 0) }}
                     transition={{ duration: 0.18, ease: "easeOut" }}
                     className="shrink-0 text-slate-400"
                 >
@@ -40,7 +42,7 @@ export default function DesignGroup({
                 </motion.span>
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">{title}</span>
                 {!open && hint && (
-                    <span className="ml-auto text-[11px] text-slate-400 truncate max-w-[45%]">{hint}</span>
+                    <span className="ms-auto text-[11px] text-slate-400 truncate max-w-[45%]">{hint}</span>
                 )}
             </button>
             <AnimatePresence initial={false}>

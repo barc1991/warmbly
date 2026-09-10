@@ -82,11 +82,12 @@ function ColorField({
 // form card and a button-colored dot.
 function ThemeSwatch({ preset, active, onApply }: { preset: ThemePreset; active: boolean; onApply: () => void }) {
     const r = resolveDesign(preset.patch);
+    const themeName = THEME_LABELS[preset.id] || preset.label;
     return (
         <button
             type="button"
             onClick={onApply}
-            className={`rounded-md border p-1.5 text-left transition-shadow ${
+            className={`rounded-md border p-1.5 text-start transition-shadow ${
                 active ? "border-sky-400 ring-2 ring-sky-100" : "border-slate-200 hover:border-slate-300"
             }`}
         >
@@ -99,7 +100,7 @@ function ThemeSwatch({ preset, active, onApply }: { preset: ThemePreset; active:
                     <span className="mt-1 block h-2 w-5 rounded-sm" style={{ background: r.btnBg }} />
                 </span>
             </span>
-            <span className={`mt-1 block text-[11px] ${active ? "text-sky-700 font-medium" : "text-slate-600"}`}>{preset.label}</span>
+            <span className={`mt-1 block text-[11px] ${active ? "text-sky-700 font-medium" : "text-slate-600"}`}>{themeName}</span>
         </button>
     );
 }
@@ -136,10 +137,32 @@ function LayoutOption({
     );
 }
 
+const THEME_LABELS: Record<string, string> = {
+    minimal: "מינימלי",
+    "soft-slate": "אפור רך",
+    midnight: "חצות",
+    ocean: "אוקיינוס",
+    sunset: "שקיעה",
+    paper: "נייר",
+    bold: "מודגש",
+    glass: "זכוכית",
+};
+
+const FONT_LABELS: Record<string, string> = {
+    system: "מערכת",
+    inter: "Inter",
+    manrope: "Manrope",
+    sora: "Sora",
+    "space-grotesk": "Space Grotesk",
+    fraunces: "Fraunces",
+    poppins: "Poppins",
+    roboto: "Roboto",
+};
+
 const imageCaps = {
-    logo: { bytes: 1 << 20, hint: "PNG or JPG, up to 1 MB. Shown above the form, or in the header bar." },
-    cover: { bytes: 4 << 20, hint: "PNG or JPG, up to 4 MB. Fills the side panel of the Split layout." },
-    background: { bytes: 4 << 20, hint: "PNG or JPG, up to 4 MB. Sits behind the whole page." },
+    logo: { bytes: 1 << 20, hint: "PNG או JPG, עד 1 MB. מוצג מעל הטופס, או בסרגל העליון." },
+    cover: { bytes: 4 << 20, hint: "PNG או JPG, עד 4 MB. ממלא את פאנל הצד במבנה מפוצל." },
+    background: { bytes: 4 << 20, hint: "PNG או JPG, עד 4 MB. מוצג ברקע של כל העמוד." },
 } as const;
 
 function ImageRow({
@@ -164,7 +187,7 @@ function ImageRow({
 
     async function onPick(file: File) {
         if (file.size > imageCaps[kind].bytes) {
-            toast.error(`Image too large: the ${label.toLowerCase()} limit is ${imageCaps[kind].bytes >> 20} MB`);
+            toast.error(`תמונה גדולה מדי: מגבלת ה-${label} היא ${imageCaps[kind].bytes >> 20} MB`);
             return;
         }
         try {
@@ -199,7 +222,7 @@ function ImageRow({
                     onClick={() => inputRef.current?.click()}
                     className="h-7 px-2.5 rounded-md border border-slate-200 text-[12px] text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
-                    {busy ? "Working…" : url ? "Replace" : "Upload"}
+                    {busy ? "מעבד…" : url ? "החלף" : "העלה"}
                 </button>
                 {url && !busy && (
                     <button
@@ -208,7 +231,7 @@ function ImageRow({
                         onClick={() => void onRemove()}
                         className="h-7 px-2 rounded-md text-[12px] text-slate-500 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-50"
                     >
-                        Remove
+                        הסר
                     </button>
                 )}
                 <input
@@ -265,8 +288,8 @@ export default function DesignPanel({
     const toggle = (k: GroupKey) => setOpenGroups((g) => ({ ...g, [k]: !g[k] }));
     const group = (k: GroupKey) => ({ open: openGroups[k], onToggle: () => toggle(k) });
 
-    const themeLabel = THEME_PRESETS.find((p) => p.id === design.theme)?.label ?? "Custom";
-    const fontLabel = FONT_CATALOG[design.font_family ?? "system"]?.label ?? "System";
+    const themeLabel = THEME_PRESETS.find((p) => p.id === design.theme)?.label ?? "מותאם אישית";
+    const fontLabel = FONT_CATALOG[design.font_family ?? "system"]?.label ?? "מערכת";
     const assetCount = [logoUrl, coverUrl, backgroundUrl].filter(Boolean).length;
     const [gradientOpen, setGradientOpen] = React.useState(!!design.page_background_end);
     React.useEffect(() => {
@@ -275,7 +298,7 @@ export default function DesignPanel({
 
     return (
         <div className="flex flex-col">
-            <DesignGroup title="Theme" hint={themeLabel} {...group("theme")}>
+            <DesignGroup title="ערכת נושא" hint={themeLabel} {...group("theme")}>
                 <div className="grid grid-cols-2 gap-2">
                     {THEME_PRESETS.map((p) => (
                         <ThemeSwatch
@@ -286,25 +309,25 @@ export default function DesignPanel({
                         />
                     ))}
                 </div>
-                <p className="text-[10.5px] text-slate-400">A theme sets the colors and font; your layout and content stay put.</p>
+                <p className="text-[10.5px] text-slate-400">ערכת נושא קובעת את הצבעים והגופן; הפריסה והתוכן נשארים ללא שינוי.</p>
             </DesignGroup>
 
             <DesignGroup
-                title="Layout"
-                hint={`${layout === "card" ? "Card" : layout === "wide" ? "Wide" : "Split"} · ${fontLabel}`}
+                title="פריסה"
+                hint={`${layout === "card" ? "כרטיס" : layout === "wide" ? "רחב" : "מפוצל"} · ${fontLabel}`}
                 {...group("layout")}
             >
                 <div className="flex gap-2">
-                    <LayoutOption value="card" label="Card" active={layout === "card"} onPick={(v) => onChange({ layout: v })}>
+                    <LayoutOption value="card" label="כרטיס" active={layout === "card"} onPick={(v) => onChange({ layout: v })}>
                         <span className="mx-auto mt-1.5 block h-6 w-1/2 rounded-sm bg-white shadow-sm" />
                     </LayoutOption>
-                    <LayoutOption value="wide" label="Wide" active={layout === "wide"} onPick={(v) => onChange({ layout: v })}>
+                    <LayoutOption value="wide" label="רחב" active={layout === "wide"} onPick={(v) => onChange({ layout: v })}>
                         <span className="mx-auto mt-1.5 block h-6 w-4/5 rounded-sm bg-slate-100">
                             <span className="mx-auto mt-1 block h-1 w-2/3 rounded-full bg-slate-300" />
                             <span className="mx-auto mt-0.5 block h-1 w-2/3 rounded-full bg-slate-300" />
                         </span>
                     </LayoutOption>
-                    <LayoutOption value="split" label="Split" active={layout === "split"} onPick={(v) => onChange({ layout: v })}>
+                    <LayoutOption value="split" label="מפוצל" active={layout === "split"} onPick={(v) => onChange({ layout: v })}>
                         <span className="flex h-full">
                             <span className="block w-2/5 h-full bg-slate-300" />
                             <span className="flex-1 pt-2 px-1.5">
@@ -315,39 +338,39 @@ export default function DesignPanel({
                     </LayoutOption>
                 </div>
                 <div>
-                    <Label>Flow</Label>
+                    <Label>זרימה</Label>
                     <Segmented
                         className="w-full [&>button]:flex-1 [&>button]:min-w-0"
                         value={design.mode === "focus" ? "focus" : "classic"}
                         onChange={(v) => onChange({ mode: v })}
                         options={[
-                            { value: "classic", label: "Pages" },
-                            { value: "focus", label: "One at a time" },
+                            { value: "classic", label: "עמודים" },
+                            { value: "focus", label: "אחד בכל פעם" },
                         ]}
                     />
                     <p className="text-[10.5px] text-slate-400 mt-1">
                         {design.mode === "focus"
-                            ? "Each question gets its own screen; Enter moves forward."
-                            : "Fields flow down the page; page breaks split them into steps."}
+                            ? "כל שאלה מקבלת מסך משלה; מקש Enter מעביר קדימה."
+                            : "שדות זורמים במורד העמוד; מעברי עמוד מחלקים אותם לשלבים."}
                     </p>
                 </div>
                 <div>
-                    <Label>Alignment</Label>
+                    <Label>יישור</Label>
                     <Segmented
                         className="w-full [&>button]:flex-1 [&>button]:min-w-0"
                         value={design.align === "center" ? "center" : "left"}
                         onChange={(v) => onChange({ align: v })}
                         options={[
-                            { value: "left", label: "Left" },
-                            { value: "center", label: "Centered" },
+                            { value: "left", label: "שמאל" },
+                            { value: "center", label: "מרכז" },
                         ]}
                     />
                 </div>
-                <SettingRow title="Progress bar" description="Show how far along a multi-page form is.">
+                <SettingRow title="סרגל התקדמות" description="הצג כמה נותר בטופס מרובה עמודים.">
                     <Toggle value={design.show_progress ?? true} onChange={(v) => onChange({ show_progress: v })} />
                 </SettingRow>
                 <div>
-                    <Label>Font</Label>
+                    <Label>גופן</Label>
                     <FontPicker
                         value={design.font_family ?? "system"}
                         onChange={(v) => onChange({ font_family: v })}
@@ -355,79 +378,79 @@ export default function DesignPanel({
                 </div>
                 <div className="flex items-end gap-3">
                     <div>
-                        <Label>Form width</Label>
+                        <Label>רוחב טופס</Label>
                         <NumberInput value={design.max_width ?? 560} onChange={(v) => onChange({ max_width: v })} min={320} max={960} step={20} suffix="px" className="w-28" />
                     </div>
                     <div>
-                        <Label>Corner radius</Label>
+                        <Label>רדיוס פינות</Label>
                         <NumberInput value={design.border_radius ?? 10} onChange={(v) => onChange({ border_radius: v })} min={0} max={24} suffix="px" className="w-24" />
                     </div>
                 </div>
                 <div>
-                    <Label>Field spacing</Label>
+                    <Label>מרווח בין שדות</Label>
                     <Segmented
                         className="w-full [&>button]:flex-1 [&>button]:min-w-0"
                         value={(design.spacing as "compact" | "normal" | "relaxed") || "normal"}
                         onChange={(v) => onChange({ spacing: v })}
                         options={[
-                            { value: "compact", label: "Compact" },
-                            { value: "normal", label: "Normal" },
-                            { value: "relaxed", label: "Relaxed" },
+                            { value: "compact", label: "קומפקטי" },
+                            { value: "normal", label: "רגיל" },
+                            { value: "relaxed", label: "מרווח" },
                         ]}
                     />
                 </div>
                 {layout === "card" && (
-                    <SettingRow title="Card shadow" description="A soft drop shadow behind the form card.">
+                    <SettingRow title="צללית כרטיס" description="הצללה רכה מאחורי כרטיס הטופס.">
                         <Toggle value={design.shadow ?? true} onChange={(v) => onChange({ shadow: v })} />
                     </SettingRow>
                 )}
             </DesignGroup>
 
             <DesignGroup
-                title="Header bar"
+                title="שורת כותרת"
                 hint={
                     design.header_enabled
                         ? design.header_placement === "inline"
-                            ? "With the form"
-                            : "Across the page"
-                        : "Off"
+                            ? "בתוך הטופס"
+                            : "לרוחב העמוד"
+                        : "כבוי"
                 }
                 {...group("header")}
             >
-                <SettingRow title="Show a header" description="A bar across the top carrying your logo and a title.">
+                <SettingRow title="הצג שורת כותרת" description="סרגל עליון הנושא את הלוגו והכותרת שלך.">
                     <Toggle value={design.header_enabled ?? false} onChange={(v) => onChange({ header_enabled: v })} />
                 </SettingRow>
                 {design.header_enabled && (
                     <>
                         <div>
-                            <Label>Header title</Label>
+                            <Label>כותרת עליונה</Label>
                             <TextInput
                                 value={design.header_title ?? ""}
                                 onChange={(v) => onChange({ header_title: v })}
-                                placeholder="Your company"
+                                placeholder="שם החברה שלך"
                             />
                         </div>
                         <div>
-                            <Label>Placement</Label>
+                            <Label>מיקום</Label>
                             <Segmented
                                 className="w-full [&>button]:flex-1 [&>button]:min-w-0"
                                 value={(design.header_placement as "page" | "inline") || "page"}
                                 onChange={(v) => onChange({ header_placement: v })}
                                 options={[
-                                    { value: "page", label: "Across the page" },
-                                    { value: "inline", label: "With the form" },
+                                    { value: "page", label: "לרוחב העמוד" },
+                                    { value: "inline", label: "בתוך הטופס" },
                                 ]}
                             />
                             <p className="text-[10.5px] text-slate-400 mt-1">
                                 {design.header_placement === "inline"
-                                    ? "Sits on the form itself, above the fields, with a rule under it."
-                                    : "A bar across the top of the page, edge to edge."}
+                                    ? "יושב על גבי הטופס עצמו, מעל השדות, עם קו מפריד תחתיו."
+                                    : "סרגל לרוחב החלק העליון של העמוד, מקצה לקצה."}
                             </p>
                         </div>
                         {logoUrl && (
                             <SettingRow
-                                title="Show the logo here"
-                                description="Off keeps it on the form and leaves the header the title alone."
+                                title="הצג את הלוגו כאן"
+                                description="כיבוי משאיר אותו על הטופס ומציג בכותרת את הטקסט בלבד."
                             >
                                 <Toggle
                                     value={design.header_show_logo ?? true}
@@ -436,7 +459,7 @@ export default function DesignPanel({
                             </SettingRow>
                         )}
                         <div>
-                            <Label>Contents</Label>
+                            <Label>תוכן</Label>
                             <Segmented
                                 className="w-full [&>button]:flex-1 [&>button]:min-w-0"
                                 value={
@@ -445,23 +468,23 @@ export default function DesignPanel({
                                 }
                                 onChange={(v) => onChange({ header_align: v })}
                                 options={[
-                                    { value: "left", label: "Left" },
-                                    { value: "center", label: "Centered" },
-                                    { value: "between", label: "Apart" },
+                                    { value: "left", label: "שמאל" },
+                                    { value: "center", label: "מרכז" },
+                                    { value: "between", label: "מפוזר" },
                                 ]}
                             />
                         </div>
                         {design.header_placement !== "inline" && (
                             <>
                                 <ColorField
-                                    label="Header background"
+                                    label="רקע כותרת עליונה"
                                     value={design.header_background}
                                     fallback={design.form_background || "#ffffff"}
                                     onChange={(v) => onChange({ header_background: v })}
                                 />
                                 <SettingRow
-                                    title="Stay on screen"
-                                    description="Keeps the bar visible while the form scrolls."
+                                    title="הישאר מקובע במסך"
+                                    description="שומר על הסרגל גלוי בזמן גלילת הטופס."
                                 >
                                     <Toggle
                                         value={design.header_sticky ?? false}
@@ -471,84 +494,83 @@ export default function DesignPanel({
                             </>
                         )}
                         <p className="text-[10.5px] text-slate-400">
-                            A header with neither a logo nor a title is skipped on the live page. Centering stacks
-                            the logo above the title.
+                            כותרת ללא לוגו וללא כותרת טקסט מוחרגת בעמוד הפעיל. יישור למרכז מציג את הלוגו מעל הכותרת.
                         </p>
                     </>
                 )}
             </DesignGroup>
 
             {layout === "split" && (
-                <DesignGroup title="Side panel" hint={design.cover_title || "No title"} {...group("cover")}>
+                <DesignGroup title="חלונית צד" hint={design.cover_title || "ללא כותרת"} {...group("cover")}>
                     <div>
-                        <Label>Panel title</Label>
+                        <Label>כותרת החלונית</Label>
                         <TextInput
                             value={design.cover_title ?? ""}
                             onChange={(v) => onChange({ cover_title: v })}
-                            placeholder="Book a demo"
+                            placeholder="תיאום הדגמה"
                         />
                     </div>
                     <div>
-                        <Label>Panel text</Label>
+                        <Label>טקסט החלונית</Label>
                         <textarea
                             value={design.cover_subtitle ?? ""}
                             onChange={(e) => onChange({ cover_subtitle: e.target.value })}
                             rows={3}
-                            placeholder="Twenty minutes, no slides."
+                            placeholder="עשרים דקות, ללא שקופיות."
                             className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-[16px] md:text-[12.5px] text-slate-900 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                         />
                     </div>
                     <p className="text-[10.5px] text-slate-400">
-                        Sits over the cover image, in white with a soft shadow so it reads on any photo.
+                        מופיע מעל תמונת הנושא, בטקסט לבן עם צל עדין לקריאה מיטבית מעל כל תמונה.
                     </p>
                 </DesignGroup>
             )}
 
             <DesignGroup
-                title="Branding"
-                hint={assetCount ? `${assetCount} image${assetCount > 1 ? "s" : ""}` : "No images"}
+                title="מיתוג"
+                hint={assetCount ? `${assetCount} תמונ${assetCount > 1 ? "ות" : "ה"}` : "אין תמונות"}
                 {...group("branding")}
             >
-                <ImageRow formId={formId} kind="logo" label="Logo" url={logoUrl} disabled={!canEdit} onSaved={onAssetsSaved} />
+                <ImageRow formId={formId} kind="logo" label="לוגו" url={logoUrl} disabled={!canEdit} onSaved={onAssetsSaved} />
                 {logoUrl && (
                     <>
                         <div>
-                            <Label>Logo size</Label>
+                            <Label>גודל לוגו</Label>
                             <Segmented
                                 className="w-full [&>button]:flex-1 [&>button]:min-w-0"
                                 value={(design.logo_size as "sm" | "md" | "lg") || "md"}
                                 onChange={(v) => onChange({ logo_size: v })}
                                 options={[
-                                    { value: "sm", label: "Small" },
-                                    { value: "md", label: "Medium" },
-                                    { value: "lg", label: "Large" },
+                                    { value: "sm", label: "קטן" },
+                                    { value: "md", label: "בינוני" },
+                                    { value: "lg", label: "גדול" },
                                 ]}
                             />
                         </div>
                         {layout === "card" && !design.header_enabled && (
                             <div>
-                                <Label>Logo position</Label>
+                                <Label>מיקום לוגו</Label>
                                 <Segmented
                                     className="w-full [&>button]:flex-1 [&>button]:min-w-0"
                                     value={(design.logo_position as "card" | "page") || "card"}
                                     onChange={(v) => onChange({ logo_position: v })}
                                     options={[
-                                        { value: "card", label: "On the card" },
-                                        { value: "page", label: "Above it" },
+                                        { value: "card", label: "על גבי הכרטיס" },
+                                        { value: "page", label: "מעליו" },
                                     ]}
                                 />
                                 <p className="text-[10.5px] text-slate-400 mt-1">
-                                    Above the card puts it on the page background, so check it stays readable there.
+                                    מעל הכרטיס ממקם אותו על גבי רקע העמוד, ודא שהוא קריא שם.
                                 </p>
                             </div>
                         )}
                     </>
                 )}
-                <ImageRow formId={formId} kind="cover" label="Cover image" url={coverUrl} disabled={!canEdit} onSaved={onAssetsSaved} />
+                <ImageRow formId={formId} kind="cover" label="תמונת נושא" url={coverUrl} disabled={!canEdit} onSaved={onAssetsSaved} />
                 <ImageRow
                     formId={formId}
                     kind="background"
-                    label="Background image"
+                    label="תמונת רקע"
                     url={backgroundUrl}
                     disabled={!canEdit}
                     onSaved={onAssetsSaved}
@@ -556,20 +578,20 @@ export default function DesignPanel({
                 {backgroundUrl && (
                     <>
                         <div>
-                            <Label>Background fit</Label>
+                            <Label>התאמת רקע</Label>
                             <Segmented
                                 className="w-full [&>button]:flex-1 [&>button]:min-w-0"
                                 value={(design.background_size as "cover" | "contain" | "tile") || "cover"}
                                 onChange={(v) => onChange({ background_size: v })}
                                 options={[
-                                    { value: "cover", label: "Fill" },
-                                    { value: "contain", label: "Fit" },
-                                    { value: "tile", label: "Tile" },
+                                    { value: "cover", label: "מילוי" },
+                                    { value: "contain", label: "התאמה" },
+                                    { value: "tile", label: "פריסה חוזרת" },
                                 ]}
                             />
                         </div>
                         <div>
-                            <Label>Veil</Label>
+                            <Label>עמעום</Label>
                             <NumberInput
                                 value={design.background_overlay ?? 0}
                                 onChange={(v) => onChange({ background_overlay: v })}
@@ -580,33 +602,33 @@ export default function DesignPanel({
                                 className="w-24"
                             />
                             <p className="text-[10.5px] text-slate-400 mt-1">
-                                Fades the page color over the image. Raise it when text is hard to read.
+                                ממזג את צבע העמוד מעל התמונה. הגדל ערך זה כאשר הטקסט קשה לקריאה.
                             </p>
                         </div>
                     </>
                 )}
             </DesignGroup>
 
-            <DesignGroup title="Colors" hint={design.accent_color || "#0284c7"} {...group("colors")}>
-                <ColorField label="Accent" value={design.accent_color} fallback="#0284c7" onChange={(v) => onChange({ accent_color: v })} swatches />
+            <DesignGroup title="צבעים" hint={design.accent_color || "#0284c7"} {...group("colors")}>
+                <ColorField label="צבע הדגשה" value={design.accent_color} fallback="#0284c7" onChange={(v) => onChange({ accent_color: v })} swatches />
                 <div className="grid grid-cols-2 gap-3">
-                    <ColorField label="Page background" value={design.page_background} fallback="#f8fafc" onChange={(v) => onChange({ page_background: v })} />
+                    <ColorField label="רקע עמוד" value={design.page_background} fallback="#f8fafc" onChange={(v) => onChange({ page_background: v })} />
                     {gradientOpen ? (
                         <div className="relative">
                             <ColorField
-                                label="Fades into"
+                                label="מתמזג אל"
                                 value={design.page_background_end}
                                 fallback={design.page_background || "#f8fafc"}
                                 onChange={(v) => onChange({ page_background_end: v })}
                             />
                             <button
                                 type="button"
-                                aria-label="Remove gradient"
+                                aria-label="הסר גרדיאנט"
                                 onClick={() => {
                                     setGradientOpen(false);
                                     onChange({ page_background_end: "" });
                                 }}
-                                className="absolute top-0 right-0 size-5 inline-flex items-center justify-center rounded text-slate-400 hover:text-slate-700"
+                                className="absolute top-0 end-0 size-5 inline-flex items-center justify-center rounded text-slate-400 hover:text-slate-700"
                             >
                                 <XIcon className="w-3 h-3" />
                             </button>
@@ -618,43 +640,43 @@ export default function DesignPanel({
                                 onClick={() => setGradientOpen(true)}
                                 className="h-7 px-2 inline-flex items-center gap-1 rounded-md text-[11.5px] text-slate-500 hover:bg-slate-100"
                             >
-                                <PlusIcon className="w-3 h-3" /> Gradient
+                                <PlusIcon className="w-3 h-3" /> גרדיאנט
                             </button>
                         </div>
                     )}
-                    <ColorField label="Form background" value={design.form_background} fallback="#ffffff" onChange={(v) => onChange({ form_background: v })} />
-                    <ColorField label="Text" value={design.text_color} fallback="#0f172a" onChange={(v) => onChange({ text_color: v })} />
-                    <ColorField label="Labels" value={design.label_color} fallback="#334155" onChange={(v) => onChange({ label_color: v })} />
-                    <ColorField label="Input background" value={design.input_background} fallback="#ffffff" onChange={(v) => onChange({ input_background: v })} />
-                    <ColorField label="Input border" value={design.input_border_color} fallback="#e2e8f0" onChange={(v) => onChange({ input_border_color: v })} />
-                    <ColorField label="Input text" value={design.input_text_color} fallback="#0f172a" onChange={(v) => onChange({ input_text_color: v })} />
-                    <ColorField label="Placeholder" value={design.placeholder_color} fallback="#94a3b8" onChange={(v) => onChange({ placeholder_color: v })} />
+                    <ColorField label="רקע טופס" value={design.form_background} fallback="#ffffff" onChange={(v) => onChange({ form_background: v })} />
+                    <ColorField label="טקסט" value={design.text_color} fallback="#0f172a" onChange={(v) => onChange({ text_color: v })} />
+                    <ColorField label="תוויות" value={design.label_color} fallback="#334155" onChange={(v) => onChange({ label_color: v })} />
+                    <ColorField label="רקע שדות" value={design.input_background} fallback="#ffffff" onChange={(v) => onChange({ input_background: v })} />
+                    <ColorField label="מסגרת שדות" value={design.input_border_color} fallback="#e2e8f0" onChange={(v) => onChange({ input_border_color: v })} />
+                    <ColorField label="טקסט שדות" value={design.input_text_color} fallback="#0f172a" onChange={(v) => onChange({ input_text_color: v })} />
+                    <ColorField label="טקסט מציין מיקום" value={design.placeholder_color} fallback="#94a3b8" onChange={(v) => onChange({ placeholder_color: v })} />
                 </div>
             </DesignGroup>
 
-            <DesignGroup title="Button" hint={design.button_text || "Submit"} {...group("button")}>
+            <DesignGroup title="כפתור" hint={design.button_text || "שליחה"} {...group("button")}>
                 <div>
-                    <Label>Button text</Label>
-                    <TextInput value={design.button_text ?? ""} onChange={(v) => onChange({ button_text: v })} placeholder="Submit" />
+                    <Label>טקסט כפתור</Label>
+                    <TextInput value={design.button_text ?? ""} onChange={(v) => onChange({ button_text: v })} placeholder="שליחה" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                    <ColorField label="Background" value={design.button_background} fallback="#0284c7" onChange={(v) => onChange({ button_background: v })} />
-                    <ColorField label="Text color" value={design.button_text_color} fallback="#ffffff" onChange={(v) => onChange({ button_text_color: v })} />
+                    <ColorField label="רקע" value={design.button_background} fallback="#0284c7" onChange={(v) => onChange({ button_background: v })} />
+                    <ColorField label="צבע טקסט" value={design.button_text_color} fallback="#ffffff" onChange={(v) => onChange({ button_text_color: v })} />
                 </div>
                 <div>
-                    <Label>Size</Label>
+                    <Label>גודל</Label>
                     <Segmented
                         className="w-full [&>button]:flex-1 [&>button]:min-w-0"
                         value={(design.button_size as "sm" | "md" | "lg") || "md"}
                         onChange={(v) => onChange({ button_size: v })}
                         options={[
-                            { value: "sm", label: "Small" },
-                            { value: "md", label: "Medium" },
-                            { value: "lg", label: "Large" },
+                            { value: "sm", label: "קטן" },
+                            { value: "md", label: "בינוני" },
+                            { value: "lg", label: "גדול" },
                         ]}
                     />
                 </div>
-                <SettingRow title="Full width" description="Stretch the button across the form.">
+                <SettingRow title="רוחב מלא" description="מתיחת הכפתור לרוחב הטופס כולו.">
                     <Toggle value={design.button_full_width ?? false} onChange={(v) => onChange({ button_full_width: v })} />
                 </SettingRow>
             </DesignGroup>
