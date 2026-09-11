@@ -105,15 +105,15 @@ export default function BulkWarmupDialog({
                                     <FlameIcon className="w-4 h-4" />
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <div className="text-[13px] font-medium text-slate-900">Start warmup</div>
+                                    <div className="text-[13px] font-medium text-slate-900">הפעלת חימום</div>
                                     <div className="text-[11px] text-slate-400">
-                                        {n} mailbox{n > 1 ? "es" : ""} selected
+                                        {n} תיבות נבחרו
                                     </div>
                                 </div>
                                 <button
                                     onClick={onClose}
                                     disabled={busy}
-                                    aria-label="Close"
+                                    aria-label="סגור"
                                     className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
                                 >
                                     <XIcon className="w-4 h-4" />
@@ -125,46 +125,46 @@ export default function BulkWarmupDialog({
                                 <label className="flex items-center gap-2.5 cursor-pointer select-none">
                                     <Toggle on={customize} onChange={setCustomize} />
                                     <span className="text-[12.5px] text-slate-700">
-                                        Apply these settings to all selected mailboxes
+                                        החל הגדרות אלו על כל התיבות שנבחרו
                                     </span>
                                 </label>
 
                                 <div className={customize ? "space-y-4" : "space-y-4 opacity-40 pointer-events-none"}>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                         <div>
-                                            <Label>Start</Label>
-                                            <NumberInput value={base} min={1} max={500} onChange={setBase} suffix="/day" />
+                                            <Label>התחלה</Label>
+                                            <NumberInput value={base} min={1} max={500} onChange={setBase} suffix="/יום" />
                                         </div>
                                         <div>
-                                            <Label>+ / day</Label>
+                                            <Label>+ / יום</Label>
                                             <NumberInput value={increase} min={0} max={100} onChange={setIncrease} />
                                         </div>
                                         <div>
-                                            <Label>Max</Label>
-                                            <NumberInput value={max} min={1} max={500} onChange={setMax} suffix="/day" />
+                                            <Label>מקסימום</Label>
+                                            <NumberInput value={max} min={1} max={500} onChange={setMax} suffix="/יום" />
                                         </div>
                                     </div>
                                     {baseOverMax && (
                                         <p className="text-[11px] text-rose-500 -mt-1.5">
-                                            Starting volume can't exceed the maximum.
+                                            כמות ההתחלה אינה יכולה לעלות על המקסימום.
                                         </p>
                                     )}
                                     <div>
-                                        <Label>Reply rate</Label>
+                                        <Label>אחוז מענה</Label>
                                         <NumberInput value={replyRate} min={0} max={100} onChange={setReplyRate} suffix="%" className="w-32" />
                                     </div>
                                     <div>
-                                        <Label>Sending window</Label>
+                                        <Label>חלון שליחה</Label>
                                         <div className="grid grid-cols-2 gap-3 max-w-[320px]">
                                             <TimeSelect value={startTime} onChange={setStartTime} />
                                             <TimeSelect value={endTime} onChange={setEndTime} />
                                         </div>
                                     </div>
                                     <div>
-                                        <Label>Sending days</Label>
+                                        <Label>ימי שליחה</Label>
                                         <WeekdayBitmask weekdays={WEEKDAYS} value={days} setValue={setDays} />
                                         <p className="text-[11px] text-slate-400 mt-1.5">
-                                            Leave all unselected to send every day.
+                                            השאר הכל ריק כדי לשלוח בכל ימות השבוע.
                                         </p>
                                     </div>
                                 </div>
@@ -177,7 +177,7 @@ export default function BulkWarmupDialog({
                                     disabled={busy}
                                     className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-50"
                                 >
-                                    Cancel
+                                    ביטול
                                 </button>
                                 <button
                                     onClick={start}
@@ -185,7 +185,7 @@ export default function BulkWarmupDialog({
                                     className="h-8 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                                 >
                                     {busy && <Loading className="!w-3.5 h-3.5 text-white" />}
-                                    Start warmup
+                                    הפעל חימום
                                 </button>
                             </div>
                         </motion.div>

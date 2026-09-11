@@ -21,6 +21,7 @@ import {
     ClockIcon,
     CornerUpLeftIcon,
     DownloadIcon,
+    GlobeIcon,
     InfoIcon,
     LayersIcon,
     Loader2Icon,
@@ -1048,6 +1049,7 @@ function ContactsTableBody({
         email: string;
         company: string;
         phone: string;
+        custom_fields?: Record<string, string>;
         subscribed: boolean;
         campaigns: { id: string }[];
         categories?: { id: string; title: string; color: string }[];
@@ -1335,10 +1337,41 @@ function ContactsTableBody({
                                 </td>
                                 <td className="px-3 text-[12px] text-slate-600 truncate hidden md:table-cell">
                                     {c.company ? (
-                                        <span className="inline-flex items-center gap-1.5">
-                                            <Building2Icon className="w-3 h-3 text-slate-400" />
-                                            {c.company}
-                                        </span>
+                                        <div className="inline-flex items-center gap-1.5 truncate max-w-full">
+                                            <Building2Icon className="w-3 h-3 text-slate-400 shrink-0" />
+                                            <span className="truncate">{c.company}</span>
+                                            {c.custom_fields?.website && (
+                                                <a
+                                                    href={
+                                                        c.custom_fields.website.startsWith("http")
+                                                            ? c.custom_fields.website
+                                                            : `https://${c.custom_fields.website}`
+                                                    }
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    title={c.custom_fields.website}
+                                                    className="text-slate-400 hover:text-sky-600 inline-flex items-center shrink-0 ms-1"
+                                                >
+                                                    <GlobeIcon className="w-3 h-3" />
+                                                </a>
+                                            )}
+                                        </div>
+                                    ) : c.custom_fields?.website ? (
+                                        <a
+                                            href={
+                                                c.custom_fields.website.startsWith("http")
+                                                    ? c.custom_fields.website
+                                                    : `https://${c.custom_fields.website}`
+                                            }
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 font-mono text-[11px] truncate"
+                                        >
+                                            <GlobeIcon className="w-3 h-3 text-sky-500 shrink-0" />
+                                            <span className="truncate max-w-[130px]">{c.custom_fields.website.replace(/^https?:\/\//, "")}</span>
+                                        </a>
                                     ) : (
                                         <span className="text-slate-300">—</span>
                                     )}

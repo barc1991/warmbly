@@ -399,6 +399,8 @@ func main() {
 		repository.NewAIDraftRepository(primaryDB.Pool),
 		streamingPublisher,
 	)
+	serperKeysRepoConsumer := repository.NewSerperKeysRepository(primaryDB)
+	inboxAgentServiceC.SetBDRComponents(serperKeysRepoConsumer, emailRepo, nil)
 	advancedService.WireInboxAgent(inboxAgentServiceC)
 
 	eventsPublisher := events.NewPublisher(consumerBus, s3Client, consumerCodec, cipherService)

@@ -32,7 +32,7 @@ export default function FolderSelector({ onAdd, onRemove, selected }: { onAdd: (
                             </div>
                         )
                     }) : (
-                        <span className="text-slate-400 py-px">No folders selected...</span>
+                        <span className="text-slate-400 py-px">לא נבחרו תיקיות...</span>
                     )}
                 </div>
             </Selector>
@@ -61,7 +61,7 @@ export default function FolderSelector({ onAdd, onRemove, selected }: { onAdd: (
                     profile?.setFoldersEdit(true);
                 }}>
                     <RiSoundModuleLine className="w-4 shrink-0" />
-                    <span className="truncate">Manage Folders</span>
+                    <span className="truncate">ניהול תיקיות</span>
                 </SelectOption>
             </SelectMenu>
         </div>

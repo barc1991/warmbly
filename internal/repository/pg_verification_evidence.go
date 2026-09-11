@@ -85,16 +85,17 @@ func (r *verificationEvidenceRepository) ListForContact(ctx context.Context, con
 
 func (r *verificationEvidenceRepository) Verdict(ctx context.Context, contactID uuid.UUID) (emailverify.Verdict, error) {
 	var v emailverify.Verdict
-	var status, source string
+	var email, status, source string
 	var checked *time.Time
-	query := `SELECT verification_status, verification_source, verification_checked_at FROM contacts WHERE id = $1`
-	if err := r.DB.QueryRow(ctx, query, contactID).Scan(&status, &source, &checked); err != nil {
+	query := `SELECT email, verification_status, verification_source, verification_checked_at FROM contacts WHERE id = $1`
+	if err := r.DB.QueryRow(ctx, query, contactID).Scan(&email, &status, &source, &checked); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return v, errx.ErrNotFound
 		}
 		db.CaptureError(err, query, []any{contactID}, "queryrow")
 		return v, err
 	}
+	v.Email = email
 	v.Status, v.Source = emailverify.Status(status), source
 	if checked != nil {
 		v.CheckedAt = *checked

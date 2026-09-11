@@ -11,7 +11,7 @@ export default function AccessLockedDialog({
     open,
     onClose,
     feature,
-    permissionLabel = "the required",
+    permissionLabel = "הנדרשת",
 }: {
     open: boolean;
     onClose: () => void;
@@ -40,11 +40,11 @@ export default function AccessLockedDialog({
                         exit={{ opacity: 0, y: 8, scale: 0.98 }}
                         className="w-full max-w-sm rounded-lg bg-white border border-slate-200 shadow-xl p-5 text-center"
                     >
-                        <div className="flex justify-end -mt-1 -mr-1">
+                        <div className="flex justify-end -mt-1 -mr-1 rtl:-mr-0 rtl:-ml-1">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
+                                aria-label="סגור"
                                 className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center"
                             >
                                 <XIcon className="w-4 h-4" />
@@ -54,19 +54,18 @@ export default function AccessLockedDialog({
                             <LockIcon className="w-5 h-5" />
                         </div>
                         <h3 className="text-[14px] font-semibold text-slate-900">
-                            You don't have access to {feature}
+                            אין לך גישה אל {feature}
                         </h3>
                         <p className="text-[12.5px] text-slate-500 leading-relaxed mt-1.5">
-                            Your role in this workspace doesn't include the{" "}
-                            <span className="font-medium text-slate-700">{permissionLabel}</span> permission. Ask a
-                            workspace admin or the owner to grant it from Settings → Roles &amp; access.
+                            התפקיד שלך במרחב העבודה אינו כולל את הרשאת{" "}
+                            <span className="font-medium text-slate-700">{permissionLabel}</span>. בקש ממנהל מרחב העבודה או מהבעלים להעניק אותה מתוך הגדרות &larr; תפקידים והרשאות.
                         </p>
                         <button
                             type="button"
                             onClick={onClose}
                             className="mt-4 inline-flex items-center h-8 px-4 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12.5px] font-medium transition-colors"
                         >
-                            Got it
+                            הבנתי
                         </button>
                     </motion.div>
                 </motion.div>

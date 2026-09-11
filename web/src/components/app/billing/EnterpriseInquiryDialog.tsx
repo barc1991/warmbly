@@ -98,7 +98,7 @@ export default function EnterpriseInquiryDialog({
                 team_size: Number.isFinite(teamSize) ? teamSize : undefined,
                 notes: notes.trim() || undefined,
             });
-            toast.success(res.message || "Thanks, our team will be in touch.");
+            toast.success(res.message || "תודה, הצוות שלנו ייצור איתך קשר בהקדם.");
             onClose();
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -135,18 +135,18 @@ export default function EnterpriseInquiryDialog({
                     >
                         <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-2.5 sticky top-0 bg-white">
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                Enterprise
+                                ארגוני
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
                             <span id="enterprise-inquiry-title" className="text-[12.5px] text-slate-900 font-medium">
-                                Talk to sales
+                                שיחה עם צוות המכירות
                             </span>
                             <button
                                 type="button"
                                 onClick={onClose}
                                 disabled={inquiry.isPending}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors disabled:opacity-50"
+                                aria-label="סגור"
+                                className="mr-auto ml-0 size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors disabled:opacity-50"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -154,45 +154,44 @@ export default function EnterpriseInquiryDialog({
 
                         <div className="px-4 py-4 space-y-3">
                             <p className="text-[12.5px] text-slate-500 leading-relaxed">
-                                Enterprise is priced on your volume and sending shape. Tell us where you are
-                                and we will come back within one business day.
+                                התמחור הארגוני מותאם להיקף השליחה והצרכים שלכם. ספרו לנו על הפעילות ונחזור אליכם תוך יום עסקים אחד.
                             </p>
                             <div>
-                                <Label>Company</Label>
-                                <TextInput value={company} onChange={setCompany} placeholder="Acme Inc" />
+                                <Label>שם החברה</Label>
+                                <TextInput value={company} onChange={setCompany} placeholder="שם החברה בע״מ" />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                    <Label>Your name</Label>
-                                    <TextInput value={name} onChange={setName} placeholder="Jane Doe" />
+                                    <Label>שם מלא</Label>
+                                    <TextInput value={name} onChange={setName} placeholder="ישראל ישראלי" />
                                 </div>
                                 <div>
-                                    <Label>Work email</Label>
+                                    <Label>אימייל עבודה</Label>
                                     <TextInput
                                         value={email}
                                         onChange={setEmail}
                                         type="email"
-                                        placeholder="jane@acme.com"
+                                        placeholder="israel@company.com"
                                     />
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                    <Label>Emails per day</Label>
+                                    <Label>כמות אימיילים ביום</Label>
                                     <NumberInput value={volume} onChange={setVolume} min={0} placeholder="25000" />
                                 </div>
                                 <div>
-                                    <Label>Team size</Label>
+                                    <Label>גודל הצוות</Label>
                                     <NumberInput value={teamSize} onChange={setTeamSize} min={0} placeholder="25" />
                                 </div>
                             </div>
                             <div>
-                                <Label>Anything else</Label>
+                                <Label>הערות או פרטים נוספים</Label>
                                 <textarea
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
                                     rows={3}
-                                    placeholder="Mailbox count, providers, compliance needs…"
+                                    placeholder="כמות תיבות, ספקי דואר, דרישות תאימות ועוד..."
                                     className="w-full rounded-md border border-slate-200 px-2.5 py-1.5 text-[12.5px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-y"
                                 />
                             </div>
@@ -203,9 +202,9 @@ export default function EnterpriseInquiryDialog({
                                 type="button"
                                 onClick={onClose}
                                 disabled={inquiry.isPending}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                className="mr-auto ml-0 h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -216,9 +215,9 @@ export default function EnterpriseInquiryDialog({
                                 {inquiry.isPending ? (
                                     <Loader2Icon className="w-3 h-3 animate-spin" />
                                 ) : (
-                                    <SendIcon className="w-3 h-3" />
+                                    <SendIcon className="w-3 h-3 rtl:rotate-180" />
                                 )}
-                                Send
+                                שליחה
                             </button>
                         </div>
                     </motion.div>

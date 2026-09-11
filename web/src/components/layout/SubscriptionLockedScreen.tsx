@@ -19,7 +19,7 @@ export default function SubscriptionLockedScreen({ feature }: { feature: string 
         upgradeDialog.open({
             feature,
             minPlan: "starter",
-            blurb: "Campaigns, the unified inbox, contacts, CRM, automations and integrations on our infrastructure. Pick a plan and it is live the moment checkout completes.",
+            blurb: "קמפיינים, תיבת דואר מאוחדת, אנשי קשר, CRM, אוטומציות ואינטגרציות בתשתית שלנו. בחר תוכנית והיא תופעל ברגע השלמת התשלום.",
         });
 
     return (
@@ -41,49 +41,48 @@ export default function SubscriptionLockedScreen({ feature }: { feature: string 
             >
                 <div className="px-7 pt-8 pb-6 md:px-10 md:pt-10 text-center">
                     <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-sky-50 text-sky-700 text-[11px] font-medium">
-                        <SparklesIcon className="w-3 h-3" /> Free workspace
+                        <SparklesIcon className="w-3 h-3" /> מרחב עבודה חינמי
                     </span>
                     <h1 className="mt-4 text-[26px] md:text-[34px] font-semibold tracking-[-0.03em] leading-[1.08] text-slate-900">
-                        {feature} unlocks with a plan.
+                        {feature} נפתח באמצעות תוכנית.
                     </h1>
                     <p className="mt-3 text-[14px] text-slate-500 leading-relaxed max-w-xl mx-auto">
-                        Your workspace is free forever for warming mailboxes. Pick how you want to send: connect mailboxes here, run Warmbly on your own server,
-                        or choose a plan for the full hosted product.
+                        מרחב העבודה שלך חינמי לתמיד לצורך חימום תיבות דואר. בחר כיצד ברצונך לשלוח: חבר תיבות דואר כאן, הרץ את Warmbly על שרת משלך, או בחר תוכנית לשימוש מלא במערכת בענן.
                     </p>
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-px bg-slate-200/70 border-y border-slate-200/70">
                     <Path
                         icon={InboxIcon}
-                        eyebrow="Included"
-                        title="Warm up mailboxes"
-                        body="Connect mailboxes and start warming them directly, with replies and schedule handled for you."
-                        cta="Go to mailboxes"
+                        eyebrow="כלול"
+                        title="חימום תיבות דואר"
+                        body="חבר תיבות דואר והתחל לחמם אותן ישירות, כאשר תשובות ולוחות זמנים מנוהלים אוטומטית עבורך."
+                        cta="עבור לתיבות דואר"
                         to="/app/emails"
                     />
                     <Path
                         icon={ServerIcon}
-                        eyebrow="Free"
-                        title="Self-host Warmbly"
-                        body="Run the whole platform on your server, unlimited."
-                        cta="Self-host guide"
+                        eyebrow="חינם"
+                        title="התקנה עצמית של Warmbly"
+                        body="הרץ את הפלטפורמה המלאה על השרת שלך, ללא הגבלה."
+                        cta="מדריך התקנה עצמית"
                         href={SELF_HOST_DOCS}
                     />
                     <Path
                         icon={CloudIcon}
-                        eyebrow={starter.priceMonthly != null ? `From $${starter.priceMonthly}/mo` : "Plans"}
-                        title="Hosted plans"
-                        body="Campaigns, the unified inbox, contacts, CRM, automations and integrations on our infrastructure."
+                        eyebrow={starter.priceMonthly != null ? `החל מ-$${starter.priceMonthly}/חודש` : "תוכניות"}
+                        title="תוכניות ענן"
+                        body="קמפיינים, תיבת דואר מאוחדת, אנשי קשר, CRM, אוטומציות ואינטגרציות בתשתית שלנו."
                         bullets={starter.bullets}
-                        cta={isOwner ? "Choose a plan" : "See plans"}
+                        cta={isOwner ? "בחר תוכנית" : "צפה בתוכניות"}
                         onClick={openPlans}
                         primary
                     />
                 </div>
 
                 <div className="px-7 py-4 md:px-10 flex flex-wrap items-center justify-between gap-2 text-[12px] text-slate-500">
-                    <span>Settings, billing and your mailboxes stay open on the free workspace.</span>
-                    {!isOwner && <span>Only the workspace owner can choose a plan.</span>}
+                    <span>הגדרות, חיוב ותיבות הדואר שלך נשארים זמינים במרחב העבודה החינמי.</span>
+                    {!isOwner && <span>רק בעל מרחב העבודה יכול לבחור תוכנית.</span>}
                 </div>
             </motion.div>
         </div>
@@ -140,15 +139,15 @@ function Path({
             <div className="mt-auto pt-5 flex flex-wrap items-center gap-2">
                 {onClick ? (
                     <button type="button" onClick={onClick} className={btn}>
-                        {cta} <ArrowRightIcon className="w-3.5 h-3.5" />
+                        {cta} <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                     </button>
                 ) : href ? (
                     <a href={href} target="_blank" rel="noreferrer" className={btn}>
-                        {cta} <ArrowRightIcon className="w-3.5 h-3.5" />
+                        {cta} <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                     </a>
                 ) : (
                     <Link to={to ?? "/app"} className={btn}>
-                        {cta} <ArrowRightIcon className="w-3.5 h-3.5" />
+                        {cta} <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                     </Link>
                 )}
                 {secondary && (

@@ -602,7 +602,7 @@ function MailboxRow({
                     <span className="text-[12.5px] font-medium text-slate-900 truncate">{box.email}</span>
                     {inCampaign && (
                         <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-sky-50 text-sky-600 text-[9.5px] font-medium uppercase tracking-[0.08em]">
-                            <ActivityIcon className="w-2.5 h-2.5" /> In campaign
+                            <ActivityIcon className="w-2.5 h-2.5" /> {isHe ? "בקמפיין" : "In campaign"}
                         </span>
                     )}
                     {shownTags.map((t) => (
@@ -642,7 +642,7 @@ function MailboxRow({
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onOpen(box.id, "overview"); }}
                     className={`inline-flex items-center gap-1.5 text-[11px] font-medium text-start ${tone.text}`}
-                    title="View mailbox health"
+                    title={isHe ? "הצג בריאות תיבת דואר" : "View mailbox health"}
                 >
                     <span className="relative flex w-1.5 h-1.5">
                         {tone.pulse && (
@@ -659,7 +659,7 @@ function MailboxRow({
                         <PopoverMenuTrigger asChild>
                             <button
                                 type="button"
-                                aria-label="Warmup actions"
+                                aria-label={isHe ? "פעולות חימום" : "Warmup actions"}
                                 disabled={life.isPending}
                                 className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-orange-600 transition-colors cursor-pointer disabled:opacity-50"
                             >
@@ -701,7 +701,7 @@ function MailboxRow({
                         type="button"
                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                         onClick={(e) => { e.stopPropagation(); onOpen(box.id, "settings"); }}
-                        aria-label="Mailbox settings"
+                        aria-label={isHe ? "הגדרות תיבת דואר" : "Mailbox settings"}
                     >
                         <RiMoreLine className="w-3.5 h-3.5" />
                     </button>

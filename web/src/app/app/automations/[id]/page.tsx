@@ -30,7 +30,7 @@ export default function AutomationBuilderPage() {
     if (!autoQ.data) {
         return (
             <div className="h-full flex items-center justify-center">
-                <EmptyBlock title="Automation not found" body="It may have been deleted." />
+                <EmptyBlock title="האוטומציה לא נמצאה" body="ייתכן שהיא נמחקה." />
             </div>
         );
     }

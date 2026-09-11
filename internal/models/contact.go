@@ -222,6 +222,7 @@ type ContactVerificationDetail struct {
 	Status     string   `json:"status"`
 	Confidence int      `json:"confidence"`
 	Reasons    []string `json:"reasons"`
+	Suggestion string   `json:"suggestion,omitempty"`
 	// Decisive is true when real mail, not a check, decided the status.
 	Decisive bool                          `json:"decisive"`
 	Evidence []ContactVerificationEvidence `json:"evidence"`

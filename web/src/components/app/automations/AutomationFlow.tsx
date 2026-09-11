@@ -577,8 +577,8 @@ function ConvergeEdge({
                                     e.stopPropagation();
                                     void deleteElements({ edges: [{ id }] });
                                 }}
-                                aria-label="Remove connection"
-                                title="Remove connection"
+                                aria-label="הסר חיבור"
+                                title="הסר חיבור"
                                 className="pointer-events-auto inline-flex size-5 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 shadow-sm hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                             >
                                 <XIcon className="w-3 h-3" />
@@ -1307,14 +1307,14 @@ export default function AutomationFlow({
                     type="button"
                     onClick={guardedBack}
                     className="h-7 w-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center"
-                    aria-label="Back"
+                    aria-label="חזור"
                 >
-                    <ArrowLeftIcon className="w-4 h-4" />
+                    <ArrowLeftIcon className="w-4 h-4 rtl:rotate-180" />
                 </button>
                 <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Automation name"
+                    placeholder="שם האוטומציה"
                     className="h-7 px-2 w-56 max-w-[30vw] md:max-w-[36vw] rounded-md text-[13px] font-medium text-slate-900 outline-none hover:bg-slate-50 focus:bg-white focus:border-sky-400 focus:ring-2 focus:ring-sky-100 border border-transparent"
                 />
                 <ResourceViewers resource={`automation:${automation.id}`} className="shrink-0" />
@@ -1322,9 +1322,9 @@ export default function AutomationFlow({
                     type="button"
                     role="switch"
                     aria-checked={enabled}
-                    aria-label="Enable automation"
+                    aria-label="הפעל אוטומציה"
                     onClick={() => setEnabled((v) => !v)}
-                    title={enabled ? "Automation is live" : "Automation is paused"}
+                    title={enabled ? "האוטומציה פעילה" : "האוטומציה מושהית"}
                     className="inline-flex h-7 cursor-pointer select-none items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sky-200"
                 >
                     <span
@@ -1668,11 +1668,11 @@ function NodeResultRow({ r }: { r: AutomationNodeResult }) {
                 </span>
                 {r.type === "condition" && (
                     <span className="ml-auto text-[10.5px] font-medium text-slate-400">
-                        {r.status === "branch_true" ? "→ yes" : "→ no"}
+                        {r.status === "branch_true" ? "← כן" : "← לא"}
                     </span>
                 )}
                 {r.type === "action" && r.status === "skipped" && (
-                    <span className="ml-auto text-[10.5px] font-medium text-slate-400">skipped</span>
+                    <span className="ml-auto text-[10.5px] font-medium text-slate-400">דולג</span>
                 )}
             </div>
             {r.label && r.type === "condition" && <div className="mt-0.5 text-[11px] text-slate-400">{r.label}</div>}
@@ -1751,12 +1751,12 @@ function InsightsPanel({
     return (
         <div className="flex h-full min-h-0 flex-col">
             <div className="h-11 px-3 flex items-center border-b border-slate-200 shrink-0">
-                <span className="text-[12.5px] font-medium text-slate-900">{mode === "test" ? "Test run" : "Run history"}</span>
+                <span className="text-[12.5px] font-medium text-slate-900">{mode === "test" ? "הרצת בדיקה" : "היסטוריית הרצות"}</span>
                 <button
                     type="button"
                     onClick={onClose}
                     className="ml-auto h-7 w-7 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                    aria-label="Close"
+                    aria-label="סגור"
                 >
                     <XIcon className="w-4 h-4" />
                 </button>
@@ -1772,17 +1772,17 @@ function InsightsPanel({
                 {mode === "test" ? (
                     <div className="space-y-3">
                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                            Dry run: no messages are sent and no records change. Edit the sample event your automation receives, then run to see the path it takes and what each action would send.
+                            הרצת בדיקה: הודעות לא נשלחות ושום רשומות לא משתנות. ערוך את אירוע הדוגמה שהאוטומציה מקבלת, ואז הרץ כדי לראות את הנתיב שנבחר ומה כל פעולה הייתה שולחת.
                         </p>
                         <div>
                             <div className="mb-1 flex items-center justify-between">
-                                <span className="text-[11px] font-medium text-slate-600">Sample event data</span>
+                                <span className="text-[11px] font-medium text-slate-600">נתוני אירוע לדוגמה</span>
                                 <button
                                     type="button"
                                     onClick={resetSample}
                                     className="text-[11px] text-sky-600 hover:text-sky-700"
                                 >
-                                    Reset to sample
+                                    אפס לדוגמה
                                 </button>
                             </div>
                             <textarea
@@ -1801,14 +1801,14 @@ function InsightsPanel({
                                 <p className="mt-1 text-[10.5px] text-rose-600">{sampleErr}</p>
                             ) : (
                                 <p className="mt-1 text-[10.5px] text-slate-400">
-                                    Conditions branch on these fields, so editing them changes which actions run.
+                                    התנאים מתפצלים לפי שדות אלה, ולכן עריכתם משנה אילו פעולות יופעלו.
                                 </p>
                             )}
                         </div>
                         {steps.length > 0 && (
                             <div>
                                 <div className="mb-1 text-[11px] font-medium text-slate-600">
-                                    Steps to run <span className="text-slate-400">({steps.length - disabled.size}/{steps.length})</span>
+                                    שלבים להרצה <span className="text-slate-400">({steps.length - disabled.size}/{steps.length})</span>
                                 </div>
                                 <div className="space-y-1">
                                     {steps.map((s) => {
@@ -1818,7 +1818,7 @@ function InsightsPanel({
                                                 key={s.id}
                                                 type="button"
                                                 onClick={() => toggleStep(s.id)}
-                                                className="w-full flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1.5 text-left hover:border-slate-300"
+                                                className="w-full flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1.5 text-left rtl:text-right hover:border-slate-300"
                                             >
                                                 <span
                                                     className={cn(
@@ -1836,7 +1836,7 @@ function InsightsPanel({
                                     })}
                                 </div>
                                 <p className="mt-1 text-[10.5px] text-slate-400">
-                                    Turn a step off to skip it in this test. Conditions still decide which steps are reached.
+                                    כבה שלב כדי לדלג עליו בבדיקה זו. התנאים עדיין קובעים לאילו שלבים מגיעים.
                                 </p>
                             </div>
                         )}
@@ -1847,30 +1847,30 @@ function InsightsPanel({
                             className="h-8 w-full rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center justify-center gap-1.5 disabled:opacity-60"
                         >
                             {testing ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <PlayIcon className="w-3.5 h-3.5" />}
-                            {testing ? "Running…" : "Run test"}
+                            {testing ? "מריץ…" : "הרץ בדיקה"}
                         </button>
                         <div className="border-t border-slate-200 pt-3 space-y-2">
                             {testing ? (
                                 <div className="flex items-center gap-2 text-[12px] text-slate-400">
-                                    <Loader2Icon className="w-4 h-4 animate-spin" /> Running…
+                                    <Loader2Icon className="w-4 h-4 animate-spin" /> מריץ…
                                 </div>
                             ) : testResult ? (
                                 testResult.trace.length === 0 ? (
-                                    <p className="text-[12px] text-slate-500">No actions ran for this sample (check your conditions).</p>
+                                    <p className="text-[12px] text-slate-500">לא הופעלו פעולות עבור דוגמה זו (בדוק את התנאים שהגדרת).</p>
                                 ) : (
                                     testResult.trace.map((r, i) => <NodeResultRow key={`${r.node_id}-${i}`} r={r} />)
                                 )
                             ) : (
-                                <p className="text-[12px] text-slate-500">Edit the sample event, then Run test.</p>
+                                <p className="text-[12px] text-slate-500">ערוך את אירוע הדוגמה, ואז לחץ על הרץ בדיקה.</p>
                             )}
                         </div>
                     </div>
                 ) : runs.isLoading ? (
                     <div className="flex items-center gap-2 text-[12px] text-slate-400">
-                        <Loader2Icon className="w-4 h-4 animate-spin" /> Loading…
+                        <Loader2Icon className="w-4 h-4 animate-spin" /> טוען…
                     </div>
                 ) : (runs.data?.runs.length ?? 0) === 0 ? (
-                    <p className="text-[12px] text-slate-500">No runs yet. This automation hasn't fired.</p>
+                    <p className="text-[12px] text-slate-500">אין הרצות עדיין. אוטומציה זו טרם הופעלה.</p>
                 ) : (
                     runs.data!.runs.map((run: AutomationRun) => (
                         <div key={run.id} className="rounded-md border border-slate-200 p-2 space-y-1">
@@ -1922,8 +1922,7 @@ function InboundUrlField({ inboundUrl }: { inboundUrl?: string }) {
     if (!inboundUrl) {
         return (
             <p className="text-[11.5px] text-slate-400 leading-relaxed">
-                Save this automation to generate its unique webhook URL. An external system POSTs JSON to that URL and
-                the body becomes the event payload (reference any field with <code>{"{{.field}}"}</code>).
+                שמור אוטומציה זו כדי להפיק עבורה כתובת Webhook ייחודית. מערכת חיצונית שולחת POST עם JSON לכתובת זו וגוף הבקשה הופך לנתוני האירוע (ניתן להפנות לכל שדה באמצעות <code>{"{{.field}}"}</code>).
             </p>
         );
     }
@@ -1939,7 +1938,7 @@ function InboundUrlField({ inboundUrl }: { inboundUrl?: string }) {
     };
     return (
         <div>
-            <Label>Your webhook URL</Label>
+            <Label>כתובת ה-Webhook שלך</Label>
             <div className="flex items-center gap-1.5">
                 <input
                     readOnly
@@ -1953,12 +1952,12 @@ function InboundUrlField({ inboundUrl }: { inboundUrl?: string }) {
                     className="h-7 px-2 rounded-md border border-slate-200 inline-flex items-center gap-1 text-[11.5px] text-slate-600 hover:bg-slate-50 shrink-0"
                 >
                     {copied ? <CheckIcon className="w-3.5 h-3.5 text-emerald-600" /> : <CopyIcon className="w-3.5 h-3.5" />}
-                    {copied ? "Copied" : "Copy"}
+                    {copied ? "הועתק" : "העתק"}
                 </button>
             </div>
             <p className="text-[11.5px] text-slate-400 mt-1.5 leading-relaxed">
-                POST JSON here to run this automation. The body becomes the event payload, so reference its keys with{" "}
-                <code>{"{{.field}}"}</code> in actions and conditions.
+                שלח לכאן בקשת POST בפורמט JSON כדי להפעיל אוטומציה זו. גוף הבקשה הופך למטען האירוע, כך שתוכל להפנות למפתחות שלו באמצעות{" "}
+                <code>{"{{.field}}"}</code> בפעולות ובתנאים.
             </p>
         </div>
     );
@@ -2020,13 +2019,13 @@ function NodeEditor({
         >
             <div className="h-11 px-3 flex items-center border-b border-slate-200 shrink-0">
                 <span className="text-[12.5px] font-medium text-slate-900">
-                    {isTrigger ? "Trigger" : isCondition ? "Condition" : "Action"}
+                    {isTrigger ? "טריגר" : isCondition ? "תנאי" : "פעולה"}
                 </span>
                 <button
                     type="button"
                     onClick={onClose}
                     className="ml-auto h-7 w-7 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                    aria-label="Close"
+                    aria-label="סגור"
                 >
                     <XIcon className="w-4 h-4" />
                 </button>
@@ -2036,14 +2035,14 @@ function NodeEditor({
                 {isTrigger ? (
                     <>
                         <div>
-                            <Label>When this happens</Label>
+                            <Label>כאשר אירוע זה מתרחש</Label>
                             <SelectMenu value={trigger} onChange={onTrigger} options={triggerOptions} className="w-full" />
                         </div>
                         {triggerIsInboundWebhook(trigger) ? (
                             <InboundUrlField inboundUrl={inboundUrl} />
                         ) : (
                             <p className="text-[11.5px] text-slate-400 leading-relaxed">
-                                Add a condition (IF) below the trigger to branch on the event — e.g. only positive replies, or by source.
+                                הוסף תנאי (פיצול) מתחת לטריגר כדי להסתעף לפי האירוע — למשל: רק תשובות חיוביות, או לפי מקור.
                             </p>
                         )}
                     </>
@@ -2088,12 +2087,12 @@ function AILabelRoutes({
     onEdgeWhen: (edgeId: string, when: string) => void;
 }) {
     const options: SelectOption[] = [
-        { value: "", label: "always" },
-        ...labels.map((l) => ({ value: `label:${l}`, label: `when “${l}”` })),
+        { value: "", label: "תמיד" },
+        ...labels.map((l) => ({ value: `label:${l}`, label: `כאשר “${l}”` })),
     ];
     return (
         <div>
-            <Label>Route connections by label</Label>
+            <Label>נתב חיבורים לפי תווית</Label>
             <div className="space-y-1.5">
                 {routes.map((r) => (
                     <div key={r.id} className="flex items-center gap-2">
@@ -2109,8 +2108,7 @@ function AILabelRoutes({
                 ))}
             </div>
             <p className="mt-1.5 text-[10.5px] text-slate-400 leading-relaxed">
-                “Always” runs no matter the label. A labeled connection runs only when AI picks that label — connect one
-                path per label to branch multi-way.
+                "תמיד" מופעל ללא קשר לתווית. חיבור עם תווית יופעל רק כאשר ה-AI בוחר בתווית זו — חבר נתיב אחד לכל תווית כדי ליצור פיצול מרובה נתיבים.
             </p>
         </div>
     );
@@ -2142,14 +2140,14 @@ function ConditionEditor({
     return (
         <div className="space-y-3">
             <div>
-                <Label>If</Label>
+                <Label>אם</Label>
                 <SelectMenu value={selectedKey} onChange={pickField} options={fieldOptions} className="w-full" fullWidth />
             </div>
 
             {/* Operator — data fields only (random / expression / AI don't use one). */}
             {!isRandom && !isExpression && !isAI && def && (
                 <div>
-                    <Label>Condition</Label>
+                    <Label>תנאי</Label>
                     <SelectMenu
                         value={op}
                         onChange={(v) => set({ operator: v, value: v === "exists" || v === "is_true" ? undefined : condition.value })}
@@ -2163,13 +2161,13 @@ function ConditionEditor({
             {/* Value editor, by field type + operator. */}
             {isAI ? (
                 <div className="space-y-2">
-                    <Label>Ask AI</Label>
+                    <Label>שאל את ה-AI</Label>
                     <textarea
                         value={String(condition.prompt ?? "")}
                         onChange={(e) => set({ prompt: e.target.value })}
                         rows={3}
                         maxLength={2000}
-                        placeholder="Is this reply asking about pricing?"
+                        placeholder="האם תשובה זו שואלת לגבי מחיר?"
                         className="w-full px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-y leading-relaxed"
                     />
                     {vars.length > 0 && (
@@ -2187,14 +2185,13 @@ function ConditionEditor({
                         </div>
                     )}
                     <p className="text-[10.5px] text-slate-400 leading-relaxed">
-                        AI reads the event data and answers your question: yes takes the right path, no takes the bottom path. If AI
-                        can't answer, the no path runs. Costs 1 credit each time this branch is evaluated.
+                        ה-AI קורא את נתוני האירוע ועונה על שאלתך: תשובת 'כן' ממשיכה בנתיב הימני, תשובת 'לא' ממשיכה בנתיב התחתון. אם ה-AI לא מצליח לענות, יופעל נתיב ה-'לא'. עלות: קרדיט 1 לכל הערכת פיצול.
                     </p>
                 </div>
             ) : isExpression ? (
                 <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                        <Label className="mb-0">Expression</Label>
+                        <Label className="mb-0">ביטוי</Label>
                         <ExpressionReference />
                     </div>
                     <textarea
@@ -2219,29 +2216,29 @@ function ConditionEditor({
                         </div>
                     )}
                     <p className="text-[10.5px] text-slate-400 leading-relaxed">
-                        Passes the “yes” branch when truthy. Reference fields as <code className="font-mono">.field</code>; use{" "}
-                        <code className="font-mono">eq gt lt and or not</code>, numeric{" "}
-                        <code className="font-mono">gtf ltf add sub mul div</code>, and{" "}
-                        <code className="font-mono">contains lower</code>. Example:{" "}
+                        ממשיך בנתיב 'כן' כאשר התוצאה אמת (truthy). הפנה לשדות באמצעות <code className="font-mono">.field</code>; השתמש ב-{" "}
+                        <code className="font-mono">eq gt lt and or not</code>, פעולות מספריות{" "}
+                        <code className="font-mono">gtf ltf add sub mul div</code>, ו-{" "}
+                        <code className="font-mono">contains lower</code>. לדוגמה:{" "}
                         <code className="font-mono">{`and (gtf .confidence 0.8) (eq .intent "positive")`}</code>.
                     </p>
                 </div>
             ) : isRandom ? (
                 <div>
-                    <Label>Take the “yes” path</Label>
+                    <Label>נתיב 'כן' בהסתברות</Label>
                     <NumberInput
                         value={Number(condition.value ?? 50)}
                         onChange={(v) => set({ value: Math.max(1, Math.min(99, v)) })}
                         min={1}
                         max={99}
                         step={5}
-                        suffix="% of the time"
+                        suffix="% מהמקרים"
                         className="w-full"
                     />
                 </div>
             ) : needsValue && def?.type === "enum" ? (
                 <div>
-                    <Label>Value</Label>
+                    <Label>ערך</Label>
                     <SelectMenu
                         value={String(condition.value ?? "")}
                         onChange={(v) => set({ value: v })}
@@ -2252,7 +2249,7 @@ function ConditionEditor({
                 </div>
             ) : needsValue && isConfidence ? (
                 <div>
-                    <Label>At least</Label>
+                    <Label>לפחות</Label>
                     <NumberInput
                         value={Math.round(Number(condition.value ?? 0) * 100)}
                         onChange={(v) => set({ value: Math.max(0, Math.min(100, v)) / 100 })}
@@ -2265,18 +2262,18 @@ function ConditionEditor({
                 </div>
             ) : needsValue && def?.type === "number" ? (
                 <div>
-                    <Label>Value</Label>
+                    <Label>ערך</Label>
                     <NumberInput value={Number(condition.value ?? 0)} onChange={(v) => set({ value: v })} className="w-full" />
                 </div>
             ) : needsValue ? (
                 <div>
-                    <Label>Value</Label>
-                    <TextInput value={String(condition.value ?? "")} onChange={(v) => set({ value: v })} placeholder="value" className="w-full" />
+                    <Label>ערך</Label>
+                    <TextInput value={String(condition.value ?? "")} onChange={(v) => set({ value: v })} placeholder="ערך" className="w-full" />
                 </div>
             ) : null}
 
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                Connect the right (yes) and bottom (no) dots of this block to the next steps.
+                חבר את נקודות היציאה של בלוק זה (ימין = כן, תחתון = לא) לשלבים הבאים.
             </p>
         </div>
     );
@@ -2286,20 +2283,20 @@ function ConditionEditor({
 // the editor header. Drives both the action dropdown glyphs and the editor
 // header, so the picker reads like the campaign step picker.
 const ACTION_VISUAL: Record<string, { Icon: typeof TagIcon; tint: string; bg: string; desc?: string }> = {
-    "warmbly.add_tag": { Icon: TagIcon, tint: "text-emerald-600", bg: "bg-emerald-50", desc: "Add a tag to the contact." },
-    "warmbly.remove_tag": { Icon: TagIcon, tint: "text-amber-600", bg: "bg-amber-50", desc: "Remove a tag from the contact." },
-    "warmbly.create_task": { Icon: CheckSquareIcon, tint: "text-violet-600", bg: "bg-violet-50", desc: "Open a CRM task for the contact." },
-    "warmbly.create_deal": { Icon: BriefcaseIcon, tint: "text-sky-600", bg: "bg-sky-50", desc: "Create a CRM deal for the contact." },
-    "warmbly.move_deal_stage": { Icon: BriefcaseIcon, tint: "text-sky-600", bg: "bg-sky-50", desc: "Move the contact's open deal to another stage." },
-    "warmbly.unsubscribe": { Icon: UserMinusIcon, tint: "text-rose-600", bg: "bg-rose-50", desc: "Unsubscribe the contact from the campaign." },
-    "warmbly.run_automation": { Icon: ZapIcon, tint: "text-indigo-600", bg: "bg-indigo-50", desc: "Launch another automation with this event's data." },
-    "warmbly.label_email": { Icon: TagsIcon, tint: "text-fuchsia-600", bg: "bg-fuchsia-50", desc: "Label the conversation the contact replied on." },
-    "warmbly.set_variables": { Icon: WandSparklesIcon, tint: "text-amber-600", bg: "bg-amber-50", desc: "Compute named values from templates for later steps to reuse." },
-    "warmbly.fire_event": { Icon: SendIcon, tint: "text-sky-600", bg: "bg-sky-50", desc: "Publish a custom event to the realtime gateway — your app receives it over the API websocket, no public URL." },
-    "warmbly.upsert_contact": { Icon: UserPlusIcon, tint: "text-emerald-600", bg: "bg-emerald-50", desc: "Create a contact from the event's fields, or enrich the one with that email, then tag it and enrol it in a campaign." },
-    "warmbly.add_to_campaign": { Icon: MegaphoneIcon, tint: "text-sky-600", bg: "bg-sky-50", desc: "Enrol the event's contact in a campaign. Sending still follows the campaign's mailboxes, caps and spacing." },
-    "warmbly.ai_step": { Icon: SparklesIcon, tint: "text-purple-600", bg: "bg-purple-50", desc: "One AI step: an agent that takes reversible actions (tag, task, deal, label…), or a single-shot classify, extract, or generate over the event. Billed in credits." },
-    "warmbly.ai_switch": { Icon: GitBranchIcon, tint: "text-purple-600", bg: "bg-purple-50", desc: "Route the event: AI picks one of your cases, or match a value template. AI mode costs 1 credit; value mode is free." },
+    "warmbly.add_tag": { Icon: TagIcon, tint: "text-emerald-600", bg: "bg-emerald-50", desc: "הוסף תגית לאיש הקשר." },
+    "warmbly.remove_tag": { Icon: TagIcon, tint: "text-amber-600", bg: "bg-amber-50", desc: "הסר תגית מאיש הקשר." },
+    "warmbly.create_task": { Icon: CheckSquareIcon, tint: "text-violet-600", bg: "bg-violet-50", desc: "פתח משימת CRM עבור איש הקשר." },
+    "warmbly.create_deal": { Icon: BriefcaseIcon, tint: "text-sky-600", bg: "bg-sky-50", desc: "צור עסקת CRM עבור איש הקשר." },
+    "warmbly.move_deal_stage": { Icon: BriefcaseIcon, tint: "text-sky-600", bg: "bg-sky-50", desc: "העבר את העסקה הפתוחה של איש הקשר לשלב אחר." },
+    "warmbly.unsubscribe": { Icon: UserMinusIcon, tint: "text-rose-600", bg: "bg-rose-50", desc: "הסר את איש הקשר מרשימת התפוצה של הקמפיין." },
+    "warmbly.run_automation": { Icon: ZapIcon, tint: "text-indigo-600", bg: "bg-indigo-50", desc: "הפעל אוטומציה נוספת עם נתוני אירוע זה." },
+    "warmbly.label_email": { Icon: TagsIcon, tint: "text-fuchsia-600", bg: "bg-fuchsia-50", desc: "החל תווית על השיחה שבה איש הקשר השיב." },
+    "warmbly.set_variables": { Icon: WandSparklesIcon, tint: "text-amber-600", bg: "bg-amber-50", desc: "חשב ערכים מוגדרים מתבניות לשימוש בשלבים הבאים." },
+    "warmbly.fire_event": { Icon: SendIcon, tint: "text-sky-600", bg: "bg-sky-50", desc: "פרסם אירוע מותאם אישית לשער ה-Realtime — היישום שלך מקבל אותו ב-WebSocket של ה-API ללא כתובת URL ציבורית." },
+    "warmbly.upsert_contact": { Icon: UserPlusIcon, tint: "text-emerald-600", bg: "bg-emerald-50", desc: "צור איש קשר משדות האירוע, או העשר איש קשר קיים לפי כתובת אימייל זו, הוסף תגיות וצרף לקמפיין." },
+    "warmbly.add_to_campaign": { Icon: MegaphoneIcon, tint: "text-sky-600", bg: "bg-sky-50", desc: "רשום את איש הקשר של האירוע לקמפיין. השליחה ממשיכה לפעול לפי מגבלות התיבות והקצב של הקמפיין." },
+    "warmbly.ai_step": { Icon: SparklesIcon, tint: "text-purple-600", bg: "bg-purple-50", desc: "שלב AI: סוכן שמבצע פעולות הפיכות (תגית, משימה, עסקה, תווית…), או סיווג, חילוץ או הפקה חד-פעמיים על האירוע. מחויב בקרדיטים." },
+    "warmbly.ai_switch": { Icon: GitBranchIcon, tint: "text-purple-600", bg: "bg-purple-50", desc: "ניתוב אירוע: AI בוחר אחד מהמקרים שלך, או התאמת ערך לפי תבנית. מצב AI עולה קרדיט 1; מצב ערך הוא חינמי." },
     "slack.notify": { Icon: MessageSquareIcon, tint: "text-violet-600", bg: "bg-violet-50" },
     "discord.notify": { Icon: MessageSquareIcon, tint: "text-indigo-600", bg: "bg-indigo-50" },
     "webhook.ping": { Icon: SendIcon, tint: "text-sky-600", bg: "bg-sky-50" },
@@ -2513,7 +2510,7 @@ function ActionEditor({
             sub: connLabel(connId),
             provider: providerOf(connId),
             native: false,
-            title: acts[0] ? actionLabel(acts[0]) : "Choose an action",
+            title: acts[0] ? actionLabel(acts[0]) : "בחר פעולה",
         });
     };
     const pickAction = (action: string) =>
@@ -2528,11 +2525,11 @@ function ActionEditor({
     return (
         <div className="space-y-3">
             <div>
-                <Label>Run</Label>
+                <Label>הפעל</Label>
                 <SelectMenu value={selectedConn} onChange={pickConnection} options={connOptions} className="w-full" fullWidth />
             </div>
             <div>
-                <Label>Action</Label>
+                <Label>פעולה</Label>
                 <SelectMenu value={data.action ?? ""} onChange={pickAction} options={actionOptions} className="w-full" fullWidth />
             </div>
 
@@ -2551,32 +2548,32 @@ function ActionEditor({
                 <>
                     {actionNeedsChannel(data.action ?? "") && (
                         <div>
-                            <Label>Channel</Label>
+                            <Label>ערוץ</Label>
                             <TextInput value={String(config.channel ?? "")} onChange={(v) => setConfig("channel", v)} placeholder="#sales" className="w-full" />
                         </div>
                     )}
                     {actionNeedsURL(data.action ?? "") && (
                         <div>
-                            <Label>Webhook URL</Label>
+                            <Label>כתובת Webhook</Label>
                             <TextInput value={String(config.url ?? "")} onChange={(v) => setConfig("url", v)} placeholder="https://hooks.zapier.com/…" className="w-full" />
                             <VarChips vars={vars} onPick={(t) => insertInto("url", t)} />
                         </div>
                     )}
                     {actionSupportsTemplate(data.action ?? "") && (
                         <div>
-                            <Label>Message (optional)</Label>
+                            <Label>הודעה (אופציונלי)</Label>
                             <TextInput
                                 value={String(config.message_template ?? "")}
                                 onChange={(v) => setConfig("message_template", v)}
-                                placeholder="New reply from {{.contact_email}}"
+                                placeholder="תשובה חדשה מאת {{.contact_email}}"
                                 className="w-full"
                             />
                             <VarChips vars={vars} onPick={(t) => insertInto("message_template", t)} />
                         </div>
                     )}
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Values are full Go templates: <span className="font-mono text-slate-500">{"{{.variable}}"}</span> fields plus{" "}
-                        <span className="font-mono text-slate-500">{"{{if}}"}</span>, helpers, and pipelines, rendered against the trigger data when the automation runs.
+                        ערכים אלה הם תבניות Go מלאות: שדות <span className="font-mono text-slate-500">{"{{.variable}}"}</span> בתוספת{" "}
+                        <span className="font-mono text-slate-500">{"{{if}}"}</span>, פונקציות עזר וצינורות (pipelines), המעובדים מול נתוני הטריגר בעת הפעלת האוטומציה.
                     </p>
                 </>
             )}
@@ -2585,22 +2582,27 @@ function ActionEditor({
     );
 }
 
-const NATIVE_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
+const NATIVE_PRIORITIES = [
+    { value: "low", label: "נמוכה" },
+    { value: "medium", label: "בינונית" },
+    { value: "high", label: "גבוהה" },
+    { value: "urgent", label: "דחופה" },
+] as const;
 function PrioritySegment({ value, onChange }: { value: string; onChange: (p: string) => void }) {
     const current = value || "medium";
     return (
         <div className="inline-flex rounded-md border border-slate-200 bg-white p-0.5">
             {NATIVE_PRIORITIES.map((p) => (
                 <button
-                    key={p}
+                    key={p.value}
                     type="button"
-                    onClick={() => onChange(p)}
+                    onClick={() => onChange(p.value)}
                     className={cn(
-                        "h-7 px-2.5 rounded text-[11px] font-medium capitalize transition-colors",
-                        current === p ? "bg-sky-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+                        "h-7 px-2.5 rounded text-[11px] font-medium transition-colors",
+                        current === p.value ? "bg-sky-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
                     )}
                 >
-                    {p}
+                    {p.label}
                 </button>
             ))}
         </div>
@@ -2628,11 +2630,11 @@ function NativeActionConfig({
         <div className="space-y-3">
             {need === "tag" && (
                 <div>
-                    <Label>{action === "warmbly.add_tag" ? "Tag to add" : "Tag to remove"}</Label>
+                    <Label>{action === "warmbly.add_tag" ? "תגית להוספה" : "תגית להסרה"}</Label>
                     <CategoryPicker
                         value={config.category_id ? [String(config.category_id)] : []}
                         onChange={(ids) => patchConfig({ category_id: ids.length ? ids[ids.length - 1] : "" })}
-                        placeholder="Pick a tag…"
+                        placeholder="בחר תגית…"
                     />
                 </div>
             )}
@@ -2640,22 +2642,20 @@ function NativeActionConfig({
             {need === "label" && (
                 <div className="space-y-2">
                     <div>
-                        <Label>Labels to apply</Label>
+                        <Label>תוויות להחלה</Label>
                         <CategoryPicker
                             value={Array.isArray(config.label_ids) ? (config.label_ids as string[]) : []}
                             onChange={(ids) => patchConfig({ label_ids: ids })}
-                            placeholder="Pick one or more labels…"
+                            placeholder="בחר תווית אחת או יותר…"
                         />
                     </div>
                     {triggerCarriesThread(trigger) ? (
                         <p className="text-[11px] leading-relaxed text-slate-400">
-                            Labels the conversation the contact replied on (the same labels you set by hand in the unibox).
+                            מחיל תווית על השיחה שבה איש הקשר השיב (אותן תוויות שמוגדרות ידנית בתיבת הדואר הנכנס).
                         </p>
                     ) : (
                         <p className="inline-flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700">
-                            <TriangleAlertIcon className="mt-px w-3.5 h-3.5 shrink-0" /> This labels the email a contact
-                            replied on, so it only runs on a &quot;Reply received&quot; automation. This trigger has no
-                            inbox thread to label.
+                            <TriangleAlertIcon className="mt-px w-3.5 h-3.5 shrink-0" /> פעולה זו מחילה תווית על האימייל שעליו איש הקשר השיב, ולכן היא מופעלת רק באוטומציה של "התקבלה תשובה". לטריגר זה אין שיחה בתיבת הדואר לתווית.
                         </p>
                     )}
                 </div>
@@ -2664,7 +2664,7 @@ function NativeActionConfig({
             {need === "deal" && (
                 <>
                     <div>
-                        <Label>{action === "warmbly.create_deal" ? "Create the deal in" : "Move the deal to"}</Label>
+                        <Label>{action === "warmbly.create_deal" ? "צור עסקה ב-" : "העבר עסקה אל"}</Label>
                         <DealStagePicker
                             pipelineId={config.deal_pipeline_id ? String(config.deal_pipeline_id) : undefined}
                             stageId={config.deal_stage_id ? String(config.deal_stage_id) : undefined}
@@ -2674,7 +2674,7 @@ function NativeActionConfig({
                     {action === "warmbly.create_deal" && (
                         <>
                             <div>
-                                <Label>Deal name</Label>
+                                <Label>שם העסקה</Label>
                                 <TextInput
                                     value={String(config.deal_name ?? "")}
                                     onChange={(v) => patchConfig({ deal_name: v })}
@@ -2682,12 +2682,12 @@ function NativeActionConfig({
                                     className="w-full"
                                 />
                                 <p className="mt-1.5 text-[11px] text-slate-400">
-                                    Full Go template: {"{{.variable}}"} fields plus {"{{if}}"}, helpers, and pipelines.
+                                    תבנית Go מלאה: שדות {"{{.variable}}"} בתוספת {"{{if}}"}, עזרים וצינורות עיבוד.
                                 </p>
                             </div>
                             <div className="flex items-end gap-3">
                                 <div className="flex-1">
-                                    <Label>Value (optional)</Label>
+                                    <Label>שווי (אופציונלי)</Label>
                                     <NumberInput
                                         value={Number(config.deal_value ?? 0)}
                                         onChange={(n) => patchConfig({ deal_value: n > 0 ? n : undefined })}
@@ -2697,7 +2697,7 @@ function NativeActionConfig({
                                     />
                                 </div>
                                 <div className="w-32">
-                                    <Label>Currency</Label>
+                                    <Label>מטבע</Label>
                                     <SelectMenu
                                         value={String(config.deal_currency ?? "USD")}
                                         onChange={(c) => patchConfig({ deal_currency: c })}
@@ -2711,7 +2711,7 @@ function NativeActionConfig({
                     )}
                     {action === "warmbly.move_deal_stage" && (
                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                            Moves the contact's most recent open deal in this pipeline. If they have no open deal here, nothing happens.
+                            מעביר את העסקה הפתוחה האחרונה של איש הקשר בצינור זה. אם אין לו עסקה פתוחה כאן, לא יקרה דבר.
                         </p>
                     )}
                 </>
@@ -2720,19 +2720,19 @@ function NativeActionConfig({
             {need === "task" && (
                 <>
                     <div>
-                        <Label>Task title</Label>
+                        <Label>כותרת המשימה</Label>
                         <TextInput
                             value={String(config.task_title ?? "")}
                             onChange={(v) => patchConfig({ task_title: v })}
-                            placeholder="Follow up with {{.contact_email}}"
+                            placeholder="מעקב אחר {{.contact_email}}"
                             className="w-full"
                         />
                         <p className="mt-1.5 text-[11px] text-slate-400">
-                            Full Go template: {"{{.variable}}"} fields plus {"{{if}}"}, helpers, and pipelines.
+                            תבנית Go מלאה: שדות {"{{.variable}}"} בתוספת {"{{if}}"}, עזרים וצינורות עיבוד.
                         </p>
                     </div>
                     <div>
-                        <Label>Task type</Label>
+                        <Label>סוג משימה</Label>
                         <TaskTypePicker
                             value={String(config.task_type ?? "")}
                             onChange={(name) => patchConfig({ task_type: name })}
@@ -2741,11 +2741,11 @@ function NativeActionConfig({
                     </div>
                     <div className="flex flex-wrap items-end gap-4">
                         <div>
-                            <Label>Priority</Label>
+                            <Label>עדיפות</Label>
                             <PrioritySegment value={String(config.task_priority ?? "")} onChange={(p) => patchConfig({ task_priority: p })} />
                         </div>
                         <div>
-                            <Label>Due in (days)</Label>
+                            <Label>יעד לביצוע (ימים)</Label>
                             <NumberInput
                                 value={Number(config.task_due_offset_days ?? 1)}
                                 onChange={(n) => patchConfig({ task_due_offset_days: n })}
@@ -2756,7 +2756,7 @@ function NativeActionConfig({
                         </div>
                     </div>
                     <div>
-                        <Label>Assign to</Label>
+                        <Label>הקצאה אל</Label>
                         <AssigneeTeamPicker
                             className="w-full"
                             value={{
@@ -2766,7 +2766,7 @@ function NativeActionConfig({
                             onChange={(v: AssigneeValue) => patchConfig({ task_assigned_to: v.userId ?? null, task_assigned_team_id: v.teamId ?? null })}
                         />
                         <p className="mt-1.5 text-[11px] text-slate-400">
-                            Assign to a teammate or a whole team. Unassigned falls back to the workspace owner.
+                            הקצה לחבר צוות או לצוות שלם. ללא הקצאה, ברירת המחדל היא בעל מרחב העבודה.
                         </p>
                     </div>
                 </>
@@ -2779,16 +2779,16 @@ function NativeActionConfig({
             {need === "campaign" && (
                 <div className="space-y-2">
                     <div>
-                        <Label>Campaign</Label>
+                        <Label>קמפיין</Label>
                         <CampaignPicker
                             campaignId={config.campaign_id ? String(config.campaign_id) : null}
                             campaignName={String(config.campaign_name ?? "")}
                             onChange={(id, name) => patchConfig({ campaign_id: id ?? "", campaign_name: name })}
-                            noneLabel="Pick a campaign…"
+                            noneLabel="בחר קמפיין…"
                         />
                     </div>
                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Enrols the contact this event is about (by <code>contact_id</code> or <code>contact_email</code>). Sending still runs through the campaign&apos;s mailboxes, daily caps and spacing, and the campaign keeps running for new leads instead of finishing between runs.
+                        רושם את איש הקשר של אירוע זה (לפי <code>contact_id</code> או <code>contact_email</code>). השליחה ממשיכה לפעול דרך תיבות הדואר של הקמפיין, מכסות יומיות ומרווחים, והקמפיין ממשיך לפעול עבור לידים חדשים.
                     </p>
                 </div>
             )}
@@ -2803,7 +2803,7 @@ function NativeActionConfig({
 
             {need === "none" && (
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                    Works when the event carries a campaign (reply / bounce / unsubscribe triggers).
+                    פועל כאשר האירוע מקושר לקמפיין (טריגרים של תשובה / חזרה / הסרה מרשימת תפוצה).
                 </p>
             )}
         </div>
@@ -2813,17 +2813,17 @@ function NativeActionConfig({
 type SetVarRow = { key: string; value: string };
 
 const IF_EXISTS_OPTIONS: SelectOption[] = [
-    { value: "update", label: "Update it (fill blanks, add tags and campaign)" },
-    { value: "skip", label: "Leave it alone" },
+    { value: "update", label: "עדכן אותו (מלא שדות ריקים, הוסף תגיות וקמפיין)" },
+    { value: "skip", label: "השאר ללא שינוי" },
 ];
 
 // The contact columns a lead-intake action fills, each a template rendered
 // against the event data. Email is the identity; the rest enrich.
 const UPSERT_FIELDS: { key: string; label: string; placeholder: string }[] = [
-    { key: "first_name", label: "First name", placeholder: "{{.first_name}}" },
-    { key: "last_name", label: "Last name", placeholder: "{{.last_name}}" },
-    { key: "company", label: "Company", placeholder: "{{.company}}" },
-    { key: "phone", label: "Phone", placeholder: "{{.phone}}" },
+    { key: "first_name", label: "שם פרטי", placeholder: "{{.first_name}}" },
+    { key: "last_name", label: "שם משפחה", placeholder: "{{.last_name}}" },
+    { key: "company", label: "חברה", placeholder: "{{.company}}" },
+    { key: "phone", label: "טלפון", placeholder: "{{.phone}}" },
 ];
 
 // UpsertContactFields edits the lead-intake action: which event fields become
@@ -2852,7 +2852,7 @@ function UpsertContactFields({
     return (
         <div className="space-y-3">
             <div>
-                <Label>Email</Label>
+                <Label>אימייל</Label>
                 <TextInput
                     value={String(config.email ?? "")}
                     onChange={(v) => patchConfig({ email: v })}
@@ -2861,7 +2861,7 @@ function UpsertContactFields({
                 />
                 <VarChips vars={vars} onPick={(t) => insertInto("email", t)} />
                 <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                    The contact&apos;s identity. An existing contact with this address is matched instead of duplicated.
+                    מזהה איש הקשר. איש קשר קיים עם כתובת זו יעודכן במקום ליצור כפילות.
                 </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -2878,14 +2878,14 @@ function UpsertContactFields({
                 ))}
             </div>
             <div>
-                <Label>Custom fields</Label>
+                <Label>שדות מותאמים אישית</Label>
                 <div className="space-y-2">
                     {rows.map((row, i) => (
                         <div key={i} className="flex items-center gap-2">
                             <TextInput
                                 value={row.key}
                                 onChange={(v) => setRow(i, { key: v })}
-                                placeholder="field"
+                                placeholder="שדה"
                                 className="w-28 shrink-0 font-mono"
                             />
                             <span className="text-[12.5px] text-slate-400">=</span>
@@ -2899,7 +2899,7 @@ function UpsertContactFields({
                                 type="button"
                                 onClick={() => removeRow(i)}
                                 className="shrink-0 text-slate-400 hover:text-rose-500"
-                                aria-label="Remove custom field"
+                                aria-label="הסר שדה מותאם אישית"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -2911,19 +2911,19 @@ function UpsertContactFields({
                     onClick={addRow}
                     className="mt-2 inline-flex items-center gap-1 text-[12px] text-sky-600 hover:text-sky-700"
                 >
-                    <PlusIcon className="w-3.5 h-3.5" /> Add custom field
+                    <PlusIcon className="w-3.5 h-3.5" /> הוסף שדה מותאם אישית
                 </button>
             </div>
             <div>
-                <Label>Tags</Label>
+                <Label>תגיות</Label>
                 <CategoryPicker
                     value={Array.isArray(config.category_ids) ? (config.category_ids as string[]) : []}
                     onChange={(ids) => patchConfig({ category_ids: ids })}
-                    placeholder="Pick tags…"
+                    placeholder="בחר תגיות…"
                 />
             </div>
             <div>
-                <Label>Add to campaign</Label>
+                <Label>הוסף לקמפיין</Label>
                 <CampaignPicker
                     campaignId={config.campaign_id ? String(config.campaign_id) : null}
                     campaignName={String(config.campaign_name ?? "")}
@@ -2931,7 +2931,7 @@ function UpsertContactFields({
                 />
             </div>
             <div>
-                <Label>If the contact already exists</Label>
+                <Label>אם איש הקשר כבר קיים</Label>
                 <SelectMenu
                     value={String(config.if_exists ?? "update")}
                     onChange={(v) => patchConfig({ if_exists: v })}
@@ -2941,8 +2941,7 @@ function UpsertContactFields({
                 />
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                A blank value never erases what the contact already has. The written contact becomes this event&apos;s contact, so the
-                steps after it (tag, task, deal) act on it. A campaign picked here keeps running for new leads instead of finishing between runs.
+                ערך ריק לעולם לא מוחק נתונים שכבר קיימים באיש הקשר. איש הקשר שנשמר הופך לאיש הקשר של אירוע זה, כך שהשלבים הבאים (תגית, משימה, עסקה) יפעלו עליו. קמפיין שנבחר כאן ממשיך לפעול עבור לידים חדשים.
             </p>
         </div>
     );
@@ -2977,21 +2976,21 @@ function SetVariablesFields({
                     <TextInput
                         value={row.key}
                         onChange={(v) => setRow(i, { key: v })}
-                        placeholder="name"
+                        placeholder="שם"
                         className="w-28 shrink-0 font-mono"
                     />
                     <span className="text-[12.5px] text-slate-400">=</span>
                     <TextInput
                         value={row.value}
                         onChange={(v) => setRow(i, { value: v })}
-                        placeholder="{{.first_name}} at {{.company}}"
+                        placeholder="{{.first_name}} מ-{{.company}}"
                         className="flex-1 min-w-0 font-mono"
                     />
                     <button
                         type="button"
                         onClick={() => removeRow(i)}
                         className="shrink-0 text-slate-400 hover:text-rose-500"
-                        aria-label="Remove variable"
+                        aria-label="הסר משתנה"
                     >
                         <XIcon className="w-3.5 h-3.5" />
                     </button>
@@ -3002,10 +3001,10 @@ function SetVariablesFields({
                 onClick={addRow}
                 className="inline-flex items-center gap-1 text-[12px] text-sky-600 hover:text-sky-700"
             >
-                <PlusIcon className="w-3.5 h-3.5" /> Add variable
+                <PlusIcon className="w-3.5 h-3.5" /> הוסף משתנה
             </button>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                Each value is a Go template. Later steps reference it as <code>{`{{.name}}`}</code>.
+                כל ערך הוא תבנית Go. שלבים עוקבים יכולים להפנות אליו באמצעות <code>{`{{.name}}`}</code>.
             </p>
         </div>
     );
@@ -3034,24 +3033,24 @@ function FireEventFields({
     return (
         <div className="space-y-3">
             <div>
-                <Label>Event name</Label>
+                <Label>שם האירוע</Label>
                 <TextInput
                     value={String(config.event_name ?? "")}
                     onChange={(v) => patchConfig({ event_name: v })}
                     placeholder="lead.replied"
                     className="w-full font-mono"
                 />
-                <p className="mt-1 text-[11px] text-slate-400">What your app subscribes to. Lowercase dotted names work well.</p>
+                <p className="mt-1 text-[11px] text-slate-400">האירוע שהאפליקציה שלך מאזינה לו. מומלץ להשתמש בשמות מופרדים בנקודות באותיות קטנות.</p>
             </div>
             <div>
-                <Label>Payload</Label>
+                <Label>מטען (Payload)</Label>
                 <div className="space-y-2">
                     {display.map((row, i) => (
                         <div key={i} className="flex items-center gap-2">
                             <TextInput
                                 value={row.key}
                                 onChange={(v) => setRow(i, { key: v })}
-                                placeholder="field"
+                                placeholder="שדה"
                                 className="w-28 shrink-0 font-mono"
                             />
                             <span className="text-[12.5px] text-slate-400">=</span>
@@ -3065,7 +3064,7 @@ function FireEventFields({
                                 type="button"
                                 onClick={() => removeRow(i)}
                                 className="shrink-0 text-slate-400 hover:text-rose-500"
-                                aria-label="Remove field"
+                                aria-label="הסר שדה"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -3077,10 +3076,10 @@ function FireEventFields({
                     onClick={addRow}
                     className="mt-2 inline-flex items-center gap-1 text-[12px] text-sky-600 hover:text-sky-700"
                 >
-                    <PlusIcon className="w-3.5 h-3.5" /> Add field
+                    <PlusIcon className="w-3.5 h-3.5" /> הוסף שדה
                 </button>
                 <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                    Each value is a Go template against the event data. Your app receives <code>{`{ name, payload }`}</code> over the websocket.
+                    כל ערך הוא תבנית Go מול נתוני האירוע. האפליקציה שלך מקבלת <code>{`{ name, payload }`}</code> דרך ה-WebSocket.
                 </p>
             </div>
         </div>
@@ -3100,7 +3099,7 @@ function AIInstruction({
 }) {
     return (
         <div>
-            <Label>Instruction</Label>
+            <Label>הנחיה</Label>
             <textarea
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
@@ -3109,7 +3108,7 @@ function AIInstruction({
                 className="w-full px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-y leading-relaxed"
             />
             <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                Reference event fields with <code>{`{{.field}}`}</code>. The model also sees the rest of the event data.
+                הפנה לשדות האירוע באמצעות <code>{`{{.field}}`}</code>. המודל רואה גם את יתר נתוני האירוע.
             </p>
         </div>
     );
@@ -3151,7 +3150,7 @@ function AIStringList({
                             type="button"
                             onClick={() => removeRow(i)}
                             className="shrink-0 text-slate-400 hover:text-rose-500"
-                            aria-label={`Remove ${label}`}
+                            aria-label={`הסר ${label}`}
                         >
                             <XIcon className="w-3.5 h-3.5" />
                         </button>
@@ -3182,10 +3181,10 @@ function AIOutputVariable({
 }) {
     return (
         <div>
-            <Label>Output variable (optional)</Label>
+            <Label>משתנה פלט (אופציונלי)</Label>
             <TextInput value={value} onChange={onChange} placeholder={defaultName} className="w-40 font-mono" />
             <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                Where the result is stored. Defaults to <code>{`{{.${defaultName}}}`}</code>; set a name if another AI step already uses it.
+                היכן התוצאה תישמר. ברירת המחדל היא <code>{`{{.${defaultName}}}`}</code>; הגדר שם אם שלב AI אחר כבר משתמש בו.
             </p>
         </div>
     );
@@ -3206,14 +3205,14 @@ function AIClassifyFields({
             <AIInstruction
                 value={String(config.instruction ?? "")}
                 onChange={(v) => patchConfig({ instruction: v })}
-                placeholder="Classify this reply by how interested the sender is."
+                placeholder="סווג תשובה זו לפי מידת העניין של השולח."
             />
             <AIStringList
-                label="Labels"
+                label="תוויות"
                 values={labels}
                 onChange={(next) => patchConfig({ labels: next })}
-                placeholder="interested"
-                addLabel="Add label"
+                placeholder="מעוניין"
+                addLabel="הוסף תווית"
             />
             <AIOutputVariable
                 value={String(config.output_key ?? "")}
@@ -3221,7 +3220,7 @@ function AIClassifyFields({
                 defaultName="ai_class"
             />
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                The model picks exactly one label. Add at least two. Costs 1 credit each time it runs.
+                המודל בוחר תווית אחת בדיוק. הוסף לפחות שתי תוויות. עלות: קרדיט 1 לכל הרצה.
             </p>
         </div>
     );
@@ -3242,17 +3241,17 @@ function AIExtractFields({
             <AIInstruction
                 value={String(config.instruction ?? "")}
                 onChange={(v) => patchConfig({ instruction: v })}
-                placeholder="Pull the company size, budget, and timeline from this message."
+                placeholder="חלץ מגוף ההודעה את גודל החברה, התקציב ולוח הזמנים."
             />
             <AIStringList
-                label="Output keys"
+                label="מפתחות פלט"
                 values={keys}
                 onChange={(next) => patchConfig({ output_keys: next })}
-                placeholder="company_size"
-                addLabel="Add key"
+                placeholder="גודל_חברה"
+                addLabel="הוסף מפתח"
             />
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                Each key becomes a variable ( <code>{`{{.company_size}}`}</code> ). A field the model can't find is empty. Costs 1 credit.
+                כל מפתח הופך למשתנה ( <code>{`{{.company_size}}`}</code> ). שדה שהמודל לא מוצא נשאר ריק. עלות: קרדיט 1.
             </p>
         </div>
     );
@@ -3272,7 +3271,7 @@ function AIGenerateFields({
             <AIInstruction
                 value={String(config.instruction ?? "")}
                 onChange={(v) => patchConfig({ instruction: v })}
-                placeholder="Write a one-line summary of this reply for a Slack alert."
+                placeholder="כתוב סיכום של שורה אחת לתשובה זו עבור התראת Slack."
             />
             <AIOutputVariable
                 value={String(config.output_key ?? "")}
@@ -3280,7 +3279,7 @@ function AIGenerateFields({
                 defaultName="ai_text"
             />
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                The result is stored, not sent. Use it in a later step (a Slack message, a task). Costs 1 credit.
+                התוצאה נשמרת ואינה נשלחת. השתמש בה בשלב עוקב (הודעת Slack, משימה וכד'). עלות: קרדיט 1.
             </p>
         </div>
     );
@@ -3289,10 +3288,10 @@ function AIGenerateFields({
 // The AI step mirrors the campaign agent plus single-shot transforms. Routing is
 // the AI switch's job, so "decide" is deliberately not a step mode.
 const AI_STEP_MODE_OPTIONS: SelectOption[] = [
-    { value: "agent", label: "Agent (decide + act)" },
-    { value: "generate", label: "Generate text" },
-    { value: "classify", label: "Classify" },
-    { value: "extract", label: "Extract fields" },
+    { value: "agent", label: "סוכן (החלטה ופעולה)" },
+    { value: "generate", label: "הפקת טקסט" },
+    { value: "classify", label: "סיווג" },
+    { value: "extract", label: "חילוץ שדות" },
 ];
 
 // AIToggle — one capability row (extended thinking, web search) matching the
@@ -3352,8 +3351,8 @@ function AIThinkingToggle({
 }) {
     return (
         <AIToggle
-            label="Extended thinking"
-            detail="Uses the stronger model with a bigger reasoning budget. Costs more through usage metering"
+            label="חשיבה מורחבת"
+            detail="משתמש במודל חזק יותר עם תקציב הסקת מסקנות גדול יותר. צורך יותר יחידות שימוש"
             on={!!config.thinking}
             onToggle={() => patchConfig({ thinking: !config.thinking })}
         />
@@ -3374,7 +3373,7 @@ function AIStepFields({
     return (
         <div className="space-y-3">
             <div>
-                <Label>Mode</Label>
+                <Label>מצב</Label>
                 <SelectMenu
                     value={mode}
                     onChange={(m) => patchConfig({ mode: m })}
@@ -3388,7 +3387,7 @@ function AIStepFields({
             {mode === "generate" && <AIGenerateFields config={config} patchConfig={patchConfig} />}
             {mode === "agent" && <AIAgentFields config={config} patchConfig={patchConfig} />}
             <div>
-                <Label>Capabilities</Label>
+                <Label>יכולות</Label>
                 <AIThinkingToggle config={config} patchConfig={patchConfig} />
             </div>
         </div>
@@ -3427,12 +3426,12 @@ function AITagPoolField({
             <CategoryPicker
                 value={value.map((r) => r.id)}
                 onChange={(ids) => onChange(ids.map((id) => ({ id, name: titleById.get(id) ?? knownName.get(id) ?? id })))}
-                placeholder="Any — leave empty to let the agent choose"
+                placeholder="הכל — השאר ריק כדי לאפשר לסוכן לבחור"
             />
             <p className="mt-1.5 text-[11px] text-slate-400">
                 {value.length
-                    ? "The agent chooses among these for each event."
-                    : "Empty, so the agent may use any of your tags for each event."}
+                    ? "הסוכן בוחר מתוך אפשרויות אלו עבור כל אירוע."
+                    : "ריק, ולכן הסוכן רשאי להשתמש בכל התגיות שלך עבור כל אירוע."}
             </p>
         </div>
     );
@@ -3465,10 +3464,10 @@ function AIAgentFields({
             <AIInstruction
                 value={String(config.instruction ?? "")}
                 onChange={(v) => patchConfig({ instruction: v })}
-                placeholder="Read the reply. If they ask about pricing, tag them 'pricing' and create a follow-up task."
+                placeholder="קרא את התשובה. אם הם שואלים על מחיר, הוסף להם תגית 'תמחור' וצור משימת מעקב."
             />
             <div>
-                <Label>Actions the agent may take</Label>
+                <Label>פעולות שהסוכן רשאי לבצע</Label>
                 <div className="divide-y divide-slate-100 rounded-md border border-slate-200 p-1">
                     {AI_ALLOWLIST_ACTIONS.map((id) => {
                         const on = enabled.includes(id);
@@ -3478,7 +3477,7 @@ function AIAgentFields({
                                 <button
                                     type="button"
                                     onClick={() => toggle(id)}
-                                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12.5px] text-slate-700 transition-colors hover:bg-slate-100"
+                                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left rtl:text-right text-[12.5px] text-slate-700 transition-colors hover:bg-slate-100"
                                 >
                                     <span
                                         className={cn(
@@ -3491,14 +3490,14 @@ function AIAgentFields({
                                     {actionLabel(id)}
                                 </button>
                                 {on && poolKey && (
-                                    <div className="ml-[1.35rem] mt-1 space-y-3 border-l border-slate-200 pl-3 pb-1.5">
+                                    <div className="ml-[1.35rem] rtl:mr-[1.35rem] rtl:ml-0 mt-1 space-y-3 border-l rtl:border-r rtl:border-l-0 border-slate-200 pl-3 rtl:pr-3 rtl:pl-0 pb-1.5">
                                         <AITagPoolField
                                             label={
                                                 id === "warmbly.add_tag"
-                                                    ? "Tags the agent can add"
+                                                    ? "תגיות שהסוכן יכול להוסיף"
                                                     : id === "warmbly.remove_tag"
-                                                      ? "Tags the agent can remove"
-                                                      : "Labels the agent can apply"
+                                                      ? "תגיות שהסוכן יכול להסיר"
+                                                      : "תוויות שהסוכן יכול להחיל"
                                             }
                                             value={poolFor(id)}
                                             onChange={(refs) => patchConfig({ [poolKey]: refs })}
@@ -3513,7 +3512,7 @@ function AIAgentFields({
                     <button
                         type="button"
                         onClick={() => patchConfig({ ai_allow_create_tags: !config.ai_allow_create_tags })}
-                        className="mt-2 flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left text-[12px] text-slate-600 transition-colors hover:bg-slate-50"
+                        className="mt-2 flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-left rtl:text-right text-[12px] text-slate-600 transition-colors hover:bg-slate-50"
                     >
                         <span
                             className={cn(
@@ -3523,13 +3522,11 @@ function AIAgentFields({
                         >
                             {!!config.ai_allow_create_tags && <CheckIcon className="w-3 h-3" />}
                         </span>
-                        Let the agent create a new tag/label when none fits
+                        אפשר לסוכן ליצור תגית/תווית חדשה כאשר אין התאמה
                     </button>
                 )}
                 <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed">
-                    The agent decides which of these to use for each event, writes any task or deal details itself, and
-                    can chain several. It only takes these reversible actions — it never sends or replies. Billed 1
-                    credit per step it takes.
+                    הסוכן מחליט באילו פעולות להשתמש עבור כל אירוע, מנסח בעצמו את פרטי המשימה או העסקה, ויכול לשלב מספר פעולות ברצף. הוא מבצע רק פעולות הפיכות אלו — לעולם אינו שולח או משיב בעצמו. חיוב: קרדיט 1 לכל שלב שבוצע.
                 </p>
             </div>
         </div>
@@ -3551,12 +3548,12 @@ function AISwitchFields({
     return (
         <div className="space-y-3">
             <div>
-                <Label>Decided by</Label>
+                <Label>נקבע על ידי</Label>
                 <div className="grid grid-cols-2 gap-1.5">
                     {(
                         [
-                            { ai: true, Icon: SparklesIcon, title: "AI prompt", detail: "A model reads the event and picks a case. 1 credit." },
-                            { ai: false, Icon: BracesIcon, title: "Value", detail: "A field or template is matched to the cases. Free." },
+                            { ai: true, Icon: SparklesIcon, title: "הנחיית AI", detail: "המודל קורא את האירוע ובוחר מקרה. קרדיט 1." },
+                            { ai: false, Icon: BracesIcon, title: "ערך", detail: "שדה או תבנית מותאמים לשמות המקרים. חינם." },
                         ] as const
                     ).map(({ ai, Icon, title, detail }) => {
                         const active = aiMode === ai;
@@ -3566,7 +3563,7 @@ function AISwitchFields({
                                 type="button"
                                 onClick={() => patchConfig({ switch_on: ai ? "ai" : "value" })}
                                 className={cn(
-                                    "flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-left transition-colors",
+                                    "flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-left rtl:text-right transition-colors",
                                     active ? "border-purple-300 bg-purple-50" : "border-slate-200 bg-white hover:border-slate-300",
                                 )}
                             >
@@ -3588,14 +3585,14 @@ function AISwitchFields({
                     <AIInstruction
                         value={String(config.instruction ?? "")}
                         onChange={(v) => patchConfig({ instruction: v })}
-                        placeholder="Decide which path fits this event."
+                        placeholder="החלט איזה נתיב מתאים לאירוע זה."
                     />
                     <div>
-                        <Label>Capabilities</Label>
+                        <Label>יכולות</Label>
                         <div className="space-y-1">
                             <AIToggle
-                                label="Web search"
-                                detail="Looks up the event's company on the web before deciding. +1 credit when results are found"
+                                label="חיפוש באינטרנט"
+                                detail="מחפש מידע על החברה של האירוע ברשת לפני קבלת ההחלטה. קרדיט 1+ כאשר נמצאות תוצאות"
                                 on={!!config.web_search}
                                 onToggle={() => patchConfig({ web_search: !config.web_search })}
                             />
@@ -3605,30 +3602,29 @@ function AISwitchFields({
                 </>
             ) : (
                 <div>
-                    <Label>Value to match</Label>
+                    <Label>ערך להתאמה</Label>
                     <TextInput
                         value={String(config.switch_value ?? "")}
                         onChange={(v) => patchConfig({ switch_value: v.slice(0, 500) })}
-                        placeholder="e.g. {{.intent}}"
+                        placeholder="לדוגמה: {{.intent}}"
                         className="w-full font-mono"
                     />
                     <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
-                        Rendered against the event and matched to the case names. Matching ignores casing and extra
-                        spaces; wrap a case in slashes for a regex, e.g. <code className="font-mono">/^(vip|enterprise)/</code>.
-                        First match wins. No model call, no credits.
+                        מעובד מול האירוע ומוצלב מול שמות המקרים. ההתאמה מתעלמת מאותיות רישיות ומרווחים מיותרים; עטוף מקרה בלוכסנים עבור ביטוי רגולרי (regex), לדוגמה: <code className="font-mono">/^(vip|enterprise)/</code>.
+                        ההתאמה הראשונה מנצחת. ללא שימוש במודל וללא חיוב בקרדיטים.
                     </p>
                 </div>
             )}
 
             <AIStringList
-                label="Cases"
+                label="מקרים"
                 values={cases}
                 onChange={(next) => patchConfig({ cases: next })}
-                placeholder="interested"
-                addLabel="Add case"
+                placeholder="מעוניין"
+                addLabel="הוסף מקרה"
             />
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                Add at least two cases, then route each connection to a case with “Route connections by label” below.
+                הוסף לפחות שני מקרים, ולאחר מכן נתב כל חיבור למקרה באמצעות "נתב חיבורים לפי תווית" למטה.
             </p>
         </div>
     );
@@ -3650,34 +3646,34 @@ function RunAnotherAutomationFields({
     const all = (data?.automations ?? []).filter((a) => a.id !== selfId);
     const options: SelectOption[] = all.map((a) => ({
         value: a.id,
-        label: (a.name || "Untitled automation") + (a.enabled ? "" : " · disabled"),
+        label: (a.name || "אוטומציה ללא שם") + (a.enabled ? "" : " · מושבתת"),
     }));
     const selected = all.find((a) => a.id === String(config.automation_id ?? ""));
     return (
         <div className="space-y-2">
             <div>
-                <Label>Automation to run</Label>
+                <Label>אוטומציה להרצה</Label>
                 <SelectMenu
                     value={String(config.automation_id ?? "")}
                     onChange={(id) => patchConfig({ automation_id: id })}
                     options={options}
-                    placeholder={options.length ? "Choose an automation…" : "No other automations yet"}
+                    placeholder={options.length ? "בחר אוטומציה…" : "אין עדיין אוטומציות נוספות"}
                     className="w-full"
                     fullWidth
                 />
             </div>
             {selected && !selected.enabled && (
                 <p className="inline-flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] leading-relaxed text-amber-700">
-                    <TriangleAlertIcon className="mt-px w-3.5 h-3.5 shrink-0" /> This automation is disabled, so nothing runs until you enable it.
+                    <TriangleAlertIcon className="mt-px w-3.5 h-3.5 shrink-0" /> אוטומציה זו מושבתת, ולכן דבר לא יופעל עד שתפעיל אותה.
                 </p>
             )}
             {selected && selected.enabled && selected.trigger_event !== "campaign.action" && (
                 <p className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[11px] leading-relaxed text-sky-700">
-                    Built for the &quot;{triggerLabel(selected.trigger_event)}&quot; trigger. It still runs here, but only the variables present in this event are passed through.
+                    נבנתה עבור הטריגר &quot;{triggerLabel(selected.trigger_event)}&quot;. היא עדיין תפעל כאן, אך רק המשתנים הקיימים באירוע זה יועברו.
                 </p>
             )}
             <p className="text-[11px] leading-relaxed text-slate-400">
-                The launched automation receives this event&apos;s data. Chains are depth-limited, so automations can&apos;t loop forever.
+                האוטומציה המופעלת מקבלת את נתוני אירוע זה. עומק השרשראות מוגבל כדי למנוע לולאות אינסופיות.
             </p>
         </div>
     );
@@ -3693,7 +3689,7 @@ function VarChips({ vars, onPick }: { vars: string[]; onPick: (v: string) => voi
                     key={v}
                     type="button"
                     onClick={() => onPick(v)}
-                    title={`Insert {{.${v}}}`}
+                    title={`הוסף {{.${v}}}`}
                     className="h-5 rounded border border-slate-200 bg-slate-50 px-1.5 font-mono text-[10.5px] text-slate-500 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
                 >
                     {`{{.${v}}}`}

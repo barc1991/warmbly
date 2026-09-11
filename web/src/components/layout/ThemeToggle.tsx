@@ -15,9 +15,9 @@ export function ThemeToggle() {
   const setTheme = useAppStore((state) => state.setTheme)
 
   const themes: { value: Theme; label: string; icon: React.ReactNode }[] = [
-    { value: 'light', label: 'Light', icon: <SunIcon className="size-4" /> },
-    { value: 'dark', label: 'Dark', icon: <MoonIcon className="size-4" /> },
-    { value: 'system', label: 'System', icon: <MonitorIcon className="size-4" /> },
+    { value: 'light', label: 'בהיר', icon: <SunIcon className="size-4" /> },
+    { value: 'dark', label: 'כהה', icon: <MoonIcon className="size-4" /> },
+    { value: 'system', label: 'מערכת', icon: <MonitorIcon className="size-4" /> },
   ]
 
   return (
@@ -29,7 +29,7 @@ export function ThemeToggle() {
           ) : (
             <SunIcon className="size-4" />
           )}
-          <span className="sr-only">Toggle theme</span>
+          <span className="sr-only">החלף ערכת נושא</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -40,7 +40,7 @@ export function ThemeToggle() {
             className={theme === t.value ? 'bg-accent' : ''}
           >
             {t.icon}
-            <span className="ml-2">{t.label}</span>
+            <span className="ml-2 rtl:ml-0 rtl:mr-2">{t.label}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

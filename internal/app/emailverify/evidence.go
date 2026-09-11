@@ -96,6 +96,7 @@ func (e *Evidence) Explain(ctx context.Context, contactID uuid.UUID) *models.Con
 		Status:     string(scored.Status),
 		Confidence: scored.Confidence,
 		Reasons:    scored.Reasons,
+		Suggestion: scored.Suggestion,
 		Decisive:   scored.Decisive,
 		Evidence:   rows,
 	}

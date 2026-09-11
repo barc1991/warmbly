@@ -168,13 +168,13 @@ export default function FieldMapEditor({
                                         }
                                         options={externalOptions}
                                         className="w-full"
-                                        aria-label={`${object.label} field`}
+                                        aria-label={isHe ? `שדה ${object.label}` : `${object.label} field`}
                                     />
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() => removeRow(i)}
-                                    aria-label="Remove mapping"
+                                    aria-label={isHe ? "הסר מיפוי" : "Remove mapping"}
                                     className="h-6 w-6 shrink-0 self-end sm:self-auto rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center transition-colors"
                                 >
                                     <Trash2Icon className="w-3.5 h-3.5" />

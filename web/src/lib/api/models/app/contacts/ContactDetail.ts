@@ -61,6 +61,7 @@ export interface ContactVerificationDetail {
     status: "valid" | "risky" | "invalid" | "unknown";
     confidence: number;
     reasons: string[];
+    suggestion?: string;
     // True when real mail, not a check, decided the status.
     decisive: boolean;
     evidence: ContactVerificationEvidence[];

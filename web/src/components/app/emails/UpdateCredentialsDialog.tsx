@@ -37,8 +37,7 @@ export default function UpdateCredentialsDialog({
     onClose: () => void;
 }) {
     const qc = useQueryClient();
-    const { i18n } = useTranslation();
-    const isHe = i18n.language?.startsWith("he");
+    const isHe = true;
 
     const [imapHost, setImapHost] = React.useState("");
     const [imapPort, setImapPort] = React.useState("993");

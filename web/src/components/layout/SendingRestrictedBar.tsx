@@ -27,16 +27,16 @@ export default function SendingRestrictedBar() {
             <div className="min-w-0 text-[12.5px] leading-relaxed">
                 <span className="font-medium">
                     {suspended
-                        ? "Sending is paused for this workspace while it is reviewed."
-                        : "Sending from this workspace is limited while it is reviewed."}
+                        ? "השליחה מושהית עבור מרחב עבודה זה בזמן שהוא בבדיקה."
+                        : "השליחה ממרחב עבודה זה מוגבלת בזמן שהוא בבדיקה."}
                 </span>{" "}
                 {!suspended && (
                     <>
-                        Daily volume per mailbox is reduced and warmup runs in the shared free pool.{" "}
+                        הנפח היומי לתיבת דואר מופחת והחימום פועל במאגר השיתופי.{" "}
                     </>
                 )}
-                {data.reason ? <>Reason: {data.reason}. </> : null}
-                Contact support if you think this is wrong.
+                {data.reason ? <>סיבה: {data.reason}. </> : null}
+                פנה לתמיכה אם לדעתך חלה טעות.
             </div>
         </div>
     );

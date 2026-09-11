@@ -52,7 +52,7 @@ func (c *domainCache) get(domain string) (domainFact, bool) {
 	if !ok {
 		return domainFact{}, false
 	}
-	if time.Since(f.at) > c.ttl {
+	if c.ttl <= 0 || time.Since(f.at) >= c.ttl {
 		delete(c.data, domain)
 		return domainFact{}, false
 	}

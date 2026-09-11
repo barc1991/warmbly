@@ -32,7 +32,7 @@ export default function SSOCallbackPage() {
 
         const code = params.get("code");
         if (!code) {
-            setError("This sign-in link is missing its code.");
+            setError("קישור התחברות זה חסר קוד אימות.");
             return;
         }
 
@@ -46,14 +46,14 @@ export default function SSOCallbackPage() {
                 // picks the challenge up from history state.
                 if (session.two_fa_required) {
                     if (!session.pending_token) {
-                        setError("Two-factor authentication is required, but the challenge did not arrive. Try signing in again.");
+                        setError("נדרש אימות דו-שלבי, אך בקשת האימות לא התקבלה. נסה להתחבר שוב.");
                         return;
                     }
                     navigate("/auth/login", { replace: true, state: { two_fa_pending: session.pending_token } });
                     return;
                 }
                 if (!session.access_token) {
-                    setError("That sign-in did not return a session. Try again.");
+                    setError("ההתחברות לא החזירה סשן פעיל. נסה שוב.");
                     return;
                 }
 
@@ -79,19 +79,19 @@ export default function SSOCallbackPage() {
                         <div className="mx-auto w-12 h-12 rounded-xl bg-red-50 grid place-items-center mb-4">
                             <AlertCircleIcon className="w-6 h-6 text-red-500" />
                         </div>
-                        <h1 className="text-[18px] font-semibold text-slate-900">Sign-in failed</h1>
+                        <h1 className="text-[18px] font-semibold text-slate-900">ההתחברות נכשלה</h1>
                         <p className="text-sm text-slate-500 mt-2">{error}</p>
                         <button
                             onClick={() => navigate("/auth/login", { replace: true })}
                             className="mt-5 w-full h-10 rounded-md bg-slate-900 text-white text-[13px] font-medium hover:bg-slate-800 transition-colors"
                         >
-                            Back to sign in
+                            חזרה להתחברות
                         </button>
                     </>
                 ) : (
                     <>
                         <Loader2Icon className="w-5 h-5 animate-spin text-slate-400 mx-auto" />
-                        <p className="text-sm text-slate-500 mt-3">Signing you in…</p>
+                        <p className="text-sm text-slate-500 mt-3">מחבר אותך למערכת…</p>
                     </>
                 )}
             </div>

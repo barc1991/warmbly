@@ -89,7 +89,7 @@ export default function ComposeHistoryPanel({
             <div className="shrink-0 px-3 pt-2.5 pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold">
                     <HistoryIcon className="w-3 h-3" />
-                    <span className="truncate">History with {displayName || address}</span>
+                    <span className="truncate">היסטוריה עם {displayName || address}</span>
                 </div>
                 {affinityLine && (
                     <div className="mt-1 text-[10.5px] text-emerald-700">{affinityLine}</div>
@@ -107,7 +107,7 @@ export default function ComposeHistoryPanel({
                                     : "text-slate-500 hover:text-slate-800 hover:bg-slate-100",
                             )}
                         >
-                            {t === "all" ? "Conversations" : "Sent"}
+                            {t === "all" ? "שיחות" : "נשלחו"}
                         </button>
                     ))}
                 </div>
@@ -115,7 +115,7 @@ export default function ComposeHistoryPanel({
                     <SearchInput
                         value={search}
                         onChange={setSearch}
-                        placeholder="Search subjects…"
+                        placeholder="חיפוש נושאים…"
                     />
                 </div>
             </div>
@@ -129,12 +129,12 @@ export default function ComposeHistoryPanel({
                 {!q.isPending && q.emails.length === 0 && (
                     <div className="px-3 py-6 text-center">
                         <p className="text-[12px] font-medium text-slate-600">
-                            {tab === "sent" ? "Nothing sent yet" : "No conversations yet"}
+                            {tab === "sent" ? "טרם נשלחו הודעות" : "אין שיחות עדיין"}
                         </p>
                         <p className="text-[10.5px] text-slate-400 mt-1 leading-relaxed">
                             {tab === "sent"
-                                ? "Emails you send to this address will show up here."
-                                : "This will be your first exchange with this address."}
+                                ? "אימיילים שתשלח לכתובת זו יוצגו כאן."
+                                : "זו תהיה ההתכתבות הראשונה שלך עם כתובת זו."}
                         </p>
                     </div>
                 )}
@@ -147,17 +147,17 @@ export default function ComposeHistoryPanel({
                             onClick={() =>
                                 navigate(`/app/unibox/all/${encodeURIComponent(row.thread_id || row.id)}`)
                             }
-                            className="w-full px-3 py-2 flex items-start gap-2 text-left border-b border-slate-50 hover:bg-slate-50 transition-colors group"
+                            className="w-full px-3 py-2 flex items-start gap-2 text-left rtl:text-right border-b border-slate-50 hover:bg-slate-50 transition-colors group"
                         >
                             <span
                                 className={cn(
                                     "size-5 rounded-md inline-flex items-center justify-center shrink-0 mt-0.5",
                                     ours ? "bg-sky-50 text-sky-600" : "bg-slate-100 text-slate-400",
                                 )}
-                                title={ours ? "Latest message from you" : "Latest message from them"}
+                                title={ours ? "הודעה אחרונה ממך" : "הודעה אחרונה מהנמען"}
                             >
                                 {ours ? (
-                                    <SendIcon className="w-2.5 h-2.5" />
+                                    <SendIcon className="w-2.5 h-2.5 rtl:rotate-180" />
                                 ) : (
                                     <HistoryIcon className="w-2.5 h-2.5" />
                                 )}
@@ -172,14 +172,14 @@ export default function ComposeHistoryPanel({
                                                 : "font-medium text-slate-700",
                                         )}
                                     >
-                                        {row.subject || "(no subject)"}
+                                        {row.subject || "(ללא נושא)"}
                                     </span>
                                     {row.message_count > 1 && (
                                         <span className="font-mono text-[9.5px] text-slate-400 shrink-0">
                                             ×{row.message_count}
                                         </span>
                                     )}
-                                    <span className="ml-auto font-mono text-[9.5px] text-slate-400 tabular-nums shrink-0">
+                                    <span className="ml-auto rtl:ml-0 rtl:mr-auto font-mono text-[9.5px] text-slate-400 tabular-nums shrink-0">
                                         {formatWhen(row.internal_date)}
                                     </span>
                                 </span>
@@ -189,7 +189,7 @@ export default function ComposeHistoryPanel({
                                     </span>
                                 )}
                             </span>
-                            <ArrowUpRightIcon className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
+                            <ArrowUpRightIcon className="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1 rtl:-scale-x-100" />
                         </button>
                     );
                 })}
@@ -200,7 +200,7 @@ export default function ComposeHistoryPanel({
                         disabled={q.isFetchingNextPage}
                         className="w-full h-8 text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors"
                     >
-                        {q.isFetchingNextPage ? "Loading…" : "Load more"}
+                        {q.isFetchingNextPage ? "טוען…" : "טען עוד"}
                     </button>
                 )}
             </div>

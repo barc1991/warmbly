@@ -106,6 +106,7 @@ type Result struct {
 	Provider string `json:"provider,omitempty"`
 	// Confidence is the scored certainty of Status once evidence is applied.
 	Confidence int       `json:"confidence,omitempty"`
+	Suggestion string    `json:"suggestion,omitempty"`
 	CheckedAt  time.Time `json:"checked_at"`
 }
 
@@ -157,6 +158,27 @@ func (c Config) withDefaults() Config {
 	return c
 }
 
+// knownNoCatchAll lists consumer domains known by architecture never to use
+// catch-all. Probing a random control localpart on these domains wastes a
+// command, doubles probe time, and risks rate limits from the provider.
+var knownNoCatchAll = map[string]bool{
+	"gmail.com":      true,
+	"googlemail.com": true,
+	"yahoo.com":      true,
+	"yahoo.fr":       true,
+	"hotmail.com":    true,
+	"outlook.com":    true,
+	"live.com":       true,
+	"icloud.com":     true,
+	"me.com":         true,
+	"mac.com":        true,
+	"aol.com":        true,
+}
+
+func isKnownNoCatchAll(domain string) bool {
+	return knownNoCatchAll[strings.ToLower(strings.TrimSpace(domain))]
+}
+
 // ProbeReady reports whether the configured HELO host lets the SMTP probe run.
 func (v *SMTPVerifier) ProbeReady() bool { return isFQDN(v.cfg.HeloHost) }
 
@@ -203,11 +225,16 @@ func (v *SMTPVerifier) Verify(ctx context.Context, email string) Result {
 	}
 	normalized := strings.ToLower(strings.TrimSpace(addr.Address))
 	res.Email = normalized
+	res.Suggestion = SuggestEmail(normalized)
 	at := strings.LastIndex(normalized, "@")
 	if at <= 0 || at == len(normalized)-1 {
 		res.Status = StatusInvalid
 		res.SubStatus = SubStatusSyntax
-		res.Reason = "invalid syntax"
+		reason := "invalid syntax"
+		if res.Suggestion != "" {
+			reason = "invalid syntax (did you mean " + res.Suggestion + "?)"
+		}
+		res.Reason = reason
 		return res
 	}
 	localpart := normalized[:at]
@@ -231,14 +258,22 @@ func (v *SMTPVerifier) Verify(ctx context.Context, email string) Result {
 		case domainNoMX:
 			res.Status = StatusInvalid
 			res.SubStatus = SubStatusNoMX
-			res.Reason = "no MX records"
+			reason := "no MX records"
+			if res.Suggestion != "" {
+				reason = "no MX records (did you mean " + res.Suggestion + "?)"
+			}
+			res.Reason = reason
 			return res
 		case domainCatchAll:
 			res.HasMX = true
 			res.IsCatchAll = true
 			res.Status = StatusRisky
 			res.SubStatus = SubStatusCatchAll
-			res.Reason = "catch-all domain; acceptance is not conclusive"
+			reason := "catch-all domain; acceptance is not conclusive"
+			if res.Suggestion != "" {
+				reason = "catch-all domain (did you mean " + res.Suggestion + "?); acceptance is not conclusive"
+			}
+			res.Reason = reason
 			return res
 		case domainUndisclosed:
 			res.HasMX = true
@@ -259,7 +294,11 @@ func (v *SMTPVerifier) Verify(ctx context.Context, email string) Result {
 		v.domains.put(domain, domainFact{kind: domainNoMX})
 		res.Status = StatusInvalid
 		res.SubStatus = SubStatusNoMX
-		res.Reason = "no MX records"
+		reason := "no MX records"
+		if res.Suggestion != "" {
+			reason = "no MX records (did you mean " + res.Suggestion + "?)"
+		}
+		res.Reason = reason
 		return res
 	}
 	res.HasMX = true
@@ -295,7 +334,11 @@ func (v *SMTPVerifier) Verify(ctx context.Context, email string) Result {
 			res.IsCatchAll = true
 			res.Status = StatusRisky
 			res.SubStatus = SubStatusCatchAll
-			res.Reason = "catch-all domain; acceptance is not conclusive"
+			reason := "catch-all domain; acceptance is not conclusive"
+			if res.Suggestion != "" {
+				reason = "catch-all domain (did you mean " + res.Suggestion + "?); acceptance is not conclusive"
+			}
+			res.Reason = reason
 			return res
 		}
 		if role {
@@ -448,6 +491,10 @@ func (v *SMTPVerifier) probe(ctx context.Context, host, localpart, domain string
 	// Real address accepted — probe a random control localpart to detect a
 	// catch-all. If that is also accepted, the domain accepts everything and the
 	// real 250 proves nothing.
+	if isKnownNoCatchAll(domain) {
+		return probeResult{outcome: probeAccepted, catchAll: false}
+	}
+
 	control := randomLocalpart()
 	controlOutcome, _ := classifyRcpt(client.Rcpt(control + "@" + domain))
 

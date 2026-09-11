@@ -10,6 +10,7 @@
 import {
     AlertOctagonIcon,
     BanIcon,
+    ExternalLinkIcon,
     MailIcon,
     MailOpenIcon,
     MailWarningIcon,
@@ -188,6 +189,28 @@ export default function OverviewTab({
                     />
                     <ProfileRow label="טלפון" value={contact.phone || "—"} />
                     <ProfileRow
+                        label="אתר אינטרנט"
+                        value={
+                            contact.custom_fields?.website ? (
+                                <a
+                                    href={
+                                        contact.custom_fields.website.startsWith("http")
+                                            ? contact.custom_fields.website
+                                            : `https://${contact.custom_fields.website}`
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sky-600 hover:text-sky-700 inline-flex items-center gap-1 font-medium truncate max-w-[220px]"
+                                >
+                                    <span className="truncate">{contact.custom_fields.website.replace(/^https?:\/\//, "")}</span>
+                                    <ExternalLinkIcon className="w-3 h-3 shrink-0" />
+                                </a>
+                            ) : (
+                                "—"
+                            )
+                        }
+                    />
+                    <ProfileRow
                         label="קטגוריות"
                         value={
                             contact.categories.length > 0 ? (
@@ -242,12 +265,14 @@ export default function OverviewTab({
                 </Section>
             )}
 
-            {Object.keys(contact.custom_fields || {}).length > 0 && (
+            {Object.entries(contact.custom_fields || {}).filter(([k]) => k !== "website").length > 0 && (
                 <Section title="שדות מותאמים אישית">
                     <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
-                        {Object.entries(contact.custom_fields).map(([k, v]) => (
-                            <ProfileRow key={k} label={k} value={v} mono />
-                        ))}
+                        {Object.entries(contact.custom_fields)
+                            .filter(([k]) => k !== "website")
+                            .map(([k, v]) => (
+                                <ProfileRow key={k} label={k} value={v} mono />
+                            ))}
                     </div>
                 </Section>
             )}

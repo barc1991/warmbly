@@ -14,6 +14,7 @@ import {
     ReplyIcon,
     ShieldCheckIcon,
     ShieldXIcon,
+    SparklesIcon,
 } from "lucide-react";
 import type { ContactVerificationDetail, VerificationEvidenceKind } from "@/lib/api/models/app/contacts/ContactDetail";
 import { fmtRelative } from "./format";
@@ -108,6 +109,14 @@ export default function VerificationCard({
                             ))}
                         </AnimatePresence>
                     </ul>
+                    {detail.suggestion && (
+                        <div className="mt-1.5 px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-center gap-1.5 leading-snug">
+                            <SparklesIcon className="w-3 h-3 text-amber-600 shrink-0" />
+                            <span>
+                                ייתכן שיש שגיאת הקלדה בדומיין – הצעה: <strong className="font-semibold text-amber-900">{detail.suggestion}</strong>
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
             {detail.evidence.length > 0 && (

@@ -78,17 +78,17 @@ export function NewWorkspaceDialog({ open, onClose }: Props) {
                                 <BriefcaseIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                New
+                                חדש
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
                             <span className="text-[12.5px] text-slate-900 font-medium">
-                                Workspace
+                                מרחב עבודה
                             </span>
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגור"
+                                className="ml-auto rtl:ml-0 rtl:mr-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -102,17 +102,17 @@ export function NewWorkspaceDialog({ open, onClose }: Props) {
                             className="px-4 py-4 space-y-3"
                         >
                             <div>
-                                <Label>Name</Label>
+                                <Label>שם מרחב העבודה</Label>
                                 <TextInput
                                     value={name}
                                     onChange={setName}
-                                    placeholder="Acme outbound"
+                                    placeholder="לדוגמה: צוות מכירות"
                                     autoFocus
                                     className="w-full"
                                 />
                             </div>
                             <p className="text-[11px] text-slate-400 leading-relaxed pt-1">
-                                You'll be the owner. Rename and invite teammates later.
+                                אתה תהיה הבעלים. תוכל לשנות את השם ולהזמין חברי צוות מאוחר יותר.
                             </p>
                         </form>
 
@@ -120,9 +120,9 @@ export function NewWorkspaceDialog({ open, onClose }: Props) {
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="ml-auto rtl:ml-0 rtl:mr-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -131,7 +131,7 @@ export function NewWorkspaceDialog({ open, onClose }: Props) {
                                 className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 {create.isPending && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                                Create
+                                צור מרחב עבודה
                             </button>
                         </div>
                     </motion.div>

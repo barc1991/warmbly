@@ -703,7 +703,7 @@ export default function AgentPanel() {
                 {!expanded && !isFloat && (
                     <div
                         onPointerDown={startResize}
-                        title="Drag to resize"
+                        title="גרור לשינוי גודל"
                         className={cn(
                             "hidden sm:block absolute top-0 h-full w-1.5 cursor-col-resize touch-none z-10 hover:bg-sky-400/40 active:bg-sky-500/50 transition-colors",
                             side === "right" ? "left-0" : "right-0",
@@ -1067,7 +1067,7 @@ function TabBar({
         <div
             ref={ref}
             role="tablist"
-            aria-label="Conversations"
+            aria-label="שיחות"
             className="shrink-0 flex items-stretch gap-1 px-2 h-9 border-b border-slate-200 overflow-x-auto no-scrollbar"
         >
             {tabs.map((t) => {
@@ -1123,7 +1123,7 @@ function TabBar({
                             }}
                             tabIndex={-1}
                             className="size-4 shrink-0 rounded inline-flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-200 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity"
-                            aria-label={`Close ${t.title}`}
+                            aria-label={`סגור את ${t.title}`}
                         >
                             <XIcon className="w-3 h-3" />
                         </button>
@@ -1132,8 +1132,8 @@ function TabBar({
             })}
             <button
                 onClick={onNew}
-                title="New chat"
-                aria-label="New chat"
+                title="צ'אט חדש"
+                aria-label="צ'אט חדש"
                 className="shrink-0 size-7 my-1 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
             >
                 <PlusIcon className="w-4 h-4" />
@@ -1230,7 +1230,7 @@ function DockBar({
             >
                 <AgentMark className="w-4 h-4 text-sky-600 shrink-0" />
                 <span className="max-w-[160px] truncate text-[12.5px] font-medium text-slate-800">
-                    {focus?.title ?? "Assistant"}
+                    {focus?.title ?? "עוזר AI"}
                 </span>
                 <span className="text-[11.5px]">{status}</span>
                 <span className="flex items-center gap-0.5 pl-1">
@@ -1239,8 +1239,8 @@ function DockBar({
                             e.stopPropagation();
                             onRestore(focus?.key ?? null);
                         }}
-                        title="Restore"
-                        aria-label="Restore assistant"
+                        title="שחזר"
+                        aria-label="שחזר עוזר"
                         className="size-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
                         <ChevronUpIcon className="w-3.5 h-3.5" />
@@ -1250,8 +1250,8 @@ function DockBar({
                             e.stopPropagation();
                             onClose();
                         }}
-                        title="Close"
-                        aria-label="Close assistant"
+                        title="סגור"
+                        aria-label="סגור עוזר"
                         className="size-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
                         <XIcon className="w-3.5 h-3.5" />

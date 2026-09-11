@@ -38,24 +38,24 @@ export function ScopeSheet({ open, setOpen, scope, onChange }: ScopeSheetProps) 
                 >
                     <motion.aside
                         key="panel"
-                        initial={{ x: "-100%" }}
+                        initial={{ x: "100%" }}
                         animate={{ x: 0 }}
-                        exit={{ x: "-100%" }}
+                        exit={{ x: "100%" }}
                         transition={{ type: "spring", stiffness: 300, damping: 32 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="flex flex-col bg-white w-[280px] max-w-[88%] h-full border-r border-slate-200 shadow-[8px_0_24px_-12px_rgba(15,23,42,0.18)]"
+                        className="flex flex-col bg-white w-[280px] max-w-[88%] h-full border-l border-slate-200 shadow-[-8px_0_24px_-12px_rgba(15,23,42,0.18)] mr-auto"
                     >
                         <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                Scope
+                                תצוגה
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-700">Switch view</span>
+                            <span className="text-[12.5px] text-slate-700">החלפת תצוגה</span>
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגור"
+                                className="mr-auto ml-0 size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>

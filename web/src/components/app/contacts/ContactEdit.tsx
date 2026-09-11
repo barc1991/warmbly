@@ -95,13 +95,16 @@ function ContactEditPanel({
     const [email, setEmail] = React.useState(contact.email);
     const [company, setCompany] = React.useState(contact.company);
     const [phone, setPhone] = React.useState(contact.phone);
+    const [website, setWebsite] = React.useState(contact.custom_fields?.website ?? "");
     const [subscribed, setSubscribed] = React.useState(contact.subscribed);
     const [campaigns, setCampaigns] = React.useState<MiniCampaign[]>(contact.campaigns ?? []);
     const [categoryIds, setCategoryIds] = React.useState<string[]>(
         () => (contact.categories ?? []).map((c) => c.id),
     );
     const [customFields, setCustomFields] = React.useState<CustomField[]>(() =>
-        Object.entries(contact.custom_fields ?? {}).map(([n, v]) => ({ name: n, value: v })),
+        Object.entries(contact.custom_fields ?? {})
+            .filter(([n]) => n !== "website")
+            .map(([n, v]) => ({ name: n, value: v })),
     );
 
     function reset() {
@@ -110,17 +113,25 @@ function ContactEditPanel({
         setEmail(contact.email);
         setCompany(contact.company);
         setPhone(contact.phone);
+        setWebsite(contact.custom_fields?.website ?? "");
         setSubscribed(contact.subscribed);
         setCampaigns(contact.campaigns ?? []);
         setCategoryIds((contact.categories ?? []).map((c) => c.id));
-        setCustomFields(Object.entries(contact.custom_fields ?? {}).map(([n, v]) => ({ name: n, value: v })));
+        setCustomFields(
+            Object.entries(contact.custom_fields ?? {})
+                .filter(([n]) => n !== "website")
+                .map(([n, v]) => ({ name: n, value: v }))
+        );
     }
 
-    const recordFromCF = React.useCallback((fields: CustomField[]) => {
+    const recordFromCF = React.useCallback((fields: CustomField[], web: string) => {
         const out: Record<string, string> = {};
         for (const f of fields) {
-            if (!f.name.trim()) continue;
+            if (!f.name.trim() || f.name.trim() === "website") continue;
             out[f.name.trim()] = f.value;
+        }
+        if (web.trim()) {
+            out.website = web.trim();
         }
         return out;
     }, []);
@@ -131,8 +142,9 @@ function ContactEditPanel({
         if (email !== contact.email) return true;
         if (company !== contact.company) return true;
         if (phone !== contact.phone) return true;
+        if (website !== (contact.custom_fields?.website ?? "")) return true;
         if (subscribed !== contact.subscribed) return true;
-        if (JSON.stringify(recordFromCF(customFields)) !== JSON.stringify(contact.custom_fields ?? {})) return true;
+        if (JSON.stringify(recordFromCF(customFields, website)) !== JSON.stringify(contact.custom_fields ?? {})) return true;
         const curC = new Set(contact.campaigns.map((c) => c.id));
         const nextC = new Set(campaigns.map((c) => c.id));
         if (curC.size !== nextC.size) return true;
@@ -142,7 +154,7 @@ function ContactEditPanel({
         if (curCat.size !== nextCat.size) return true;
         for (const id of curCat) if (!nextCat.has(id)) return true;
         return false;
-    }, [contact, firstName, lastName, email, company, phone, subscribed, customFields, campaigns, categoryIds, recordFromCF]);
+    }, [contact, firstName, lastName, email, company, phone, website, subscribed, customFields, campaigns, categoryIds, recordFromCF]);
 
     async function save() {
         if (!dirty) return;
@@ -153,7 +165,7 @@ function ContactEditPanel({
         if (company !== contact.company) data.company = company;
         if (phone !== contact.phone) data.phone = phone;
         if (subscribed !== contact.subscribed) data.subscribed = subscribed;
-        const cf = recordFromCF(customFields);
+        const cf = recordFromCF(customFields, website);
         if (JSON.stringify(cf) !== JSON.stringify(contact.custom_fields ?? {})) data.custom_fields = cf;
         const cur = new Set(contact.campaigns.map((c) => c.id));
         const next = new Set(campaigns.map((c) => c.id));
@@ -251,6 +263,8 @@ function ContactEditPanel({
                             setCompany={setCompany}
                             phone={phone}
                             setPhone={setPhone}
+                            website={website}
+                            setWebsite={setWebsite}
                             subscribed={subscribed}
                             setSubscribed={setSubscribed}
                             campaigns={campaigns}

@@ -44,7 +44,7 @@ export default function CampaignSelector({ onAdd, onRemove, selected, reverse }:
                             </div>
                         )
                     }) : (
-                        <span className="text-slate-400 py-px">No campaigns selected...</span>
+                        <span className="text-slate-400 py-px">לא נבחרו קמפיינים...</span>
                     )}
                 </div>
             </Selector>
@@ -57,7 +57,7 @@ export default function CampaignSelector({ onAdd, onRemove, selected, reverse }:
                         <MiniInput
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search..."
+                            placeholder="חיפוש..."
                         />
                         <button
                             type="submit"
@@ -87,7 +87,7 @@ export default function CampaignSelector({ onAdd, onRemove, selected, reverse }:
                         )
                     })
                         : <>
-                            <p className="text-slate-400 text-center py-3">No result found.</p>
+                            <p className="text-slate-400 text-center py-3">לא נמצאו תוצאות.</p>
                         </>}
                 </> : <>
                     <div className="animate-pulse space-y-1">

@@ -17,19 +17,22 @@ import (
 
 // InboundAnalysisResult holds Gemini intent classification and signature extraction data.
 type InboundAnalysisResult struct {
-	IntentClass    string         `json:"intent_class"`
-	Confidence     float64        `json:"confidence"`
-	Rationale      string         `json:"rationale"`
-	KeyInsight     string         `json:"key_insight"`
-	ReturnDate     string         `json:"return_date,omitempty"`
-	ReferredName   string         `json:"referred_name,omitempty"`
-	ReferredEmail  string         `json:"referred_email,omitempty"`
-	ReferredRole   string         `json:"referred_role,omitempty"`
-	SignaturePhone string         `json:"signature_phone,omitempty"`
-	SignatureTitle string         `json:"signature_title,omitempty"`
-	SignatureComp  string         `json:"signature_company,omitempty"`
-	SignatureWeb   string         `json:"signature_website,omitempty"`
-	SignatureRaw   map[string]any `json:"signature_raw,omitempty"`
+	IntentClass        string         `json:"intent_class"`
+	Confidence         float64        `json:"confidence"`
+	Rationale          string         `json:"rationale"`
+	KeyInsight         string         `json:"key_insight"`
+	ReturnDate         string         `json:"return_date,omitempty"`
+	ReferredName       string         `json:"referred_name,omitempty"`
+	ReferredEmail      string         `json:"referred_email,omitempty"`
+	ReferredRole       string         `json:"referred_role,omitempty"`
+	SignatureName      string         `json:"signature_name,omitempty"`
+	SignatureFirstName string         `json:"signature_first_name,omitempty"`
+	SignatureLastName  string         `json:"signature_last_name,omitempty"`
+	SignaturePhone     string         `json:"signature_phone,omitempty"`
+	SignatureTitle     string         `json:"signature_title,omitempty"`
+	SignatureComp      string         `json:"signature_company,omitempty"`
+	SignatureWeb       string         `json:"signature_website,omitempty"`
+	SignatureRaw       map[string]any `json:"signature_raw,omitempty"`
 }
 
 const analysisSystemPrompt = `You are an expert BDR and email analyst for an advertising agency.
@@ -44,11 +47,14 @@ Analyze the inbound email response carefully.
    - NEUTRAL / OTHER
 2. If OUT_OF_OFFICE: extract return_date (YYYY-MM-DD or descriptive).
 3. If REFERRAL: extract referred_name, referred_email, referred_role.
-4. Extract sender's email signature block if present:
-   - signature_phone
-   - signature_title
-   - signature_company
-   - signature_website
+4. Extract sender's name and signature block if present (crucial for Gmail/freemail senders whose business details appear only in their email sign-off or footer):
+   - signature_name (sender's full name from sign-off or signature, e.g. "David Cohen" or "דוד כהן" or from "בברכה, דני")
+   - signature_first_name (sender's first name)
+   - signature_last_name (sender's last name)
+   - signature_phone (phone or mobile number, e.g. 050-1234567, +972-..., etc.)
+   - signature_title (job title or role, e.g. "מנכ״ל", "CEO", "מנהל שיווק")
+   - signature_company (company or business name)
+   - signature_website (business website URL or domain, e.g. "www.example.co.il" or "https://example.com" found in the signature or footer; do NOT return generic email domains like gmail.com)
 5. Provide a short 1-sentence key_insight about the lead's business context or reply mood, and a confidence score between 0.0 and 1.0.
 
 Respond strictly in JSON matching this schema:
@@ -61,6 +67,9 @@ Respond strictly in JSON matching this schema:
   "referred_name": "",
   "referred_email": "",
   "referred_role": "",
+  "signature_name": "",
+  "signature_first_name": "",
+  "signature_last_name": "",
   "signature_phone": "",
   "signature_title": "",
   "signature_company": "",
@@ -97,6 +106,15 @@ func AnalyzeInboundEmail(ctx context.Context, provider generation.Provider, subj
 
 	// Prepare raw signature map for storage
 	sigMap := make(map[string]any)
+	if analysis.SignatureName != "" {
+		sigMap["name"] = analysis.SignatureName
+	}
+	if analysis.SignatureFirstName != "" {
+		sigMap["first_name"] = analysis.SignatureFirstName
+	}
+	if analysis.SignatureLastName != "" {
+		sigMap["last_name"] = analysis.SignatureLastName
+	}
 	if analysis.SignaturePhone != "" {
 		sigMap["phone"] = analysis.SignaturePhone
 	}

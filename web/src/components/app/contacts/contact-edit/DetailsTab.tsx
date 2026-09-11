@@ -10,6 +10,7 @@ import {
     BuildingIcon,
     CalendarIcon,
     CheckIcon,
+    GlobeIcon,
     MailIcon,
     PhoneIcon,
     PlusIcon,
@@ -46,6 +47,8 @@ export default function DetailsTab({
     setCompany,
     phone,
     setPhone,
+    website,
+    setWebsite,
     subscribed,
     setSubscribed,
     campaigns,
@@ -66,6 +69,8 @@ export default function DetailsTab({
     setCompany: (v: string) => void;
     phone: string;
     setPhone: (v: string) => void;
+    website: string;
+    setWebsite: (v: string) => void;
     subscribed: boolean;
     setSubscribed: (v: boolean) => void;
     campaigns: MiniCampaign[];
@@ -97,6 +102,9 @@ export default function DetailsTab({
                         <TextInput value={phone} onChange={setPhone} className="w-full" placeholder="+972…" />
                     </Field>
                 </div>
+                <Field label="אתר אינטרנט" icon={<GlobeIcon className="w-3 h-3" />}>
+                    <TextInput value={website} onChange={setWebsite} className="w-full" placeholder="https://company.com" type="url" />
+                </Field>
             </Section>
 
             <Section title="הרשמה לדיוור">

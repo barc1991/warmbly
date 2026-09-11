@@ -49,8 +49,8 @@ export default function InviteAcceptPage() {
         if (!token) return;
         try {
             await toast.promise(accept.mutateAsync({ token }), {
-                loading: "Joining workspace…",
-                success: "Joined",
+                loading: "מצטרף לסביבת העבודה…",
+                success: "הצטרפת בהצלחה",
                 error: (e: AppError) => buildError(e),
             });
             const fresh = await orgs.refetch();
@@ -76,18 +76,18 @@ export default function InviteAcceptPage() {
 
                 <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                     {!token ? (
-                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-rose-500" />} title="Invalid link">
-                            This invitation link is missing its token. Ask whoever invited you for a fresh link.
+                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-rose-500" />} title="קישור לא תקין">
+                            קישור הזמנה זה חסר אסימון. בקש ממי שהזמין אותך קישור חדש.
                         </Centered>
                     ) : preview.isPending ? (
-                        <Centered icon={<Loader2Icon className="w-5 h-5 text-slate-400 animate-spin" />} title="Loading invitation…" />
+                        <Centered icon={<Loader2Icon className="w-5 h-5 text-slate-400 animate-spin" />} title="טוען הזמנה…" />
                     ) : preview.isError || !preview.data ? (
-                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-rose-500" />} title="Invitation not found">
-                            This invitation is invalid or has been revoked.
+                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-rose-500" />} title="ההזמנה לא נמצאה">
+                            הזמנה זו אינה תקפה או שבוטלה.
                         </Centered>
                     ) : preview.data.expired ? (
-                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-amber-500" />} title="Invitation expired">
-                            This invitation has expired. Ask for a new one.
+                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-amber-500" />} title="תוקף ההזמנה פג">
+                            תוקף הזמנה זו פג. בקש הזמנה חדשה.
                         </Centered>
                     ) : (
                         <div>
@@ -105,17 +105,17 @@ export default function InviteAcceptPage() {
                                     </div>
                                     <div className="text-[12px] text-slate-500 truncate">
                                         {preview.data.inviter_name
-                                            ? `${preview.data.inviter_name} invited you`
-                                            : "You've been invited"}
+                                            ? `${preview.data.inviter_name} הזמין אותך`
+                                            : "הוזמנת להצטרף"}
                                     </div>
                                 </div>
                             </div>
 
                             <div className="rounded-md bg-slate-50 border border-slate-200/70 px-3 py-2.5 mb-4 space-y-1.5">
-                                <Row label="Invited email" value={preview.data.email} />
+                                <Row label="אימייל מוזמן" value={preview.data.email} />
                                 {preview.data.roles.length > 0 && (
                                     <div className="flex items-start gap-2 text-[12px]">
-                                        <span className="text-slate-400 w-20 shrink-0">Role{preview.data.roles.length > 1 ? "s" : ""}</span>
+                                        <span className="text-slate-400 w-20 shrink-0">תפקיד{preview.data.roles.length > 1 ? "ים" : ""}</span>
                                         <span className="flex flex-wrap gap-1">
                                             {preview.data.roles.map((r) => (
                                                 <span
@@ -140,31 +140,30 @@ export default function InviteAcceptPage() {
                                     className="w-full h-9 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[13px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
                                 >
                                     {accept.isPending && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
-                                    Accept invitation
+                                    קבלת הזמנה
                                 </button>
                             ) : (
                                 <div className="space-y-2">
                                     <p className="text-[12px] text-slate-500 flex items-center gap-1.5">
                                         <MailIcon className="w-3.5 h-3.5 shrink-0" />
-                                        Sign in or create an account with <span className="font-medium text-slate-700">{preview.data.email}</span> to join.
+                                        התחבר או צור חשבון באמצעות <span className="font-medium text-slate-700">{preview.data.email}</span> כדי להצטרף.
                                     </p>
                                     <Link
                                         to={`/auth/login?next=${encodeURIComponent(nextPath)}`}
                                         className="w-full h-9 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[13px] font-medium inline-flex items-center justify-center transition-colors"
                                     >
-                                        Sign in to accept
+                                        התחבר כדי לקבל את ההזמנה
                                     </Link>
                                     {signupClosed ? (
                                         <p className="text-[12px] text-slate-500 leading-relaxed">
-                                            This server is not accepting new accounts. Ask the administrator who
-                                            invited you.
+                                            השרת אינו מאפשר הרשמת חשבונות חדשים כעת. פנה למנהל שהזמין אותך.
                                         </p>
                                     ) : (
                                         <Link
                                             to={registerPath}
                                             className="w-full h-9 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[13px] font-medium inline-flex items-center justify-center transition-colors"
                                         >
-                                            Create an account
+                                            יצירת חשבון חדש
                                         </Link>
                                     )}
                                 </div>

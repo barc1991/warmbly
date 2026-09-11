@@ -148,8 +148,7 @@ function openCentered(url: string, name: string): Window | null {
 export default function AddEmailModal() {
     const user = useUserProfile();
     const qc = useQueryClient();
-    const { i18n } = useTranslation();
-    const isHe = i18n.language?.startsWith("he");
+    const isHe = true;
 
     const [view, setView] = React.useState<View>("pick");
     const [oauthBusy, setOauthBusy] = React.useState<OAuthProvider | null>(null);
@@ -1146,10 +1145,10 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
         <div>
             <Section title={isHe ? "חשבון" : "Account"} sub={isHe ? "שם וכתובת האימייל שמהם תישלח ההודעה" : "Name and address you send from"} icon={<MailIcon className="w-3.5 h-3.5" />}>
                 <Field label={isHe ? "שם" : "Name"}>
-                    <TextInput value={name} onChange={setName} placeholder="Alex Rivera" />
+                    <TextInput value={name} onChange={setName} placeholder={isHe ? "ישראל ישראלי" : "Alex Rivera"} />
                 </Field>
                 <Field label={isHe ? "אימייל" : "Email"}>
-                    <TextInput value={email} onChange={setEmail} placeholder="alex@company.com" />
+                    <TextInput value={email} onChange={setEmail} placeholder={isHe ? "israel@company.com" : "alex@company.com"} />
                 </Field>
             </Section>
 
@@ -1182,7 +1181,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                             imapUserTouched.current = true;
                             setImapUser(v);
                         }}
-                        placeholder={email || "alex@company.com"}
+                        placeholder={email || (isHe ? "israel@company.com" : "alex@company.com")}
                     />
                 </Field>
                 <Field label={isHe ? "סיסמה" : "Password"}>
@@ -1241,7 +1240,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                                             smtpUserTouched.current = true;
                                             setSmtpUser(v);
                                         }}
-                                        placeholder={email || "alex@company.com"}
+                                        placeholder={email || (isHe ? "israel@company.com" : "alex@company.com")}
                                     />
                                 </Field>
                                 <Field label={isHe ? "סיסמה" : "Password"}>

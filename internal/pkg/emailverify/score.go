@@ -31,6 +31,7 @@ type Evidence struct {
 // Verdict is the last probe, provider, import or manual verdict on the
 // contact row.
 type Verdict struct {
+	Email  string
 	Status Status
 	// Source is the contacts.verification_source value.
 	Source    string
@@ -43,7 +44,8 @@ type Scored struct {
 	// Confidence is how sure the platform is of Status, 0 to 100.
 	Confidence int
 	// Reasons are the sentences a member reads, strongest first.
-	Reasons []string
+	Reasons    []string
+	Suggestion string
 	// Decisive reports whether real mail (not a check) decided the status.
 	Decisive bool
 	// LastPositiveAt is the most recent positive observation.
@@ -120,7 +122,7 @@ const PositiveDecisiveScore = 20.0
 // not open", and Score has no input for it.
 func Score(v Verdict, evidence []Evidence, now time.Time) Scored {
 	base, baseReason := verdictBase(v)
-	out := Scored{Status: v.Status, Confidence: base}
+	out := Scored{Status: v.Status, Confidence: base, Suggestion: SuggestEmail(v.Email)}
 	if out.Status == "" {
 		out.Status = StatusUnknown
 	}

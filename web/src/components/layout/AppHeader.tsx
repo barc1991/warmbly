@@ -161,7 +161,7 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
             <button
                 type="button"
                 onClick={onMenu}
-                aria-label="Open menu"
+                aria-label={isHe ? "פתח תפריט" : "Open menu"}
                 className="md:hidden ms-1.5 w-9 h-9 rounded-md flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors shrink-0"
             >
                 <Menu className="w-5 h-5" />

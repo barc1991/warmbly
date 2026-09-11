@@ -16,23 +16,23 @@ export default function RegisterConfirmPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                     </svg>
                 </div>
-                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">Almost there</h1>
+                <h1 className="text-[28px] font-bold text-slate-900 tracking-tight leading-tight">כמעט סיימנו</h1>
                 <p className="text-sm text-slate-400 mt-1.5">
-                    Enter the code we sent{mail ? " to " : ""}
+                    הזן את קוד האימות ששלחנו{mail ? " אל " : ""}
                     {mail && <span className="text-slate-600 font-medium break-all">{mail}</span>}
                 </p>
             </div>
 
             <form onSubmit={onSubmit} className="space-y-5">
                 <OTPInput value={otp} setValue={setOtp} />
-                <AuthButton loading={pending}>Verify</AuthButton>
+                <AuthButton loading={pending}>אימות קוד</AuthButton>
                 <TurnstileModal visible={captcha} onToken={onToken} />
             </form>
 
             <div className="text-center pt-1">
                 <Link to="/auth/register" className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 transition-colors">
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to sign up
+                    <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
+                    חזרה להרשמה
                 </Link>
             </div>
         </div>

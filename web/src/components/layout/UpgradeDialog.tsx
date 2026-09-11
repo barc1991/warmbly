@@ -264,7 +264,7 @@ export default function UpgradeDialog({
                                     className="inline-flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-900 transition-colors"
                                 >
                                     <TicketIcon className="w-3 h-3" />
-                                    Have a promo code?
+                                    יש לך קוד קופון?
                                 </button>
                             ) : (
                                 <motion.div
@@ -276,7 +276,7 @@ export default function UpgradeDialog({
                                     <TextInput
                                         value={codeInput}
                                         onChange={(v) => setCodeInput(v.toUpperCase())}
-                                        placeholder="WELCOME10"
+                                        placeholder="קוד קופון"
                                         disabled={!!applied}
                                         autoFocus={!applied}
                                         onKeyDown={(e) => {
@@ -300,7 +300,7 @@ export default function UpgradeDialog({
                                                 className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center gap-1"
                                             >
                                                 <XIcon className="w-3 h-3" />
-                                                Clear
+                                                נקה
                                             </button>
                                         </>
                                     ) : (
@@ -315,7 +315,7 @@ export default function UpgradeDialog({
                                             ) : (
                                                 <TicketIcon className="w-3 h-3" />
                                             )}
-                                            Apply
+                                            החל
                                         </button>
                                     )}
                                 </motion.div>
@@ -328,41 +328,40 @@ export default function UpgradeDialog({
                                 <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">
                                     <li className="inline-flex items-center gap-1.5">
                                         <ShieldCheckIcon className="w-3.5 h-3.5 text-emerald-600" />
-                                        Secure checkout by Stripe
+                                        תשלום מאובטח באמצעות Stripe
                                     </li>
                                     <li className="inline-flex items-center gap-1.5">
                                         <CheckIcon className="w-3.5 h-3.5 text-emerald-600" />
-                                        Cancel anytime
+                                        ביטול בכל עת
                                     </li>
                                     <li className="inline-flex items-center gap-1.5">
                                         <CheckIcon className="w-3.5 h-3.5 text-emerald-600" />
-                                        Plan changes are prorated
+                                        שינויי תוכנית מחושבים באופן יחסי
                                     </li>
                                 </ul>
                             ) : (
                                 <p className="leading-relaxed">
-                                    Only the workspace owner can change the plan. Ask them to upgrade to{" "}
-                                    <span className="font-medium text-slate-900">{minPlan.label}</span>, or see who does
-                                    what in{" "}
+                                    רק בעל מרחב העבודה יכול לשנות את התוכנית. בקש ממנו לשדרג אל{" "}
+                                    <span className="font-medium text-slate-900">{minPlan.label}</span>, או בדוק הרשאות ב-{" "}
                                     <Link
                                         to="/app/settings/roles"
                                         onClick={onClose}
                                         className="font-medium text-slate-700 hover:text-slate-900 underline underline-offset-2"
                                     >
-                                        Roles and access
+                                        תפקידים והרשאות
                                     </Link>
                                     .
                                 </p>
                             )}
-                            <div className="md:ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <div className="md:ml-auto rtl:md:ml-0 rtl:md:mr-auto flex flex-wrap items-center gap-x-4 gap-y-1">
                                 {access.isOwner && (
                                     <Link
                                         to="/app/settings/billing/plans"
                                         onClick={onClose}
                                         className="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-slate-900 transition-colors"
                                     >
-                                        Full billing page
-                                        <ArrowRightIcon className="w-3 h-3" />
+                                        דף חיוב מלא
+                                        <ArrowRightIcon className="w-3 h-3 rtl:rotate-180" />
                                     </Link>
                                 )}
                                 {brand.website_url && (
@@ -372,7 +371,7 @@ export default function UpgradeDialog({
                                         rel="noreferrer"
                                         className="inline-flex items-center gap-1 font-medium text-slate-600 hover:text-slate-900 transition-colors"
                                     >
-                                        Compare every feature
+                                        השוואת כל התכונות
                                         <ArrowUpRightIcon className="w-3 h-3" />
                                     </a>
                                 )}
@@ -382,7 +381,7 @@ export default function UpgradeDialog({
                                     disabled={busy}
                                     className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 bg-white text-[12px] font-medium text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-50"
                                 >
-                                    Not now
+                                    לא עכשיו
                                 </button>
                             </div>
                         </div>
@@ -458,8 +457,8 @@ function Hero({
                 type="button"
                 onClick={onClose}
                 disabled={busy}
-                aria-label="Close"
-                className="absolute top-3 right-3 z-10 size-8 rounded-md bg-white/15 hover:bg-white/25 text-white inline-flex items-center justify-center transition-colors disabled:opacity-50"
+                aria-label="סגור"
+                className="absolute top-3 right-3 rtl:right-auto rtl:left-3 z-10 size-8 rounded-md bg-white/15 hover:bg-white/25 text-white inline-flex items-center justify-center transition-colors disabled:opacity-50"
             >
                 <XIcon className="w-4 h-4" />
             </button>
@@ -470,21 +469,21 @@ function Hero({
                     className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-white/15 border border-white/25 text-[11px] font-medium backdrop-blur-sm"
                 >
                     <LockIcon className="w-3 h-3" />
-                    {request.feature} · {planLabel} and up
+                    {request.feature} · החל מתוכנית {planLabel}
                 </motion.span>
                 <motion.h2
                     {...rise(0.12)}
                     id={titleId}
                     className="mt-4 text-[26px] md:text-[36px] font-semibold tracking-[-0.03em] leading-[1.08]"
                 >
-                    {request.feature} unlocks with {planLabel}.
+                    {request.feature} נפתח עם תוכנית {planLabel}.
                 </motion.h2>
                 <motion.p
                     {...rise(0.2)}
                     className="mt-3 text-[14px] md:text-[15px] text-sky-50/90 leading-relaxed max-w-xl mx-auto"
                 >
                     {request.blurb ??
-                        `Pick a plan and ${request.feature.toLowerCase()} turns on for your whole workspace the moment checkout completes.`}
+                        `בחר תוכנית ו-${request.feature} יופעל עבור כל מרחב העבודה שלך ברגע השלמת התשלום.`}
                 </motion.p>
                 {bullets && bullets.length > 0 && (
                     <motion.ul

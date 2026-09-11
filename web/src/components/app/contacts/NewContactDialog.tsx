@@ -26,13 +26,13 @@ interface Props {
     // conditions don't match it.
     segment?: { id: string; name: string };
 }
-
 export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
     const [email, setEmail] = React.useState("");
     const [firstName, setFirstName] = React.useState("");
     const [lastName, setLastName] = React.useState("");
     const [company, setCompany] = React.useState("");
     const [phone, setPhone] = React.useState("");
+    const [website, setWebsite] = React.useState("");
     const [categories, setCategories] = React.useState<string[]>([]);
     const add = useAddContacts();
 
@@ -43,6 +43,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
             setLastName("");
             setCompany("");
             setPhone("");
+            setWebsite("");
             setCategories([]);
         }
     }, [open]);
@@ -57,6 +58,10 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
             toast.error("הזן כתובת דוא״ל תקינה");
             return;
         }
+        const custom_fields: Record<string, string> = {};
+        if (website.trim()) {
+            custom_fields.website = website.trim();
+        }
         const contact: AddContact = {
             email: e,
             first_name: firstName.trim(),
@@ -66,7 +71,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
             campaigns: campaign ? [campaign.id] : [],
             categories,
             segments: segment ? [segment.id] : undefined,
-            custom_fields: {},
+            custom_fields,
             source: campaign ? "campaign" : "manual",
         };
         try {
@@ -121,7 +126,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="סגור"
+                                aria-label="סגירה"
                                 className="mr-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
@@ -162,7 +167,17 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                             </div>
                             <div>
                                 <Label>טלפון</Label>
-                                <TextInput value={phone} onChange={setPhone} className="w-full" />
+                                <TextInput value={phone} onChange={setPhone} className="w-full" placeholder="+972…" />
+                            </div>
+                            <div>
+                                <Label>אתר אינטרנט</Label>
+                                <TextInput
+                                    value={website}
+                                    onChange={setWebsite}
+                                    placeholder="https://example.com"
+                                    type="url"
+                                    className="w-full"
+                                />
                             </div>
                             <div>
                                 <Label>קטגוריות</Label>

@@ -113,7 +113,7 @@ export function AvatarUploader({
                 type="button"
                 onClick={pick}
                 disabled={uploading || removing}
-                aria-label="Change avatar"
+                aria-label="שנה תמונת פרופיל"
                 className={`group relative ${dim} ${radius} bg-slate-900 text-white flex items-center justify-center shrink-0 overflow-hidden disabled:opacity-60 transition-shadow hover:ring-2 hover:ring-slate-300 ring-offset-1 cursor-pointer`}
             >
                 {displayUrl ? (

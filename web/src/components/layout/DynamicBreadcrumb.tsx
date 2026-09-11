@@ -2,27 +2,27 @@ import { useLocation } from 'react-router-dom'
 import { Fragment } from 'react'
 
 const labelMap: Record<string, string> = {
-  app: 'Dashboard',
-  emails: 'Accounts',
-  contacts: 'Contacts',
-  segments: 'Segments',
-  categories: 'Categories',
-  campaigns: 'Campaigns',
-  unibox: 'Inbox',
-  analytics: 'Analytics',
+  app: 'לוח בקרה',
+  emails: 'תיבות דואר',
+  contacts: 'אנשי קשר',
+  segments: 'סגמנטים',
+  categories: 'קטגוריות',
+  campaigns: 'קמפיינים',
+  unibox: 'תיבת דואר נכנס',
+  analytics: 'אנליטיקה',
   crm: 'CRM',
-  pipelines: 'Pipelines',
-  deals: 'Deals',
-  tasks: 'Tasks',
-  templates: 'Templates',
-  'api-keys': 'API Keys',
-  settings: 'Settings',
-  billing: 'Billing',
-  team: 'Team',
-  leads: 'Leads',
-  preferences: 'Preferences',
-  schedule: 'Schedule',
-  steps: 'Steps',
+  pipelines: 'משפכים',
+  deals: 'עסקאות',
+  tasks: 'משימות',
+  templates: 'תבניות',
+  'api-keys': 'מפתחות API',
+  settings: 'הגדרות',
+  billing: 'חיוב ומנויים',
+  team: 'צוות',
+  leads: 'לידים',
+  preferences: 'העדפות',
+  schedule: 'לוח זמנים',
+  steps: 'שלבים',
 }
 
 export function DynamicBreadcrumb() {
@@ -33,7 +33,7 @@ export function DynamicBreadcrumb() {
   if (breadcrumbSegments.length === 0) {
     return (
       <div className="flex items-center gap-2 text-sm">
-        <span className="font-medium text-zinc-900">Dashboard</span>
+        <span className="font-medium text-zinc-900">לוח בקרה</span>
       </div>
     )
   }

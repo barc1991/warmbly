@@ -40,7 +40,7 @@ export default function DateSelect({
                     <button
                         type="button"
                         onClick={() => onChange(null)}
-                        aria-label={`Clear ${title}`}
+                        aria-label={`איפוס ${title}`}
                         className="size-4 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 inline-flex items-center justify-center transition-colors"
                     >
                         <XIcon className="w-3 h-3" />
@@ -61,7 +61,7 @@ export default function DateSelect({
                     {value ? (
                         <span className="tabular-nums">{format(value, "dd MMM, yyyy")}</span>
                     ) : (
-                        <span className="text-slate-400">Not set</span>
+                        <span className="text-slate-400">לא הוגדר</span>
                     )}
                 </button>
                 <Calendar date={value} active={open} close={() => setOpen(false)} onSubmit={onChange} minDate={minDate} />

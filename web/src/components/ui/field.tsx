@@ -81,7 +81,7 @@ export function TextInput({
 export function SearchInput({
     value,
     onChange,
-    placeholder = "Search…",
+    placeholder = "חיפוש…",
     autoFocus,
     className,
     onKeyDown,
@@ -240,7 +240,7 @@ export function NumberInput({
                 <button
                     type="button"
                     tabIndex={-1}
-                    aria-label="Increase"
+                    aria-label="הגדל"
                     disabled={disabled || atMax}
                     onClick={() => bump(1)}
                     className="flex-1 px-1 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors rounded-te-md"
@@ -250,7 +250,7 @@ export function NumberInput({
                 <button
                     type="button"
                     tabIndex={-1}
-                    aria-label="Decrease"
+                    aria-label="הקטן"
                     disabled={disabled || atMin}
                     onClick={() => bump(-1)}
                     className="flex-1 px-1 flex items-center justify-center border-t border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors rounded-be-md"

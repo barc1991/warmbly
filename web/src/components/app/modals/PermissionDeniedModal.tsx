@@ -19,7 +19,7 @@ export default function PermissionDeniedModal() {
     React.useEffect(() => {
         const handler = (e: Event) => {
             const detail = (e as CustomEvent<DeniedDetail>).detail;
-            setMessage(detail?.message?.trim() || "You don't have permission to do that.");
+            setMessage(detail?.message?.trim() || "אין לך הרשאה לבצע פעולה זו.");
             setOpen(true);
         };
         window.addEventListener("permission-denied", handler);
@@ -49,11 +49,11 @@ export default function PermissionDeniedModal() {
                         exit={{ opacity: 0, y: 8, scale: 0.98 }}
                         className="w-full max-w-sm rounded-lg bg-white border border-slate-200 shadow-xl p-5 text-center"
                     >
-                        <div className="flex justify-end -mt-1 -mr-1">
+                        <div className="flex justify-end -mt-1 -mr-1 rtl:-mr-0 rtl:-ml-1">
                             <button
                                 type="button"
                                 onClick={close}
-                                aria-label="Close"
+                                aria-label="סגור"
                                 className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center"
                             >
                                 <XIcon className="w-4 h-4" />
@@ -69,16 +69,16 @@ export default function PermissionDeniedModal() {
                             {isPlan ? <SparklesIcon className="w-5 h-5" /> : <LockIcon className="w-5 h-5" />}
                         </div>
                         <h3 className="text-[14px] font-semibold text-slate-900">
-                            {isPlan ? "Upgrade required" : "You don't have permission"}
+                            {isPlan ? "נדרש שדרוג תוכנית" : "אין לך הרשאה"}
                         </h3>
                         <p className="text-[12.5px] text-slate-500 leading-relaxed mt-1.5">
                             {message}
                             {!isPlan && (
                                 <>
                                     {" "}
-                                    Ask a workspace admin or the owner to grant you access from{" "}
+                                    בקש ממנהל מרחב העבודה או מהבעלים להעניק לך גישה מתוך{" "}
                                     <span className="font-medium text-slate-700">
-                                        Settings &rarr; Roles &amp; access
+                                        הגדרות &larr; תפקידים והרשאות
                                     </span>
                                     .
                                 </>
@@ -91,7 +91,7 @@ export default function PermissionDeniedModal() {
                                     onClick={close}
                                     className="inline-flex items-center h-8 px-3 rounded-md bg-violet-600 hover:bg-violet-700 text-white text-[12.5px] font-medium transition-colors"
                                 >
-                                    View plans
+                                    הצג תוכניות
                                 </Link>
                             )}
                             <button
@@ -103,7 +103,7 @@ export default function PermissionDeniedModal() {
                                         : "bg-slate-900 hover:bg-slate-800 text-white"
                                 }`}
                             >
-                                Got it
+                                הבנתי
                             </button>
                         </div>
                     </motion.div>

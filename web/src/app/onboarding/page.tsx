@@ -19,17 +19,17 @@ import buildError from "@/lib/helper/buildError";
 /* ── Schema ─────────────────────── */
 
 const schema = z.object({
-    first_name: z.string().min(1, "First name is required").max(50, "50 characters max"),
-    last_name: z.string().min(1, "Last name is required").max(50, "50 characters max"),
-    workspace: z.string().min(1, "Workspace name is required").max(60, "60 characters max"),
+    first_name: z.string().min(1, "שם פרטי הוא שדה חובה").max(50, "מקסימום 50 תווים"),
+    last_name: z.string().min(1, "שם משפחה הוא שדה חובה").max(50, "מקסימום 50 תווים"),
+    workspace: z.string().min(1, "שם סביבת עבודה הוא שדה חובה").max(60, "מקסימום 60 תווים"),
     role: z.enum(["founder", "sales", "marketing", "agency", "recruiter", "other"], {
-        error: "Pick the closest one",
+        error: "בחר את התפקיד המתאים ביותר",
     }),
     team_size: z.enum(["just_me", "2-10", "11-50", "51-200", "200+"], {
-        error: "Pick a team size",
+        error: "בחר את גודל הצוות",
     }),
     referral_source: z.enum(["reddit", "x", "facebook", "google", "other"], {
-        error: "Let us know how you found us",
+        error: "ספר לנו איך שמעת עלינו",
     }),
 });
 
@@ -40,34 +40,34 @@ const INPUT = "w-full h-11 rounded-lg border border-slate-200 bg-white px-4 text
 const BASE_STEPS = [
     {
         fields: ["first_name", "last_name"] as const,
-        title: "Welcome to Warmbly",
-        subtitle: "Let's set up your account. First, your name.",
+        title: "ברוכים הבאים ל-Warmbly",
+        subtitle: "בוא נגדיר את החשבון שלך. ראשית, שמך.",
     },
     {
         fields: ["workspace"] as const,
-        title: "Name your workspace",
-        subtitle: "Where your team, mailboxes and campaigns live. You can rename it later.",
+        title: "תן שם לסביבת העבודה שלך",
+        subtitle: "המקום שבו הצוות, תיבות המייל והקמפיינים שלך מנוהלים. תוכל לשנות זאת תמיד.",
     },
     {
         fields: ["role", "team_size", "referral_source"] as const,
-        title: "A few quick questions",
-        subtitle: "This helps us tailor Warmbly to how you send.",
+        title: "כמה שאלות קצרות",
+        subtitle: "זה יעזור לנו להתאים את המערכת בדיוק לצרכים שלך.",
     },
 ];
 
 
 
 const ROLES = [
-    { value: "founder", label: "Founder" },
-    { value: "sales", label: "Sales" },
-    { value: "marketing", label: "Marketing" },
-    { value: "agency", label: "Agency" },
-    { value: "recruiter", label: "Recruiter" },
-    { value: "other", label: "Other" },
+    { value: "founder", label: "מייסד / יזם" },
+    { value: "sales", label: "מכירות" },
+    { value: "marketing", label: "שיווק" },
+    { value: "agency", label: "סוכנות" },
+    { value: "recruiter", label: "גיוס והשמה" },
+    { value: "other", label: "אחר" },
 ] as const;
 
 const TEAM_SIZES = [
-    { value: "just_me", label: "Just me" },
+    { value: "just_me", label: "רק אני" },
     { value: "2-10", label: "2-10" },
     { value: "11-50", label: "11-50" },
     { value: "51-200", label: "51-200" },
@@ -76,10 +76,10 @@ const TEAM_SIZES = [
 
 const REFERRALS = [
     { value: "reddit", label: "Reddit" },
-    { value: "x", label: "X" },
-    { value: "facebook", label: "Facebook" },
-    { value: "google", label: "Google" },
-    { value: "other", label: "Other" },
+    { value: "x", label: "X (טוויטר)" },
+    { value: "facebook", label: "פייסבוק" },
+    { value: "google", label: "גוגל" },
+    { value: "other", label: "אחר" },
 ] as const;
 
 /* ── Bits ─────────────────────── */
@@ -135,7 +135,7 @@ function Pills({
 }
 
 const FieldLabel = ({ children }: { children: React.ReactNode }) => (
-    <label className="block text-sm font-medium text-slate-600 mb-1.5 pl-0.5">{children}</label>
+    <label className="block text-sm font-medium text-slate-600 mb-1.5 pr-0.5 pl-0">{children}</label>
 );
 
 /* ═══════════════════════════════════════════
@@ -210,13 +210,13 @@ export default function OnboardingPage() {
                     <button
                         type="button"
                         onClick={() => setStep((s) => s - 1)}
-                        className="flex items-center justify-center w-7 h-7 -ml-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                        aria-label="Back"
+                        className="flex items-center justify-center w-7 h-7 -mr-1 -ml-0 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                        aria-label="חזרה"
                     >
-                        <ArrowLeft className="w-4 h-4" />
+                        <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
                     </button>
                 ) : (
-                    <span className="w-7 h-7 -ml-1" />
+                    <span className="w-7 h-7 -mr-1 -ml-0" />
                 )}
                 <div className="flex-1 flex gap-1.5">
                     {STEPS.map((_: unknown, i: number) => (
@@ -253,13 +253,13 @@ export default function OnboardingPage() {
                         {step === 0 && (
                             <div className="space-y-4">
                                 <div>
-                                    <FieldLabel>First name</FieldLabel>
-                                    <input type="text" placeholder="John" className={INPUT} maxLength={50} autoFocus {...register("first_name")} />
+                                    <FieldLabel>שם פרטי</FieldLabel>
+                                    <input type="text" placeholder="ישראל" className={INPUT} maxLength={50} autoFocus {...register("first_name")} />
                                     <FieldError message={errors.first_name?.message} />
                                 </div>
                                 <div>
-                                    <FieldLabel>Last name</FieldLabel>
-                                    <input type="text" placeholder="Doe" className={INPUT} maxLength={50} {...register("last_name")} />
+                                    <FieldLabel>שם משפחה</FieldLabel>
+                                    <input type="text" placeholder="ישראלי" className={INPUT} maxLength={50} {...register("last_name")} />
                                     <FieldError message={errors.last_name?.message} />
                                 </div>
                             </div>
@@ -267,8 +267,8 @@ export default function OnboardingPage() {
 
                         {step === 1 && (
                             <div>
-                                <FieldLabel>Workspace name</FieldLabel>
-                                <input type="text" placeholder="Acme Inc." className={INPUT} maxLength={60} autoFocus {...register("workspace")} />
+                                <FieldLabel>שם סביבת עבודה</FieldLabel>
+                                <input type="text" placeholder="החברה שלי בע״מ" className={INPUT} maxLength={60} autoFocus {...register("workspace")} />
                                 <FieldError message={errors.workspace?.message} />
                             </div>
                         )}
@@ -280,7 +280,7 @@ export default function OnboardingPage() {
                                     name="role"
                                     render={({ field }) => (
                                         <div>
-                                            <FieldLabel>What best describes you?</FieldLabel>
+                                            <FieldLabel>מה מתאר אותך בצורה הטובה ביותר?</FieldLabel>
                                             <Pills options={ROLES} value={field.value} onChange={field.onChange} />
                                             <FieldError message={errors.role?.message} />
                                         </div>
@@ -291,7 +291,7 @@ export default function OnboardingPage() {
                                     name="team_size"
                                     render={({ field }) => (
                                         <div>
-                                            <FieldLabel>How big is your team?</FieldLabel>
+                                            <FieldLabel>מה גודל הצוות שלך?</FieldLabel>
                                             <Pills options={TEAM_SIZES} value={field.value} onChange={field.onChange} />
                                             <FieldError message={errors.team_size?.message} />
                                         </div>
@@ -302,7 +302,7 @@ export default function OnboardingPage() {
                                     name="referral_source"
                                     render={({ field }) => (
                                         <div>
-                                            <FieldLabel>How did you find us?</FieldLabel>
+                                            <FieldLabel>איך שמעת עלינו?</FieldLabel>
                                             <Pills options={REFERRALS} value={field.value} onChange={field.onChange} />
                                             <FieldError message={errors.referral_source?.message} />
                                         </div>
@@ -313,7 +313,7 @@ export default function OnboardingPage() {
                     </motion.div>
                 </AnimatePresence>
 
-                <AuthButton loading={isLast && pending}>{isLast ? "Get started" : "Continue"}</AuthButton>
+                <AuthButton loading={isLast && pending}>{isLast ? "התחל לעבוד" : "המשך"}</AuthButton>
             </form>
         </div>
     );

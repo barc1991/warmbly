@@ -167,8 +167,8 @@ export default function AddContacts() {
             await toast.promise(
                 addContacts.mutateAsync([data]),
                 {
-                    loading: "Loading...",
-                    success: "Contact successfully added.",
+                    loading: "טוען...",
+                    success: "איש הקשר נוסף בהצלחה.",
                     error: (err: AppError) => buildError(err),
                 }
             )
@@ -239,7 +239,7 @@ export default function AddContacts() {
 
             const email = primary['email'] ?? ""
             if (!isValidEmail(email)) {
-                throw new Error(`Invalid email address at row ${ind} ("${email}")`)
+                throw new Error(`כתובת אימייל לא תקינה בשורה ${ind + 1} ("${email}")`)
             }
 
             return {
@@ -262,7 +262,7 @@ export default function AddContacts() {
             const prev = LoadCSVContacts();
             setPreview(prev)
         } catch (err) {
-            setError("Client Error: " + String(err))
+            setError("שגיאת לקוח: " + String(err))
         } finally {
             setLoadingP(false);
         }
@@ -277,7 +277,7 @@ export default function AddContacts() {
             if (err instanceof APIError) {
                 setError(`${err.message}: ${err.body.message}`)
             } else {
-                setError(`Client Error: ${err}`)
+                setError(`שגיאת לקוח: ${err}`)
             }
         } finally {
             setLoading(false);
@@ -288,7 +288,7 @@ export default function AddContacts() {
     return (<>
         <div className={`fixed inset-0 z-100 bg-slate-950/45 flex justify-center items-center transition ${c.add ? "opacity-100 visible" : "opacity-0 invisible"}`}>
             <Popup value={c.add !== null}>
-                <div className="absolute top-10 right-10 z-101 text-slate-500 hover:text-slate-400 transition cursor-pointer"
+                <div className="absolute top-10 left-10 z-101 text-slate-500 hover:text-slate-400 transition cursor-pointer"
                     onClick={() => {
                         c.setAdd(null);
                         setError("");
@@ -297,83 +297,83 @@ export default function AddContacts() {
                 >
                     <RiCloseLine className="w-5" />
                 </div>
-                <h1 className="text-3xl md:text-5xl text-slate-600 font-bold font-inter mb-9 mr-4 text-center mt-12">Upload Contacts</h1>
-                <p className="text-base md:text-xl text-slate-400 font-inter max-w-5xl mx-auto text-center mb-14">Easily grow your contact list by adding new people in two ways: manually enter individual details, or quickly import multiple contacts at once using a .csv file. Choose the option that best fits your workflow to start organizing and reaching your audience faster.</p>
+                <h1 className="text-3xl md:text-5xl text-slate-600 font-bold font-inter mb-9 ml-4 text-center mt-12">העלאת אנשי קשר</h1>
+                <p className="text-base md:text-xl text-slate-400 font-inter max-w-5xl mx-auto text-center mb-14">הרחב את רשימת אנשי הקשר שלך בקלות: הזן פרטים באופן ידני, או ייבא במהירות מספר אנשי קשר בבת אחת באמצעות קובץ .csv. בחר באפשרות המתאימה כדי להתחיל לפנות לקהל היעד שלך.</p>
                 <div className="flex flex-col md:flex-row justify-center gap-8 mb-8">
                     <UploadOption
                         onClick={() => setUploadMethod('manual')}
                         icon={<RiCursorLine className="w-8 shrink-0 text-slate-600" />}>
                         <div>
-                            <UploadOptionTitle>Enter Manually</UploadOptionTitle>
-                            <UploadOptionDescription>Enter Contact Details Manually</UploadOptionDescription>
+                            <UploadOptionTitle>הזנה ידנית</UploadOptionTitle>
+                            <UploadOptionDescription>הזנת פרטי איש קשר באופן ידני</UploadOptionDescription>
                         </div>
                     </UploadOption>
                     <div className="flex md:flex-col items-center gap-5 md:gap-3 text-slate-300">
                         <div className="grow h-px md:h-0 md:w-px bg-slate-300" />
-                        <span>or</span>
+                        <span>או</span>
                         <div className="grow h-px md:h-0 md:w-px bg-slate-300" />
                     </div>
                     <UploadOption
                         onClick={() => setUploadMethod('csv')}
                         icon={<RiUploadCloud2Line className="w-8 shrink-0 text-green-500" />}>
                         <div>
-                            <UploadOptionTitle>Upload .csv</UploadOptionTitle>
-                            <UploadOptionDescription>Bulk Upload Contacts</UploadOptionDescription>
+                            <UploadOptionTitle>העלאת קובץ .csv</UploadOptionTitle>
+                            <UploadOptionDescription>ייבוא מרוכז של אנשי קשר</UploadOptionDescription>
                         </div>
                     </UploadOption>
                 </div>
             </Popup>
             <Popup value={uploadMethod === 'manual'}>
-                <AddBoxTopBack onClick={() => setUploadMethod(null)}>Enter Manually</AddBoxTopBack>
+                <AddBoxTopBack onClick={() => setUploadMethod(null)}>הזנה ידנית</AddBoxTopBack>
                 <div className="flex justify-center">
                     <div className="max-w-3xl w-full space-y-4">
                         <div className="flex gap-5 items-center">
                             <RiCursorLine className="h-7 w-8 shrink-0" />
                             <div>
-                                <h1 className="text-lg">Manual Contact</h1>
-                                <p className="text-slate-400">Please fill out the following fields</p>
+                                <h1 className="text-lg">איש קשר ידני</h1>
+                                <p className="text-slate-400">אנא מלא את השדות הבאים</p>
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <MiniTitle>First Name</MiniTitle>
+                                <MiniTitle>שם פרטי</MiniTitle>
                                 <MiniInput
                                     value={manual.first_name}
-                                    placeholder="e.g. John"
+                                    placeholder="לדוגמה: ישראל"
                                     onChange={(e) => setManual(bef => ({ ...bef, first_name: e.target.value }))} />
                             </div>
                             <div>
-                                <MiniTitle>Last Name</MiniTitle>
+                                <MiniTitle>שם משפחה</MiniTitle>
                                 <MiniInput
                                     value={manual.last_name}
-                                    placeholder="e.g. Doe"
+                                    placeholder="לדוגמה: ישראלי"
                                     onChange={(e) => setManual(bef => ({ ...bef, last_name: e.target.value }))} />
                             </div>
                         </div>
                         <div>
-                            <MiniTitle>Email</MiniTitle>
+                            <MiniTitle>אימייל</MiniTitle>
                             <MiniInput
                                 value={manual.email}
-                                placeholder="e.g. name@example.com"
+                                placeholder="לדוגמה: name@example.com"
                                 onChange={(e) => setManual(bef => ({ ...bef, email: e.target.value }))} />
                         </div>
                         <div>
-                            <MiniTitle>Company</MiniTitle>
+                            <MiniTitle>חברה</MiniTitle>
                             <MiniInput
                                 value={manual.company}
-                                placeholder="e.g. Acme Inc."
+                                placeholder="לדוגמה: חברה בע״מ"
                                 onChange={(e) => setManual(bef => ({ ...bef, company: e.target.value }))} />
                         </div>
                         <div>
-                            <MiniTitle>Phone</MiniTitle>
+                            <MiniTitle>טלפון</MiniTitle>
                             <MiniInput
                                 value={manual.phone}
-                                placeholder="e.g. +1 (123) 456-7890"
+                                placeholder="לדוגמה: 050-1234567"
                                 onChange={(e) => setManual(bef => ({ ...bef, phone: e.target.value }))} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2 mb-3">
-                                <MiniTitle nom>Custom Fields</MiniTitle>
+                                <MiniTitle nom>שדות מותאמים אישית</MiniTitle>
                                 <button
                                     onClick={() => {
                                         setManual(bef => ({
@@ -386,7 +386,7 @@ export default function AddContacts() {
                                 </button>
                             </div>
                             {manual.custom_fields.length === 0 ? <>
-                                <p className="text-slate-400 font-poppins">No fields added yet.</p>
+                                <p className="text-slate-400 font-poppins">טרם נוספו שדות.</p>
                             </> : <>
                                 <div className="space-y-3">
                                     {manual.custom_fields.map((f, ind) => {
@@ -395,7 +395,7 @@ export default function AddContacts() {
                                                 <div className="flex gap-2">
                                                     <MiniInput
                                                         value={f.name}
-                                                        placeholder="Field Name"
+                                                        placeholder="שם השדה"
                                                         onChange={(e) => {
                                                             setManual(bef => ({
                                                                 ...bef,
@@ -428,7 +428,7 @@ export default function AddContacts() {
                                                             }) : m)
                                                         }))
                                                     }}
-                                                    placeholder="Field Value" />
+                                                    placeholder="ערך השדה" />
                                             </div>
                                         )
                                     })}
@@ -437,7 +437,7 @@ export default function AddContacts() {
                         </div>
                         {c.add?.campaigns.length === 0 && (
                             <div>
-                                <MiniTitle>Campaigns</MiniTitle>
+                                <MiniTitle>קמפיינים</MiniTitle>
                                 <CampaignSelector
                                     selected={manual.campaigns}
                                     onAdd={(id, name) => {
@@ -462,28 +462,28 @@ export default function AddContacts() {
                             <button
                                 onClick={() => setManual(DEFAULT_CONTACT)}
                                 className="ripple rounded-lg bg-slate-200 cursor-pointer hover:bg-slate-300 transition text-slate-500 h-10 w-20">
-                                Reset
+                                איפוס
                             </button>
                             <button
                                 className={`ripple rounded-lg cursor-pointer ${loading ? "bg-blue-600" : "bg-blue-500 hover:bg-blue-600"} transition text-white h-10 w-30 flex items-center justify-center`}
                                 onClick={AddManual}
                             >
-                                {loading ? <Loading className="h-4" /> : "Add Contact"}
+                                {loading ? <Loading className="h-4" /> : "הוסף איש קשר"}
                             </button>
                         </div>
                     </div>
                 </div>
             </Popup>
             <Popup value={uploadMethod === 'csv'}>
-                <AddBoxTopBack onClick={() => setUploadMethod(null)}>Bulk Import</AddBoxTopBack>
+                <AddBoxTopBack onClick={() => setUploadMethod(null)}>ייבוא מרוכז</AddBoxTopBack>
                 <div className="flex justify-center">
                     <div className="max-w-3xl w-full space-y-4">
                         <div className="flex gap-5 justify-between items-center">
                             <div className="flex gap-5 items-center">
                                 <RiUploadCloud2Line className="h-7 w-8 shrink-0" />
                                 <div>
-                                    <h1 className="text-lg">Import from .csv</h1>
-                                    <p className="text-slate-400">Please fill out the following fields</p>
+                                    <h1 className="text-lg">ייבוא מקובץ .csv</h1>
+                                    <p className="text-slate-400">אנא מלא את השדות הבאים</p>
                                 </div>
                             </div>
                             <div>
@@ -491,7 +491,7 @@ export default function AddContacts() {
                                     disabled={rows.length === 0}
                                     onClick={() => setRows([])}
                                     className={`bg-red-100 text-red-500 px-4 rounded-lg py-2 ${rows.length > 0 ? "cursor-pointer hover:bg-red-200" : "cursor-not-allowed opacity-50"}`}
-                                >Reset</button>
+                                >איפוס</button>
                             </div>
                         </div>
                         <div className="flex justify-start gap-5 items-center">
@@ -507,7 +507,7 @@ export default function AddContacts() {
                                 `}
                             >
                                 <RiFileCloudLine size={17} />
-                                Upload .csv file
+                                העלאת קובץ .csv
                                 <input
                                     id="contacts-csv-upload"
                                     type="file"
@@ -516,7 +516,7 @@ export default function AddContacts() {
                                     onChange={UploadFile}
                                 />
                             </label>
-                            {rows.length > 0 && <span className="text-slate-500 font-poppins">{rows.length} rows selected</span>}
+                            {rows.length > 0 && <span className="text-slate-500 font-poppins">{rows.length} שורות נבחרו</span>}
                         </div>
                         {rows.length > 0 && <>
                             <div className="space-y-3">
@@ -538,7 +538,7 @@ export default function AddContacts() {
                             </div>
                             <div>
                                 <div className="flex items-center gap-2 mb-3">
-                                    <MiniTitle nom>Extra Fields</MiniTitle>
+                                    <MiniTitle nom>שדות נוספים</MiniTitle>
                                     <button
                                         onClick={() => {
                                             setCustomFields(bef => [...bef, {
@@ -551,7 +551,7 @@ export default function AddContacts() {
                                     </button>
                                 </div>
                                 {customFields.length === 0 ? <>
-                                    <p className="text-slate-400 font-poppins">No fields added yet.</p>
+                                    <p className="text-slate-400 font-poppins">טרם נוספו שדות.</p>
                                 </> : <>
                                     <div className="space-y-3">
                                         {customFields.map((f, ind) => {
@@ -560,7 +560,7 @@ export default function AddContacts() {
                                                     <div className="flex gap-2">
                                                         <MiniInput
                                                             value={f.name}
-                                                            placeholder="key"
+                                                            placeholder="מפתח"
                                                             onChange={(e) => {
                                                                 setCustomFields(bef => bef.map((m, i) => i === ind ? ({
                                                                     ...m,
@@ -586,7 +586,7 @@ export default function AddContacts() {
                                                             }) : m)
                                                             )
                                                         }}
-                                                        placeholder="{{my_column}}" />
+                                                        placeholder="{{שם_עמודה}}" />
                                                 </div>
                                             )
                                         })}
@@ -595,7 +595,7 @@ export default function AddContacts() {
                             </div>
                             {c.add?.campaigns.length === 0 && (
                                 <div>
-                                    <MiniTitle>Campaigns</MiniTitle>
+                                    <MiniTitle>קמפיינים</MiniTitle>
                                     <CampaignSelector
                                         selected={campaigns}
                                         onAdd={(id, name) => {
@@ -614,27 +614,27 @@ export default function AddContacts() {
                                 <button
                                     onClick={() => setCSValues({})}
                                     className="ripple rounded-lg bg-slate-200 cursor-pointer hover:bg-slate-300 transition text-slate-500 h-10 w-20">
-                                    Clear
+                                    איפוס
                                 </button>
                                 <button
                                     className={`ripple rounded-lg cursor-pointer ${loading ? "bg-blue-200" : "bg-blue-100 hover:bg-blue-200"} transition text-blue-500 h-10 w-31 flex items-center justify-center`}
                                     onClick={Preview}
                                 >
-                                    {loadingP ? <Loading className="h-4" /> : "Preview"}
+                                    {loadingP ? <Loading className="h-4" /> : "תצוגה מקדימה"}
                                 </button>
                                 <button
                                     className={`ripple rounded-lg cursor-pointer ${loading ? "bg-blue-600" : "bg-blue-500 hover:bg-blue-600"} transition text-white h-10 w-31 flex items-center justify-center`}
                                     onClick={AddCSV}
                                 >
-                                    {loading ? <Loading className="h-4" /> : "Add Contacts"}
+                                    {loading ? <Loading className="h-4" /> : "הוסף אנשי קשר"}
                                 </button>
                             </div>
-                            {error && <p className="text-right text-red-500">Something went wrong</p>}
+                            {error && <p className="text-right text-red-500">משהו השתבש</p>}
                         </>}
                         {preview && <>
                             <div>
                                 <div className="flex items-center gap-3 mb-3">
-                                    <MiniTitle nom>Preview ({preview.length})</MiniTitle>
+                                    <MiniTitle nom>תצוגה מקדימה ({preview.length})</MiniTitle>
                                     <button
                                         onClick={() => setPreview(null)}
                                         className="px-2 shrink-0 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 ripple cursor-pointer transition">
@@ -645,38 +645,38 @@ export default function AddContacts() {
                                     {preview.map((preview, ind) => {
                                         return (
                                             <div key={`csv-preview-${ind}`} className="space-y-3 border-b pb-11 relative pt-2 border-slate-200">
-                                                <span className="absolute top-2 right-0 text-slate-400">#{ind + 1}</span>
+                                                <span className="absolute top-2 left-0 text-slate-400">#{ind + 1}</span>
                                                 <div>
-                                                    <MiniTitle>first_name</MiniTitle>
+                                                    <MiniTitle>שם פרטי</MiniTitle>
                                                     <CSValue>{preview.first_name}</CSValue>
                                                 </div>
                                                 <div>
-                                                    <MiniTitle>last_name</MiniTitle>
-                                                    <CSValue>{preview.first_name}</CSValue>
+                                                    <MiniTitle>שם משפחה</MiniTitle>
+                                                    <CSValue>{preview.last_name}</CSValue>
                                                 </div>
                                                 <div>
-                                                    <MiniTitle>email</MiniTitle>
+                                                    <MiniTitle>אימייל</MiniTitle>
                                                     <CSValue>{preview.email}</CSValue>
                                                 </div>
                                                 <div>
-                                                    <MiniTitle>company</MiniTitle>
+                                                    <MiniTitle>חברה</MiniTitle>
                                                     <CSValue>{preview.company}</CSValue>
                                                 </div>
                                                 <div>
-                                                    <MiniTitle>phone</MiniTitle>
-                                                    <CSValue>{preview.company}</CSValue>
+                                                    <MiniTitle>טלפון</MiniTitle>
+                                                    <CSValue>{preview.phone}</CSValue>
                                                 </div>
                                                 <div>
-                                                    <MiniTitle>Custom Fields</MiniTitle>
+                                                    <MiniTitle>שדות מותאמים אישית</MiniTitle>
                                                     <CSValue>
                                                         {Object.keys(preview.custom_fields).length > 0 ?
-                                                            <div className="space-y-2">
-                                                                {Object.entries(preview.custom_fields).map(([n, v]) => {
-                                                                    return (<div key={n}>
-                                                                        <b>{n}</b>: {v}
-                                                                    </div>)
-                                                                })}
-                                                            </div> : <span>No custom fields</span>}
+                                                             <div className="space-y-2">
+                                                                 {Object.entries(preview.custom_fields).map(([n, v]) => {
+                                                                     return (<div key={n}>
+                                                                         <b>{n}</b>: {v}
+                                                                     </div>)
+                                                                 })}
+                                                             </div> : <span>אין שדות מותאמים אישית</span>}
                                                     </CSValue>
                                                 </div>
                                             </div>
@@ -705,52 +705,52 @@ function CSValue({
 const selectOptions = [
     {
         icon: <RiAccountCircleLine className="w-full text-green-500" />,
-        title: "First Name",
+        title: "שם פרטי",
         value: "first_name",
     },
     {
         icon: <RiGroup2Line className="w-full text-green-600" />,
-        title: "Last Name",
+        title: "שם משפחה",
         value: "last_name",
     },
     {
         icon: <RiBuildingLine className="w-full text-blue-500" />,
-        title: "Company",
+        title: "חברה",
         value: "company",
     },
     {
         icon: <RiPhoneLine className="w-full text-orange-400" />,
-        title: "Phone",
+        title: "טלפון",
         value: "phone",
     },
     {
         icon: <RiMapPinLine className="w-full text-green-500" />,
-        title: "Location",
+        title: "מיקום",
         value: "location",
     },
     {
         icon: <RiInstanceLine className="w-full text-amber-500" />,
-        title: "Industry",
+        title: "תחום / תעשייה",
         value: "industry",
     },
     {
         icon: <RiAccountPinCircleLine className="w-full text-blue-500" />,
-        title: "Employees",
+        title: "עובדים",
         value: "employees",
     },
     {
         icon: <RiPagesLine className="w-full text-slate-500" />,
-        title: "Website",
+        title: "אתר אינטרנט",
         value: "website",
     },
     {
         icon: <RiLinkedinBoxFill className="w-full text-blue-600" />,
-        title: "LinkedIn",
+        title: "לינקדאין",
         value: "linkedin",
     },
     {
         icon: <RiLayoutMasonryLine className="w-full text-blue-600" />,
-        title: "Custom Variable",
+        title: "משתנה מותאם אישית",
         value: "custom",
     }
 ]
@@ -786,7 +786,7 @@ function CSVSelector({
                         }
                         return <>
                             <div>
-                                <p className="text-slate-400">Unset</p>
+                                <p className="text-slate-400">לא נבחר</p>
                             </div>
                         </>
                     })()}

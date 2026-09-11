@@ -92,28 +92,28 @@ const KIND_LABEL_HE: Record<KindFilter, string> = {
 function CampaignStatusMark({ status, idle }: { status: string; idle?: boolean }) {
     const tone = statusTone(status);
     if (idle) {
-        return <HourglassIcon className={cn("w-3.5 h-3.5", CAMPAIGN_IDLE_TONE)} aria-label="Waiting for leads" />;
+        return <HourglassIcon className={cn("w-3.5 h-3.5", CAMPAIGN_IDLE_TONE)} aria-label="ממתין ללידים" />;
     }
     if (status === "active") {
-        return <span className={cn("campaign-grid", tone)} aria-hidden title="Sending now" />;
+        return <span className={cn("campaign-grid", tone)} aria-hidden title="שולח כעת" />;
     }
     let Icon: LucideIcon = FileTextIcon;
-    let title = "Draft — not started";
+    let title = "טיוטה - טרם החל";
     if (status === "completed") {
         Icon = CheckCircle2Icon;
-        title = "Finished";
+        title = "הסתיים";
     } else if (status === "paused") {
         Icon = PauseIcon;
-        title = "Paused";
+        title = "מושהה";
     } else if (status === "paused_guardrail") {
         Icon = AlertTriangleIcon;
-        title = "Paused automatically — a deliverability guardrail was breached";
+        title = "הושהה אוטומטית - מנגנון ההגנה על עבירות הופעל";
     } else if (status === "paused_undeliverable") {
         Icon = AlertTriangleIcon;
-        title = "Paused — address verification refused the remaining leads";
+        title = "מושהה - אימות כתובות דחה את יתרת הלידים";
     } else if (status === "paused_no_accounts" || status === "paused_trial_expired") {
         Icon = AlertTriangleIcon;
-        title = status === "paused_no_accounts" ? "Paused — no sending accounts" : "Paused — trial expired";
+        title = status === "paused_no_accounts" ? "מושהה - אין תיבות דואר שולחות" : "מושהה - תקופת הניסיון פגה";
     }
     return <Icon className={cn("w-3.5 h-3.5", tone)} aria-label={title} />;
 }
@@ -178,11 +178,11 @@ function CampaignFolderMenu({ campaign, folders }: { campaign: Campaign; folders
             <PopoverMenuTrigger asChild>
                 <button
                     type="button"
-                    aria-label="Move to folder"
+                    aria-label="העבר לתיקייה"
                     title={
                         inCount > 0
-                            ? `In ${inCount} folder${inCount === 1 ? "" : "s"}`
-                            : "Move to folder"
+                            ? `ב-${inCount} תיקיות`
+                            : "העבר לתיקייה"
                     }
                     className={cn(
                         "size-6 rounded flex items-center justify-center transition-opacity shrink-0",
@@ -195,13 +195,13 @@ function CampaignFolderMenu({ campaign, folders }: { campaign: Campaign; folders
                 </button>
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={200}>
-                <PopoverMenuLabel>Folders</PopoverMenuLabel>
+                <PopoverMenuLabel>תיקיות</PopoverMenuLabel>
                 {folders.length === 0 ? (
                     <PopoverMenuItem
                         onSelect={() => p.setFoldersEdit(true)}
                         icon={<PlusIcon className="w-3 h-3" />}
                     >
-                        Create a folder
+                        צור תיקייה
                     </PopoverMenuItem>
                 ) : (
                     folders.map((f) => {
@@ -239,7 +239,7 @@ function CampaignFolderMenu({ campaign, folders }: { campaign: Campaign; folders
                     <>
                         <PopoverMenuSeparator />
                         <PopoverMenuItem danger onSelect={() => setFolders([])}>
-                            Remove from all
+                            הסר מכל התיקיות
                         </PopoverMenuItem>
                     </>
                 )}
@@ -248,7 +248,7 @@ function CampaignFolderMenu({ campaign, folders }: { campaign: Campaign; folders
                     onSelect={() => p.setFoldersEdit(true)}
                     icon={<Settings2Icon className="w-3 h-3" />}
                 >
-                    Manage folders
+                    ניהול תיקיות
                 </PopoverMenuItem>
             </PopoverMenuContent>
         </PopoverMenu>
@@ -274,14 +274,14 @@ export default function CampaignsPage() {
         try {
             if (currentStatus === "active") {
                 await toast.promise(stopCampaign.mutateAsync(id), {
-                    loading: "Pausing campaign…",
-                    success: "Campaign paused",
+                    loading: "משהה קמפיין…",
+                    success: "הקמפיין הושהה",
                     error: (e: AppError) => buildError(e),
                 });
             } else {
                 await toast.promise(startCampaign.mutateAsync(id), {
-                    loading: "Starting campaign…",
-                    success: "Campaign started",
+                    loading: "מפעיל קמפיין…",
+                    success: "הקמפיין הופעל",
                     error: (e: AppError) => buildError(e),
                 });
             }
@@ -294,7 +294,7 @@ export default function CampaignsPage() {
     function toggleRow(c: Campaign) {
         const cstatus = c.status ?? "draft";
         if (cstatus === "active") {
-            confirm?.show(`Pause ${c.name}?`, () => toggleCampaign(c.id, cstatus));
+            confirm?.show(`האם להשהות את ${c.name}?`, () => toggleCampaign(c.id, cstatus));
         } else {
             setLaunchTarget(c);
         }
@@ -587,11 +587,11 @@ export default function CampaignsPage() {
                                     </span>
                                     {isOneTimeCampaign(c) && (
                                         <span
-                                            title="One-time email: a single message, no follow-ups"
+                                            title="אימייל חד-פעמי: הודעה בודדת, ללא מעקב המשך"
                                             className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-medium uppercase tracking-[0.1em] shrink-0"
                                         >
-                                            <SendIcon className="w-2.5 h-2.5" />
-                                            One-time
+                                            <SendIcon className="w-2.5 h-2.5 rtl:rotate-180" />
+                                            חד-פעמי
                                         </span>
                                     )}
                                     <AdvisorRowFlag findings={advisor.get(c.id)} subject={c.name} />
@@ -627,7 +627,7 @@ export default function CampaignsPage() {
                                         }
                                         className="size-6 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0 disabled:opacity-30"
                                         aria-label={
-                                            cstatus === "active" ? "Pause campaign" : "Start campaign"
+                                            cstatus === "active" ? "השהה קמפיין" : "הפעל קמפיין"
                                         }
                                     >
                                         <StateIcon className="w-3.5 h-3.5" />

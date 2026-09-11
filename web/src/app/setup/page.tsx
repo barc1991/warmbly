@@ -139,18 +139,18 @@ export default function SetupPage() {
                 <PanelHead
                     tone="slate"
                     icon={<AlertCircleIcon className="w-6 h-6 text-slate-400" />}
-                    title="Already set up"
-                    body="This instance already has an account, so setup is closed. Sign in, or reset the owner's password from the server."
+                    title="ההתקנה כבר הושלמה"
+                    body="למופע זה כבר יש חשבון קיים, ולכן ההתקנה הראשונית נעולה. התחבר למערכת, או אפס את סיסמת הבעלים ישירות מהשרת."
                 />
                 <button
                     type="button"
                     onClick={goToSignIn}
                     className="mt-5 w-full h-10 rounded-md bg-slate-900 text-white text-[13px] font-medium hover:bg-slate-800 transition-colors"
                 >
-                    Go to sign in
+                    מעבר להתחברות
                 </button>
                 <Commands
-                    caption="Lost the only account? Reset its password on the server:"
+                    caption="איבדת את הגישה לחשבון היחיד? אפס את הסיסמה ישירות מהשרת:"
                     commands={[RESET_PASSWORD_COMPOSE]}
                 />
             </Shell>
@@ -165,15 +165,15 @@ export default function SetupPage() {
                 <PanelHead
                     tone="amber"
                     icon={<AlertCircleIcon className="w-6 h-6 text-amber-500" />}
-                    title={rejected ? "That setup link no longer works" : "This link has no setup token"}
+                    title={rejected ? "קישור ההתקנה אינו בתוקף עוד" : "קישור זה אינו מכיל אסימון התקנה"}
                     body={
                         rejected
-                            ? "It was already used, or it expired. Print a fresh one on the server, then open it here."
-                            : "This instance has no accounts yet and cannot be signed into. Print the setup link on the server, then open it here."
+                            ? "הקישור כבר נוצל בעבר או שפג תוקפו. הפק קישור חדש בשרת ולאחר מכן פתח אותו כאן."
+                            : "במופע זה אין עדיין חשבונות ולא ניתן להתחבר אליו. הפק קישור התקנה בשרת ולאחר מכן פתח אותו כאן."
                     }
                 />
                 <Commands
-                    caption="Run one of these where the backend runs:"
+                    caption="הרץ אחת מפקודות אלו בשרת שבו פועל ה-Backend:"
                     commands={[SETUP_LINK_COMPOSE, SETUP_LINK_DIRECT]}
                 />
                 <CheckAgain onClick={checkAgain} />
@@ -186,24 +186,24 @@ export default function SetupPage() {
             <PanelHead
                 tone="sky"
                 icon={<ShieldCheckIcon className="w-6 h-6 text-sky-500" />}
-                title="Claim this instance"
-                body="This creates the owner account and makes it a platform admin. It can only be done once."
+                title="הפעלת מופע זה"
+                body="פעולה זו יוצרת את חשבון הבעלים ומגדירה אותו כמנהל ראשי. ניתן לבצע פעולה זו פעם אחת בלבד."
             />
 
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
                 <div>
-                    <Label>Your name</Label>
+                    <Label>שמך</Label>
                     <TextInput
                         value={firstName}
                         onChange={setFirstName}
                         autoComplete="given-name"
-                        placeholder="Alex"
+                        placeholder="ישראל ישראלי"
                         className={FIELD}
                     />
                 </div>
 
                 <div>
-                    <Label>Email</Label>
+                    <Label>אימייל</Label>
                     <TextInput
                         type="email"
                         value={email}
@@ -216,19 +216,19 @@ export default function SetupPage() {
                 </div>
 
                 <div>
-                    <Label>Password</Label>
+                    <Label>סיסמה</Label>
                     <TextInput
                         type="password"
                         value={password}
                         onChange={setPassword}
                         autoComplete="new-password"
-                        placeholder="At least 8 characters"
+                        placeholder="לפחות 8 תווים"
                         className={FIELD}
                     />
                 </div>
 
                 <div>
-                    <Label>Confirm password</Label>
+                    <Label>אימות סיסמה</Label>
                     <TextInput
                         type="password"
                         value={confirm}
@@ -240,7 +240,7 @@ export default function SetupPage() {
 
                 {failure && (
                     <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[12.5px] leading-relaxed text-rose-800">
-                        {failure.message || "The claim failed. Try again."}
+                        {failure.message || "ההפעלה נכשלה. אנא נסה שוב."}
                         {failure.request_id && (
                             <span className="block mt-1 font-mono text-[11px] text-rose-500">
                                 {failure.request_id}
@@ -255,7 +255,7 @@ export default function SetupPage() {
                     className="w-full h-10 rounded-md bg-slate-900 text-white text-[13px] font-medium hover:bg-slate-800 transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-2"
                 >
                     {pending && <Loader2Icon className="w-4 h-4 animate-spin" />}
-                    {pending ? "Setting up…" : "Create owner account"}
+                    {pending ? "מגדיר…" : "צור חשבון בעלים"}
                 </button>
             </form>
         </Shell>
@@ -330,7 +330,7 @@ function CommandRow({ command }: { command: string }) {
             <button
                 type="button"
                 onClick={copy}
-                aria-label={`Copy ${command}`}
+                aria-label={`העתק ${command}`}
                 className="shrink-0 w-8 rounded border border-slate-200 bg-white text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
             >
                 {copied ? <CheckIcon className="w-3.5 h-3.5 text-emerald-600" /> : <CopyIcon className="w-3.5 h-3.5" />}
@@ -347,7 +347,7 @@ function CheckAgain({ onClick }: { onClick: () => void }) {
             className="mt-3 w-full h-10 rounded-md border border-slate-200 bg-white text-slate-700 text-[13px] font-medium hover:bg-slate-50 transition-colors inline-flex items-center justify-center gap-1.5"
         >
             <RefreshCwIcon className="w-3.5 h-3.5" />
-            Check again
+            בדוק שוב
         </button>
     );
 }

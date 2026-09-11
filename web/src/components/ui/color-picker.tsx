@@ -152,7 +152,7 @@ export default function ColorPicker({
                 ref={(el) => setReference(el)}
                 type="button"
                 disabled={disabled}
-                aria-label={ariaLabel ?? "Pick a color"}
+                aria-label={ariaLabel ?? "בחר צבע"}
                 onClick={() => setOpen((o) => !o)}
                 className={`size-7 rounded-md border border-slate-200 shrink-0 transition-shadow disabled:opacity-50 ${
                     open ? "ring-2 ring-sky-200" : "hover:border-slate-300"
@@ -192,7 +192,7 @@ export default function ColorPicker({
                                         }}
                                         onBlur={() => setText(current)}
                                         spellCheck={false}
-                                        aria-label="Hex value"
+                                        aria-label="ערך Hex"
                                         className={`h-7 flex-1 min-w-0 rounded-md border px-2 font-mono text-[12px] text-slate-900 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100 ${
                                             HEX_RE.test(text.trim()) ? "border-slate-200" : "border-rose-300"
                                         }`}
@@ -201,8 +201,8 @@ export default function ColorPicker({
                                         <button
                                             type="button"
                                             onClick={() => void pickFromScreen()}
-                                            aria-label="Pick a color from the screen"
-                                            title="Pick from screen"
+                                            aria-label="דגום צבע מהמסך"
+                                            title="דגום צבע מהמסך"
                                             className="size-7 shrink-0 inline-flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                                         >
                                             <PipetteIcon className="w-3.5 h-3.5" />
@@ -215,7 +215,7 @@ export default function ColorPicker({
                                         <button
                                             key={c}
                                             type="button"
-                                            aria-label={`Use ${c}`}
+                                            aria-label={`השתמש ב-${c}`}
                                             onClick={() => onChange(c)}
                                             className={`h-5 rounded border transition-shadow ${
                                                 current === c.toLowerCase()

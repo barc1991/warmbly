@@ -387,9 +387,9 @@ function CollapsibleSection<T extends { id: string }>({
                   type="button"
                   onClick={() => setSearch("")}
                   className="text-[10px] text-slate-400 hover:text-slate-600 shrink-0"
-                  aria-label="Clear filter"
+                  aria-label="נקה מסנן"
                 >
-                  clear
+                  נקה
                 </button>
               )}
             </div>

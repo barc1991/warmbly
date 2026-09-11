@@ -335,7 +335,7 @@ function CreateModal({ catalog, onClose }: { catalog: WebhookEventDescriptor[]; 
                     <span className="text-[12.5px] font-medium text-slate-900">
                         {created ? "נקודת הקצה נוצרה" : "הוסף נקודת קצה של Webhook"}
                     </span>
-                    <button onClick={onClose} className="ms-auto h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">
+                    <button onClick={onClose} aria-label="סגור" className="ms-auto h-7 w-7 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100">
                         <XIcon className="w-4 h-4" />
                     </button>
                 </div>
@@ -630,7 +630,7 @@ function EndpointDrawer({
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ type: "spring", damping: 32, stiffness: 320 }}
-                className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col"
+                className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col rtl:right-auto rtl:left-0 rtl:border-l-0 rtl:border-r"
             >
                 {/* Header */}
                 <div className="shrink-0 px-5 h-14 flex items-center gap-3 border-b border-slate-200">
@@ -642,7 +642,7 @@ function EndpointDrawer({
                         <div className="text-[10.5px] text-slate-400">נוצר {formatRelative(endpoint.created_at)}</div>
                     </div>
                     <VerificationBadge endpoint={endpoint} />
-                    <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0">
+                    <button onClick={onClose} aria-label="סגור" className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0">
                         <XIcon className="w-4 h-4" />
                     </button>
                 </div>

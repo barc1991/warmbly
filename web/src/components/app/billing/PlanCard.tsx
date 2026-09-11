@@ -37,7 +37,7 @@ export default function PlanCard({
     canAct = true,
     feature,
     minPlan,
-    ctaVerb = "Upgrade to",
+    ctaVerb = "שדרוג ל-",
     footer,
     onChoose,
 }: {
@@ -99,8 +99,8 @@ export default function PlanCard({
 
     const sends =
         plan.sendsPerDay === Number.POSITIVE_INFINITY
-            ? "Custom volume"
-            : `${plan.sendsPerDay.toLocaleString()} emails / day`;
+            ? "נפח בהתאמה אישית"
+            : `${plan.sendsPerDay.toLocaleString()} אימיילים / יום`;
 
     // A gated card that does not unlock the requested feature must not offer to
     // buy it: checkout would succeed and leave the user still locked out of the
@@ -147,12 +147,12 @@ export default function PlanCard({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, ease: EASE, delay: 0.4 + index * 0.07 }}
                     className={cn(
-                        "absolute -top-2.5 left-4 inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold uppercase tracking-[0.08em] text-white",
+                        "absolute -top-2.5 right-4 inline-flex items-center gap-1 h-5 px-2 rounded-full text-[10px] font-semibold uppercase tracking-[0.08em] text-white",
                         accent.button,
                     )}
                 >
                     <SparklesIcon className="w-2.5 h-2.5" />
-                    {feature ? `Unlocks ${feature}` : "Best value"}
+                    {feature ? `פותח את ${feature}` : "המשתלם ביותר"}
                 </motion.span>
             )}
 
@@ -162,13 +162,13 @@ export default function PlanCard({
                     {plan.label}
                 </span>
                 {isCurrent ? (
-                    <span className="ml-auto text-[9px] uppercase tracking-[0.08em] font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded px-1">
-                        Current
+                    <span className="mr-auto ml-0 text-[9px] uppercase tracking-[0.08em] font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded px-1">
+                        נוכחי
                     </span>
                 ) : plan.featured && !recommended ? (
                     // The ribbon already says it; two badges on one card reads as noise.
-                    <span className={cn("ml-auto text-[9px] uppercase tracking-[0.08em] font-semibold border rounded px-1", accent.pill)}>
-                        Popular
+                    <span className={cn("mr-auto ml-0 text-[9px] uppercase tracking-[0.08em] font-semibold border rounded px-1", accent.pill)}>
+                        פופולרי
                     </span>
                 ) : null}
             </div>
@@ -181,7 +181,7 @@ export default function PlanCard({
                 className="mt-4 flex items-baseline gap-1.5"
             >
                 {custom ? (
-                    <span className="text-[30px] font-semibold tracking-[-0.03em] text-slate-900">Custom</span>
+                    <span className="text-[30px] font-semibold tracking-[-0.03em] text-slate-900">בהתאמה אישית</span>
                 ) : (
                     <>
                         <span
@@ -196,7 +196,7 @@ export default function PlanCard({
                                 format={(n) => fmtMoney(Math.round(n * 100) / 100)}
                             />
                         </span>
-                        <span className="text-[12px] text-slate-500">/ mo</span>
+                        <span className="text-[12px] text-slate-500"> / חודש</span>
                         {disc != null && (
                             <span className="text-[12px] text-slate-400 line-through tabular-nums">
                                 ${fmtMoney(base as number)}
@@ -216,18 +216,18 @@ export default function PlanCard({
                         className="absolute inset-0 flex items-center gap-1.5 text-[11px] text-slate-400 tabular-nums"
                     >
                         {custom ? (
-                            "tailored to your volume"
+                            "מותאם להיקף השליחה שלכם"
                         ) : annual ? (
                             <>
-                                <span>billed annually</span>
+                                <span>חיוב שנתי</span>
                                 {yearlySaving > 0 && (
                                     <span className="inline-flex items-center h-4 px-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-semibold">
-                                        save ${yearlySaving} / yr
+                                        חיסכון של ${yearlySaving} / שנה
                                     </span>
                                 )}
                             </>
                         ) : (
-                            "billed monthly"
+                            "חיוב חודשי"
                         )}
                     </motion.div>
                 </AnimatePresence>
@@ -257,7 +257,7 @@ export default function PlanCard({
                         ) : (
                             <MinusIcon className="w-3 h-3 text-slate-300 mt-0.5 shrink-0" />
                         )}
-                        <span>{unlocks ? `Includes ${feature}` : `Does not include ${feature}`}</span>
+                        <span>{unlocks ? `כולל ${feature}` : `אינו כולל ${feature}`}</span>
                     </li>
                 )}
             </ul>
@@ -268,15 +268,15 @@ export default function PlanCard({
             <div className="mt-4">
                 {isCurrent ? (
                     <div className="h-9 rounded-md bg-slate-100 text-slate-400 text-[12.5px] font-medium inline-flex items-center justify-center w-full cursor-default">
-                        Current plan
+                        תוכנית נוכחית
                     </div>
                 ) : gated && !unlocks ? (
                     <div className="h-9 text-[11.5px] text-slate-400 inline-flex items-center justify-center w-full text-center px-2">
-                        Does not unlock {feature}
+                        אינו פותח את {feature}
                     </div>
                 ) : below && !canAct ? (
                     <div className="h-9 text-[11.5px] text-slate-400 inline-flex items-center justify-center w-full">
-                        Owner can change the plan
+                        רק בעל הארגון יכול לשנות תוכנית
                     </div>
                 ) : below ? (
                     <button
@@ -285,7 +285,7 @@ export default function PlanCard({
                         disabled={busy}
                         className="h-9 w-full rounded-md border border-slate-200 hover:border-slate-300 text-[12.5px] font-medium text-slate-600 hover:text-slate-900 transition-colors disabled:opacity-60"
                     >
-                        {pending ? "Working…" : `Downgrade to ${plan.label}`}
+                        {pending ? "מעבד…" : `שנמוך ל-${plan.label}`}
                     </button>
                 ) : showCta ? (
                     <button
@@ -304,20 +304,20 @@ export default function PlanCard({
                         {pending ? (
                             <>
                                 <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-                                {id === "enterprise" ? "Opening…" : "Redirecting…"}
+                                {id === "enterprise" ? "פותח…" : "מעביר לתשלום…"}
                             </>
                         ) : id === "enterprise" ? (
-                            <>Talk to sales</>
+                            <>שיחה עם מכירות</>
                         ) : (
                             <>
                                 {ctaVerb} {plan.label}
-                                <ArrowRightIcon className="w-3.5 h-3.5" />
+                                <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                             </>
                         )}
                     </button>
                 ) : (
                     <div className="h-9 text-[11.5px] text-slate-400 inline-flex items-center justify-center w-full">
-                        Owner can upgrade
+                        רק בעל הארגון יכול לשדרג
                     </div>
                 )}
             </div>

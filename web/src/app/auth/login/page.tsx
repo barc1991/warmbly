@@ -48,23 +48,23 @@ import {
 /* ── Schemas ─────────────────────── */
 
 const emailSchema = z.object({
-    email: z.string().email("Please enter a valid email address"),
+    email: z.string().email("נא להזין כתובת אימייל תקינה"),
 });
 
 const signInSchema = z.object({
-    password: z.string().min(1, "Password is required"),
+    password: z.string().min(1, "נדרשת סיסמה"),
 });
 
 const signUpSchema = z.object({
     password: z.string()
-        .min(8, "Password must be at least 8 characters"),
+        .min(8, "הסיסמה חייבת להכיל לפחות 8 תווים"),
     confirmPassword: z.string(),
     acceptTerms: z.boolean(),
 }).refine((d) => d.password === d.confirmPassword, {
-    message: "Passwords don't match",
+    message: "הסיסמאות אינן תואמות",
     path: ["confirmPassword"],
 }).refine((d) => d.acceptTerms === true, {
-    message: "You must accept the terms",
+    message: "יש לאשר את תנאי השימוש",
     path: ["acceptTerms"],
 });
 
@@ -1178,7 +1178,7 @@ function SignInStep({
                         autoFocus
                         {...register("password")}
                     />
-                    <FieldError message={errors.password?.message ? (isHe && errors.password?.message === "Password is required" ? "נדרשת סיסמה" : errors.password?.message) : undefined} />
+                    <FieldError message={errors.password?.message} />
                 </div>
 
                 <div className="pt-1">
@@ -1267,7 +1267,7 @@ function SignUpStep({
                         {isHe ? "סיסמה" : "Password"}
                     </label>
                     <input type="password" placeholder={isHe ? "צור סיסמה" : "Create a password"} className={INPUT} autoComplete="new-password" autoFocus {...register("password")} />
-                    <FieldError message={errors.password?.message ? (isHe && errors.password?.message === "Password must be at least 8 characters" ? "הסיסמה חייבת להכיל לפחות 8 תווים" : errors.password?.message) : undefined} />
+                    <FieldError message={errors.password?.message} />
                     {pw && (
                         <div className="mt-2">
                             <PasswordStrength score={strength.score} warning={strength.warning} />
@@ -1280,7 +1280,7 @@ function SignUpStep({
                         {isHe ? "אימות סיסמה" : "Confirm password"}
                     </label>
                     <input type="password" placeholder={isHe ? "הזן שוב את הסיסמה" : "Confirm your password"} className={INPUT} autoComplete="new-password" {...register("confirmPassword")} />
-                    <FieldError message={errors.confirmPassword?.message ? (isHe && errors.confirmPassword?.message === "Passwords don't match" ? "הסיסמאות אינן תואמות" : errors.confirmPassword?.message) : undefined} />
+                    <FieldError message={errors.confirmPassword?.message} />
                 </div>
 
                 {/* Terms */}
@@ -1337,7 +1337,7 @@ function SignUpStep({
                         )}
                     </span>
                 </label>
-                <FieldError message={errors.acceptTerms?.message ? (isHe && errors.acceptTerms?.message === "You must accept the terms" ? "עליך לאשר את התנאים" : errors.acceptTerms?.message) : undefined} />
+                <FieldError message={errors.acceptTerms?.message} />
 
                 <div className="pt-1">
                     <AuthButton loading={pending}>{isHe ? "צור חשבון" : "Create account"}</AuthButton>

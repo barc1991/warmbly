@@ -123,14 +123,14 @@ export default function EmailBody({ html, plain }: EmailBodyProps) {
 
     if (!srcDoc) {
         return (
-            <p className="text-[13px] text-slate-400 italic">This message has no content.</p>
+            <p className="text-[13px] text-slate-400 italic">להודעה זו אין תוכן.</p>
         );
     }
 
     return (
         <iframe
             ref={frameRef}
-            title="Message body"
+            title="תוכן ההודעה"
             srcDoc={srcDoc}
             onLoad={onLoad}
             // No allow-scripts: message markup can never run code. allow-popups

@@ -18,7 +18,7 @@ export default function BillingIntervalToggle({
     return (
         <div
             role="radiogroup"
-            aria-label="Billing interval"
+            aria-label="תדירות חיוב"
             className={`inline-flex items-center rounded-md border border-slate-200 bg-slate-50 p-0.5 ${md ? "text-[13px]" : "text-[12px]"}`}
         >
             {(["monthly", "annual"] as BillingInterval[]).map((opt) => {
@@ -41,7 +41,7 @@ export default function BillingIntervalToggle({
                                 className="absolute inset-0 rounded bg-white shadow-sm"
                             />
                         )}
-                        <span className="relative">{opt === "monthly" ? "Monthly" : "Annual"}</span>
+                        <span className="relative">{opt === "monthly" ? "חודשי" : "שנתי"}</span>
                         {opt === "annual" && (
                             <span
                                 className={`relative text-[10px] font-semibold ${

@@ -487,8 +487,8 @@ function ComposeWindowInner({
                                 disabled={!primary}
                                 title={
                                     primary
-                                        ? "Conversations and sent mail with this recipient"
-                                        : "Add a recipient to see your history with them"
+                                        ? (isHe ? "שיחות ודואר שנשלח עם נמען זה" : "Conversations and sent mail with this recipient")
+                                        : (isHe ? "הוסף נמען כדי לראות את ההיסטוריה שלך איתו" : "Add a recipient to see your history with them")
                                 }
                                 className={cn(
                                     "hidden sm:inline-flex size-6 rounded-md items-center justify-center transition-colors disabled:opacity-30",
@@ -506,11 +506,11 @@ function ComposeWindowInner({
                                 e.stopPropagation();
                                 setMinimized(!minimized);
                             }}
-                            aria-label={minimized ? "Restore composer" : "Minimize composer"}
+                            aria-label={minimized ? (isHe ? "הגדל חלון כתיבה" : "Restore composer") : (isHe ? "מזער חלון כתיבה" : "Minimize composer")}
                             title={
                                 minimized
-                                    ? "Restore"
-                                    : "Minimize; your draft stays while you work elsewhere"
+                                    ? (isHe ? "הגדל" : "Restore")
+                                    : (isHe ? "מזער; הטיוטה נשמרת בזמן שאתה עובד במקום אחר" : "Minimize; your draft stays while you work elsewhere")
                             }
                             className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
                         >
@@ -526,7 +526,7 @@ function ComposeWindowInner({
                                 e.stopPropagation();
                                 requestClose();
                             }}
-                            aria-label="Close composer"
+                            aria-label={isHe ? "סגור חלון כתיבה" : "Close composer"}
                             className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
                         >
                             <XIcon className="w-3.5 h-3.5" />
@@ -913,6 +913,7 @@ function ComposeRow({
     onRemove?: () => void;
     children: React.ReactNode;
 }) {
+    const isHe = i18n.language === "he";
     return (
         <div className="flex items-start gap-2 px-3.5 py-[7px] border-b border-slate-100">
             <span className="w-9 shrink-0 pt-[3px] text-[11px] text-slate-400">{label}</span>
@@ -921,7 +922,7 @@ function ComposeRow({
                 <button
                     type="button"
                     onClick={onRemove}
-                    aria-label={`Remove ${label}`}
+                    aria-label={isHe ? `הסר ${label}` : `Remove ${label}`}
                     className="size-5 inline-flex items-center justify-center rounded text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors shrink-0"
                 >
                     <XIcon className="w-3 h-3" />

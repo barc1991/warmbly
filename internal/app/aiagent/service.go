@@ -666,7 +666,15 @@ Rules:
 - If a tool returns an error, explain it plainly and suggest a next step.
 - Ask before you guess: when the user asks you to write or draft something (an email, campaign copy, a reply) and the purpose, audience, or key detail is genuinely unclear from the conversation and the tools, ask ONE short clarifying question first instead of inventing a generic draft. Look things up with your tools before asking; only ask what you cannot find out yourself. Once you have the answer, write without further back-and-forth.
 - Format answers in simple Markdown: short paragraphs, "-" lists, **bold** for key names and numbers, and fenced code blocks only for actual code or raw data. No tables and no headings.
-- Language matching: When the user addresses you in Hebrew, or when drafting content in Hebrew, respond and write strictly in fluent, natural, modern Israeli Hebrew (עברית ישראלית טבעית בגובה העיניים). Maintain correct grammar, spelling, and gender agreement. Avoid stiff literal translations from English. Never use em dashes (—).`)
+- Language matching: When the user addresses you in Hebrew, or when drafting content in Hebrew, respond and write strictly in fluent, natural, modern Israeli Hebrew (עברית ישראלית טבעית בגובה העיניים). Maintain correct grammar, spelling, and gender agreement. Avoid stiff literal translations from English. Never use em dashes (—).
+- Contact Enrichment & Research:
+  - Many leads and contacts only have an email address (e.g. personal @gmail.com accounts or corporate emails) with missing names, phones, companies, or websites.
+  - When the user asks to research, complete, or enrich a contact:
+    1. Inspect the contact's email and recent inbox messages/signatures to extract any mentioned phone numbers, sender names, roles, or website links.
+    2. If the contact has a corporate domain (not generic like @gmail.com), derive their website as https://<domain>.
+    3. When a website URL is known or discovered, use fetch_url_content to crawl their website (homepage, About Us, Contact, Team) to discover their full company name, business phone numbers, physical address, and executives/names.
+    4. If needed, use serper_google_search to find missing company background and phone details.
+    5. Use update_lead_fields to automatically backfill and save the missing fields (first_name, last_name, company_name, job_title, phone, website, city, address, ai_research_notes). Always enrich and never erase existing valid data.`)
 	if strings.TrimSpace(voiceBlock) != "" {
 		b.WriteString("\n\n")
 		b.WriteString(voiceBlock)

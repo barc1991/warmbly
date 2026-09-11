@@ -422,13 +422,14 @@ export function Drawer({
     children: React.ReactNode;
 }) {
     const { i18n } = useTranslation();
-    const isRtl = i18n.dir() === "rtl";
+    const isHe = i18n.language === "he";
+    const isRtl = isHe;
 
     return (
         <div className="fixed inset-0 z-40 flex">
             <motion.button
                 type="button"
-                aria-label="Close"
+                aria-label={isHe ? "סגור" : "Close"}
                 onClick={onClose}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -451,7 +452,7 @@ export function Drawer({
                     <button
                         type="button"
                         onClick={onClose}
-                        aria-label="Close"
+                        aria-label={isHe ? "סגור" : "Close"}
                         className="h-7 w-7 rounded border border-slate-200 hover:border-slate-300 text-slate-500 hover:text-slate-900 inline-flex items-center justify-center transition-colors"
                     >
                         <XIcon className="w-3.5 h-3.5" />

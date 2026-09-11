@@ -530,7 +530,7 @@ function DateRow({
             : "border-slate-300 hover:border-slate-400"
         }`}
         aria-pressed={enabled}
-        aria-label={`Toggle ${label}`}
+        aria-label={`הפעל/כבה ${label}`}
       >
         {enabled && (
           <svg
@@ -554,7 +554,7 @@ function DateRow({
         }}
         disabled={!enabled}
         clearable={false}
-        placeholder="Pick a date"
+        placeholder="בחר תאריך"
         className="flex-1"
       />
     </div>

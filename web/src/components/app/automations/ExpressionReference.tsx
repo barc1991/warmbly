@@ -19,88 +19,88 @@ interface Section {
 }
 
 const INTRO =
-    "One Go text/template engine powers campaign emails and automation conditions/actions. Email merge fields use dotted PascalCase ({{.FirstName}}); automation event variables use the dotted event key ({{.contact_email}}). Always use the leading dot — it's standard Go template field access. Use the coercing gtf/ltf comparisons when a value might be a string. Bad templates never hard-fail; they fall back to the literal text.";
+    "מנוע Go text/template אחיד מפעיל את הודעות הקמפיין ואת תנאי ופעולות האוטומציה. שדות מיזוג באימייל משתמשים ב-PascalCase (כגון {{.FirstName}}); משתני אירוע באוטומציה משתמשים במפתח האירוע (כגון {{.contact_email}}). השתמש תמיד בנקודה מובילה. השוואות gtf/ltf מתאימות למקרים בהם הערך עשוי להגיע כמחרוזת. שגיאות בתבנית אינן מפילות את המערכת, אלא מציגות את הטקסט המקורי.";
 
 const SECTIONS: Section[] = [
     {
-        title: "Variables",
-        blurb: "Email: dotted PascalCase. Automations: the event key with a leading dot ({{.key}}).",
+        title: "משתנים",
+        blurb: "באימייל: PascalCase עם נקודה. באוטומציות: מפתח האירוע עם נקודה מובילה ({{.key}}).",
         entries: [
-            { code: "{{.FirstName}}", label: "Contact field (email)", note: "Standard: .FirstName .LastName .Email .Company .Phone. Lowercase {{.firstname}} does NOT work for email merge fields." },
-            { code: "{{.role}}", label: "Custom field by key", note: "Any key works, including names with spaces or dashes (e.g. {{.job title}}), in {{if}} and helpers too." },
-            { code: "{{.contact_email}}", label: "Automation event variable", note: "Standard dotted field access — the leading dot is required. Unknown keys render empty." },
-            { code: "{{.confidence}}", label: "Reply confidence (reply trigger)", note: "Stays numeric in both conditions and action values, so native gt/lt/eq work. Use gtf only when a value might arrive as text." },
+            { code: "{{.FirstName}}", label: "שדה איש קשר (אימייל)", note: "סטנדרטי: .FirstName .LastName .Email .Company .Phone. שימוש באותיות קטנות {{.firstname}} אינו תואם שדות מיזוג באימייל." },
+            { code: "{{.role}}", label: "שדה מותאם אישית לפי מפתח", note: "כל מפתח עובד, כולל שמות עם רווחים או מקפים (למשל {{.job title}}), גם בתוך {{if}} ובפונקציות עזר." },
+            { code: "{{.contact_email}}", label: "משתנה אירוע באוטומציה", note: "גישה סטנדרטית עם נקודה מובילה (חובה). מפתחות לא מוכרים יוצגו כריקים." },
+            { code: "{{.confidence}}", label: "רמת ודאות של תגובה (בטריגר מענה)", note: "נשמר כמספר הן בתנאים והן בפעולות, כך ש-gt/lt/eq עובדים ישירות. השתמש ב-gtf רק כאשר הערך מגיע כמחרוזת." },
         ],
     },
     {
-        title: "Conditionals",
-        blurb: "Standard control flow. A missing field is empty and tests false. Balance every {{if}} with {{end}}.",
+        title: "תנאים",
+        blurb: "בקרת זרימה רגילה. שדה חסר נחשב כריק ושלילי. סגור כל {{if}} באמצעות {{end}}.",
         entries: [
-            { code: "{{if .Company}}…{{end}}", label: "Only when the field is set" },
-            { code: "{{if .Company}}…{{else}}…{{end}}", label: "If / else" },
-            { code: '{{if eq .role "CEO"}}…{{end}}', label: "Equality test", note: "eq/ne/lt/gt compare same-kind values and do not coerce." },
-            { code: "{{if and .FirstName .Company}}…{{end}}", label: "Both present (and / or / not)" },
-            { code: 'gt .confidence 0.8', label: "Bare expression (automation condition)", note: "No braces needed; it auto-wraps. Blank = false." },
+            { code: "{{if .Company}}…{{end}}", label: "רק כאשר השדה מוגדר" },
+            { code: "{{if .Company}}…{{else}}…{{end}}", label: "אם / אחרת (if / else)" },
+            { code: '{{if eq .role "CEO"}}…{{end}}', label: "בדיקת שוויון", note: "השוואת eq/ne/lt/gt משווה ערכים מאותו סוג ואינה ממירה סוגים." },
+            { code: "{{if and .FirstName .Company}}…{{end}}", label: "שניהם קיימים (and / or / not)" },
+            { code: 'gt .confidence 0.8', label: "ביטוי ישיר (תנאי אוטומציה)", note: "אין צורך בסוגריים מסולסלים, המערכת עוטפת אוטומטית. ריק = שלילי." },
         ],
     },
     {
-        title: "Fallback",
-        blurb: "Fill a default when a field is blank. Signature is default(default, value).",
+        title: "ערך ברירת מחדל",
+        blurb: "מילוי ערך חלופי כאשר שדה ריק. המבנה הוא default(ערך_ברירת_מחדל, ערך).",
         entries: [
-            { code: '{{.FirstName | default "there"}}', label: 'Use "there" when blank', note: "Pipeline form puts the value last, matching default(def, v)." },
-            { code: '{{default "there" .FirstName}}', label: "Positional form (default first)", note: "Do not write default .FirstName \"there\"; the order is reversed." },
+            { code: '{{.FirstName | default "שם"}}', label: 'שימוש ב-"שם" כאשר ריק', note: "בצורת צינור (pipeline) הערך מוצב בסוף, בהתאם ל-default(def, v)." },
+            { code: '{{default "שם" .FirstName}}', label: "צורה ישירה (ברירת מחדל ראשונה)", note: "אין לכתוב default .FirstName \"שם\"; הסדר הוא הפוך." },
         ],
     },
     {
-        title: "Numbers",
-        blurb: "Math + compares coerce strings to numbers. Use the f-variants when a value might be a string.",
+        title: "מספרים",
+        blurb: "פעולות חישוב והשוואה ממירות מחרוזות למספרים. השתמש בגרסאות f כאשר הערך עשוי להיות מחרוזת.",
         entries: [
-            { code: "{{gtf .confidence 0.8}}", label: "Coercing > (gtf ltf gef lef)", note: "Coerces both sides to a number first; non-numeric becomes 0." },
-            { code: "{{num .confidence}}", label: "Force a value to a number" },
-            { code: "{{add .a .b}}", label: "Add (also sub, mul)" },
-            { code: "{{div .total .count}}", label: "Divide (mod too)", note: "Divisor 0 returns 0, never an error." },
+            { code: "{{gtf .confidence 0.8}}", label: "השוואת > עם המרה (gtf ltf gef lef)", note: "ממיר תחילה את שני הצדדים למספרים; ערך שאינו מספרי נחשב 0." },
+            { code: "{{num .confidence}}", label: "אילוץ ערך למספר" },
+            { code: "{{add .a .b}}", label: "חיבור (קיים גם sub, mul)" },
+            { code: "{{div .total .count}}", label: "חילוק (קיים גם mod)", note: "חלוקה ב-0 מחזירה 0, לעולם לא שגיאה." },
         ],
     },
     {
-        title: "Text",
-        blurb: "String helpers. Watch the case-sensitivity notes.",
+        title: "טקסט",
+        blurb: "פונקציות עזר למחרוזות.",
         entries: [
-            { code: "{{title .FirstName}}", label: "Title-case (also upper, lower)" },
-            { code: "{{trim .role}}", label: "Trim outer whitespace" },
-            { code: '{{contains .Email "gmail"}}', label: "Substring test (case-insensitive)" },
-            { code: '{{hasPrefix .Email "info@"}}', label: "Prefix test (case-sensitive)" },
+            { code: "{{title .FirstName}}", label: "אותיות ראשיות (קיים גם upper, lower)" },
+            { code: "{{trim .role}}", label: "הסרת רווחים עודפים מקצוות" },
+            { code: '{{contains .Email "gmail"}}', label: "בדיקת תת-מחרוזת (ללא תלות באותיות רישיות)" },
+            { code: '{{hasPrefix .Email "info@"}}', label: "בדיקת תחילית" },
         ],
     },
     {
-        title: "Spintax",
-        blurb: "Random alternation, expanded per recipient after the merge fields render.",
+        title: "וריאציות טקסט (Spintax)",
+        blurb: "חילוף אקראי, מורחב עבור כל נמען לאחר עיבוד שדות המיזוג.",
         entries: [
-            { code: "{Hi|Hey|Hello}", label: "Pick one at random", note: "Only groups with a | expand; plain {…} is left untouched, so CSS is safe." },
-            { code: "{Hi|Hey} {{.FirstName}}", label: "Combine with merge fields" },
+            { code: "{שלום|היי|הי}", label: "בחירה אקראית של אחד מהם", note: "רק ביטויים עם תו | מוחלפים; ביטויי {…} רגילים נשארים ללא שינוי, כך ש-CSS בטוח." },
+            { code: "{שלום|היי} {{.FirstName}}", label: "שילוב עם שדות מיזוג" },
         ],
     },
 ];
 
 const EXAMPLES: { title: string; code: string; explain: string }[] = [
     {
-        title: "Greeting with safe fallback",
-        code: '{Hi|Hey} {{.FirstName | default "there"}},',
-        explain: 'Falls back to "there" when the name is blank, then picks Hi or Hey at random per recipient.',
+        title: "ברכה עם ערך ברירת מחדל",
+        code: '{היי|שלום} {{.FirstName | default "שם"}},',
+        explain: 'משתמש ב-"שם" כאשר השם הפרטי ריק, ובוחר "היי" או "שלום" באופן אקראי לכל נמען.',
     },
     {
-        title: "Conditional line on a custom field",
-        code: "{{if .role}}Saw you lead {{title .role}} at {{.Company}}.{{end}}",
-        explain: "Only emits the sentence when the custom field is present, and title-cases it.",
+        title: "שורה מותנית לפי שדה מותאם אישית",
+        code: "{{if .role}}ראיתי שאתה מוביל את {{title .role}} ב-{{.Company}}.{{end}}",
+        explain: "מציג את המשפט רק כאשר השדה המותאם אישית קיים.",
     },
     {
-        title: "Automation: high-confidence reply",
+        title: "אוטומציה: תגובה ברמת ודאות גבוהה",
         code: "gt .confidence 0.8",
-        explain: "A bare condition expression; native gt works because condition data stays numeric.",
+        explain: "ביטוי תנאי ישיר; gt הרגיל עובד מכיוון שנתוני התנאי נשמרים כמספר.",
     },
     {
-        title: "Action value: full template, not just substitution",
-        code: "{{if gt .confidence 0.8}}hot lead{{else}}follow up{{end}}",
-        explain: "Slack/webhook/CRM values render against the native event data — conditionals, ranges, nested fields, and native numeric compares all work. Reach for gtf only when a value might arrive as text.",
+        title: "ערך פעולה: תבנית מלאה ולא רק החלפת משתנה",
+        code: "{{if gt .confidence 0.8}}ליד חם{{else}}למעקב{{end}}",
+        explain: "ערכי Slack, Webhook ו-CRM מעובדים מול נתוני האירוע המקוריים כולל תנאים, טווחים והשוואות מספריות.",
     },
 ];
 
@@ -108,20 +108,20 @@ function Code({ code }: { code: string }) {
     return (
         <button
             type="button"
-            title="Click to copy"
+            title="לחץ להעתקה"
             onClick={() => {
                 navigator.clipboard?.writeText(code);
-                toast.success("Copied");
+                toast.success("הועתק");
             }}
             className="group inline-flex max-w-full items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-left font-mono text-[11px] text-slate-700 transition-colors hover:border-sky-300 hover:bg-sky-50/40"
         >
-            <span className="truncate">{code}</span>
+            <span className="truncate" dir="ltr">{code}</span>
             <CopyIcon className="w-2.5 h-2.5 shrink-0 text-slate-300 group-hover:text-sky-500" />
         </button>
     );
 }
 
-export function ExpressionReference({ label = "Reference" }: { label?: string }) {
+export function ExpressionReference({ label = "מדריך עזר" }: { label?: string }) {
     return (
         <PopoverMenu align="end">
             <PopoverMenuTrigger asChild>
@@ -132,8 +132,8 @@ export function ExpressionReference({ label = "Reference" }: { label?: string })
                     <CircleHelpIcon className="w-3.5 h-3.5" /> {label}
                 </button>
             </PopoverMenuTrigger>
-            <PopoverMenuContent className="w-[380px] max-w-[92vw] max-h-[70vh] overflow-y-auto p-3">
-                <div className="text-[12px] font-medium text-slate-900">Variables, conditions & functions</div>
+            <PopoverMenuContent className="w-[380px] max-w-[92vw] max-h-[70vh] overflow-y-auto p-3 text-start rtl:text-right">
+                <div className="text-[12px] font-medium text-slate-900">משתנים, תנאים ופונקציות</div>
                 <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{INTRO}</p>
 
                 {SECTIONS.map((s) => (
@@ -153,7 +153,7 @@ export function ExpressionReference({ label = "Reference" }: { label?: string })
                 ))}
 
                 <div className="mt-3 border-t border-slate-100 pt-2.5">
-                    <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Examples</div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">דוגמאות</div>
                     <div className="mt-1.5 space-y-2.5">
                         {EXAMPLES.map((ex, i) => (
                             <div key={i}>
@@ -171,7 +171,7 @@ export function ExpressionReference({ label = "Reference" }: { label?: string })
                     rel="noopener noreferrer"
                     className="mt-3 inline-flex items-center gap-1 border-t border-slate-100 pt-2.5 text-[11px] font-medium text-sky-600 hover:text-sky-700"
                 >
-                    Full guide &amp; examples <ExternalLinkIcon className="w-3 h-3" />
+                    מדריך מלא ודוגמאות <ExternalLinkIcon className="w-3 h-3" />
                 </a>
             </PopoverMenuContent>
         </PopoverMenu>

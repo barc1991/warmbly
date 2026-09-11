@@ -58,7 +58,7 @@ export default function OAuthConsentPage() {
             })
             .catch((e) => {
                 if (!cancelled) {
-                    setError(errText(e, "This authorization request is invalid."));
+                    setError(errText(e, "בקשת אישור זו אינה תקינה."));
                     setLoading(false);
                 }
             });
@@ -81,13 +81,13 @@ export default function OAuthConsentPage() {
                 code_challenge_method: params.code_challenge_method ?? "",
             });
             if (!isSafeRedirect(redirect_url)) {
-                setError("This app's redirect URL is not allowed.");
+                setError("כתובת הניתוב מחדש של אפליקציה זו אינה מורשית.");
                 setSubmitting(false);
                 return;
             }
             window.location.href = redirect_url;
         } catch (e) {
-            setError(errText(e, "Could not complete authorization."));
+            setError(errText(e, "לא ניתן להשלים את תהליך ההרשאה."));
             setSubmitting(false);
         }
     };
@@ -108,7 +108,7 @@ export default function OAuthConsentPage() {
     if (loading) {
         return (
             <div className={card}>
-                <div className="p-8 text-center text-[13px] text-slate-400">Checking the request…</div>
+                <div className="p-8 text-center text-[13px] text-slate-400">בודק את הבקשה…</div>
             </div>
         );
     }
@@ -120,8 +120,8 @@ export default function OAuthConsentPage() {
                     <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600">
                         <ShieldCheckIcon className="h-5 w-5" />
                     </div>
-                    <p className="text-[14px] font-semibold text-slate-800">This request can't be completed</p>
-                    <p className="mt-1 text-[12.5px] text-slate-500">{error ?? "Invalid authorization request."}</p>
+                    <p className="text-[14px] font-semibold text-slate-800">לא ניתן להשלים בקשה זו</p>
+                    <p className="mt-1 text-[12.5px] text-slate-500">{error ?? "בקשת הרשאה לא תקינה."}</p>
                 </div>
             </div>
         );
@@ -139,7 +139,7 @@ export default function OAuthConsentPage() {
                 )}
                 <h1 className="text-[15px] font-semibold text-slate-900">{info.name}</h1>
                 <p className="text-center text-[12.5px] text-slate-500">
-                    wants to access your Warmbly workspace
+                    מבקש גישה לסביבת העבודה שלך ב-Warmbly
                 </p>
                 {info.website_url && (
                     <a
@@ -155,7 +155,7 @@ export default function OAuthConsentPage() {
             </div>
 
             <div className="px-6 py-5">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">It will be able to</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2">הרשאות שיוענקו לאפליקציה:</div>
                 <ul className="space-y-1.5">
                     {info.scopes.map((s) => (
                         <li key={s} className="flex items-start gap-2 text-[12.5px] text-slate-700">
@@ -172,24 +172,24 @@ export default function OAuthConsentPage() {
                     disabled={submitting}
                     className="h-9 flex-1 rounded-lg border border-slate-200 text-[13px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
                 >
-                    Deny
+                    דחייה
                 </button>
                 <button
                     onClick={approve}
                     disabled={submitting}
                     className="h-9 flex-1 rounded-lg bg-sky-600 text-[13px] font-medium text-white hover:bg-sky-700 disabled:opacity-60"
                 >
-                    {submitting ? "Authorizing…" : "Authorize"}
+                    {submitting ? "מאשר…" : "אישור גישה"}
                 </button>
             </div>
             <p className="px-6 pb-5 text-center text-[11px] text-slate-400 leading-relaxed">
-                You'll be redirected to {(() => {
+                תועבר בחזרה אל {(() => {
                     try {
                         return new URL(info.redirect_uri).host;
                     } catch {
-                        return "the app";
+                        return "האפליקציה";
                     }
-                })()}. Only authorize apps you trust.
+                })()}. אשר גישה רק לאפליקציות שאתה בוטח בהן.
             </p>
         </div>
     );

@@ -22,19 +22,19 @@ export function NoAccess({
                     <LockIcon className="w-5 h-5" />
                 </div>
                 <h2 className="text-[15px] font-semibold text-slate-900">
-                    You don't have access to {feature}
+                    אין לך גישה אל {feature}
                 </h2>
                 <p className="text-[12.5px] text-slate-500 leading-relaxed mt-1.5">
-                    Your role in this workspace doesn't include the{" "}
-                    <span className="font-medium text-slate-700">{permissionLabel}</span>{" "}
-                    permission. Ask a workspace admin or the owner to grant it from{" "}
-                    <span className="font-medium text-slate-700">Settings → Roles &amp; access</span>.
+                    התפקיד שלך במרחב עבודה זה אינו כולל את הרשאת{" "}
+                    <span className="font-medium text-slate-700">{permissionLabel}</span>.{" "}
+                    בקש ממנהל מרחב העבודה או מבעל החשבון להעניק אותה דרך{" "}
+                    <span className="font-medium text-slate-700">הגדרות ← תפקידים והרשאות</span>.
                 </p>
                 <Link
                     to="/app"
                     className="mt-4 inline-flex items-center h-8 px-3 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-[12.5px] font-medium text-slate-700 transition-colors"
                 >
-                    Back to dashboard
+                    חזרה ללוח הבקרה
                 </Link>
             </div>
         </div>

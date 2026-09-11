@@ -62,7 +62,7 @@ export default function InboundUrlDialog({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <button
                 type="button"
-                aria-label="Close"
+                aria-label={isHe ? "סגור" : "Close"}
                 onClick={onClose}
                 className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
             />

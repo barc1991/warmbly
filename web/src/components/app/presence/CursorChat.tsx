@@ -113,8 +113,8 @@ export default function CursorChat({
                     ref={inputRef}
                     value={text}
                     maxLength={120}
-                    placeholder="Say something…"
-                    aria-label="Cursor chat"
+                    placeholder="הקלד הודעה…"
+                    aria-label="צ'אט סמן"
                     onChange={(e) => {
                         const v = e.target.value;
                         setText(v);

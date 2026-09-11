@@ -155,9 +155,9 @@ function CLIAuthInner() {
                 </motion.div>
 
                 <div className="mt-5 flex items-center justify-center gap-3 text-[12px] text-white/70">
-                    <Link to="/app/emails" className="hover:text-white transition-colors">Back to dashboard</Link>
+                    <Link to="/app/emails" className="hover:text-white transition-colors">חזרה ללוח הבקרה</Link>
                     <span className="text-white/40">·</span>
-                    <a href="https://docs.warmbly.com/api/cli/" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">About the CLI</a>
+                    <a href="https://docs.warmbly.com/api/cli/" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">אודות ה-CLI</a>
                 </div>
             </div>
         </div>
@@ -165,9 +165,9 @@ function CLIAuthInner() {
 }
 
 const STEPS: { key: "code" | "review" | "done"; label: string }[] = [
-    { key: "code", label: "Code" },
-    { key: "review", label: "Review" },
-    { key: "done", label: "Signed in" },
+    { key: "code", label: "קוד" },
+    { key: "review", label: "בדיקה" },
+    { key: "done", label: "מחובר" },
 ];
 
 function Steps({ current }: { current: "code" | "review" | "done" }) {
@@ -209,13 +209,13 @@ function CodeStep({ code, setCode, loading, error, onRetry }: { code: string; se
                 <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-sky-50 text-sky-700 text-[11px] font-medium">
                     <TerminalIcon className="w-3 h-3" /> Warmbly CLI
                 </span>
-                <h1 className="mt-4 text-[24px] sm:text-[28px] font-semibold tracking-[-0.03em] leading-[1.1] text-slate-900">Sign in to the CLI</h1>
+                <h1 className="mt-4 text-[24px] sm:text-[28px] font-semibold tracking-[-0.03em] leading-[1.1] text-slate-900">התחברות ל-CLI</h1>
                 <p className="mt-2.5 text-[13.5px] text-slate-500 leading-relaxed max-w-md mx-auto">
-                    Enter the eight character code your terminal is showing. Approving it creates an API key for that machine, which you can revoke here at any time.
+                    הזן את הקוד בן שמונה התווים המוצג בטרמינל שלך. אישור הקוד יוצר מפתח API עבור מכונה זו, אותו תוכל לבטל כאן בכל עת.
                 </p>
             </div>
 
-            <div className="mt-8 flex justify-center">
+            <div className="mt-8 flex justify-center" dir="ltr">
                 <InputOTP maxLength={CODE_LENGTH} value={code} onChange={(v) => setCode(clean(v))} pattern={REGEXP_ONLY_DIGITS_AND_CHARS} pasteTransformer={clean} autoFocus containerClassName="gap-1.5 sm:gap-2" disabled={loading}>
                     <InputOTPGroup className="gap-1.5 sm:gap-2">
                         {[0, 1, 2, 3].map((i) => (
@@ -235,16 +235,16 @@ function CodeStep({ code, setCode, loading, error, onRetry }: { code: string; se
                 <AnimatePresence mode="wait" initial={false}>
                     {loading && (
                         <motion.p key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="inline-flex items-center gap-2 text-[12.5px] text-slate-500">
-                            <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> Looking up your terminal
+                            <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> מחפש את הטרמינל שלך
                         </motion.p>
                     )}
                     {error && !loading && (
                         <motion.div key="error" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="w-full rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-center">
-                            <p className="text-[13px] font-medium text-rose-700">{error.message || "That code is unknown or has expired."}</p>
+                            <p className="text-[13px] font-medium text-rose-700">{error.message || "קוד זה אינו מוכר או שפג תוקפו."}</p>
                             <p className="mt-0.5 text-[12px] text-rose-600/80">
-                                Run <span className="font-mono">warmbly auth login</span> again for a fresh one, then{" "}
+                                הרץ <span className="font-mono">warmbly auth login</span> מחדש לקבלת קוד חדש, ולאחר מכן{" "}
                                 <button type="button" onClick={onRetry} className="font-medium underline underline-offset-2 hover:text-rose-800">
-                                    enter it here
+                                    הזן אותו כאן
                                 </button>
                                 .
                             </p>
@@ -252,7 +252,7 @@ function CodeStep({ code, setCode, loading, error, onRetry }: { code: string; se
                     )}
                     {!loading && !error && (
                         <motion.p key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[12px] text-slate-400 text-center">
-                            You can paste the whole code. Codes expire ten minutes after the terminal printed them.
+                            באפשרותך להדביק את כל הקוד. תוקף הקודים פג כעבור 10 דקות מרגע הפקתם בטרמינל.
                         </motion.p>
                     )}
                 </AnimatePresence>
@@ -272,6 +272,21 @@ function Slot({ index }: { index: number }) {
 
 // The scope names the API returns are SCREAMING_SNAKE; the reviewer reads prose.
 function scopeLabel(name: string): string {
+    const map: Record<string, string> = {
+        READ_MAILBOXES: "צפייה בתיבות דואר",
+        WRITE_MAILBOXES: "ניהול תיבות דואר",
+        READ_CAMPAIGNS: "צפייה בקמפיינים",
+        WRITE_CAMPAIGNS: "ניהול קמפיינים",
+        SEND_CAMPAIGNS: "שליחת קמפיינים",
+        READ_UNIBOX: "צפייה בתיבת דואר נכנס",
+        WRITE_UNIBOX: "מענה ושליחה מתיבת דואר",
+        READ_CONTACTS: "צפייה באנשי קשר",
+        WRITE_CONTACTS: "ניהול אנשי קשר",
+        READ_ANALYTICS: "צפייה באנליטיקה",
+        READ_SETTINGS: "צפייה בהגדרות",
+        WRITE_SETTINGS: "שינוי הגדרות",
+    };
+    if (map[name]) return map[name];
     const words = name.toLowerCase().replace(/_/g, " ");
     return words.charAt(0).toUpperCase() + words.slice(1);
 }
@@ -305,11 +320,11 @@ function ReviewStep({
     return (
         <div>
             <button type="button" onClick={onBack} className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-slate-900 transition-colors">
-                <ArrowLeftIcon className="w-3.5 h-3.5" /> Different code
+                <ArrowLeftIcon className="w-3.5 h-3.5 rtl:rotate-180" /> קוד אחר
             </button>
 
             <h1 className="mt-3 text-[22px] sm:text-[26px] font-semibold tracking-[-0.03em] leading-[1.1] text-slate-900">
-                {pending ? "Authorize this terminal" : "This code was already used"}
+                {pending ? "אישור טרמינל זה" : "קוד זה כבר נוצל"}
             </h1>
 
             <div className="mt-5 flex items-center gap-4 rounded-xl border border-slate-200 bg-gradient-to-b from-sky-50/60 to-white px-4 py-4">
@@ -320,30 +335,30 @@ function ReviewStep({
                     <p className="text-[15px] font-semibold text-slate-900 truncate">{info.client_name || "Warmbly CLI"}</p>
                     <p className="text-[12px] text-slate-500 truncate inline-flex items-center gap-1.5">
                         <MonitorIcon className="w-3 h-3 shrink-0" />
-                        {info.hostname || "Machine name not shared"}
+                        {info.hostname || "שם המכונה לא שותף"}
                         {info.cli_version && <span className="text-slate-400">· v{info.cli_version}</span>}
                     </p>
                 </div>
-                <span className="hidden sm:inline-flex font-mono text-[13px] tracking-[0.18em] text-slate-400">{info.user_code}</span>
+                <span className="hidden sm:inline-flex font-mono text-[13px] tracking-[0.18em] text-slate-400" dir="ltr">{info.user_code}</span>
             </div>
 
             {!pending ? (
                 <div className="mt-5">
                     <p className="text-[13px] text-slate-500 leading-relaxed">
                         {info.status === "denied"
-                            ? "The request was declined. Run `warmbly auth login` again if you changed your mind."
-                            : "It is signed in already. If the terminal is still waiting, run `warmbly auth login` again for a fresh code."}
+                            ? "הבקשה נדחתה. הרץ warmbly auth login מחדש אם שינית את דעתך."
+                            : "הטרמינל כבר מחובר. אם הטרמינל עדיין ממתין, הרץ warmbly auth login מחדש לקבלת קוד חדש."}
                     </p>
                     <div className="mt-5 flex items-center gap-2">
                         <Link to="/app/api-keys" className="h-10 px-4 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors">
-                            API keys <ArrowRightIcon className="w-3.5 h-3.5" />
+                            מפתחות API <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                         </Link>
                     </div>
                 </div>
             ) : (
                 <>
                     <div className="mt-6">
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Sign in to workspace</p>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">התחברות למרחב עבודה</p>
                         <div className="mt-2 space-y-1.5">
                             {orgsLoading && (
                                 <div className="h-12 rounded-lg border border-slate-200 flex items-center justify-center text-slate-400">
@@ -357,7 +372,7 @@ function ReviewStep({
                                         key={o.id}
                                         type="button"
                                         onClick={() => setOrgId(o.id)}
-                                        className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                                        className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left rtl:text-right transition-colors ${
                                             on ? "border-sky-400 bg-sky-50/60 ring-2 ring-sky-100" : "border-slate-200 hover:border-slate-300"
                                         }`}
                                     >
@@ -374,13 +389,13 @@ function ReviewStep({
                                     </button>
                                 );
                             })}
-                            {!orgsLoading && orgs.length === 0 && <p className="text-[12.5px] text-slate-500">You are not a member of any workspace yet.</p>}
+                            {!orgsLoading && orgs.length === 0 && <p className="text-[12.5px] text-slate-500">אינך חבר באף מרחב עבודה עדיין.</p>}
                         </div>
                     </div>
 
                     <div className="mt-5">
                         <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                            This terminal will be able to
+                            טרמינל זה יוכל
                         </p>
                         <ul className="mt-2 flex flex-wrap gap-1.5">
                             {info.scope_names.map((s) => (
@@ -388,19 +403,19 @@ function ReviewStep({
                                     {scopeLabel(s)}
                                 </li>
                             ))}
-                            {info.scope_names.length === 0 && <li className="text-[12.5px] text-slate-500">Nothing. The CLI asked for no scopes.</li>}
+                            {info.scope_names.length === 0 && <li className="text-[12.5px] text-slate-500">כלום. ה-CLI לא ביקש הרשאות כלל.</li>}
                         </ul>
                     </div>
 
                     {sends && (
                         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12.5px] text-amber-800 leading-relaxed">
-                            These scopes include sending. A CLI signed in with them can start campaigns and send replies, which puts real mail on the wire.
+                            הרשאות אלו כוללות שליחה. CLI שמחובר עימן רשאי להפעיל קמפיינים ולשלוח תשובות, דבר שמוציא אימיילים אמיתיים לרשת.
                         </p>
                     )}
 
                     <ul className="mt-5 grid sm:grid-cols-2 gap-2.5">
-                        <Perm icon={KeyRoundIcon} title="What this creates" body="One API key named for this machine, listed under API keys, revocable there or with `warmbly auth logout`." />
-                        <Perm icon={LockIcon} title="What it is not" body="Not your password and not a session. It only carries the scopes above, in the workspace you pick." />
+                        <Perm icon={KeyRoundIcon} title="מה פעולה זו יוצרת" body="מפתח API אחד הנושא את שם המכונה הזו, שיופיע תחת מפתחות API וניתן לביטול שם או באמצעות warmbly auth logout." />
+                        <Perm icon={LockIcon} title="מה זה אינו" body="זה אינו הסיסמה שלך ואינו סשן גלישה. המפתח כולל אך ורק את ההרשאות שלמעלה, במרחב העבודה שתבחר." />
                     </ul>
 
                     <div className="mt-6 flex items-center gap-2">
@@ -410,7 +425,7 @@ function ReviewStep({
                             disabled={busy}
                             className="h-10 px-4 rounded-md border border-slate-200 hover:border-slate-300 text-[13px] text-slate-700 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                         >
-                            <XIcon className="w-3.5 h-3.5" /> Decline
+                            <XIcon className="w-3.5 h-3.5" /> דחה
                         </button>
                         <button
                             type="button"
@@ -419,7 +434,7 @@ function ReviewStep({
                             className="flex-1 h-10 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[13.5px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
                         >
                             {approving ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <CheckIcon className="w-4 h-4" />}
-                            Authorize terminal
+                            אשר טרמינל
                         </button>
                     </div>
                 </>
@@ -452,24 +467,24 @@ function DoneStep({ approved, info, orgName, onAnother }: { approved: boolean; i
                 {approved ? <CheckIcon className="w-8 h-8" /> : <XIcon className="w-8 h-8" />}
             </motion.span>
             <h1 className="mt-5 text-[24px] sm:text-[28px] font-semibold tracking-[-0.03em] leading-[1.1] text-slate-900">
-                {approved ? "Terminal authorized" : "Request declined"}
+                {approved ? "הטרמינל אושר בהצלחה" : "הבקשה נדחתה"}
             </h1>
             <p className="mt-2.5 text-[13.5px] text-slate-500 leading-relaxed max-w-sm">
                 {approved ? (
                     <>
-                        <span className="font-medium text-slate-700">{info.hostname || "Your terminal"}</span> picks this up on its own within a few seconds
+                        <span className="font-medium text-slate-700">{info.hostname || "הטרמינל שלך"}</span> יזהה זאת בעצמו תוך מספר שניות
                         {orgName ? (
                             <>
                                 {" "}
-                                and is now signed in to <span className="font-medium text-slate-700">{orgName}</span>.
+                                וכעת מחובר אל <span className="font-medium text-slate-700">{orgName}</span>.
                             </>
                         ) : (
                             "."
                         )}{" "}
-                        You can close this tab.
+                        באפשרותך לסגור לשונית זו.
                     </>
                 ) : (
-                    "Nothing was created. The terminal will show that the request was declined."
+                    "שום מפתח לא נוצר. הטרמינל יציג כי הבקשה נדחתה."
                 )}
             </p>
             <div className="mt-7 flex flex-wrap items-center justify-center gap-2">
@@ -477,7 +492,7 @@ function DoneStep({ approved, info, orgName, onAnother }: { approved: boolean; i
                     to="/app/api-keys"
                     className="h-10 px-4 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[13.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
                 >
-                    API keys <ArrowRightIcon className="w-3.5 h-3.5" />
+                    מפתחות API <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
                 </Link>
                 <a
                     href="https://docs.warmbly.com/api/cli/"
@@ -485,11 +500,11 @@ function DoneStep({ approved, info, orgName, onAnother }: { approved: boolean; i
                     rel="noreferrer"
                     className="h-10 px-4 rounded-md border border-slate-200 hover:border-slate-300 text-slate-800 text-[13.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
                 >
-                    CLI docs <ExternalLinkIcon className="w-3.5 h-3.5" />
+                    תיעוד ה-CLI <ExternalLinkIcon className="w-3.5 h-3.5" />
                 </a>
             </div>
             <button type="button" onClick={onAnother} className="mt-5 text-[12px] text-slate-500 hover:text-slate-900 transition-colors">
-                Authorize another terminal
+                אשר טרמינל נוסף
             </button>
         </div>
     );

@@ -22,6 +22,7 @@ import (
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/generation"
+	"github.com/warmbly/warmbly/internal/pkg/leadnormalize"
 	"github.com/warmbly/warmbly/internal/repository"
 )
 
@@ -50,10 +51,13 @@ type SkillsSource interface {
 	EnabledPreamble(ctx context.Context, orgID uuid.UUID) string
 }
 
-// ContactReader optionally grounds the draft in the counterpart contact's CRM
-// record (name, company, custom fields). Satisfied by repository.ContactRepository.
-type ContactReader interface {
+// ContactStore optionally grounds the draft in the counterpart contact's CRM
+// record (name, company, custom fields) and backfills missing fields from signatures.
+// Satisfied by repository.ContactRepository.
+type ContactStore interface {
 	GetByID(ctx context.Context, contactID uuid.UUID) (*models.Contact, *errx.Error)
+	GetByEmailAndOrganization(ctx context.Context, organizationID uuid.UUID, email string) (*models.Contact, *errx.Error)
+	Update(ctx context.Context, userID, contactID string, orgID uuid.UUID, data *models.UpdateContact) (*models.Contact, *errx.Error)
 }
 
 // DraftPublisher emits the AI_DRAFT_READY realtime event (*pubsub.StreamingPublisher).
@@ -91,7 +95,7 @@ type service struct {
 	orgs       OrgReader
 	threads    ThreadReader
 	skills     SkillsSource
-	contacts   ContactReader
+	contacts   ContactStore
 	draftRepo  repository.AIDraftRepository
 	publisher  DraftPublisher
 	bdrReader  BDRSettingsReader
@@ -109,7 +113,7 @@ func NewService(
 	orgs OrgReader,
 	threads ThreadReader,
 	skills SkillsSource,
-	contacts ContactReader,
+	contacts ContactStore,
 	draftRepo repository.AIDraftRepository,
 	publisher DraftPublisher,
 ) Service {
@@ -239,6 +243,9 @@ func (s *service) draft(ctx context.Context, r models.InboxAgentReply) {
 	if analysis.Confidence == 0 {
 		analysis.Confidence = r.Confidence
 	}
+
+	// Enrich missing contact fields from inbound reply analysis (signature name, phone, website, company, job title)
+	s.enrichContactFromReply(ctx, r.OrganizationID, r.OwnerUserID, r.ContactID, r.Counterpart, analysis)
 
 	var researchNotesBuilder strings.Builder
 	if analysis.Rationale != "" {
@@ -452,4 +459,119 @@ func replySubject(subject string) string {
 		return s
 	}
 	return "Re: " + s
+}
+
+// enrichContactFromReply fills in missing/empty fields on a contact using signature data
+// and domain info extracted by Gemini, without overwriting existing data ("enrich, never erase").
+func (s *service) enrichContactFromReply(ctx context.Context, orgID, ownerUserID uuid.UUID, contactID uuid.UUID, counterpartEmail string, analysis *InboundAnalysisResult) {
+	if s.contacts == nil || analysis == nil {
+		return
+	}
+
+	var contact *models.Contact
+	var err *errx.Error
+
+	if contactID != uuid.Nil {
+		contact, err = s.contacts.GetByID(ctx, contactID)
+	}
+	if (contact == nil || err != nil) && counterpartEmail != "" && orgID != uuid.Nil {
+		contact, _ = s.contacts.GetByEmailAndOrganization(ctx, orgID, counterpartEmail)
+	}
+	if contact == nil {
+		return
+	}
+
+	var needsUpdate bool
+	upd := &models.UpdateContact{}
+
+	// 1. Name enrichment: parse and normalize if contact lacks first or last name
+	rawFirst := strings.TrimSpace(analysis.SignatureFirstName)
+	rawLast := strings.TrimSpace(analysis.SignatureLastName)
+	if rawFirst == "" && rawLast == "" && strings.TrimSpace(analysis.SignatureName) != "" {
+		parts := strings.Fields(strings.TrimSpace(analysis.SignatureName))
+		if len(parts) == 1 {
+			rawFirst = parts[0]
+		} else if len(parts) > 1 {
+			rawFirst = parts[0]
+			rawLast = strings.Join(parts[1:], " ")
+		}
+	}
+
+	if (contact.FirstName == "" || contact.LastName == "") && (rawFirst != "" || rawLast != "") {
+		normalized := leadnormalize.NormalizeContactName(rawFirst, rawLast, analysis.SignatureComp, analysis.SignatureTitle)
+		if contact.FirstName == "" && normalized.FirstName != "" {
+			upd.FirstName = &normalized.FirstName
+			needsUpdate = true
+		}
+		if contact.LastName == "" && normalized.LastName != "" {
+			upd.LastName = &normalized.LastName
+			needsUpdate = true
+		}
+	}
+
+	// 2. Company enrichment
+	if contact.Company == "" && strings.TrimSpace(analysis.SignatureComp) != "" {
+		comp := leadnormalize.CleanCorporateName(analysis.SignatureComp)
+		if comp != "" {
+			upd.Company = &comp
+			needsUpdate = true
+		}
+	}
+
+	// 3. Phone enrichment
+	if contact.Phone == "" && strings.TrimSpace(analysis.SignaturePhone) != "" {
+		phone := strings.TrimSpace(analysis.SignaturePhone)
+		if phone != "" {
+			upd.Phone = &phone
+			needsUpdate = true
+		}
+	}
+
+	// 4. Custom fields (website, job_title)
+	cf := make(map[string]string)
+	if contact.CustomFields != nil {
+		for k, v := range contact.CustomFields {
+			cf[k] = v
+		}
+	}
+
+	// Website from signature or corporate email domain
+	currentWeb := strings.TrimSpace(cf["website"])
+	if currentWeb == "" {
+		targetWeb := strings.TrimSpace(analysis.SignatureWeb)
+		if targetWeb == "" && counterpartEmail != "" && strings.Contains(counterpartEmail, "@") {
+			parts := strings.Split(counterpartEmail, "@")
+			domain := parts[len(parts)-1]
+			if !isGenericEmailDomain(domain) {
+				targetWeb = "https://" + domain
+			}
+		}
+		if targetWeb != "" {
+			if !strings.HasPrefix(targetWeb, "http://") && !strings.HasPrefix(targetWeb, "https://") {
+				targetWeb = "https://" + targetWeb
+			}
+			cf["website"] = targetWeb
+			needsUpdate = true
+		}
+	}
+
+	// Job Title from signature
+	currentTitle := strings.TrimSpace(cf["job_title"])
+	if currentTitle == "" && strings.TrimSpace(analysis.SignatureTitle) != "" {
+		cf["job_title"] = strings.TrimSpace(analysis.SignatureTitle)
+		needsUpdate = true
+	}
+
+	if needsUpdate {
+		upd.CustomFields = &cf
+		userIDStr := ""
+		if ownerUserID != uuid.Nil {
+			userIDStr = ownerUserID.String()
+		}
+		if _, uerr := s.contacts.Update(ctx, userIDStr, contact.ID.String(), orgID, upd); uerr != nil {
+			log.Warn().Err(uerr).Str("contact_id", contact.ID.String()).Msg("inbox agent: failed to auto-enrich contact fields")
+		} else {
+			log.Info().Str("contact_id", contact.ID.String()).Msg("inbox agent: successfully auto-enriched missing contact fields from reply")
+		}
+	}
 }
