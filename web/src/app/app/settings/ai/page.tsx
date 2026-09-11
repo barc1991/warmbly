@@ -21,6 +21,7 @@ import {
     WrenchIcon,
     BookOpenIcon,
     MessageSquareTextIcon,
+    TagIcon,
 } from "lucide-react";
 import {
     useSkills,
@@ -29,7 +30,7 @@ import {
     useDeleteSkill,
 } from "@/lib/api/hooks/app/skills/useSkills";
 import type { AISkill } from "@/lib/api/models/app/skills/Skill";
-import type { AppError } from "@/lib/api/client/normalizeError";
+import { normalizeError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
 import { usePermission } from "@/hooks/usePermission";
 import { useConfirm } from "@/hooks/context/confirm";
@@ -77,6 +78,11 @@ const ACTION_TAGS: { label: string; icon: React.ComponentType<{ className?: stri
         icon: UserCheckIcon,
         snippet: "- חלץ מחתימת המייל או שורת הסיום את הטלפון, השם המלא, החברה וכתובת האתר, והשלם אותם בכרטיס הליד.\n",
     },
+    {
+        label: "סווג והוסף תגית לליד",
+        icon: TagIcon,
+        snippet: "- סווג את הליד לפי תוכן המענה והוסף לו תגית מתאימה (כגון 'מתעניין', 'ליד חם' או 'בקשת שיחה') ושמור בכרטיס איש הקשר.\n",
+    },
 ];
 
 export default function AISettingsPage() {
@@ -115,17 +121,41 @@ export default function AISettingsPage() {
     ]);
 
     const saveVoiceField = (key: "product_description" | "icp_notes" | "voice_profile", value: string, saved: string) => {
-        if (value !== saved) updateOrg.mutate({ [key]: value });
+        if (value !== saved) {
+            updateOrg.mutate(
+                { [key]: value },
+                {
+                    onSuccess: () => toast.success("נשמר בהצלחה"),
+                    onError: (err) => toast.error(buildError(normalizeError(err))),
+                }
+            );
+        }
     };
 
     const onToggleInboxAgent = (next: boolean) => {
         setInboxAgent(next);
-        updateOrg.mutate({ inbox_agent_enabled: next });
+        updateOrg.mutate(
+            { inbox_agent_enabled: next },
+            {
+                onError: (err) => {
+                    setInboxAgent(!next);
+                    toast.error(buildError(normalizeError(err)));
+                },
+            }
+        );
     };
 
     const onToggleSharedHistory = (next: boolean) => {
         setSharedHistory(next);
-        updateOrg.mutate({ assistant_shared_history: next });
+        updateOrg.mutate(
+            { assistant_shared_history: next },
+            {
+                onError: (err) => {
+                    setSharedHistory(!next);
+                    toast.error(buildError(normalizeError(err)));
+                },
+            }
+        );
     };
 
     const rows = skills.data?.data ?? [];
@@ -461,6 +491,32 @@ export default function AISettingsPage() {
                                 <span className="font-mono text-[10.5px] text-slate-400">create_task</span>
                             </div>
                         </div>
+
+                        {/* Lead Tagging & Classification */}
+                        <div className="p-3.5 rounded-md border border-slate-200 bg-white flex flex-col justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 rounded bg-sky-50 text-sky-600 shrink-0 mt-0.5">
+                                    <TagIcon className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <h4 className="text-[13px] font-semibold text-slate-900 leading-tight">
+                                        {isHe ? "סיווג, תיוג וסטטוס לידים" : "Lead Tagging & Classification"}
+                                    </h4>
+                                    <p className="text-[11.5px] text-slate-500 mt-1 leading-relaxed">
+                                        {isHe
+                                            ? "סיווג אוטומטי של כוונת הליד ('מתעניין', 'ליד חם', 'פגישה נקבעה'), הדבקת תגיות ישירות לכרטיס ועדכון סטטוס מול ה-CRM."
+                                            : "Automatic intent classification, direct contact tagging ('Interested', 'Hot Lead'), and status sync."}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+                                <span className="inline-flex items-center gap-1 font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded">
+                                    <CheckIcon className="w-3 h-3" />
+                                    {isHe ? "מופעל (סיווג ותיוג)" : "Active (Tagging)"}
+                                </span>
+                                <span className="font-mono text-[10.5px] text-slate-400">add_tag / update_lead_fields</span>
+                            </div>
+                        </div>
                     </div>
                 </Section>
             )}
@@ -526,7 +582,14 @@ function SkillRow({ skill, onOpen }: { skill: AISkill; onOpen: () => void }) {
             <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <Toggle
                     on={skill.enabled}
-                    onChange={(next) => update.mutate({ id: skill.id, data: { enabled: next } })}
+                    onChange={(next) =>
+                        update.mutate(
+                            { id: skill.id, data: { enabled: next } },
+                            {
+                                onError: (err) => toast.error(buildError(normalizeError(err))),
+                            }
+                        )
+                    }
                     disabled={isUpdating}
                 />
             </div>
@@ -555,6 +618,15 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
         }
     }, [draft]);
 
+    React.useEffect(() => {
+        if (!draft) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [draft, onClose]);
+
     if (!draft) return null;
 
     const isSaving = create.isPending || update.isPending;
@@ -572,7 +644,7 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
             }
             onClose();
         } catch (err) {
-            toast.error(buildError(err as AppError));
+            toast.error(buildError(normalizeError(err)));
         }
     };
 
@@ -584,7 +656,7 @@ function SkillDrawer({ draft, onClose }: { draft: DraftSkill | null; onClose: ()
                 toast.success("התרחיש נמחק");
                 onClose();
             } catch (err) {
-                toast.error(buildError(err as AppError));
+                toast.error(buildError(normalizeError(err)));
             }
         });
     };

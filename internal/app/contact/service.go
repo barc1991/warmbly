@@ -58,6 +58,7 @@ type ContactService interface {
 	// frequency-ranked then alphabetical, capped at 200. Powers the dashboard
 	// variable picker's real-field suggestions.
 	ListCustomFieldKeys(ctx context.Context, orgID uuid.UUID) ([]string, *errx.Error)
+	ResolveCategories(ctx context.Context, userID uuid.UUID, names []string) (map[string]uuid.UUID, *errx.Error)
 
 	// GetDetail returns the 360 read model used by the contact
 	// slide-over: hydrated contact + engagement summary + suppression.

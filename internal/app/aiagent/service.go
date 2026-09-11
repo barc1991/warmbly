@@ -681,7 +681,13 @@ Rules:
     2. frappe_crm_sync: Push/sync leads to Frappe CRM with deduplication by email (updates existing or creates new), sends enriched fields (phone, company, website, job_title, notes), and optionally schedules a task or calendar event in Frappe CRM.
     3. create_task: Creates a CRM task in Warmbly and automatically syncs it to Frappe CRM when linked to a contact. Use this when the user or lead wants to schedule a follow-up or phone call (e.g. "לחייג לליד").
     4. create_meeting: Schedules a meeting or phone call in Warmbly CRM and automatically syncs it to Frappe CRM's calendar (Event doctype).
-    5. mark_do_not_contact: Marks a contact as Do Not Contact both in Warmbly and in Frappe CRM.`)
+    5. mark_do_not_contact: Marks a contact as Do Not Contact both in Warmbly and in Frappe CRM.
+- Lead Classification & Tagging:
+  - When analyzing replies, evaluating leads, or when the user asks to classify a lead or apply a tag/status:
+    1. Identify the lead's sentiment, stage, and qualification (e.g. "מתעניין", "ליד חם", "בקשת שיחה", "טיפול בהתנגדות", "לא רלוונטי").
+    2. Use add_tag to apply the classification tag to the contact (you can pass the tag name directly in tag, e.g. tag: "מתעניין" or tag: "ליד חם" - it auto-creates the tag if needed).
+    3. Use update_lead_fields to update the contact's classification status (e.g. status: "qualified", "hot") and save any extracted phone, name, or research notes.
+    4. If Frappe CRM is connected, use frappe_crm_sync to update the lead's status in Frappe CRM as well.`)
 	if strings.TrimSpace(voiceBlock) != "" {
 		b.WriteString("\n\n")
 		b.WriteString(voiceBlock)

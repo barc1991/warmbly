@@ -222,3 +222,7 @@ func (s *contactService) ListSentEmails(ctx context.Context, userID, contactID u
 func (s *contactService) ListTimeline(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, contactID uuid.UUID, limit int, cursor *models.ContactTimelineKey) (*models.ContactTimelineResult, *errx.Error) {
 	return s.contactRepository.ListTimeline(ctx, userID, orgID, contactID, limit, cursor)
 }
+
+func (s *contactService) ResolveCategories(ctx context.Context, userID uuid.UUID, names []string) (map[string]uuid.UUID, *errx.Error) {
+	return s.contactRepository.ResolveCategoryNames(ctx, userID, names)
+}

@@ -59,6 +59,8 @@ func (d Deps) registerBDRTools(r *Registry) {
 			"city":              strProp("City."),
 			"address":           strProp("Business address."),
 			"website":           strProp("Business website URL."),
+			"status":            strProp("Lead classification status (e.g. 'qualified', 'interested', 'hot', 'meeting_scheduled', 'not_interested')."),
+			"tag":               strProp("Category / tag name to attach to contact (e.g. 'מתעניין', 'ליד חם', 'Qualified')."),
 			"ai_research_notes": strProp("Concise business profile: what they do, key offerings, and advertising/growth pain points."),
 		}),
 		Risk:            generation.RiskWrite,
@@ -281,6 +283,9 @@ func (d Deps) updateLeadFields(ctx context.Context, inv Invocation, args json.Ra
 		Address         string `json:"address"`
 		Website         string `json:"website"`
 		AIResearchNotes string `json:"ai_research_notes"`
+		Status          string `json:"status"`
+		LeadStatus      string `json:"lead_status"`
+		Tag             string `json:"tag"`
 	}
 	if err := json.Unmarshal(args, &in); err != nil {
 		return "", ErrInvalidArgs
@@ -354,6 +359,14 @@ func (d Deps) updateLeadFields(ctx context.Context, inv Invocation, args json.Ra
 	if in.AIResearchNotes != "" {
 		customFields["ai_research_notes"] = in.AIResearchNotes
 	}
+	st := in.Status
+	if st == "" {
+		st = in.LeadStatus
+	}
+	if st != "" {
+		customFields["status"] = st
+		customFields["lead_status"] = st
+	}
 
 	upd := &models.UpdateContact{
 		FirstName:    &normalized.FirstName,
@@ -365,11 +378,21 @@ func (d Deps) updateLeadFields(ctx context.Context, inv Invocation, args json.Ra
 		upd.Phone = &in.Phone
 	}
 
+	if in.Tag != "" {
+		resolved, xerr := d.Contacts.ResolveCategories(ctx, inv.UserID, []string{in.Tag})
+		if xerr == nil {
+			for _, catID := range resolved {
+				upd.AddCategories = []string{catID.String()}
+				break
+			}
+		}
+	}
+
 	if _, xerr := d.Contacts.Update(ctx, inv.UserID.String(), contactID.String(), inv.OrgID, upd); xerr != nil {
 		return "", fromErrx(xerr)
 	}
 
-	return jsonResult(map[string]any{
+	resMap := map[string]any{
 		"success":        true,
 		"contact_id":     contactID.String(),
 		"first_name":     normalized.FirstName,
@@ -377,7 +400,14 @@ func (d Deps) updateLeadFields(ctx context.Context, inv Invocation, args json.Ra
 		"company":        normalized.Company,
 		"custom_fields":  customFields,
 		"normalized_tag": fmt.Sprintf("{{firstName}} will resolve to: %s", normalized.FirstName),
-	})
+	}
+	if st != "" {
+		resMap["status"] = st
+	}
+	if in.Tag != "" {
+		resMap["tag"] = in.Tag
+	}
+	return jsonResult(resMap)
 }
 
 func (d Deps) frappeCRMSync(ctx context.Context, inv Invocation, args json.RawMessage) (string, error) {

@@ -3,7 +3,11 @@ package aitools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
+	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/generation"
@@ -55,11 +59,13 @@ func (d Deps) registerContactTools(r *Registry) {
 
 	r.Register(Tool{
 		Name:        "add_tag",
-		Description: "Add a category (tag) to a contact. The category_id comes from a contact's categories in get_contact/search results.",
+		Description: "Add a category tag / status label to a contact (e.g. 'מתעניין', 'ליד חם', 'Qualified', 'Follow Up', 'Meeting Booked'). Accepts tag name directly or category_id UUID. Auto-creates the tag if it doesn't exist.",
 		InputSchema: objectSchema(map[string]any{
 			"contact_id":  strProp("The contact's UUID."),
-			"category_id": strProp("The category (tag) UUID to add."),
-		}, "contact_id", "category_id"),
+			"tag":         strProp("Category / tag name to attach (e.g. 'מתעניין', 'ליד חם', 'Qualified')."),
+			"tag_name":    strProp("Alias for tag name."),
+			"category_id": strProp("Optional category UUID if already known."),
+		}, "contact_id"),
 		Risk:            generation.RiskWrite,
 		RequiredOrgPerm: models.PermManageContacts,
 		RequiredAPIPerm: models.APIPermWriteContacts,
@@ -68,11 +74,13 @@ func (d Deps) registerContactTools(r *Registry) {
 
 	r.Register(Tool{
 		Name:        "remove_tag",
-		Description: "Remove a category (tag) from a contact.",
+		Description: "Remove a category (tag) from a contact by tag name or category_id UUID.",
 		InputSchema: objectSchema(map[string]any{
 			"contact_id":  strProp("The contact's UUID."),
-			"category_id": strProp("The category (tag) UUID to remove."),
-		}, "contact_id", "category_id"),
+			"tag":         strProp("Category / tag name to remove."),
+			"tag_name":    strProp("Alias for tag name."),
+			"category_id": strProp("Optional category UUID to remove."),
+		}, "contact_id"),
 		Risk:            generation.RiskWrite,
 		RequiredOrgPerm: models.PermManageContacts,
 		RequiredAPIPerm: models.APIPermWriteContacts,
@@ -397,34 +405,65 @@ func (d Deps) removeTag(ctx context.Context, inv Invocation, args json.RawMessag
 }
 
 // tagOp adds or removes a category on a contact via the contact update path
-// (categories are the contact tag system). add=false removes.
+// (categories are the contact tag system). Supports both category_id and tag name.
 func (d Deps) tagOp(ctx context.Context, inv Invocation, args json.RawMessage, add bool) (string, error) {
-	in, err := decodeArgs[struct {
+	var in struct {
 		ContactID  string `json:"contact_id"`
 		CategoryID string `json:"category_id"`
-	}](args)
-	if err != nil {
-		return "", err
+		TagName    string `json:"tag_name"`
+		Tag        string `json:"tag"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil {
+		return "", ErrInvalidArgs
 	}
 	cid, err := parseUUIDArg(in.ContactID)
 	if err != nil {
 		return "", err
 	}
-	if _, err := parseUUIDArg(in.CategoryID); err != nil {
-		return "", err
+
+	targetTag := strings.TrimSpace(in.Tag)
+	if targetTag == "" {
+		targetTag = strings.TrimSpace(in.TagName)
+	}
+
+	var categoryID string
+	if in.CategoryID != "" {
+		if _, err := uuid.Parse(strings.TrimSpace(in.CategoryID)); err == nil {
+			categoryID = strings.TrimSpace(in.CategoryID)
+		} else if targetTag == "" {
+			targetTag = strings.TrimSpace(in.CategoryID)
+		}
+	}
+
+	if categoryID == "" && targetTag != "" {
+		if d.Contacts == nil {
+			return "", fmt.Errorf("contact service is not configured")
+		}
+		resolved, xerr := d.Contacts.ResolveCategories(ctx, inv.UserID, []string{targetTag})
+		if xerr != nil {
+			return "", fromErrx(xerr)
+		}
+		for _, catID := range resolved {
+			categoryID = catID.String()
+			break
+		}
+	}
+
+	if categoryID == "" {
+		return "", fmt.Errorf("either a valid category_id or tag/tag_name is required")
 	}
 
 	upd := &models.UpdateContact{}
 	if add {
-		upd.AddCategories = []string{in.CategoryID}
+		upd.AddCategories = []string{categoryID}
 	} else {
-		upd.RemoveCategories = []string{in.CategoryID}
+		upd.RemoveCategories = []string{categoryID}
 	}
 	if _, xerr := d.Contacts.Update(ctx, inv.UserID.String(), cid.String(), inv.OrgID, upd); xerr != nil {
 		return "", fromErrx(xerr)
 	}
 	d.logAudit(ctx, inv, models.AuditActionUpdate, models.AuditEntityContact, &cid, nil)
-	return jsonResult(map[string]any{"ok": true, "contact_id": cid.String()})
+	return jsonResult(map[string]any{"ok": true, "contact_id": cid.String(), "category_id": categoryID, "tag": targetTag})
 }
 
 func fullName(first, last string) string {
