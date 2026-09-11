@@ -50,7 +50,7 @@ import SecuritySettingsPage from './app/app/settings/security/page';
 import MembersSettingsPage from './app/app/settings/members/page';
 import TeamsSettingsPage from './app/app/settings/teams/page';
 import WorkspaceSettingsPage from './app/app/settings/workspace/page';
-import SkillsSettingsPage from './app/app/settings/ai-skills/page';
+import AISettingsPage from './app/app/settings/ai/page';
 import AIModelsSettingsPage from './app/app/settings/ai-models/page';
 import ConnectionsSettingsPage from './app/app/settings/connections/page';
 import OAuthSlotsSettingsPage from './app/app/settings/oauth-slots/page';
@@ -396,7 +396,8 @@ const router = createBrowserRouter([
               { path: "members", element: <MembersSettingsPage /> },
               { path: "teams", element: <TeamsSettingsPage /> },
               { path: "workspace", element: <WorkspaceSettingsPage /> },
-              { path: "ai-skills", element: <SkillsSettingsPage /> },
+              { path: "ai", element: <AISettingsPage /> },
+              { path: "ai-skills", element: <Navigate to="/app/settings/ai" replace /> },
               { path: "ai-models", element: <AIModelsSettingsPage /> },
               { path: "billing/:tab?", element: <BillingSettingsPage /> },
               { path: "referral", element: <ReferralSettingsPage /> },

@@ -1,8 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { SparklesIcon, ChevronLeftIcon } from "lucide-react";
 import { useAppStore } from "@/stores";
 import { TextInput } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
 import useUpdateOrganization from "@/lib/api/hooks/app/organizations/useUpdateOrganization";
 import { AvatarUploader } from "@/components/app/avatar/AvatarUploader";
 import {
@@ -15,8 +15,6 @@ import { useAutosave } from "@/hooks/useAutosave";
 import { useRegisterUnsaved } from "@/hooks/context/unsaved";
 import useCurrentOrganization from "@/lib/api/hooks/app/organizations/useCurrentOrganization";
 import { usePermission } from "@/hooks/usePermission";
-import useAiMetered from "@/hooks/useAiMetered";
-import AdvisorSettingsSection from "@/components/app/advisor/AdvisorSettingsSection";
 
 export default function WorkspaceSettingsPage() {
     const currentOrg = useAppStore((s) => s.currentOrganization);
@@ -31,7 +29,6 @@ export default function WorkspaceSettingsPage() {
     // service re-gates everyone live. Only admins with Manage settings can edit.
     const orgQuery = useCurrentOrganization();
     const canManageSettings = usePermission("MANAGE_SETTINGS");
-    const metered = useAiMetered();
     const [showOnline, setShowOnline] = React.useState(true);
     const [showActivity, setShowActivity] = React.useState(true);
     React.useEffect(() => {
@@ -48,44 +45,6 @@ export default function WorkspaceSettingsPage() {
     const onToggleActivity = (next: boolean) => {
         setShowActivity(next);
         updateOrg.mutate({ presence_show_activity: next });
-    };
-
-    // AI voice profile. Grounds every AI writing surface. Saved on blur when
-    // changed. Manage settings only.
-    const [productDesc, setProductDesc] = React.useState("");
-    const [icpNotes, setIcpNotes] = React.useState("");
-    const [voiceProfile, setVoiceProfile] = React.useState("");
-    React.useEffect(() => {
-        if (!orgQuery.data) return;
-        setProductDesc(orgQuery.data.product_description ?? "");
-        setIcpNotes(orgQuery.data.icp_notes ?? "");
-        setVoiceProfile(orgQuery.data.voice_profile ?? "");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        orgQuery.data?.product_description,
-        orgQuery.data?.icp_notes,
-        orgQuery.data?.voice_profile,
-    ]);
-    const saveVoiceField = (key: "product_description" | "icp_notes" | "voice_profile", value: string, saved: string) => {
-        if (value !== saved) updateOrg.mutate({ [key]: value });
-    };
-
-    // Inbox agent opt-in (paid). When on, an inbound human reply gets an
-    // AI-drafted suggested reply awaiting review in the unibox.
-    const [inboxAgent, setInboxAgent] = React.useState(false);
-    const [sharedHistory, setSharedHistory] = React.useState(false);
-    React.useEffect(() => {
-        if (orgQuery.data) setInboxAgent(orgQuery.data.inbox_agent_enabled ?? false);
-        if (orgQuery.data) setSharedHistory(orgQuery.data.assistant_shared_history ?? false);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [orgQuery.data?.inbox_agent_enabled, orgQuery.data?.assistant_shared_history]);
-    const onToggleInboxAgent = (next: boolean) => {
-        setInboxAgent(next);
-        updateOrg.mutate({ inbox_agent_enabled: next });
-    };
-    const onToggleSharedHistory = (next: boolean) => {
-        setSharedHistory(next);
-        updateOrg.mutate({ assistant_shared_history: next });
     };
 
     // Auto-save the workspace name ~700ms after typing stops. An empty name is
@@ -206,83 +165,25 @@ export default function WorkspaceSettingsPage() {
             </Section>
 
             <Section
-                eyebrow="פרופיל קול בינה מלאכותית (AI)"
-                description="מנחה את כל ניסוחי הבינה המלאכותית (עוזר, טיוטות מענה, פתיחי מחקר) כך שיישמעו כמוך ויכירו את מה שאתה מוכר. הכל אופציונלי."
+                eyebrow="בינה מלאכותית וקול המותג"
+                description="הגדרות קול המותג, המוצר, כלי הסוכן ותרחישי המענה מנוהלים כעת במרכז הבינה המלאכותית."
             >
-                <Row
-                    label="מה אתה מוכר"
-                    description="פירוט מלא על המוצר, השירותים והערך שאתה מספק (ללא הגבלת תווים)."
-                    align="start"
-                >
-                    <Textarea
-                        value={productDesc}
-                        onChange={(e) => setProductDesc(e.target.value)}
-                        onBlur={() => saveVoiceField("product_description", productDesc, orgQuery.data?.product_description ?? "")}
-                        disabled={!canManageSettings}
-                        rows={4}
-                        placeholder="אנחנו עוזרים לצוותי מכירות לשמור על CRM נקי על ידי..."
-                        className="w-full max-w-[640px] text-[12.5px]"
-                    />
-                </Row>
-                <Row
-                    label="למי אתה מוכר"
-                    description="פרופיל הלקוח האידיאלי (ICP): תפקידים, ענף, גודל חברות והכאבים שהם חווים."
-                    align="start"
-                >
-                    <Textarea
-                        value={icpNotes}
-                        onChange={(e) => setIcpNotes(e.target.value)}
-                        onBlur={() => saveVoiceField("icp_notes", icpNotes, orgQuery.data?.icp_notes ?? "")}
-                        disabled={!canManageSettings}
-                        rows={4}
-                        placeholder="מנהלי מכירות בחברות SaaS B2B של 50-500 עובדים ש..."
-                        className="w-full max-w-[640px] text-[12.5px]"
-                    />
-                </Row>
-                <Row
-                    label="טון דיבור וסגנון"
-                    description="איך אתה רוצה להישמע: הנחיות סגנון, אישיות, ביטויים לשימוש או להימנעות, חוקים ספציפיים."
-                    align="start"
-                >
-                    <Textarea
-                        value={voiceProfile}
-                        onChange={(e) => setVoiceProfile(e.target.value)}
-                        onBlur={() => saveVoiceField("voice_profile", voiceProfile, orgQuery.data?.voice_profile ?? "")}
-                        disabled={!canManageSettings}
-                        rows={5}
-                        placeholder="ישיר וחם, שאל שאלות קצרות, הימנע מביטויי שיווק קלישאתיים, הצע תמיד ערך מוחשי לפני קריאה לפעולה."
-                        className="w-full max-w-[640px] text-[12.5px]"
-                    />
-                </Row>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-md border border-slate-200/80 bg-slate-50/50">
+                    <div className="flex items-center gap-2.5">
+                        <SparklesIcon className="w-4 h-4 text-sky-600 shrink-0" />
+                        <span className="text-[12.5px] text-slate-700">
+                            עבור להגדרות בינה מלאכותית לניהול קול המותג, כלי הסוכן ותרחישי המענה
+                        </span>
+                    </div>
+                    <Link
+                        to="/app/settings/ai"
+                        className="h-7 px-3 rounded-md bg-white border border-slate-200 hover:bg-slate-50 text-[12px] font-medium text-slate-700 inline-flex items-center gap-1.5 shrink-0 transition-colors"
+                    >
+                        <span>פתח הגדרות AI</span>
+                        <ChevronLeftIcon className="w-3.5 h-3.5 rtl:rotate-0 rotate-180 text-slate-400" />
+                    </Link>
+                </div>
             </Section>
-
-            <Section
-                eyebrow="סוכן תיבת דואר (Inbox Agent)"
-                description={`בעת קבלת מענה אנושי נכנס, מנסח טיוטת תגובה בקול שלך וממתין לאישורך בתיבה המאוחדת. לעולם אינו שולח בעצמו.${metered ? " תכונה בתשלום; כל מענה שמטופל עולה 5 נקודות זכות AI." : ""}`}
-            >
-                <ToggleRow
-                    label="נסח מענה עבורי"
-                    description="כאשר מישהו משיב, הסוכן כותב טיוטת תגובה ומצרף אותה לשרשור תחת 'טיוטות סוכן'. אתה מאשר ושולח, עורך או מבטל אותה."
-                    checked={inboxAgent}
-                    onChange={onToggleInboxAgent}
-                    disabled={!canManageSettings}
-                />
-            </Section>
-
-            <Section
-                eyebrow="עוזר בינה מלאכותית"
-                description="כיצד היסטוריית השיחות של העוזר פועלת בקרב הצוות."
-            >
-                <ToggleRow
-                    label="היסטוריה משותפת"
-                    description="כל חבר בעל הרשאת 'שימוש ב-AI' יוכל לראות ולהמשיך כל שיחת עוזר בסביבת עבודה זו, במקום רק את שלו. הפעלה תחשוף את השיחות הקיימות לכל הצוות."
-                    checked={sharedHistory}
-                    onChange={onToggleSharedHistory}
-                    disabled={!canManageSettings}
-                />
-            </Section>
-
-            <AdvisorSettingsSection canManage={canManageSettings} />
 
             <Section
                 eyebrow="סטטיסטיקות סביבת העבודה"

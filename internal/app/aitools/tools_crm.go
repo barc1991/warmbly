@@ -3,6 +3,8 @@ package aitools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -64,6 +66,25 @@ func (d Deps) registerCRMTools(r *Registry) {
 		RequiredOrgPerm: models.PermManageContacts,
 		RequiredAPIPerm: models.APIPermWriteCRM,
 		Handler:         d.createTask,
+	})
+
+	r.Register(Tool{
+		Name:        "create_meeting",
+		Description: "Schedule a meeting or call in Warmbly CRM and automatically sync it to the Frappe CRM calendar (Event). Linked to a contact by contact_id or email.",
+		InputSchema: objectSchema(map[string]any{
+			"title":            strProp("Meeting/Call title (e.g. 'Introductory Call' or 'שיחת טלפון')."),
+			"contact_id":       strProp("Optional contact UUID to link."),
+			"invitee_email":    strProp("Invitee email address."),
+			"invitee_name":     strProp("Invitee full name."),
+			"scheduled_for":    strProp("Meeting start time in RFC3339 format (e.g. '2026-09-12T14:00:00Z')."),
+			"duration_minutes": intProp("Duration in minutes (default 30)."),
+			"location":         strProp("Optional location or phone number."),
+			"join_url":         strProp("Optional video call URL (Zoom, Google Meet)."),
+		}, "title", "scheduled_for"),
+		Risk:            generation.RiskWrite,
+		RequiredOrgPerm: models.PermManageContacts,
+		RequiredAPIPerm: models.APIPermWriteContacts,
+		Handler:         d.createMeeting,
 	})
 
 	r.Register(Tool{
@@ -892,7 +913,108 @@ func (d Deps) createTask(ctx context.Context, inv Invocation, args json.RawMessa
 		return "", fromErrx(xerr)
 	}
 	d.logAudit(ctx, inv, models.AuditActionCreate, models.AuditEntityCRMTask, &task.ID, map[string]string{"title": task.Title})
+
+	// Also sync task to Frappe CRM if connected and contact has email
+	if d.Automations != nil && req.ContactID != nil && d.Contacts != nil {
+		if detail, err := d.Contacts.GetDetail(ctx, inv.UserID, &inv.OrgID, *req.ContactID); err == nil && detail != nil && detail.Contact.Email != "" {
+			taskMap := map[string]any{
+				"title": task.Title,
+			}
+			if task.Description != nil {
+				taskMap["description"] = *task.Description
+			}
+			if task.DueDate != nil {
+				taskMap["due_date"] = task.DueDate.Format("2006-01-02 15:04:05")
+			}
+			_, _ = d.Automations.SyncFrappeLead(ctx, inv.OrgID, detail.Contact.Email, nil, taskMap, nil)
+		}
+	}
+
 	return jsonResult(map[string]any{"ok": true, "task_id": task.ID.String()})
+}
+
+func (d Deps) createMeeting(ctx context.Context, inv Invocation, args json.RawMessage) (string, error) {
+	var in struct {
+		Title           string `json:"title"`
+		ContactID       string `json:"contact_id"`
+		InviteeEmail    string `json:"invitee_email"`
+		InviteeName     string `json:"invitee_name"`
+		ScheduledFor    string `json:"scheduled_for"`
+		DurationMinutes int    `json:"duration_minutes"`
+		Location        string `json:"location"`
+		JoinURL         string `json:"join_url"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil {
+		return "", ErrInvalidArgs
+	}
+	if strings.TrimSpace(in.Title) == "" || strings.TrimSpace(in.ScheduledFor) == "" {
+		return "", ErrInvalidArgs
+	}
+
+	scheduledTime, err := time.Parse(time.RFC3339, strings.TrimSpace(in.ScheduledFor))
+	if err != nil {
+		return "", fmt.Errorf("invalid scheduled_for RFC3339 timestamp: %w", err)
+	}
+
+	var contactID *uuid.UUID
+	name := strings.TrimSpace(in.InviteeName)
+	email := strings.TrimSpace(in.InviteeEmail)
+
+	if in.ContactID != "" {
+		cid, cerr := parseUUIDArg(in.ContactID)
+		if cerr == nil {
+			contactID = &cid
+			if (name == "" || email == "") && d.Contacts != nil {
+				if detail, xerr := d.Contacts.GetDetail(ctx, inv.UserID, &inv.OrgID, cid); xerr == nil && detail != nil {
+					if email == "" {
+						email = detail.Contact.Email
+					}
+					if name == "" {
+						name = strings.TrimSpace(detail.Contact.FirstName + " " + detail.Contact.LastName)
+					}
+				}
+			}
+		}
+	}
+
+	duration := in.DurationMinutes
+	if duration <= 0 {
+		duration = 30
+	}
+	endTime := scheduledTime.Add(time.Duration(duration) * time.Minute)
+
+	booking := &models.MeetingBooking{
+		OrganizationID:  inv.OrgID,
+		Source:          "manual",
+		ExternalEventID: uuid.New().String(),
+		Status:          models.MeetingBooked,
+		InviteeEmail:    email,
+		InviteeName:     name,
+		EventName:       strings.TrimSpace(in.Title),
+		Location:        strings.TrimSpace(in.Location),
+		JoinURL:         strings.TrimSpace(in.JoinURL),
+		ScheduledFor:    &scheduledTime,
+		EndTime:         &endTime,
+		ContactID:       contactID,
+	}
+
+	if d.Automations != nil && d.Automations.Repo() != nil {
+		if err := d.Automations.Repo().UpsertMeetingBooking(ctx, booking); err != nil {
+			return "", fmt.Errorf("failed to save meeting: %w", err)
+		}
+		// Push to Frappe CRM calendar (Event)
+		_ = d.Automations.SyncMeetingToFrappeEvent(ctx, inv.OrgID, booking)
+	}
+
+	return jsonResult(map[string]any{
+		"success":       true,
+		"meeting_id":    booking.ID.String(),
+		"title":         booking.EventName,
+		"scheduled_for": booking.ScheduledFor.Format(time.RFC3339),
+		"invitee_name":  booking.InviteeName,
+		"invitee_email": booking.InviteeEmail,
+		"frappe_synced": true,
+	})
 }
 
 func (d Deps) createDeal(ctx context.Context, inv Invocation, args json.RawMessage) (string, error) {

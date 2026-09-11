@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -262,4 +263,145 @@ func (s *service) MarkFrappeLeadDNC(ctx context.Context, orgID uuid.UUID, email 
 	}
 	body, _ := json.Marshal(updatePayload)
 	return frappeJSON(ctx, http.MethodPut, putURL, creds.apiKey, creds.apiSecret, body, nil)
+}
+
+// GetFrappeLead fetches the lead card and related open tasks from Frappe CRM by email.
+func (s *service) GetFrappeLead(ctx context.Context, orgID uuid.UUID, email string) (map[string]any, error) {
+	creds, err := s.findFrappeConnection(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return nil, errors.New("email is required for Frappe CRM lookup")
+	}
+
+	docType := "CRM Lead"
+	fields := `["name","email","first_name","last_name","organization","mobile_no","phone","job_title","website","status","lead_owner","notes"]`
+	filters := fmt.Sprintf(`[["%s","email","=","%s"]]`, docType, email)
+	searchURL := fmt.Sprintf("%s/api/resource/%s?filters=%s&fields=%s",
+		creds.serverURL, url.PathEscape(docType), url.QueryEscape(filters), url.QueryEscape(fields))
+
+	var search struct {
+		Data []map[string]any `json:"data"`
+	}
+
+	err = frappeJSON(ctx, http.MethodGet, searchURL, creds.apiKey, creds.apiSecret, nil, &search)
+	if err != nil && strings.Contains(err.Error(), "HTTP 404") {
+		docType = "Lead"
+		fields = `["name","email_id","first_name","last_name","company_name","mobile_no","phone","website","status","lead_owner","notes"]`
+		filters = fmt.Sprintf(`[["%s","email_id","=","%s"]]`, docType, email)
+		searchURL = fmt.Sprintf("%s/api/resource/%s?filters=%s&fields=%s",
+			creds.serverURL, url.PathEscape(docType), url.QueryEscape(filters), url.QueryEscape(fields))
+		err = frappeJSON(ctx, http.MethodGet, searchURL, creds.apiKey, creds.apiSecret, nil, &search)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("Frappe lookup failed: %w", err)
+	}
+
+	if len(search.Data) == 0 {
+		return map[string]any{
+			"found":   false,
+			"email":   email,
+			"message": "No matching lead found in Frappe CRM",
+		}, nil
+	}
+
+	leadRecord := search.Data[0]
+	leadName, _ := leadRecord["name"].(string)
+
+	// Fetch open tasks for this lead if any
+	var tasks []map[string]any
+	if leadName != "" {
+		taskDocType := "CRM Task"
+		taskFilters := fmt.Sprintf(`[["%s","reference_doctype","=","%s"],["%s","reference_name","=","%s"]]`,
+			taskDocType, docType, taskDocType, leadName)
+		taskURL := fmt.Sprintf("%s/api/resource/%s?filters=%s&fields=%s",
+			creds.serverURL, url.PathEscape(taskDocType), url.QueryEscape(taskFilters), url.QueryEscape(`["name","title","status","priority","due_date"]`))
+		var taskSearch struct {
+			Data []map[string]any `json:"data"`
+		}
+		if terr := frappeJSON(ctx, http.MethodGet, taskURL, creds.apiKey, creds.apiSecret, nil, &taskSearch); terr == nil {
+			tasks = taskSearch.Data
+		} else if strings.Contains(terr.Error(), "HTTP 404") {
+			// Fallback to standard Task
+			taskDocType = "Task"
+			taskFilters = fmt.Sprintf(`[["%s","reference_doctype","=","%s"],["%s","reference_name","=","%s"]]`,
+				taskDocType, docType, taskDocType, leadName)
+			taskURL = fmt.Sprintf("%s/api/resource/%s?filters=%s&fields=%s",
+				creds.serverURL, url.PathEscape(taskDocType), url.QueryEscape(taskFilters), url.QueryEscape(`["name","title","status","priority","exp_end_date"]`))
+			var genericTaskSearch struct {
+				Data []map[string]any `json:"data"`
+			}
+			if gerr := frappeJSON(ctx, http.MethodGet, taskURL, creds.apiKey, creds.apiSecret, nil, &genericTaskSearch); gerr == nil {
+				tasks = genericTaskSearch.Data
+			}
+		}
+	}
+
+	return map[string]any{
+		"found":    true,
+		"email":    email,
+		"doctype":  docType,
+		"lead":     leadRecord,
+		"tasks":    tasks,
+		"crm_link": fmt.Sprintf("%s/app/%s/%s", creds.serverURL, strings.ToLower(strings.ReplaceAll(docType, " ", "-")), leadName),
+	}, nil
+}
+
+// SyncMeetingToFrappeEvent pushes a scheduled meeting to Frappe CRM's calendar (Event doctype).
+func (s *service) SyncMeetingToFrappeEvent(ctx context.Context, orgID uuid.UUID, booking *models.MeetingBooking) error {
+	if booking == nil {
+		return nil
+	}
+	creds, err := s.findFrappeConnection(ctx, orgID)
+	if err != nil {
+		return err
+	}
+
+	subject := strings.TrimSpace(booking.EventName)
+	if subject == "" {
+		subject = "שיחה עם " + strings.TrimSpace(booking.InviteeName)
+	}
+	if booking.InviteeName != "" && !strings.Contains(subject, booking.InviteeName) {
+		subject = fmt.Sprintf("%s - %s", subject, booking.InviteeName)
+	}
+
+	if booking.ScheduledFor == nil {
+		return nil
+	}
+	startsOn := booking.ScheduledFor.UTC().Format("2006-01-02 15:04:05")
+
+	endsOn := ""
+	if booking.EndTime != nil {
+		endsOn = booking.EndTime.UTC().Format("2006-01-02 15:04:05")
+	} else {
+		endsOn = booking.ScheduledFor.Add(30 * time.Minute).UTC().Format("2006-01-02 15:04:05")
+	}
+
+	descParts := make([]string, 0, 4)
+	if booking.InviteeName != "" || booking.InviteeEmail != "" {
+		descParts = append(descParts, fmt.Sprintf("משתתף: %s <%s>", booking.InviteeName, booking.InviteeEmail))
+	}
+	if booking.JoinURL != "" {
+		descParts = append(descParts, fmt.Sprintf("קישור לשיחה: %s", booking.JoinURL))
+	}
+	if booking.Location != "" {
+		descParts = append(descParts, fmt.Sprintf("מיקום: %s", booking.Location))
+	}
+	descParts = append(descParts, "נוצר אוטומטית מ-Warmbly")
+
+	eventPayload := map[string]any{
+		"subject":     subject,
+		"description": strings.Join(descParts, "\n"),
+		"event_type":  "Private",
+		"starts_on":   startsOn,
+		"ends_on":     endsOn,
+		"status":      "Open",
+	}
+
+	eventBody, _ := json.Marshal(eventPayload)
+	eventURL := fmt.Sprintf("%s/api/resource/Event", creds.serverURL)
+	return frappeJSON(ctx, http.MethodPost, eventURL, creds.apiKey, creds.apiSecret, eventBody, nil)
 }

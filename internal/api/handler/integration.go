@@ -1140,6 +1140,15 @@ func (h *Handler) CreateMeeting(c *gin.Context) {
 
 	h.auditOrg(c, models.AuditActionCreate, models.AuditEntityMeeting, &booking.ID, nil, map[string]string{"title": booking.EventName})
 
+	// Best-effort push to Frappe CRM calendar (Event) if connected
+	if h.IntegrationService != nil {
+		go func(b models.MeetingBooking) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			_ = h.IntegrationService.SyncMeetingToFrappeEvent(ctx, orgID, &b)
+		}(*booking)
+	}
+
 	c.JSON(http.StatusCreated, gin.H{"meeting": booking})
 }
 

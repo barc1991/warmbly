@@ -86,6 +86,19 @@ func (d Deps) registerBDRTools(r *Registry) {
 	})
 
 	r.Register(Tool{
+		Name:        "frappe_crm_lookup",
+		Description: "Lookup and read a lead's profile, status, assigned owner, notes, website, phone, and open tasks directly from Frappe CRM by contact_id or email.",
+		InputSchema: objectSchema(map[string]any{
+			"contact_id": strProp("Optional contact UUID in Warmbly."),
+			"email":      strProp("Lead email to lookup in Frappe CRM if contact_id is omitted."),
+		}),
+		Risk:            generation.RiskRead,
+		RequiredOrgPerm: models.PermViewContacts,
+		RequiredAPIPerm: models.APIPermReadContacts,
+		Handler:         d.frappeCRMLookup,
+	})
+
+	r.Register(Tool{
 		Name:        "mark_do_not_contact",
 		Description: "Mark a contact as Unsubscribed / Do Not Contact (DNC), remove from all active outreach campaigns, add to suppression list, and update Frappe CRM status.",
 		InputSchema: objectSchema(map[string]any{
@@ -456,6 +469,42 @@ func (d Deps) frappeCRMSync(ctx context.Context, inv Invocation, args json.RawMe
 		"email":          contact.Email,
 		"action":         "Lead synced and linked to Frappe CRM",
 	})
+}
+
+func (d Deps) frappeCRMLookup(ctx context.Context, inv Invocation, args json.RawMessage) (string, error) {
+	var in struct {
+		ContactID string `json:"contact_id"`
+		Email     string `json:"email"`
+	}
+	if err := json.Unmarshal(args, &in); err != nil {
+		return "", ErrInvalidArgs
+	}
+
+	targetEmail := strings.TrimSpace(in.Email)
+	if targetEmail == "" && strings.TrimSpace(in.ContactID) != "" {
+		cid, err := parseUUIDArg(in.ContactID)
+		if err == nil && d.Contacts != nil {
+			detail, xerr := d.Contacts.GetDetail(ctx, inv.UserID, &inv.OrgID, cid)
+			if xerr == nil && detail != nil {
+				targetEmail = detail.Contact.Email
+			}
+		}
+	}
+
+	if targetEmail == "" {
+		return "", fmt.Errorf("either contact_id or email is required for Frappe CRM lookup")
+	}
+
+	if d.Automations == nil {
+		return "", fmt.Errorf("integration service is not configured")
+	}
+
+	res, err := d.Automations.GetFrappeLead(ctx, inv.OrgID, targetEmail)
+	if err != nil {
+		return "", fmt.Errorf("Frappe CRM lookup failed: %w", err)
+	}
+
+	return jsonResult(res)
 }
 
 func (d Deps) markDoNotContact(ctx context.Context, inv Invocation, args json.RawMessage) (string, error) {

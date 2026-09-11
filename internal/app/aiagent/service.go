@@ -674,7 +674,14 @@ Rules:
     2. If the contact has a corporate domain (not generic like @gmail.com), derive their website as https://<domain>.
     3. When a website URL is known or discovered, use fetch_url_content to crawl their website (homepage, About Us, Contact, Team) to discover their full company name, business phone numbers, physical address, and executives/names.
     4. If needed, use serper_google_search to find missing company background and phone details.
-    5. Use update_lead_fields to automatically backfill and save the missing fields (first_name, last_name, company_name, job_title, phone, website, city, address, ai_research_notes). Always enrich and never erase existing valid data.`)
+    5. Use update_lead_fields to automatically backfill and save the missing fields (first_name, last_name, company_name, job_title, phone, website, city, address, ai_research_notes). Always enrich and never erase existing valid data.
+- Frappe CRM & Calendar Integration:
+  - You have full two-way capabilities with Frappe CRM:
+    1. frappe_crm_lookup: Lookup and read existing leads, their status, assigned owner, notes, website, phone, and open tasks directly from Frappe CRM by email or contact_id.
+    2. frappe_crm_sync: Push/sync leads to Frappe CRM with deduplication by email (updates existing or creates new), sends enriched fields (phone, company, website, job_title, notes), and optionally schedules a task or calendar event in Frappe CRM.
+    3. create_task: Creates a CRM task in Warmbly and automatically syncs it to Frappe CRM when linked to a contact. Use this when the user or lead wants to schedule a follow-up or phone call (e.g. "לחייג לליד").
+    4. create_meeting: Schedules a meeting or phone call in Warmbly CRM and automatically syncs it to Frappe CRM's calendar (Event doctype).
+    5. mark_do_not_contact: Marks a contact as Do Not Contact both in Warmbly and in Frappe CRM.`)
 	if strings.TrimSpace(voiceBlock) != "" {
 		b.WriteString("\n\n")
 		b.WriteString(voiceBlock)

@@ -152,6 +152,8 @@ type Service interface {
 	// Frappe CRM operations for autonomous BDR and lead enrichment.
 	SyncFrappeLead(ctx context.Context, orgID uuid.UUID, email string, props map[string]any, task map[string]any, event map[string]any) (string, error)
 	MarkFrappeLeadDNC(ctx context.Context, orgID uuid.UUID, email string) error
+	GetFrappeLead(ctx context.Context, orgID uuid.UUID, email string) (map[string]any, error)
+	SyncMeetingToFrappeEvent(ctx context.Context, orgID uuid.UUID, booking *models.MeetingBooking) error
 
 	// Dispatch fans a platform event out to every matching event subscription,
 	// executing each provider action. Best-effort: action failures are recorded

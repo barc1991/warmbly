@@ -72,7 +72,7 @@ const GROUPS: SectionGroup[] = [
             { path: "workspace", label: "סביבת עבודה", icon: BriefcaseIcon, description: "הגדרות כלל-ארגוניות ומיתוג.", ownerOnly: true },
             { path: "sending", label: "שליחה", icon: SendIcon, description: "מועדי מסירה, אימות כתובות והסרות.", permission: "MANAGE_SETTINGS" },
             { path: "tracking", label: "מעקב אתר", icon: GlobeIcon, description: "צפיות באתר בציר הזמן של אנשי הקשר.", permission: "MANAGE_SETTINGS" },
-            { path: "ai-skills", label: "כישורי AI", icon: SparklesIcon, description: "הוראות ונהלים לתכונות ה-AI.", permission: "MANAGE_SETTINGS" },
+            { path: "ai", label: "בינה מלאכותית", icon: SparklesIcon, description: "קול המותג, כלי סוכן ה-AI ותרחישי מענה.", permission: "MANAGE_SETTINGS" },
             { path: "ai-models", label: "מודלי AI ומפתחות", icon: CpuIcon, description: "הגדרת מודל ג'מיני, שרשרת Fallback ומפתחות API מרובים.", permission: "MANAGE_SETTINGS" },
             { path: "oauth-slots", label: "סלוטים לחיבורי מייל (OAuth)", icon: BoxesIcon, description: "חיבור פרויקטים מרובים של Google Cloud לעקיפת מגבלת 100 התיבות.", permission: "MANAGE_SETTINGS" },
             { path: "billing", label: "חיוב ומנוי", icon: CreditCardIcon, description: "תוכנית, תשלום וחשבוניות.", ownerOnly: true, billingOnly: true },
