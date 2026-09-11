@@ -9,7 +9,6 @@
 
 import { useNavigate } from "react-router-dom";
 import {
-    LanguagesIcon,
     LogOutIcon,
     SettingsIcon,
 } from "lucide-react";
@@ -23,14 +22,12 @@ import {
     PopoverMenuTrigger,
 } from "@/components/ui/popover-menu";
 import { useTranslation } from "react-i18next";
-import { useDirection } from "@/i18n";
 
 export function UserNav() {
     const navigate = useNavigate();
     const user = useAppStore((s) => s.user);
     const logoutMutation = useLogout();
     const { t } = useTranslation();
-    const { language, setLanguage } = useDirection();
 
     if (!user) return null;
 
@@ -91,12 +88,6 @@ export function UserNav() {
                     icon={<SettingsIcon className="w-3 h-3" />}
                 >
                     {t("nav:items.settings", "Settings")}
-                </PopoverMenuItem>
-                <PopoverMenuItem
-                    onSelect={() => setLanguage(language.startsWith("he") ? "en" : "he")}
-                    icon={<LanguagesIcon className="w-3 h-3" />}
-                >
-                    {language.startsWith("he") ? "English (אנגלית)" : "עברית (Hebrew)"}
                 </PopoverMenuItem>
                 <PopoverMenuSeparator />
                 <PopoverMenuItem

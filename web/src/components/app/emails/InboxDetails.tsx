@@ -67,8 +67,6 @@ import UpdateCredentialsDialog from "./UpdateCredentialsDialog";
 import EmailEditor from "../EmailEditor";
 import SendingBehaviorTab from "./SendingBehaviorTab";
 import SyncStatusCard from "./SyncStatusCard";
-import CloudWarmupCard from "./CloudWarmupCard";
-import useCloudPool from "@/hooks/useCloudPool";
 import { Toggle } from "@/components/app/campaigns/preferences/components/CampaignPreferenceBoolBox";
 import useSendingBehavior from "@/lib/api/hooks/app/emails/useSendingBehavior";
 import useSendingPlan from "@/lib/api/hooks/app/emails/useSendingPlan";
@@ -1061,9 +1059,6 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
     const off = !mailbox.warmup;
     const paused = !!mailbox.warmup && !!mailbox.warmup_paused_at;
     const active = !!mailbox.warmup && !mailbox.warmup_paused_at;
-    // When Warmbly Cloud warms this mailbox the local controls step aside.
-    const pool = useCloudPool();
-    const inCloud = pool.connected && pool.isEnrolled(mailbox.id);
 
     const run = (action: "start" | "pause" | "resume" | "stop") => {
         const verb = action === "start" ? "הופעל" : action === "pause" ? "הושהה" : action === "resume" ? "חודש" : "הופסק";
@@ -1094,10 +1089,7 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
             {/* Ban banner + appeal — only when the mailbox is blocked from the pool */}
             <WarmupBanBanner emailId={mailbox.id} />
 
-            <CloudWarmupCard mailboxId={mailbox.id} email={mailbox.email} provider={mailbox.provider} />
-
             {/* Lifecycle control */}
-            {!inCloud && (
             <div className="px-5 py-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                     <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", active ? "bg-orange-50 text-orange-600" : paused ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-400")}>
@@ -1151,10 +1143,9 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
                     )}
                 </div>
             </div>
-            )}
 
             {/* Upsell when warmup isn't available on the plan */}
-            {!inCloud && off && !canWarmup && (
+            {off && !canWarmup && (
                 <div className="px-5 py-4">
                     <div className="rounded-md border border-sky-100 bg-sky-50/70 px-3 py-2.5 text-[11.5px] text-sky-900/90 leading-relaxed">
                         חימום דואר זמין במסלולים בתשלום. שדרג כדי לבנות ולהגן על מוניטין השולח באופן אוטומטי.

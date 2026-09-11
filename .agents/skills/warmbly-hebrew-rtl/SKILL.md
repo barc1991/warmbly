@@ -13,7 +13,7 @@ description: >-
 
 This installation is a customized Hebrew (RTL) edition of **Warmbly** (cold email outreach, warmup, and mailbox deliverability platform).
 
-* **Web Frontend**: React 18, Vite, Tailwind CSS, Framer Motion, TanStack Query, i18next (`web/`).
+* **Web Frontend**: React 18, Vite, Tailwind CSS, Framer Motion, TanStack Query, i18next (`web/`). The UI is strictly Hebrew (`he`) and RTL by default; English toggles and language switches have been removed from the UI.
 * **Backend Control Plane**: Go 1.23, Gin framework, pgx, PostgreSQL (`cmd/backend`, `internal/`).
 * **Workers & Execution Plane**: Go distributed workers (`cmd/worker`, `cmd/consumer`).
 * **Realtime & Tracking**: Elixir/Phoenix WebSocket fanout (`realtime/`), Rust pixel tracker (`tracking/`).
@@ -54,16 +54,28 @@ To solve this across all existing and future components, `web/src/global.css` en
 }
 ```
 
-### C. Numbers & Monospace Direction
-Tabular numbers and monospace IDs inside RTL containers must retain natural left-to-right digit flow:
+### C. Numbers, Monospace Direction & Table Protection
+Tabular numbers and monospace IDs inside RTL containers must retain natural left-to-right digit flow, but **`td` and `th` must never receive `display: inline-block`** (which breaks the HTML table layout model and collapses multiple cells into a single anonymous table-cell):
 ```css
-[dir="rtl"] .tabular-nums,
-[dir="rtl"] .font-mono {
+[dir="rtl"] .tabular-nums:not(.flex):not(.inline-flex):not(td):not(th),
+.rtl .tabular-nums:not(.flex):not(.inline-flex):not(td):not(th) {
     direction: ltr;
     display: inline-block;
     unicode-bidi: isolate;
 }
+
+[dir="rtl"] td,
+.rtl td,
+[dir="rtl"] th,
+.rtl th {
+    display: table-cell !important;
+}
 ```
+
+### D. Tabular Numbers Spacing in RTL
+When an element has `direction: ltr`, CSS logical properties like `ms-1` (`margin-inline-start`) resolve against the element's own LTR inline direction (`margin-left`), adding space to the outer side and collapsing space between Hebrew text and numbers (e.g. `הכל3`).
+* In status tabs and button badges, use `inline-flex items-center gap-1.5` on the container with `<span>{label}</span>` and `<span className="tabular-nums">{count}</span>` instead of raw `ms-1`.
+* In `web/src/global.css`, `[dir="rtl"] .tabular-nums.ms-1` enforces `margin-right: 0.375rem !important; margin-left: 0 !important;` to ensure clean spacing across all legacy elements.
 
 ---
 

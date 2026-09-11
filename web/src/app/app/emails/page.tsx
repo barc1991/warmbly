@@ -16,15 +16,7 @@ import { useUserProfile } from "@/hooks/context/user";
 import { useConfirm } from "@/hooks/context/confirm";
 import InboxDetails from "@/components/app/emails/InboxDetails";
 import WarmupCoverageNotice from "@/components/app/emails/WarmupCoverageNotice";
-import CloudPoolBanner from "@/components/app/emails/CloudPoolBanner";
-import CloudPathsPanel from "@/components/app/emails/CloudPathsPanel";
-import CloudConnectDialog from "@/components/app/cloud/CloudConnectDialog";
-import useCloudPool from "@/hooks/useCloudPool";
 import useAuthConfig from "@/lib/api/hooks/auth/useAuthConfig";
-import { useEnrollCloudLinkMailbox, useUnenrollCloudLinkMailbox, useCloudLinkMailboxLifecycle } from "@/lib/api/hooks/app/cloudlink/useCloudLink";
-import { providerSupported } from "@/app/app/settings/warmbly-cloud/providers";
-import { CloudIcon } from "lucide-react";
-import type { CloudLinkMailboxRow } from "@/lib/api/models/app/cloudlink/CloudLink";
 import buildError from "@/lib/helper/buildError";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import BulkWarmupDialog from "@/components/app/emails/BulkWarmupDialog";
@@ -115,10 +107,6 @@ export default function AddressesPage() {
     const featureStatus = useFeatureStatus();
     const canWarmup = featureStatus.data?.can_use_warmup !== false;
 
-    // Self-hosted instances can hand warmup to the Warmbly pool; the banner,
-    // row badges and menu items below key off this.
-    const cloud = useCloudPool();
-    const [cloudDialog, setCloudDialog] = React.useState(false);
     const authConfigLoading = useAuthConfig().isLoading;
 
     // One query for the whole surface; each row reads its own advice out of the
@@ -332,20 +320,12 @@ export default function AddressesPage() {
                     nounPlural="mailboxes"
                     className="mx-5 my-3"
                 />
-                <CloudPoolBanner onConnect={() => setCloudDialog(true)} mailboxCount={stats.total} />
-                {!emailsData.isLoading && <CloudPathsPanel mailboxCount={stats.total} onAdd={() => p?.setAddEmail(true)} />}
-                {/* Hosted, the pool is thousands of mailboxes: the pool-size advice is self-host only. */}
-                {cloud.selfHosted && (
-                    <WarmupCoverageNotice
-                        warmupCount={warmupActive}
-                        totalCount={stats.total}
-                        canWarmup={canWarmup}
-                        onAdd={() => p?.setAddEmail(true)}
-                        onConnectCloud={!cloud.connected ? () => setCloudDialog(true) : undefined}
-                        cloudConnected={cloud.connected}
-                    />
-                )}
-                <CloudConnectDialog open={cloudDialog} onClose={() => setCloudDialog(false)} />
+                <WarmupCoverageNotice
+                    warmupCount={warmupActive}
+                    totalCount={stats.total}
+                    canWarmup={canWarmup}
+                    onAdd={() => p?.setAddEmail(true)}
+                />
                 {emailsData.isLoading ? (
                     <div className="divide-y divide-slate-200/60">
                         {Array.from({ length: 6 }).map((_, i) => (
@@ -358,7 +338,6 @@ export default function AddressesPage() {
                         ))}
                     </div>
                 ) : !emailsData.emails || emailsData.emails.length === 0 ? (
-                    cloud.selfHosted || authConfigLoading ? (
                     <EmptyBlock
                         title={t("mailboxes:empty.title", "No email accounts yet")}
                         body={t("mailboxes:empty.description", "Connect your first mailbox to start warming up and sending campaigns.")}
@@ -371,7 +350,6 @@ export default function AddressesPage() {
                             </TopbarAction>
                         }
                     />
-                    ) : null
                 ) : (
                     <table className="w-full text-start">
                         <thead className="sticky top-0 bg-white z-[1]">
@@ -412,8 +390,6 @@ export default function AddressesPage() {
                                     status={statusById.get(box.id)}
                                     findings={advisor.get(box.id)}
                                     canWarmup={canWarmup}
-                                    cloud={cloud.connected ? cloud.rowFor(box.id) : undefined}
-                                    cloudConnected={cloud.connected}
                                     checked={selected.includes(box.id)}
                                     onToggleSelect={() =>
                                         selected.includes(box.id)
@@ -500,8 +476,6 @@ function MailboxRow({
     status,
     findings,
     canWarmup,
-    cloud,
-    cloudConnected,
     checked,
     onToggleSelect,
     onOpen,
@@ -511,8 +485,6 @@ function MailboxRow({
     status?: AccountStatus;
     findings: AdvisorFinding[];
     canWarmup: boolean;
-    cloud?: CloudLinkMailboxRow;
-    cloudConnected: boolean;
     checked: boolean;
     onToggleSelect: () => void;
     onOpen: (id: string, tab?: string) => void;
@@ -541,38 +513,15 @@ function MailboxRow({
     const ws = status?.warmup_status;
     const inCampaign = status?.in_campaign;
 
-    const cloudEnroll = useEnrollCloudLinkMailbox();
-    const cloudUnenroll = useUnenrollCloudLinkMailbox();
-    const cloudLifecycle = useCloudLinkMailboxLifecycle();
-    const inCloud = !!cloud?.enrolled;
-    const cloudPaused = !!cloud?.cloud?.warmup?.paused;
-    const cloudSupported = providerSupported(box.provider);
-    const cloudRun = async (fn: () => Promise<unknown>, ok: string) => {
-        try {
-            await fn();
-            toast.success(ok);
-        } catch (e) {
-            toast.error(buildError(e as AppError));
-        }
-    };
-
     // Warmup column: what's flowing today and why.
-    const warmupLabel = inCloud
-        ? cloud?.cloud
-            ? `${cloud.cloud.sent_today}/${cloud.cloud.warmup?.target_volume ?? cloud.cloud.settings.base}`
-            : (isHe ? "ענן" : "Cloud")
-        : active
+    const warmupLabel = active
         ? `${ws?.current_volume ?? 0}/${ws?.target_volume ?? box.warmup_base}`
         : paused
             ? (isHe ? "מושהה" : "Paused")
             : inCampaign
                 ? (isHe ? "בדיקת תקינות" : "Health-check")
                 : (isHe ? "כבוי" : "Off");
-    const warmupTone = inCloud
-        ? cloudPaused
-            ? "text-amber-600"
-            : "text-sky-600"
-        : active
+    const warmupTone = active
         ? "text-orange-600"
         : paused
             ? "text-amber-600"
@@ -615,24 +564,16 @@ function MailboxRow({
     const upsell = () => toast(isHe ? "חימום זמין בתוכניות בתשלום" : "Warmup is available on paid plans", { icon: "✨" });
 
     const warmupMenuStatus = isHe
-        ? inCloud
-            ? cloudPaused
-                ? "מושהה בענן"
-                : "ענן Warmbly"
-            : active
-              ? "פעיל"
-              : paused
+        ? active
+            ? "פעיל"
+            : paused
                 ? "מושהה"
                 : "כבוי"
-        : inCloud
-          ? cloudPaused
-              ? "Paused in cloud"
-              : "Warmbly Cloud"
-          : active
+        : active
             ? "Active"
             : paused
-              ? "Paused"
-              : "Off";
+                ? "Paused"
+                : "Off";
 
     return (
         <tr
@@ -659,14 +600,6 @@ function MailboxRow({
                         </span>
                     </div>
                     <span className="text-[12.5px] font-medium text-slate-900 truncate">{box.email}</span>
-                    {inCloud && (
-                        <span
-                            title={cloud?.managed ? "Signed in through Warmbly Cloud, which warms it" : cloudPaused ? "Paused in Warmbly Cloud" : "Warmed by Warmbly Cloud"}
-                            className={`inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[9.5px] font-medium uppercase tracking-[0.08em] shrink-0 ${cloudPaused ? "bg-amber-50 text-amber-600" : "bg-sky-600 text-white"}`}
-                        >
-                            <CloudIcon className="w-2.5 h-2.5" /> Cloud
-                        </span>
-                    )}
                     {inCampaign && (
                         <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-sky-50 text-sky-600 text-[9.5px] font-medium uppercase tracking-[0.08em]">
                             <ActivityIcon className="w-2.5 h-2.5" /> In campaign
@@ -692,12 +625,7 @@ function MailboxRow({
                 </div>
             </td>
             <td className={`px-3 text-[12px] tabular-nums text-start font-mono w-28 ${warmupTone}`}>
-                {inCloud ? (
-                    <span className="inline-flex items-center justify-start gap-1.5">
-                        <CloudIcon className="w-3 h-3 shrink-0" />
-                        <span>{warmupLabel}</span>
-                    </span>
-                ) : active ? (
+                {active ? (
                     <span className="inline-flex items-center justify-start gap-1.5">
                         <span className="campaign-grid shrink-0" aria-hidden />
                         <span>
@@ -735,75 +663,27 @@ function MailboxRow({
                                 disabled={life.isPending}
                                 className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-orange-600 transition-colors cursor-pointer disabled:opacity-50"
                             >
-                                {inCloud ? <CloudIcon className={`w-3.5 h-3.5 ${cloudPaused ? "text-amber-500" : "text-sky-600"}`} /> : <RiFireLine className={`w-3.5 h-3.5 ${active ? "text-orange-500" : paused ? "text-amber-500" : ""}`} />}
+                                <RiFireLine className={`w-3.5 h-3.5 ${active ? "text-orange-500" : paused ? "text-amber-500" : ""}`} />
                             </button>
                         </PopoverMenuTrigger>
                         <PopoverMenuContent minWidth={208}>
                             <PopoverMenuLabel>{isHe ? `חימום · ${warmupMenuStatus}` : `Warmup · ${warmupMenuStatus}`}</PopoverMenuLabel>
-                            {inCloud && (
-                                <>
-                                    <PopoverMenuItem
-                                        onSelect={() => void cloudRun(() => cloudLifecycle.mutateAsync({ id: box.id, action: cloudPaused ? "resume" : "pause" }), isHe ? (cloudPaused ? "החימום חודש" : "החימום הושהה") : (cloudPaused ? "Warmup resumed" : "Warmup paused"))}
-                                        icon={cloudPaused ? <PlayIcon className="w-3 h-3" /> : <PauseIcon className="w-3 h-3" />}
-                                    >
-                                        {isHe ? (cloudPaused ? "חידוש בענן Warmbly" : "השהיה בענן Warmbly") : (cloudPaused ? "Resume in Warmbly Cloud" : "Pause in Warmbly Cloud")}
-                                    </PopoverMenuItem>
-                                    <PopoverMenuItem
-                                        danger
-                                        onSelect={() =>
-                                            confirm.show(
-                                                isHe
-                                                    ? cloud?.managed
-                                                        ? `להסיר את ${box.email} מהתקנה זו? החשבון יישאר בסביבת העבודה שלך ב-Warmbly Cloud, שבה שמורה ההתחברות; קמפיינים בהתקנה זו יפסיקו לשלוח דרכו.`
-                                                        : `להפסיק את חימום ${box.email} במאגר Warmbly? הענן ימחק את פרטי ההתחברות מיד.`
-                                                    : cloud?.managed
-                                                        ? `Remove ${box.email} from this instance? It stays in your Warmbly Cloud workspace, where its sign-in lives; campaigns here stop sending from it.`
-                                                        : `Stop warming ${box.email} in the Warmbly pool? The cloud deletes its credential right away.`,
-                                                async () => {
-                                                    await cloudRun(
-                                                        () => cloudUnenroll.mutateAsync(box.id),
-                                                        isHe
-                                                            ? cloud?.managed
-                                                                ? `${box.email} הוסר מהתקנה זו`
-                                                                : `${box.email} הוסר מהמאגר`
-                                                            : cloud?.managed
-                                                                ? `${box.email} removed from this instance`
-                                                                : `${box.email} removed from the pool`,
-                                                    );
-                                                },
-                                            )
-                                        }
-                                        icon={<CloudIcon className="w-3 h-3" />}
-                                    >
-                                        {isHe ? (cloud?.managed ? "הסרה מהתקנה זו" : "הסרה מענן Warmbly") : (cloud?.managed ? "Remove from this instance" : "Remove from Warmbly Cloud")}
-                                    </PopoverMenuItem>
-                                    <PopoverMenuSeparator />
-                                </>
-                            )}
-                            {!inCloud && cloudConnected && cloudSupported && (
-                                <PopoverMenuItem
-                                    onSelect={() => void cloudRun(() => cloudEnroll.mutateAsync(box.id), isHe ? `${box.email} מתחמם כעת במאגר` : `${box.email} is now warming in the pool`)}
-                                    icon={<CloudIcon className="w-3 h-3" />}
-                                >
-                                    {isHe ? "חימום בענן Warmbly" : "Warm in Warmbly Cloud"}
-                                </PopoverMenuItem>
-                            )}
-                            {!inCloud && off && (
+                            {off && (
                                 <PopoverMenuItem onSelect={canWarmup ? () => run("start", "started") : upsell} icon={<PlayIcon className="w-3 h-3" />}>
                                     {isHe ? (canWarmup ? "הפעלת חימום" : "שדרוג להפעלת חימום") : (canWarmup ? "Start warmup" : "Upgrade to start warmup")}
                                 </PopoverMenuItem>
                             )}
-                            {!inCloud && paused && (
+                            {paused && (
                                 <PopoverMenuItem onSelect={canWarmup ? () => run("resume", "resumed") : upsell} icon={<PlayIcon className="w-3 h-3" />}>
                                     {isHe ? (canWarmup ? "חידוש חימום" : "שדרוג לחידוש חימום") : (canWarmup ? "Resume warmup" : "Upgrade to resume warmup")}
                                 </PopoverMenuItem>
                             )}
-                            {!inCloud && active && (
+                            {active && (
                                 <PopoverMenuItem onSelect={() => run("pause", "paused")} icon={<PauseIcon className="w-3 h-3" />}>
                                     {isHe ? "השהיית חימום" : "Pause warmup"}
                                 </PopoverMenuItem>
                             )}
-                            {!inCloud && (active || paused) && (
+                            {(active || paused) && (
                                 <PopoverMenuItem danger onSelect={stopReset} icon={<RotateCcwIcon className="w-3 h-3" />}>
                                     {isHe ? "עצירה ואיפוס" : "Stop & reset"}
                                 </PopoverMenuItem>

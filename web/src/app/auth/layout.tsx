@@ -6,7 +6,6 @@ import useBrand from "@/hooks/useBrand";
 import BrandMark from "@/components/shared/BrandMark";
 import getToken from "@/lib/helper/getToken";
 import AuthShowcase from "./_components/AuthShowcase";
-import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 
 /* ═══════════════════════════════════════════
    Auth layout.
@@ -41,10 +40,6 @@ export default function AuthLayout({
 
     return (
         <div className="relative flex min-h-dvh w-full items-center justify-center px-4 py-8 text-slate-900 sm:px-5 sm:py-10 lg:bg-slate-50">
-            {/* Language Switcher top corner */}
-            <div className="absolute top-4 end-4 z-30">
-                <LanguageSwitcher />
-            </div>
 
             {/* Mobile airy-sky backdrop (desktop gets the sky inside the card instead) */}
             <div className="absolute inset-0 overflow-hidden lg:hidden" aria-hidden="true">

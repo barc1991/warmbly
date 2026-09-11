@@ -71,6 +71,21 @@ import { Toaster } from '@/components/ui/toaster';
 import { initErrorReporting } from "@/lib/observability";
 import { initProductAnalytics } from "@/lib/productAnalytics";
 
+// Suppress noisy uncaught errors from browser extensions or web-vitals observers (e.g. reading 'startTime')
+if (typeof window !== "undefined") {
+    window.addEventListener(
+        "error",
+        (event) => {
+            const msg = event.error?.message || event.message || "";
+            if (typeof msg === "string" && (msg.includes("reading 'startTime'") || msg.includes("reportAllChanges"))) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        },
+        true,
+    );
+}
+
 // Before the first render, so a boot failure is reported too.
 initErrorReporting();
 // Off unless the deployment configured a key; a self-host never loads it.

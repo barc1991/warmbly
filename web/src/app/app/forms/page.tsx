@@ -268,14 +268,14 @@ function FormsList() {
                                 key={t.value}
                                 type="button"
                                 onClick={() => setStatusFilter(t.value)}
-                                className={`h-6 px-2 rounded text-[11.5px] font-medium transition-colors ${
+                                className={`h-6 px-2.5 rounded text-[11.5px] font-medium transition-colors inline-flex items-center gap-1.5 ${
                                     status === t.value
                                         ? "bg-white text-slate-900 shadow-sm"
                                         : "text-slate-500 hover:text-slate-900"
                                 }`}
                             >
-                                {t.label}
-                                <span className={`ms-1 tabular-nums ${status === t.value ? "text-slate-400" : "text-slate-400/80"}`}>
+                                <span>{t.label}</span>
+                                <span className={`tabular-nums ${status === t.value ? "text-slate-400" : "text-slate-400/80"}`}>
                                     {statusCounts[t.value]}
                                 </span>
                             </button>

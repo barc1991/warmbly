@@ -27,7 +27,6 @@ import { PlanPill } from "./PlanPill";
 import { VersionPill } from "./VersionPill";
 import { CreditsMeter } from "./CreditsMeter";
 import { useTranslation } from "react-i18next";
-import { LanguageSwitcher } from "@/components/shared/LanguageSwitcher";
 
 // Pretty labels for path segments. Anything missing falls back to the
 // raw segment with its first letter capitalised.
@@ -218,7 +217,6 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
                 <ConnectionIndicator />
                 <NotificationBell />
                 <AssistantButton />
-                <LanguageSwitcher compact />
                 <button
                     onClick={() => setCommandPaletteOpen(true)}
                     className="flex items-center gap-2 px-2 h-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors text-[12.5px]"

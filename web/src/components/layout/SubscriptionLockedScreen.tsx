@@ -56,8 +56,8 @@ export default function SubscriptionLockedScreen({ feature }: { feature: string 
                     <Path
                         icon={InboxIcon}
                         eyebrow="Included"
-                        title="Warm up to 10 mailboxes"
-                        body="Connect mailboxes and they warm in the Warmbly pool at no cost, with replies and spam rescue handled for you."
+                        title="Warm up mailboxes"
+                        body="Connect mailboxes and start warming them directly, with replies and schedule handled for you."
                         cta="Go to mailboxes"
                         to="/app/emails"
                     />
@@ -65,15 +65,14 @@ export default function SubscriptionLockedScreen({ feature }: { feature: string 
                         icon={ServerIcon}
                         eyebrow="Free"
                         title="Self-host Warmbly"
-                        body="Run the whole platform on your server, unlimited, then link the instance so this workspace warms its mailboxes."
+                        body="Run the whole platform on your server, unlimited."
                         cta="Self-host guide"
                         href={SELF_HOST_DOCS}
-                        secondary={{ label: "Linked instances", to: "/app/settings/warmbly-cloud" }}
                     />
                     <Path
                         icon={CloudIcon}
                         eyebrow={starter.priceMonthly != null ? `From $${starter.priceMonthly}/mo` : "Plans"}
-                        title="Send from Warmbly Cloud"
+                        title="Hosted plans"
                         body="Campaigns, the unified inbox, contacts, CRM, automations and integrations on our infrastructure."
                         bullets={starter.bullets}
                         cta={isOwner ? "Choose a plan" : "See plans"}

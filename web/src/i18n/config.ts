@@ -1,6 +1,5 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import LanguageDetector from "i18next-browser-languagedetector";
 
 import enCommon from "./locales/en/common.json";
 import enNav from "./locales/en/nav.json";
@@ -68,32 +67,27 @@ export const resources = {
 
 export type LocaleNamespace = keyof (typeof resources)["en"];
 
-// Determine initial language from localStorage or default to Hebrew ("he")
-const savedLocale = typeof window !== "undefined" ? localStorage.getItem("warmbly_locale") : null;
-const initialLocale = savedLocale || "he";
+// Default strictly to Hebrew ("he")
+if (typeof window !== "undefined") {
+    localStorage.setItem("warmbly_locale", "he");
+}
 
 i18n
-    .use(LanguageDetector)
     .use(initReactI18next)
     .init({
         resources,
-        lng: initialLocale,
+        lng: "he",
         fallbackLng: "he",
         defaultNS: "common",
         ns: ["common", "nav", "auth", "campaigns", "mailboxes", "contacts", "crm", "unibox", "settings"],
         interpolation: {
             escapeValue: false, // React already escapes values
         },
-        detection: {
-            order: ["localStorage", "navigator"],
-            lookupLocalStorage: "warmbly_locale",
-            caches: ["localStorage"],
-        },
     });
 
 // Sync initial HTML direction on module load
 if (typeof document !== "undefined") {
-    syncDocumentDirection(initialLocale);
+    syncDocumentDirection("he");
 }
 
 export async function changeAppLanguage(lang: string): Promise<void> {

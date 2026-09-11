@@ -91,7 +91,6 @@ const GROUPS: SectionGroup[] = [
     {
         label: "מתקדם",
         items: [
-            { path: "warmbly-cloud", label: "ענן Warmbly", icon: CloudIcon, description: "חימום תיבות דואר במאגר הקהילתי המשותף.", permission: "MANAGE_SETTINGS" },
             { path: "data", label: "נתונים", icon: DatabaseIcon, description: "ייצוא או ייבוא ארכיון נתונים של הארגון.", ownerOnly: true },
             { path: "danger", label: "אזור מסוכן", icon: AlertOctagonIcon, description: "פעולות בלתי הפיכות ומחיקת סביבת עבודה." },
         ],

@@ -10,15 +10,15 @@ interface DirectionContextValue {
 }
 
 const DirectionContext = createContext<DirectionContextValue>({
-    dir: "ltr",
-    isRTL: false,
-    language: "en",
+    dir: "rtl",
+    isRTL: true,
+    language: "he",
     setLanguage: async () => {},
 });
 
 export function DirectionProvider({ children }: { children: React.ReactNode }) {
     const { i18n } = useTranslation();
-    const [currentLanguage, setCurrentLanguage] = useState(i18n.language || "en");
+    const [currentLanguage, setCurrentLanguage] = useState(i18n.language || "he");
 
     useEffect(() => {
         const handleLanguageChanged = (lng: string) => {

@@ -5,8 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
-import useAuthConfig from "@/lib/api/hooks/auth/useAuthConfig";
-import CloudLinkCard from "@/components/app/cloud/CloudLinkCard";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 
@@ -56,13 +55,7 @@ const BASE_STEPS = [
     },
 ];
 
-// Self-hosted instances get one more step: linking to Warmbly Cloud so the
-// pool warms their mailboxes. Skippable; Settings > Warmbly Cloud has it too.
-const CLOUD_STEP = {
-    fields: [] as const,
-    title: "Warm up your mailboxes",
-    subtitle: "Get started links this instance to Warmbly Cloud so it warms your mailboxes. You can skip it.",
-};
+
 
 const ROLES = [
     { value: "founder", label: "Founder" },
@@ -156,13 +149,7 @@ export default function OnboardingPage() {
     const updateOrganization = useUpdateOrganization();
     const { data: org } = useCurrentOrganization();
 
-    const authConfig = useAuthConfig();
-    const selfHosted = authConfig.data?.self_hosted === true;
-    const STEPS = useMemo(() => (selfHosted ? [...BASE_STEPS, CLOUD_STEP] : BASE_STEPS), [selfHosted]);
-    const cloudStep = selfHosted ? STEPS.length - 1 : -1;
-    const [cloudLinked, setCloudLinked] = useState(false);
-    const [cloudOrg, setCloudOrg] = useState("");
-    const [cloudStart, setCloudStart] = useState(0);
+    const STEPS = BASE_STEPS;
 
     const [step, setStep] = useState(0);
     const isLast = step === STEPS.length - 1;
@@ -211,12 +198,6 @@ export default function OnboardingPage() {
         e.preventDefault();
         if (pending) return;
         const ok = await trigger(STEPS[step].fields as unknown as (keyof OnboardingForm)[]);
-        if (!ok) return;
-        if (step === cloudStep && !cloudLinked) {
-            // First press asks the cloud for a code; the card then waits for approval.
-            setCloudStart((n) => n + 1);
-            return;
-        }
         if (isLast) await finish();
         else setStep((s) => s + 1);
     };
@@ -329,40 +310,10 @@ export default function OnboardingPage() {
                                 />
                             </div>
                         )}
-
-                        {step === cloudStep && (
-                            <div className="rounded-lg border border-slate-200 bg-white p-4">
-                                <CloudLinkCard
-                                    compact
-                                    minimal
-                                    startSignal={cloudStart}
-                                    linked={cloudLinked}
-                                    orgName={cloudOrg}
-                                    onLinked={(name) => {
-                                        setCloudOrg(name);
-                                        setCloudLinked(true);
-                                    }}
-                                />
-                            </div>
-                        )}
                     </motion.div>
                 </AnimatePresence>
 
-                <AuthButton loading={isLast && pending}>{step === cloudStep && cloudStart > 0 && !cloudLinked ? "Waiting for approval" : isLast ? "Get started" : "Continue"}</AuthButton>
-
-                {isLast && step === cloudStep && (
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (pending) return;
-                            void finish();
-                        }}
-                        disabled={pending}
-                        className="w-full text-center text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                    >
-                        Skip for now
-                    </button>
-                )}
+                <AuthButton loading={isLast && pending}>{isLast ? "Get started" : "Continue"}</AuthButton>
             </form>
         </div>
     );

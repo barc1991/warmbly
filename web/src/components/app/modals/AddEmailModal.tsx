@@ -160,10 +160,7 @@ export default function AddEmailModal() {
     // with a link, not a transient failure.
     const [notConfigured, setNotConfigured] = React.useState<OAuthProvider | null>(null);
     const pendingState = React.useRef<{ provider: OAuthProvider; state: string } | null>(null);
-    // A consent running on Warmbly Cloud's app; redeemed by session, not code.
-    const pendingCloud = React.useRef<{ provider: OAuthProvider; session: string } | null>(null);
-    const pool = useCloudPool();
-    const viaCloud = pool.connected;
+    const viaCloud = false;
 
     // The allowance is read while the modal is open so the picker can show it
     // and a refused connect can explain itself. Fetched from the same query
@@ -193,57 +190,10 @@ export default function AddEmailModal() {
             setNotConfigured(null);
             setAllowanceOpen(false);
             pendingState.current = null;
-            pendingCloud.current = null;
         }
     }, [user.addEmail]);
 
-    // The cloud-brokered popup lands on our own origin (/cloud-oauth/done).
-    React.useEffect(() => {
-        function onMessage(event: MessageEvent) {
-            if (event.origin !== window.location.origin) return;
-            const data = event.data as CloudOAuthDoneMessage | undefined;
-            if (!data || data.type !== "cloud_oauth_callback") return;
-            const expected = pendingCloud.current;
-            if (!expected || expected.session !== data.session) return;
-            pendingCloud.current = null;
-            if (data.status !== "ok") {
-                setOauthBusy(null);
-                if (data.error !== "access_denied") {
-                    toast.error(
-                        data.message ||
-                            (data.error
-                                ? isHe
-                                    ? `שגיאת ספק: ${data.error}`
-                                    : `Provider error: ${data.error}`
-                                : isHe
-                                  ? "ההתחברות בוטלה."
-                                  : "Connection was cancelled."),
-                    );
-                }
-                return;
-            }
-            void toast.promise(
-                finishCloudOAuth(data.session).then((inbox) => {
-                    qc.invalidateQueries({ queryKey: ["emails", "list"] });
-                    qc.invalidateQueries({ queryKey: ["cloud-link"] });
-                    capture("mailbox_connected", { provider: expected.provider, method: "cloud" });
-                    user.setAddEmail(false);
-                    return inbox;
-                }),
-                {
-                    loading: isHe ? "מחבר את התיבה…" : "Adding the mailbox…",
-                    success: isHe
-                        ? "תיבת הדואר חוברה בהצלחה. Warmbly Cloud יחמם אותה מעכשיו."
-                        : "Mailbox connected. Warmbly Cloud warms it from now on.",
-                    error: (e: AppError) => buildError(e),
-                },
-            )
-                .catch(onConnectError)
-                .finally(() => setOauthBusy(null));
-        }
-        window.addEventListener("message", onMessage);
-        return () => window.removeEventListener("message", onMessage);
-    }, [qc, user, onConnectError, isHe]);
+
 
     // Listen for the OAuth popup's postMessage. We only honour messages from an
     // origin we own and whose state matches the one we issued, which is what
@@ -301,31 +251,7 @@ export default function AddEmailModal() {
         if (oauthBusy) return;
         setOauthBusy(provider);
         setNotConfigured(null);
-        if (viaCloud) {
-            try {
-                const { url, session } = await startCloudOAuth(provider);
-                pendingCloud.current = { provider, session };
-                const popup = openCentered(url, `connect-${provider}`);
-                if (!popup) {
-                    pendingCloud.current = null;
-                    setOauthBusy(null);
-                    toast.error(
-                        isHe
-                            ? "לא ניתן לפתוח את חלון האישור. נא לאפשר חלונות קופצים (Popups) ולנסות שוב."
-                            : "Could not open the authorization window. Please allow popups and try again.",
-                    );
-                }
-            } catch (err) {
-                pendingCloud.current = null;
-                setOauthBusy(null);
-                if (isAllowanceError(err)) {
-                    openAllowance(true);
-                    return;
-                }
-                toast.error(buildError(err as AppError));
-            }
-            return;
-        }
+
         try {
             const effSlotId = slotId ?? selectedSlotId ?? undefined;
             const { url, state } = await onboardOAuthStart(provider, effSlotId);
@@ -415,7 +341,7 @@ export default function AddEmailModal() {
                                     )}
                                     {view === "gmail" && (
                                         notConfigured === "gmail" ? (
-                                            <ProviderNotConfigured provider="gmail" selfHosted={pool.selfHosted} />
+                                            <ProviderNotConfigured provider="gmail" selfHosted={true} />
                                         ) : (
                                             <OAuthPanel
                                                 provider="gmail"
@@ -430,7 +356,7 @@ export default function AddEmailModal() {
                                     )}
                                     {view === "outlook" && (
                                         notConfigured === "outlook" ? (
-                                            <ProviderNotConfigured provider="outlook" selfHosted={pool.selfHosted} />
+                                            <ProviderNotConfigured provider="outlook" selfHosted={true} />
                                         ) : (
                                             <OAuthPanel
                                                 provider="outlook"
@@ -644,27 +570,7 @@ function ProviderNotConfigured({ provider, selfHosted }: { provider: OAuthProvid
                 </div>
             </div>
 
-            {selfHosted && (
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 flex items-start gap-2.5">
-                    <CloudIcon className="w-4 h-4 text-slate-600 mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                        <p className="text-[12.5px] font-medium text-slate-900">
-                            {isHe ? "אפשרות חלופית: התחבר ל-Warmbly Cloud" : "Alternative: connect Warmbly Cloud"}
-                        </p>
-                        <p className="text-[12px] text-slate-600 mt-1">
-                            {isHe
-                                ? "מופעים מקושרים מתחברים לתיבות דרך האפליקציות של Google ו-Microsoft של Warmbly, והענן מחמם אותן. חינם עבור 10 תיבות."
-                                : "Linked instances sign mailboxes in through Warmbly's own Google and Microsoft apps, and the cloud warms them. Free for 10 mailboxes."}
-                        </p>
-                        <a
-                            href="/app/settings/warmbly-cloud"
-                            className="mt-2 inline-flex h-6 px-2.5 items-center gap-1.5 rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-[11.5px] font-medium transition-colors"
-                        >
-                            {isHe ? "התחבר ל-Warmbly Cloud" : "Connect Warmbly Cloud"}
-                        </a>
-                    </div>
-                </div>
-            )}
+
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
                 <div className="flex items-start gap-2.5">
                     <SettingsIcon className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
@@ -737,18 +643,18 @@ function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => vo
             key: "gmail",
             icon: <Google className="w-5 h-5" />,
             title: isHe ? "Gmail / Google Workspace" : "Gmail / Google Workspace",
-            sub: viaCloud
-                ? (isHe ? "התחברות דרך Warmbly Cloud. חימום כלול, ללא צורך באפליקציית OAuth." : "Sign in through Warmbly Cloud. Warmup included, no OAuth app needed.")
-                : (isHe ? "חיבור OAuth מאובטח מול Google. עבירות מיטבית עבור Gmail." : "OAuth via Google. Best deliverability for Gmail."),
+            sub: isHe
+                ? "חיבור OAuth מאובטח מול Google. עבירות מיטבית עבור Gmail."
+                : "OAuth via Google. Best deliverability for Gmail.",
             tone: "primary",
         },
         {
             key: "outlook",
             icon: <Outlook className="w-5 h-5" />,
             title: isHe ? "Outlook / Microsoft 365" : "Outlook / Microsoft 365",
-            sub: viaCloud
-                ? (isHe ? "התחברות דרך Warmbly Cloud. חימום כלול, ללא צורך באפליקציית OAuth." : "Sign in through Warmbly Cloud. Warmup included, no OAuth app needed.")
-                : (isHe ? "חיבור OAuth מאובטח מול Microsoft. סנכרון טבעי לחשבונות Outlook." : "OAuth via Microsoft. Native sync for Outlook accounts."),
+            sub: isHe
+                ? "חיבור OAuth מאובטח מול Microsoft. סנכרון טבעי לחשבונות Outlook."
+                : "OAuth via Microsoft. Native sync for Outlook accounts.",
             tone: "primary",
         },
         {
@@ -795,62 +701,8 @@ function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => vo
 
 // Mailboxes connected directly on the linked Warmbly Cloud workspace: one
 // click brings each one here, sending with tokens the cloud brokers.
-function WorkspaceMailboxes({ onAdopted }: { onAdopted: () => void }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language?.startsWith("he");
-    const list = useCloudWorkspaceMailboxes();
-    const adopt = useAdoptCloudMailbox();
-    const [busy, setBusy] = React.useState<string | null>(null);
-    const items = list.data ?? [];
-    if (list.isLoading || items.length === 0) return null;
-
-    const run = async (id: string, email: string) => {
-        setBusy(id);
-        try {
-            await adopt.mutateAsync(id);
-            toast.success(isHe ? `${email} חובר בהצלחה` : `${email} connected`);
-            onAdopted();
-        } catch (e) {
-            toast.error(buildError(e as AppError));
-        } finally {
-            setBusy(null);
-        }
-    };
-
-    return (
-        <div className="px-4 py-3 bg-sky-50/40">
-            <div className="flex items-center gap-1.5 mb-2">
-                <CloudIcon className="w-3.5 h-3.5 text-sky-600" />
-                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    {isHe ? "במרחב העבודה שלך ב-Warmbly Cloud" : "In your Warmbly Cloud workspace"}
-                </span>
-            </div>
-            <div className="space-y-1.5">
-                {items.map((m) => (
-                    <div key={m.id} className="flex items-center gap-2.5 rounded-md border border-slate-200 bg-white px-2.5 py-2">
-                        <div className="size-7 rounded-md border border-slate-200 bg-white flex items-center justify-center shrink-0">
-                            {m.provider === "gmail" ? <Google className="w-4 h-4" /> : <Outlook className="w-4 h-4" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <div className="text-[12.5px] text-slate-900 truncate">{m.email}</div>
-                            <div className="text-[11px] text-slate-500 truncate">
-                                {isHe ? "מחובר בענן. הוסף אותו כאן כדי לשלוח קמפיינים דרכו." : "Connected on the cloud. Add it here to send campaigns from it."}
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            disabled={busy === m.id}
-                            onClick={() => void run(m.id, m.email)}
-                            className="shrink-0 h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
-                        >
-                            {busy === m.id ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                            {isHe ? "התחבר" : "Connect"}
-                        </button>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+function WorkspaceMailboxes(_props: { onAdopted: () => void }) {
+    return null;
 }
 
 function OAuthSlotSelector({
@@ -1028,13 +880,9 @@ function OAuthPanel({
                         {isHe ? `התחברות באמצעות ${label}` : `Connect with ${label}`}
                     </div>
                     <div className="text-[11.5px] text-slate-500">
-                        {viaCloud
-                            ? (isHe
-                                ? `Warmbly Cloud יפתח חלון של ${label} באפליקציה שלו. מאשרים ומסיימים.`
-                                : `Warmbly Cloud opens the ${label} window on its own app. Approve and you're done.`)
-                            : (isHe
-                                ? `נפתח חלון התחברות של ${label}. יש לאשר את ההרשאות כדי לסיים.`
-                                : `We'll open a ${label} window. Approve the scopes and you're done.`)}
+                        {isHe
+                            ? `נפתח חלון התחברות של ${label}. יש לאשר את ההרשאות כדי לסיים.`
+                            : `We'll open a ${label} window. Approve the scopes and you're done.`}
                     </div>
                 </div>
             </div>
@@ -1136,19 +984,11 @@ function OAuthPanel({
                 </div>
             )}
 
-            {viaCloud ? (
-                <ul className="text-[11.5px] text-slate-600 space-y-1.5 px-1">
-                    <Scope>{isHe ? "שליחת קמפיינים וסנכרון תגובות משרת זה, כרגיל" : "Sends campaigns and syncs replies from this server, as usual"}</Scope>
-                    <Scope>{isHe ? "Warmbly Cloud שומר על החיבור ומחמם את התיבה במאגר שלו" : "Warmbly Cloud keeps the sign-in and warms the mailbox in its pool"}</Scope>
-                    <Scope>{isHe ? "התיבה תופיע גם במרחב העבודה בענן; ניתן להסירה מכל צד" : "The mailbox also appears in your cloud workspace; remove it from either side"}</Scope>
-                </ul>
-            ) : (
-                <ul className="text-[11.5px] text-slate-600 space-y-1.5 px-1">
-                    <Scope>{isHe ? "שליחה וקריאה של מיילים בשמך" : "Send and read mail on your behalf"}</Scope>
-                    <Scope>{isHe ? "מעקב אחר מענים ומסירות" : "Track replies and deliveries"}</Scope>
-                    <Scope>{isHe ? "אסימוני הגישה נשמרים מוצפנים; ניתן לבטל גישה בכל עת" : "Refresh tokens are stored encrypted; revoke any time"}</Scope>
-                </ul>
-            )}
+            <ul className="text-[11.5px] text-slate-600 space-y-1.5 px-1">
+                <Scope>{isHe ? "שליחה וקריאה של מיילים בשמך" : "Send and read mail on your behalf"}</Scope>
+                <Scope>{isHe ? "מעקב אחר מענים ומסירות" : "Track replies and deliveries"}</Scope>
+                <Scope>{isHe ? "אסימוני הגישה נשמרים מוצפנים; ניתן לבטל גישה בכל עת" : "Refresh tokens are stored encrypted; revoke any time"}</Scope>
+            </ul>
 
             <motion.button
                 type="button"
