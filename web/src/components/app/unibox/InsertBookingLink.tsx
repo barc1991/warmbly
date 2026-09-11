@@ -31,15 +31,15 @@ export default function InsertBookingLink({
     return (
         <button
             type="button"
-            title="Insert your booking link, prefilled for this contact"
+            title="הוסף קישור לקביעת פגישה, ממולא מראש עבור איש קשר זה"
             onClick={() => {
                 onInsert(prefilledBookingURL(url, cleanEmail));
-                toast.success("Booking link added");
+                toast.success("קישור לפגישה נוסף");
             }}
             className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors"
         >
             <CalendarPlusIcon className="w-3 h-3" />
-            Booking link
+            קישור לפגישה
         </button>
     );
 }

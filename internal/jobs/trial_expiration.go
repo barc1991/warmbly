@@ -103,8 +103,8 @@ func (j *TrialExpirationJob) Run(ctx context.Context) error {
 		if j.notifier != nil && sub.OrganizationID != uuid.Nil {
 			j.notifier.NotifyOrg(ctx, sub.OrganizationID, models.PermManageBilling, uuid.Nil,
 				models.NotifBillingAlert,
-				"Your Warmbly trial has expired",
-				"Campaigns are paused and warmup is disabled until you upgrade.",
+				"תקופת הניסיון שלך הסתיימה",
+				"הקמפיינים והחימום מושהים עד לשדרוג תוכנית המנוי.",
 				"/app/settings/billing", nil,
 				"trial_expired:"+sub.OrganizationID.String())
 			continue

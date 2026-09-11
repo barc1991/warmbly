@@ -132,7 +132,7 @@ func (s *service) announce(ctx context.Context, c repository.GuardrailCampaign, 
 	if s.notifier != nil {
 		s.notifier.NotifyOrg(ctx, orgID, models.PermViewCampaigns, uuid.Nil,
 			models.NotifCampaignPaused,
-			fmt.Sprintf("%s was paused automatically", c.Name),
+			fmt.Sprintf("הקמפיין %s הושהה אוטומטית", c.Name),
 			b.Reason,
 			"/app/campaigns/"+campaignID.String(),
 			map[string]any{

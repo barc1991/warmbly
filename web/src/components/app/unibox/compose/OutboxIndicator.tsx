@@ -110,13 +110,13 @@ export default function OutboxIndicator() {
             void queryClient.invalidateQueries({ queryKey: ["unibox"] });
             if (entry.kind === "compose" && entry.seed) {
                 useComposeStore.getState().openDraft(entry.seed);
-                toast.success("Send cancelled, back to your draft");
+                toast.success("השליחה בוטלה, חזרת לטיוטה");
             } else if (entry.kind === "reply" && entry.reply) {
                 useOutboxStore.getState().setReplyRestore(entry.reply);
                 navigate(`/app/unibox/all/${encodeURIComponent(entry.reply.threadId)}`);
-                toast.success("Send cancelled, back to your reply");
+                toast.success("השליחה בוטלה, חזרת לתגובה שלך");
             } else {
-                toast.success("Send cancelled");
+                toast.success("השליחה בוטלה");
             }
         } catch (e) {
             const err = e as AppError;
@@ -124,7 +124,7 @@ export default function OutboxIndicator() {
                 // The task already fired; nothing left to cancel.
                 remove(entry.taskId);
                 void queryClient.invalidateQueries({ queryKey: ["unibox"] });
-                toast.error("Already sent");
+                toast.error("ההודעה כבר נשלחה");
             } else {
                 toast.error(buildError(err));
             }

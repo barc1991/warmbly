@@ -104,15 +104,15 @@ func (s *JobsService) notifyDomainAuthFailing(ctx context.Context, domain, summa
 	}
 
 	for orgID, n := range counts {
-		subject := fmt.Sprintf("%d mailboxes on %s are", n, domain)
+		subject := fmt.Sprintf("%d תיבות דואר בדומיין %s", n, domain)
 		if n == 1 {
-			subject = fmt.Sprintf("A mailbox on %s is", domain)
+			subject = fmt.Sprintf("תיבת דואר בדומיין %s", domain)
 		}
 		body := fmt.Sprintf(
-			"%s sending from a domain that is failing authentication (%s). Gmail, Yahoo, and Outlook reject or spam-filter unauthenticated mail, so add the missing DNS records at your registrar. If the domain is still failing after the grace period, cold sending and warmup from those mailboxes stop automatically.",
+			"%s שולחות מדומיין שאינו עובר אימות (%s). ספקיות דואר (Gmail, Yahoo, Outlook) עלולות לדחות או להעביר לספאם מיילים ללא אימות תקין. יש להגדיר את רשומות ה-DNS החסרות אצל רשם הדומיין שלך.",
 			subject, summary)
 		s.Notifier.NotifyOrg(ctx, orgID, models.PermManageEmails, uuid.Nil, models.NotifDomainAuth,
-			"Sending domain is failing authentication", body, "/app/emails",
+			"אימות דומיין השליחה נכשל (SPF / DKIM)", body, "/app/emails",
 			map[string]any{"domain": domain, "mailboxes": n, "summary": summary},
 			"domain_auth:"+domain)
 	}

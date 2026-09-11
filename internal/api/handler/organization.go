@@ -456,8 +456,8 @@ func (h *Handler) AcceptInvitation(c *gin.Context) {
 			defer cancel()
 			h.NotificationService.NotifyOrg(ctx, orgID, models.PermManageTeam, joinerID,
 				models.NotifTeamActivity,
-				joiner+" joined your workspace",
-				user.Email+" accepted their invitation.",
+				joiner+" הצטרף/ה לסביבת העבודה שלך",
+				user.Email+" קיבל/ה את ההזמנה.",
 				"/app/settings/members", nil,
 				"member_joined:"+joinerID.String())
 		}()

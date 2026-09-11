@@ -123,7 +123,7 @@ export function useAIDraft({ value, onChange, generate, maxLen }: UseAIDraftOpti
                     if (runId.current !== id) return;
                     const err = e as AppError;
                     if (err?.status === 402) {
-                        toast.error("You're out of AI credits. Upgrade or purchase more to keep drafting.");
+                        toast.error("מכסת קרדיטי ה-AI שלך אזלה. אנא רכוש או שדרג את התוכנית כדי להמשיך.");
                     } else {
                         toast.error(buildError(err));
                     }

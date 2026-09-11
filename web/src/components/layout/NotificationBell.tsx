@@ -26,7 +26,7 @@ import {
     useMarkAllNotificationsRead,
     useMarkNotificationRead,
 } from "@/lib/api/hooks/app/notifications/useNotifications";
-import type { AppNotification } from "@/lib/api/models/app/notifications/Notification";
+import { type AppNotification, localizeNotification } from "@/lib/api/models/app/notifications/Notification";
 
 // Per-category icon + tone so the list scans by kind before reading titles.
 const CATEGORY_META: Record<string, { icon: LucideIcon; tone: string }> = {
@@ -109,6 +109,7 @@ export function NotificationBell() {
     const itemBody = (n: AppNotification) => {
         const meta = CATEGORY_META[n.category] ?? FALLBACK_META;
         const Icon = meta.icon;
+        const loc = localizeNotification(n);
         return (
             <div className="flex items-start gap-2.5">
                 <span className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md ${meta.tone}`}>
@@ -120,11 +121,11 @@ export function NotificationBell() {
                             n.read_at ? "font-normal text-slate-600" : "font-semibold text-slate-900"
                         }`}
                     >
-                        {n.title}
+                        {loc.title}
                     </div>
-                    {n.body && (
+                    {loc.body && (
                         <div className={`text-[11px] truncate ${n.read_at ? "text-slate-400" : "text-slate-500"}`}>
-                            {n.body}
+                            {loc.body}
                         </div>
                     )}
                 </div>

@@ -191,7 +191,7 @@ export default function RichTextAIEdit({ editor }: { editor: Editor }) {
                     onError: (e) => {
                         const err = e as unknown as AppError;
                         if (err?.status === 402) {
-                            toast.error("You're out of AI credits. Upgrade or purchase more to keep editing with AI.");
+                            toast.error("מכסת קרדיטי ה-AI שלך אזלה. אנא רכוש או שדרג את התוכנית כדי להמשיך.");
                         } else {
                             toast.error(buildError(err));
                         }

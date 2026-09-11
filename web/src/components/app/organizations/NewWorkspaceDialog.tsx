@@ -34,13 +34,13 @@ export function NewWorkspaceDialog({ open, onClose }: Props) {
     async function submit() {
         const t = name.trim();
         if (t.length < 2) {
-            toast.error("Name is required");
+            toast.error("יש להזין שם עבור סביבת העבודה (לפחות 2 תווים)");
             return;
         }
         try {
             const org = await toast.promise(create.mutateAsync({ name: t }), {
-                loading: "Creating workspace…",
-                success: "Workspace created",
+                loading: "יוצר סביבת עבודה…",
+                success: "סביבת העבודה נוצרה בהצלחה",
                 error: (e: AppError) => buildError(e),
             });
             // Activate immediately so the rest of the dashboard sees it.

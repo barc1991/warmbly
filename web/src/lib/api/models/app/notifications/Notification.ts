@@ -90,3 +90,97 @@ export interface AppNotification {
     read_at?: string | null;
     created_at: string;
 }
+
+export function localizeNotification(n: AppNotification): { title: string; body?: string } {
+    let title = n.title || "";
+    let body = n.body;
+
+    switch (n.category) {
+        case "security_new_signin": {
+            if (!title || title.includes("New sign-in") || title.includes("sign-in")) {
+                title = "התחברות חדשה לחשבונך";
+            }
+            if (body) {
+                body = body
+                    .replace(/Signed in from/gi, "התחברות זוהתה מ-")
+                    .replace(/on Windows/gi, "בווינדוס")
+                    .replace(/on macOS/gi, "ב-macOS")
+                    .replace(/on Linux/gi, "בלינוקס")
+                    .replace(/on iOS/gi, "ב-iOS")
+                    .replace(/on Android/gi, "באנדרואיד")
+                    .replace(/an unrecognized device/gi, "מכשיר לא מזוהה")
+                    .replace(/\.?\s*If this wasn't you, change your password and sign out other sessions\.?/gi, ". אם זה לא היית אתה, מומלץ לשנות סיסמה ולנתק הפעלות אחרות.");
+            }
+            break;
+        }
+        case "inbound_reply": {
+            if (title.startsWith("New reply from ")) {
+                title = `תשובה חדשה מאת ${title.replace("New reply from ", "")}`;
+            }
+            break;
+        }
+        case "inbound_out_of_office": {
+            if (title.startsWith("Out-of-office from ")) {
+                title = `מענה אוטומטי (מחוץ למשרד) מאת ${title.replace("Out-of-office from ", "")}`;
+            }
+            break;
+        }
+        case "health_bounce": {
+            if (title.startsWith("Bounce: ")) {
+                title = `שגיאת מסירה (Bounce): ${title.replace("Bounce: ", "")}`;
+            }
+            break;
+        }
+        case "health_complaint": {
+            if (title.startsWith("Spam complaint: ")) {
+                title = `תלונת ספאם: ${title.replace("Spam complaint: ", "")}`;
+            }
+            break;
+        }
+        case "health_worker_downtime": {
+            if (title.includes("Sending worker went offline") || title.includes("worker")) {
+                title = "שרת שליחה (Worker) התנתק";
+            }
+            if (body && (body.includes("One of your mailboxes was") || body.includes("stopped responding"))) {
+                body = "אחת מתיבות הדואר שלך פעלה על שרת שליחה שהפסיק להגיב. המערכת העבירה אותה לשרת תקין אוטומטית.";
+            }
+            break;
+        }
+        case "health_domain_auth": {
+            if (title.includes("Sending domain is failing authentication") || title.includes("domain")) {
+                title = "אימות דומיין השליחה נכשל (SPF / DKIM)";
+            }
+            if (body && body.includes("failing authentication")) {
+                body = "אחת או יותר מתיבות הדואר פועלות בדומיין שאינו עובר אימות תקין (SPF / DKIM / DMARC). יש לעדכן את רשומות ה-DNS כדי למנוע חסימת שליחה.";
+            }
+            break;
+        }
+        case "campaign_paused": {
+            if (title.includes("was paused automatically")) {
+                title = title.replace("was paused automatically", "הושהה אוטומטית");
+            }
+            break;
+        }
+        case "billing_alert": {
+            if (title.includes("trial has expired") || title.includes("Warmbly trial")) {
+                title = "תקופת הניסיון שלך הסתיימה";
+            }
+            if (body && body.includes("Campaigns are paused")) {
+                body = "הקמפיינים והחימום הושהו עד לשדרוג תוכנית המנוי.";
+            }
+            break;
+        }
+        case "team_activity": {
+            if (title.includes("joined your workspace")) {
+                title = title.replace("joined your workspace", "הצטרף/ה לסביבת העבודה שלך");
+            }
+            if (body && body.includes("accepted their invitation")) {
+                body = body.replace("accepted their invitation.", "אישר/ה את ההזמנה לסביבת העבודה.");
+            }
+            break;
+        }
+    }
+
+    return { title, body };
+}
+

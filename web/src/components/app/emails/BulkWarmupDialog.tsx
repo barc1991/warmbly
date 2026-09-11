@@ -45,7 +45,7 @@ export default function BulkWarmupDialog({
     const start = async () => {
         if (busy || n === 0) return;
         if (customize && baseOverMax) {
-            toast.error("Starting volume can't exceed the maximum.");
+            toast.error("כמות השליחה ההתחלתית אינה יכולה לעלות על הכמות המקסימלית.");
             return;
         }
         setBusy(true);
@@ -71,9 +71,9 @@ export default function BulkWarmupDialog({
         await queryClient.invalidateQueries({ queryKey: ["analytics", "accounts"] });
         setBusy(false);
         if (failed > 0) {
-            toast.error(`${failed} of ${n} mailbox${n > 1 ? "es" : ""} couldn't start`);
+            toast.error(`${failed} מתוך ${n} תיבות דואר לא הצליחו להתחיל`);
         } else {
-            toast.success(`Warmup started for ${n} mailbox${n > 1 ? "es" : ""}`);
+            toast.success(`החימום הופעל בהצלחה עבור ${n} תיבות דואר`);
         }
         onComplete();
         onClose();

@@ -455,7 +455,7 @@ export default function LoginPage() {
                 if (pendingRef.current) {
                     pendingRef.current = null;
                     setCaptchaLoading(false);
-                    toast.error("Verification timed out. Please try again.");
+                    toast.error("פג תוקף האימות. אנא נסה שוב.");
                     turnstileRef.current?.reset();
                 }
             }, 10000);
@@ -488,7 +488,7 @@ export default function LoginPage() {
         if (pendingRef.current) {
             pendingRef.current = null;
             setCaptchaLoading(false);
-            toast.error("Verification failed. Please try again.");
+            toast.error("האימות נכשל. אנא נסה שוב.");
         }
         tokenRef.current = "";
         turnstileRef.current?.reset();
@@ -498,7 +498,7 @@ export default function LoginPage() {
     const finishDirectLogin = useCallback(async (res: Session): Promise<boolean> => {
         if (res.two_fa_required) {
             if (!res.pending_token) {
-                toast.error("Something went wrong, please try again.");
+                toast.error("משהו השתבש, אנא נסה שוב.");
                 return false;
             }
             setPendingToken(res.pending_token);
@@ -506,10 +506,10 @@ export default function LoginPage() {
             return true;
         }
         if (!res.token?.access_token) {
-            toast.error("Something went wrong, please try again.");
+            toast.error("משהו השתבש, אנא נסה שוב.");
             return false;
         }
-        toast.success("Welcome back!");
+        toast.success("ברוך שובך!");
         try { sessionStorage.setItem(SUGGEST_PASSKEY_FLAG, "1"); } catch { /* storage unavailable */ }
         await completeSession(res.token);
         return true;
@@ -548,7 +548,7 @@ export default function LoginPage() {
                     if (await finishDirectLogin(res)) return;
                     return;
                 }
-                toast.success("Verification code sent!");
+                toast.success("קוד האימות נשלח לאימייל שלך!");
                 setSession(res.session ?? "");
                 goTo("verify");
             } catch (e) {
@@ -573,16 +573,16 @@ export default function LoginPage() {
                 // is signed in: land in the dashboard.
                 if (!res.code_required) {
                     if (res.token) {
-                        toast.success("Welcome to Warmbly!");
+                        toast.success("ברוך הבא!");
                         await completeSession(res.token);
                         return;
                     }
-                    toast.success("Account created. Sign in to continue.");
+                    toast.success("החשבון נוצר בהצלחה. התחבר כדי להמשיך.");
                     handleModeChange("signin");
                     goTo("signin");
                     return;
                 }
-                toast.success("Verification code sent!");
+                toast.success("קוד האימות נשלח לאימייל שלך!");
                 setSession(res.session ?? "");
                 goTo("verify");
             } catch (e) {

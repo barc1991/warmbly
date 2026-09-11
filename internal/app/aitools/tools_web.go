@@ -103,7 +103,7 @@ func (d Deps) fetchURL(ctx context.Context, _ Invocation, args json.RawMessage) 
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", "WarmblyBot/1.0 (+https://warmbly.com)")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "text/html,text/plain;q=0.9,*/*;q=0.5")
 
 	resp, err := client.Do(req)

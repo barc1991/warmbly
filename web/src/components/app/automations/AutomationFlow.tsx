@@ -939,7 +939,7 @@ export default function AutomationFlow({
         if (!dirty) {
             seedFrom(automation);
             serverVersionRef.current = incoming;
-            toast.success("Updated by a teammate", { id: "automation-remote" });
+            toast.success("עודכן על ידי חבר צוות", { id: "automation-remote" });
         } else {
             serverVersionRef.current = incoming; // mark seen so we don't re-prompt
             setRemoteUpdate(automation);
@@ -1071,34 +1071,34 @@ export default function AutomationFlow({
         for (const n of actionNodes) {
             const d = n.data as { action?: string; connection_id?: string; config?: Record<string, unknown> };
             if (!d.action) {
-                toast.error("Every action needs an action");
+                toast.error("יש לבחור פעולה עבור כל שלב פעולה");
                 setSelectedId(n.id);
                 return false;
             }
             if (isNativeAction(d.action)) {
                 const need = nativeActionNeeds(d.action);
                 if (need === "tag" && !String(d.config?.category_id ?? "").trim()) {
-                    toast.error("A tag action needs a tag");
+                    toast.error("פעולת תגית דורשת בחירת תגית");
                     setSelectedId(n.id);
                     return false;
                 }
                 if (need === "label" && !(Array.isArray(d.config?.label_ids) && d.config.label_ids.length > 0)) {
-                    toast.error("A label action needs at least one label");
+                    toast.error("פעולת תווית דורשת בחירת תווית אחת לפחות");
                     setSelectedId(n.id);
                     return false;
                 }
                 if (need === "label" && !triggerCarriesThread(trigger)) {
-                    toast.error("Label email only runs on a “Reply received” automation");
+                    toast.error("פעולת תיוג אימייל מופעלת רק באוטומציה של 'התקבלה תגובה'");
                     setSelectedId(n.id);
                     return false;
                 }
                 if (need === "deal" && (!String(d.config?.deal_pipeline_id ?? "").trim() || !String(d.config?.deal_stage_id ?? "").trim())) {
-                    toast.error("A deal action needs a pipeline and stage");
+                    toast.error("פעולת עסקה דורשת בחירת תהליך (Pipeline) ושלב");
                     setSelectedId(n.id);
                     return false;
                 }
                 if (need === "automation" && !String(d.config?.automation_id ?? "").trim()) {
-                    toast.error("A run-automation action needs a target automation");
+                    toast.error("פעולת הרצת אוטומציה דורשת בחירת אוטומציית יעד");
                     setSelectedId(n.id);
                     return false;
                 }
@@ -1107,22 +1107,22 @@ export default function AutomationFlow({
                     !(Array.isArray(d.config?.set_vars) &&
                         (d.config.set_vars as { key?: string }[]).some((v) => String(v?.key ?? "").trim()))
                 ) {
-                    toast.error("A set-variables action needs at least one named variable");
+                    toast.error("פעולת הגדרת משתנים דורשת לפחות משתנה אחד עם שם");
                     setSelectedId(n.id);
                     return false;
                 }
                 if (need === "event" && !String(d.config?.event_name ?? "").trim()) {
-                    toast.error("A fire-event action needs an event name");
+                    toast.error("פעולת יצירת אירוע דורשת שם אירוע");
                     setSelectedId(n.id);
                     return false;
                 }
                 if (need === "contact" && !String(d.config?.email ?? "").trim()) {
-                    toast.error("A create-or-update-contact action needs an email");
+                    toast.error("פעולת יצירת/עדכון איש קשר דורשת כתובת אימייל");
                     setSelectedId(n.id);
                     return false;
                 }
                 if (need === "campaign" && !String(d.config?.campaign_id ?? "").trim()) {
-                    toast.error("An add-to-campaign action needs a campaign");
+                    toast.error("פעולת הוספה לקמפיין דורשת בחירת קמפיין");
                     setSelectedId(n.id);
                     return false;
                 }
@@ -1132,7 +1132,7 @@ export default function AutomationFlow({
                 // Every AI node needs an instruction, except a value-mode switch
                 // (it matches a template with no model call).
                 if ((need === "ai_step" || need === "ai_switch") && !switchValueMode && !aiInstruction) {
-                    toast.error("An AI step needs an instruction");
+                    toast.error("שלב AI דורש הנחיה (Instruction)");
                     setSelectedId(n.id);
                     return false;
                 }
@@ -1141,7 +1141,7 @@ export default function AutomationFlow({
                         ? (d.config.allowed_actions as unknown[]).filter((a) => String(a).trim())
                         : [];
                     if (acts.length === 0) {
-                        toast.error("An AI agent step needs at least one allowed action");
+                        toast.error("שלב סוכן AI דורש לפחות פעולה מורשית אחת");
                         setSelectedId(n.id);
                         return false;
                     }
@@ -1151,7 +1151,7 @@ export default function AutomationFlow({
                     aiStepMode === "classify" &&
                     !(Array.isArray(d.config?.labels) && (d.config.labels as unknown[]).filter((l) => String(l).trim()).length >= 2)
                 ) {
-                    toast.error("Classify mode needs at least two labels");
+                    toast.error("מצב סיווג דורש לפחות שתי תוויות");
                     setSelectedId(n.id);
                     return false;
                 }
@@ -1160,18 +1160,18 @@ export default function AutomationFlow({
                     aiStepMode === "extract" &&
                     !(Array.isArray(d.config?.output_keys) && (d.config.output_keys as unknown[]).some((k) => String(k).trim()))
                 ) {
-                    toast.error("Extract mode needs at least one output key");
+                    toast.error("מצב חילוץ נתונים דורש לפחות מפתח פלט אחד");
                     setSelectedId(n.id);
                     return false;
                 }
                 if (need === "ai_switch") {
                     if (!(Array.isArray(d.config?.cases) && (d.config.cases as unknown[]).filter((c) => String(c).trim()).length >= 2)) {
-                        toast.error("An AI switch needs at least two cases");
+                        toast.error("מפצל AI דורש לפחות שני מקרים (Cases)");
                         setSelectedId(n.id);
                         return false;
                     }
                     if (switchValueMode && !String(d.config?.switch_value ?? "").trim()) {
-                        toast.error("A value switch needs a value to match");
+                        toast.error("מפצל ערכים דורש ערך להתאמה");
                         setSelectedId(n.id);
                         return false;
                     }
@@ -1179,17 +1179,17 @@ export default function AutomationFlow({
                 continue; // native actions need no connection
             }
             if (!d.connection_id) {
-                toast.error("Every integration action needs an integration");
+                toast.error("כל פעולת אינטגרציה דורשת בחירת חיבור");
                 setSelectedId(n.id);
                 return false;
             }
             if (actionNeedsChannel(d.action) && !String(d.config?.channel ?? "").trim()) {
-                toast.error("A Slack action needs a channel");
+                toast.error("פעולת Slack דורשת בחירת ערוץ");
                 setSelectedId(n.id);
                 return false;
             }
             if (actionNeedsURL(d.action) && !String(d.config?.url ?? "").trim()) {
-                toast.error("A webhook action needs a URL");
+                toast.error("פעולת Webhook דורשת כתובת URL");
                 setSelectedId(n.id);
                 return false;
             }
@@ -1198,7 +1198,7 @@ export default function AutomationFlow({
             if (n.type !== "condition") continue;
             const c = (n.data as { condition?: AutomationCondition }).condition;
             if (c?.field === "ai" && !String(c.prompt ?? "").trim()) {
-                toast.error("An Ask AI branch needs a question");
+                toast.error("ענף שאלת AI דורש שאלה");
                 setSelectedId(n.id);
                 return false;
             }
@@ -1250,14 +1250,14 @@ export default function AutomationFlow({
             if (res?.automation) serverVersionRef.current = serverVersion(res.automation);
             selfSaveUntil.current = Date.now() + 8000;
             setRemoteUpdate(null);
-            toast.success("Automation saved");
+            toast.success("האוטומציה נשמרה בהצלחה");
             return true;
         } catch (e) {
             // Show the backend's reason (e.g. "an action node has no integration
             // selected", a permission denial, or the paid-plan gate) instead of a
             // generic message, so a failed save is actually actionable.
             const msg = (e as AppError)?.message;
-            toast.error(msg ? `Could not save automation: ${msg}` : "Could not save automation");
+            toast.error(msg ? `לא ניתן לשמור את האוטומציה: ${msg}` : "לא ניתן לשמור את האוטומציה");
             return false;
         }
     };
@@ -1272,7 +1272,7 @@ export default function AutomationFlow({
             setTestResult(res);
             setPanel("test");
         } catch {
-            toast.error("Could not run the test");
+            toast.error("לא ניתן להריץ את בדיקת האוטומציה");
         }
     };
 

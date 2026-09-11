@@ -32,14 +32,14 @@ function useMinuteTick() {
 
 function formatRemaining(executeAfter: Date): string {
     const ms = executeAfter.getTime() - Date.now();
-    if (ms <= 0) return "any moment now";
+    if (ms <= 0) return "בכל רגע מעכשיו";
     const totalMinutes = Math.floor(ms / 60_000);
     const days = Math.floor(totalMinutes / (60 * 24));
     const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
     const minutes = totalMinutes % 60;
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
+    if (days > 0) return `${days} ימים ו-${hours} שע'`;
+    if (hours > 0) return `${hours} שע' ו-${minutes} דק'`;
+    return `${minutes} דק'`;
 }
 
 export default function PendingDeletionBar() {
@@ -63,7 +63,7 @@ export default function PendingDeletionBar() {
                 <Banner
                     title={
                         <>
-                            This workspace will be permanently deleted in{" "}
+                            סביבת עבודה זו תימחק לצמיתות בעוד{" "}
                             <strong className="tabular-nums">
                                 {formatRemaining(new Date(orgPending.execute_after))}
                             </strong>
@@ -72,19 +72,18 @@ export default function PendingDeletionBar() {
                     }
                     detail={
                         <>
-                            <strong>{org.data.resource_name}</strong> is scheduled
-                            for deletion on{" "}
-                            {new Date(orgPending.execute_after).toLocaleString()}.
+                            <strong>{org.data.resource_name}</strong> מתוזמנת למחיקה בתאריך{" "}
+                            {new Date(orgPending.execute_after).toLocaleString("he-IL")}.
                             {access.isOwner
-                                ? " Cancel below to keep it."
-                                : " Only the workspace owner can cancel — reach out to them now."}
+                                ? " בטל למטה כדי לשמור אותה."
+                                : " רק בעל סביבת העבודה יכול לבטל את המחיקה — אנא פנה אליו."}
                         </>
                     }
                     showCancel={access.isOwner}
                     onCancel={async () => {
                         try {
                             await cancelOrg.mutateAsync(undefined);
-                            toast.success("Workspace deletion cancelled");
+                            toast.success("מחיקת סביבת העבודה בוטלה");
                         } catch (err) {
                             toast.error(buildError(err as AppError));
                         }
@@ -97,7 +96,7 @@ export default function PendingDeletionBar() {
                 <Banner
                     title={
                         <>
-                            Your account will be permanently deleted in{" "}
+                            חשבונך יימחק לצמיתות בעוד{" "}
                             <strong className="tabular-nums">
                                 {formatRemaining(new Date(accountPending.execute_after))}
                             </strong>
@@ -106,16 +105,15 @@ export default function PendingDeletionBar() {
                     }
                     detail={
                         <>
-                            All workspaces you own and every campaign / contact /
-                            mailbox in them will be removed on{" "}
-                            {new Date(accountPending.execute_after).toLocaleString()}.
+                            כל סביבות העבודה, הקמפיינים, אנשי הקשר ותיבות הדואר שבבעלותך יימחקו בתאריך{" "}
+                            {new Date(accountPending.execute_after).toLocaleString("he-IL")}.
                         </>
                     }
                     showCancel={true}
                     onCancel={async () => {
                         try {
                             await cancelAccount.mutateAsync(undefined);
-                            toast.success("Account deletion cancelled");
+                            toast.success("מחיקת החשבון בוטלה");
                         } catch (err) {
                             toast.error(buildError(err as AppError));
                         }
@@ -169,14 +167,14 @@ function Banner({
                         ) : (
                             <UndoIcon className="w-3 h-3" />
                         )}
-                        Cancel deletion
+                        בטל מחיקה
                     </button>
                 )}
                 <Link
                     to="/app/settings/danger"
                     className="h-7 px-2.5 rounded-md bg-red-700 hover:bg-red-800 text-white text-[12px] font-medium inline-flex items-center transition-colors"
                 >
-                    Settings
+                    הגדרות
                 </Link>
             </div>
         </div>

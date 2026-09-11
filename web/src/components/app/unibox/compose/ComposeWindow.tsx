@@ -349,7 +349,7 @@ function ComposeWindowInner({
     const requestClose = React.useCallback(() => {
         if (dirty) {
             saveNow();
-            toast.success("Saved to Drafts");
+            toast.success("נשמר כטיוטה");
         } else if (everSavedRef.current) {
             deleteMut.mutate(draftIdRef.current);
         }
@@ -358,11 +358,11 @@ function ComposeWindowInner({
 
     const send = async (scheduledAt?: Date) => {
         if (!canSend) {
-            if (to.length === 0) toast.error("Add a recipient");
-            else if (!to.every(looksLikeEmail)) toast.error("Recipient email looks invalid");
-            else if (suppressed) toast.error("This recipient is suppressed");
-            else if (!subject.trim()) toast.error("Add a subject");
-            else if (!trimmedBody) toast.error("Body is empty");
+            if (to.length === 0) toast.error("אנא הוסף נמען");
+            else if (!to.every(looksLikeEmail)) toast.error("כתובת האימייל של הנמען אינה תקינה");
+            else if (suppressed) toast.error("נמען זה נמצא ברשימת החסימה (Suppressed)");
+            else if (!subject.trim()) toast.error("אנא הוסף נושא להודעה");
+            else if (!trimmedBody) toast.error("גוף ההודעה ריק");
             return;
         }
         setIsSending(true);
@@ -422,11 +422,11 @@ function ComposeWindowInner({
 
     const handleSchedule = (d: Date) => {
         if (!Number.isFinite(d.getTime()) || d.getTime() <= Date.now() + 5_000) {
-            toast.error("Pick a future time (a few seconds out, please)");
+            toast.error("אנא בחר מועד עתידי (לפחות מספר שניות מעכשיו)");
             return;
         }
         if (d.getTime() - Date.now() > MAX_SCHEDULE_MS) {
-            toast.error("Scheduled send can't be more than 29 days out");
+            toast.error("לא ניתן לתזמן שליחה ליותר מ-29 ימים מראש");
             return;
         }
         setScheduleOpen(false);

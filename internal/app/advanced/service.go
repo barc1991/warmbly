@@ -1274,10 +1274,10 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	// Raise an in-app notification to the mailbox owner (gated by their prefs).
 	if uid, perr := uuid.Parse(account.UserID); perr == nil {
 		cat := models.NotifInboundReply
-		title := "New reply from " + sender
+		title := "תשובה חדשה מאת " + sender
 		if intent == models.ReplyIntentOutOfOffice {
 			cat = models.NotifInboundOOO
-			title = "Out-of-office from " + sender
+			title = "מענה אוטומטי (מחוץ למשרד) מאת " + sender
 		}
 		s.notify(uid, account.OrganizationID, cat, title, msg.Subject, "/app/unibox", map[string]any{"intent": string(intent)})
 	}
@@ -1429,10 +1429,10 @@ func (s *service) IngestDeliverabilityEvent(ctx context.Context, organizationID 
 		if camp, cerr := s.campaignRepo.GetByID(ctx, *req.CampaignID); cerr == nil && camp != nil {
 			if uid, perr := uuid.Parse(camp.UserID); perr == nil {
 				cat := models.NotifHealthBounce
-				title := "Bounce: " + req.RecipientEmail
+				title := "שגיאת מסירה (Bounce): " + req.RecipientEmail
 				if eventType == models.DeliverabilityEventComplaint {
 					cat = models.NotifHealthComplaint
-					title = "Spam complaint: " + req.RecipientEmail
+					title = "תלונת ספאם: " + req.RecipientEmail
 				}
 				org := organizationID
 				s.notify(uid, &org, cat, title, req.Reason, "/app/deliverability", map[string]any{"provider": provider})

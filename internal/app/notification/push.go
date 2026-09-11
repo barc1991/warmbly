@@ -208,27 +208,27 @@ func apnsAlert(category models.NotificationCategory, title, body, link string, c
 func digestTitle(category models.NotificationCategory, n int) string {
 	switch category {
 	case models.NotifInboundReply:
-		return fmt.Sprintf("%d new replies", n)
+		return fmt.Sprintf("%d תגובות חדשות", n)
 	case models.NotifInboundOOO:
-		return fmt.Sprintf("%d out-of-office replies", n)
+		return fmt.Sprintf("%d מענים אוטומטיים", n)
 	case models.NotifHealthBounce:
-		return fmt.Sprintf("%d new bounces", n)
+		return fmt.Sprintf("%d שגיאות מסירה חדשות", n)
 	case models.NotifHealthComplaint:
-		return fmt.Sprintf("%d new spam complaints", n)
+		return fmt.Sprintf("%d תלונות ספאם חדשות", n)
 	case models.NotifWorkerDowntime:
-		return fmt.Sprintf("%d worker alerts", n)
+		return fmt.Sprintf("%d התראות שרתי שליחה", n)
 	case models.NotifSecuritySignIn:
-		return fmt.Sprintf("%d new sign-ins", n)
+		return fmt.Sprintf("%d התחברויות חדשות", n)
 	case models.NotifBillingAlert:
-		return fmt.Sprintf("%d billing alerts", n)
+		return fmt.Sprintf("%d התראות חיוב ומנוי", n)
 	case models.NotifTeamActivity:
-		return fmt.Sprintf("%d team updates", n)
+		return fmt.Sprintf("%d עדכוני צוות", n)
 	case models.NotifCampaignPaused:
-		return fmt.Sprintf("%d campaigns paused automatically", n)
+		return fmt.Sprintf("%d קמפיינים הושהו אוטומטית", n)
 	case models.NotifDomainAuth:
-		return fmt.Sprintf("%d domains failing authentication", n)
+		return fmt.Sprintf("%d דומיינים ללא אימות תקין", n)
 	default:
-		return fmt.Sprintf("%d new notifications", n)
+		return fmt.Sprintf("%d התראות חדשות", n)
 	}
 }
 

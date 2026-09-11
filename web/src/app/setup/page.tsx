@@ -78,20 +78,20 @@ export default function SetupPage() {
         if (pending) return;
 
         if (!email.trim()) {
-            toast.error("Enter the email address for the owner account.");
+            toast.error("הזן את כתובת האימייל עבור חשבון המנהל הראשי.");
             return;
         }
         if (password.length < 8) {
-            toast.error("Password must be at least 8 characters long.");
+            toast.error("הסיסמה חייבת להכיל לפחות 8 תווים.");
             return;
         }
         if (password !== confirm) {
-            toast.error("Passwords don't match.");
+            toast.error("הסיסמאות אינן תואמות.");
             return;
         }
         const strength = await evaluate(password);
         if (strength.score < 2) {
-            toast.error(strength.warning || "Please choose a stronger password.");
+            toast.error(strength.warning || "אנא בחר סיסמה חזקה יותר.");
             return;
         }
 
@@ -113,7 +113,7 @@ export default function SetupPage() {
             } catch {
                 // UserProvider retries and redirects on a genuine failure.
             }
-            toast.success("This instance is yours.");
+            toast.success("ההתקנה הושלמה בהצלחה! המערכת מוכנה לשימוש.");
             navigate("/app/emails");
         } catch (err) {
             setFailure(err as AppError);
@@ -318,7 +318,7 @@ function CommandRow({ command }: { command: string }) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch {
-            toast.error("Could not copy. Select the command and copy it manually.");
+            toast.error("לא ניתן להעתיק ללוח. אנא סמן והעתק ידנית.");
         }
     }
 

@@ -17,8 +17,8 @@ export interface AppError {
 export function normalizeError(error: unknown): AppError {
     if (error instanceof AuthError) {
         return {
-            error: "Authentication Required",
-            message: error.message,
+            error: "נדרשת התחברות",
+            message: error.message || "יש להתחבר מחדש כדי להמשיך.",
             status: 401,
             redirect: true,
         };
@@ -28,8 +28,8 @@ export function normalizeError(error: unknown): AppError {
         if (!error.response) {
             // network, CORS, or timeout
             return {
-                error: "Network Error",
-                message: "Please check your connection.",
+                error: "שגיאת תקשורת",
+                message: "אנא בדוק את החיבור לרשת שלך.",
             };
         }
 
@@ -38,26 +38,26 @@ export function normalizeError(error: unknown): AppError {
 
         if (status === 401) {
             return {
-                error: data.error || "Unauthorized",
-                message: data.message || "Your session is invalid or expired.",
+                error: data?.error || "לא מורשה",
+                message: data?.message || "פג תוקף ההתחברות שלך או שהיא אינה תקינה.",
                 status,
                 redirect: true,
-                code: data.code,
-                request_id: data.request_id,
+                code: data?.code,
+                request_id: data?.request_id,
             };
         }
 
         return {
-            error: data.error || "Unknown Error",
-            message: data.message || "Unexpected error occured.",
+            error: data?.error || "שגיאה",
+            message: data?.message || "אירעה שגיאה בלתי צפויה.",
             status,
-            code: data.code,
-            request_id: data.request_id,
-        }
+            code: data?.code,
+            request_id: data?.request_id,
+        };
     }
 
     return {
-        error: "Unknown Error",
-        message: "Unexpected error occurred.",
+        error: "שגיאה",
+        message: "אירעה שגיאה בלתי צפויה.",
     };
 }

@@ -61,11 +61,11 @@ export function ScheduledList() {
         mutationFn: (taskId: string) => cancelScheduled(taskId),
         onMutate: (taskId: string) => setCancelingId(taskId),
         onSuccess: () => {
-            toast.success("Scheduled send cancelled");
+            toast.success("השליחה המתוזמנת בוטלה");
             queryClient.invalidateQueries({ queryKey: ["unibox", "scheduled"] });
             queryClient.invalidateQueries({ queryKey: ["unibox", "overview"] });
         },
-        onError: () => toast.error("Couldn't cancel — it may have already sent."),
+        onError: () => toast.error("לא ניתן לבטל, ייתכן שההודעה כבר נשלחה."),
         onSettled: () => setCancelingId(null),
     });
 

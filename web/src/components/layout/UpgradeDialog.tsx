@@ -145,10 +145,10 @@ export default function UpgradeDialog({
             const res = await validateCode.mutateAsync({ code });
             if (res.valid) {
                 setApplied(res);
-                toast.success("Promo code applied");
+                toast.success("קוד קופון הופעל בהצלחה");
             } else {
                 setApplied(null);
-                toast.error(res.reason || "That code can't be applied");
+                toast.error(res.reason || "לא ניתן להפעיל קוד זה");
             }
         } catch (e) {
             toast.error(buildError(e as AppError));

@@ -47,10 +47,10 @@ export function useResetPasswordConfirmForm() {
     const onSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (pending) return;
-        if (password.length < 8) { toast.error("Password must be at least 8 characters long."); return; }
-        if (password !== password2) { toast.error("Passwords don't match. Please make sure you type the same password twice."); return; }
+        if (password.length < 8) { toast.error("הסיסמה חייבת להכיל לפחות 8 תווים."); return; }
+        if (password !== password2) { toast.error("הסיסמאות אינן תואמות. אנא הזן את אותה הסיסמה פעמיים."); return; }
         const result = await evaluate(password);
-        if (result.score < 2) { toast.error(result.warning || "Please choose a stronger password."); return; }
+        if (result.score < 2) { toast.error(result.warning || "אנא בחר סיסמה חזקה יותר."); return; }
         setCaptcha(true);
     };
     const onToken = async (t: string) => { setCaptcha(false); await submit(t); };

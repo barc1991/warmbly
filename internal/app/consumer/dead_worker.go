@@ -66,21 +66,21 @@ func (s *JobsService) notifyWorkerDown(ctx context.Context, workerID uuid.UUID, 
 		return
 	}
 	for orgID, n := range orgs {
-		noun := fmt.Sprintf("%d of your mailboxes were", n)
+		noun := fmt.Sprintf("%d מתיבות הדואר שלך פעלו", n)
 		if n == 1 {
-			noun = "One of your mailboxes was"
+			noun = "אחת מתיבות הדואר שלך פעלה"
 		}
-		body := noun + " on a sending worker that stopped responding. "
+		body := noun + " על שרת שליחה (Worker) שהפסיק להגיב. "
 		if reassigned {
-			body += "They were moved to a healthy worker automatically; no action is needed."
+			body += "התיבות הועברו אוטומטית לשרת שליחה תקין; אין צורך בפעולה נוספת."
 			if n == 1 {
-				body = noun + " on a sending worker that stopped responding. It was moved to a healthy worker automatically; no action is needed."
+				body = noun + " על שרת שליחה (Worker) שהפסיק להגיב. התיבה הועברה אוטומטית לשרת שליחה תקין; אין צורך בפעולה נוספת."
 			}
 		} else {
-			body += "Sending from them is paused until a replacement worker is available."
+			body += "השליחה מהן מושהית עד ששרת חלופי יהיה זמין."
 		}
 		s.Notifier.NotifyOrg(ctx, orgID, models.PermManageEmails, uuid.Nil, models.NotifWorkerDowntime,
-			"Sending worker went offline", body, "/app/emails", nil,
+			"שרת שליחה (Worker) התנתק", body, "/app/emails", nil,
 			"worker_down:"+workerID.String())
 	}
 }
