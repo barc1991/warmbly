@@ -20,8 +20,10 @@ import {
     Loader2Icon,
     MailWarningIcon,
     MegaphoneIcon,
+    PhoneIcon,
     PlusIcon,
     StickyNoteIcon,
+    TagIcon,
     UserIcon,
     UserXIcon,
     CheckSquareIcon,
@@ -100,6 +102,20 @@ export default function ContactContextPanel({
     const dealDefault = usePipelinesDefault();
 
     const campaigns = detail?.campaigns ?? contact?.campaigns ?? [];
+    const categories = detail?.categories ?? contact?.categories ?? [];
+    const phone = contact?.phone || (contact?.custom_fields?.phone) || (detail?.custom_fields?.phone) || "";
+    const jobTitle =
+        contact?.custom_fields?.job_title ||
+        contact?.custom_fields?.title ||
+        detail?.custom_fields?.job_title ||
+        detail?.custom_fields?.title ||
+        "";
+    const rawStatus =
+        contact?.campaign_lead?.status ||
+        contact?.custom_fields?.status ||
+        detail?.custom_fields?.status ||
+        "";
+    const statusMeta = getStatusBadge(rawStatus, isHe);
     const eng = detail?.engagement;
     const supp = detail?.suppression;
 
@@ -155,8 +171,18 @@ export default function ContactContextPanel({
                                 <div className="min-w-0 flex-1">
                                     <div className="text-[13px] font-semibold text-slate-900 truncate">{name}</div>
                                     <div className="text-[11.5px] text-slate-500 truncate">{contact.email}</div>
-                                    {contact.company && (
-                                        <div className="text-[11px] text-slate-400 truncate mt-0.5">{contact.company}</div>
+                                    {(contact.company || jobTitle) && (
+                                        <div className="text-[11px] text-slate-500 truncate mt-0.5 flex items-center gap-1">
+                                            {jobTitle && <span>{jobTitle}</span>}
+                                            {jobTitle && contact.company && <span>·</span>}
+                                            {contact.company && <span>{contact.company}</span>}
+                                        </div>
+                                    )}
+                                    {phone && (
+                                        <div className="text-[11px] text-slate-400 font-mono truncate mt-0.5 flex items-center gap-1">
+                                            <PhoneIcon className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                            <a href={`tel:${phone}`} className="hover:text-sky-600 transition-colors">{phone}</a>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -165,6 +191,9 @@ export default function ContactContextPanel({
                                     <Badge tone="emerald" icon={<CheckIcon className="w-2.5 h-2.5" />}>{isHe ? "רשום לתפוצה" : "Subscribed"}</Badge>
                                 ) : (
                                     <Badge tone="slate" icon={<UserXIcon className="w-2.5 h-2.5" />}>{isHe ? "הסיר הרשמה" : "Unsubscribed"}</Badge>
+                                )}
+                                {statusMeta && (
+                                    <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
                                 )}
                                 {supp && (
                                     <Badge tone="red" icon={<BanIcon className="w-2.5 h-2.5" />}>
@@ -179,6 +208,16 @@ export default function ContactContextPanel({
                                     <ExternalLinkIcon className="w-2.5 h-2.5" />
                                 </Link>
                             </div>
+
+                            {/* Contact categories / tags */}
+                            {categories.length > 0 && (
+                                <div className="mt-2.5 flex flex-wrap items-center gap-1 pt-2 border-t border-slate-100">
+                                    <TagIcon className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                    {categories.map((cat) => (
+                                        <ContactTagChip key={cat.id} title={cat.title} color={cat.color} />
+                                    ))}
+                                </div>
+                            )}
                             {/* Meeting actions: schedule a call right here (native,
                                 no calendar needed), plus a self-serve booking link
                                 when a Calendly / Cal.com calendar is connected. */}
@@ -753,7 +792,7 @@ function Badge({
     icon,
     children,
 }: {
-    tone: "emerald" | "slate" | "red";
+    tone: "emerald" | "slate" | "red" | "sky" | "amber" | "purple";
     icon?: React.ReactNode;
     children: React.ReactNode;
 }) {
@@ -761,6 +800,9 @@ function Badge({
         emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
         slate: "bg-slate-100 text-slate-600 border-slate-200",
         red: "bg-red-50 text-red-700 border-red-100",
+        sky: "bg-sky-50 text-sky-700 border-sky-100",
+        amber: "bg-amber-50 text-amber-700 border-amber-100",
+        purple: "bg-purple-50 text-purple-700 border-purple-100",
     }[tone];
     return (
         <span className={`inline-flex items-center gap-1 h-5 px-1.5 rounded border text-[10px] font-medium ${cls}`}>
@@ -768,6 +810,54 @@ function Badge({
             {children}
         </span>
     );
+}
+
+function ContactTagChip({ title, color }: { title: string; color: string }) {
+    return (
+        <span
+            className="inline-flex items-center gap-1 h-4.5 px-1.5 rounded border text-[10px] font-medium max-w-[140px] overflow-hidden"
+            style={{
+                borderColor: color ? `${color}60` : "rgb(226 232 240)",
+                backgroundColor: color ? `${color}14` : "rgb(248 250 252)",
+                color: "rgb(51 65 85)",
+            }}
+            title={title}
+        >
+            <span
+                aria-hidden
+                className="size-1.5 rounded-full shrink-0"
+                style={{ backgroundColor: color || "#94a3b8" }}
+            />
+            <span className="truncate">{title}</span>
+        </span>
+    );
+}
+
+function getStatusBadge(
+    status: string,
+    isHe: boolean,
+): { label: string; tone: "emerald" | "slate" | "red" | "sky" | "amber" | "purple" } | null {
+    if (!status) return null;
+    const s = status.toLowerCase();
+    switch (s) {
+        case "replied":
+        case "interested":
+            return { label: isHe ? "נענה / מתעניין" : "Replied / Interested", tone: "emerald" };
+        case "active":
+            return { label: isHe ? "פעיל בקמפיין" : "Active", tone: "sky" };
+        case "pending":
+            return { label: isHe ? "ממתין" : "Pending", tone: "amber" };
+        case "completed":
+            return { label: isHe ? "הושלם" : "Completed", tone: "slate" };
+        case "unsubscribed":
+            return { label: isHe ? "הסיר הרשמה" : "Unsubscribed", tone: "slate" };
+        case "bounced":
+        case "failed":
+        case "undeliverable":
+            return { label: isHe ? "שגיאת מסירה" : "Delivery Issue", tone: "red" };
+        default:
+            return { label: status, tone: "sky" };
+    }
 }
 
 function Metric({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
