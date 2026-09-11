@@ -204,7 +204,8 @@ function NavRow({ item }: { item: NavItem }) {
     const hasItemPermission = usePermission(item.permission ?? "VIEW_CAMPAIGNS");
     const [deniedOpen, setDeniedOpen] = useState(false);
     const upgradeDialog = useUpgradeDialog();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const title = navItemI18n[item.url] ? t(navItemI18n[item.url], item.title) : item.title;
     const active =
         pathname === item.url || pathname.startsWith(item.url + "/");
@@ -225,7 +226,7 @@ function NavRow({ item }: { item: NavItem }) {
                 <button
                     type="button"
                     onClick={() => setDeniedOpen(true)}
-                    title={`${title} · no access`}
+                    title={isHe ? `${title} · אין גישה` : `${title} · no access`}
                     className="group w-[calc(100%-1rem)] mx-2 flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] text-slate-400 hover:text-slate-600 hover:bg-slate-200/40 transition-colors duration-100"
                 >
                     <LockIcon className="w-[13px] h-[13px] shrink-0 text-slate-300 group-hover:text-slate-500" strokeWidth={1.8} />
@@ -235,7 +236,7 @@ function NavRow({ item }: { item: NavItem }) {
                     open={deniedOpen}
                     onClose={() => setDeniedOpen(false)}
                     feature={title}
-                    permissionLabel={item.permissionLabel ?? "the required"}
+                    permissionLabel={item.permissionLabel ?? (isHe ? "הנדרשת" : "the required")}
                 />
             </>
         );
@@ -261,7 +262,7 @@ function NavRow({ item }: { item: NavItem }) {
             <button
                 type="button"
                 onClick={() => upgradeDialog.open({ feature: title, minPlan })}
-                title={`${title} · ${planBadge.label} plan`}
+                title={isHe ? `${title} · תוכנית ${planBadge.label}` : `${title} · ${planBadge.label} plan`}
                 className="group w-[calc(100%-1rem)] mx-2 flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] text-slate-400 hover:text-slate-700 hover:bg-slate-200/40 transition-colors duration-100"
             >
                 <LockIcon className="w-[13px] h-[13px] shrink-0 text-slate-300 group-hover:text-slate-500" strokeWidth={1.8} />
@@ -281,7 +282,7 @@ function NavRow({ item }: { item: NavItem }) {
     return (
         <Link
             to={item.url}
-            title={planBadge ? `${title} · ${planBadge.label} plan` : undefined}
+            title={planBadge ? (isHe ? `${title} · תוכנית ${planBadge.label}` : `${title} · ${planBadge.label} plan`) : undefined}
             className={cn(
                 "group mx-2 flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] transition-colors duration-100",
                 active
@@ -437,13 +438,18 @@ function CampaignActivity() {
         () => campaigns.filter((c) => c.status === "active").length,
         [campaigns],
     );
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+    const title = isHe
+        ? `${campaigns.length} קמפיינים${active > 0 ? `, ${active} שולחים כעת` : ""}`
+        : `${campaigns.length} campaign${campaigns.length === 1 ? "" : "s"}${active > 0 ? `, ${active} sending now` : ""}`;
     return (
         <TabDualStat
             total={campaigns.length}
             active={active}
             activeClass="text-sky-600"
             activeGlyph={<span className="campaign-grid" aria-hidden />}
-            title={`${campaigns.length} campaign${campaigns.length === 1 ? "" : "s"}${active > 0 ? `, ${active} sending now` : ""}`}
+            title={title}
         />
     );
 }
@@ -459,6 +465,11 @@ function MailboxActivity() {
         () => emails.filter((e) => !!e.warmup && !e.warmup_paused_at).length,
         [emails],
     );
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+    const title = isHe
+        ? `${emails.length} תיבות דואר${warming > 0 ? `, ${warming} בחימום` : ""}`
+        : `${emails.length} mailbox${emails.length === 1 ? "" : "es"}${warming > 0 ? `, ${warming} warming up` : ""}`;
     return (
         <TabDualStat
             total={emails.length}
@@ -467,7 +478,7 @@ function MailboxActivity() {
             activeGlyph={
                 <FlameIcon className="w-3.5 h-3.5 flame-flicker" strokeWidth={2.2} />
             }
-            title={`${emails.length} mailbox${emails.length === 1 ? "" : "es"}${warming > 0 ? `, ${warming} warming up` : ""}`}
+            title={title}
         />
     );
 }
@@ -483,6 +494,11 @@ function TasksActivity() {
     const { data } = useTasksSummary(EMPTY_TASK_SEARCH);
     const overdue = data?.overdue_count ?? 0;
     const todo = (data?.pending_count ?? 0) + (data?.in_progress_count ?? 0);
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+    const title = isHe
+        ? `${todo} משימות פתוחות${overdue > 0 ? `, ${overdue} באיחור` : ""}`
+        : `${todo} open task${todo === 1 ? "" : "s"}${overdue > 0 ? `, ${overdue} overdue` : ""}`;
     return (
         <TabDualStat
             total={todo}
@@ -494,7 +510,7 @@ function TasksActivity() {
                     <span className="absolute inset-0 rounded-full bg-red-500/40 animate-ping" />
                 </span>
             }
-            title={`${todo} open task${todo === 1 ? "" : "s"}${overdue > 0 ? `, ${overdue} overdue` : ""}`}
+            title={title}
         />
     );
 }
@@ -505,6 +521,11 @@ function MeetingsActivity() {
     const { data } = useMeetingsSummary();
     const upcoming = data?.upcoming ?? 0;
     const today = data?.today ?? 0;
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+    const title = isHe
+        ? `${upcoming} פגישות קרובות${today > 0 ? `, ${today} היום` : ""}`
+        : `${upcoming} upcoming meeting${upcoming === 1 ? "" : "s"}${today > 0 ? `, ${today} today` : ""}`;
     return (
         <TabDualStat
             total={upcoming}
@@ -516,7 +537,7 @@ function MeetingsActivity() {
                     <span className="absolute inset-0 rounded-full bg-sky-500/40 animate-ping" />
                 </span>
             }
-            title={`${upcoming} upcoming meeting${upcoming === 1 ? "" : "s"}${today > 0 ? `, ${today} today` : ""}`}
+            title={title}
         />
     );
 }
@@ -527,15 +548,19 @@ function MeetingsActivity() {
 function ContactsActivity() {
     const { data } = useSearchContacts({ options: CONTACTS_COUNT_SEARCH, limit: 10 });
     const total = data?.pages?.[0]?.pagination?.total ?? 0;
-    return <TabStat total={total} title={`${total.toLocaleString()} contacts`} />;
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+    return <TabStat total={total} title={isHe ? `${total.toLocaleString()} אנשי קשר` : `${total.toLocaleString()} contacts`} />;
 }
 
 // Deals row: open (not won/lost) deals.
 function DealsActivity() {
     const { data } = useDealsSummary(EMPTY_DEAL_SEARCH);
     const open = data?.open_count ?? 0;
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     return (
-        <TabStat total={open} title={`${open} open deal${open === 1 ? "" : "s"}`} />
+        <TabStat total={open} title={isHe ? `${open} עסקאות פתוחות` : `${open} open deal${open === 1 ? "" : "s"}`} />
     );
 }
 
@@ -543,8 +568,10 @@ function DealsActivity() {
 function PipelinesActivity() {
     const { data } = usePipelines();
     const n = data?.length ?? 0;
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     return (
-        <TabStat total={n} title={`${n} pipeline${n === 1 ? "" : "s"}`} />
+        <TabStat total={n} title={isHe ? `${n} צינורות מכירה` : `${n} pipeline${n === 1 ? "" : "s"}`} />
     );
 }
 
@@ -552,8 +579,10 @@ function PipelinesActivity() {
 function TemplatesActivity() {
     const { data } = useTemplates();
     const n = data?.length ?? 0;
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     return (
-        <TabStat total={n} title={`${n} template${n === 1 ? "" : "s"}`} />
+        <TabStat total={n} title={isHe ? `${n} תבניות` : `${n} template${n === 1 ? "" : "s"}`} />
     );
 }
 
@@ -562,11 +591,13 @@ function TemplatesActivity() {
 function AnalyticsActivity() {
     const { data } = useUsageOverview();
     const sent = data?.campaigns?.emails_sent ?? 0;
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     return (
         <TabStat
             total={sent}
             format={compactN}
-            title={`${sent.toLocaleString()} emails sent this period`}
+            title={isHe ? `${sent.toLocaleString()} אימיילים נשלחו בתקופה זו` : `${sent.toLocaleString()} emails sent this period`}
         />
     );
 }
@@ -575,11 +606,13 @@ function AnalyticsActivity() {
 function ApiKeysActivity() {
     const { data } = useAPIKeys();
     const active = (data?.data ?? []).filter((k) => k.status === "active").length;
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     return (
         <TabStat
             total={active}
             format={(v) => String(Math.round(v))}
-            title={`${active} active API key${active === 1 ? "" : "s"}`}
+            title={isHe ? `${active} מפתחות API פעילים` : `${active} active API key${active === 1 ? "" : "s"}`}
         />
     );
 }
@@ -593,6 +626,11 @@ function IntegrationsActivity() {
     const attention = conns.filter(
         (c) => c.status === "degraded" || c.status === "reauth_required" || c.health === "down",
     ).length;
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+    const title = isHe
+        ? `${conns.length} מחוברים${attention > 0 ? `, ${attention} דורשים טיפול` : ""}`
+        : `${conns.length} connected${attention > 0 ? `, ${attention} need attention` : ""}`;
     return (
         <TabDualStat
             total={conns.length}
@@ -604,7 +642,7 @@ function IntegrationsActivity() {
                     <span className="absolute inset-0 rounded-full bg-amber-500/40 animate-ping" />
                 </span>
             }
-            title={`${conns.length} connected${attention > 0 ? `, ${attention} need attention` : ""}`}
+            title={title}
         />
     );
 }
@@ -950,6 +988,8 @@ function Sparkline({
 }
 
 export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: () => void }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     return (
         <>
             {/* Mobile-only scrim. Tapping it closes the drawer. */}
@@ -986,7 +1026,7 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
                     <button
                         type="button"
                         onClick={onClose}
-                        aria-label="Close menu"
+                        aria-label={isHe ? "סגור תפריט" : "Close menu"}
                         className="w-8 h-8 -me-1 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
                         <XIcon className="w-4 h-4" />

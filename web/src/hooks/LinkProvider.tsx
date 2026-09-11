@@ -35,20 +35,20 @@ export default function LinkProvider({ children }: { children: React.ReactNode }
         <LinkContext.Provider value={{ show }}>
             {children}
             <div className={`bg-black/30 fixed flex inset-0 z-101 items-center justify-center p-1 transition ${visible ? "opacity-100 visible" : "opacity-0 invisible"}`} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp}>
-                <div className={`bg-white max-w-xl w-full flex flex-col gap-2 p-5 rounded-md transition ease-bezier duration-300 ${visible ? "scale-100" : "scale-90"}`} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()}>
-                    <Title>Display Name</Title>
-                    <MiniInput placeholder="Display Name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
-                    <Title>URL</Title>
+                <div className={`bg-white max-w-xl w-full flex flex-col gap-2 p-5 rounded-md transition ease-bezier duration-300 text-start ${visible ? "scale-100" : "scale-90"}`} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()}>
+                    <Title>שם לתצוגה</Title>
+                    <MiniInput placeholder="שם לתצוגה" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+                    <Title>כתובת קישור (URL)</Title>
                     <MiniInput placeholder="https://example.com" value={url} onChange={(e) => setUrl(e.target.value)} />
-                    <div className="flex justify-end mt-2 gap-2">
-                        <button onClick={() => setVisible(false)} className="ripple bg-gray-200 text-gray-500 py-2.5 p-8 rounded-md cursor-pointer">
-                            Cancel
+                    <div className="flex justify-end rtl:justify-start mt-2 gap-2">
+                        <button onClick={() => setVisible(false)} className="ripple bg-gray-200 text-gray-500 py-2.5 px-6 rounded-md cursor-pointer">
+                            ביטול
                         </button>
                         <button onClick={() => {
                             if (s.current) s.current(displayName, url)
                             setVisible(false)
-                        }} className="ripple bg-blue-100 text-blue-500 py-2.5 p-8 rounded-md cursor-pointer">
-                            Submit
+                        }} className="ripple bg-blue-100 text-blue-500 py-2.5 px-6 rounded-md cursor-pointer">
+                            אישור
                         </button>
                     </div>
                 </div>

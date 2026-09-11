@@ -95,21 +95,21 @@ function MiniTitle({children}:{children: React.ReactNode}){
 type SortBy = 'created_at' | 'updated_at' | 'first_name' | 'last_name' | 'email' | 'campaign_count';
 
 const SortByNames: Record<SortBy, string> = {
-    'created_at': "Created At",
-    'updated_at': "Updated At",
-    'first_name': "First Name",
-    'last_name': "Last Name",
-    'email': "Email",
-    'campaign_count': "Campaign Count"
+    'created_at': "תאריך יצירה",
+    'updated_at': "תאריך עדכון",
+    'first_name': "שם פרטי",
+    'last_name': "שם משפחה",
+    'email': "אימייל",
+    'campaign_count': "מספר קמפיינים"
 }
 
 type CustomFieldFilterType = 'equal' | 'starts_with' | 'ends_with' | 'contains';
 
 const CustomFieldFilterTypeNames: Record<CustomFieldFilterType, string> = {
-    'equal': "Equal",
-    'starts_with': "Starts With",
-    'ends_with': "Ends With",
-    'contains': "Contains"
+    'equal': "שווה ל",
+    'starts_with': "מתחיל ב",
+    'ends_with': "מסתיים ב",
+    'contains': "מכיל"
 }
 
 export interface CustomFieldFilter {
@@ -217,7 +217,7 @@ export function CheckFilterTime({
     >
         <MiniDate
             onChange={(v) => setValue(v ?? null)}
-            placeholder="Null"
+            placeholder="ללא תאריך"
             value={value ?? undefined}
         />
     </CheckFilter>
@@ -386,22 +386,22 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
             <BulkEditContactsProvider>
                 {children}
             </BulkEditContactsProvider>
-            <div onMouseDown={handleMouseDown} onMouseUp={() => handleMouseUp(setFilters)} className={`fixed inset-0 z-100 flex justify-end bg-slate-950/45 transition ${filters ? "visible opacity-100":"invisible opacity-0"}`} >
-                <div onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()} className={`flex flex-col bg-white relative w-200 max-w-[95%] h-full transition-transform ${filters ? "translate-x-0":"translate-x-100"}`}>
+            <div onMouseDown={handleMouseDown} onMouseUp={() => handleMouseUp(setFilters)} className={`fixed inset-0 z-100 flex justify-end rtl:justify-start bg-slate-950/45 transition ${filters ? "visible opacity-100":"invisible opacity-0"}`} >
+                <div onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()} className={`flex flex-col bg-white relative w-200 max-w-[95%] h-full transition-transform text-start ${filters ? "translate-x-0":"translate-x-100 rtl:-translate-x-100"}`}>
                     <div className="overflow-y-scroll p-10 grow">
                         <div className="mb-3 flex justify-between gap-5">
-                            <h1 className="text-3xl text-slate-700 font-poppins font-medium">Search Filters</h1>
-                            <div onClick={() => setFilters(false)} className="flex px-2 items-center justify-center hover:opacity-80 cursor-pointer">
+                            <h1 className="text-3xl text-slate-700 font-poppins font-medium">מסנני חיפוש</h1>
+                            <div onClick={() => setFilters(false)} aria-label="סגור" className="flex px-2 items-center justify-center hover:opacity-80 cursor-pointer">
                                 <RiCloseLine className="w-5 text-slate-400"/>
                             </div>
                         </div>
                         <hr className="my-5 text-slate-200"/>
                         <div className="space-y-5">
                             <div>
-                                <MiniTitle>Query</MiniTitle>
+                                <MiniTitle>שאילתת חיפוש</MiniTitle>
                                 <MiniInput
                                     value={search.query}
-                                    placeholder="Search..."
+                                    placeholder="חיפוש…"
                                     onChange={(e) => setSearch(s => ({
                                         ...s,
                                         query: e.target.value,
@@ -410,7 +410,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                             </div>
                             <div>
                                 <MiniTitle>
-                                    Custom Field Filters
+                                    מסנני שדות מותאמים אישית
                                     {search.custom_field_filters.length < 100 &&
                                     <button 
                                     onClick={() => {
@@ -425,6 +425,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                             })
                                         )
                                     }}
+                                    aria-label="הוסף מסנן שדה"
                                     className='ripple bg-blue-100 hover:bg-blue-200 transition rounded-lg px-1 text-blue-600 cursor-pointer'>
                                         <RiAddLine className='w-4'/>
                                     </button>}
@@ -453,48 +454,48 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                     ))}
                                 </>:<>
                                 <div className=" text-slate-400 font-poppins">
-                                    No filters added yet.
+                                    טרם נוספו מסננים.
                                 </div>
                                 </>}
                                 </div>
                             </div>
                             <div>
-                                <MiniTitle>Sort By</MiniTitle>
+                                <MiniTitle>מיון לפי</MiniTitle>
                                 <SortBySelection
                                     search={search}
                                     setSearch={setSearch}
                                 />
                             </div>
                             <div>
-                                <MiniTitle>Filter By</MiniTitle>
+                                <MiniTitle>סינון לפי</MiniTitle>
                                 <div className="space-y-3">
                                     <CheckFilterTime
                                         value={search.created_after}
                                         setValue={(v) => {
                                             setSearch(bef => ({...bef, created_after: v}))
                                         }}
-                                        label="Created After"
+                                        label="נוצר אחרי"
                                     />
                                     <CheckFilterTime
                                         value={search.updated_after}
                                         setValue={(v) => {
                                             setSearch(bef => ({...bef, updated_after: v}))
                                         }}
-                                        label="Updated After"
+                                        label="עודכן אחרי"
                                     />
                                     <CheckFilterTime
                                         value={search.created_before}
                                         setValue={(v) => {
                                             setSearch(bef => ({...bef, created_before: v}))
                                         }}
-                                        label="Created Before"
+                                        label="נוצר לפני"
                                     />
                                     <CheckFilterTime
                                         value={search.updated_before}
                                         setValue={(v) => {
                                             setSearch(bef => ({...bef, updated_before: v}))
                                         }}
-                                        label="Updated Before"
+                                        label="עודכן לפני"
                                     />
                                     <CheckFilter
                                         value={search.min_campaigns !== null}
@@ -505,7 +506,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                                 setSearch(bef => ({...bef, min_campaigns: null}))
                                             }
                                         }}
-                                        label="Min Campaigns"
+                                        label="מינימום קמפיינים"
                                     >
                                         {search.min_campaigns !== null &&
                                         <MiniNumberInput
@@ -523,7 +524,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                                 setSearch(bef => ({...bef, max_campaigns: null}))
                                             }
                                         }}
-                                        label="Max Campaigns"
+                                        label="מקסימום קמפיינים"
                                     >
                                         {search.max_campaigns !== null &&
                                         <MiniNumberInput
@@ -541,7 +542,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                                 setSearch(bef => ({...bef, subscribed: null}))
                                             }
                                         }}
-                                        label="Subscribed"
+                                        label="רשום לתפוצה"
                                     >
                                         {search.subscribed !== null && (
                                             <Switch
@@ -555,7 +556,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                             </div>
                             {!activeCampaign &&
                             <div>
-                                <MiniTitle>Assoicated Campaigns</MiniTitle>
+                                <MiniTitle>קמפיינים משויכים</MiniTitle>
                                 <CampaignSelector
                                  onAdd={(id, name) => {
                                     setSearch(bef => ({
@@ -573,11 +574,11 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                  reverse
                                  />
                             </div>}
-                            <div className="flex justify-end gap-2 mt-6">
+                            <div className="flex justify-end rtl:justify-start gap-2 mt-6">
                                 <button 
                                  onClick={() => setFilters(false)}
                                  className="ripple cursor-pointer px-4 h-10 text-slate-500 rounded-lg bg-slate-200 hover:bg-slate-300">
-                                    Close
+                                    סגור
                                 </button>
                             <button 
                             onClick={async () => {
@@ -590,7 +591,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                             >
                                 {contacts === null ? <Loading className='h-5' color={twColors.slate[200]}/>:<>
                                 <RiSearch2Line className="w-4"/>
-                                Search
+                                חיפוש
                                 </>}
                             </button>
                             </div>
@@ -681,14 +682,15 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                 }
 
                 return (
-                    <div onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} className={`fixed inset-0 z-100 flex justify-end bg-slate-950/45 transition ${preview ? "visible opacity-100":"invisible opacity-0"}`}>
-                        <div onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()} className={`flex p-10 flex-col bg-white relative w-200 max-w-[95%] h-full transition-transform overflow-y-scroll ${preview ? "translate-x-0":"translate-x-100"}`}>
+                    <div onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} className={`fixed inset-0 z-100 flex justify-end rtl:justify-start bg-slate-950/45 transition ${preview ? "visible opacity-100":"invisible opacity-0"}`}>
+                        <div onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()} className={`flex p-10 flex-col bg-white relative w-200 max-w-[95%] h-full transition-transform overflow-y-scroll text-start ${preview ? "translate-x-0":"translate-x-100 rtl:-translate-x-100"}`}>
                             {(body && preview) && <>
                                 <div className="space-y-5">
                                     <div className="flex justify-between gap-4 items-center">
-                                        <h1 className="font-semibold font-poppins text-slate-600 text-lg">Edit Contact ({preview.email})</h1>
+                                        <h1 className="font-semibold font-poppins text-slate-600 text-lg">עריכת איש קשר ({preview.email})</h1>
                                         <button 
                                          className="shrink-0 px-2 cursor-pointer text-slate-400 hover:text-slate-300"
+                                         aria-label="סגור"
                                          onClick={() => {
                                             setView(""); setError("");
                                          }}>
@@ -697,10 +699,10 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                     </div>
                                     <hr className="text-slate-200"/>
                                     <div>
-                                        <MiniTitle>First Name</MiniTitle>
+                                        <MiniTitle>שם פרטי</MiniTitle>
                                         <MiniInput
                                          value={body.first_name}
-                                         placeholder="e.g. John"
+                                         placeholder="לדוגמה: ישראל"
                                          onChange={(e) => {
                                             setBody(bef => bef ? ({
                                                 ...bef,
@@ -709,10 +711,10 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                          }}/>
                                     </div>
                                     <div>
-                                        <MiniTitle>Last Name</MiniTitle>
+                                        <MiniTitle>שם משפחה</MiniTitle>
                                         <MiniInput
                                          value={body.last_name}
-                                         placeholder="e.g. Doe"
+                                         placeholder="לדוגמה: ישראלי"
                                          onChange={(e) => {
                                             setBody(bef => bef ? ({
                                                 ...bef,
@@ -721,10 +723,10 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                          }}/>
                                     </div>
                                     <div>
-                                        <MiniTitle>Email</MiniTitle>
+                                        <MiniTitle>אימייל</MiniTitle>
                                         <MiniInput
                                          value={body.email}
-                                         placeholder="e.g. name@example.com"
+                                         placeholder="לדוגמה: israel@company.com"
                                          onChange={(e) => {
                                             setBody(bef => bef ? ({
                                                 ...bef,
@@ -733,10 +735,10 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                          }}/>
                                     </div>
                                     <div>
-                                        <MiniTitle>Company</MiniTitle>
+                                        <MiniTitle>חברה</MiniTitle>
                                         <MiniInput
                                          value={body.company}
-                                         placeholder="e.g. Acme Inc."
+                                         placeholder="לדוגמה: חברה בע״מ"
                                          onChange={(e) => {
                                             setBody(bef => bef ? ({
                                                 ...bef,
@@ -745,10 +747,10 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                          }}/>
                                     </div>
                                     <div>
-                                        <MiniTitle>Phone</MiniTitle>
+                                        <MiniTitle>טלפון</MiniTitle>
                                         <MiniInput
                                          value={body.phone}
-                                         placeholder="e.g. +1 (123) 456-7890"
+                                         placeholder="לדוגמה: 050-1234567"
                                          onChange={(e) => {
                                             setBody(bef => bef ? ({
                                                 ...bef,
@@ -758,7 +760,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                     </div>
                                     <div>
                                         <MiniTitle>
-                                            Custom Fields
+                                            שדות מותאמים אישית
                                             <button 
                                                 onClick={() => {
                                                     setCustomFields(bef => [...bef, {
@@ -766,12 +768,13 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                                         value: "",
                                                     }])
                                                 }}
+                                                aria-label="הוסף שדה"
                                                 className="px-2 rounded-lg shrink-0 bg-blue-100 text-blue-600 hover:bg-blue-200 ripple cursor-pointer transition">
                                                 <RiAddLine className="w-4"/>
                                             </button>
                                         </MiniTitle>
                                         {customFields.length === 0 ? <>
-                                            <p className="text-slate-400 font-poppins">No fields added yet.</p>
+                                            <p className="text-slate-400 font-poppins">טרם נוספו שדות מותאמים אישית.</p>
                                         </>:<>
                                             <div className="space-y-3">
                                                 {customFields.map((f, ind) => {
@@ -780,7 +783,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                                             <div className="flex gap-2">
                                                                 <MiniInput
                                                                     value={f.name}
-                                                                    placeholder="Field Name"
+                                                                    placeholder="שם שדה"
                                                                     onChange={(e) => {
                                                                         setCustomFields(bef => bef.map((m, i) => i === ind ? ({
                                                                                 ...m,
@@ -793,6 +796,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                                                 onClick={() => {
                                                                     setCustomFields(bef => bef.filter((_, i) => i !== ind))
                                                                 }}
+                                                                aria-label="מחק שדה"
                                                                 className="shrink-0 px-2 cursor-pointer ripple transition bg-red-100 hover:bg-red-200 rounded-lg text-red-600">
                                                                     <RiCloseLine className="w-4"/>
                                                                 </button>
@@ -806,7 +810,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                                                     }):m
                                                                 ))
                                                             }}
-                                                            placeholder="Field Value"/>
+                                                            placeholder="ערך שדה"/>
                                                         </div>
                                                     )
                                                 })}
@@ -814,7 +818,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                         </>}
                                     </div>
                                     <div>
-                                        <MiniTitle>Campaigns</MiniTitle>
+                                        <MiniTitle>קמפיינים</MiniTitle>
                                         <CampaignSelector
                                             onAdd={(id, name) => {
                                                 setBody(bef => bef ? ({...bef, campaigns: [...bef.campaigns, {
@@ -829,7 +833,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                         />
                                     </div>
                                     <div>
-                                        <MiniTitle>Additional Fields</MiniTitle>
+                                        <MiniTitle>שדות נוספים</MiniTitle>
                                         <div className="space-y-3">
                                             <BoolField
                                              name="subscribed"
@@ -839,21 +843,21 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                                     ...bef, subscribed: !bef.subscribed,
                                                 }):null);
                                              }}>
-                                                <BoolFieldTitle>Subscribed</BoolFieldTitle>
+                                                <BoolFieldTitle>רשום לתפוצה</BoolFieldTitle>
                                             </BoolField>
                                         </div>
                                     </div>
-                                    <div className="flex justify-end">
+                                    <div className="flex justify-end rtl:justify-start">
                                         <div className="flex gap-2 relative">
                                             <button
                                              className="bg-slate-200 hover:bg-slate-300 px-3 h-10 text-slate-500 cursor-pointer transition flex items-center justify-center rounded-lg"
                                              onClick={ResetBody}>
-                                                Clear
+                                                נקה
                                             </button>
                                             <button
                                              className={`flex h-10 w-32 ${loading ? "bg-blue-600":"bg-blue-500 hover:bg-blue-600"} ripple text-white flex items-center justify-center rounded-lg cursor-pointer transition`}
                                              onClick={SaveChanges}>
-                                                {loading ? <Loading className="h-5"/>:"Save Changes"}
+                                                {loading ? <Loading className="h-5"/>:"שמור שינויים"}
                                             </button>
                                             {(!isChangedCampaigns && !isChangedCustomFields && preview.first_name === body.first_name && preview.last_name === body.last_name && preview.company === body.company && preview.phone === body.phone && preview.email === body.email && preview.subscribed === body.subscribed) && 
                                             <div className="absolute top-0 left-0 w-full h-full bg-white opacity-40 cursor-not-allowed"/>}
@@ -943,14 +947,14 @@ function SortBySelection({
             ))}
           </SelectMenu>
         </div>
-        <div className="flex justify-end px-2">
+        <div className="flex justify-end rtl:justify-start px-2">
         <CheckLine
             value={search.reverse}
             setValue={(v) => setSearch(bef => ({
                 ...bef,
                 reverse: v,
             }))}>
-            Reverse
+            סדר הפוך
         </CheckLine></div>
     </div>)
 }
@@ -974,7 +978,7 @@ function CustomFieldRow({
       <div className="grid grid-cols-2 gap-2">
         <MiniInput
           value={field.name}
-          placeholder="my_custom_field"
+          placeholder="שם שדה"
           onChange={(e) => onChange({ ...field, name: e.target.value })}
         />
 
@@ -1004,12 +1008,13 @@ function CustomFieldRow({
         <div className="grow">
             <MiniInput
             value={field.value}
-            placeholder="my text"
+            placeholder="ערך שדה"
             onChange={(e) => onChange({ ...field, value: e.target.value })}
             />
         </div>
         <button
           type="button"
+          aria-label="מחק מסנן שדה"
           className="ripple shrink-0 px-3 cursor-pointer text-red-600 transition bg-red-100 hover:bg-red-200 rounded-lg"
           onClick={onDelete}
         >

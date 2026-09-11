@@ -23,7 +23,7 @@ export default function CheckFilterTime({
     >
         <MiniDate
             onChange={setValue}
-            placeholder="Null"
+            placeholder="ללא תאריך"
             value={value}
         />
     </CheckFilter>

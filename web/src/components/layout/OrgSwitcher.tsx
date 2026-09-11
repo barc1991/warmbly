@@ -98,10 +98,10 @@ export function OrgSwitcher() {
             </PopoverMenuTrigger>
 
             <PopoverMenuContent minWidth={232}>
-                <PopoverMenuLabel>Workspaces</PopoverMenuLabel>
+                <PopoverMenuLabel>מרחבי עבודה</PopoverMenuLabel>
                 {organizations.length === 0 ? (
                     <div className="px-3 py-2 text-[11.5px] text-slate-400">
-                        No workspaces yet.
+                        אין מרחבי עבודה עדיין.
                     </div>
                 ) : (
                     organizations.map((org) => {
@@ -138,13 +138,13 @@ export function OrgSwitcher() {
                     onSelect={() => setNewOpen(true)}
                     icon={<PlusIcon className="w-3 h-3" />}
                 >
-                    New workspace
+                    מרחב עבודה חדש
                 </PopoverMenuItem>
                 <PopoverMenuItem
                     onSelect={() => navigate("/select-org")}
                     icon={<Settings2Icon className="w-3 h-3" />}
                 >
-                    Manage workspaces
+                    ניהול מרחבי עבודה
                 </PopoverMenuItem>
             </PopoverMenuContent>
         </PopoverMenu>

@@ -178,7 +178,7 @@ function AIVariableChip({ node, updateAttributes, deleteNode, selected, editor }
                         if (target?.closest("[data-floating]")) e.preventDefault();
                     }}
                 >
-                    <DialogTitle className="sr-only">Configure AI block</DialogTitle>
+                    <DialogTitle className="sr-only">הגדרת בלוק AI</DialogTitle>
                     {open && (
                         <AIVariableConfigBody
                             config={config}

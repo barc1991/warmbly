@@ -109,7 +109,7 @@ export function AppShell() {
 // hairline chrome as the pages themselves so the panel never goes blank.
 function RouteFallback() {
     return (
-        <div className="px-5 pt-5 space-y-4" role="status" aria-label="Loading">
+        <div className="px-5 pt-5 space-y-4" role="status" aria-label="טוען">
             <div className="h-6 w-56 bg-slate-100 rounded-md animate-pulse" />
             <div className="h-3 w-40 bg-slate-100 rounded animate-pulse" />
             <div className="h-56 bg-slate-100 rounded-md animate-pulse" />

@@ -250,25 +250,25 @@ export const CampaignProvider = ({ children }: { children: React.ReactNode }) =>
         <CampaignContext.Provider value={{campaigns, loading, max, getCampaigns, GetCampaigns, GetCampaignsQ, updateCampaign, getCampaign, newCampaign: setAdd, fetchSequences, updateSequences}}>
             {children}
             <div className={`fixed inset-0 z-100 bg-slate-950/45 flex justify-center items-center transition ${add ? "opacity-100 visible":"opacity-0 invisible"}`}>
-                <div className={`bg-white duration-200 absolute top-0 right-0 shadow-md py-10 px-10 md:py-14 md:px-20 w-[calc(99%-0px)] h-full ml-auto rounded-l-4xl overflow-y-scroll no-scrollbar transition ${add ? "opacity-100 visible translate-x-0":"opacity-0 invisible translate-x-[20%]"}`}>
-                    <div className="absolute top-10 right-10 z-101 text-slate-500 hover:text-slate-400 transition cursor-pointer" onClick={closeNew}>
+                <div className={`bg-white duration-200 absolute top-0 right-0 rtl:right-auto rtl:left-0 shadow-md py-10 px-10 md:py-14 md:px-20 w-[calc(99%-0px)] h-full ml-auto rtl:ml-0 rtl:mr-auto rounded-l-4xl rtl:rounded-l-none rtl:rounded-r-4xl overflow-y-scroll no-scrollbar transition ${add ? "opacity-100 visible translate-x-0":"opacity-0 invisible translate-x-[20%] rtl:-translate-x-[20%]"}`}>
+                    <div className="absolute top-10 right-10 rtl:right-auto rtl:left-10 z-101 text-slate-500 hover:text-slate-400 transition cursor-pointer" onClick={closeNew}>
                         <RiCloseLine className="w-5"/>
                     </div>
-                    <h1 className="text-5xl text-slate-600 font-bold font-inter mb-9 mr-4">New Campaign</h1>
-                    <p className="text-xl text-slate-400 font-inter max-w-4xl mb-9">Create a brand-new email campaign to reach your audience, deliver targeted content, and track engagement metrics in real-time.</p>
-                    <div className="max-w-2xl space-y-6 mb-8">
+                    <h1 className="text-5xl text-slate-600 font-bold font-inter mb-9 mr-4 rtl:mr-0 rtl:ml-4">קמפיין חדש</h1>
+                    <p className="text-xl text-slate-400 font-inter max-w-4xl mb-9">צור קמפיין אימייל חדש כדי להגיע לקהל היעד שלך, לספק תוכן מותאם אישית ולעקוב אחר מדדי מעורבות בזמן אמת.</p>
+                    <div className="max-w-2xl space-y-6 mb-8 text-start">
                         <div>
-                            <MiniTitle>Name</MiniTitle>
+                            <MiniTitle>שם</MiniTitle>
                             <Input 
-                                placeholder="My new campaign"
+                                placeholder="הקמפיין החדש שלי"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                             />
                         </div>
                         <div>
-                            <MiniTitle>Description</MiniTitle>
+                            <MiniTitle>תיאור</MiniTitle>
                             <TextArea 
-                                placeholder="Targeted for Europe, US"
+                                placeholder="לדוגמה: פנייה לחברות הייטק וטכנולוגיה"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                             />
@@ -279,7 +279,7 @@ export const CampaignProvider = ({ children }: { children: React.ReactNode }) =>
                             className={`ripple px-3 py-2 text-lg w-36 flex justify-center items-center cursor-pointer text-slate-50 transition bg-blue-500 ${!newLoad && "hover:bg-blue-600"} rounded-lg`}
                             onClick={newCampaign}
                         >
-                            {newLoad ? <Loading className="h-5"/>:"Save Changes"}
+                            {newLoad ? <Loading className="h-5"/>:"שמור שינויים"}
                         </button>
                         <button 
                             className="ripple px-3 py-2 text-lg cursor-pointer text-slate-600 transition bg-slate-100 hover:bg-slate-200 rounded-lg"
@@ -288,7 +288,7 @@ export const CampaignProvider = ({ children }: { children: React.ReactNode }) =>
                                 setDescription("");
                             }}
                             >
-                            Reset
+                            איפוס
                         </button>
                     </div>
                     <p className="text-red-600">{error}</p>

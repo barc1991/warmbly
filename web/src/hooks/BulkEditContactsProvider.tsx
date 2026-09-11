@@ -29,6 +29,13 @@ type FieldType = 'ADD' | 'EDIT' | 'DELETE' | 'RENAME'
 
 const FieldTypes: FieldType[] = ["ADD", "EDIT", "DELETE", "RENAME"]
 
+const FieldTypeLabels: Record<FieldType, string> = {
+    ADD: "הוספה",
+    EDIT: "עריכה",
+    DELETE: "מחיקה",
+    RENAME: "שינוי שם",
+};
+
 interface Field {
     type: FieldType;
     key: string;
@@ -103,6 +110,11 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
                 } else return con
             }):null)  
             setSelected(null);
+            setCampaignsAdd([])
+            setCampaignsRemove([])
+            setSubscribe(null)
+            setFields([])
+            setError("")
         } catch (err) {
             if (err instanceof APIError) {
                 setError(`${err.message}: ${err.body.message}`)
@@ -117,14 +129,14 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
     return (
         <BulkEditContactsContext.Provider value={{setSelected}}>
             {children}
-            <div onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} className={`fixed inset-0 z-[900] flex justify-end bg-slate-950/45 transition ${selected ? "visible opacity-100":"invisible opacity-0"}`}>
-                <div onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()} className={`flex p-10 flex-col bg-white relative w-200 max-w-[95%] h-full transition-transform ${selected ? "translate-x-0":"translate-x-100"}`}>
+            <div onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} className={`fixed inset-0 z-[900] flex justify-end rtl:justify-start bg-slate-950/45 transition ${selected ? "visible opacity-100":"invisible opacity-0"}`}>
+                <div onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()} className={`flex p-10 flex-col bg-white relative w-200 max-w-[95%] h-full transition-transform text-start ${selected ? "translate-x-0":"translate-x-100 rtl:-translate-x-100"}`}>
                     <div className='space-y-5'>
                         <div>
-                            <h1 className='text-lg text-slate-600 font-poppins mb-8 font-semibold'>Edit {selected ? selected.length:0} selected contact(s)</h1>
+                            <h1 className='text-lg text-slate-600 font-poppins mb-8 font-semibold'>עריכת {selected ? selected.length:0} אנשי קשר שנבחרו</h1>
                         </div>
                         <div>
-                            <MiniTitle>Campaigns to add</MiniTitle>
+                            <MiniTitle>קמפיינים להוספה</MiniTitle>
                             <CampaignSelector
                             onAdd={(id, name) => {
                                 setCampaignsAdd(bef => [...bef, {
@@ -139,7 +151,7 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
                             />
                         </div>
                         <div>
-                            <MiniTitle>Campaigns to remove</MiniTitle>
+                            <MiniTitle>קמפיינים להסרה</MiniTitle>
                             <CampaignSelector
                             onAdd={(id, name) => {
                                 setCampaignsRemove(bef => [...bef, {
@@ -155,7 +167,7 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
                         </div>
                         <div>
                             <MiniTitle>
-                                Custom Fields
+                                שדות מותאמים אישית
                                 {fields.length < 100 &&
                                 <button 
                                  onClick={() => {
@@ -165,6 +177,7 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
                                         value: "",
                                     }])
                                  }}
+                                 aria-label="הוסף שדה"
                                  className='ripple bg-blue-100 hover:bg-blue-200 transition rounded-lg px-1 text-blue-600 cursor-pointer'>
                                     <RiAddLine className='w-4'/>
                                 </button>}
@@ -183,13 +196,13 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
                                 })}
                             </div>:<div>
                                 <p className='text-slate-400'>
-                                    No fields added yet.
+                                    טרם נוספו שדות.
                                 </p>
                             </div>}
                         </div>
                         <div>
                             <MiniTitle>
-                                Fields
+                                שדות נוספים
                             </MiniTitle>
                             <CheckFilter
                                 value={subscribe !== null}
@@ -200,7 +213,7 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
                                         setSubscribe(null)
                                     }
                                 }}
-                                label="Subscribed"
+                                label="רשום לתפוצה"
                             >
                                 {subscribe !== null && (
                                     <Switch
@@ -211,7 +224,7 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
                                 )}
                             </CheckFilter>
                         </div>
-                        <div className='flex justify-end'>
+                        <div className='flex justify-end rtl:justify-start'>
                             <div className='relative flex gap-2 items-center'>
                                 <button
                                  className={`bg-slate-200 hover:bg-slate-300 transition w-20 h-10 flex items-center justify-center text-slate-500 rounded-lg cursor-pointer`}
@@ -221,17 +234,17 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
                                     setSubscribe(null)
                                     setFields([])
                                  }}>
-                                    Clear
+                                    נקה
                                 </button>
                                 <button
                                  className={`${loading ? "bg-blue-600":"bg-blue-500 hover:bg-blue-600"} transition w-32 h-10 flex items-center justify-center text-white rounded-lg cursor-pointer`}
                                  onClick={Submit}>
-                                    {loading ? <Loading className='h-4'/>:"Make Changes"}
+                                    {loading ? <Loading className='h-4'/>:"בצע שינויים"}
                                 </button>
                                 {(campaignsAdd.length === 0 && campaignsRemove.length === 0 && fields.length === 0 && subscribe === null) && <div className='bg-white opacity-40 absolute top-0 left-0 w-full h-full cursor-not-allowed'/>}
                             </div>
                         </div>
-                        {error && <p className='text-right text-red-500'>{error}</p>}
+                        {error && <p className='text-right rtl:text-left text-red-500'>{error}</p>}
                     </div>
                 </div>
             </div>
@@ -258,7 +271,7 @@ function FieldEdit({
                 <div className='grid grid-cols-2 gap-2 grow'>
                     <MiniInput
                         value={field.key}
-                        placeholder='Key'
+                        placeholder='שם שדה'
                         onChange={(e) => {
                         setFields(bef => bef.map((f, i) => i === index ? ({
                             ...f,
@@ -272,7 +285,7 @@ function FieldEdit({
                         setShow={setShow}
                         caret
                         >
-                            {field.type}
+                            {FieldTypeLabels[field.type]}
                         </Selector>
                         <SelectMenu
                             show={show}
@@ -290,7 +303,7 @@ function FieldEdit({
                                             setShow(false);
                                         }}
                                     >
-                                        {v}
+                                        {FieldTypeLabels[v]}
                                     </SelectOption>
                                 )
                             })}
@@ -298,6 +311,8 @@ function FieldEdit({
                     </div>
                 </div>
                 <button 
+                 type="button"
+                 aria-label="מחק שדה"
                  className='ripple shrink-0 w-10 flex border border-transparent rounded-lg items-center justify-center bg-red-100 hover:bg-red-200 transition cursor-pointer text-red-500'
                  onClick={() => setFields(bef => bef.filter((_, ind) => ind !== index))}>
                     <RiCloseLine className='w-4'/>
@@ -306,7 +321,7 @@ function FieldEdit({
             <MiniTextArea
              value={field.type !== "DELETE" ? field.value:""}
              disabled={field.type === "DELETE"}
-             placeholder='Value'
+             placeholder='ערך שדה'
              onChange={(e) => {
                 setFields(bef => bef.map((v, i) => i === index ? ({
                     ...v,
