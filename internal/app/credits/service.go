@@ -27,9 +27,6 @@ const (
 	// Daily cap: max writing-assistant generations per org per UTC day.
 	WindowDaily       = 24 * time.Hour
 	DefaultDailyLimit = 300
-
-	keyPrefixShort = "credits:cap:5h:"
-	keyPrefixDaily = "credits:cap:day:"
 )
 
 // ErrInsufficientCredits signals the org has fewer credits than requested. The
