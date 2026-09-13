@@ -170,7 +170,13 @@ export const EmailAttributes = Extension.create({
                 const current = (node.attrs.style as string | null) ?? "";
                 const next = withDeclaration(current, "text-align", align);
                 if (next === current) return;
-                tr.setNodeMarkup(pos, undefined, { ...node.attrs, style: next || null });
+                const nextAttrs: Record<string, unknown> = { ...node.attrs, style: next || null };
+                if (align === "right") {
+                    nextAttrs.dir = "rtl";
+                } else if (align === "left") {
+                    nextAttrs.dir = "ltr";
+                }
+                tr.setNodeMarkup(pos, undefined, nextAttrs);
                 changed = true;
             });
             if (changed && dispatch) dispatch(tr);
