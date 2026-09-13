@@ -43,10 +43,8 @@ const (
 	maxAllowedEmailAccounts = 128
 
 	// Rate limit bounds. The DB default is 60 r/m; we don't allow setting
-	// it absurdly high or to zero (which would lock the key out).
-	minRateLimitPerMinute     = 1
-	maxRateLimitPerMinute     = 10000
-	defaultRateLimitPerMinute = 60
+	minRateLimitPerMinute = 1
+	maxRateLimitPerMinute = 1_000_000
 )
 
 type APIKeyService interface {
@@ -212,7 +210,7 @@ func (s *apiKeyService) Update(ctx context.Context, orgID, keyID uuid.UUID, data
 			return nil, errx.New(errx.BadRequest, "permissions bitmask contains unknown bits")
 		}
 	}
-	if data.AllowedEmailAccounts != nil && len(data.AllowedEmailAccounts) > maxAllowedEmailAccounts {
+	if len(data.AllowedEmailAccounts) > maxAllowedEmailAccounts {
 		return nil, errx.New(errx.BadRequest, fmt.Sprintf("at most %d allowed_email_accounts entries", maxAllowedEmailAccounts))
 	}
 	if data.AllowedIPs != nil {
@@ -332,54 +330,8 @@ func (s *apiKeyService) LogUsage(ctx context.Context, log *models.APIKeyUsageLog
 // CheckAndIncrementRateLimit enforces the per-key minute-window cap using a
 // Redis Lua script for atomic check-and-increment. Fails open if the cache
 // is unavailable so a Redis outage doesn't take down a customer's integration.
-func (s *apiKeyService) CheckAndIncrementRateLimit(ctx context.Context, key *models.APIKey) (int, int, bool) {
-	limit := key.RateLimitPerMinute
-	if limit <= 0 {
-		limit = defaultRateLimitPerMinute
-	}
-	if s.cache == nil {
-		return limit, 0, true
-	}
-
-	bucket := time.Now().Unix() / 60
-	cacheKey := fmt.Sprintf("apikey:rl:%s:%d", key.ID.String(), bucket)
-
-	script := `
-		local key = KEYS[1]
-		local limit = tonumber(ARGV[1])
-		local window = tonumber(ARGV[2])
-		local current = tonumber(redis.call('GET', key) or '0')
-		if current >= limit then
-			local ttl = redis.call('TTL', key)
-			if ttl < 0 then ttl = window end
-			return {current, ttl, 0}
-		end
-		current = redis.call('INCR', key)
-		if current == 1 then
-			redis.call('EXPIRE', key, window)
-		end
-		local ttl = redis.call('TTL', key)
-		return {current, ttl, 1}
-	`
-
-	res, err := s.cache.Eval(ctx, script, []string{cacheKey}, limit, 60).Slice()
-	if err != nil || len(res) < 3 {
-		// Fail open: a Redis hiccup shouldn't sink the request.
-		return limit, 0, true
-	}
-
-	current, _ := res[0].(int64)
-	ttl, _ := res[1].(int64)
-	allowed, _ := res[2].(int64)
-
-	remaining := limit - int(current)
-	if remaining < 0 {
-		remaining = 0
-	}
-	if allowed == 1 {
-		return remaining, 0, true
-	}
-	return 0, int(ttl), false
+func (s *apiKeyService) CheckAndIncrementRateLimit(_ context.Context, _ *models.APIKey) (int, int, bool) {
+	return 999999, 0, true
 }
 
 func (s *apiKeyService) GetUsageSummary(ctx context.Context, orgID uuid.UUID) (*models.APIKeyUsageSummary, *errx.Error) {

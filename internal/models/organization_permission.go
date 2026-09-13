@@ -98,7 +98,7 @@ const AllPermissions OrganizationPermission = 0xFFFF
 // RolePermissions maps roles to their default permissions
 var RolePermissions = map[Role]OrganizationPermission{
 	RoleOwner: AllPermissions,
-	RoleAdmin: AllPermissions ^ PermTransferOwnership ^ 0, // Admin gets all except transfer
+	RoleAdmin: AllPermissions ^ PermTransferOwnership, // Admin gets all except transfer
 	RoleManager: PermManageCampaigns | PermManageContacts | PermManageEmails |
 		PermSendCampaigns | PermManageSequences | PermViewAnalytics |
 		PermViewCampaigns | PermViewContacts | PermAccessUnibox |

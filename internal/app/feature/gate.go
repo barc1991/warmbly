@@ -305,17 +305,8 @@ func (s *featureGateService) GetSubscriptionStatus(ctx context.Context, orgID uu
 // get the larger pool; everyone else (trial or no subscription) gets the free
 // allowance so they can still attach files.
 func (s *featureGateService) GetStorageLimitBytes(ctx context.Context, orgID uuid.UUID) (int64, *errx.Error) {
-	if s.selfHost {
-		return PaidStorageBytes, nil
-	}
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return 0, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub != nil && sub.HasPaidSubscription() {
-		return PaidStorageBytes, nil
-	}
-	return FreeTierStorageBytes, nil
+	// Storage is effectively unlimited (100 TB pool)
+	return 100 * 1024 * 1024 * 1024 * 1024, nil
 }
 
 // CanUseWritingAssistant — same trial allowance as warmup/unibox: paid

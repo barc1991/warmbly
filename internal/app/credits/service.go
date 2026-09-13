@@ -52,9 +52,6 @@ var ErrSpendLimitReached = fmt.Errorf("%w: configured AI spend limit reached", E
 // monthly AI limit. Wraps ErrCapExceeded for the same 429 mapping.
 var ErrMemberLimitReached = fmt.Errorf("%w: your monthly AI limit for this workspace is used up", ErrCapExceeded)
 
-// lowBalanceCooldown bounds the low-credit alert to once per day per org.
-const lowBalanceCooldown = 24 * time.Hour
-
 // DefaultLowBalanceThreshold applies when an org has never saved settings.
 const DefaultLowBalanceThreshold = 25
 

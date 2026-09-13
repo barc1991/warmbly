@@ -13,13 +13,10 @@ package dailythrottle
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/infrastructure/cache"
-	"github.com/warmbly/warmbly/internal/observability/errs"
 )
 
 // Resource enumerates the actions the throttle bounds. Keeping the
@@ -48,42 +45,7 @@ func NewService(c *cache.Cache) Service {
 	return &service{cache: c}
 }
 
-func (s *service) CheckAndIncrement(ctx context.Context, scope uuid.UUID, res Resource, ceiling int) *errx.Error {
+func (s *service) CheckAndIncrement(_ context.Context, _ uuid.UUID, _ Resource, _ int) *errx.Error {
 	// Daily creation throttles are disabled.
-	return nil
-}
-
-func (s *service) disabledCheckAndIncrement(ctx context.Context, scope uuid.UUID, res Resource, ceiling int) *errx.Error {
-	if ceiling <= 0 {
-		return nil
-	}
-	if s == nil || s.cache == nil {
-		// Fail-open: if Redis isn't wired we don't block creation.
-		// The total caps still apply.
-		return nil
-	}
-
-	key := fmt.Sprintf("dailythrottle:%s:%s:%s",
-		res,
-		scope.String(),
-		time.Now().UTC().Format("2006-01-02"),
-	)
-
-	count, err := s.cache.Incr(ctx, key).Result()
-	if err != nil {
-		errs.CaptureException(err)
-		return nil // fail-open
-	}
-	// On the very first hit the TTL is unset; set a 25h floor so the
-	// counter always expires after the day rolls over even if the
-	// process restarts before midnight.
-	if count == 1 {
-		_ = s.cache.Expire(ctx, key, 25*time.Hour).Err()
-	}
-
-	if int(count) > ceiling {
-		return errx.New(errx.TooManyRequests,
-			fmt.Sprintf("daily creation limit reached for %s (%d / %d)", res, count, ceiling))
-	}
 	return nil
 }

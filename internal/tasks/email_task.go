@@ -769,29 +769,7 @@ func routingMultiplier(rules []models.WarmupRoutingRule, senderEmail, recipientE
 	return 1.0
 }
 
-func (s *tasksService) resolveWarmupPoolType(ctx context.Context, account *Email) string {
-	if account == nil {
-		return "premium"
-	}
-	// No organization means no entitlement to check, so the mailbox gets the
-	// lower-trust pool rather than defaulting into the paid one.
-	if account.OrganizationID == nil {
-		return "free"
-	}
-	// A restricted organization leaves the paid pool whatever it pays. Checked
-	// before the stored tier, which is never empty and would short-circuit it.
-	if s.orgSuspendedOrRestricted(ctx, *account.OrganizationID) {
-		return "free"
-	}
-	if account.WarmupPoolType != "" {
-		return account.WarmupPoolType
-	}
-	if s.featureGate != nil {
-		isPaid, xerr := s.featureGate.IsPaidOrganization(ctx, *account.OrganizationID)
-		if xerr == nil && !isPaid {
-			return "free"
-		}
-	}
+func (s *tasksService) resolveWarmupPoolType(_ context.Context, _ *Email) string {
 	return "premium"
 }
 
@@ -1126,19 +1104,6 @@ func (s *tasksService) directedWarmupPartner(ctx context.Context, taskID uuid.UU
 		return nil
 	}
 	return partner
-}
-
-// orgSuspendedOrRestricted reports whether the workspace's posture bars the
-// paid warmup pool. Fails open.
-func (s *tasksService) orgSuspendedOrRestricted(ctx context.Context, orgID uuid.UUID) bool {
-	if s.orgRiskRepo == nil {
-		return false
-	}
-	states, err := s.orgRiskRepo.GetOrgRiskStates(ctx, []uuid.UUID{orgID})
-	if err != nil {
-		return false
-	}
-	return states[orgID].ForcesFreeWarmupPool()
 }
 
 // orgBlocksSending reports whether the workspace is suspended. Fails open, for

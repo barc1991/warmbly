@@ -2,12 +2,10 @@ package contact
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/utils/paging"
@@ -23,36 +21,8 @@ import (
 // gate, so it never saw the self-host short-circuit: every self-hosted org
 // was capped at the seeded Free Trial plan's 100 contacts even though
 // BILLING_PROVIDER=none unlocks every other limit.
-func (s *contactService) checkContactLimit(ctx context.Context, userID string, adding int) *errx.Error {
+func (s *contactService) checkContactLimit(_ context.Context, _ string, _ int) *errx.Error {
 	// Contact limits are disabled.
-	return nil
-}
-
-func (s *contactService) disabledCheckContactLimit(ctx context.Context, userID string, adding int) *errx.Error {
-	if config.SelfHosted() || s.subRepo == nil || s.planRepo == nil || adding <= 0 {
-		return nil
-	}
-	uid, parseErr := uuid.Parse(userID)
-	if parseErr != nil {
-		return nil
-	}
-	sub, err := s.subRepo.GetByUserID(ctx, uid)
-	if err != nil || sub == nil {
-		return nil
-	}
-	plan, err := s.planRepo.GetByID(ctx, sub.PlanID)
-	if err != nil || plan == nil || plan.MaxContacts <= 0 {
-		return nil
-	}
-	currentCount, xerr := s.contactRepository.GetContactCount(ctx, userID)
-	if xerr != nil {
-		return nil
-	}
-	if currentCount+adding > int(plan.MaxContacts) {
-		return errx.New(errx.Forbidden, fmt.Sprintf(
-			"adding %d contacts would put you over your plan's limit of %d (you have %d)",
-			adding, plan.MaxContacts, currentCount))
-	}
 	return nil
 }
 

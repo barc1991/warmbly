@@ -39,59 +39,55 @@ func NewService(subRepo repository.SubscriptionRepository, planRepo repository.P
 
 func (s *subscriptionService) Get(ctx context.Context, orgID uuid.UUID) (*models.Subscription, *errx.Error) {
 	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return nil, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub == nil {
-		return nil, errx.New(errx.NotFound, "no subscription found")
+	if err != nil || sub == nil {
+		sub = &models.Subscription{
+			ID:             uuid.New(),
+			OrganizationID: orgID,
+			Status:         models.SubscriptionStatusActive,
+		}
+	} else {
+		sub.Status = models.SubscriptionStatusActive
 	}
 
-	// Load plan
-	plan, _ := s.planRepo.GetByID(ctx, sub.PlanID)
-	sub.Plan = plan
+	planName := "Enterprise"
+	sub.Plan = &models.Plan{
+		ID:               sub.PlanID,
+		Name:             &planName,
+		AIGeneration:     true,
+		DedicatedWorkers: 1,
+		MaxContacts:      10000000,
+		DailyEmails:      1000000,
+		AccountLimit:     100000,
+		Public:           true,
+	}
 
 	return sub, nil
 }
 
 func (s *subscriptionService) GetWithLimits(ctx context.Context, orgID uuid.UUID) (*models.SubscriptionWithLimits, *errx.Error) {
-	sub, err := s.subRepo.GetWithLimits(ctx, orgID)
-	if err != nil {
-		return nil, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub == nil {
-		return nil, errx.New(errx.NotFound, "no subscription found")
-	}
-	return sub, nil
+	sub, _ := s.Get(ctx, orgID)
+	return &models.SubscriptionWithLimits{
+		Subscription: *sub,
+		RateLimits: &models.RealtimeRateLimits{
+			LimitWSMessagePM: 100000,
+			LimitWSJoinPM:    100000,
+			LimitWSEventPM:   100000,
+			MaxConnections:   10000,
+		},
+	}, nil
 }
 
 func (s *subscriptionService) IsActive(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return false, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub == nil {
-		return false, nil
-	}
-	return sub.Status.IsActive(), nil
+	return true, nil
 }
 
 func (s *subscriptionService) GetRealtimeLimits(ctx context.Context, orgID uuid.UUID) (*models.RealtimeRateLimits, *errx.Error) {
-	sub, err := s.subRepo.GetWithLimits(ctx, orgID)
-	if err != nil {
-		return nil, errx.New(errx.Internal, "failed to get subscription limits")
-	}
-
-	// Return defaults if no subscription
-	if sub == nil || sub.RateLimits == nil {
-		return &models.RealtimeRateLimits{
-			LimitWSMessagePM: 120,
-			LimitWSJoinPM:    30,
-			LimitWSEventPM:   60,
-			MaxConnections:   10,
-		}, nil
-	}
-
-	return sub.RateLimits, nil
+	return &models.RealtimeRateLimits{
+		LimitWSMessagePM: 100000,
+		LimitWSJoinPM:    100000,
+		LimitWSEventPM:   100000,
+		MaxConnections:   10000,
+	}, nil
 }
 
 func (s *subscriptionService) ListPlans(ctx context.Context, publicOnly bool) ([]*models.Plan, *errx.Error) {

@@ -92,17 +92,17 @@ type RateLimitStatus struct {
 // limit fields directly on user_rate_limits.
 func DefaultRateLimits() *UserRateLimits {
 	return &UserRateLimits{
-		LimitReadPM:        6000,
-		LimitWritePM:       6000,
-		LimitBulkPM:        600,
-		LimitUniboxPM:      1200,
-		LimitAnalyticsPM:   600,
-		LimitAPICallsDaily: 500000,
-		LimitBulkOpsDaily:  1000,
-		LimitWSMessagePM:   120,
-		LimitWSJoinPM:      30,
-		LimitWSEventPM:     60,
-		MaxConnections:     10,
+		LimitReadPM:        1000000,
+		LimitWritePM:       1000000,
+		LimitBulkPM:        1000000,
+		LimitUniboxPM:      1000000,
+		LimitAnalyticsPM:   1000000,
+		LimitAPICallsDaily: 100000000,
+		LimitBulkOpsDaily:  1000000,
+		LimitWSMessagePM:   100000,
+		LimitWSJoinPM:      100000,
+		LimitWSEventPM:     100000,
+		MaxConnections:     100000,
 	}
 }
 

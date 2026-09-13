@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,8 +9,6 @@ import (
 	"github.com/warmbly/warmbly/internal/jobrun"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/notify"
-	"github.com/warmbly/warmbly/internal/notify/templates"
-	"github.com/warmbly/warmbly/internal/observability/errs"
 	"github.com/warmbly/warmbly/internal/repository"
 )
 
@@ -64,82 +61,9 @@ func NewTrialExpirationJobWithDB(
 
 // Run executes the trial expiration job
 // This should be run periodically (e.g., every hour via cron or scheduler)
-func (j *TrialExpirationJob) Run(ctx context.Context) error {
+func (j *TrialExpirationJob) Run(_ context.Context) error {
 	// All accounts have permanent enterprise access; never expire trials or pause campaigns.
 	return nil
-}
-
-func (j *TrialExpirationJob) disabledRun(ctx context.Context) error {
-	// Skip if no DB connection for operations
-	if j.db == nil {
-		return nil
-	}
-
-	// Find expired trials without paid subscription
-	expiredSubs, err := repository.GetExpiredTrialsWithoutPayment(ctx, j.db)
-	if err != nil {
-		errs.CaptureException(err)
-		return fmt.Errorf("failed to get expired trials: %w", err)
-	}
-
-	for _, sub := range expiredSubs {
-		// Pause all active campaigns for this organization
-		if err := repository.PauseCampaignsByOrganizationID(ctx, j.db, sub.OrganizationID, "paused_trial_expired"); err != nil {
-			errs.CaptureException(err)
-			// Continue processing other organizations
-		}
-
-		// Disable warmup on all email accounts (they're already blocked, but clean up)
-		if err := repository.DisableWarmupByOrganizationID(ctx, j.db, sub.OrganizationID); err != nil {
-			errs.CaptureException(err)
-			// Continue processing other organizations
-		}
-
-		// Mark subscription as expired
-		if err := repository.MarkSubscriptionTrialExpired(ctx, j.db, sub.ID); err != nil {
-			errs.CaptureException(err)
-			// Continue processing other users
-		}
-
-		// Tell whoever can fix it: members with manage_billing, through the
-		// notification system (their prefs gate channels; the shared group
-		// key coalesces several admins into one email). Falls back to the
-		// legacy direct owner email when the notifier isn't wired.
-		if j.notifier != nil && sub.OrganizationID != uuid.Nil {
-			j.notifier.NotifyOrg(ctx, sub.OrganizationID, models.PermManageBilling, uuid.Nil,
-				models.NotifBillingAlert,
-				"תקופת הניסיון שלך הסתיימה",
-				"הקמפיינים והחימום מושהים עד לשדרוג תוכנית המנוי.",
-				"/app/settings/billing", nil,
-				"trial_expired:"+sub.OrganizationID.String())
-			continue
-		}
-		userEmail := ""
-		if sub.UserEmail != nil {
-			userEmail = *sub.UserEmail
-		}
-		j.notifyTrialExpired(ctx, sub.UserID, userEmail)
-	}
-
-	return nil
-}
-
-// notifyTrialExpired sends an email notification about trial expiration
-func (j *TrialExpirationJob) notifyTrialExpired(ctx context.Context, userID interface{}, userEmail string) {
-	if j.emailNotificationService == nil || userEmail == "" {
-		return
-	}
-
-	subject := "Your Warmbly trial has expired"
-	body, err := templates.GenerateTrialExpiredHTML()
-	if err != nil {
-		// GenerateTrialExpiredHTML already reported to Sentry.
-		return
-	}
-
-	if err := j.emailNotificationService.Send(ctx, []string{userEmail}, nil, nil, subject, body); err != nil {
-		errs.CaptureException(err)
-	}
 }
 
 // TrialExpirationScheduler runs the trial expiration job on a schedule

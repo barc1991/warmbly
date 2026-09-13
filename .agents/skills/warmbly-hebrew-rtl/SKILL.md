@@ -477,12 +477,23 @@ Users connect aged Gmail accounts (often 50–100+ via Google Cloud OAuth slots)
   - `checkContactLimit` returns `nil` immediately, allowing unlimited contacts to be added or imported.
 - **AI Credits & Generation Caps (`internal/app/credits/service.go`)**:
   - `selfHost: true` enforced; rolling 5-hour and 24-hour generation caps bypassed in `checkCaps`.
-- **Workspace & Role Ceilings (`internal/app/organization/service.go`)**:
-  - Removed user `MaxOrganizations` cap and workspace `MaxCustomRolesPerOrg` (25 custom roles) cap.
-- **Scheduled Sends Pending Cap (`internal/app/emailsend/service.go`)**:
-  - Removed `MaxPendingScheduledSendsPerUser` (10,000 pending sends) cap.
-- **Pool Link Allowance (`internal/app/poollink/service.go`)**:
-  - `Plan` always returns `Tier: "paid"`, `WarmupEntitled: true`, and `MailboxLimit: nil`.
+### 4. Universal Rate-Limit Neutralization, Premium Warmup Pool & Scale Ceilings
+- **Rate Limit Service (`internal/app/ratelimit/service.go`)**:
+  - `CheckLimit` and `CheckAndRecord` return `Limit: 999,999`, `Remaining: 999,999` with zero throttles.
+- **API Key Rate Limits (`internal/app/apikey/service.go`)**:
+  - `CheckAndIncrementRateLimit` returns `(999999, 0, true)`. Max rate limit raised to 1,000,000 r/m.
+- **System Default Rate Limits (`internal/models/rate_limit.go`)**:
+  - `DefaultRateLimits()` returns 1,000,000 read/write/bulk r/m, 100,000,000 daily API calls, 100,000 WebSocket connections.
+- **Premium Warmup Pool Placement (`internal/app/email/handler.go` & `internal/tasks/email_task.go`)**:
+  - `resolveWarmupPoolType` unconditionally routes all mailboxes into the `"premium"` warmup pool.
+- **Subscription API Resolution (`internal/app/subscription/service.go`)**:
+  - `Get`, `GetWithLimits`, and `GetRealtimeLimits` return an active Enterprise plan with 10M contacts, 1M daily sends, 100K accounts, dedicated workers, and 100K WebSocket r/m.
+- **Platform Hard Caps & Batch Thresholds (`internal/config/constants.go`)**:
+  - `HardCapCampaignsTotal` = 100,000; `HardCapCampaignsActive` = 10,000; `HardCapTeamMembers` = 10,000; `HardCapContacts` = 100,000,000; `HardCapDailyCampaignSends` = 10,000,000.
+  - `MailboxBulkBatchMax` raised from 50 to 5,000 with concurrency of 32. Bulk mailbox allowance cap checks eliminated in `internal/app/email/bulk.go`.
+- **Storage Quota & AI Research Scale (`internal/app/feature/gate.go` & `internal/app/research/service.go`)**:
+  - Attachment storage quota raised to 100 TB.
+  - AI Research `MaxBatch` raised from 500 to 50,000 with 50 search/fetch tool budgets and 64 max iterations.
 
 
 

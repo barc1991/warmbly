@@ -28,14 +28,14 @@ import (
 
 const (
 	// MaxBatch caps a single batch request.
-	MaxBatch = 500
+	MaxBatch = 50_000
 	// poolConcurrency is the bounded number of runs processed at once.
-	poolConcurrency = 4
+	poolConcurrency = 16
 	// defaultSearchBudget / defaultFetchBudget bound one run's tool spend.
-	defaultSearchBudget = 5
-	defaultFetchBudget  = 6
+	defaultSearchBudget = 50
+	defaultFetchBudget  = 50
 	// maxIterations bounds the agent loop (searches + fetches + save + slack).
-	maxIterations = 16
+	maxIterations = 64
 )
 
 // FeatureGate is the slice of the feature service used to route the model tier.

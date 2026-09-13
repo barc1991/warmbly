@@ -272,11 +272,11 @@ const (
 	// These numbers are deliberately generous enough that ordinary use
 	// never trips them. Mailboxes are not in this list: see
 	// FairUseSendsPerMailbox below.
-	HardCapCampaignsTotal     = 500       // total campaigns ever created
-	HardCapCampaignsActive    = 50        // simultaneously active campaigns
-	HardCapTeamMembers        = 100       // seats per org
-	HardCapContacts           = 1_000_000 // contacts per org
-	HardCapDailyCampaignSends = 1000      // campaign emails per org per day
+	HardCapCampaignsTotal     = 100_000     // total campaigns ever created
+	HardCapCampaignsActive    = 10_000      // simultaneously active campaigns
+	HardCapTeamMembers        = 10_000      // seats per org
+	HardCapContacts           = 100_000_000 // contacts per org
+	HardCapDailyCampaignSends = 10_000_000  // campaign emails per org per day
 
 	// Mailboxes have no hard cap. A paid workspace's allowance is fair use
 	// derived from the daily sends its plan includes: one mailbox for every
@@ -292,8 +292,8 @@ const (
 	// many of them are validated against a worker at the same time. The
 	// dashboard streams a CSV through batches of this size so a 3,000 row
 	// file shows live progress instead of one request that times out.
-	MailboxBulkBatchMax    = 50
-	MailboxBulkConcurrency = 8
+	MailboxBulkBatchMax    = 5000
+	MailboxBulkConcurrency = 32
 
 	// Daily creation throttles. The total caps above stop "you have
 	// 5000 campaigns on this org" — the throttles below stop "you

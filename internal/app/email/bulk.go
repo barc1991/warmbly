@@ -33,30 +33,12 @@ func (s *emailService) OnboardSMTPIMAPBulk(ctx context.Context, userID string, o
 		}
 	}
 
-	// A batch-wide refusal (no org, allowance unreadable) fails every row the
-	// same way rather than pretending some rows were tried.
-	remaining := len(rows)
-	var allowance *models.MailboxAllowance
 	if orgID == nil {
 		for i := range rows {
 			fail(i, errx.ErrNoOrganization)
 		}
 		res.Summary.Failed = len(rows)
 		return res
-	}
-	if s.allowance != nil {
-		a, xerr := s.allowance.MailboxAllowance(ctx, *orgID)
-		if xerr != nil {
-			for i := range rows {
-				fail(i, xerr)
-			}
-			res.Summary.Failed = len(rows)
-			return res
-		}
-		allowance = a
-		if a.Remaining != nil && *a.Remaining < remaining {
-			remaining = *a.Remaining
-		}
 	}
 
 	// Duplicates inside the file and mailboxes that are already connected are
@@ -79,18 +61,6 @@ func (s *emailService) OnboardSMTPIMAPBulk(ctx context.Context, userID string, o
 				Row: i, Email: rows[i].Email, Status: models.MailboxBulkSkipped,
 				Code: "already_connected", Message: errx.ErrEmailOnboardAlreadyExists.Message,
 			}
-			continue
-		}
-		if len(eligible) >= remaining {
-			used, limit := 0, 0
-			paid := true
-			if allowance != nil {
-				used, paid = allowance.Used, allowance.Paid
-				if allowance.Allowance != nil {
-					limit = *allowance.Allowance
-				}
-			}
-			fail(i, errx.MailboxAllowanceReached(used, limit, paid))
 			continue
 		}
 		eligible = append(eligible, i)
