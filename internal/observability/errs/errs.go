@@ -33,26 +33,14 @@ type Config struct {
 // Init configures the SDK for one process. Safe to call once per process.
 func Init(cfg Config) error {
 	options := sentry.ClientOptions{
-		SendDefaultPII: true,
+		SendDefaultPII: false,
 		Environment:    cfg.Environment,
 		Release:        cfg.Release,
 		ServerName:     cfg.Service,
-	}
-
-	// A DSN is used when one is configured, in any environment. Error reporting
-	// is the operator's choice, not a requirement of the software: demanding a
-	// Sentry account to run APP_ENV=prod made a self-hosted deployment fail to
-	// boot over a service it never asked for.
-	if cfg.DSN != "" {
-		options.Dsn = cfg.DSN
-	} else {
-		if cfg.Environment == "prod" {
-			log.Printf("Sentry is not configured (no SENTRY_DSN); errors are logged locally only.")
-		}
-		options.BeforeSend = func(event *sentry.Event, _ *sentry.EventHint) *sentry.Event {
+		BeforeSend: func(event *sentry.Event, _ *sentry.EventHint) *sentry.Event {
 			log.Printf("[sentry-local][%s][%s] %s", cfg.Service, event.Level, summarize(event))
-			return event
-		}
+			return nil // Drop all events so nothing is ever transmitted over network
+		},
 	}
 
 	if err := sentry.Init(options); err != nil {

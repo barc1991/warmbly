@@ -16,7 +16,8 @@
     "dailyRamp": "קצב הגברה יומי",
     "dailyTarget": "יעד שליחה יומי",
     "replyRate": "אחוז מענה בחימום",
-    "healthScore": "ציון מוניטין שולח"
+    "healthScore": "ציון מוניטין שולח",
+    "warmupOnly": "חימום בלבד"
   },
   "dns": {
     "spf": "רשומת SPF",

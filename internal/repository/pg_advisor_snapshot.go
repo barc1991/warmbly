@@ -59,7 +59,8 @@ func (r *advisorRepository) loadMailboxes(ctx context.Context, orgID uuid.UUID) 
 			COALESCE(p.health_state, ''), COALESCE(p.spam_score, 0),
 			COALESCE(p.blocked_until > NOW(), false) AS pool_blocked,
 			COALESCE(err.n, 0),
-			COALESCE(camp.active, false)
+			COALESCE(camp.active, false),
+			COALESCE(wot.is_warmup, false)
 		FROM email_accounts ea
 		LEFT JOIN LATERAL (
 			SELECT
@@ -126,6 +127,12 @@ func (r *advisorRepository) loadMailboxes(ctx context.Context, orgID uuid.UUID) 
 			  )
 			LIMIT 1
 		) camp ON true
+		LEFT JOIN LATERAL (
+			SELECT bool_or(LOWER(TRIM(t.title)) IN ('חימום', 'warmup')) AS is_warmup
+			FROM email_tags et
+			JOIN tags t ON t.id = et.tag_id
+			WHERE et.email_id = ea.id
+		) wot ON true
 		WHERE ea.organization_id = $1
 		ORDER BY ea.created_at ASC`
 
@@ -151,6 +158,7 @@ func (r *advisorRepository) loadMailboxes(ctx context.Context, orgID uuid.UUID) 
 			&m.WarmupSent7d, &m.WarmupRecv7d, &m.WarmupSpam7d,
 			&m.PoolHealth, &m.PoolSpamScore, &m.PoolBlocked,
 			&m.UnresolvedErrs, &m.InActiveCampaign,
+			&m.IsWarmupOnly,
 		); err != nil {
 			return nil, err
 		}

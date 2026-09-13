@@ -16,7 +16,8 @@
     "dailyRamp": "Daily ramp-up",
     "dailyTarget": "Daily target emails",
     "replyRate": "Warmup reply rate",
-    "healthScore": "Sender reputation score"
+    "healthScore": "Sender reputation score",
+    "warmupOnly": "Warmup only"
   },
   "dns": {
     "spf": "SPF record",

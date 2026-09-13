@@ -38,6 +38,15 @@
     "dismiss": "Dismiss",
     "upgrade": "Upgrade"
   },
+  "states": {
+    "all": "All",
+    "active": "Active",
+    "paused": "Paused",
+    "draft": "Draft",
+    "done": "Done",
+    "loading": "Loading...",
+    "error": "Failed to load"
+  },
   "status": {
     "active": "Active",
     "inactive": "Inactive",

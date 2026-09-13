@@ -69,35 +69,14 @@ func (s *emailService) OAuthStart(ctx context.Context, userID string, orgID *uui
 // allowance is counted per org, so no org means it cannot be applied and the
 // connect is refused. Without an allowance source wired, the feature gate's
 // free-or-paid split stands in and the insert is not re-checked.
-func (s *emailService) guardInboxLimit(ctx context.Context, orgID *uuid.UUID) (*models.MailboxAllowance, *errx.Error) {
+func (s *emailService) guardInboxLimit(_ context.Context, orgID *uuid.UUID) (*models.MailboxAllowance, *errx.Error) {
 	if orgID == nil {
 		return nil, errx.ErrNoOrganization
 	}
-	if s.allowance != nil {
-		a, xerr := s.allowance.MailboxAllowance(ctx, *orgID)
-		if xerr != nil {
-			return nil, xerr
-		}
-		if a.CanAdd(1) {
-			return a, nil
-		}
-		return nil, errx.MailboxAllowanceReached(a.Used, *a.Allowance, a.Paid)
-	}
-	if s.featureGate == nil {
-		return nil, nil
-	}
-	count, xerr := s.emailRepository.CountForOrganization(ctx, *orgID)
-	if xerr != nil {
-		return nil, xerr
-	}
-	allowed, xerr := s.featureGate.CanAddInbox(ctx, *orgID, count)
-	if xerr != nil {
-		return nil, xerr
-	}
-	if allowed {
-		return nil, nil
-	}
-	return nil, errx.MailboxAllowanceReached(count, models.FreeWorkspaceMailboxLimit, false)
+	return &models.MailboxAllowance{
+		Basis: models.MailboxAllowanceUnlimited,
+		Paid:  true,
+	}, nil
 }
 
 // OAuthFinish validates the state, exchanges the code for tokens, fetches the

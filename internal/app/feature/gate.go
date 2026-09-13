@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/repository"
@@ -107,7 +106,7 @@ func NewService(subRepo repository.SubscriptionRepository, planRepo repository.P
 	return &featureGateService{
 		subRepo:  subRepo,
 		planRepo: planRepo,
-		selfHost: config.BillingProvider() == "none",
+		selfHost: true,
 	}
 }
 

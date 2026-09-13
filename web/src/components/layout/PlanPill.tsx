@@ -29,8 +29,8 @@ export function PlanPill() {
                 to={access.isOwner ? "/app/settings/workspace" : "/app/settings/profile"}
                 className="bg-indigo-50 text-indigo-700 border-indigo-100"
                 dot="bg-indigo-500"
-                label={isHe ? "התקנה עצמית" : "Self-hosted"}
-                title={isHe ? "התקנה עצמית: כל התכונות פתוחות לשימוש" : "Self-hosted deployment: every feature is unlocked"}
+                label={isHe ? "חינם · ללא הגבלה" : "Free · Unlimited"}
+                title={isHe ? "כל התכונות פתוחות ללא הגבלה" : "All features unlocked without limits"}
                 icon
             />
         );

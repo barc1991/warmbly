@@ -11,29 +11,11 @@
 // are installed before the first render: a broken deploy fails during boot, and
 // a chunk still in flight would miss exactly that error. Not initialising it
 // costs a self-hoster some dead bundle weight and zero network calls.
-import * as Sentry from "@sentry/react";
-import { SENTRY_DSN, SENTRY_ENVIRONMENT, SENTRY_RELEASE } from "./information";
-
-let reporting = false;
-
-// initErrorReporting is called once, before the app renders.
+// Browser error reporting disabled for privacy.
 export function initErrorReporting(): void {
-    if (!SENTRY_DSN) return;
-
-    Sentry.init({
-        dsn: SENTRY_DSN,
-        sendDefaultPii: true,
-        environment: SENTRY_ENVIRONMENT,
-        // Empty is omitted rather than sent: an event tagged with the empty
-        // release matches no uploaded source map and reads as a real release.
-        release: SENTRY_RELEASE || undefined,
-    });
-    reporting = true;
+    return;
 }
 
-// captureException reports an error the app handled itself. A no-op when no DSN
-// is configured.
-export function captureException(error: unknown): void {
-    if (!reporting) return;
-    Sentry.captureException(error);
+export function captureException(_error: unknown): void {
+    return;
 }

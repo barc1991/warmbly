@@ -70,6 +70,8 @@ type AdvisorMailbox struct {
 	// InActiveCampaign is true when at least one running campaign can send
 	// through this mailbox (tag match or explicit sender).
 	InActiveCampaign bool
+	// IsWarmupOnly is true when the mailbox carries a warmup-only tag ('חימום' or 'warmup').
+	IsWarmupOnly bool
 }
 
 // AdvisorCampaign is one campaign's configuration plus its window performance.

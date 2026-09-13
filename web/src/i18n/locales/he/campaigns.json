@@ -5,6 +5,13 @@
   "launchCampaign": "הפעלת קמפיין",
   "pauseCampaign": "השהיית קמפיין",
   "resumeCampaign": "חידוש קמפיין",
+  "stats": {
+    "all": "הכל",
+    "active": "פעילים",
+    "paused": "מושהים",
+    "draft": "טיוטות",
+    "done": "הושלמו"
+  },
   "tabs": {
     "preview": "סקירה כללית",
     "leads": "לידים",

@@ -642,7 +642,7 @@ func (s *organizationService) GetInvitationToken(ctx context.Context, orgID, inv
 func (s *organizationService) acceptResolved(ctx context.Context, inv *models.OrganizationInvitation, userID uuid.UUID, email string) (*models.OrganizationMember, *errx.Error) {
 
 	// Verify email matches
-	if strings.ToLower(email) != strings.ToLower(inv.Email) {
+	if !strings.EqualFold(email, inv.Email) {
 		return nil, errx.New(errx.Forbidden, "email does not match invitation")
 	}
 
@@ -865,134 +865,26 @@ func (s *organizationService) RequirePermission(ctx context.Context, orgID, user
 
 // CanAddMember checks if the organization can add more members based on plan limits
 func (s *organizationService) CanAddMember(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
-	limits, err := s.GetEffectiveLimits(ctx, orgID)
-	if err != nil {
-		return false, err
-	}
-
-	// No limit set = unlimited
-	if limits == nil || limits.MaxTeamMembers == nil {
-		return true, nil
-	}
-
-	count, xerr := s.orgRepo.GetMemberCount(ctx, orgID)
-	if xerr != nil {
-		errs.CaptureException(xerr)
-		return false, errx.New(errx.Internal, "failed to get member count")
-	}
-
-	return count < *limits.MaxTeamMembers, nil
-}
-
-// CanAddCampaign checks if the organization can add more campaigns based on plan limits
-func (s *organizationService) CanAddCampaign(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
-	limits, err := s.GetEffectiveLimits(ctx, orgID)
-	if err != nil {
-		return false, err
-	}
-
-	total, active, xerr := s.GetCampaignCounts(ctx, orgID)
-	if xerr != nil {
-		return false, xerr
-	}
-
-	// Check total campaign limit
-	if limits != nil && limits.MaxCampaigns != nil && total >= *limits.MaxCampaigns {
-		return false, nil
-	}
-
-	// Check active campaign limit
-	if limits != nil && limits.MaxActiveCampaigns != nil && active >= *limits.MaxActiveCampaigns {
-		return false, nil
-	}
-
 	return true, nil
 }
 
-// MailboxAllowance resolves the workspace's mailbox allowance. Resolution:
-//
-//  1. no billing provider: unlimited
-//  2. an operator override: the override
-//  3. no paid subscription: FreeWorkspaceMailboxLimit
-//  4. the plan's explicit mailbox column, when it carries one
-//  5. the plan's daily sends divided by FairUseSendsPerMailbox
-//  6. a plan with no daily send cap: unlimited
-//
-// The count includes every connected mailbox, so a workspace that dropped to
-// a smaller plan simply cannot add until it is back under; nothing is removed.
+func (s *organizationService) CanAddCampaign(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
+	return true, nil
+}
+
+// MailboxAllowance resolves the workspace's mailbox allowance.
 func (s *organizationService) MailboxAllowance(ctx context.Context, orgID uuid.UUID) (*models.MailboxAllowance, *errx.Error) {
 	count, err := s.orgRepo.GetEmailAccountCount(ctx, orgID)
 	if err != nil {
 		errs.CaptureException(err)
 		return nil, errx.New(errx.Internal, "failed to get email account count")
 	}
-	a := &models.MailboxAllowance{Used: count, SendsPerMailbox: config.FairUseSendsPerMailbox}
-
-	if config.BillingProvider() == "none" {
-		a.Basis = models.MailboxAllowanceUnlimited
-		a.Paid = true
-		return a, nil
-	}
-
-	sub, serr := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if serr != nil {
-		errs.CaptureException(serr)
-		return nil, errx.New(errx.Internal, "failed to get subscription")
-	}
-	a.Paid = sub != nil && sub.HasPaidSubscription()
-	if sub != nil && sub.Plan != nil {
-		if sub.Plan.Name != nil {
-			a.PlanName = *sub.Plan.Name
-		}
-		if sub.Plan.DailyCampaignLimit != nil && *sub.Plan.DailyCampaignLimit > 0 {
-			v := *sub.Plan.DailyCampaignLimit
-			a.PlanDailySends = &v
-		}
-	}
-
-	override, xerr := s.GetLimitOverrides(ctx, orgID)
-	if xerr != nil {
-		return nil, xerr
-	}
-
-	set := func(v int, basis models.MailboxAllowanceBasis) {
-		a.Allowance = &v
-		rem := v - count
-		if rem < 0 {
-			rem = 0
-		}
-		a.Remaining = &rem
-		a.Basis = basis
-	}
-
-	switch {
-	case override != nil && override.MaxEmailAccounts > 0:
-		set(override.MaxEmailAccounts, models.MailboxAllowanceOverride)
-	case !a.Paid:
-		set(models.FreeWorkspaceMailboxLimit, models.MailboxAllowanceFree)
-	case sub.Plan != nil && sub.Plan.MaxEmailAccounts != nil && *sub.Plan.MaxEmailAccounts > 0:
-		set(*sub.Plan.MaxEmailAccounts, models.MailboxAllowancePlan)
-	case a.PlanDailySends != nil:
-		set((*a.PlanDailySends+config.FairUseSendsPerMailbox-1)/config.FairUseSendsPerMailbox, models.MailboxAllowanceFairUse)
-	default:
-		a.Basis = models.MailboxAllowanceUnlimited
-	}
-
-	// The open request, so the dashboard can show "asked for 5,000, pending"
-	// instead of offering a form that would be refused as a duplicate.
-	if a.Allowance != nil {
-		rows, rerr := s.orgRepo.ListLimitRequestsForOrg(ctx, orgID)
-		if rerr != nil {
-			errs.CaptureException(rerr)
-		}
-		for i := range rows {
-			if rows[i].Field == "max_email_accounts" && rows[i].Status == models.LimitRequestStatusPending {
-				a.PendingRequest = &rows[i]
-				break
-			}
-		}
-	}
-	return a, nil
+	return &models.MailboxAllowance{
+		Used:            count,
+		SendsPerMailbox: config.FairUseSendsPerMailbox,
+		Basis:           models.MailboxAllowanceUnlimited,
+		Paid:            true,
+	}, nil
 }
 
 // GetCampaignCounts returns total and active campaign counts
@@ -1007,21 +899,13 @@ func (s *organizationService) GetCampaignCounts(ctx context.Context, orgID uuid.
 
 // GetOrganizationLimits retrieves the organization's plan limits
 func (s *organizationService) GetOrganizationLimits(ctx context.Context, orgID uuid.UUID) (*models.OrganizationLimits, *errx.Error) {
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		errs.CaptureException(err)
-		return nil, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub == nil || sub.Plan == nil {
-		return nil, nil
-	}
-
 	return &models.OrganizationLimits{
-		MaxCampaigns:       sub.Plan.MaxCampaigns,
-		MaxActiveCampaigns: sub.Plan.MaxActiveCampaigns,
-		MaxTeamMembers:     sub.Plan.MaxTeamMembers,
-		MaxEmailAccounts:   sub.Plan.MaxEmailAccounts,
-		DailyCampaignLimit: sub.Plan.DailyCampaignLimit,
+		MaxCampaigns:       nil,
+		MaxActiveCampaigns: nil,
+		MaxTeamMembers:     nil,
+		MaxEmailAccounts:   nil,
+		MaxContacts:        nil,
+		DailyCampaignLimit: nil,
 	}, nil
 }
 
@@ -1208,52 +1092,13 @@ func (s *organizationService) SetLimitOverrides(ctx context.Context, orgID uuid.
 // MailboxAllowance instead, where nil really means unlimited. Admins can
 // raise individual caps per-org by writing an override.
 func (s *organizationService) GetEffectiveLimits(ctx context.Context, orgID uuid.UUID) (*models.OrganizationLimits, *errx.Error) {
-	plan, err := s.GetOrganizationLimits(ctx, orgID)
-	if err != nil {
-		return nil, err
-	}
-	override, err := s.GetLimitOverrides(ctx, orgID)
-	if err != nil {
-		return nil, err
-	}
-	mailboxes, err := s.MailboxAllowance(ctx, orgID)
-	if err != nil {
-		return nil, err
-	}
-
-	resolve := func(overrideVal int, planVal *int, hardCap int) *int {
-		if overrideVal > 0 {
-			v := overrideVal
-			return &v
-		}
-		if planVal != nil {
-			return planVal
-		}
-		v := hardCap
-		return &v
-	}
-
-	var ovMaxCampaigns, ovMaxActive, ovMaxMembers, ovMaxContacts, ovDaily int
-	if override != nil {
-		ovMaxCampaigns = override.MaxCampaigns
-		ovMaxActive = override.MaxActiveCampaigns
-		ovMaxMembers = override.MaxTeamMembers
-		ovMaxContacts = override.MaxContacts
-		ovDaily = override.DailyCampaignLimit
-	}
-
-	var planLimits models.OrganizationLimits
-	if plan != nil {
-		planLimits = *plan
-	}
-
 	return &models.OrganizationLimits{
-		MaxCampaigns:       resolve(ovMaxCampaigns, planLimits.MaxCampaigns, config.HardCapCampaignsTotal),
-		MaxActiveCampaigns: resolve(ovMaxActive, planLimits.MaxActiveCampaigns, config.HardCapCampaignsActive),
-		MaxTeamMembers:     resolve(ovMaxMembers, planLimits.MaxTeamMembers, config.HardCapTeamMembers),
-		MaxEmailAccounts:   mailboxes.Allowance,
-		MaxContacts:        resolve(ovMaxContacts, planLimits.MaxContacts, config.HardCapContacts),
-		DailyCampaignLimit: resolve(ovDaily, planLimits.DailyCampaignLimit, config.HardCapDailyCampaignSends),
+		MaxCampaigns:       nil,
+		MaxActiveCampaigns: nil,
+		MaxTeamMembers:     nil,
+		MaxEmailAccounts:   nil,
+		MaxContacts:        nil,
+		DailyCampaignLimit: nil,
 	}, nil
 }
 

@@ -102,10 +102,8 @@ export default function AddressesPage() {
     const queryClient = useQueryClient();
 
     // Warmup is a paid/trial feature; gate the start controls when the org
-    // isn't entitled. Treat unknown (still loading) as allowed — the backend
-    // is the real enforcement point.
-    const featureStatus = useFeatureStatus();
-    const canWarmup = featureStatus.data?.can_use_warmup !== false;
+    // Warmup is always allowed
+    const canWarmup = true;
 
     const authConfigLoading = useAuthConfig().isLoading;
 
@@ -504,6 +502,10 @@ function MailboxRow({
         [box.tags, tags],
     );
     const shownTags = rowTags.slice(0, 3);
+    const isWarmupOnly = useMemo(
+        () => rowTags.some((t) => ["חימום", "warmup"].includes(t.title.trim().toLowerCase())),
+        [rowTags],
+    );
 
     const off = !box.warmup;
     const paused = !!box.warmup && !!box.warmup_paused_at;
@@ -600,11 +602,15 @@ function MailboxRow({
                         </span>
                     </div>
                     <span className="text-[12.5px] font-medium text-slate-900 truncate">{box.email}</span>
-                    {inCampaign && (
-                        <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-sky-50 text-sky-600 text-[9.5px] font-medium uppercase tracking-[0.08em]">
+                    {isWarmupOnly ? (
+                        <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-amber-50 text-amber-700 text-[9.5px] font-medium shrink-0">
+                            <RiFireLine className="w-2.5 h-2.5" /> {t("mailboxes:warmup.warmupOnly", isHe ? "חימום בלבד" : "Warmup only")}
+                        </span>
+                    ) : inCampaign ? (
+                        <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-sky-50 text-sky-600 text-[9.5px] font-medium uppercase tracking-[0.08em] shrink-0">
                             <ActivityIcon className="w-2.5 h-2.5" /> {isHe ? "בקמפיין" : "In campaign"}
                         </span>
-                    )}
+                    ) : null}
                     {shownTags.map((t) => (
                         <span
                             key={t.id}

@@ -1122,6 +1122,12 @@ func (r *uniboxRepository) Overview(ctx context.Context, orgID uuid.UUID) (*mode
 		LEFT JOIN unibox_emails ue ON ue.email_id = ea.id AND ue.user_id = ea.user_id
 			AND ue.folder NOT IN ('spam', 'trash')
 		WHERE ea.organization_id = $1
+		  AND NOT EXISTS (
+			SELECT 1 FROM email_tags et
+			JOIN tags t ON t.id = et.tag_id
+			WHERE et.email_id = ea.id
+			  AND LOWER(TRIM(t.title)) IN ('חימום', 'warmup')
+		  )
 		GROUP BY ea.id, ea.email, ea.name
 		ORDER BY ea.email ASC
 	`, orgID)

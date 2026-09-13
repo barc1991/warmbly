@@ -55,12 +55,16 @@ func (s *JobsService) HandleNewEmail(ctx context.Context, e *models.JobEventNewE
 		return nil
 	}
 
-	// A pool-linked mailbox is warmup-only: everything else is dropped unread.
+	// A pool-linked or warmup-tagged mailbox is warmup-only: everything else is dropped unread.
 	if s.PoolLinkRepo != nil {
 		if linked, lerr := s.PoolLinkRepo.GetMailboxByAccount(ctx, e.Message.EmailID); lerr == nil && linked != nil {
 			log.Debug().Str("email_account_id", e.Message.EmailID.String()).Msg("dropping non-warmup mail for pool-linked mailbox")
 			return nil
 		}
+	}
+	if s.EmailRepository != nil && s.EmailRepository.IsWarmupOnlyMailbox(ctx, e.Message.EmailID) {
+		log.Debug().Str("email_account_id", e.Message.EmailID.String()).Msg("dropping non-warmup mail for warmup-tagged mailbox")
+		return nil
 	}
 
 	// Normal email processing

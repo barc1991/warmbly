@@ -113,6 +113,8 @@ type EmailRepository interface {
 	// has not been evaluated since staleBefore (or never), oldest-first, capped
 	// at limit. Drives the background SPF/DKIM/DMARC sweep.
 	ListAuthCheckDue(ctx context.Context, staleBefore time.Time, limit int) ([]models.EmailAuthTarget, *errx.Error)
+	// IsWarmupOnlyMailbox reports whether a mailbox is tagged with 'חימום' or 'warmup'.
+	IsWarmupOnlyMailbox(ctx context.Context, emailAccountID uuid.UUID) bool
 	// MarkDomainAuthRecheck clears the sweep checkpoint for a sending domain so
 	// the next pass re-checks it first. Used when a receiving server refuses
 	// mail on authentication grounds: that is strong evidence, but DNS is the
@@ -1519,6 +1521,12 @@ func (r *emailRepository) GetAllActiveInScope(ctx context.Context, scope Account
 		FROM email_accounts ea
 		WHERE ea.organization_id = $1
 		  AND ea.status = 'active'
+		  AND NOT EXISTS (
+			SELECT 1 FROM email_tags et
+			JOIN tags t ON t.id = et.tag_id
+			WHERE et.email_id = ea.id
+			  AND LOWER(TRIM(t.title)) IN ('חימום', 'warmup')
+		  )
 		ORDER BY ea.id
 	`
 
@@ -1810,4 +1818,17 @@ func (r *emailRepository) MarkDomainAuthRecheck(ctx context.Context, domain stri
 		 WHERE lower(split_part(email, '@', 2)) = lower($1)
 	`, domain)
 	return err
+}
+
+func (r *emailRepository) IsWarmupOnlyMailbox(ctx context.Context, emailAccountID uuid.UUID) bool {
+	var exists bool
+	err := r.DB.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM email_tags et
+			JOIN tags t ON t.id = et.tag_id
+			WHERE et.email_id = $1
+			  AND LOWER(TRIM(t.title)) IN ('חימום', 'warmup')
+		)
+	`, emailAccountID).Scan(&exists)
+	return err == nil && exists
 }

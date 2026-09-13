@@ -5,6 +5,13 @@
   "launchCampaign": "Launch campaign",
   "pauseCampaign": "Pause campaign",
   "resumeCampaign": "Resume campaign",
+  "stats": {
+    "all": "All",
+    "active": "Active",
+    "paused": "Paused",
+    "draft": "Draft",
+    "done": "Done"
+  },
   "tabs": {
     "preview": "Overview",
     "leads": "Leads",

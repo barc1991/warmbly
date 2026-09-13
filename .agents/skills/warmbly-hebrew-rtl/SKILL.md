@@ -416,3 +416,54 @@ Warmbly supports **Multiple OAuth Connection Slots** within a single workspace:
   - When all slots reach 100/100, the UI alerts the user and links directly to `/app/settings/oauth-slots`.
   - In `AddEmailModal`, users see live remaining capacity per slot and can pick a specific slot or let the system auto-assign.
 
+---
+
+## 12. Warmup-Only Mailboxes Isolation & Deliverability Rules
+
+### Use Case
+Users connect aged Gmail accounts (often 50–100+ via Google Cloud OAuth slots) dedicated strictly to warming up business sender mailboxes (Google Workspace, Microsoft 365, or private SMTP domains). These aged Gmail accounts must not send cold outreach campaigns, must not pollute the Unibox, and must not generate false SPF/DKIM/DMARC warnings in Deliverability Advisor.
+
+### Implementation Architecture
+1. **Tag-Driven Isolation (`חימום` or `warmup`)**:
+   - Mailboxes tagged with Hebrew `חימום` (or `warmup`) are automatically identified by `IsWarmupOnlyMailbox(ctx, accountID)` in `internal/repository/pg_email.go`.
+   - `GetAllActiveInScope`: Automatically excludes warmup-only mailboxes from campaign sender pools so they never accidentally send campaign mail.
+2. **Unified Inbox (Unibox) Sidebar Exclusion**:
+   - `internal/repository/pg_unibox.go`: Filters out `חימום` and `warmup` tagged mailboxes from the Unibox sidebar accounts list, keeping the workspace focused only on active outbound outreach accounts.
+3. **Inbound Email Filtering**:
+   - `internal/app/consumer/event_new_email.go`: Inbound mail arriving at a warmup-only mailbox that is not peer-to-peer warmup traffic (e.g. Google security alerts, external spam) is dropped immediately without generating unibox conversation threads.
+4. **Deliverability Advisor Auto-Suppression**:
+   - `internal/app/advisor/detect_deliverability.go`: `detectDomainAuth` checks `m.IsWarmupOnly`. Warmup-only mailboxes bypass SPF, DKIM, and DMARC checks, eliminating irrelevant DNS warnings for aged Gmail accounts.
+5. **UI Indicator**:
+   - `web/src/app/app/emails/page.tsx`: Displays an amber badge (`חימום בלבד` / `Warmup only`) with `RiFireLine` icon in the mailbox list row.
+
+---
+
+## 13. Zero-Limits, Enterprise Feature Unlock & Complete Privacy/Telemetry Elimination
+
+### 1. Complete Feature Unlock & No Limits
+- **Backend Gate (`internal/app/feature/gate.go`)**:
+  - `selfHost: true` is unconditionally enforced.
+  - `CanSendCampaignEmail`, `CanUseWarmup`, `CanUseUnibox`, `CanAddInbox`, `CanUseWritingAssistant`, `CanUseInboxAgent`, `IsPaidOrganization` all return `true`.
+  - `GetDailyEmailLimit` returns `UnlimitedEmails` (`-1`).
+  - `GetStorageLimitBytes` returns max storage pool (50 GiB+).
+- **Organization Limits (`internal/app/organization/service.go`)**:
+  - `MailboxAllowance` returns `models.MailboxAllowanceUnlimited` with `Paid: true`, `Allowance: nil`, `Remaining: nil`.
+  - `GetOrganizationLimits` and `GetEffectiveLimits` return nil for `MaxCampaigns`, `MaxActiveCampaigns`, `MaxTeamMembers`, `MaxEmailAccounts`, `MaxContacts`, `DailyCampaignLimit` (unlimited across the board).
+  - `CanAddMember` and `CanAddCampaign` return `true` unconditionally.
+  - `guardInboxLimit` in `internal/app/email/onboarding.go` always permits connections without caps.
+- **Frontend Gating (`web/src/hooks/useFeatureAccess.ts`)**:
+  - Returns `plan: "enterprise"`, `paid: true`, `locked: false`, `billing: false`, and all feature flags (`hasInbox`, `hasAdvanced`, `hasIsolatedSending`, `hasBulkOps`, `hasTeam`, `hasWebhooks`) `true`.
+  - `SubscriptionGate` and `LockedSurface` pass through children unconditionally without paywalls.
+  - `PlanPill` displays `חינם · ללא הגבלה`.
+
+### 2. Privacy & Zero-Telemetry Enforcement
+- **Backend PostHog (`internal/observability/analytics/analytics.go`)**:
+  - `New(key, host)` returns `nil` client, completely neutralizing all backend PostHog captures.
+- **Backend Sentry (`internal/observability/errs/errs.go`)**:
+  - `BeforeSend` returns `nil`, dropping all events before transmission. No crash or error telemetry is sent externally.
+- **Browser Sentry (`web/src/lib/observability.ts`)**:
+  - `initErrorReporting` and `captureException` are empty no-ops.
+- **Browser PostHog (`web/src/lib/productAnalytics.ts`)**:
+  - `initProductAnalytics` and `capture` are empty no-ops. No external tracking scripts, cookies, or payloads are loaded or transmitted.
+
+

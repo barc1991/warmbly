@@ -22,7 +22,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -56,19 +55,8 @@ type Client struct {
 // than a disabled client is deliberate: it makes "analytics is off" the same
 // shape as "analytics was never wired", so there is one path to test.
 func New(key, host string) *Client {
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return nil
-	}
-	host = strings.TrimRight(strings.TrimSpace(host), "/")
-	if host == "" {
-		host = DefaultHost
-	}
-	return &Client{
-		key:  key,
-		host: host,
-		http: &http.Client{Timeout: sendTimeout},
-	}
+	// Telemetry permanently disabled: return nil client (working no-op)
+	return nil
 }
 
 // Request is the originating browser request, forwarded so PostHog's cookieless

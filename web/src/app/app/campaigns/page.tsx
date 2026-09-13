@@ -334,7 +334,7 @@ export default function CampaignsPage() {
         return stats;
     }, [campaigns]);
 
-    if (!canView) return <NoAccess feature="campaigns" permissionLabel="View campaigns" />;
+    if (!canView) return <NoAccess feature={i18n.language === "he" ? "קמפיינים" : "campaigns"} permissionLabel={i18n.language === "he" ? "צפייה בקמפיינים" : "View campaigns"} />;
 
     return (
         <Page>
@@ -342,9 +342,9 @@ export default function CampaignsPage() {
                 eyebrow={t("campaigns:title", "Campaigns")}
                 subtitle={
                     campaignsData.isPending
-                        ? t("common:states.loading", "Loading…")
+                        ? t("common:states.loading", i18n.language === "he" ? "טוען..." : "Loading…")
                         : campaignsData.isError
-                            ? t("common:states.error", "Failed to load")
+                            ? t("common:states.error", i18n.language === "he" ? "שגיאה בטעינה" : "Failed to load")
                             : `${campaigns.length} ${campaigns.length === 1 ? (i18n.language === "he" ? "קמפיין" : "campaign") : (i18n.language === "he" ? "קמפיינים" : "campaigns")}`
                 }
             >
@@ -365,32 +365,32 @@ export default function CampaignsPage() {
 
             <StatStrip cols={5}>
                 <Stat
-                    label={t("common:states.all", "All")}
+                    label={t("common:states.all", i18n.language === "he" ? "הכל" : "All")}
                     value={counts.total}
                     sub={i18n.language === "he" ? "קמפיינים" : "campaigns"}
                     onClick={() => setStatus("all")}
                 />
                 <Stat
-                    label={t("common:states.active", "Active")}
+                    label={t("common:states.active", i18n.language === "he" ? "פעילים" : "Active")}
                     value={counts.active}
                     sub={i18n.language === "he" ? "שולחים כעת" : "sending now"}
                     accent={counts.active > 0}
                     onClick={() => setStatus("active")}
                 />
                 <Stat
-                    label={t("common:states.paused", "Paused")}
+                    label={t("common:states.paused", i18n.language === "he" ? "מושהים" : "Paused")}
                     value={counts.paused}
                     sub={i18n.language === "he" ? "ניתנים לחידוש" : "resumable"}
                     onClick={() => setStatus("paused")}
                 />
                 <Stat
-                    label={t("common:states.draft", "Draft")}
+                    label={t("common:states.draft", i18n.language === "he" ? "טיוטות" : "Draft")}
                     value={counts.draft}
                     sub={i18n.language === "he" ? "טרם הופעלו" : "not started"}
                     onClick={() => setStatus("draft")}
                 />
                 <Stat
-                    label={t("common:states.done", "Done")}
+                    label={t("common:states.done", i18n.language === "he" ? "הושלמו" : "Done")}
                     value={counts.completed}
                     sub={i18n.language === "he" ? "הסתיימו" : "finished"}
                     last

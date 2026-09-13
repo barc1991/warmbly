@@ -38,6 +38,15 @@
     "dismiss": "התעלם",
     "upgrade": "שדרוג מנוי"
   },
+  "states": {
+    "all": "הכל",
+    "active": "פעילים",
+    "paused": "מושהים",
+    "draft": "טיוטות",
+    "done": "הושלמו",
+    "loading": "טוען...",
+    "error": "שגיאה בטעינה"
+  },
   "status": {
     "active": "פעיל",
     "inactive": "לא פעיל",
