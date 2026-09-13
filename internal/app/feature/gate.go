@@ -116,18 +116,6 @@ func (s *featureGateService) WirePoolLink(r PoolLinkReader) { s.poolLink = r }
 // WireLimitOverrides attaches the override reader after construction.
 func (s *featureGateService) WireLimitOverrides(r LimitOverrideReader) { s.overrides = r }
 
-// dailyOverride is the operator-granted daily send cap, or 0 when none.
-func (s *featureGateService) dailyOverride(ctx context.Context, orgID uuid.UUID) int {
-	if s.overrides == nil {
-		return 0
-	}
-	o, err := s.overrides.GetOrganizationLimitOverrides(ctx, orgID)
-	if err != nil || o == nil {
-		return 0
-	}
-	return o.DailyCampaignLimit
-}
-
 // CanSendCampaignEmail checks if an organization can send campaign emails
 func (s *featureGateService) CanSendCampaignEmail(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
 	if s.selfHost {
@@ -158,204 +146,51 @@ func (s *featureGateService) CanSendCampaignEmail(ctx context.Context, orgID uui
 }
 
 // CanUseWarmup checks if an organization can use the warmup feature.
-// Free-trial users get warmup access for the 14-day window via the
-// `free` pool; once the trial expires they must upgrade.
-func (s *featureGateService) CanUseWarmup(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
-	if s.selfHost {
-		return true, nil
-	}
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return false, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub != nil && sub.CanUseWarmup() {
-		return true, nil
-	}
-	// A linked self-hosted instance warms for free (up to its allowance).
-	if s.poolLink != nil && s.poolLink.HasActiveLink(ctx, orgID) {
-		return true, nil
-	}
-	return false, nil
+func (s *featureGateService) CanUseWarmup(_ context.Context, _ uuid.UUID) (bool, *errx.Error) {
+	return true, nil
 }
 
 // CanUseUnibox checks if an organization can use the unibox feature.
-// Same trial allowance as warmup.
-func (s *featureGateService) CanUseUnibox(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
-	if s.selfHost {
-		return true, nil
-	}
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return false, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub == nil {
-		return false, nil
-	}
-	return sub.CanUseUnibox(), nil
+func (s *featureGateService) CanUseUnibox(_ context.Context, _ uuid.UUID) (bool, *errx.Error) {
+	return true, nil
 }
 
-// CanAddInbox: paid workspaces are uncapped, free ones get FreeWorkspaceMailboxLimit.
-func (s *featureGateService) CanAddInbox(ctx context.Context, orgID uuid.UUID, currentCount int) (bool, *errx.Error) {
-	if s.selfHost {
-		return true, nil
-	}
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return false, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub != nil && sub.HasPaidSubscription() {
-		return true, nil
-	}
-	return currentCount < models.FreeWorkspaceMailboxLimit, nil
+// CanAddInbox: workspaces are uncapped.
+func (s *featureGateService) CanAddInbox(_ context.Context, _ uuid.UUID, _ int) (bool, *errx.Error) {
+	return true, nil
 }
 
-// GetDailyEmailLimit returns the daily email limit for an organization
-func (s *featureGateService) GetDailyEmailLimit(ctx context.Context, orgID uuid.UUID) (int, *errx.Error) {
-	if s.selfHost {
-		return UnlimitedEmails, nil
-	}
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return 0, errx.New(errx.Internal, "failed to get subscription")
-	}
-
-	if sub == nil {
-		return 0, nil // No subscription = no emails
-	}
-
-	// Free trial users = 20 emails/day
-	if sub.IsInFreeTrial() && !sub.HasPaidSubscription() {
-		return FreeTierDailyEmailLimit, nil
-	}
-
-	// Paid users = approved override, else plan limit, else unlimited
-	if sub.HasPaidSubscription() {
-		if ov := s.dailyOverride(ctx, orgID); ov > 0 {
-			return ov, nil
-		}
-		plan, err := s.planRepo.GetByID(ctx, sub.PlanID)
-		if err != nil || plan == nil {
-			return UnlimitedEmails, nil // Default to unlimited if plan not found
-		}
-		if plan.DailyCampaignLimit != nil {
-			return *plan.DailyCampaignLimit, nil
-		}
-		return UnlimitedEmails, nil // -1 = unlimited
-	}
-
-	// Trial expired = no emails
-	return 0, nil
+// GetDailyEmailLimit returns the daily email limit for an organization (unlimited).
+func (s *featureGateService) GetDailyEmailLimit(_ context.Context, _ uuid.UUID) (int, *errx.Error) {
+	return UnlimitedEmails, nil
 }
 
-// GetSubscriptionStatus returns subscription info for feature checks
-func (s *featureGateService) GetSubscriptionStatus(ctx context.Context, orgID uuid.UUID) (*SubscriptionStatus, *errx.Error) {
-	if s.selfHost {
-		// No billing: present as an unlimited paid subscriber so callers that
-		// branch on status behave as fully-provisioned.
-		return &SubscriptionStatus{
-			HasSubscription:  true,
-			IsPaidSubscriber: true,
-			DailyEmailLimit:  UnlimitedEmails,
-		}, nil
-	}
-
-	status := &SubscriptionStatus{
-		HasSubscription:    false,
-		IsInFreeTrial:      false,
-		IsFreeTrialExpired: false,
-		IsPaidSubscriber:   false,
-		DailyEmailLimit:    0,
-	}
-
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return nil, errx.New(errx.Internal, "failed to get subscription")
-	}
-
-	if sub == nil {
-		return status, nil
-	}
-
-	status.HasSubscription = true
-	status.IsInFreeTrial = sub.IsInFreeTrial()
-	status.IsFreeTrialExpired = sub.IsFreeTrialExpired()
-	status.IsPaidSubscriber = sub.HasPaidSubscription()
-
-	// Load plan
-	plan, _ := s.planRepo.GetByID(ctx, sub.PlanID)
-	status.Plan = plan
-
-	// Calculate daily limit
-	if status.IsInFreeTrial && !status.IsPaidSubscriber {
-		status.DailyEmailLimit = FreeTierDailyEmailLimit
-	} else if status.IsPaidSubscriber {
-		if ov := s.dailyOverride(ctx, orgID); ov > 0 {
-			status.DailyEmailLimit = ov
-		} else if plan != nil && plan.DailyCampaignLimit != nil {
-			status.DailyEmailLimit = *plan.DailyCampaignLimit
-		} else {
-			status.DailyEmailLimit = UnlimitedEmails
-		}
-	}
-
-	return status, nil
+// GetSubscriptionStatus returns subscription info for feature checks (unlimited enterprise).
+func (s *featureGateService) GetSubscriptionStatus(_ context.Context, _ uuid.UUID) (*SubscriptionStatus, *errx.Error) {
+	return &SubscriptionStatus{
+		HasSubscription:  true,
+		IsPaidSubscriber: true,
+		DailyEmailLimit:  UnlimitedEmails,
+	}, nil
 }
 
-// GetStorageLimitBytes returns the org's attachment storage quota. Paid orgs
-// get the larger pool; everyone else (trial or no subscription) gets the free
-// allowance so they can still attach files.
-func (s *featureGateService) GetStorageLimitBytes(ctx context.Context, orgID uuid.UUID) (int64, *errx.Error) {
+// GetStorageLimitBytes returns the org's attachment storage quota.
+func (s *featureGateService) GetStorageLimitBytes(_ context.Context, _ uuid.UUID) (int64, *errx.Error) {
 	// Storage is effectively unlimited (100 TB pool)
 	return 100 * 1024 * 1024 * 1024 * 1024, nil
 }
 
-// CanUseWritingAssistant — same trial allowance as warmup/unibox: paid
-// subscribers and orgs inside their free-trial window may use the AI assistant.
-func (s *featureGateService) CanUseWritingAssistant(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
-	if s.selfHost {
-		return true, nil
-	}
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return false, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub == nil {
-		return false, nil
-	}
-	return sub.HasPaidSubscription() || sub.IsInFreeTrial(), nil
+// CanUseWritingAssistant — AI assistant is unconditionally enabled.
+func (s *featureGateService) CanUseWritingAssistant(_ context.Context, _ uuid.UUID) (bool, *errx.Error) {
+	return true, nil
 }
 
-// CanUseInboxAgent gates the inbox agent to paid subscribers only. Unlike the
-// writing assistant, it drafts on inbound replies without a human first asking,
-// so it is not part of the free-trial allowance.
-func (s *featureGateService) CanUseInboxAgent(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
-	if s.selfHost {
-		return true, nil
-	}
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return false, errx.New(errx.Internal, "failed to get subscription")
-	}
-	if sub == nil {
-		return false, nil
-	}
-	return sub.HasPaidSubscription(), nil
+// CanUseInboxAgent gates the inbox agent — unconditionally enabled.
+func (s *featureGateService) CanUseInboxAgent(_ context.Context, _ uuid.UUID) (bool, *errx.Error) {
+	return true, nil
 }
 
-// IsPaidOrganization checks if the organization has an active paid subscription
-func (s *featureGateService) IsPaidOrganization(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
-	if s.selfHost {
-		// Treat as paid so downstream (warmup pool, storage) uses the full tier.
-		return true, nil
-	}
-	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
-	if err != nil {
-		return false, errx.New(errx.Internal, "failed to get subscription")
-	}
-
-	if sub == nil {
-		return false, nil
-	}
-
-	return sub.HasPaidSubscription(), nil
+// IsPaidOrganization checks if the organization has an active paid subscription (always true).
+func (s *featureGateService) IsPaidOrganization(_ context.Context, _ uuid.UUID) (bool, *errx.Error) {
+	return true, nil
 }

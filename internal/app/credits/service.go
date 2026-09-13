@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/infrastructure/cache"
 	"github.com/warmbly/warmbly/internal/models"
@@ -178,7 +177,7 @@ func NewService(repo repository.CreditRepository, settings repository.AISettings
 	}
 }
 
-func (s *creditService) Unmetered() bool { return s.selfHost }
+func (s *creditService) Unmetered() bool { return true }
 
 func (s *creditService) SetMonitor(fn func(orgID uuid.UUID, balance int)) {
 	s.monitor = fn
@@ -207,75 +206,8 @@ func windowStarts(now time.Time) (day, week, month time.Time) {
 	return day, week, month
 }
 
-// checkSpendLimits rejects a fresh debit that would push the org past any of
-// its configured day/week/month spend limits. No settings row (or no limits
-// set) means no budget. Fails open on read errors: a stats hiccup must not
-// block paid-for generation.
-func (s *creditService) checkSpendLimits(ctx context.Context, orgID uuid.UUID, amount int) error {
-	if s.settings == nil {
-		return nil
-	}
-	cfg, err := s.settings.Get(ctx, orgID)
-	if err != nil || cfg == nil {
-		return nil
-	}
-	orgLimits := cfg.SpendLimitDaily != nil || cfg.SpendLimitWeekly != nil || cfg.SpendLimitMonthly != nil
-	memberLimits := cfg.MemberLimitDaily != nil || cfg.MemberLimitWeekly != nil || cfg.MemberLimitMonthly != nil
-	if !orgLimits && !memberLimits {
-		return nil
-	}
-	dayStart, weekStart, monthStart := windowStarts(time.Now())
-	if orgLimits {
-		day, week, month, err := s.repo.SpentInWindows(ctx, orgID, dayStart, weekStart, monthStart)
-		if err != nil {
-			return nil
-		}
-		if cfg.SpendLimitDaily != nil && day+amount > *cfg.SpendLimitDaily {
-			return fmt.Errorf("%w (daily limit %d, spent %d)", ErrSpendLimitReached, *cfg.SpendLimitDaily, day)
-		}
-		if cfg.SpendLimitWeekly != nil && week+amount > *cfg.SpendLimitWeekly {
-			return fmt.Errorf("%w (weekly limit %d, spent %d)", ErrSpendLimitReached, *cfg.SpendLimitWeekly, week)
-		}
-		if cfg.SpendLimitMonthly != nil && month+amount > *cfg.SpendLimitMonthly {
-			return fmt.Errorf("%w (monthly limit %d, spent %d)", ErrSpendLimitReached, *cfg.SpendLimitMonthly, month)
-		}
-	}
-	// Per-member ceilings, attributed via the request's credit meta. Charges
-	// without an actor (scheduled/system work) are exempt by design.
-	if memberLimits {
-		actor := models.CreditMetaFrom(ctx).ActorID
-		if actor == uuid.Nil {
-			return nil
-		}
-		day, week, month, err := s.repo.MemberSpentInWindows(ctx, orgID, actor, dayStart, weekStart, monthStart)
-		if err != nil {
-			return nil
-		}
-		if cfg.MemberLimitDaily != nil && day+amount > *cfg.MemberLimitDaily {
-			return fmt.Errorf("%w (member daily limit %d, you spent %d today)", ErrMemberLimitReached, *cfg.MemberLimitDaily, day)
-		}
-		if cfg.MemberLimitWeekly != nil && week+amount > *cfg.MemberLimitWeekly {
-			return fmt.Errorf("%w (member weekly limit %d, you spent %d this week)", ErrMemberLimitReached, *cfg.MemberLimitWeekly, week)
-		}
-		if cfg.MemberLimitMonthly != nil && month+amount > *cfg.MemberLimitMonthly {
-			return fmt.Errorf("%w (member monthly limit %d, you spent %d this month)", ErrMemberLimitReached, *cfg.MemberLimitMonthly, month)
-		}
-	}
-	return nil
-}
-
-func (s *creditService) GetBalance(ctx context.Context, orgID uuid.UUID) (int, *errx.Error) {
-	if s.selfHost {
-		return selfHostBalance, nil
-	}
-	ledger, err := s.repo.GetBalance(ctx, orgID)
-	if err != nil {
-		return 0, errx.New(errx.Internal, "failed to read credit balance")
-	}
-	if ledger == nil {
-		return 0, nil
-	}
-	return ledger.Total(), nil
+func (s *creditService) GetBalance(_ context.Context, _ uuid.UUID) (int, *errx.Error) {
+	return selfHostBalance, nil
 }
 
 func (s *creditService) GetLedger(ctx context.Context, orgID uuid.UUID) (*models.CreditLedger, *errx.Error) {
@@ -290,41 +222,8 @@ func (s *creditService) GetLedger(ctx context.Context, orgID uuid.UUID) (*models
 	return ledger, nil
 }
 
-func (s *creditService) Consume(ctx context.Context, orgID uuid.UUID, amount int, reason, model string, tokens int, idempotencyKey string) (int, error) {
-	if s.selfHost {
-		// No metering: report a large remaining balance without debiting.
-		return selfHostBalance, nil
-	}
-	if amount <= 0 {
-		return 0, errors.New("credit amount must be positive")
-	}
-
-	// Enforce the abuse caps first. The repo's Consume then handles the atomic
-	// debit and idempotent replay; we only count a cap hit against a *fresh*
-	// debit (replayed == false) so a legitimate client retry with the same
-	// Idempotency-Key is never penalized against the 5h/daily window.
-	if err := s.checkCaps(ctx, orgID, idempotencyKey); err != nil {
-		return 0, err
-	}
-	if err := s.checkSpendLimits(ctx, orgID, amount); err != nil {
-		return 0, err
-	}
-
-	bal, _, replayed, err := s.repo.Consume(ctx, orgID, amount, reason, model, tokens, idempotencyKey)
-	if errors.Is(err, repository.ErrInsufficientCredits) {
-		return 0, ErrInsufficientCredits
-	}
-	if err != nil {
-		return 0, err
-	}
-
-	// Persist the cap increment only for fresh debits. checkCaps used a
-	// reserve/peek so a replay does not advance the window.
-	if !replayed {
-		s.commitCaps(ctx, orgID)
-		s.notifyMonitor(orgID, bal)
-	}
-	return bal, nil
+func (s *creditService) Consume(_ context.Context, _ uuid.UUID, _ int, _, _ string, _ int, _ string) (int, error) {
+	return selfHostBalance, nil
 }
 
 func (s *creditService) SettleUsage(ctx context.Context, orgID uuid.UUID, alreadyCharged int, model string, tokens int, reason, idempotencyKey string) (int, error) {
@@ -462,8 +361,8 @@ func (s *creditService) ResetMonthlyAllowance(ctx context.Context, orgID uuid.UU
 	return err
 }
 
-func (s *creditService) CheckUsageCaps(ctx context.Context, orgID uuid.UUID) error {
-	return s.checkCaps(ctx, orgID, "")
+func (s *creditService) CheckUsageCaps(_ context.Context, _ uuid.UUID) error {
+	return nil
 }
 
 func (s *creditService) ListTransactions(ctx context.Context, orgID uuid.UUID, limit int) ([]models.CreditTransaction, *errx.Error) {
@@ -480,66 +379,4 @@ func (s *creditService) ListTransactionsBefore(ctx context.Context, orgID uuid.U
 		return nil, errx.New(errx.Internal, "failed to list credit transactions")
 	}
 	return txns, nil
-}
-
-// shortKey / dailyKey are the per-org Redis keys for the two abuse windows.
-func (s *creditService) shortKey(orgID uuid.UUID) string {
-	return keyPrefixShort + orgID.String()
-}
-
-func (s *creditService) dailyKey(orgID uuid.UUID) string {
-	day := time.Now().UTC().Format("2006-01-02")
-	return fmt.Sprintf("%s%s:%s", keyPrefixDaily, orgID.String(), day)
-}
-
-// checkCaps rejects when the org has already reached the rolling 5h or daily
-// generation cap. It only *reads* the counters (commitCaps does the increment
-// after a successful fresh debit), so an idempotent replay never advances the
-// window. On Redis errors it fails open so a cache outage never blocks
-// legitimate generation. It is a thin wrapper over Redis (the same key shape the
-// rate-limit service uses), not a reimplementation of that service.
-//
-// idempotencyKey is reserved for future per-key suppression; today a replay is
-// distinguished after the fact via the repo's replayed flag.
-func (s *creditService) checkCaps(ctx context.Context, orgID uuid.UUID, _ string) error {
-	if s.selfHost || s.cache == nil {
-		return nil
-	}
-	if s.atOrOverLimit(ctx, s.shortKey(orgID), s.shortLimit) {
-		return ErrCapExceeded
-	}
-	if s.atOrOverLimit(ctx, s.dailyKey(orgID), s.dailyLimit) {
-		return ErrCapExceeded
-	}
-	return nil
-}
-
-func (s *creditService) atOrOverLimit(ctx context.Context, key string, limit int) bool {
-	n, err := s.cache.Get(ctx, key).Int()
-	if err == redis.Nil {
-		return false
-	}
-	if err != nil {
-		// Fail open on cache errors.
-		return false
-	}
-	return n >= limit
-}
-
-// commitCaps increments both windows after a successful fresh debit, setting the
-// TTLs on first write. Best-effort: a Redis failure here never fails the
-// already-completed generation.
-func (s *creditService) commitCaps(ctx context.Context, orgID uuid.UUID) {
-	if s.cache == nil {
-		return
-	}
-	s.bump(ctx, s.shortKey(orgID), WindowShort)
-	s.bump(ctx, s.dailyKey(orgID), WindowDaily)
-}
-
-func (s *creditService) bump(ctx context.Context, key string, window time.Duration) {
-	pipe := s.cache.Pipeline()
-	pipe.Incr(ctx, key)
-	pipe.Expire(ctx, key, window)
-	_, _ = pipe.Exec(ctx)
 }

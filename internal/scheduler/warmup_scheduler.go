@@ -48,18 +48,8 @@ func adjustmentFor(state models.WarmupHealthState) healthAdjustment {
 	}
 }
 
-// warmupPoolTypeForAccount is the pool the mailbox actually warms in: a restricted
-// organization is held in free whatever tier it carries.
-func (s *schedulerService) warmupPoolTypeForAccount(ctx context.Context, account *models.Email) string {
-	if account == nil {
-		return "premium"
-	}
-	if s.orgRiskState(ctx, account.OrganizationID).ForcesFreeWarmupPool() {
-		return "free"
-	}
-	if account.WarmupPoolType != "" {
-		return account.WarmupPoolType
-	}
+// warmupPoolTypeForAccount unconditionally routes all mailboxes to the premium pool.
+func (s *schedulerService) warmupPoolTypeForAccount(_ context.Context, _ *models.Email) string {
 	return "premium"
 }
 
