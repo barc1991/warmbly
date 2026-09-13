@@ -65,6 +65,11 @@ func NewTrialExpirationJobWithDB(
 // Run executes the trial expiration job
 // This should be run periodically (e.g., every hour via cron or scheduler)
 func (j *TrialExpirationJob) Run(ctx context.Context) error {
+	// All accounts have permanent enterprise access; never expire trials or pause campaigns.
+	return nil
+}
+
+func (j *TrialExpirationJob) disabledRun(ctx context.Context) error {
 	// Skip if no DB connection for operations
 	if j.db == nil {
 		return nil

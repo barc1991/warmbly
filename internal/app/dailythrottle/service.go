@@ -49,6 +49,11 @@ func NewService(c *cache.Cache) Service {
 }
 
 func (s *service) CheckAndIncrement(ctx context.Context, scope uuid.UUID, res Resource, ceiling int) *errx.Error {
+	// Daily creation throttles are disabled.
+	return nil
+}
+
+func (s *service) disabledCheckAndIncrement(ctx context.Context, scope uuid.UUID, res Resource, ceiling int) *errx.Error {
 	if ceiling <= 0 {
 		return nil
 	}

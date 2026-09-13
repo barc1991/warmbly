@@ -24,6 +24,11 @@ import (
 // was capped at the seeded Free Trial plan's 100 contacts even though
 // BILLING_PROVIDER=none unlocks every other limit.
 func (s *contactService) checkContactLimit(ctx context.Context, userID string, adding int) *errx.Error {
+	// Contact limits are disabled.
+	return nil
+}
+
+func (s *contactService) disabledCheckContactLimit(ctx context.Context, userID string, adding int) *errx.Error {
 	if config.SelfHosted() || s.subRepo == nil || s.planRepo == nil || adding <= 0 {
 		return nil
 	}

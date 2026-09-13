@@ -466,4 +466,23 @@ Users connect aged Gmail accounts (often 50–100+ via Google Cloud OAuth slots)
 - **Browser PostHog (`web/src/lib/productAnalytics.ts`)**:
   - `initProductAnalytics` and `capture` are empty no-ops. No external tracking scripts, cookies, or payloads are loaded or transmitted.
 
+### 3. Secondary Throttles, Burst Caps & Background Daemon Disabling
+- **Trial Expiration Daemon (`internal/jobs/trial_expiration.go`)**:
+  - `Run` returns `nil` immediately. Campaigns and warmup are never auto-paused or disabled by expired trial status.
+- **Active Campaigns Hard Cap (`internal/app/campaign/handlers.go`)**:
+  - Removed the `HardCapCampaignsActive` (50 active campaigns ceiling) check when starting campaigns.
+- **Daily Creation Throttles (`internal/app/dailythrottle/service.go`)**:
+  - `CheckAndIncrement` returns `nil` immediately, removing daily rate caps on creating new campaigns (20/day), new workspaces (3/day), and scheduled sends.
+- **Contact Ceilings (`internal/app/contact/handler.go`)**:
+  - `checkContactLimit` returns `nil` immediately, allowing unlimited contacts to be added or imported.
+- **AI Credits & Generation Caps (`internal/app/credits/service.go`)**:
+  - `selfHost: true` enforced; rolling 5-hour and 24-hour generation caps bypassed in `checkCaps`.
+- **Workspace & Role Ceilings (`internal/app/organization/service.go`)**:
+  - Removed user `MaxOrganizations` cap and workspace `MaxCustomRolesPerOrg` (25 custom roles) cap.
+- **Scheduled Sends Pending Cap (`internal/app/emailsend/service.go`)**:
+  - Removed `MaxPendingScheduledSendsPerUser` (10,000 pending sends) cap.
+- **Pool Link Allowance (`internal/app/poollink/service.go`)**:
+  - `Plan` always returns `Tier: "paid"`, `WarmupEntitled: true`, and `MailboxLimit: nil`.
+
+
 

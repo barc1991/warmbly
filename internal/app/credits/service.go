@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/infrastructure/cache"
 	"github.com/warmbly/warmbly/internal/models"
@@ -178,7 +177,7 @@ func NewService(repo repository.CreditRepository, settings repository.AISettings
 		cache:      c,
 		shortLimit: DefaultShortLimit,
 		dailyLimit: DefaultDailyLimit,
-		selfHost:   config.BillingProvider() == "none",
+		selfHost:   true,
 	}
 }
 
@@ -506,7 +505,7 @@ func (s *creditService) dailyKey(orgID uuid.UUID) string {
 // idempotencyKey is reserved for future per-key suppression; today a replay is
 // distinguished after the fact via the repo's replayed flag.
 func (s *creditService) checkCaps(ctx context.Context, orgID uuid.UUID, _ string) error {
-	if s.cache == nil {
+	if s.selfHost || s.cache == nil {
 		return nil
 	}
 	if s.atOrOverLimit(ctx, s.shortKey(orgID), s.shortLimit) {

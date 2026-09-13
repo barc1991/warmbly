@@ -501,14 +501,6 @@ func (s *campaignService) StartCampaign(ctx context.Context, orgID uuid.UUID, ca
 		}
 	}
 
-	activeCampaigns, err := s.campaignRepository.CountActiveForOrganization(ctx, orgID)
-	if err != nil {
-		return errx.InternalError()
-	}
-	if activeCampaigns >= config.HardCapCampaignsActive {
-		return errx.New(errx.Forbidden, "You have 50 active campaigns. Contact us if you need to run more.")
-	}
-
 	// Set status to active
 	if err := s.campaignRepository.StartCampaign(ctx, cID); err != nil {
 		return errx.InternalError()

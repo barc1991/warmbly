@@ -304,33 +304,16 @@ func (s *service) AuthenticateInstance(ctx context.Context, token, version strin
 }
 
 func (s *service) Plan(ctx context.Context, orgID uuid.UUID) (models.PoolLinkPlan, *errx.Error) {
-	// The free allowance is per workspace: mailboxes connected directly and
-	// through linked instances share it.
 	enrolled, xerr := s.emails.CountForOrganization(ctx, orgID)
 	if xerr != nil {
 		return models.PoolLinkPlan{}, xerr
 	}
-	plan := models.PoolLinkPlan{Tier: "free", Enrolled: enrolled, PriceUSD: config.PoolLinkPlanPriceUSD, WarmupEntitled: true}
-	if config.BillingProvider() == "none" {
-		plan.Tier = "paid"
-		return plan, nil
-	}
-	paid, xerr := s.gate.IsPaidOrganization(ctx, orgID)
-	if xerr != nil {
-		return plan, xerr
-	}
-	if paid {
-		plan.Tier = "paid"
-		return plan, nil
-	}
-	limit := models.FreeWorkspaceMailboxLimit
-	plan.MailboxLimit = &limit
-	if s.planRepo != nil {
-		if p, err := s.planRepo.GetByID(ctx, uuid.MustParse(config.PoolLinkPlanID)); err == nil && p != nil && p.StripePriceID != nil && *p.StripePriceID != "" {
-			plan.UpgradeURL = config.AppBaseURL() + "/app/settings/billing?pool=1"
-		}
-	}
-	return plan, nil
+	return models.PoolLinkPlan{
+		Tier:           "paid",
+		Enrolled:       enrolled,
+		PriceUSD:       0,
+		WarmupEntitled: true,
+	}, nil
 }
 
 func (s *service) InstanceInfo(ctx context.Context, inst *models.PoolLinkInstance) (*models.PoolLinkInstanceInfo, *errx.Error) {

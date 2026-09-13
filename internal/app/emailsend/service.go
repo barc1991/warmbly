@@ -186,15 +186,7 @@ func (s *emailSendService) SendEmail(ctx context.Context, userID, orgID, account
 				))
 			}
 		}
-		if s.taskRepo != nil {
-			pending, perr := s.taskRepo.CountScheduledForUser(ctx, userID)
-			if perr == nil && pending >= int64(config.MaxPendingScheduledSendsPerUser) {
-				return nil, errx.New(errx.TooManyRequests, fmt.Sprintf(
-					"you have %d scheduled sends queued (max %d). Cancel some from the Scheduled view before adding more.",
-					pending, config.MaxPendingScheduledSendsPerUser,
-				))
-			}
-		}
+		// Scheduled sends are unlimited
 	case "smart":
 		nextTime, err := s.scheduler.CalculateNextEmailTime(ctx, accountID)
 		if err != nil {
