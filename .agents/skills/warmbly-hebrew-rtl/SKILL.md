@@ -416,14 +416,35 @@ Warmbly supports **Multiple OAuth Connection Slots** within a single workspace:
   - When all slots reach 100/100, the UI alerts the user and links directly to `/app/settings/oauth-slots`.
   - In `AddEmailModal`, users see live remaining capacity per slot and can pick a specific slot or let the system auto-assign.
 
+### Why Google OAuth (API) vs App Passwords (SMTP/IMAP)
+- **App Passwords are Obsolete & Dangerous**:
+  - Sending via `smtp.gmail.com` with App Passwords injects legacy third-party submission headers that spam filters (Proofpoint, Defender, Google) heavily penalize. Industry benchmarks show up to 300% higher spam placement.
+  - IMAP polling via App Passwords hits strict concurrency and bandwidth throttles, triggering `Too many simultaneous connections` or silent password invalidation.
+  - Google has formally phased out App Passwords in Workspace accounts and restricts them heavily on consumer Gmail.
+- **Google OAuth API (REST) is the Gold Standard**:
+  - Sends natively via Gmail REST API (`/gmail/v1/users/me/messages/send`), appearing 100% human-composed to spam filters.
+  - Efficient sync using `historyId` REST events without holding open IMAP sockets.
+  - Longest mailbox longevity with zero checkpoint/phone-verification risks during routine operations.
+
 ---
 
-## 12. Warmup-Only Mailboxes Isolation & Deliverability Rules
+## 12. Warmup-Only Mailboxes Isolation, Sizing Ratios & Deliverability Runbook
 
-### Use Case
+### Use Case & Strategic Sizing
 Users connect aged Gmail accounts (often 50–100+ via Google Cloud OAuth slots) dedicated strictly to warming up business sender mailboxes (Google Workspace, Microsoft 365, or private SMTP domains). These aged Gmail accounts must not send cold outreach campaigns, must not pollute the Unibox, and must not generate false SPF/DKIM/DMARC warnings in Deliverability Advisor.
 
-### Implementation Architecture
+### Optimal Account Sizing & Ratio Rules (20–30 Workspace Senders)
+1. **Account Age**:
+   - Must be **2–3+ years old** (created in 2021–2023).
+   - Accounts under 6 months old are in Google's strict "Probation Sandbox" and trigger quick suspensions under warmup traffic. Aged accounts possess pre-established domain trust and high sender reputation.
+2. **Warmup Partner Ratio (3:1 to 4:1)**:
+   - For **20–30 active Google Workspace sending mailboxes**, purchase and connect **100 aged Gmails**.
+   - **Why 100 accounts is the Golden Sweet Spot**:
+     - **Prevents Reciprocal Loops**: A pool of 120–130 total mailboxes prevents sender A and recipient B from talking repeatedly in the same week, eliminating pattern fingerprinting (`partnerDiversityWindow = 7 days`, `partnerMaxSharedWindow = 3`).
+     - **Low Daily Load per Mailbox**: With 20–30 senders sending 20 warmup emails each (500 total/day), 100 aged Gmails receive only ~5 emails/day each. This ultra-light load keeps them safe from Google rate limits.
+     - **Perfect Slot Fit**: Exactly 100 accounts match the single Google Cloud Project "Testing" slot capacity.
+
+### Implementation Architecture & Isolation
 1. **Tag-Driven Isolation (`חימום` or `warmup`)**:
    - Mailboxes tagged with Hebrew `חימום` (or `warmup`) are automatically identified by `IsWarmupOnlyMailbox(ctx, accountID)` in `internal/repository/pg_email.go`.
    - `GetAllActiveInScope`: Automatically excludes warmup-only mailboxes from campaign sender pools so they never accidentally send campaign mail.
@@ -435,6 +456,12 @@ Users connect aged Gmail accounts (often 50–100+ via Google Cloud OAuth slots)
    - `internal/app/advisor/detect_deliverability.go`: `detectDomainAuth` checks `m.IsWarmupOnly`. Warmup-only mailboxes bypass SPF, DKIM, and DMARC checks, eliminating irrelevant DNS warnings for aged Gmail accounts.
 5. **UI Indicator**:
    - `web/src/app/app/emails/page.tsx`: Displays an amber badge (`חימום בלבד` / `Warmup only`) with `RiFireLine` icon in the mailbox list row.
+
+### Step-by-Step Setup Runbook
+1. **Configure OAuth Slot**: In `/app/settings/oauth-slots`, create a Slot with your Google Cloud Project Client ID & Secret.
+2. **Connect Mailbox**: Go to **Email Accounts** -> **Add Account** -> select **Google** -> choose the target slot -> complete OAuth sign-in.
+3. **Enable Warmup**: In the Mailbox settings modal, toggle **Warmup: ON**.
+4. **Attach Tag**: Add the tag **`חימום`** (or `warmup`). The amber badge `חימום בלבד` appears immediately, confirming 100% campaign & unibox isolation.
 
 ---
 
