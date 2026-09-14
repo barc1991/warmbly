@@ -8,6 +8,7 @@
 // no axis chrome unless asked).
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { DitherColumns } from "@/components/ui/dither";
 
 export function Sparkline({
@@ -75,13 +76,15 @@ export function StackedBars({
     height?: number;
     onHoverBucket?: (b: BucketLike | null) => void;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     if (!buckets || buckets.length === 0) {
         return (
             <div
                 style={{ height }}
                 className="flex items-center justify-center text-[11.5px] text-slate-400 border border-dashed border-slate-200 rounded-md"
             >
-                No traffic in this window
+                {isHe ? "אין תנועה בחלון זמן זה" : "No traffic in this window"}
             </div>
         );
     }
@@ -100,18 +103,18 @@ export function StackedBars({
             {/* horizontal hairline at base */}
             <div className="absolute left-0 right-0 bottom-3 h-px bg-slate-200/80" />
             <div className="absolute left-0 right-0 bottom-0 flex justify-between font-mono text-[9.5px] text-slate-400">
-                <span>{labelTick(buckets[0]?.bucket)}</span>
-                <span>{labelTick(buckets[buckets.length - 1]?.bucket)}</span>
+                <span>{labelTick(buckets[0]?.bucket, isHe)}</span>
+                <span>{labelTick(buckets[buckets.length - 1]?.bucket, isHe)}</span>
             </div>
         </div>
     );
 }
 
-function labelTick(iso: string | undefined): string {
+function labelTick(iso: string | undefined, isHe = false): string {
     if (!iso) return "";
     try {
         const d = new Date(iso);
-        return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        return d.toLocaleString(isHe ? "he-IL" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     } catch {
         return "";
     }

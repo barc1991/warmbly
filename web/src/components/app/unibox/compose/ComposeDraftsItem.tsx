@@ -6,19 +6,17 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FileTextIcon, Trash2Icon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import useComposeDrafts, { useDeleteComposeDraft } from "@/lib/api/hooks/app/unibox/useComposeDrafts";
 import type { ComposeDraft } from "@/lib/api/client/app/unibox/composeDrafts";
 import { useComposeStore } from "@/hooks/useComposeStore";
 import useClickOutside from "@/hooks/useClickOutside";
 
-function draftTitle(d: ComposeDraft): string {
-    return d.subject.trim() || d.to[0] || "(no subject)";
+function draftTitle(d: ComposeDraft, isHe?: boolean): string {
+    return d.subject.trim() || d.to[0] || (isHe ? "(ללא נושא)" : "(no subject)");
 }
 
-import i18n from "i18next";
-
-function formatWhen(iso: string): string {
-    const isHe = i18n.language === "he";
+function formatWhen(iso: string, isHe?: boolean): string {
     const d = new Date(iso);
     const now = new Date();
     const sameDay =
@@ -30,6 +28,8 @@ function formatWhen(iso: string): string {
 }
 
 export default function ComposeDraftsItem() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const [open, setOpen] = React.useState(false);
     const boxRef = React.useRef<HTMLDivElement>(null);
     useClickOutside(boxRef, () => setOpen(false));
@@ -48,8 +48,8 @@ export default function ComposeDraftsItem() {
                 className="w-full h-7 px-2 rounded-md inline-flex items-center gap-2 text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
             >
                 <FileTextIcon className="w-3.5 h-3.5 text-slate-400" />
-                Drafts
-                <span className="ml-auto font-mono text-[10.5px] text-slate-400 tabular-nums">
+                {isHe ? "טיוטות" : "Drafts"}
+                <span className="ms-auto font-mono text-[10.5px] text-slate-400 tabular-nums">
                     {drafts.length}
                 </span>
             </button>
@@ -67,7 +67,7 @@ export default function ComposeDraftsItem() {
                             {drafts.map((d) => (
                                 <div
                                     key={d.id}
-                                    className="group flex items-center gap-1 pr-1 hover:bg-slate-50 transition-colors"
+                                    className="group flex items-center gap-1 pe-1 hover:bg-slate-50 transition-colors"
                                 >
                                     <button
                                         type="button"
@@ -75,14 +75,14 @@ export default function ComposeDraftsItem() {
                                             useComposeStore.getState().openDraft(d);
                                             setOpen(false);
                                         }}
-                                        className="flex-1 min-w-0 px-2.5 py-1.5 text-left"
+                                        className="flex-1 min-w-0 px-2.5 py-1.5 text-start"
                                     >
                                         <span className="flex items-baseline gap-1.5 min-w-0">
                                             <span className="text-[11.5px] font-medium text-slate-800 truncate">
-                                                {draftTitle(d)}
+                                                {draftTitle(d, isHe)}
                                             </span>
-                                            <span className="ml-auto font-mono text-[9.5px] text-slate-400 tabular-nums shrink-0">
-                                                {formatWhen(d.updated_at)}
+                                            <span className="ms-auto font-mono text-[9.5px] text-slate-400 tabular-nums shrink-0">
+                                                {formatWhen(d.updated_at, isHe)}
                                             </span>
                                         </span>
                                         {d.body.trim() && (
@@ -94,7 +94,7 @@ export default function ComposeDraftsItem() {
                                     <button
                                         type="button"
                                         onClick={() => deleteMut.mutate(d.id)}
-                                        aria-label={`Delete draft ${draftTitle(d)}`}
+                                        aria-label={isHe ? `מחק טיוטה ${draftTitle(d, isHe)}` : `Delete draft ${draftTitle(d)}`}
                                         className="size-6 shrink-0 rounded inline-flex items-center justify-center text-slate-300 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:text-rose-600 hover:bg-rose-50 transition-all"
                                     >
                                         <Trash2Icon className="w-3 h-3" />

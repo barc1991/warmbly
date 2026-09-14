@@ -130,7 +130,7 @@ export default function AIEditPopover({
     onDone,
 }: AIEditPopoverProps) {
     const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
+    const isHe = i18n.language?.startsWith("he");
     const quickActions = isHe ? AI_QUICK_ACTIONS_HE : AI_QUICK_ACTIONS;
 
     const [instruction, setInstruction] = React.useState("");

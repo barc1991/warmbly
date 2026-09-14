@@ -361,7 +361,7 @@ function CollapsibleSection<T extends { id: string }>({
         {sectionOpen ? (
           <ChevronDownIcon className="w-3 h-3 text-slate-400" />
         ) : (
-          <ChevronRightIcon className="w-3 h-3 text-slate-400" />
+          <ChevronRightIcon className="w-3 h-3 text-slate-400 rtl:rotate-180" />
         )}
         <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold">
           {label}

@@ -6,6 +6,7 @@
 import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import UpgradeDialog from "@/components/layout/UpgradeDialog";
 import { UpgradeDialogContext, type UpgradeRequest } from "./context/upgrade";
@@ -37,6 +38,8 @@ export default function UpgradeDialogProvider({ children }: { children: React.Re
 // `checkout` query param. Refresh the subscription, say so, and strip the
 // param so a reload does not repeat the toast.
 function useCheckoutReturn() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const [params, setParams] = useSearchParams();
     const queryClient = useQueryClient();
     const result = params.get("checkout");
@@ -46,9 +49,9 @@ function useCheckoutReturn() {
         if (result === "success") {
             queryClient.invalidateQueries({ queryKey: ["subscription"] });
             queryClient.invalidateQueries({ queryKey: ["organizations"] });
-            toast.success("Your plan is active. Everything it includes is unlocked.");
+            toast.success(isHe ? "התוכנית שלך פעילה. כל התכונות הכלולות פתוחות לשימוש." : "Your plan is active. Everything it includes is unlocked.");
         } else {
-            toast("Checkout canceled. Your workspace is unchanged.");
+            toast(isHe ? "תהליך הרכישה בוטל. סביבת העבודה נותרה ללא שינוי." : "Checkout canceled. Your workspace is unchanged.");
         }
         const next = new URLSearchParams(params);
         next.delete("checkout");
@@ -56,5 +59,5 @@ function useCheckoutReturn() {
         // params/setParams change identity on every navigation; only the
         // presence of the marker should trigger this.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [result]);
+    }, [result, isHe]);
 }

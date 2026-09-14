@@ -9,6 +9,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { SparklesIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import type { Editor } from "@tiptap/react";
 import useGenerateEdit from "@/lib/api/hooks/app/generation/useGenerateEdit";
@@ -55,6 +56,8 @@ function anchorFor(editor: Editor, from: number, to: number): Anchor | null {
 }
 
 export default function RichTextAIEdit({ editor }: { editor: Editor }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const editMut = useGenerateEdit();
     const [range, setRange] = React.useState<EditorRange | null>(null);
     const [anchor, setAnchor] = React.useState<Anchor | null>(null);
@@ -241,7 +244,7 @@ export default function RichTextAIEdit({ editor }: { editor: Editor }) {
                         exit={{ opacity: 0, y: 2, scale: 0.95, x: "-50%" }}
                         transition={{ type: "spring", stiffness: 500, damping: 32 }}
                         style={{ position: "fixed", top: anchor.top - 34, left: anchor.centerX, zIndex: 60 }}
-                        className="h-7 pl-2 pr-2.5 rounded-full border border-slate-200 bg-white shadow-[0_6px_20px_-6px_rgba(15,23,42,0.25)] inline-flex items-center gap-1.5 text-[11.5px] font-medium text-slate-700 hover:text-sky-700 hover:border-sky-300 transition-colors"
+                        className="h-7 ps-2 pe-2.5 rounded-full border border-slate-200 bg-white shadow-[0_6px_20px_-6px_rgba(15,23,42,0.25)] inline-flex items-center gap-1.5 text-[11.5px] font-medium text-slate-700 hover:text-sky-700 hover:border-sky-300 transition-colors"
                         onMouseDown={(e) => {
                             e.preventDefault();
                             if (!range) return;
@@ -252,7 +255,7 @@ export default function RichTextAIEdit({ editor }: { editor: Editor }) {
                         }}
                     >
                         <SparklesIcon className="w-3 h-3 text-sky-500" />
-                        Edit with AI
+                        {isHe ? "ערוך באמצעות AI" : "Edit with AI"}
                     </motion.button>
                 )}
                 {open && anchor && (

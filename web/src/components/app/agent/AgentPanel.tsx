@@ -39,6 +39,7 @@ import {
     SparklesIcon,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useConfirm } from "@/hooks/context/confirm";
 import { usePermission } from "@/hooks/usePermission";
 import useAiMetered from "@/hooks/useAiMetered";
@@ -134,6 +135,8 @@ function defaultFloatRect(): AgentFloatRect {
 type ResizeDir = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 export default function AgentPanel() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const open = useAppStore((s) => s.aiAssistantOpen);
     const setOpen = useAppStore((s) => s.setAIAssistantOpen);
     const expanded = useAppStore((s) => s.agentExpanded);
@@ -903,7 +906,7 @@ export default function AgentPanel() {
                                 className="absolute bottom-3 left-1/2 -translate-x-1/2 h-7 px-3 rounded-full bg-white border border-slate-200 shadow-sm text-[11.5px] text-slate-600 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
                             >
                                 <ArrowDownIcon className="w-3 h-3" />
-                                Latest
+                                {isHe ? "להודעה האחרונה" : "Latest"}
                             </button>
                         )}
                     </div>

@@ -7,6 +7,7 @@
 //   enterprise / unresolved → the Stripe billing portal
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import useFeatureAccess from "@/hooks/useFeatureAccess";
 import useCreateCheckoutSession from "@/lib/api/hooks/app/subscription/useCreateCheckoutSession";
@@ -38,6 +39,8 @@ function returnUrl(path: string, result: "success" | "cancel"): string {
 }
 
 export default function useUpgradeFlow() {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const access = useFeatureAccess();
     const plansQuery = usePlans();
     const checkout = useCreateCheckoutSession();
@@ -74,8 +77,8 @@ export default function useUpgradeFlow() {
         try {
             // Stripe returns the browser to wherever the portal was opened from.
             const { url } = await toast.promise(portal.mutateAsync({ return_url: window.location.href }), {
-                loading: "Opening billing portal…",
-                success: "Portal ready",
+                loading: isHe ? "פותח את פורטל החיוב…" : "Opening billing portal…",
+                success: isHe ? "הפורטל מוכן" : "Portal ready",
                 error: (e: AppError) => buildError(e),
             });
             window.location.assign(url);
@@ -83,7 +86,7 @@ export default function useUpgradeFlow() {
         } catch {
             return false;
         }
-    }, [portal]);
+    }, [portal, isHe]);
 
     const upgrade = React.useCallback(
         async (catalogId: PlanID, opts: UpgradeOptions): Promise<UpgradeOutcome> => {
@@ -92,7 +95,7 @@ export default function useUpgradeFlow() {
             // and the caller would be sent to the billing portal instead of
             // Stripe Checkout. Refuse rather than take the wrong branch.
             if (plansQuery.isPending) {
-                toast.error("Still loading plans. Try again in a moment.");
+                toast.error(isHe ? "טוען את התוכניות. נסה שוב בעוד רגע." : "Still loading plans. Try again in a moment.");
                 return "failed";
             }
             setPending(catalogId);
@@ -120,8 +123,8 @@ export default function useUpgradeFlow() {
                             interval: annual ? "year" : "month",
                         }),
                         {
-                            loading: "Updating your plan…",
-                            success: `You're on ${getPlan(catalogId).label} now`,
+                            loading: isHe ? "מעדכן את התוכנית שלך…" : "Updating your plan…",
+                            success: isHe ? `התוכנית עודכנה ל-${getPlan(catalogId).label}` : `You're on ${getPlan(catalogId).label} now`,
                             error: (e: AppError) => buildError(e),
                         },
                     );
@@ -138,8 +141,8 @@ export default function useUpgradeFlow() {
                         discount_code: opts.discountCode,
                     }),
                     {
-                        loading: "Starting checkout…",
-                        success: "Redirecting to checkout…",
+                        loading: isHe ? "מתחיל תהליך תשלום…" : "Starting checkout…",
+                        success: isHe ? "מעביר לתשלום מאובטח…" : "Redirecting to checkout…",
                         error: (e: AppError) => buildError(e),
                     },
                 );
@@ -155,7 +158,7 @@ export default function useUpgradeFlow() {
                 }
             }
         },
-        [pending, plansQuery.isPending, access.plan, resolveServerPlan, openPortal, changePlan, checkout],
+        [access.plan, changePlan, checkout, openPortal, pending, plansQuery.isPending, resolveServerPlan, isHe],
     );
 
     return {

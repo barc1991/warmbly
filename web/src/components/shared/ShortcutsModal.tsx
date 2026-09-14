@@ -96,7 +96,7 @@ const hebrewDescriptions: Record<string, string> = {
 
 export function ShortcutsModal() {
   const { i18n } = useTranslation()
-  const isHe = i18n.language === 'he'
+  const isHe = i18n.language?.startsWith('he')
   const open = useAppStore((state) => state.shortcutsModalOpen)
   const setOpen = useAppStore((state) => state.setShortcutsModalOpen)
 

@@ -183,7 +183,7 @@ export default function PresenceAvatars() {
                                         </div>
                                     </div>
                                     {jumpable && (
-                                        <ArrowRightIcon className="w-3 h-3 shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100" />
+                                        <ArrowRightIcon className="w-3 h-3 shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 rtl:rotate-180" />
                                     )}
                                 </button>
                             );

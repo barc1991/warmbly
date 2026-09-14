@@ -982,7 +982,7 @@ function AddSingleKeyModal({
         if (!key.trim()) return;
         setLoading(true);
         try {
-            await onSubmit(name.trim() || "Gemini Key", key.trim());
+            await onSubmit(name.trim() || "מפתח Gemini", key.trim());
             setName("");
             setKey("");
         } catch {
@@ -1018,7 +1018,7 @@ function AddSingleKeyModal({
                         <TextInput
                             value={name}
                             onChange={setName}
-                            placeholder="למשל: Free Tier Key 1"
+                            placeholder="למשל: מפתח Gemini ראשי"
                         />
                     </div>
 
@@ -1219,7 +1219,7 @@ function AddSingleSerperKeyModal({
         if (!key.trim()) return;
         setLoading(true);
         try {
-            await onSubmit(name.trim() || "Serper Key", key.trim());
+            await onSubmit(name.trim() || "מפתח Serper", key.trim());
             setName("");
             setKey("");
         } catch {
@@ -1250,12 +1250,12 @@ function AddSingleSerperKeyModal({
                 <form onSubmit={handleSubmit} className="p-5 space-y-4 text-[12.5px]">
                     <div>
                         <label className="block font-medium text-slate-700 mb-1">
-                            כינוי למפתח (למשל: Serper Account 1)
+                            כינוי למפתח (למשל: חשבון Serper ראשי)
                         </label>
                         <TextInput
                             value={name}
                             onChange={setName}
-                            placeholder="Serper Account 1"
+                            placeholder="חשבון Serper ראשי"
                             className="w-full"
                         />
                     </div>
