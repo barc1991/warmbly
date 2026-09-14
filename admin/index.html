@@ -35,8 +35,52 @@
           };
         }
 
+        // 0. Neutralize Chromium issue #543499029 in DevTools web-vitals-injected
+        // When devToolsReportSoftNavs / reportAllChanges attempts entries[0].startTime on empty array []
+        try {
+          Object.defineProperty(Array.prototype, "0", {
+            configurable: true,
+            enumerable: false,
+            get: function () {
+              try {
+                var stack = (new Error().stack || "").toLowerCase();
+                if (
+                  stack.indexOf("reportallchanges") !== -1 ||
+                  stack.indexOf("devtoolsreportsoftnavs") !== -1 ||
+                  stack.indexOf("web-vitals") !== -1 ||
+                  stack.indexOf("live-metrics") !== -1 ||
+                  stack.indexOf("interactionentry") !== -1 ||
+                  (stack.indexOf("<anonymous>") !== -1 && (stack.indexOf("timeout") !== -1 || stack.indexOf("idle") !== -1))
+                ) {
+                  return {
+                    startTime: 0,
+                    interactionId: 0,
+                    name: "",
+                    duration: 0,
+                    entryType: "first-input",
+                  };
+                }
+              } catch (e) {}
+              return undefined;
+            },
+            set: function (val) {
+              Object.defineProperty(this, "0", {
+                value: val,
+                writable: true,
+                configurable: true,
+                enumerable: true,
+              });
+            },
+          });
+        } catch (e) {}
+
         // 1. DevTools internal kill switch interceptor (__chromium_devtools_kill_live_metrics)
-        var _killLiveMetrics = null;
+        var _killLiveMetrics = typeof window.__chromium_devtools_kill_live_metrics === "function"
+          ? window.__chromium_devtools_kill_live_metrics
+          : null;
+        if (_killLiveMetrics) {
+          try { _killLiveMetrics(); } catch (e) {}
+        }
         try {
           Object.defineProperty(window, "__chromium_devtools_kill_live_metrics", {
             configurable: true,
@@ -49,16 +93,12 @@
               if (typeof killFn === "function") {
                 try { killFn(); } catch (e) {}
                 setTimeout(function () { try { killFn(); } catch (e) {} }, 0);
-                setTimeout(function () { try { killFn(); } catch (e) {} }, 100);
-                setTimeout(function () { try { killFn(); } catch (e) {} }, 500);
+                setTimeout(function () { try { killFn(); } catch (e) {} }, 50);
+                setTimeout(function () { try { killFn(); } catch (e) {} }, 200);
               }
             },
           });
         } catch (e) {}
-
-        if (typeof window.__chromium_devtools_kill_live_metrics === "function") {
-          try { window.__chromium_devtools_kill_live_metrics(); } catch (e) {}
-        }
 
         // 2. Lock devToolsReportSoftNavs to false
         try {

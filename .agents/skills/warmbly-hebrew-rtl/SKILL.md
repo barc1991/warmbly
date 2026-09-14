@@ -585,12 +585,17 @@ VM18:2 Uncaught TypeError: Cannot read properties of undefined (reading 'startTi
 The crash occurs because the script assumes `metric.entries[0]` exists, but soft navigations often reset the entries array to `[]`. This is an internal browser developer tools bug (Chromium issues #555794190 and #556160936) that does not affect regular end users, but creates distracting red console errors during local development and testing.
 
 ### The Multi-Layer Shield Solution
-1. **Early `<head>` Interceptor (`web/index.html` & `admin/index.html`)**:
-   - Placed immediately after `<meta charset="UTF-8" />` before any module or bundle loads.
+1. **Targeted `Array.prototype[0]` Fallback**:
+   - Chromium bug #543499029 in DevTools `web-vitals-injected` executes `t.entries[0].startTime` where `t.entries` is empty `[]`.
+   - By defining a non-enumerable getter for `"0"` on `Array.prototype`, when an empty array is accessed at index 0 by `reportAllChanges` or `devToolsReportSoftNavs`, it safely returns a dummy performance entry (`{ startTime: 0, interactionId: 0, name: "", duration: 0 }`).
+   - Normal application code accessing non-empty arrays accesses the element directly without triggering the getter; empty arrays accessed by application code return `undefined` as normal.
+2. **Early `<head>` Kill-Switch Interceptor (`web/index.html` & `admin/index.html`)**:
+   - Captures `window.__chromium_devtools_kill_live_metrics` and executes it immediately to abort DevTools observers and disconnect timers.
+   - Locks `window.devToolsReportSoftNavs` to `false`.
+3. **Event Loop & Callback Guards**:
    - Intercepts `window.requestIdleCallback`, `window.setTimeout`, and `window.requestAnimationFrame`.
-   - Wraps callback invocations in a selective `try...catch` filter that intercepts and silences `startTime` and `reportAllChanges` exceptions before they escape to the browser runtime.
-   - Intercepts `window.devToolsReportSoftNavs` with a property getter/setter to disable broken soft-nav instrumentation cleanly.
-2. **Global Event Guard (`web/src/main.tsx`)**:
+   - Wraps callback invocations in a selective `try...catch` filter that intercepts and silences `startTime` and `reportAllChanges` exceptions.
+4. **Global Event Guard (`web/src/main.tsx`)**:
    - Listens to `error` and `unhandledrejection` events with `preventDefault()` and `stopImmediatePropagation()`.
 
 
