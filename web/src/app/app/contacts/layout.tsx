@@ -18,7 +18,7 @@ const TABS = [
 export default function ContactsLayout() {
     const canView = usePermission("VIEW_CONTACTS");
     const { pathname } = useLocation();
-    if (!canView) return <NoAccess feature="contacts" permissionLabel="צפייה באנשי קשר" />;
+    if (!canView) return <NoAccess feature="אנשי קשר" permissionLabel="צפייה באנשי קשר" />;
 
     const current = pathname.replace(/\/$/, "");
     return (

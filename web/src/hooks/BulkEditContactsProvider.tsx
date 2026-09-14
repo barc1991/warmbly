@@ -244,7 +244,7 @@ export const BulkEditContactsProvider = ({ children }: { children: React.ReactNo
                                 {(campaignsAdd.length === 0 && campaignsRemove.length === 0 && fields.length === 0 && subscribe === null) && <div className='bg-white opacity-40 absolute top-0 left-0 w-full h-full cursor-not-allowed'/>}
                             </div>
                         </div>
-                        {error && <p className='text-right rtl:text-left text-red-500'>{error}</p>}
+                        {error && <p className='text-start text-red-500'>{error}</p>}
                     </div>
                 </div>
             </div>

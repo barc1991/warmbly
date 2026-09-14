@@ -45,17 +45,17 @@ export default function CloudOAuthDonePage() {
                 <span className={`mt-4 mx-auto size-10 rounded-full inline-flex items-center justify-center ${status === "ok" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
                     {status === "ok" ? <CheckIcon className="w-5 h-5" /> : <XIcon className="w-5 h-5" />}
                 </span>
-                <p className="mt-3 text-[14px] font-semibold text-slate-900">{status === "ok" ? "Mailbox signed in" : "Sign-in did not complete"}</p>
+                <p className="mt-3 text-[14px] font-semibold text-slate-900">{status === "ok" ? "תיבת הדואר חוברה בהצלחה" : "ההתחברות לא הושלמה"}</p>
                 <p className="mt-1 text-[12.5px] text-slate-500 leading-relaxed">
                     {delivered
-                        ? "This window closes on its own."
+                        ? "חלון זה ייסגר באופן אוטומטי."
                         : status === "ok"
-                          ? "Go back to the Warmbly tab; the mailbox is being added there."
-                          : message || error || "Try again from Add account."}
+                          ? "חזור ללשונית Warmbly; תיבת הדואר מתווספת כעת."
+                          : message || error || "נסה שוב מתוך 'הוספת חשבון'."}
                 </p>
                 {!delivered && (
                     <Link to="/app/emails" className="mt-4 inline-flex h-8 px-3 items-center rounded-md bg-slate-900 text-white text-[12.5px] font-medium">
-                        Back to mailboxes
+                        חזרה לתיבות הדואר
                     </Link>
                 )}
             </div>

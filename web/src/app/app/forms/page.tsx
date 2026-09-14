@@ -73,7 +73,7 @@ const SORT_VALUE: Record<SortKey, (f: Form) => number | string> = {
 
 export default function FormsPage() {
     const canView = usePermission("VIEW_CONTACTS");
-    if (!canView) return <NoAccess feature="forms" permissionLabel="צפייה באנשי קשר" />;
+    if (!canView) return <NoAccess feature="טפסים" permissionLabel="צפייה באנשי קשר" />;
     return <FormsList />;
 }
 

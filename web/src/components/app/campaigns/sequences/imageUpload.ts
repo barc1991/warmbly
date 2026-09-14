@@ -9,6 +9,7 @@
 import React from "react";
 import toast from "react-hot-toast";
 import type { Editor } from "@tiptap/react";
+import i18n from "@/i18n";
 import { useUploadEmailImage } from "@/lib/api/hooks/app/campaigns/useEmailImages";
 import type EmailImage from "@/lib/api/models/app/campaigns/EmailImage";
 import type { AppError } from "@/lib/api/client/normalizeError";
@@ -47,23 +48,24 @@ export function insertImage(editor: Editor, image: { url: string; alt?: string; 
 // identically.
 export function useImageUpload() {
     const upload = useUploadEmailImage();
+    const isHe = i18n.language === "he";
     const run = React.useCallback(
         async (file: File): Promise<EmailImage | null> => {
             if (!isSupportedImageFile(file)) {
-                toast.error("Images must be PNG, JPG, GIF or WebP.");
+                toast.error(isHe ? "התמונות חייבות להיות מסוג PNG, JPG, GIF או WebP." : "Images must be PNG, JPG, GIF or WebP.");
                 return null;
             }
             try {
                 return await toast.promise(upload.mutateAsync(file), {
-                    loading: `Uploading ${file.name}…`,
-                    success: "Image added.",
+                    loading: isHe ? `מעלה את ${file.name}…` : `Uploading ${file.name}…`,
+                    success: isHe ? "התמונה נוספה בהצלחה." : "Image added.",
                     error: (e: AppError) => buildError(e),
                 });
             } catch {
                 return null;
             }
         },
-        [upload],
+        [upload, isHe],
     );
     return { run, isUploading: upload.isPending };
 }

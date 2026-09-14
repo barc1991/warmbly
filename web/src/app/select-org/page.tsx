@@ -37,11 +37,24 @@ function relativeAge(d: Date | string): string {
     const date = typeof d === "string" ? new Date(d) : d;
     const diff = Date.now() - date.getTime();
     const days = Math.floor(diff / 86_400_000);
-    if (days < 1) return "today";
-    if (days < 7) return `${days}d ago`;
-    if (days < 30) return `${Math.floor(days / 7)}w ago`;
-    if (days < 365) return `${Math.floor(days / 30)}mo ago`;
-    return `${Math.floor(days / 365)}y ago`;
+    if (days < 1) return "היום";
+    if (days < 7) return `לפני ${days} ימים`;
+    if (days < 30) return `לפני ${Math.floor(days / 7)} שבועות`;
+    if (days < 365) return `לפני ${Math.floor(days / 30)} חודשים`;
+    return `לפני ${Math.floor(days / 365)} שנים`;
+}
+
+function roleLabel(role: string): string {
+    switch (role?.toLowerCase()) {
+        case "owner":
+            return "בעלים";
+        case "admin":
+            return "מנהל";
+        case "member":
+            return "חבר צוות";
+        default:
+            return role;
+    }
 }
 
 function initials(name: string): string {
@@ -103,8 +116,8 @@ function SelectOrgPageInner() {
     async function onAccept(invitationId: string) {
         try {
             await toast.promise(accept.mutateAsync({ invitation_id: invitationId }), {
-                loading: "Joining workspace…",
-                success: "Joined",
+                loading: "מצטרף למרחב העבודה…",
+                success: "הצטרפת בהצלחה",
                 error: (e: AppError) => buildError(e),
             });
             const fresh = await orgs.refetch();
@@ -147,7 +160,7 @@ function SelectOrgPageInner() {
                     </span>
                     <div className="h-4 w-px bg-slate-200 shrink-0" />
                     <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium min-w-0 truncate">
-                        Workspaces
+                        מרחבי עבודה
                     </span>
                 </div>
 
@@ -165,10 +178,10 @@ function SelectOrgPageInner() {
                     {!loading && !noWorkspaces && (
                         <>
                             <h1 className="text-[16px] font-semibold text-slate-900 mb-1">
-                                Pick a workspace
+                                בחר מרחב עבודה
                             </h1>
                             <p className="text-[12px] text-slate-500 mb-5 leading-relaxed">
-                                Workspaces hold your campaigns, mailboxes and team.
+                                מרחבי עבודה מכילים את הקמפיינים, תיבות הדואר והצוות שלך.
                             </p>
 
                             {/* Pending invitations */}
@@ -176,7 +189,7 @@ function SelectOrgPageInner() {
                                 <div className="mb-5">
                                     <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1.5 flex items-center gap-1.5">
                                         <MailIcon className="w-3 h-3" />
-                                        Invitations
+                                        הזמנות ממתינות
                                         <span className="font-mono tabular-nums">
                                             {inviteList.length}
                                         </span>
@@ -192,10 +205,10 @@ function SelectOrgPageInner() {
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <div className="text-[12.5px] font-medium text-slate-900 truncate">
-                                                        {inv.organization_name ?? "Workspace"}
+                                                        {inv.organization_name ?? "מרחב עבודה"}
                                                     </div>
                                                     <div className="text-[11px] text-slate-500 truncate">
-                                                        Pending · {inv.role}
+                                                        ממתין · {roleLabel(inv.role)}
                                                     </div>
                                                 </div>
                                                 <button
@@ -204,7 +217,7 @@ function SelectOrgPageInner() {
                                                     disabled={accept.isPending}
                                                     className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors disabled:opacity-60 shrink-0"
                                                 >
-                                                    Join
+                                                    הצטרף
                                                 </button>
                                             </div>
                                         ))}
@@ -212,14 +225,12 @@ function SelectOrgPageInner() {
                                 </div>
                             )}
 
-                            {/* Existing memberships — informative rows. Role +
-                                plan + how long ago you joined replace the
-                                opaque "id slice + Open →" filler. */}
+                            {/* Existing memberships — informative rows. */}
                             {orgList.length > 0 && (
                                 <div className="mb-5">
                                     <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium mb-1.5 flex items-center gap-1.5">
                                         <UsersIcon className="w-3 h-3" />
-                                        Your workspaces
+                                        מרחבי העבודה שלך
                                         <span className="font-mono tabular-nums">{orgList.length}</span>
                                     </div>
                                     <div className="border border-slate-200 rounded-md overflow-hidden divide-y divide-slate-200/60">
@@ -231,7 +242,7 @@ function SelectOrgPageInner() {
                                                     type="button"
                                                     onClick={() => onPickExisting(o.id)}
                                                     disabled={switchOrg.isPending}
-                                                    className={`w-full px-3 py-2.5 flex items-center gap-2.5 transition-colors text-left disabled:opacity-50 ${
+                                                    className={`w-full px-3 py-2.5 flex items-center gap-2.5 transition-colors text-start disabled:opacity-50 ${
                                                         isCurrent
                                                             ? "bg-sky-50/60 hover:bg-sky-50"
                                                             : "hover:bg-slate-50/80"
@@ -247,13 +258,13 @@ function SelectOrgPageInner() {
                                                             </span>
                                                             {isCurrent && (
                                                                 <span className="text-[9.5px] uppercase tracking-[0.1em] text-sky-700 bg-sky-100 px-1 rounded-sm font-semibold">
-                                                                    Current
+                                                                    נוכחי
                                                                 </span>
                                                             )}
                                                         </div>
                                                         <div className="text-[11px] text-slate-500 truncate flex items-center gap-1.5">
                                                             <span className="uppercase tracking-[0.08em]">
-                                                                {o.role}
+                                                                {roleLabel(o.role)}
                                                             </span>
                                                             {showPlan && o.plan && (
                                                                 <>
@@ -265,14 +276,14 @@ function SelectOrgPageInner() {
                                                                 <>
                                                                     <span className="text-slate-300">·</span>
                                                                     <span className="font-mono tabular-nums text-slate-400">
-                                                                        joined {relativeAge(o.created_at)}
+                                                                        הצטרף {relativeAge(o.created_at)}
                                                                     </span>
                                                                 </>
                                                             )}
                                                         </div>
                                                     </div>
-                                                    <span className="text-[11px] text-slate-400 shrink-0">
-                                                        {isCurrent ? "Resume →" : "Open →"}
+                                                    <span className="text-[11px] text-slate-400 shrink-0 inline-flex items-center gap-1">
+                                                        {isCurrent ? "המשך ←" : "פתח ←"}
                                                     </span>
                                                 </button>
                                             );
@@ -281,30 +292,25 @@ function SelectOrgPageInner() {
                                 </div>
                             )}
 
-                            {/* Create new — single action button. Same dialog
-                                the OrgSwitcher uses; no inline form anymore. */}
+                            {/* Create new — single action button. */}
                             <button
                                 type="button"
                                 onClick={() => setCreateOpen(true)}
                                 className="w-full h-9 rounded-md border border-dashed border-slate-300 hover:border-slate-400 text-slate-700 hover:text-slate-900 inline-flex items-center justify-center gap-1.5 text-[12.5px] font-medium transition-colors"
                             >
                                 <PlusIcon className="w-3.5 h-3.5" />
-                                New workspace
+                                מרחב עבודה חדש
                             </button>
                         </>
                     )}
                 </div>
 
-                {/* Identity + escape hatch. Sits inside the card on a
-                    muted slate strip so the user always has a visible
-                    way out of this screen — important because before
-                    a workspace is picked there's no sidebar, no nav,
-                    no other surface that exposes "log out". */}
+                {/* Identity + escape hatch. */}
                 {user && (
                     <div className="px-4 h-10 border-t border-slate-200 bg-slate-50/60 flex items-center gap-2">
                         <span className="text-[11px] text-slate-500 truncate flex-1 min-w-0">
-                            Signed in as{" "}
-                            <span className="text-slate-700 font-medium">{user.email}</span>
+                            מחובר בתור{" "}
+                            <span className="text-slate-700 font-medium" dir="ltr">{user.email}</span>
                         </span>
                         <button
                             type="button"
@@ -313,7 +319,7 @@ function SelectOrgPageInner() {
                             className="h-6 px-2 rounded text-[11px] text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 inline-flex items-center gap-1 transition-colors disabled:opacity-50 shrink-0"
                         >
                             <LogOutIcon className="w-3 h-3" />
-                            {logout.isPending ? "Signing out…" : "Log out"}
+                            {logout.isPending ? "מתנתק…" : "התנתקות"}
                         </button>
                     </div>
                 )}
@@ -333,11 +339,10 @@ function EmptyFirstRun({ onCreate }: { onCreate: () => void }) {
                 <UsersIcon className="w-4 h-4" />
             </div>
             <h1 className="text-[16px] font-semibold text-slate-900 mb-1">
-                Create your first workspace
+                צור את מרחב העבודה הראשון שלך
             </h1>
             <p className="text-[12px] text-slate-500 mb-5 leading-relaxed max-w-[34ch] mx-auto">
-                Workspaces hold your campaigns, mailboxes and team. You'll be the
-                owner and can invite teammates anytime.
+                מרחבי עבודה מכילים את הקמפיינים, תיבות הדואר והצוות שלך. אתה תהיה הבעלים ותוכל להזמין חברי צוות בכל עת.
             </p>
             <button
                 type="button"
@@ -345,10 +350,10 @@ function EmptyFirstRun({ onCreate }: { onCreate: () => void }) {
                 className="h-8 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
             >
                 <PlusIcon className="w-3.5 h-3.5" />
-                New workspace
+                מרחב עבודה חדש
             </button>
             <p className="text-[11px] text-slate-400 mt-4">
-                Already invited? The invitation will appear here once it's sent.
+                כבר קיבלת הזמנה? ההזמנה תופיע כאן ברגע שתישלח.
             </p>
         </div>
     );

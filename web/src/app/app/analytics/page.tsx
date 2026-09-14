@@ -103,7 +103,7 @@ export default function AnalyticsPage() {
         daily: (d?.daily_trend ?? []).map((p) => ({ label: p.date, value: p.sent })),
     };
 
-    if (!canView) return <NoAccess feature="analytics" permissionLabel="צפייה בניתוחים ונתונים" />;
+    if (!canView) return <NoAccess feature="אנליטיקה" permissionLabel="צפייה בניתוחים ונתונים" />;
 
     return (
         <Page>

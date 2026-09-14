@@ -36,17 +36,18 @@ function formatWhen(iso: string): { absolute: string; relative: string } {
     const days = Math.round(absMs / 86_400_000);
 
     let relative: string;
-    if (absMs < 60_000) relative = future ? "in a moment" : "any moment";
-    else if (minutes < 60) relative = future ? `in ${minutes}m` : `${minutes}m late`;
-    else if (hours < 24) relative = future ? `in ${hours}h` : `${hours}h late`;
-    else relative = future ? `in ${days}d` : `${days}d late`;
+    if (absMs < 60_000) relative = future ? "בעוד רגע" : "בכל רגע";
+    else if (minutes < 60) relative = future ? `בעוד ${minutes} דק'` : `באיחור של ${minutes} דק'`;
+    else if (hours < 24) relative = future ? `בעוד ${hours} שעות` : `באיחור של ${hours} שעות`;
+    else relative = future ? `בעוד ${days} ימים` : `באיחור של ${days} ימים`;
 
-    const absolute = d.toLocaleString(undefined, {
+    const absolute = d.toLocaleString("he-IL", {
         weekday: "short",
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
     });
 
     return { absolute, relative };
@@ -73,7 +74,7 @@ export function ScheduledList() {
         return (
             <div className="flex-1 flex items-center justify-center gap-2 text-[12px] text-slate-400">
                 <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-                Loading scheduled sends…
+                טוען שליחות מתוזמנות…
             </div>
         );
     }
@@ -84,14 +85,14 @@ export function ScheduledList() {
                 <div className="text-center max-w-sm">
                     <AlertCircleIcon className="w-5 h-5 text-rose-500 mx-auto mb-2" />
                     <p className="text-[12.5px] font-medium text-slate-900 mb-1">
-                        Couldn't load scheduled sends
+                        לא ניתן היה לטעון שליחות מתוזמנות
                     </p>
                     <button
                         type="button"
                         onClick={() => q.refetch()}
                         className="h-7 px-2.5 mt-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
                     >
-                        Try again
+                        נסה שוב
                     </button>
                 </div>
             </div>
@@ -108,10 +109,10 @@ export function ScheduledList() {
                         <SendIcon className="w-4 h-4" />
                     </div>
                     <p className="text-[12.5px] font-medium text-slate-700">
-                        No scheduled sends
+                        אין שליחות מתוזמנות
                     </p>
                     <p className="text-[11.5px] text-slate-400 mt-1 max-w-[34ch] leading-relaxed">
-                        Replies you schedule with the picker show up here until they fire.
+                        מענים שתתזמן יופיעו כאן עד למועד שליחתם.
                     </p>
                 </div>
             </div>
@@ -122,17 +123,17 @@ export function ScheduledList() {
         <div className="flex-1 flex flex-col min-h-0">
             <div className="h-10 px-5 border-b border-slate-200 flex items-center gap-3 shrink-0">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    Scheduled
+                    מתוזמנות
                 </span>
                 <span className="text-[11.5px] text-slate-500">
-                    {items.length} pending
+                    {items.length} ממתינות
                 </span>
                 <button
                     type="button"
                     onClick={() => q.refetch()}
-                    className="ml-auto h-6 px-2 rounded text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                    className="ms-auto h-6 px-2 rounded text-[11px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                 >
-                    Refresh
+                    רענן
                 </button>
             </div>
 
@@ -150,10 +151,8 @@ export function ScheduledList() {
                 </ul>
 
                 <div className="px-5 py-4 text-[11px] text-slate-400 leading-relaxed border-t border-slate-100">
-                    <InboxIcon className="inline w-3 h-3 mr-1 -mt-px" />
-                    Cancelling a send keeps the body and recipients on record — only the
-                    delivery is stopped. If a queued send fires after you cancel, the
-                    server skips it silently.
+                    <InboxIcon className="inline w-3 h-3 me-1 -mt-px" />
+                    ביטול שליחה שומר את תוכן ההודעה והנמענים במערכת, ורק המסירה בפועל מבוטלת. אם משימת שליחה תופעל לאחר הביטול, השרת מדלג עליה בשקט.
                 </div>
             </div>
         </div>
@@ -202,7 +201,7 @@ function ScheduledRow({
                             )}
                             title={item.scheduled_at}
                         >
-                            {when.relative || "soon"}
+                            {when.relative || "בקרוב"}
                         </span>
                         <span className="text-[11px] text-slate-500 truncate">
                             {when.absolute}
@@ -210,13 +209,13 @@ function ScheduledRow({
                     </div>
 
                     <p className="text-[13px] font-medium text-slate-900 truncate">
-                        {item.subject || "(no subject)"}
+                        {item.subject || "(ללא נושא)"}
                     </p>
 
                     <p className="mt-0.5 text-[11.5px] text-slate-500 truncate">
-                        <span className="text-slate-400">to</span> {recipients}
+                        <span className="text-slate-400">אל</span> {recipients}
                         {ccCount > 0 && (
-                            <span className="text-slate-400"> · +{ccCount} cc/bcc</span>
+                            <span className="text-slate-400"> · +{ccCount} עותקים</span>
                         )}
                     </p>
 
@@ -227,12 +226,12 @@ function ScheduledRow({
                     )}
 
                     <div className="mt-1.5 flex items-center gap-2">
-                        <span className="text-[10.5px] font-mono text-slate-500 bg-slate-100 px-1.5 h-4 inline-flex items-center rounded min-w-0 max-w-[180px] md:max-w-none">
+                        <span className="text-[10.5px] font-mono text-slate-500 bg-slate-100 px-1.5 h-4 inline-flex items-center rounded min-w-0 max-w-[180px] md:max-w-none" dir="ltr">
                             <span className="truncate">{item.account_email}</span>
                         </span>
                         {item.thread_id && (
                             <span className="text-[10.5px] text-slate-400">
-                                replies into thread
+                                מענה בתוך השרשור
                             </span>
                         )}
                     </div>
@@ -255,7 +254,7 @@ function ScheduledRow({
                     ) : (
                         <XIcon className="w-3 h-3" />
                     )}
-                    {isPending ? "Cancelling…" : "Cancel"}
+                    {isPending ? "מבטל…" : "ביטול"}
                 </button>
             </div>
         </li>

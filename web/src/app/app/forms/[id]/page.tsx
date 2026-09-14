@@ -15,7 +15,7 @@ export default function FormBuilderPage() {
     const { id } = useParams<{ id: string }>();
     const form = useForm(canView ? id : undefined);
 
-    if (!canView) return <NoAccess feature="forms" permissionLabel="צפייה באנשי קשר" />;
+    if (!canView) return <NoAccess feature="טפסים" permissionLabel="צפייה באנשי קשר" />;
 
     if (form.isPending) {
         return (

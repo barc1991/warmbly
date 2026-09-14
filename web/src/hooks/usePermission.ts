@@ -31,22 +31,22 @@ function orgHasPermission(
 // Friendly label for each permission, used in the "you don't have permission"
 // popup so the message names exactly what the member is missing.
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
-    MANAGE_TEAM: "Manage team",
-    MANAGE_BILLING: "Manage billing",
-    MANAGE_CAMPAIGNS: "Manage campaigns",
-    MANAGE_CONTACTS: "Manage contacts",
-    MANAGE_EMAILS: "Manage mailboxes",
-    VIEW_ANALYTICS: "View analytics",
-    SEND_CAMPAIGNS: "Send campaigns",
-    ACCESS_UNIBOX: "Use unified inbox",
-    MANAGE_SEQUENCES: "Manage steps",
-    MANAGE_SETTINGS: "Manage settings",
-    VIEW_CAMPAIGNS: "View campaigns",
-    VIEW_CONTACTS: "View contacts",
-    TRANSFER_OWNERSHIP: "Transfer ownership",
-    MANAGE_API_KEYS: "Manage API keys",
-    USE_INTEGRATIONS: "Use integrations",
-    USE_AI: "Use AI",
+    MANAGE_TEAM: "ניהול צוות",
+    MANAGE_BILLING: "ניהול חיובים ותשלומים",
+    MANAGE_CAMPAIGNS: "ניהול קמפיינים",
+    MANAGE_CONTACTS: "ניהול אנשי קשר",
+    MANAGE_EMAILS: "ניהול תיבות דוא״ל",
+    VIEW_ANALYTICS: "צפייה בנתונים ודוחות",
+    SEND_CAMPAIGNS: "שליחת קמפיינים",
+    ACCESS_UNIBOX: "שימוש בתיבת דואר מאוחדת (Unibox)",
+    MANAGE_SEQUENCES: "ניהול שלבים ורצפים",
+    MANAGE_SETTINGS: "ניהול הגדרות",
+    VIEW_CAMPAIGNS: "צפייה בקמפיינים",
+    VIEW_CONTACTS: "צפייה באנשי קשר",
+    TRANSFER_OWNERSHIP: "העברת בעלות על הארגון",
+    MANAGE_API_KEYS: "ניהול מפתחות API",
+    USE_INTEGRATIONS: "שימוש באינטגרציות",
+    USE_AI: "שימוש ביכולות AI",
 };
 
 // Fire the global permission-denied popup (the same one the API client raises
@@ -56,7 +56,7 @@ export function showPermissionDenied(key: PermissionKey) {
     window.dispatchEvent(
         new CustomEvent("permission-denied", {
             detail: {
-                message: `You need the ${PERMISSION_LABELS[key]} permission to do that.`,
+                message: `דרושה הרשאת "${PERMISSION_LABELS[key]}" כדי לבצע פעולה זו.`,
             },
         }),
     );

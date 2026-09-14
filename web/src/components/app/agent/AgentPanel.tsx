@@ -1014,20 +1014,19 @@ export default function AgentPanel() {
                                 <div className="mt-2 flex items-center gap-1.5 text-[10.5px] text-amber-600">
                                     <AlertTriangleIcon className="w-3 h-3 shrink-0" />
                                     <span>
-                                        Free local model. Responses may be lower quality,
-                                        and nothing is charged.
+                                        מודל מקומי חינמי. איכות התשובות עשויה להיות בסיסית, ללא חיוב נקודות.
                                     </span>
                                 </div>
                             )}
                             <div className="mt-2 flex items-center justify-between text-[10.5px] text-slate-400">
                                 <span>
-                                    Read actions run automatically. Writes ask first.
+                                    פעולות קריאה מתבצעות אוטומטית. פעולות כתיבה ושליחה מבקשות אישור תחילה.
                                 </span>
                                 {!activeTab?.freeModel &&
                                     metered &&
                                     activeTab?.credits != null && (
                                         <span className="font-mono tabular-nums">
-                                            {activeTab.credits.toLocaleString()} credits
+                                            {activeTab.credits.toLocaleString()} נקודות
                                         </span>
                                     )}
                             </div>
@@ -1095,7 +1094,7 @@ function TabBar({
                             if (e.button === 1) onClose(t.key);
                         }}
                         className={cn(
-                            "group shrink-0 max-w-[160px] h-7 my-1 pl-2.5 pr-1.5 rounded-md inline-flex items-center gap-1.5 cursor-pointer text-[12px] transition-colors",
+                            "group shrink-0 max-w-[160px] h-7 my-1 ps-2.5 pe-1.5 rounded-md inline-flex items-center gap-1.5 cursor-pointer text-[12px] transition-colors",
                             active
                                 ? "bg-slate-100 text-slate-900"
                                 : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
@@ -1201,7 +1200,7 @@ function DockBar({
         status = (
             <span className="inline-flex items-center gap-1.5 text-slate-400">
                 <span className="size-1.5 rounded-full bg-slate-300" />
-                Idle
+                ממתין
             </span>
         );
     }
@@ -1226,7 +1225,7 @@ function DockBar({
                         onRestore(focus?.key ?? null);
                     }
                 }}
-                className="h-10 pl-2.5 pr-1 rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/10 flex items-center gap-2 cursor-pointer hover:border-slate-300 transition-colors"
+                className="h-10 ps-2.5 pe-1 rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/10 flex items-center gap-2 cursor-pointer hover:border-slate-300 transition-colors"
             >
                 <AgentMark className="w-4 h-4 text-sky-600 shrink-0" />
                 <span className="max-w-[160px] truncate text-[12.5px] font-medium text-slate-800">
@@ -1728,12 +1727,12 @@ function ApprovalCard({
         <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
             <div className="flex items-center gap-1.5 text-[12px] font-medium text-amber-800">
                 <ShieldQuestionIcon className="w-3.5 h-3.5" />
-                {isSend ? "Send this?" : "Approve this action?"}
+                {isSend ? "האם לשלוח הודעה זו?" : "האם לאשר פעולה זו?"}
             </div>
             <div className="mt-1 text-[12px] text-slate-700">
                 <span className="font-medium">{toolLabel(pending.tool)}</span>
                 {pending.argsSummary && (
-                    <span className="text-slate-500"> — {pending.argsSummary}</span>
+                    <span className="text-slate-500"> : {pending.argsSummary}</span>
                 )}
             </div>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -1742,20 +1741,20 @@ function ApprovalCard({
                     className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                 >
                     <CheckIcon className="w-3 h-3" />
-                    {isSend ? "Send" : "Approve"}
+                    {isSend ? "שלח" : "אשר"}
                 </button>
                 <button
                     onClick={() => onDecide("deny")}
                     className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 transition-colors"
                 >
-                    Skip
+                    דלג
                 </button>
                 {!isSend && (
                     <button
                         onClick={() => onDecide("always_allow")}
                         className="h-7 px-2.5 rounded-md text-[12px] text-slate-500 hover:text-slate-800 transition-colors"
                     >
-                        Always allow
+                        אפשר תמיד
                     </button>
                 )}
             </div>

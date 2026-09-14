@@ -27,7 +27,7 @@ import buildError from "@/lib/helper/buildError";
 
 export default function SegmentsPage() {
     const canView = usePermission("VIEW_CONTACTS");
-    if (!canView) return <NoAccess feature="segments" permissionLabel="צפייה באנשי קשר" />;
+    if (!canView) return <NoAccess feature="סגמנטים" permissionLabel="צפייה באנשי קשר" />;
     return <SegmentsList />;
 }
 

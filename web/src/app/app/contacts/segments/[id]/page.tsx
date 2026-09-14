@@ -29,7 +29,7 @@ import { selectionOf } from "@/lib/api/models/app/contacts/ContactSelection";
 
 export default function SegmentPage() {
     const canView = usePermission("VIEW_CONTACTS");
-    if (!canView) return <NoAccess feature="segments" permissionLabel="צפייה באנשי קשר" />;
+    if (!canView) return <NoAccess feature="סגמנטים" permissionLabel="צפייה באנשי קשר" />;
     return <SegmentDetail />;
 }
 

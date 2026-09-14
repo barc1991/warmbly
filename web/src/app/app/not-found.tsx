@@ -15,10 +15,10 @@ import { useAppStore } from "@/stores";
 import { cn } from "@/lib/utils";
 
 const dests = [
-  { title: "Accounts", url: "/app/emails", icon: MailIcon, hint: "mailboxes & senders" },
-  { title: "Campaigns", url: "/app/campaigns", icon: MegaphoneIcon, hint: "steps & sends" },
-  { title: "Contacts", url: "/app/contacts", icon: UsersIcon, hint: "people & lists" },
-  { title: "Analytics", url: "/app/analytics", icon: BarChart3Icon, hint: "opens, clicks, replies" },
+  { title: "תיבות דואר", url: "/app/emails", icon: MailIcon, hint: "תיבות ושולחים" },
+  { title: "קמפיינים", url: "/app/campaigns", icon: MegaphoneIcon, hint: "שלבים ושליחות" },
+  { title: "אנשי קשר", url: "/app/contacts", icon: UsersIcon, hint: "נמענים ורשימות" },
+  { title: "אנליטיקה", url: "/app/analytics", icon: BarChart3Icon, hint: "פתיחות, קליקים ומענים" },
 ];
 
 export default function DashboardNotFound() {
@@ -49,7 +49,7 @@ export default function DashboardNotFound() {
 
         {/* Eyebrow */}
         <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-          Undeliverable · 404
+          לא ניתן למסירה · 404
         </span>
 
         {/* Headline */}
@@ -57,27 +57,26 @@ export default function DashboardNotFound() {
           className="mt-2 text-[28px] leading-[1.15] font-light text-slate-900"
           style={{ fontFamily: "var(--font-display)" }}
         >
-          This page bounced
+          העמוד חזר ללא מענה
         </h1>
 
         {/* Subhead */}
         <p className="mt-2 max-w-[42ch] text-[12.5px] leading-relaxed text-slate-400">
-          We couldn&apos;t find a page at that address. The link may be broken, or the page may have
-          moved. Nothing was lost — pick up where you left off below.
+          לא הצלחנו למצוא עמוד בכתובת זו. ייתכן שהקישור שבור או שהעמוד הועבר. שום דבר לא אבד - המשך מאיפה שעצרת למטה.
         </p>
 
         {/* Bounce-report chip */}
         <div className="mt-5 w-full min-w-0 rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2">
           <div className="flex items-baseline justify-center gap-2 min-w-0">
             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium shrink-0">
-              to
+              אל
             </span>
-            <code className="font-mono text-[11px] text-slate-700 truncate min-w-0">{pathname}</code>
+            <code className="font-mono text-[11px] text-slate-700 truncate min-w-0" dir="ltr">{pathname}</code>
           </div>
           <div className="mt-1 flex items-center justify-center gap-1.5 font-mono text-[10.5px] tabular-nums text-slate-400">
             <span className="text-red-500">404</span>
             <span>·</span>
-            <span>no_such_route</span>
+            <span>אין נתיב כזה</span>
           </div>
         </div>
 
@@ -88,20 +87,20 @@ export default function DashboardNotFound() {
             onClick={goBack}
             className="h-8 px-3 rounded-md inline-flex items-center gap-1.5 text-[12px] font-medium border border-slate-200 hover:border-slate-300 bg-white text-slate-700 hover:text-slate-900 transition-colors focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
           >
-            <ArrowLeft className="w-3.5 h-3.5" strokeWidth={1.6} /> Go back
+            <ArrowLeft className="w-3.5 h-3.5 rtl:rotate-180" strokeWidth={1.6} /> חזור
           </button>
           <Link
             to="/app"
             className="h-8 px-3 rounded-md inline-flex items-center gap-1.5 text-[12px] font-medium bg-sky-600 hover:bg-sky-700 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-sky-100"
           >
-            <LayoutDashboard className="w-3.5 h-3.5" strokeWidth={1.6} /> Dashboard
+            <LayoutDashboard className="w-3.5 h-3.5" strokeWidth={1.6} /> לוח בקרה
           </Link>
           <button
             type="button"
             onClick={() => setCommandPaletteOpen(true)}
             className="h-8 px-3 rounded-md inline-flex items-center gap-2 text-[12px] font-medium bg-sky-50 text-sky-700 hover:bg-sky-100 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-100"
           >
-            <Search className="w-3.5 h-3.5" strokeWidth={1.6} /> Search
+            <Search className="w-3.5 h-3.5" strokeWidth={1.6} /> חיפוש
             <kbd className="hidden md:inline-flex h-4 items-center px-1 rounded border border-sky-200 bg-white/70 font-mono text-[10px] text-sky-600 ml-0.5">
               ⌘K
             </kbd>
@@ -109,9 +108,9 @@ export default function DashboardNotFound() {
         </div>
 
         {/* Popular destinations */}
-        <div className="mt-8 w-full border-t border-slate-200/60 pt-4 text-left">
+        <div className="mt-8 w-full border-t border-slate-200/60 pt-4 text-start">
           <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-            Popular destinations
+            יעדים פופולריים
           </span>
           <div className="mt-2 -mx-2">
             {dests.map((d, i) => (
@@ -131,7 +130,7 @@ export default function DashboardNotFound() {
                 </span>
                 <span className="text-[11.5px] text-slate-400 truncate min-w-0">{d.hint}</span>
                 <ArrowRight
-                  className="w-3.5 h-3.5 ml-auto shrink-0 text-slate-300 opacity-100 md:opacity-0 md:group-hover:opacity-100 group-hover:text-slate-500 transition-all"
+                  className="w-3.5 h-3.5 ms-auto rtl:rotate-180 shrink-0 text-slate-300 opacity-100 md:opacity-0 md:group-hover:opacity-100 group-hover:text-slate-500 transition-all"
                   strokeWidth={1.6}
                 />
               </Link>

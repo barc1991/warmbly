@@ -138,7 +138,7 @@ export default function AddressesPage() {
             const before = prev.get(s.id);
             if (before && (HEALTH_RANK[cur] ?? 0) > (HEALTH_RANK[before] ?? 0)) {
                 const reason = s.warmup_health?.reason || s.health?.issues?.[0];
-                toast.error(`${s.email} health dropped to ${cur}${reason ? ` — ${reason}` : ""}`);
+                toast.error(`בריאות התיבה ${s.email} ירדה ל-${cur}${reason ? ` (${reason})` : ""}`);
             }
         }
         prevHealth.current = next;
@@ -148,7 +148,7 @@ export default function AddressesPage() {
         if (selected.length === 0 || removing) return;
         const n = selected.length;
         confirm.show(
-            `Remove ${n} mailbox${n > 1 ? "es" : ""}? This disconnects ${n > 1 ? "them" : "it"} from Warmbly.`,
+            `האם להסיר ${n} ${n > 1 ? "תיבות דואר" : "תיבת דואר"}? פעולה זו תנתק אותן מ-Warmbly.`,
             async () => {
                 setRemoving(true);
                 const results = await Promise.allSettled(selected.map((id) => removeEmail(id)));
@@ -163,8 +163,8 @@ export default function AddressesPage() {
                     // mailbox is worth retrying, and "couldn't be removed"
                     // alone does not say so.
                     const reason = failed.length === 1 ? removeErrorMessage(failed[0].reason) : undefined;
-                    toast.error(reason ?? `${failed.length} mailbox${failed.length > 1 ? "es" : ""} couldn't be removed`);
-                } else toast.success(`Removed ${n} mailbox${n > 1 ? "es" : ""}`);
+                    toast.error(reason ?? `לא ניתן היה להסיר ${failed.length} ${failed.length > 1 ? "תיבות דואר" : "תיבת דואר"}`);
+                } else toast.success(`הוסרו ${n} ${n > 1 ? "תיבות דואר" : "תיבת דואר"}`);
             },
         );
     };
@@ -177,9 +177,9 @@ export default function AddressesPage() {
         await queryClient.invalidateQueries({ queryKey: ["emails", "list"] });
         await queryClient.invalidateQueries({ queryKey: ["analytics", "accounts"] });
         setSelected([]);
-        const verb = action === "start" ? "started" : "paused";
-        if (failed > 0) toast.error(`${failed} mailbox${failed > 1 ? "es" : ""} couldn't be updated`);
-        else toast.success(`Warmup ${verb} for ${n} mailbox${n > 1 ? "es" : ""}`);
+        const verb = action === "start" ? "הופעל" : "הושהה";
+        if (failed > 0) toast.error(`לא ניתן היה לעדכן ${failed} ${failed > 1 ? "תיבות דואר" : "תיבת דואר"}`);
+        else toast.success(`תהליך החימום ${verb} עבור ${n} ${n > 1 ? "תיבות דואר" : "תיבת דואר"}`);
     };
 
     const openDetail = (id: string, tab: string = "overview") => {
@@ -240,7 +240,7 @@ export default function AddressesPage() {
     }
 
     if (!canView) {
-        return <NoAccess feature="email accounts" permissionLabel="Manage mailboxes" />;
+        return <NoAccess feature="תיבות דואר" permissionLabel="ניהול תיבות דואר" />;
     }
 
     return (

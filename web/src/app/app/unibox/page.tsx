@@ -298,20 +298,20 @@ export default function UniboxPage() {
   }, [scope, overviewData, isHe]);
 
   if (!canAccess) {
-    return <NoAccess feature="the unified inbox" permissionLabel="Use unified inbox" />;
+    return <NoAccess feature="תיבת דואר מאוחדת" permissionLabel="שימוש בתיבת דואר מאוחדת" />;
   }
 
   return (
     <LockedSurface
       locked={!access.loading && !access.hasInbox}
-      feature="Unified inbox"
-      blurb="Read and reply to every inbound message across every connected mailbox from one place — searchable, filterable, with realtime updates."
+      feature="תיבת דואר מאוחדת"
+      blurb="קריאה ומענה לכל הודעה נכנסת מכל תיבות הדואר המחוברות ממקום אחד, עם חיפוש, סינון ועדכונים בזמן אמת."
       minPlan="starter"
       bullets={[
-        "Live overview: unread, awaiting reply, snoozed, today, week",
-        "Scope rail with per-mailbox + per-tag unread counts",
-        "Deep-linkable threads as a clean URL path",
-        "Snooze any thread to clear it from the inbox until later",
+        "מבט כולל בזמן אמת: לא נקרא, ממתין למענה, בנודניק, היום, השבוע",
+        "סרגל תצוגה עם מונים לכל תיבת דואר ותגית",
+        "שרשורים עם קישור ישיר ונתיב URL נקי",
+        "השהיית שרשורים בנודניק כדי לפנות את התיבה עד למועד הרצוי",
       ]}
     >
       <div className="flex flex-col h-full bg-white">

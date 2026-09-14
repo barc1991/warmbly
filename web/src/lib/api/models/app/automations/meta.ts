@@ -215,18 +215,18 @@ export const WARMUP_STATES = [
 ];
 
 const MEETING_FIELDS: TriggerFieldDef[] = [
-    { key: "source", label: "Source", type: "string", defaultOperator: "equals" },
-    { key: "invitee_email", label: "Invitee email", type: "string", defaultOperator: "contains" },
-    { key: "event_name", label: "Meeting name", type: "string", defaultOperator: "contains" },
-    { key: "contact_id", label: "Matched contact", type: "string", defaultOperator: "exists" },
+    { key: "source", label: "מקור", type: "string", defaultOperator: "equals" },
+    { key: "invitee_email", label: "אימייל המוזמן", type: "string", defaultOperator: "contains" },
+    { key: "event_name", label: "שם הפגישה", type: "string", defaultOperator: "contains" },
+    { key: "contact_id", label: "איש קשר תואם", type: "string", defaultOperator: "exists" },
 ];
 
 const DELIVERABILITY_FIELDS: TriggerFieldDef[] = [
-    { key: "event_type", label: "Event type", type: "string", defaultOperator: "equals" },
-    { key: "provider", label: "Provider", type: "string", defaultOperator: "equals" },
-    { key: "reason", label: "Reason", type: "string", defaultOperator: "contains" },
-    { key: "contact_email", label: "Contact email", type: "string", defaultOperator: "contains" },
-    { key: "campaign_id", label: "From a campaign", type: "string", defaultOperator: "exists" },
+    { key: "event_type", label: "סוג אירוע", type: "string", defaultOperator: "equals" },
+    { key: "provider", label: "ספק", type: "string", defaultOperator: "equals" },
+    { key: "reason", label: "סיבה", type: "string", defaultOperator: "contains" },
+    { key: "contact_email", label: "אימייל איש קשר", type: "string", defaultOperator: "contains" },
+    { key: "campaign_id", label: "מתוך קמפיין", type: "string", defaultOperator: "exists" },
 ];
 
 export const CONTACT_SOURCES = [
@@ -240,27 +240,27 @@ export const CONTACT_SOURCES = [
 
 export const TRIGGER_FIELDS: Record<string, TriggerFieldDef[]> = {
     "contact.created": [
-        { key: "source", label: "Source", type: "enum", options: CONTACT_SOURCES, defaultOperator: "equals" },
-        { key: "source_detail", label: "Source detail", type: "string", defaultOperator: "contains" },
-        { key: "contact_email", label: "Contact email", type: "string", defaultOperator: "contains" },
-        { key: "company", label: "Company", type: "string", defaultOperator: "contains" },
-        { key: "phone", label: "Phone", type: "string", defaultOperator: "exists" },
-        { key: "subscribed", label: "Subscribed", type: "bool", defaultOperator: "is_true" },
+        { key: "source", label: "מקור", type: "enum", options: CONTACT_SOURCES, defaultOperator: "equals" },
+        { key: "source_detail", label: "פירוט מקור", type: "string", defaultOperator: "contains" },
+        { key: "contact_email", label: "אימייל איש קשר", type: "string", defaultOperator: "contains" },
+        { key: "company", label: "חברה", type: "string", defaultOperator: "contains" },
+        { key: "phone", label: "טלפון", type: "string", defaultOperator: "exists" },
+        { key: "subscribed", label: "מנוי פעיל", type: "bool", defaultOperator: "is_true" },
     ],
     "form.submitted": [
-        { key: "form_name", label: "Form", type: "string", defaultOperator: "equals" },
-        { key: "contact_email", label: "Contact email", type: "string", defaultOperator: "contains" },
-        { key: "company", label: "Company", type: "string", defaultOperator: "contains" },
-        { key: "source_url", label: "Page URL", type: "string", defaultOperator: "contains" },
-        { key: "campaign_id", label: "From a campaign", type: "string", defaultOperator: "exists" },
-        { key: "contact_id", label: "Matched contact", type: "string", defaultOperator: "exists" },
+        { key: "form_name", label: "טופס", type: "string", defaultOperator: "equals" },
+        { key: "contact_email", label: "אימייל איש קשר", type: "string", defaultOperator: "contains" },
+        { key: "company", label: "חברה", type: "string", defaultOperator: "contains" },
+        { key: "source_url", label: "כתובת עמוד (URL)", type: "string", defaultOperator: "contains" },
+        { key: "campaign_id", label: "מתוך קמפיין", type: "string", defaultOperator: "exists" },
+        { key: "contact_id", label: "איש קשר תואם", type: "string", defaultOperator: "exists" },
     ],
     "campaign.reply_received": [
-        { key: "intent", label: "Reply intent", type: "enum", options: REPLY_INTENT_OPTIONS, defaultOperator: "equals" },
-        { key: "confidence", label: "Classifier confidence", type: "number", defaultOperator: "gte" },
-        { key: "contact_email", label: "Contact email", type: "string", defaultOperator: "contains" },
-        { key: "subject", label: "Subject", type: "string", defaultOperator: "contains" },
-        { key: "contact_id", label: "Matched contact", type: "string", defaultOperator: "exists" },
+        { key: "intent", label: "כוונת מענה", type: "enum", options: REPLY_INTENT_OPTIONS, defaultOperator: "equals" },
+        { key: "confidence", label: "רמת ודאות סיווג", type: "number", defaultOperator: "gte" },
+        { key: "contact_email", label: "אימייל איש קשר", type: "string", defaultOperator: "contains" },
+        { key: "subject", label: "נושא", type: "string", defaultOperator: "contains" },
+        { key: "contact_id", label: "איש קשר תואם", type: "string", defaultOperator: "exists" },
     ],
     "meeting.booked": MEETING_FIELDS,
     "meeting.rescheduled": MEETING_FIELDS,
@@ -269,26 +269,26 @@ export const TRIGGER_FIELDS: Record<string, TriggerFieldDef[]> = {
     "deliverability.bounce": DELIVERABILITY_FIELDS,
     "deliverability.complaint": DELIVERABILITY_FIELDS,
     "campaign.unsubscribed": [
-        { key: "source", label: "Unsubscribe source", type: "string", defaultOperator: "equals" },
-        { key: "contact_email", label: "Contact email", type: "string", defaultOperator: "contains" },
-        { key: "campaign_id", label: "From a campaign", type: "string", defaultOperator: "exists" },
+        { key: "source", label: "מקור ביטול הרשמה", type: "string", defaultOperator: "equals" },
+        { key: "contact_email", label: "אימייל איש קשר", type: "string", defaultOperator: "contains" },
+        { key: "campaign_id", label: "מתוך קמפיין", type: "string", defaultOperator: "exists" },
     ],
     "warmup.health_changed": [
-        { key: "new_state", label: "New state", type: "enum", options: WARMUP_STATES, defaultOperator: "equals" },
-        { key: "previous_state", label: "Previous state", type: "enum", options: WARMUP_STATES, defaultOperator: "equals" },
-        { key: "email", label: "Mailbox", type: "string", defaultOperator: "contains" },
+        { key: "new_state", label: "מצב חדש", type: "enum", options: WARMUP_STATES, defaultOperator: "equals" },
+        { key: "previous_state", label: "מצב קודם", type: "enum", options: WARMUP_STATES, defaultOperator: "equals" },
+        { key: "email", label: "תיבת דואר", type: "string", defaultOperator: "contains" },
     ],
     "campaign.action": [
-        { key: "contact_email", label: "Contact email", type: "string", defaultOperator: "contains" },
-        { key: "company", label: "Company", type: "string", defaultOperator: "contains" },
-        { key: "campaign_id", label: "From a campaign", type: "string", defaultOperator: "exists" },
-        { key: "contact_id", label: "Matched contact", type: "string", defaultOperator: "exists" },
+        { key: "contact_email", label: "אימייל איש קשר", type: "string", defaultOperator: "contains" },
+        { key: "company", label: "חברה", type: "string", defaultOperator: "contains" },
+        { key: "campaign_id", label: "מתוך קמפיין", type: "string", defaultOperator: "exists" },
+        { key: "contact_id", label: "איש קשר תואם", type: "string", defaultOperator: "exists" },
     ],
 };
 
 const GENERIC_FIELDS: TriggerFieldDef[] = [
-    { key: "contact_email", label: "Contact email", type: "string", defaultOperator: "contains" },
-    { key: "contact_id", label: "Matched contact", type: "string", defaultOperator: "exists" },
+    { key: "contact_email", label: "אימייל איש קשר", type: "string", defaultOperator: "contains" },
+    { key: "contact_id", label: "איש קשר תואם", type: "string", defaultOperator: "exists" },
 ];
 
 const RANDOM_FIELD: TriggerFieldDef = {

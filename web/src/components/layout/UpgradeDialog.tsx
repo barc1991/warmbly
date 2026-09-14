@@ -212,7 +212,7 @@ export default function UpgradeDialog({
                         <div className="px-5 md:px-10 pt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div>
                                 <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                    Choose a plan
+                                    בחר תוכנית
                                 </div>
                                 <div className="relative h-[18px] mt-0.5 overflow-hidden">
                                     <AnimatePresence initial={false} mode="popLayout">
@@ -225,8 +225,8 @@ export default function UpgradeDialog({
                                             className="absolute inset-0 text-[12.5px] text-slate-500"
                                         >
                                             {billingInterval === "annual"
-                                                ? "Annual billing, two months free every year."
-                                                : "Monthly billing, switch or cancel any time."}
+                                                ? "חיוב שנתי, חודשיים חינם בכל שנה."
+                                                : "חיוב חודשי, ניתן להחליף או לבטל בכל עת."}
                                         </motion.p>
                                     </AnimatePresence>
                                 </div>

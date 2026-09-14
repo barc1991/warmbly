@@ -71,7 +71,7 @@ export function OrgSwitcher() {
             <PopoverMenuTrigger asChild>
                 <button
                     type="button"
-                    className="group w-full flex items-center gap-2 pl-1 pr-2 h-8 rounded-md hover:bg-slate-200/60 transition-colors text-left"
+                    className="group w-full flex items-center gap-2 ps-1 pe-2 h-8 rounded-md hover:bg-slate-200/60 transition-colors text-start"
                 >
                     <span
                         className={`size-6 rounded-md ring-1 ring-slate-200 flex items-center justify-center shrink-0 overflow-hidden ${

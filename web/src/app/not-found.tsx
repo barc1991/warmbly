@@ -33,7 +33,7 @@ export default function NotFound() {
 
         {/* Eyebrow */}
         <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-          Undeliverable · 404
+          לא ניתן למסירה · 404
         </span>
 
         {/* Headline */}
@@ -41,13 +41,12 @@ export default function NotFound() {
           className="mt-2 text-[28px] leading-[1.15] font-light text-slate-900"
           style={{ fontFamily: "var(--font-display)" }}
         >
-          This page bounced
+          העמוד חזר ללא מענה
         </h1>
 
         {/* Subhead */}
         <p className="mt-2 max-w-[42ch] text-[12.5px] leading-relaxed text-slate-400">
-          We couldn&apos;t find a page at that address. The link may be broken, or the page may have
-          moved. Head back to a safe place below.
+          לא הצלחנו למצוא עמוד בכתובת זו. ייתכן שהקישור שבור או שהעמוד הועבר. מומלץ לחזור למקום בטוח.
         </p>
 
         {/* Actions */}
@@ -56,13 +55,13 @@ export default function NotFound() {
             to="/app"
             className="h-8 px-3 rounded-md inline-flex items-center gap-1.5 text-[12px] font-medium bg-sky-600 hover:bg-sky-700 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-sky-100"
           >
-            <LayoutDashboard className="w-3.5 h-3.5" strokeWidth={1.6} /> Back to dashboard
+            <LayoutDashboard className="w-3.5 h-3.5" strokeWidth={1.6} /> חזרה ללוח הבקרה
           </Link>
           <Link
             to="/auth/login"
             className="h-8 px-3 rounded-md inline-flex items-center gap-1.5 text-[12px] font-medium border border-slate-200 hover:border-slate-300 bg-white text-slate-700 hover:text-slate-900 transition-colors focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
           >
-            <LogIn className="w-3.5 h-3.5" strokeWidth={1.6} /> Sign in
+            <LogIn className="w-3.5 h-3.5" strokeWidth={1.6} /> התחברות
           </Link>
         </div>
       </motion.div>

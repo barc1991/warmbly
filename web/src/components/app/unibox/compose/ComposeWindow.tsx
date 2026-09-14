@@ -203,7 +203,7 @@ function ComposeWindowInner({
         setBody((b) => (b.trim() ? `${b.trimEnd()}\n\n${plain}` : plain).slice(0, MAX_BODY_LEN));
         if (t.subject && !subject.trim()) setSubject(t.subject);
         setTemplateOpen(false);
-        toast.success(`Inserted "${t.name}"`);
+        toast.success(isHe ? `הוכנסה תבנית "${t.name}"` : `Inserted "${t.name}"`);
     };
 
     const bodyRef = React.useRef<HTMLTextAreaElement>(null);
@@ -243,8 +243,8 @@ function ComposeWindowInner({
         const withHistory = (candidates?.accounts ?? []).filter((a) => a.history_messages > 0);
         if (withHistory.length === 0) return undefined;
         const top = withHistory.reduce((a, b) => (b.history_messages > a.history_messages ? b : a));
-        return `Usually from ${top.email}`;
-    }, [candidates]);
+        return isHe ? `בדרך כלל מ-${top.email}` : `Usually from ${top.email}`;
+    }, [candidates, isHe]);
 
     // AI draft of the whole email, server-grounded like reply drafts: the
     // backend folds in the contact record, the correspondence history with the
@@ -406,8 +406,8 @@ function ComposeWindowInner({
             } else {
                 toast.success(
                     scheduledAt
-                        ? `Scheduled for ${formatFriendly(scheduledAt)} from ${res.account_email}`
-                        : `Sent from ${res.account_email}${res.auto ? " · picked automatically" : ""}`,
+                        ? (isHe ? `תוזמן ל-${formatFriendly(scheduledAt)} מ-${res.account_email}` : `Scheduled for ${formatFriendly(scheduledAt)} from ${res.account_email}`)
+                        : (isHe ? `נשלח מ-${res.account_email}${res.auto ? " · נבחר אוטומטית" : ""}` : `Sent from ${res.account_email}${res.auto ? " · picked automatically" : ""}`),
                 );
             }
             // The email is on its way; its draft is done.
@@ -456,7 +456,7 @@ function ComposeWindowInner({
             <div className={cn("flex flex-col w-full min-h-0", minimized ? "sm:w-[280px]" : "sm:w-[540px]")}>
                 <div
                     className={cn(
-                        "shrink-0 h-8 pl-3 pr-1.5 flex items-center gap-2 bg-slate-100/80 select-none",
+                        "shrink-0 h-8 ps-3 pe-1.5 flex items-center gap-2 bg-slate-100/80 select-none",
                         minimized ? "cursor-pointer hover:bg-slate-100" : "border-b border-slate-200",
                     )}
                     onClick={minimized ? () => setMinimized(false) : undefined}
@@ -641,8 +641,9 @@ function ComposeWindowInner({
                     <div className="shrink-0 mx-3.5 mt-2 px-2.5 py-1.5 rounded-md border border-rose-200 bg-rose-50 flex items-start gap-1.5 text-[11.5px] text-rose-800">
                         <OctagonAlertIcon className="w-3 h-3 mt-0.5 shrink-0" />
                         <span className="leading-snug">
-                            {primary} is suppressed for this workspace
-                            {candidates?.suppression?.reason ? ` (${candidates.suppression.reason})` : ""}. Sending is blocked to protect your reputation.
+                            {isHe
+                                ? `${primary} נמצא ברשימת החסימה של סביבת עבודה זו${candidates?.suppression?.reason ? ` (${candidates.suppression.reason})` : ""}. השליחה נחסמה כדי להגן על המוניטין שלך.`
+                                : `${primary} is suppressed for this workspace${candidates?.suppression?.reason ? ` (${candidates.suppression.reason})` : ""}. Sending is blocked to protect your reputation.`}
                         </span>
                     </div>
                 )}
@@ -713,14 +714,29 @@ function ComposeWindowInner({
                     context, so point at the workspace voice profile. */}
                 {aiDraft.grounding && !aiDraft.grounding.voice_profile && (
                     <div className="shrink-0 mx-3.5 mb-1.5 px-2.5 py-1.5 rounded-md border border-amber-200/60 bg-amber-50/60 text-[10.5px] text-amber-800 leading-snug">
-                        AI doesn&apos;t know your product yet.{" "}
-                        <Link
-                            to="/app/settings/workspace"
-                            className="font-medium underline underline-offset-2 hover:text-amber-950"
-                        >
-                            Set your voice profile
-                        </Link>{" "}
-                        (what you sell, who to, how you sound) and drafts will stop being generic.
+                        {isHe ? (
+                            <>
+                                ה-AI עדיין אינו מכיר את המוצר שלך.{" "}
+                                <Link
+                                    to="/app/settings/workspace"
+                                    className="font-medium underline underline-offset-2 hover:text-amber-950"
+                                >
+                                    הגדר את קול המותג שלך
+                                </Link>{" "}
+                                (מה אתה מוכר, למי, ומה הסגנון) כדי שהטיוטות יהיו ממוקדות ומדויקות.
+                            </>
+                        ) : (
+                            <>
+                                AI doesn&apos;t know your product yet.{" "}
+                                <Link
+                                    to="/app/settings/workspace"
+                                    className="font-medium underline underline-offset-2 hover:text-amber-950"
+                                >
+                                    Set your voice profile
+                                </Link>{" "}
+                                (what you sell, who to, how you sound) and drafts will stop being generic.
+                            </>
+                        )}
                     </div>
                 )}
 

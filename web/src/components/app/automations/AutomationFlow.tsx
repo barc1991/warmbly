@@ -1294,7 +1294,7 @@ export default function AutomationFlow({
     // immediately.
     const guardedBack = () => {
         if (dirty) {
-            confirm.show("You have unsaved changes. Leave without saving?", () => onBack());
+            confirm.show("יש לך שינויים שלא נשמרו. לצאת ללא שמירה?", () => onBack());
             return;
         }
         onBack();
