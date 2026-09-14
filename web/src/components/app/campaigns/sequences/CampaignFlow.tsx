@@ -2246,6 +2246,7 @@ function StopOnReplyToggle({ on, onToggle }: { on: boolean; onToggle: (next: boo
             <button
                 type="button"
                 role="switch"
+                dir="ltr"
                 aria-checked={on}
                 aria-label="עצירה בתגובה"
                 onClick={() => onToggle(!on)}
@@ -2394,7 +2395,7 @@ function ConnectionEditor({
     };
 
     return (
-        <div className="absolute right-3 top-3 z-20 w-[300px] max-w-[calc(100vw-1.5rem)] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-md border border-slate-200 bg-white p-3 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
+        <div className="absolute ltr:right-3 rtl:left-3 top-3 z-20 w-[300px] max-w-[calc(100vw-1.5rem)] max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-md border border-slate-200 bg-white p-3 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
             <div className="mb-2 flex items-center justify-between">
                 <span className="truncate text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
                     מ-״{stepName(source)}״
@@ -2506,6 +2507,7 @@ function ConnectionEditor({
                             <button
                                 type="button"
                                 role="switch"
+                                dir="ltr"
                                 aria-checked={instant}
                                 aria-label="הפעלה מיידית"
                                 onClick={() => setInstant((v) => !v)}
@@ -3809,7 +3811,7 @@ function DealNameVariableMenu({ onPick }: { onPick: (token: string) => void }) {
                 <ChevronDownIcon className="w-3 h-3" />
             </button>
             {open && (
-                <div className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
+                <div className="absolute ltr:right-0 rtl:left-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
                     {DEAL_NAME_VARIABLES.map((v) => (
                         <button
                             key={v}

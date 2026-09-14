@@ -11,7 +11,7 @@ import updateEmail from "@/lib/api/client/app/emails/updateEmail";
 import warmupLifecycle from "@/lib/api/client/app/emails/warmupLifecycle";
 import type Inbox from "@/lib/api/models/app/emails/Inbox";
 
-const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const WEEKDAYS = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"];
 
 // Bulk warmup-start dialog. Lets the user optionally apply one set of warmup
 // settings to every selected mailbox before starting — useful when onboarding a
@@ -201,6 +201,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
         <button
             type="button"
             role="switch"
+            dir="ltr"
             aria-checked={on}
             onClick={() => onChange(!on)}
             className={`relative h-5 w-9 rounded-full transition-colors shrink-0 ${on ? "bg-sky-600" : "bg-slate-200"}`}

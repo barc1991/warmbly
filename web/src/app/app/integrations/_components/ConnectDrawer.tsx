@@ -512,13 +512,17 @@ export function Drawer({
 
 export function DrawerFooter({
     onClose,
-    cancelLabel = "Cancel",
+    cancelLabel,
     children,
 }: {
     onClose: () => void;
     cancelLabel?: string;
     children: React.ReactNode;
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
+    const resolvedCancelLabel = cancelLabel ?? (isHe ? "ביטול" : "Cancel");
+
     return (
         <div className="mt-auto border-t border-slate-200 px-5 py-3 flex items-center justify-end gap-2 shrink-0">
             <button
@@ -526,7 +530,7 @@ export function DrawerFooter({
                 onClick={onClose}
                 className="h-7 px-3 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:border-slate-300 hover:text-slate-900 transition-colors"
             >
-                {cancelLabel}
+                {resolvedCancelLabel}
             </button>
             {children}
         </div>

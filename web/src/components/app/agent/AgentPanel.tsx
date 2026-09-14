@@ -273,7 +273,7 @@ export default function AgentPanel() {
                     hydrated: true,
                     turns: foldEvent(t.turns, {
                         type: "error",
-                        message: "Could not load this conversation.",
+                        message: isHe ? "לא ניתן לטעון שיחה זו." : "Could not load this conversation.",
                     }),
                 }));
             })
@@ -393,7 +393,7 @@ export default function AgentPanel() {
             running: true,
             draft: "",
             title:
-                t.sessionId || t.title !== "New chat" ? t.title : deriveTitle(text),
+                t.sessionId || (t.title !== "New chat" && t.title !== "שיחה חדשה") ? t.title : deriveTitle(text),
             turns: [
                 ...t.turns,
                 { id: nextId(), role: "user", blocks: [{ kind: "text", text }] },
@@ -1331,7 +1331,7 @@ function SessionSidebar({
     };
 
     return (
-        <div className="hidden sm:flex w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-50/50">
+        <div className="hidden sm:flex w-64 shrink-0 flex-col ltr:border-r rtl:border-l border-slate-200 bg-slate-50/50">
             <div className="shrink-0 px-3 pt-3 pb-2 space-y-2 border-b border-slate-200">
                 <button
                     onClick={onNew}

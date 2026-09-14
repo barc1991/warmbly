@@ -270,6 +270,7 @@ export default function AIUsageCard() {
                             <button
                                 type="button"
                                 role="switch"
+                                dir="ltr"
                                 aria-checked={form.autoEnabled}
                                 aria-label="מילוי אוטומטי"
                                 onClick={() => setForm({ ...form, autoEnabled: !form.autoEnabled })}
@@ -520,6 +521,7 @@ function LimitCell({
                 <button
                     type="button"
                     role="switch"
+                    dir="ltr"
                     aria-checked={on}
                     aria-label={`מגבלת ${label}`}
                     onClick={() => onChange(on ? null : presets[1])}

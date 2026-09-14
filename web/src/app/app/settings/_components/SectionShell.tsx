@@ -177,6 +177,7 @@ export function Toggle({
     return (
         <button
             type="button"
+            dir="ltr"
             onClick={() => !disabled && onChange(!on)}
             disabled={disabled}
             role="switch"

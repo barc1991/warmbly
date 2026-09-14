@@ -62,6 +62,10 @@ function seedWindows(c: Campaign): Interval[][] {
 
 const PRESETS: { label: string; build: () => Interval[][] }[] = [
     {
+        label: "א'–ה' 9–17",
+        build: () => Array.from({ length: 7 }, (_, i) => (i <= 3 || i === 6 ? [{ start: 540, end: 1020 }] : [])),
+    },
+    {
         label: "ב'–ו' 9–17",
         build: () => Array.from({ length: 7 }, (_, i) => (i < 5 ? [{ start: 540, end: 1020 }] : [])),
     },

@@ -1328,6 +1328,7 @@ export default function AutomationFlow({
                     className="inline-flex h-7 cursor-pointer select-none items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sky-200"
                 >
                     <span
+                        dir="ltr"
                         className={cn(
                             "relative inline-flex h-[18px] w-8 shrink-0 items-center rounded-full transition-colors",
                             enabled ? "bg-sky-600" : "bg-slate-300",
@@ -3322,6 +3323,7 @@ function AIToggle({
             <button
                 type="button"
                 role="switch"
+                dir="ltr"
                 aria-checked={on}
                 aria-label={label}
                 onClick={onToggle}

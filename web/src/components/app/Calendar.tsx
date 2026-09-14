@@ -17,6 +17,7 @@ import {
   startOfDay,
 } from "date-fns";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { isRTL } from "@/i18n/config";
 
 export default function Calendar({
   date,
@@ -83,7 +84,7 @@ const HEBREW_MONTHS = [
         const above = r.top - ch - sideOffset;
         if (above >= 8) top = above;
       }
-      let left = r.left;
+      let left = isRTL() ? r.right - cw : r.left;
       if (cw && left + cw > window.innerWidth - 8) left = window.innerWidth - 8 - cw;
       if (left < 8) left = 8;
       setPos({ top, left });

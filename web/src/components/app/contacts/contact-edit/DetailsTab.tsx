@@ -275,6 +275,7 @@ function ToggleRow({
             </div>
             <button
                 type="button"
+                dir="ltr"
                 onClick={() => onChange(!on)}
                 role="switch"
                 aria-checked={on}

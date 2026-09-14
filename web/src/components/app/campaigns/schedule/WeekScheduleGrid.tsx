@@ -8,6 +8,7 @@
 
 import React from "react";
 import { CopyIcon, PlusIcon, XIcon } from "lucide-react";
+import { isRTL } from "@/i18n/config";
 
 export interface Interval {
     start: number; // minutes since midnight [0,1440)
@@ -68,6 +69,7 @@ export default function WeekScheduleGrid({
     windows: Interval[][]; // length 7, display order (Mon=0)
     onChange: (next: Interval[][]) => void;
 }) {
+    const isRtl = isRTL();
     const todayIdx = (new Date().getDay() + 6) % 7; // Mon=0..Sun=6
     const [drag, setDrag] = React.useState<DragState | null>(null);
 
@@ -216,7 +218,7 @@ export default function WeekScheduleGrid({
                                     type="button"
                                     title="הוסף חלון"
                                     onClick={() => addDefault(i)}
-                                    className="absolute left-1 top-1/2 -translate-y-1/2 md:top-1.5 md:translate-y-0 inline-flex size-6 md:size-4 items-center justify-center rounded text-slate-400 transition-opacity hover:bg-white hover:text-sky-600 opacity-100 md:opacity-0 md:group-hover/h:opacity-100"
+                                    className="absolute ltr:left-1 rtl:right-1 top-1/2 -translate-y-1/2 md:top-1.5 md:translate-y-0 inline-flex size-6 md:size-4 items-center justify-center rounded text-slate-400 transition-opacity hover:bg-white hover:text-sky-600 opacity-100 md:opacity-0 md:group-hover/h:opacity-100"
                                 >
                                     <PlusIcon className="w-2.5 h-2.5" />
                                  </button>
@@ -225,7 +227,7 @@ export default function WeekScheduleGrid({
                                          type="button"
                                          title="העתק יום זה לכל הימים"
                                          onClick={() => copyToAll(i)}
-                                         className="absolute right-1 top-1/2 -translate-y-1/2 md:top-1.5 md:translate-y-0 size-6 md:size-4 rounded text-slate-400 hover:text-sky-600 hover:bg-white inline-flex items-center justify-center opacity-100 md:opacity-0 md:group-hover/h:opacity-100 transition-opacity"
+                                         className="absolute ltr:right-1 rtl:left-1 top-1/2 -translate-y-1/2 md:top-1.5 md:translate-y-0 size-6 md:size-4 rounded text-slate-400 hover:text-sky-600 hover:bg-white inline-flex items-center justify-center opacity-100 md:opacity-0 md:group-hover/h:opacity-100 transition-opacity"
                                      >
                                          <CopyIcon className="w-2.5 h-2.5" />
                                      </button>
@@ -241,7 +243,9 @@ export default function WeekScheduleGrid({
                 {HOURS.map((h) => (
                     <span
                         key={`l${h}`}
-                        className="absolute left-0 -translate-y-1/2 text-right text-[10px] text-slate-400 tabular-nums pr-2"
+                        className={`absolute -translate-y-1/2 text-[10px] text-slate-400 tabular-nums ${
+                            isRtl ? "right-0 text-left pl-2" : "left-0 text-right pr-2"
+                        }`}
                         style={{ top: pct(h * 60), width: GUTTER }}
                     >
                         {hourLabel(h)}
@@ -250,12 +254,15 @@ export default function WeekScheduleGrid({
                 {HOURS.map((h) => (
                     <div
                         key={`g${h}`}
-                        className="absolute right-0 border-t border-slate-100"
-                        style={{ left: GUTTER, top: pct(h * 60) }}
+                        className={`absolute border-t border-slate-100 ${isRtl ? "left-0" : "right-0"}`}
+                        style={{ [isRtl ? "right" : "left"]: GUTTER, top: pct(h * 60) }}
                     />
                 ))}
 
-                <div className="absolute top-0 bottom-0 right-0 flex gap-px" style={{ left: GUTTER }}>
+                <div
+                    className={`absolute top-0 bottom-0 flex gap-px ${isRtl ? "left-0" : "right-0"}`}
+                    style={{ [isRtl ? "right" : "left"]: GUTTER }}
+                >
                     {ABBR.map((d, i) => {
                         const active = windows[i].length > 0;
                         const isToday = i === todayIdx;
@@ -343,12 +350,12 @@ function Block({
                     e.stopPropagation();
                     onRemove();
                 }}
-                className="absolute right-0.5 top-0.5 size-6 md:size-4 rounded text-sky-700/70 hover:text-rose-600 hover:bg-white/80 inline-flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                className="absolute ltr:right-0.5 rtl:left-0.5 top-0.5 size-6 md:size-4 rounded text-sky-700/70 hover:text-rose-600 hover:bg-white/80 inline-flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
             >
                 <XIcon className="w-2.5 h-2.5" />
             </button>
             <span
-                className={`pointer-events-none absolute left-1.5 ${tall ? "top-1" : "top-1/2 -translate-y-1/2"} text-[9.5px] font-medium text-sky-700 tabular-nums leading-tight`}
+                className={`pointer-events-none absolute ltr:left-1.5 rtl:right-1.5 ${tall ? "top-1" : "top-1/2 -translate-y-1/2"} text-[9.5px] font-medium text-sky-700 tabular-nums leading-tight`}
             >
                 {fmt(iv.start)}
                 {tall ? <br /> : "–"}
