@@ -20,7 +20,6 @@ import {
     CpuIcon,
     CloudIcon,
     DatabaseIcon,
-    GaugeIcon,
     GiftIcon,
     Loader2Icon,
     PlugIcon,
@@ -77,7 +76,6 @@ const GROUPS: SectionGroup[] = [
             { path: "oauth-slots", label: "סלוטים לחיבורי מייל (OAuth)", icon: BoxesIcon, description: "חיבור פרויקטים מרובים של Google Cloud לעקיפת מגבלת 100 התיבות.", permission: "MANAGE_SETTINGS" },
             { path: "billing", label: "חיוב ומנוי", icon: CreditCardIcon, description: "תוכנית, תשלום וחשבוניות.", ownerOnly: true, billingOnly: true },
             { path: "referral", label: "הפנה והרווח", icon: GiftIcon, description: "הזמן צוותים וצבור קרדיט לחשבון.", ownerOnly: true, billingOnly: true },
-            { path: "limits", label: "מגבלות", icon: GaugeIcon, description: "בקשת הגדלת מכסות לתיבות, אנשי קשר או שליחות.", ownerOnly: true },
         ],
     },
     {

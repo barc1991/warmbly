@@ -58,7 +58,6 @@ import DangerSettingsPage from './app/app/settings/danger/page';
 import DataSettingsPage from './app/app/settings/data/page';
 import BillingSettingsPage from './app/app/settings/billing/page';
 import ReferralSettingsPage from './app/app/settings/referral/page';
-import LimitsSettingsPage from './app/app/settings/limits/page';
 import SendingSettingsPage from './app/app/settings/sending/page';
 import WebsiteTrackingSettingsPage from './app/app/settings/tracking/page';
 import RolesSettingsPage from './app/app/settings/roles/page';
@@ -424,7 +423,7 @@ const router = createBrowserRouter([
               { path: "ai-models", element: <AIModelsSettingsPage /> },
               { path: "billing/:tab?", element: <BillingSettingsPage /> },
               { path: "referral", element: <ReferralSettingsPage /> },
-              { path: "limits", element: <LimitsSettingsPage /> },
+              { path: "limits", element: <Navigate to="/app/settings/workspace" replace /> },
               { path: "sending", element: <SendingSettingsPage /> },
               { path: "tracking", element: <WebsiteTrackingSettingsPage /> },
               { path: "roles", element: <RolesSettingsPage /> },

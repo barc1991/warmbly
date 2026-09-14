@@ -347,15 +347,7 @@ function Body({
                 </>
             )}
 
-            <div className="flex items-center justify-between gap-2 pt-1">
-                <Link
-                    to="/app/settings/limits"
-                    onClick={onClose}
-                    className="text-[11.5px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 transition-colors"
-                >
-                    {isHe ? "כל בקשות המגבלה" : "All limit requests"}
-                    <ArrowRightIcon className="w-3 h-3 rtl:rotate-180" />
-                </Link>
+            <div className="flex items-center justify-end gap-2 pt-1">
                 <a
                     href="https://docs.warmbly.com/guides/mailboxes/#mailbox-allowance"
                     target="_blank"

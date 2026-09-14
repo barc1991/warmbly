@@ -106,7 +106,7 @@ export default function AgentModelPicker() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -4, scale: 0.98 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute end-0 top-full mt-1 w-64 rounded-lg border border-slate-200 bg-white shadow-lg p-1.5 z-50 text-[12px]"
+                        className="absolute start-0 rtl:right-0 ltr:left-0 top-full mt-1 w-64 rtl:origin-top-right ltr:origin-top-left rounded-lg border border-slate-200 bg-white shadow-lg p-1.5 z-50 text-[12px]"
                     >
                         <div className="px-2.5 py-1.5 border-b border-slate-100 flex items-center justify-between mb-1">
                             <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
