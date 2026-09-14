@@ -522,5 +522,77 @@ Users connect aged Gmail accounts (often 50–100+ via Google Cloud OAuth slots)
   - Attachment storage quota raised to 100 TB.
   - AI Research `MaxBatch` raised from 500 to 50,000 with 50 search/fetch tool budgets and 64 max iterations.
 
+---
+
+## 14. Telegram Real-Time Hebrew Alerts Integration System
+
+### Overview & Architecture
+Warmbly includes a native Telegram alerts system designed for real-time business visibility across cold outreach campaigns, AI engines, CRM syncing, and mailbox deliverability.
+
+* **Provider Identifier**: `telegram` (`models.IntegrationTelegram`).
+* **Direction**: Push-only (`models.IntegrationActionTelegramNotify` / `telegram.notify`).
+* **Connection Credentials**:
+  - `bot_token`: Telegram Bot Token issued by `@BotFather`.
+  - `chat_id`: User personal chat ID, group ID, or channel handle (`-100...` or `@channel`).
+  - `topic_id` (optional): Message Thread ID for Telegram Supergroups with forum topics enabled.
+* **Live Bot Validation**: In `internal/app/integration/service.go`, `checkTelegramBot` validates tokens against `https://api.telegram.org/bot<token>/getMe` before saving credentials.
+* **Rich Hebrew HTML Formatting (`buildTelegramHebrewHTML`)**:
+  - Formats alerts in native Hebrew with clear visual hierarchy, bold titles, and contextual emojis.
+  - Automatically escapes user input (`html.EscapeString`) to avoid Telegram HTML parse errors.
+  - Detects positive lead intent (`intent == "positive"`) and flags it with high-priority banners (`🎯 מענה חיובי מהליד!`).
+
+### Comprehensive Event Coverage
+1. **AI Engine & BDR Operations**:
+   - `ai.quota_exhausted`: Immediate alert on AI provider 429 rate limit or quota depletion.
+   - `ai.fallback_engaged`: Notification when the primary Gemini model fails and fallback engages.
+   - `ai.key_error`: Expired, invalid, or revoked AI API key detection.
+   - `ai.bdr_draft_failed`: Notification if autonomous reply generation fails.
+2. **Inbound Replies & Lead Conversion**:
+   - `campaign.reply_received`: Inbound prospect replies with AI sentiment classification.
+   - `form.submitted`: Real-time alerts on inbound landing page and booking form submissions.
+3. **Calendar & Meetings**:
+   - `meeting.booked`: Booked meeting alerts with contact details and scheduled time.
+   - `meeting.rescheduled` & `meeting.canceled`: Calendar schedule updates.
+4. **Frappe CRM Sync**:
+   - `frappe_crm.lead_synced`: Lead upsert and sync confirmations.
+   - `crm.deal_created` & `crm.deal_updated`: Sales opportunity stage tracking.
+5. **Deliverability & Warmup Health**:
+   - `campaign.deliverability_warning`: High-priority alert on delivery degradation.
+   - `deliverability.bounce` & `deliverability.complaint`: Spam complaints and bounce logs.
+   - `warmup.health_changed`, `warmup.placement_in_spam`, `warmup.quarantined`, `warmup.blocked`: Live warmup status guards.
+6. **Infrastructure & Mailbox Security**:
+   - `email_account.error`: IMAP/SMTP authentication disconnect alerts.
+   - `campaign.started`, `campaign.paused`, `campaign.completed`: Campaign lifecycle events.
+
+### Frontend UI & Settings (`TelegramAlertsSettings.tsx`)
+* Located inside the connection detail drawer (`ConnectionDetail.tsx`).
+* **Live Status Bar**: Displays connected bot username, chat ID, and topic ID.
+* **Instant Test Dispatch**: "שליחת בדיקה" button triggers `POST /v1/integrations/connections/:id/test`, dispatching a formatted sample alert to verify wiring.
+* **Event Selector with Presets**: Categorized checklist with quick actions ("בחר הכל", "מומלץ בלבד", "נקה הכל") and auto-saving indicator.
+
+---
+
+## 15. Chromium / Chrome DevTools Live Metrics & Soft Navigation Crash Elimination
+
+### The Problem
+When Chrome DevTools is open, Google Chrome auto-injects an instrumentation script (`window.devToolsReportSoftNavs = true`) to collect Live Metrics and measure Interaction to Next Paint (INP) during SPA client-side transitions. In recent Chromium versions (M152+), this injected script throws:
+```
+VM18:2 Uncaught TypeError: Cannot read properties of undefined (reading 'startTime')
+    at et.reportAllChanges (<anonymous>:2:19429)
+    at n.timeout (<anonymous>:2:5652)
+    requestIdleCallback
+```
+The crash occurs because the script assumes `metric.entries[0]` exists, but soft navigations often reset the entries array to `[]`. This is an internal browser developer tools bug (Chromium issues #555794190 and #556160936) that does not affect regular end users, but creates distracting red console errors during local development and testing.
+
+### The Multi-Layer Shield Solution
+1. **Early `<head>` Interceptor (`web/index.html` & `admin/index.html`)**:
+   - Placed immediately after `<meta charset="UTF-8" />` before any module or bundle loads.
+   - Intercepts `window.requestIdleCallback`, `window.setTimeout`, and `window.requestAnimationFrame`.
+   - Wraps callback invocations in a selective `try...catch` filter that intercepts and silences `startTime` and `reportAllChanges` exceptions before they escape to the browser runtime.
+   - Intercepts `window.devToolsReportSoftNavs` with a property getter/setter to disable broken soft-nav instrumentation cleanly.
+2. **Global Event Guard (`web/src/main.tsx`)**:
+   - Listens to `error` and `unhandledrejection` events with `preventDefault()` and `stopImmediatePropagation()`.
+
+
 
 

@@ -232,6 +232,13 @@ func Capabilities() map[IntegrationProvider]ProviderCapability {
 				Description: "Post to the channel webhook when the event fires.", NeedsURL: true,
 			}},
 		},
+		IntegrationTelegram: {
+			Provider: IntegrationTelegram, Directions: pushOnly,
+			Actions: []CapabilityAction{{
+				ID: IntegrationActionTelegramNotify, Label: "Send a Telegram alert",
+				Description: "Post rich alerts to your Telegram chat or channel when events fire.",
+			}},
+		},
 		IntegrationZapier: automationCapability(IntegrationZapier),
 		IntegrationMake:   automationCapability(IntegrationMake),
 		IntegrationN8N:    automationCapability(IntegrationN8N),

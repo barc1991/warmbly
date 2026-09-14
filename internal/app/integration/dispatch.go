@@ -142,6 +142,20 @@ func (s *service) execAction(ctx context.Context, target repository.DispatchTarg
 		}
 		return discordNotify(ctx, rendered, msg)
 
+	case models.IntegrationActionTelegramNotify:
+		botToken := stringFromMap(secretCfg, "bot_token", "token")
+		chatID := stringFromMap(secretCfg, "chat_id")
+		if chatID == "" {
+			chatID = configString(target.Secrets.Conn.DisplayFields, "chat_id")
+		}
+		var topicID int64
+		if tStr := stringFromMap(secretCfg, "topic_id"); tStr != "" {
+			topicID, _ = strconv.ParseInt(tStr, 10, 64)
+		} else if tStr := configString(target.Secrets.Conn.DisplayFields, "topic_id"); tStr != "" {
+			topicID, _ = strconv.ParseInt(tStr, 10, 64)
+		}
+		return telegramNotify(ctx, botToken, chatID, topicID, sub.EventType, data, msg)
+
 	case models.IntegrationActionGenericWebhookPing:
 		url := stringFromMap(secretCfg, "webhook_url")
 		if url == "" {
@@ -330,6 +344,18 @@ func renderEventMessage(sub models.IntegrationEventSubscription, data map[string
 		m.Title = "🚧 Mailbox quarantined"
 	case models.WebhookEventWarmupBlocked:
 		m.Title = "⛔ Mailbox blocked from warmup"
+	case models.WebhookEventEmailAccountError:
+		m.Title = "🔌 Mailbox connection error"
+	case models.WebhookEventAIQuotaExhausted:
+		m.Title = "🛑 AI Quota Exhausted (429 Rate Limit)"
+	case models.WebhookEventAIFallbackEngaged:
+		m.Title = "🔀 AI Fallback Model Engaged"
+	case models.WebhookEventAIKeyError:
+		m.Title = "🔑 AI Key Error or Suspended"
+	case models.WebhookEventAIBDRDraftFailed:
+		m.Title = "🤖 AI Autonomous Draft Failed"
+	case models.WebhookEventFrappeCRMLeadSynced:
+		m.Title = "💼 Lead Synced to Frappe CRM"
 	case models.WebhookEventCustom:
 		if n := stringFromMap(data, "name"); n != "" {
 			m.Title = "⚡ " + n

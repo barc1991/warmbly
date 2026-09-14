@@ -44,17 +44,23 @@ import { cn } from "@/lib/utils";
 import { Drawer, SectionLabel } from "./ConnectDrawer";
 import FieldMapEditor from "./FieldMapEditor";
 import StatusPill, { HealthDot } from "./StatusPill";
+import TelegramAlertsSettings from "./TelegramAlertsSettings";
 
 import { useTranslation } from "react-i18next";
 
 // Providers whose deliveries we can test (notify + generic webhook). Automation
 // tools additionally expose an HMAC signing secret for verification.
-const WEBHOOK_TOOL_PROVIDERS = ["slack", "discord", "zapier", "make", "n8n"];
+const WEBHOOK_TOOL_PROVIDERS = ["slack", "discord", "telegram", "zapier", "make", "n8n"];
 const SIGNING_PROVIDERS = ["zapier", "make", "n8n"];
 
 // Action nodes that "Send test event" can actually fire (notify + generic
 // webhook). Native + CRM-upsert actions are deliberately excluded.
-const NOTIFY_WEBHOOK_ACTIONS: IntegrationAction[] = ["slack.notify", "discord.notify", "webhook.ping"];
+const NOTIFY_WEBHOOK_ACTIONS: IntegrationAction[] = [
+    "slack.notify",
+    "discord.notify",
+    "telegram.notify",
+    "webhook.ping",
+];
 
 export default function ConnectionDetail({
     connection,
@@ -230,8 +236,16 @@ export default function ConnectionDetail({
                     </div>
                 )}
 
+                {/* Telegram alerts configuration */}
+                {conn.provider === "telegram" && (
+                    <div className="px-5 py-4 border-b border-slate-200 space-y-3">
+                        <SectionLabel>{isHe ? "הגדרת התראות" : "Alert settings"}</SectionLabel>
+                        <TelegramAlertsSettings connection={conn} onSaved={() => detail.refetch()} />
+                    </div>
+                )}
+
                 {/* Webhook delivery — test wiring + (automation tools) signature */}
-                {isWebhookTool && (
+                {isWebhookTool && conn.provider !== "telegram" && (
                     <div className="px-5 py-4 border-b border-slate-200 space-y-3">
                         <SectionLabel>{isHe ? "שליחת Webhook" : "Webhook delivery"}</SectionLabel>
                         <WebhookToolsBlock

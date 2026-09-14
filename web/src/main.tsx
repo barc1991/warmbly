@@ -71,13 +71,36 @@ import { Toaster } from '@/components/ui/toaster';
 import { initErrorReporting } from "@/lib/observability";
 import { initProductAnalytics } from "@/lib/productAnalytics";
 
-// Suppress noisy uncaught errors from browser extensions or web-vitals observers (e.g. reading 'startTime')
+// Suppress noisy uncaught errors from browser extensions or Chrome DevTools web-vitals observers (e.g. reading 'startTime')
 if (typeof window !== "undefined") {
+    const isMetricError = (err: unknown): boolean => {
+        if (!err) return false;
+        const e = err as { message?: string; stack?: string };
+        const msg = (e.message || String(err)).toLowerCase();
+        const stack = (e.stack || "").toLowerCase();
+        return (
+            msg.includes("starttime") ||
+            msg.includes("reportallchanges") ||
+            stack.includes("reportallchanges") ||
+            stack.includes("devtoolsreportsoftnavs")
+        );
+    };
+
     window.addEventListener(
         "error",
         (event) => {
-            const msg = event.error?.message || event.message || "";
-            if (typeof msg === "string" && (msg.includes("reading 'startTime'") || msg.includes("reportAllChanges"))) {
+            if (isMetricError(event.error) || (event.message && isMetricError({ message: event.message }))) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        },
+        true,
+    );
+
+    window.addEventListener(
+        "unhandledrejection",
+        (event) => {
+            if (isMetricError(event.reason)) {
                 event.preventDefault();
                 event.stopImmediatePropagation();
             }

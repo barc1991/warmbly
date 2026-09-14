@@ -68,10 +68,21 @@ const FRAPPE_CRM: RawBrandLogo = {
     ].join(""),
 };
 
+// Telegram official paper plane on Telegram cyan (#24A1DE).
+const TELEGRAM: RawBrandLogo = {
+    viewBox: "0 0 256 256",
+    fullBleed: true,
+    inner: [
+        '<rect width="256" height="256" rx="48" fill="#24A1DE"/>',
+        '<path fill="#ffffff" d="M198.8 55.4L33.7 119.1c-11.3 4.5-11.2 10.9-2.1 13.7l42.4 13.2 98.1-61.9c4.6-2.8 8.9-1.3 5.4 1.8l-79.5 71.7h-.1l-.6.6-2.9 43.1c4.2 0 6.1-1.9 8.5-4.2l20.4-19.8 42.4 31.3c7.8 4.3 13.5 2.1 15.4-7.2l27.8-131c2.8-11.4-4.3-16.5-12.7-13.4z"/>',
+    ].join(""),
+};
+
 export const RAW_BRAND_LOGOS: Record<string, RawBrandLogo> = {
     slack: SLACK,
     close: CLOSE,
     pipedrive: PIPEDRIVE,
     frappe_crm: FRAPPE_CRM,
+    telegram: TELEGRAM,
 };
 

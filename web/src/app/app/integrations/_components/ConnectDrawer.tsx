@@ -110,6 +110,29 @@ const FIELDS_BY_PROVIDER: Record<string, FieldDef[]> = {
             helper: "The secret revealed when your Frappe CRM API Key was created.",
         },
     ],
+    telegram: [
+        {
+            key: "bot_token",
+            label: "Telegram Bot Token",
+            placeholder: "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ",
+            type: "password",
+            required: true,
+            helper: "Create a bot via @BotFather in Telegram and paste the HTTP API token.",
+        },
+        {
+            key: "chat_id",
+            label: "Chat ID",
+            placeholder: "-100123456789 or @channelname",
+            required: true,
+            helper: "The target chat ID, group ID, or channel. Use @userinfobot to find your ID.",
+        },
+        {
+            key: "topic_id",
+            label: "Topic / Thread ID (optional)",
+            placeholder: "e.g. 42",
+            helper: "If your Telegram supergroup has topics/forums enabled, enter the Message Thread ID.",
+        },
+    ],
 };
 
 const FIELDS_BY_PROVIDER_HE: Record<string, FieldDef[]> = {
@@ -163,6 +186,29 @@ const FIELDS_BY_PROVIDER_HE: Record<string, FieldDef[]> = {
             type: "password",
             required: true,
             helper: "הסוד שהונפק בעת יצירת מפתח ה-API במערכת Frappe CRM.",
+        },
+    ],
+    telegram: [
+        {
+            key: "bot_token",
+            label: "טוקן בוט טלגרם (Bot Token)",
+            placeholder: "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ",
+            type: "password",
+            required: true,
+            helper: "צור בוט חדש בטלגרם דרך @BotFather והדבק כאן את ה-API Token שקיבלת.",
+        },
+        {
+            key: "chat_id",
+            label: "מזהה צ'אט (Chat ID)",
+            placeholder: "-100123456789 או @שם_ערוץ",
+            required: true,
+            helper: "מזהה הצ'אט האישי, קבוצה או ערוץ. ניתן לשלוח הודעה ל-@userinfobot כדי לקבל את ה-ID שלך.",
+        },
+        {
+            key: "topic_id",
+            label: "מזהה נושא / שרשור בקבוצה (אופציונלי)",
+            placeholder: "לדוגמה: 42",
+            helper: "אם בקבוצת הטלגרם שלך מופעלים נושאים (Topics), הזן כאן את מזהה השרשור (Message Thread ID).",
         },
     ],
 };

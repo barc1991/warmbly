@@ -27,8 +27,9 @@ const (
 	IntegrationN8N    IntegrationProvider = "n8n"
 
 	// Notifications
-	IntegrationSlack   IntegrationProvider = "slack"
-	IntegrationDiscord IntegrationProvider = "discord"
+	IntegrationSlack    IntegrationProvider = "slack"
+	IntegrationDiscord  IntegrationProvider = "discord"
+	IntegrationTelegram IntegrationProvider = "telegram"
 
 	// Meetings
 	IntegrationCalendly IntegrationProvider = "calendly"
@@ -58,6 +59,7 @@ var AllIntegrationProviders = []IntegrationProvider{
 	IntegrationN8N,
 	IntegrationSlack,
 	IntegrationDiscord,
+	IntegrationTelegram,
 	IntegrationCalendly,
 	IntegrationCalCom,
 	IntegrationGoogleSheets,
@@ -260,6 +262,7 @@ type IntegrationAction string
 const (
 	IntegrationActionSlackNotify        IntegrationAction = "slack.notify"
 	IntegrationActionDiscordNotify      IntegrationAction = "discord.notify"
+	IntegrationActionTelegramNotify     IntegrationAction = "telegram.notify"
 	IntegrationActionHubSpotUpsert      IntegrationAction = "hubspot.upsert_contact"
 	IntegrationActionPipedriveUpsert    IntegrationAction = "pipedrive.upsert_person"
 	IntegrationActionSalesforceUpsert   IntegrationAction = "salesforce.upsert_contact"

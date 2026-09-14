@@ -13,6 +13,7 @@ export type IntegrationProvider =
     | "n8n"
     | "slack"
     | "discord"
+    | "telegram"
     | "calendly"
     | "cal_com"
     | "google_sheets"
@@ -159,6 +160,7 @@ export interface IntegrationConnection {
 export type IntegrationAction =
     | "slack.notify"
     | "discord.notify"
+    | "telegram.notify"
     | "hubspot.upsert_contact"
     | "pipedrive.upsert_person"
     | "salesforce.upsert_contact"
@@ -367,6 +369,7 @@ export const PROVIDER_LABELS: Record<IntegrationProvider, string> = {
     n8n: "n8n",
     slack: "Slack",
     discord: "Discord",
+    telegram: "Telegram",
     calendly: "Calendly",
     cal_com: "Cal.com",
     google_sheets: "Google Sheets",

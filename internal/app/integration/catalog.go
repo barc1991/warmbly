@@ -29,6 +29,37 @@ var (
 		string(models.WebhookEventWarmupHealthChanged),
 		string(models.WebhookEventDeliverabilityComplaint),
 	}
+	telegramEvents = []string{
+		string(models.WebhookEventCampaignReplyReceived),
+		string(models.WebhookEventCampaignEmailBounced),
+		string(models.WebhookEventCampaignUnsubscribed),
+		string(models.WebhookEventDeliverabilityComplaint),
+		string(models.WebhookEventCampaignEmailOpened),
+		string(models.WebhookEventCampaignEmailClicked),
+		string(models.WebhookEventCampaignEmailSent),
+		string(models.WebhookEventCampaignStarted),
+		string(models.WebhookEventCampaignPaused),
+		string(models.WebhookEventCampaignCompleted),
+		string(models.WebhookEventCampaignDeliverabilityWarning),
+		string(models.WebhookEventMeetingBooked),
+		string(models.WebhookEventMeetingRescheduled),
+		string(models.WebhookEventMeetingCanceled),
+		string(models.WebhookEventWarmupHealthChanged),
+		string(models.WebhookEventWarmupPlacementInSpam),
+		string(models.WebhookEventWarmupQuarantined),
+		string(models.WebhookEventWarmupBlocked),
+		string(models.WebhookEventEmailAccountError),
+		string(models.WebhookEventContactCreated),
+		string(models.WebhookEventContactUpdated),
+		string(models.WebhookEventFormSubmitted),
+		string(models.WebhookEventCRMDealCreated),
+		string(models.WebhookEventCRMDealUpdated),
+		string(models.WebhookEventAIQuotaExhausted),
+		string(models.WebhookEventAIFallbackEngaged),
+		string(models.WebhookEventAIKeyError),
+		string(models.WebhookEventAIBDRDraftFailed),
+		string(models.WebhookEventFrappeCRMLeadSynced),
+	}
 )
 
 // Catalog returns the static metadata for every integration the dashboard
@@ -164,6 +195,24 @@ func Catalog() []models.IntegrationCatalogEntry {
 			Highlights:  []string{"Paste a channel webhook URL", "Ping on reply / bounce / warmup health"},
 			Events:      notifyEvents,
 			ActionTypes: []string{string(models.IntegrationActionDiscordNotify)},
+		},
+		{
+			Provider:    models.IntegrationTelegram,
+			Name:        "Telegram",
+			Tagline:     "התראות מיידיות בזמן אמת על מענים, שגיאות, מפתחות ובעיות AI, פגישות וסנכרון לידים לטלגרם.",
+			Category:    models.IntegrationCategoryNotifications,
+			AuthMethod:  string(models.IntegrationAuthAPIKey),
+			DocsURL:     "https://core.telegram.org/bots/api",
+			WebhookHint: "הזן Bot Token מ-@BotFather ומזהה צ'אט (Chat ID).",
+			Highlights: []string{
+				"חיבור מאובטח באמצעות Bot Token ו-Chat ID (אישי, קבוצה או ערוץ)",
+				"התראות מיידיות בעברית על מענים וזיהוי סנטימנט חיובי מהלידים",
+				"מעקב קריטי על מפתחות AI: חריגת מכסה (429) ומעבר למודל חלופי",
+				"עדכונים שוטפים על פגישות שנקבעו ביומן והמרת לידים ל-Frappe CRM",
+				"שליטה מלאה של המשתמש: בחירה וסימון אילו התראות לשלוח",
+			},
+			Events:      telegramEvents,
+			ActionTypes: []string{string(models.IntegrationActionTelegramNotify)},
 		},
 
 		// Meetings ----------------------------------------------------------

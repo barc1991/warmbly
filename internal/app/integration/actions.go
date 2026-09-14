@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/warmbly/warmbly/internal/app/webhook"
+	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/safehttp"
 )
 
@@ -221,6 +223,242 @@ func discordNotify(ctx context.Context, url string, msg eventMessage) error {
 		return fmt.Errorf("webhook POST: HTTP %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// telegramNotify delivers a Hebrew-formatted HTML notification to a Telegram chat or channel.
+func telegramNotify(ctx context.Context, token, chatID string, topicID int64, eventType string, data map[string]any, msg eventMessage) error {
+	token = strings.TrimSpace(token)
+	chatID = strings.TrimSpace(chatID)
+	if token == "" || chatID == "" {
+		return fmt.Errorf("הגדרות טלגרם חלקיות: חסר Bot Token או Chat ID")
+	}
+
+	htmlText := buildTelegramHebrewHTML(eventType, data, msg)
+
+	payload := map[string]any{
+		"chat_id":                  chatID,
+		"text":                     htmlText,
+		"parse_mode":               "HTML",
+		"disable_web_page_preview": true,
+	}
+	if topicID > 0 {
+		payload["message_thread_id"] = topicID
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := actionHTTP.Do(req)
+	if err != nil {
+		return fmt.Errorf("שגיאת תקשורת עם טלגרם: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var out struct {
+		OK          bool   `json:"ok"`
+		ErrorCode   int    `json:"error_code"`
+		Description string `json:"description"`
+	}
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	_ = json.Unmarshal(raw, &out)
+
+	if !out.OK {
+		if out.Description == "" {
+			out.Description = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		}
+		return fmt.Errorf("שגיאת טלגרם: %s", out.Description)
+	}
+	return nil
+}
+
+func buildTelegramHebrewHTML(eventType string, data map[string]any, msg eventMessage) string {
+	esc := html.EscapeString
+	var lines []string
+
+	title := ""
+	intent := strings.ToLower(stringFromMap(data, "intent"))
+	switch eventType {
+	case string(models.WebhookEventCampaignReplyReceived):
+		if intent == "positive" || intent == "חיובי" || intent == "interested" || intent == "מתעניין" {
+			title = "🎯 <b>מענה חיובי מהליד!</b>"
+		} else {
+			title = "📨 <b>מענה חדש מהליד</b>"
+		}
+	case string(models.WebhookEventCampaignEmailBounced), string(models.WebhookEventDeliverabilityBounce):
+		title = "⚠️ <b>מייל חזר (שגיאת מסירה / Bounce)</b>"
+	case string(models.WebhookEventCampaignUnsubscribed):
+		title = "🚫 <b>הסרה מרשימת תפוצה (Unsubscribe)</b>"
+	case string(models.WebhookEventDeliverabilityComplaint):
+		title = "❗ <b>תלונת ספאם התקבלה</b>"
+	case string(models.WebhookEventCampaignEmailOpened):
+		title = "👀 <b>איש קשר פתח מייל</b>"
+	case string(models.WebhookEventCampaignEmailClicked):
+		title = "🔗 <b>איש קשר לחץ על קישור במייל</b>"
+	case string(models.WebhookEventCampaignEmailSent):
+		title = "✉️ <b>מייל קמפיין נשלח בהצלחה</b>"
+	case string(models.WebhookEventCampaignStarted):
+		title = "▶️ <b>קמפיין החל לפעול</b>"
+	case string(models.WebhookEventCampaignPaused):
+		title = "⏸️ <b>קמפיין הושהה</b>"
+	case string(models.WebhookEventCampaignCompleted):
+		title = "✅ <b>קמפיין הסתיים בהצלחה</b>"
+	case string(models.WebhookEventCampaignDeliverabilityWarning):
+		title = "🚨 <b>אזהרת עבירות בדיוור (Deliverability Warning)</b>"
+	case string(models.WebhookEventMeetingBooked):
+		title = "📅 <b>פגישה חדשה נקבעה ביומן!</b>"
+	case string(models.WebhookEventMeetingRescheduled):
+		title = "🔁 <b>מועד פגישה עודכן / נדחה</b>"
+	case string(models.WebhookEventMeetingCanceled):
+		title = "❌ <b>פגישה בוטלה ביומן</b>"
+	case string(models.WebhookEventWarmupHealthChanged):
+		title = "🌡️ <b>שינוי בציון בריאות החימום</b>"
+	case string(models.WebhookEventWarmupPlacementInSpam):
+		title = "🧯 <b>מייל חימום נחת בספאם</b>"
+	case string(models.WebhookEventWarmupQuarantined):
+		title = "🚧 <b>תיבת דואר הוכנסה להסגר (Quarantine)</b>"
+	case string(models.WebhookEventWarmupBlocked):
+		title = "⛔ <b>תיבת דואר נחסמה מחימום</b>"
+	case string(models.WebhookEventEmailAccountError):
+		title = "🔌 <b>שגיאת התחברות לתיבת דואר</b>"
+	case string(models.WebhookEventContactCreated):
+		title = "🧑 <b>איש קשר חדש נוסף למערכת</b>"
+	case string(models.WebhookEventContactUpdated):
+		title = "✏️ <b>פרטי איש קשר עודכנו</b>"
+	case string(models.WebhookEventFormSubmitted):
+		title = "📝 <b>טופס לידים נשלח בהצלחה</b>"
+	case string(models.WebhookEventCRMDealCreated):
+		title = "💼 <b>עסקה חדשה נוצרה ב-CRM</b>"
+	case string(models.WebhookEventCRMDealUpdated):
+		title = "📊 <b>שלב עסקה עודכן ב-CRM</b>"
+	case string(models.WebhookEventAIQuotaExhausted):
+		title = "🛑 <b>חריגת מכסת AI (שגיאת 429 / Rate Limit)</b>"
+	case string(models.WebhookEventAIFallbackEngaged):
+		title = "🔀 <b>מעבר למודל AI חלופי (Fallback)</b>"
+	case string(models.WebhookEventAIKeyError):
+		title = "🔑 <b>שגיאה במפתח AI או מפתח מושעה</b>"
+	case string(models.WebhookEventAIBDRDraftFailed):
+		title = "🤖 <b>שגיאה בניסוח אוטונומי של סוכן ה-AI</b>"
+	case string(models.WebhookEventFrappeCRMLeadSynced):
+		title = "💼 <b>איש קשר סונכרן ל-Frappe CRM</b>"
+	case "connection.welcome":
+		title = "🚀 <b>Warmbly חובר בהצלחה לטלגרם!</b>"
+	case "test.event":
+		title = "🧪 <b>התראת בדיקה מ-Warmbly</b>"
+	default:
+		if msg.Title != "" {
+			title = "🔔 <b>" + esc(msg.Title) + "</b>"
+		} else {
+			title = "🔔 <b>התראה מ-Warmbly</b> (" + esc(eventType) + ")"
+		}
+	}
+	lines = append(lines, title)
+	lines = append(lines, "")
+
+	if msg.Custom != "" {
+		lines = append(lines, "📝 <b>הודעה:</b> "+esc(msg.Custom))
+	}
+
+	email := stringFromMap(data, "contact_email", "invitee_email", "email", "recipient")
+	contactName := stringFromMap(data, "contact_name", "invitee_name", "first_name", "name")
+	if email != "" {
+		if contactName != "" {
+			lines = append(lines, fmt.Sprintf("👤 <b>איש קשר:</b> %s (%s)", esc(contactName), esc(email)))
+		} else {
+			lines = append(lines, fmt.Sprintf("👤 <b>איש קשר:</b> %s", esc(email)))
+		}
+	} else if contactName != "" {
+		lines = append(lines, fmt.Sprintf("👤 <b>איש קשר:</b> %s", esc(contactName)))
+	}
+
+	if company := stringFromMap(data, "company", "organization", "company_name"); company != "" {
+		lines = append(lines, fmt.Sprintf("🏢 <b>חברה / ארגון:</b> %s", esc(company)))
+	}
+
+	if phone := stringFromMap(data, "phone", "mobile_no"); phone != "" {
+		lines = append(lines, fmt.Sprintf("📞 <b>טלפון:</b> <code>%s</code>", esc(phone)))
+	}
+
+	if camp := stringFromMap(data, "campaign_name", "campaign"); camp != "" {
+		lines = append(lines, fmt.Sprintf("📢 <b>קמפיין:</b> %s", esc(camp)))
+	}
+
+	if subject := stringFromMap(data, "subject", "event_name", "form_name"); subject != "" {
+		lines = append(lines, fmt.Sprintf("📧 <b>נושא:</b> %s", esc(subject)))
+	}
+
+	if intent != "" {
+		intentHe := intent
+		switch intent {
+		case "positive", "interested":
+			intentHe = "חיובי / מתעניין 🔥"
+		case "meeting_request", "meeting":
+			intentHe = "בקשת פגישה 📅"
+		case "out_of_office", "ooo":
+			intentHe = "מחוץ למשרד (מענה אוטומטי)"
+		case "not_interested":
+			intentHe = "לא מעוניין"
+		case "unsubscribe":
+			intentHe = "בקשת הסרה"
+		case "referral":
+			intentHe = "הפניה לאיש קשר אחר"
+		}
+		lines = append(lines, fmt.Sprintf("🎯 <b>סיווג מענה (AI):</b> %s", esc(intentHe)))
+	}
+
+	content := stringFromMap(data, "content", "reply_body", "snippet", "text")
+	if content != "" {
+		cleanSnippet := truncateRunes(strings.TrimSpace(content), 300)
+		lines = append(lines, fmt.Sprintf("💬 <b>תוכן:</b>\n<i>\"%s\"</i>", esc(cleanSnippet)))
+	}
+
+	if sched := stringFromMap(data, "scheduled_for", "start_time"); sched != "" {
+		if t, err := time.Parse(time.RFC3339, sched); err == nil {
+			loc, _ := time.LoadLocation("Asia/Jerusalem")
+			if loc != nil {
+				t = t.In(loc)
+			}
+			lines = append(lines, fmt.Sprintf("📅 <b>מועד ביומן:</b> <code>%s</code>", esc(t.Format("02/01/2006 15:04"))))
+		} else {
+			lines = append(lines, fmt.Sprintf("📅 <b>מועד ביומן:</b> <code>%s</code>", esc(sched)))
+		}
+	}
+
+	if model := stringFromMap(data, "model", "primary_model"); model != "" {
+		lines = append(lines, fmt.Sprintf("🤖 <b>מודל AI:</b> <code>%s</code>", esc(model)))
+	}
+	if fallbackModel := stringFromMap(data, "fallback_model"); fallbackModel != "" {
+		lines = append(lines, fmt.Sprintf("🔀 <b>מודל חלופי שהופעל:</b> <code>%s</code>", esc(fallbackModel)))
+	}
+
+	errMsg := stringFromMap(data, "error", "reason", "detail", "last_error")
+	if errMsg != "" {
+		lines = append(lines, fmt.Sprintf("🚨 <b>פרטי שגיאה:</b> <code>%s</code>", esc(errMsg)))
+	} else if msg.Detail != "" && content == "" {
+		lines = append(lines, fmt.Sprintf("ℹ️ <b>פרטים:</b> %s", esc(msg.Detail)))
+	}
+
+	if leadID := stringFromMap(data, "frappe_lead_id", "lead_id"); leadID != "" {
+		lines = append(lines, fmt.Sprintf("💼 <b>מזהה ב-Frappe CRM:</b> <code>%s</code>", esc(leadID)))
+	}
+
+	loc, _ := time.LoadLocation("Asia/Jerusalem")
+	now := time.Now()
+	if loc != nil {
+		now = now.In(loc)
+	}
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("🕒 %s • <i>Warmbly מערכת דיוור והתראות</i>", now.Format("15:04:05")))
+
+	return strings.Join(lines, "\n")
 }
 
 // hubspotUpsertContact creates or updates a HubSpot contact keyed by email using

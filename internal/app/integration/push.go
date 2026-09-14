@@ -236,7 +236,59 @@ func (s *service) UpdateConnectionConfig(ctx context.Context, orgID, connID uuid
 	if err := s.repo.UpdateConnectionConfig(ctx, orgID, connID, raw, syncDirection); err != nil {
 		return nil, err
 	}
+	if conn.Provider == models.IntegrationTelegram {
+		if rawEvents, ok := configCapabilities["selected_events"]; ok {
+			var selected []string
+			if arr, ok := rawEvents.([]any); ok {
+				for _, it := range arr {
+					if s, ok := it.(string); ok && s != "" {
+						selected = append(selected, s)
+					}
+				}
+			} else if arr, ok := rawEvents.([]string); ok {
+				selected = arr
+			}
+			s.syncTelegramSubscriptions(ctx, orgID, connID, selected)
+		}
+	}
 	return s.repo.GetConnectionByID(ctx, orgID, connID)
+}
+
+func (s *service) syncTelegramSubscriptions(ctx context.Context, orgID, connID uuid.UUID, selected []string) {
+	currentSubs, err := s.repo.ListEventSubscriptions(ctx, orgID, connID)
+	if err != nil {
+		return
+	}
+	existing := make(map[string]models.IntegrationEventSubscription)
+	for _, sub := range currentSubs {
+		if sub.Action == models.IntegrationActionTelegramNotify {
+			existing[sub.EventType] = sub
+		}
+	}
+	wanted := make(map[string]bool)
+	for _, ev := range selected {
+		wanted[ev] = true
+	}
+
+	for ev, sub := range existing {
+		if !wanted[ev] {
+			_ = s.repo.DeleteEventSubscription(ctx, orgID, sub.ID)
+		}
+	}
+
+	for ev := range wanted {
+		if _, ok := existing[ev]; !ok {
+			newSub := &models.IntegrationEventSubscription{
+				ConnectionID:   connID,
+				OrganizationID: orgID,
+				EventType:      ev,
+				Action:         models.IntegrationActionTelegramNotify,
+				Enabled:        true,
+				UseCase:        "notify",
+			}
+			_ = s.repo.CreateEventSubscription(ctx, newSub)
+		}
+	}
 }
 
 // providerSupportsPush reports whether a provider can be a push target, reading

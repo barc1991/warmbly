@@ -2,6 +2,88 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Fix for Chromium / Chrome DevTools Live Metrics & Soft Navigation instrumentation bug
+      // (Chromium issue #555794190 / #556160936: Uncaught TypeError: Cannot read properties of undefined (reading 'startTime') in et.reportAllChanges)
+      (function () {
+        if (typeof window === "undefined") return;
+
+        try {
+          var _reportSoftNavs = false;
+          Object.defineProperty(window, "devToolsReportSoftNavs", {
+            configurable: true,
+            enumerable: true,
+            get: function () { return _reportSoftNavs; },
+            set: function () { _reportSoftNavs = false; }
+          });
+        } catch (e) {}
+
+        function isMetricError(err) {
+          if (!err) return false;
+          var msg = (err.message || String(err)).toLowerCase();
+          var stack = (err.stack || "").toLowerCase();
+          return (
+            msg.indexOf("starttime") !== -1 ||
+            msg.indexOf("reportallchanges") !== -1 ||
+            stack.indexOf("reportallchanges") !== -1 ||
+            stack.indexOf("devtoolsreportsoftnavs") !== -1
+          );
+        }
+
+        function safeWrap(fn) {
+          if (typeof fn !== "function") return fn;
+          return function () {
+            try {
+              return fn.apply(this, arguments);
+            } catch (err) {
+              if (isMetricError(err)) {
+                return;
+              }
+              throw err;
+            }
+          };
+        }
+
+        if (typeof window.requestIdleCallback === "function") {
+          var origRIC = window.requestIdleCallback;
+          window.requestIdleCallback = function (cb, opts) {
+            return origRIC.call(this, safeWrap(cb), opts);
+          };
+        }
+
+        var origST = window.setTimeout;
+        window.setTimeout = function (cb, delay) {
+          var args = Array.prototype.slice.call(arguments, 2);
+          if (typeof cb === "function") {
+            return origST.apply(this, [safeWrap(cb), delay].concat(args));
+          }
+          return origST.apply(this, arguments);
+        };
+
+        if (typeof window.requestAnimationFrame === "function") {
+          var origRAF = window.requestAnimationFrame;
+          window.requestAnimationFrame = function (cb) {
+            return origRAF.call(this, safeWrap(cb));
+          };
+        }
+
+        window.addEventListener("error", function (e) {
+          if (isMetricError(e.error) || (e.message && isMetricError({ message: e.message }))) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener("unhandledrejection", function (e) {
+          if (isMetricError(e.reason)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin · Warmbly</title>
 

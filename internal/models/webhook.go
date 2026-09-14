@@ -121,6 +121,15 @@ const (
 	WebhookEventSettingsUpdated       WebhookEventType = "settings.updated"
 	WebhookEventSubscriptionUpdated   WebhookEventType = "subscription.updated"
 
+	// --- AI Engine & API Keys ---
+	WebhookEventAIQuotaExhausted  WebhookEventType = "ai.quota_exhausted"
+	WebhookEventAIFallbackEngaged WebhookEventType = "ai.fallback_engaged"
+	WebhookEventAIKeyError        WebhookEventType = "ai.key_error"
+	WebhookEventAIBDRDraftFailed  WebhookEventType = "ai.bdr_draft_failed"
+
+	// --- Frappe CRM Integration ---
+	WebhookEventFrappeCRMLeadSynced WebhookEventType = "frappe_crm.lead_synced"
+
 	// --- Developer fire-event (mirrors the gateway CUSTOM_EVENT to HTTP) ---
 	WebhookEventCustom WebhookEventType = "custom.event"
 
@@ -197,6 +206,11 @@ var AllWebhookEventTypes = []WebhookEventType{
 	WebhookEventLeadSyncSourceUpdated,
 	WebhookEventSettingsUpdated,
 	WebhookEventSubscriptionUpdated,
+	WebhookEventAIQuotaExhausted,
+	WebhookEventAIFallbackEngaged,
+	WebhookEventAIKeyError,
+	WebhookEventAIBDRDraftFailed,
+	WebhookEventFrappeCRMLeadSynced,
 	WebhookEventCustom,
 }
 
