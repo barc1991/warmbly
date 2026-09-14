@@ -150,7 +150,7 @@ export default function OutboxIndicator() {
                         exit={{ opacity: 0, scale: 0.94 }}
                         transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
                         ref={pillRef}
-                        className="h-7 pl-2 pr-1 rounded-md border border-amber-200 bg-amber-50 flex items-center gap-1 shrink-0"
+                        className="h-7 ps-2 pe-1 rounded-md border border-amber-200 bg-amber-50 flex items-center gap-1 shrink-0"
                     >
                         <button
                             type="button"

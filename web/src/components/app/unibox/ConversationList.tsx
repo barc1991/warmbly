@@ -413,7 +413,7 @@ function SkeletonRows() {
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex items-center gap-2">
               <div className="h-2.5 w-32 bg-slate-100 rounded animate-pulse" />
-              <div className="ml-auto h-2.5 w-8 bg-slate-100 rounded animate-pulse" />
+              <div className="ms-auto h-2.5 w-8 bg-slate-100 rounded animate-pulse" />
             </div>
             <div className="h-2.5 w-44 bg-slate-100 rounded animate-pulse" />
             <div className="h-2.5 w-56 bg-slate-100 rounded animate-pulse" />

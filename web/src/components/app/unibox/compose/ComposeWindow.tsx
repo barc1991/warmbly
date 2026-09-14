@@ -902,7 +902,7 @@ function ComposeWindowInner({
                         animate={{ width: 300, opacity: 1 }}
                         exit={{ width: 0, opacity: 0 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="hidden sm:block border-l border-slate-200 bg-slate-50/40 overflow-hidden"
+                        className="hidden sm:block border-s border-slate-200 bg-slate-50/40 overflow-hidden"
                     >
                         <div className="w-[300px] h-full">
                             <ComposeHistoryPanel

@@ -95,7 +95,7 @@ function UploadOptionDescription({
 
 
 function Popup({ value, children }: { value: boolean, children: React.ReactNode }) {
-    return <div className={`bg-white duration-200 absolute top-0 right-0 shadow-md p-7 w-[calc(99%-0px)] h-full ml-auto rounded-l-4xl overflow-y-scroll no-scrollbar transition ${value ? "opacity-100 visible translate-x-0" : "opacity-0 invisible translate-x-[20%]"}`}>
+    return <div className={`bg-white duration-200 absolute top-0 end-0 shadow-md p-7 w-[calc(99%-0px)] h-full ms-auto rounded-s-4xl overflow-y-scroll no-scrollbar transition ${value ? "opacity-100 visible translate-x-0" : "opacity-0 invisible ltr:translate-x-[20%] rtl:-translate-x-[20%]"}`}>
         {children}
     </div>
 }
@@ -297,7 +297,7 @@ export default function AddContacts() {
                 >
                     <RiCloseLine className="w-5" />
                 </div>
-                <h1 className="text-3xl md:text-5xl text-slate-600 font-bold font-inter mb-9 ml-4 text-center mt-12">העלאת אנשי קשר</h1>
+                <h1 className="text-3xl md:text-5xl text-slate-600 font-bold font-inter mb-9 ms-4 text-center mt-12">העלאת אנשי קשר</h1>
                 <p className="text-base md:text-xl text-slate-400 font-inter max-w-5xl mx-auto text-center mb-14">הרחב את רשימת אנשי הקשר שלך בקלות: הזן פרטים באופן ידני, או ייבא במהירות מספר אנשי קשר בבת אחת באמצעות קובץ .csv. בחר באפשרות המתאימה כדי להתחיל לפנות לקהל היעד שלך.</p>
                 <div className="flex flex-col md:flex-row justify-center gap-8 mb-8">
                     <UploadOption

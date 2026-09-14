@@ -393,7 +393,7 @@ function ActionNode({ id, data, selected }: NodeProps) {
                         {cases.map((c) => {
                             const on = connected.has(c.toLowerCase());
                             return (
-                                <div key={c} className="relative flex h-6 items-center pl-2.5 pr-4">
+                                <div key={c} className="relative flex h-6 items-center ps-2.5 pe-4">
                                     <span className={cn("min-w-0 flex-1 truncate text-[11.5px]", on ? "text-slate-700" : "text-slate-400")}>{c}</span>
                                     <Handle
                                         type="source"
@@ -411,7 +411,7 @@ function ActionNode({ id, data, selected }: NodeProps) {
                 )}
                 {/* The "otherwise" fallback: events no case matched follow this dot. */}
                 <div
-                    className="relative flex h-6 items-center rounded-b-xl border-t border-slate-200/70 bg-slate-50/60 pl-2.5 pr-4"
+                    className="relative flex h-6 items-center rounded-b-xl border-t border-slate-200/70 bg-slate-50/60 ps-2.5 pe-4"
                     title="לאן עוברים האירועים אם אף מקרה לא התאים. גרור את הנקודה לשלב הבא."
                 >
                     <span className="min-w-0 flex-1 truncate text-[10.5px] font-medium uppercase tracking-[0.1em] text-slate-400">אחרת (ברירת מחדל)</span>
@@ -842,14 +842,14 @@ export default function AutomationFlow({
                     action: n.action,
                     connection_id: n.connection_id,
                     config: n.config ?? {},
-                    title: n.action ? actionLabel(n.action) : "Choose an action",
+                    title: n.action ? actionLabel(n.action) : "בחר פעולה",
                     sub:
                         n.action === "warmbly.ai_switch"
-                            ? "Routes to one case"
+                            ? "ניתוב לפי תרחיש"
                             : isAIAction(String(n.action ?? ""))
-                              ? "Built-in AI step · 1 credit"
+                              ? "שלב AI מובנה · קרדיט 1"
                               : isNativeAction(String(n.action ?? ""))
-                                ? "Built-in action"
+                                ? "פעולה מובנית"
                                 : connLabel(n.connection_id),
                     provider: providerOf(n.connection_id),
                     native: isNativeAction(String(n.action ?? "")),
@@ -1020,12 +1020,12 @@ export default function AutomationFlow({
                                     // seeds two cases so its case dots show immediately.
                                     config: defaultConfigForAction(presetAction, trigger),
                                     title: actionLabel(presetAction),
-                                    sub: presetAction === "warmbly.ai_switch" ? "Routes to one case" : native ? "Built-in action" : "Pick an integration…",
+                                    sub: presetAction === "warmbly.ai_switch" ? "ניתוב לפי תרחיש" : native ? "פעולה מובנית" : "בחר אינטגרציה…",
                                     provider: "",
                                     native,
                                     onDelete: () => deleteNode(id),
                                 }
-                              : { action: "", connection_id: undefined, config: {}, title: "Choose an action", sub: "Pick an integration…", provider: "", onDelete: () => deleteNode(id) },
+                              : { action: "", connection_id: undefined, config: {}, title: "בחר פעולה", sub: "בחר אינטגרציה…", provider: "", onDelete: () => deleteNode(id) },
                       };
             setNodes((ns) => [...ns, node]);
             setSelectedId(id);
@@ -1283,7 +1283,7 @@ export default function AutomationFlow({
                 .filter((n) => n.type === "action")
                 .map((n) => {
                     const a = (n.data as { action?: string }).action;
-                    return { id: n.id, label: a ? actionLabel(String(a)) : "Unconfigured action" };
+                    return { id: n.id, label: a ? actionLabel(String(a)) : "פעולה שטרם הוגדרה" };
                 }),
         [nodes],
     );
@@ -1636,13 +1636,14 @@ export default function AutomationFlow({
 // Shared slide-in wrapper for the builder's right-side panels (node editor,
 // test run, history). Same motion language as the app's other sheets.
 function SidePanel({ children }: { children: React.ReactNode }) {
+    const isRtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
     return (
         <motion.div
-            initial={{ x: "100%" }}
+            initial={{ x: isRtl ? "-100%" : "100%" }}
             animate={{ x: 0 }}
-            exit={{ x: "100%" }}
+            exit={{ x: isRtl ? "-100%" : "100%" }}
             transition={{ type: "spring", stiffness: 300, damping: 32 }}
-            className="absolute top-0 right-0 h-full w-full md:w-80 md:max-w-[88vw] bg-white border-l border-slate-200 shadow-xl flex flex-col z-10"
+            className="absolute top-0 ltr:right-0 rtl:left-0 h-full w-full md:w-80 md:max-w-[88vw] bg-white ltr:border-l rtl:border-r border-slate-200 shadow-xl flex flex-col z-10"
         >
             {children}
         </motion.div>
@@ -1667,12 +1668,12 @@ function NodeResultRow({ r }: { r: AutomationNodeResult }) {
                     {r.type === "condition" ? "IF" : r.type === "action" ? actionLabel(r.action ?? "") : r.type}
                 </span>
                 {r.type === "condition" && (
-                    <span className="ml-auto text-[10.5px] font-medium text-slate-400">
+                    <span className="ms-auto text-[10.5px] font-medium text-slate-400">
                         {r.status === "branch_true" ? "← כן" : "← לא"}
                     </span>
                 )}
                 {r.type === "action" && r.status === "skipped" && (
-                    <span className="ml-auto text-[10.5px] font-medium text-slate-400">דולג</span>
+                    <span className="ms-auto text-[10.5px] font-medium text-slate-400">דולג</span>
                 )}
             </div>
             {r.label && r.type === "condition" && <div className="mt-0.5 text-[11px] text-slate-400">{r.label}</div>}
@@ -1755,7 +1756,7 @@ function InsightsPanel({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="ml-auto h-7 w-7 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                    className="ms-auto h-7 w-7 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
                     aria-label="סגור"
                 >
                     <XIcon className="w-4 h-4" />
@@ -1881,10 +1882,10 @@ function InsightsPanel({
                                     <CheckCircle2Icon className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
                                 )}
                                 <span className="min-w-0 truncate text-[11.5px] font-medium text-slate-700 capitalize">{run.status}</span>
-                                <span className="ml-auto shrink-0 whitespace-nowrap tabular-nums text-[10.5px] text-slate-400">{new Date(run.started_at).toLocaleString()}</span>
+                                <span className="ms-auto shrink-0 whitespace-nowrap tabular-nums text-[10.5px] text-slate-400">{new Date(run.started_at).toLocaleString()}</span>
                             </div>
                             {run.node_results?.filter((r) => r.type === "action").map((r, i) => (
-                                <div key={`${run.id}-${i}`} className="pl-1">
+                                <div key={`${run.id}-${i}`} className="ps-1">
                                     <div className="flex items-center gap-1.5">
                                         {r.status === "error" ? (
                                             <XCircleIcon className="w-3 h-3 text-rose-400" />
@@ -1895,7 +1896,7 @@ function InsightsPanel({
                                         {r.error && <span className="text-[10.5px] text-rose-500 truncate">· {r.error}</span>}
                                     </div>
                                     {r.preview && Object.keys(r.preview).length > 0 && (
-                                        <div className="mt-0.5 pl-4 space-y-0.5">
+                                        <div className="mt-0.5 ps-4 space-y-0.5">
                                             {Object.entries(r.preview).map(([k, v]) => (
                                                 <div key={k} className="text-[10px] text-slate-400 truncate">
                                                     <span className="text-slate-300">{k}:</span>{" "}
@@ -2024,7 +2025,7 @@ function NodeEditor({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="ml-auto h-7 w-7 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                    className="ms-auto h-7 w-7 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100"
                     aria-label="סגור"
                 >
                     <XIcon className="w-4 h-4" />
@@ -2412,7 +2413,7 @@ function AddStepMenu({ onAdd, onAddCondition }: { onAdd: (choice: string) => voi
             <button
                 type="button"
                 onClick={() => onAdd("action")}
-                className="inline-flex h-8 items-center gap-1.5 rounded-l-md bg-sky-600 px-2.5 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-sky-700"
+                className="inline-flex h-8 items-center gap-1.5 rounded-s-md bg-sky-600 px-2.5 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-sky-700"
             >
                 <PlusIcon className="w-3.5 h-3.5" />
                 הוסף פעולה
@@ -2421,7 +2422,7 @@ function AddStepMenu({ onAdd, onAddCondition }: { onAdd: (choice: string) => voi
                 type="button"
                 aria-label="סוגי שלבים נוספים"
                 onClick={() => setOpen((o) => !o)}
-                className="inline-flex h-8 items-center rounded-r-md border-l border-sky-500/60 bg-sky-600 px-1.5 text-white shadow-sm transition-colors hover:bg-sky-700"
+                className="inline-flex h-8 items-center rounded-e-md border-s border-sky-500/60 bg-sky-600 px-1.5 text-white shadow-sm transition-colors hover:bg-sky-700"
             >
                 <ChevronDownIcon className="w-3.5 h-3.5" />
             </button>
@@ -2431,8 +2432,8 @@ function AddStepMenu({ onAdd, onAddCondition }: { onAdd: (choice: string) => voi
                         <div className="fixed inset-0 z-40" onMouseDown={() => setOpen(false)} />
                         <motion.div
                             key="add-step-menu"
-                            className="absolute left-0 top-full z-50 mt-1 max-h-[360px] w-56 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
-                            style={{ transformOrigin: "top left", willChange: "transform, opacity" }}
+                            className="absolute start-0 top-full z-50 mt-1 max-h-[360px] w-56 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-xl"
+                            style={{ willChange: "transform, opacity" }}
                             role="menu"
                             initial={{ opacity: 0, scale: 0.95, y: -4 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -2485,7 +2486,7 @@ function ActionEditor({
     const isNative = isNativeAction(data.action ?? "");
     const selectedConn = isNative ? NATIVE_CONNECTION : (data.connection_id ?? "");
     const connOptions: SelectOption[] = [
-        { value: NATIVE_CONNECTION, label: "Warmbly (built-in)", icon: <ZapIcon className="size-3.5 shrink-0 text-indigo-600" /> },
+        { value: NATIVE_CONNECTION, label: "Warmbly (מובנה)", icon: <ZapIcon className="size-3.5 shrink-0 text-indigo-600" /> },
         ...targets.map((c) => ({
             value: c.id,
             label: connLabel(c.id),
@@ -2499,7 +2500,7 @@ function ActionEditor({
     const pickConnection = (connId: string) => {
         if (connId === NATIVE_CONNECTION) {
             const first = NATIVE_ACTIONS[0];
-            onAction({ connection_id: undefined, action: first, config: {}, sub: "Built-in action", provider: "", native: true, title: actionLabel(first) });
+            onAction({ connection_id: undefined, action: first, config: {}, sub: "פעולה מובנית", provider: "", native: true, title: actionLabel(first) });
             return;
         }
         const acts = actionsForProvider(providerOf(connId));
@@ -3490,7 +3491,7 @@ function AIAgentFields({
                                     {actionLabel(id)}
                                 </button>
                                 {on && poolKey && (
-                                    <div className="ml-[1.35rem] rtl:mr-[1.35rem] rtl:ml-0 mt-1 space-y-3 border-l rtl:border-r rtl:border-l-0 border-slate-200 pl-3 rtl:pr-3 rtl:pl-0 pb-1.5">
+                                    <div className="ms-[1.35rem] mt-1 space-y-3 border-s border-slate-200 ps-3 pb-1.5">
                                         <AITagPoolField
                                             label={
                                                 id === "warmbly.add_tag"

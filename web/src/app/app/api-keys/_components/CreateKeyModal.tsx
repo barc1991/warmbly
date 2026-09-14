@@ -348,7 +348,7 @@ function RevealStep({ apiKey, onClose }: { apiKey: APIKeyWithSecret; onClose: ()
                         <button
                             type="button"
                             onClick={copy}
-                            className="ml-auto inline-flex items-center gap-1 h-6 px-2 rounded text-slate-300 hover:text-white hover:bg-slate-800 transition-colors text-[11px]"
+                            className="ms-auto inline-flex items-center gap-1 h-6 px-2 rounded text-slate-300 hover:text-white hover:bg-slate-800 transition-colors text-[11px]"
                         >
                             {copied ? <CheckIcon className="w-3 h-3" /> : <CopyIcon className="w-3 h-3" />}
                             {copied ? "הועתק" : "העתק"}

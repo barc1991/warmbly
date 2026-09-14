@@ -162,12 +162,12 @@ export default function PlanCard({
                     {plan.label}
                 </span>
                 {isCurrent ? (
-                    <span className="mr-auto ml-0 text-[9px] uppercase tracking-[0.08em] font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded px-1">
+                    <span className="me-auto ms-0 text-[9px] uppercase tracking-[0.08em] font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded px-1">
                         נוכחי
                     </span>
                 ) : plan.featured && !recommended ? (
                     // The ribbon already says it; two badges on one card reads as noise.
-                    <span className={cn("mr-auto ml-0 text-[9px] uppercase tracking-[0.08em] font-semibold border rounded px-1", accent.pill)}>
+                    <span className={cn("me-auto ms-0 text-[9px] uppercase tracking-[0.08em] font-semibold border rounded px-1", accent.pill)}>
                         פופולרי
                     </span>
                 ) : null}

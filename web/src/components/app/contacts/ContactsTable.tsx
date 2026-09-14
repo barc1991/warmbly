@@ -1094,8 +1094,8 @@ function ContactsTableBody({
                         <div className="w-3.5 h-3.5 bg-slate-100 rounded" />
                         <div className="w-6 h-6 rounded-full bg-slate-100 shrink-0" />
                         <div className="h-3 w-40 bg-slate-100 rounded animate-pulse" />
-                        <div className="h-3 w-32 bg-slate-100 rounded animate-pulse ml-6" />
-                        <div className="ml-auto h-3 w-16 bg-slate-100 rounded animate-pulse" />
+                        <div className="h-3 w-32 bg-slate-100 rounded animate-pulse ms-6" />
+                        <div className="ms-auto h-3 w-16 bg-slate-100 rounded animate-pulse" />
                     </div>
                 ))}
             </div>
@@ -1147,7 +1147,7 @@ function ContactsTableBody({
     const footer = isError ? (
         <div className="px-5 py-3 flex flex-col items-center gap-2 border-t border-slate-200/60">
             <p className="text-[11.5px] text-slate-500 text-center max-w-[52ch] leading-relaxed">
-                <AlertTriangleIcon className="w-3 h-3 inline-block mr-1 -mt-px text-red-500" />
+                <AlertTriangleIcon className="w-3 h-3 inline-block me-1 -mt-px text-red-500" />
                 {errorMessage}
             </p>
             <button

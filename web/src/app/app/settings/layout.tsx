@@ -197,7 +197,7 @@ function SettingsLayoutInner() {
                 {/* Mobile: a horizontally-scrollable tab strip. >=md: vertical rail. */}
                 <nav
                     ref={navRef}
-                    className="flex md:flex-col shrink-0 gap-0.5 md:gap-0 overflow-x-auto md:overflow-y-auto border-b md:border-b-0 md:border-r rtl:md:border-r-0 rtl:md:border-l border-slate-200/70 px-2 md:px-2.5 py-2 md:py-3 md:w-[236px]"
+                    className="flex md:flex-col shrink-0 gap-0.5 md:gap-0 overflow-x-auto md:overflow-y-auto border-b md:border-b-0 md:border-e border-slate-200/70 px-2 md:px-2.5 py-2 md:py-3 md:w-[236px]"
                 >
                     {visibleGroups.map((g, gi) => (
                         <div key={g.label} className="contents md:block md:mb-1">

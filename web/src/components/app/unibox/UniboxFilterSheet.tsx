@@ -264,7 +264,7 @@ export function UniboxFilterSheet({
                           key={t.id}
                           type="button"
                           onClick={() => selectTag(t.id)}
-                          className={`group h-6 pl-1.5 pr-2 rounded-full inline-flex items-center gap-1.5 text-[11.5px] font-medium border transition-colors ${
+                          className={`group h-6 ps-1.5 pe-2 rounded-full inline-flex items-center gap-1.5 text-[11.5px] font-medium border transition-colors ${
                             active
                               ? "bg-slate-900 text-white border-slate-900"
                               : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
@@ -309,7 +309,7 @@ export function UniboxFilterSheet({
                           key={c.id}
                           type="button"
                           onClick={() => toggleCategory(c.id)}
-                          className={`group h-6 pl-1.5 pr-2 rounded-full inline-flex items-center gap-1.5 text-[11.5px] font-medium border transition-colors ${
+                          className={`group h-6 ps-1.5 pe-2 rounded-full inline-flex items-center gap-1.5 text-[11.5px] font-medium border transition-colors ${
                             cActive
                               ? "bg-slate-900 text-white border-slate-900"
                               : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"

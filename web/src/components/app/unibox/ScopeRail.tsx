@@ -131,7 +131,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
   }, [data?.folders]);
 
   return (
-    <nav className="h-full bg-slate-50/60 border-r border-slate-200 overflow-y-auto py-2 text-start">
+    <nav className="h-full bg-slate-50/60 border-e border-slate-200 overflow-y-auto py-2 text-start">
       <div className="px-2 pb-2">
         <ShortcutTooltip label="הודעה חדשה" combo="n" side="bottom">
           <button

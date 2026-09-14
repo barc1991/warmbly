@@ -226,7 +226,7 @@ function ContactEditPanel({
                 exit={{ x: 32, opacity: 0 }}
                 transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
                 onMouseDown={(e) => e.stopPropagation()}
-                className="flex flex-col w-full max-w-full md:w-[32rem] md:max-w-[95%] h-full bg-white border-r border-slate-200 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.08)]"
+                className="flex flex-col w-full max-w-full md:w-[32rem] md:max-w-[95%] h-full bg-white border-s border-slate-200 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.08)]"
             >
                 <ContactHeader
                     contact={contact}
@@ -291,7 +291,7 @@ function ContactEditPanel({
                             type="button"
                             onClick={save}
                             disabled={!dirty || update.isPending}
-                            className="mr-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                            className="me-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                         >
                             {update.isPending ? (
                                 <Loader2Icon className="w-3 h-3 animate-spin" />

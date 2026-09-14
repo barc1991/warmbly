@@ -602,7 +602,7 @@ function BucketGroup({
                 >
                     {bucket.label}
                 </span>
-                <span className="ml-auto font-mono text-[10.5px] text-slate-400 tabular-nums">
+                <span className="ms-auto font-mono text-[10.5px] text-slate-400 tabular-nums">
                     {tasks.length}
                 </span>
             </div>

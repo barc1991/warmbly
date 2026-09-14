@@ -130,7 +130,7 @@ function FieldError({ message }: { message?: string }) {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
                     transition={{ duration: 0.2 }}
-                    className="text-xs text-rose-500 mt-1 pl-0.5"
+                    className="text-xs text-rose-500 mt-1 ps-0.5"
                 >
                     {message}
                 </motion.p>
@@ -973,7 +973,7 @@ function EmailStep({
 
             <form onSubmit={handleSubmit(onContinue)} className="space-y-4">
                 <div>
-                    <label className="text-sm font-medium text-slate-600 pl-0.5">
+                    <label className="text-sm font-medium text-slate-600 ps-0.5">
                         {isHe ? "כתובת אימייל" : "Email address"}
                     </label>
                     <input
@@ -1163,7 +1163,7 @@ function SignInStep({
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
                     <div className="flex items-center justify-between mb-1">
-                        <label className="text-sm font-medium text-slate-600 pl-0.5">
+                        <label className="text-sm font-medium text-slate-600 ps-0.5">
                             {isHe ? "סיסמה" : "Password"}
                         </label>
                         <Link to="/auth/reset-password" className="text-xs text-sky-500 hover:text-sky-600 font-medium transition-colors">
@@ -1263,7 +1263,7 @@ function SignUpStep({
 
             <form onSubmit={onFormSubmit} className="space-y-4">
                 <div>
-                    <label className="text-sm font-medium text-slate-600 pl-0.5">
+                    <label className="text-sm font-medium text-slate-600 ps-0.5">
                         {isHe ? "סיסמה" : "Password"}
                     </label>
                     <input type="password" placeholder={isHe ? "צור סיסמה" : "Create a password"} className={INPUT} autoComplete="new-password" autoFocus {...register("password")} />
@@ -1276,7 +1276,7 @@ function SignUpStep({
                 </div>
 
                 <div>
-                    <label className="text-sm font-medium text-slate-600 pl-0.5">
+                    <label className="text-sm font-medium text-slate-600 ps-0.5">
                         {isHe ? "אימות סיסמה" : "Confirm password"}
                     </label>
                     <input type="password" placeholder={isHe ? "הזן שוב את הסיסמה" : "Confirm your password"} className={INPUT} autoComplete="new-password" {...register("confirmPassword")} />

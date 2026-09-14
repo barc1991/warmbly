@@ -61,7 +61,7 @@ import {
 } from "@/components/layout/Page";
 
 const DefaultFolder = {
-    title: "All accounts",
+    title: "כל החשבונות",
     color: "#c4c8cf",
 } as Tag;
 
@@ -331,7 +331,7 @@ export default function AddressesPage() {
                                 <div className="w-3.5 h-3.5 bg-slate-100 rounded" />
                                 <div className="w-6 h-6 rounded-full bg-slate-100 shrink-0" />
                                 <div className="h-3 w-52 bg-slate-100 rounded animate-pulse" />
-                                <div className="ml-auto h-3 w-16 bg-slate-100 rounded animate-pulse" />
+                                <div className="ms-auto h-3 w-16 bg-slate-100 rounded animate-pulse" />
                             </div>
                         ))}
                     </div>

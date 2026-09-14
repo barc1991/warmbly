@@ -185,17 +185,19 @@ function AddServerDrawer({ open, onClose }: { open: boolean; onClose: () => void
         }
     }
 
+    const isRtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
+
     return (
         <AnimatePresence>
             {open && (
                 <>
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-40 bg-slate-900/30" />
                     <motion.aside
-                        initial={{ x: "100%" }}
+                        initial={{ x: isRtl ? "-100%" : "100%" }}
                         animate={{ x: 0 }}
-                        exit={{ x: "100%" }}
+                        exit={{ x: isRtl ? "-100%" : "100%" }}
                         transition={{ type: "spring", stiffness: 380, damping: 40 }}
-                        className="fixed right-0 top-0 z-50 h-full w-full sm:w-[460px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col"
+                        className="fixed ltr:right-0 rtl:left-0 top-0 z-50 h-full w-full sm:w-[460px] bg-white ltr:border-l rtl:border-r border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col"
                     >
                         <div className="shrink-0 px-5 h-14 flex items-center gap-3 border-b border-slate-200">
                             <div className="text-[13px] font-semibold text-slate-900 flex-1">חיבור שרת MCP</div>

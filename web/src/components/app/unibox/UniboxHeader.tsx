@@ -51,7 +51,7 @@ export function UniboxHeader({
                 <button
                     type="button"
                     onClick={onClearScope}
-                    className="inline-flex items-center gap-1 h-5 pl-1.5 pr-1 rounded bg-sky-50 text-sky-700 text-[11px] font-medium hover:bg-sky-100 transition-colors shrink-0"
+                    className="inline-flex items-center gap-1 h-5 ps-1.5 pe-1 rounded bg-sky-50 text-sky-700 text-[11px] font-medium hover:bg-sky-100 transition-colors shrink-0"
                     aria-label="נקה תצוגה"
                 >
                     <span className="truncate max-w-[45vw] md:max-w-none">{scopeLabel}</span>

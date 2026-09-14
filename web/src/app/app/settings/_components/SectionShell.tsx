@@ -100,7 +100,7 @@ export function Section({
                 <h3 className="text-[12.5px] font-semibold text-slate-900 tracking-tight">
                     {eyebrow}
                 </h3>
-                {actions && <div className="flex items-center gap-1.5 ml-auto">{actions}</div>}
+                {actions && <div className="flex items-center gap-1.5 ms-auto">{actions}</div>}
                 {description && (
                     <p className="basis-full text-[11.5px] text-slate-500 leading-relaxed">
                         {description}
@@ -154,7 +154,7 @@ export function Row({
                 </div>
             )}
             {children && (
-                <div className={`shrink-0 ${label || description ? "sm:ml-auto" : "w-full"}`}>
+                <div className={`shrink-0 ${label || description ? "sm:ms-auto" : "w-full"}`}>
                     {children}
                 </div>
             )}

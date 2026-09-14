@@ -146,7 +146,7 @@ export default function EnterpriseInquiryDialog({
                                 onClick={onClose}
                                 disabled={inquiry.isPending}
                                 aria-label="סגור"
-                                className="mr-auto ml-0 size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors disabled:opacity-50"
+                                className="me-auto ms-0 size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors disabled:opacity-50"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -202,7 +202,7 @@ export default function EnterpriseInquiryDialog({
                                 type="button"
                                 onClick={onClose}
                                 disabled={inquiry.isPending}
-                                className="mr-auto ml-0 h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                className="me-auto ms-0 h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
                             >
                                 ביטול
                             </button>

@@ -280,11 +280,11 @@ function CodeSnippet({ prefix }: { prefix: string }) {
                 <div className="size-1.5 rounded-full bg-red-400/70" />
                 <div className="size-1.5 rounded-full bg-amber-400/70" />
                 <div className="size-1.5 rounded-full bg-emerald-400/70" />
-                <span className="ml-2 text-[11px] text-slate-400 font-mono">curl</span>
+                <span className="ms-2 text-[11px] text-slate-400 font-mono">curl</span>
                 <button
                     type="button"
                     onClick={copy}
-                    className="ml-auto inline-flex items-center gap-1 h-6 px-2 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-[11px]"
+                    className="ms-auto inline-flex items-center gap-1 h-6 px-2 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-[11px]"
                 >
                     {copied ? <CheckIcon className="w-3 h-3" /> : <CopyIcon className="w-3 h-3" />}
                     {copied ? "הועתק" : "העתק"}

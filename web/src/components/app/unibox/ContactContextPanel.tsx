@@ -134,7 +134,7 @@ export default function ContactContextPanel({
                 onClick={onClose}
                 aria-hidden
             />
-            <aside className="fixed inset-y-0 right-0 z-[60] flex w-[min(20rem,90vw)] shrink-0 flex-col border-l border-slate-200 bg-white min-h-0 shadow-xl lg:static lg:z-auto lg:w-80 lg:bg-slate-50/40 lg:shadow-none">
+            <aside className="fixed inset-y-0 ltr:right-0 rtl:left-0 z-[60] flex w-[min(20rem,90vw)] shrink-0 flex-col border-s border-slate-200 bg-white min-h-0 shadow-xl lg:static lg:z-auto lg:w-80 lg:bg-slate-50/40 lg:shadow-none">
             <div className="h-12 px-3 border-b border-slate-200 flex items-center gap-2 shrink-0 bg-white">
                 <UserIcon className="w-3.5 h-3.5 text-slate-400" />
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">

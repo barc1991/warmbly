@@ -134,7 +134,7 @@ function CampaignFolderChips({ campaign, folders }: { campaign: Campaign; folder
                 <span
                     key={f.id}
                     title={f.title}
-                    className="inline-flex items-center gap-1.5 h-[18px] pl-1.5 pr-2 rounded-full text-[10.5px] font-medium text-slate-700 max-w-[130px]"
+                    className="inline-flex items-center gap-1.5 h-[18px] ps-1.5 pe-2 rounded-full text-[10.5px] font-medium text-slate-700 max-w-[130px]"
                     style={{ backgroundColor: hexToRgba(f.color, 0.16) }}
                 >
                     <span
@@ -706,7 +706,7 @@ function SkeletonRows() {
                     <div className="size-1.5 rounded-full bg-slate-200" />
                     <div className="h-3 w-44 bg-slate-100 rounded animate-pulse" />
                     <div className="font-mono h-3 w-12 bg-slate-100 rounded animate-pulse" />
-                    <div className="ml-auto h-3 w-16 bg-slate-100 rounded animate-pulse" />
+                    <div className="ms-auto h-3 w-16 bg-slate-100 rounded animate-pulse" />
                 </div>
             ))}
         </div>

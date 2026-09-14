@@ -93,7 +93,7 @@ function FieldError({ message }: { message?: string }) {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
                     transition={{ duration: 0.2 }}
-                    className="text-xs text-rose-500 mt-1 pl-0.5"
+                    className="text-xs text-rose-500 mt-1 ps-0.5"
                 >
                     {message}
                 </motion.p>
@@ -135,7 +135,7 @@ function Pills({
 }
 
 const FieldLabel = ({ children }: { children: React.ReactNode }) => (
-    <label className="block text-sm font-medium text-slate-600 mb-1.5 pr-0.5 pl-0">{children}</label>
+    <label className="block text-sm font-medium text-slate-600 mb-1.5 pe-0.5 ps-0">{children}</label>
 );
 
 /* ═══════════════════════════════════════════
@@ -210,13 +210,13 @@ export default function OnboardingPage() {
                     <button
                         type="button"
                         onClick={() => setStep((s) => s - 1)}
-                        className="flex items-center justify-center w-7 h-7 -mr-1 -ml-0 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                        className="flex items-center justify-center w-7 h-7 -me-1 -ms-0 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                         aria-label="חזרה"
                     >
                         <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
                     </button>
                 ) : (
-                    <span className="w-7 h-7 -mr-1 -ml-0" />
+                    <span className="w-7 h-7 -me-1 -ms-0" />
                 )}
                 <div className="flex-1 flex gap-1.5">
                     {STEPS.map((_: unknown, i: number) => (

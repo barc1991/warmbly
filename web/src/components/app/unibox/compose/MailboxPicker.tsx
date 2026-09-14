@@ -360,7 +360,7 @@ function CandidateSkeletonRow() {
         <div className="px-2.5 h-8 flex items-center gap-2">
             <span className="size-1.5 rounded-full bg-slate-200 animate-pulse shrink-0" />
             <span className="h-2 w-2/5 rounded bg-slate-100 animate-pulse" />
-            <span className="ml-auto h-2 w-8 rounded bg-slate-100/70 animate-pulse" />
+            <span className="ms-auto h-2 w-8 rounded bg-slate-100/70 animate-pulse" />
         </div>
     );
 }

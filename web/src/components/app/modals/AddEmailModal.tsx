@@ -575,7 +575,7 @@ function ProviderNotConfigured({ provider, selfHosted }: { provider: OAuthProvid
                     <SettingsIcon className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                         <p className="text-[12.5px] font-medium text-amber-900">
-                            {isHe ? `${label} אינו מוגדר בהתקנה זו` : `${label} is not configured on this deployment`}
+                            {isHe ? `${provider === "gmail" ? "Gmail ו-Google Workspace" : "Outlook ו-Microsoft 365"} אינו מוגדר בהתקנה זו` : `${label} is not configured on this deployment`}
                         </p>
                         <p className="text-[12.5px] text-amber-800 mt-1">
                             {isHe ? (

@@ -284,7 +284,7 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                             </div>
                         ) : phase === "applied" ? (
                             <div className="flex items-center gap-1.5 px-2.5 py-2">
-                                <span className="mr-auto inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-900">
+                                <span className="me-auto inline-flex items-center gap-1.5 text-[12px] font-medium text-slate-900">
                                     <CheckIcon className="h-3.5 w-3.5 text-emerald-600" />
                                     {isHe ? "הוכנס" : "Inserted"}
                                     {usage && formatUsage(usage.charged, usage.tokens) && (
@@ -359,7 +359,7 @@ export default function RichTextAICaret({ editor }: { editor: Editor }) {
                                         <PenLineIcon className="h-3.5 w-3.5 text-slate-400" />
                                         {isHe ? "המשך בכתיבה" : "Continue writing"}
                                         {metered && (
-                                            <span className="ml-auto text-[10px] text-slate-300">
+                                            <span className="ms-auto text-[10px] text-slate-300">
                                                 {isHe ? "מ-1 נקודה" : "from 1 credit"}
                                             </span>
                                         )}

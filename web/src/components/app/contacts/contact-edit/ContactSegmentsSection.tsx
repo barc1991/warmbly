@@ -75,7 +75,7 @@ export function ContactSegmentsSection({ contactId }: { contactId: string }) {
                                     {s.mode === "exclude" && (
                                         <span className="inline-flex items-center h-4 px-1 rounded bg-amber-50 text-amber-700 text-[10px] font-medium">הוחרג החוצה</span>
                                     )}
-                                    <div className="mr-auto flex items-center gap-0.5">
+                                    <div className="me-auto flex items-center gap-0.5">
                                         {busy ? (
                                             <Loader2Icon className="w-3 h-3 animate-spin text-slate-400" />
                                         ) : (

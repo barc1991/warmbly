@@ -89,7 +89,7 @@ export default function VerificationCard({
                         <span className={cn("text-[13px] font-semibold", meta.text)}>{meta.label}</span>
                         <span className="text-[11px] text-slate-400 tabular-nums">{pct}% ודאות</span>
                         {detail.decisive && (
-                            <span className="mr-auto text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
+                            <span className="me-auto text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
                                 מדוא״ל אמיתי
                             </span>
                         )}
@@ -134,7 +134,7 @@ export default function VerificationCard({
                             >
                                 <EIcon className={cn("w-3 h-3 shrink-0", m.tone)} />
                                 <span className="text-slate-700 truncate">{m.label}</span>
-                                <span className="mr-auto text-slate-400 shrink-0">{fmtRelative(e.observed_at)}</span>
+                                <span className="me-auto text-slate-400 shrink-0">{fmtRelative(e.observed_at)}</span>
                             </motion.div>
                         );
                     })}

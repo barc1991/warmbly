@@ -333,8 +333,9 @@ export default function EmailEditor({
                     <textarea
                         value={htmlText}
                         onChange={(e) => commitHtml(e.target.value)}
-                        className="w-full min-h-[120px] px-3 py-2.5 text-[12px] text-slate-800 outline-none resize-y font-mono"
-                        placeholder="<p>HTML source…</p>"
+                        dir="ltr"
+                        className="w-full min-h-[120px] px-3 py-2.5 text-[12px] text-slate-800 outline-none resize-y font-mono text-left"
+                        placeholder="<p>מקור ה-HTML…</p>"
                         spellCheck={false}
                     />
                     <p className="flex items-start gap-1.5 border-t border-slate-200/70 px-3 py-1.5 text-[10.5px] leading-relaxed text-slate-400">

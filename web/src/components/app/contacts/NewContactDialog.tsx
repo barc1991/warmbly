@@ -127,7 +127,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                                 type="button"
                                 onClick={onClose}
                                 aria-label="סגירה"
-                                className="mr-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                className="me-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -189,7 +189,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="mr-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="me-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
                                 ביטול
                             </button>

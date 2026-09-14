@@ -52,7 +52,7 @@ export default function Cursor({
             </svg>
             {name || avatar ? (
                 <div
-                    className="absolute left-3 top-3.5 flex max-w-[160px] items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 shadow-sm"
+                    className="absolute left-3 top-3.5 flex max-w-[160px] items-center gap-1 rounded-full py-0.5 ps-0.5 pe-2 shadow-sm"
                     style={{ backgroundColor: color }}
                 >
                     <Avatar className="size-3.5 shrink-0 ring-1 ring-white/80">

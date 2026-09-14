@@ -410,7 +410,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
           {subject}
         </span>
         {mailbox && (
-          <span className="ml-1 hidden md:inline-flex items-center gap-1 h-5 px-1.5 rounded bg-slate-100 text-slate-600 text-[10.5px] font-medium font-mono shrink-0">
+          <span className="ms-1 hidden md:inline-flex items-center gap-1 h-5 px-1.5 rounded bg-slate-100 text-slate-600 text-[10.5px] font-medium font-mono shrink-0">
             {mailbox.email}
           </span>
         )}

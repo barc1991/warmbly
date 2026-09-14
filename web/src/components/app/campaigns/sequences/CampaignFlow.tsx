@@ -775,7 +775,7 @@ function SwitchNode({ id, data, selected }: NodeProps) {
                     {d.cases.map((c) => {
                         const on = !!d.connected[caseKey(c)];
                         return (
-                            <div key={caseKey(c)} className="relative flex h-6 items-center pl-2.5 pr-4">
+                            <div key={caseKey(c)} className="relative flex h-6 items-center ps-2.5 pe-4">
                                 <span
                                     className={`min-w-0 flex-1 truncate text-[11.5px] ${on ? "text-slate-700" : "text-slate-400"}`}
                                 >
@@ -804,7 +804,7 @@ function SwitchNode({ id, data, selected }: NodeProps) {
             {/* The "otherwise" fallback gets its own labeled row (same visual
                 language as the cases) instead of an unexplained bottom dot. */}
             <div
-                className="relative flex h-6 items-center rounded-b-xl border-t border-slate-200/70 bg-slate-50/60 pl-2.5 pr-4"
+                className="relative flex h-6 items-center rounded-b-xl border-t border-slate-200/70 bg-slate-50/60 ps-2.5 pe-4"
                 title="לאן אנשי קשר מנותבים כשאף מקרה לא תואם. גרור את הנקודה לשלב, או לשטח ריק להוספה (או עצירה)."
             >
                 <span className="min-w-0 flex-1 truncate text-[10.5px] font-medium uppercase tracking-[0.1em] text-slate-400">
@@ -2180,7 +2180,7 @@ export default function CampaignFlow({ campaignId }: { campaignId: string }) {
             )}
 
             {editStep && (
-                <div className="fixed inset-0 z-30 w-full overflow-y-auto overflow-x-hidden bg-white md:absolute md:left-auto md:z-10 md:max-w-[760px] md:border-l md:border-slate-200 md:shadow-[0_0_40px_-12px_rgba(15,23,42,0.25)] xl:max-w-[880px]">
+                <div className="fixed inset-0 z-30 w-full overflow-y-auto overflow-x-hidden bg-white md:absolute md:left-auto md:z-10 md:max-w-[760px] md:border-s md:border-slate-200 md:shadow-[0_0_40px_-12px_rgba(15,23,42,0.25)] xl:max-w-[880px]">
                     <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-3 py-2">
                         <span className="truncate text-[12.5px] font-medium text-slate-700">עריכת ״{stepName(editStep)}״</span>
                         <div className="flex items-center gap-1">
@@ -2565,7 +2565,7 @@ function ConnectionEditor({
                 <button
                     type="button"
                     onClick={() => save(branch.target_step_id)}
-                    className="ml-auto h-7 rounded-md bg-sky-600 px-3 text-[12px] font-medium text-white hover:bg-sky-700"
+                    className="ms-auto h-7 rounded-md bg-sky-600 px-3 text-[12px] font-medium text-white hover:bg-sky-700"
                 >
                     שמור
                 </button>
@@ -2718,7 +2718,7 @@ function AddNodeMenu({
                 type="button"
                 disabled={locked ? false : disabled}
                 onClick={onAddEmail}
-                className={`inline-flex h-8 items-center gap-1.5 rounded-l-md bg-sky-600 px-3 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-60 ${locked ? "opacity-60" : ""}`}
+                className={`inline-flex h-8 items-center gap-1.5 rounded-s-md bg-sky-600 px-3 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-60 ${locked ? "opacity-60" : ""}`}
             >
                 {locked ? (
                     <LockIcon className="w-3.5 h-3.5" />
@@ -2735,7 +2735,7 @@ function AddNodeMenu({
                 disabled={disabled}
                 onClick={() => setOpen((o) => !o)}
                 aria-label="סוגי שלבים נוספים"
-                className="inline-flex h-8 items-center rounded-r-md border-l border-sky-500/60 bg-sky-600 px-1.5 text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-60"
+                className="inline-flex h-8 items-center rounded-e-md border-s border-sky-500/60 bg-sky-600 px-1.5 text-white shadow-sm transition-colors hover:bg-sky-700 disabled:opacity-60"
             >
                 <ChevronDownIcon className="w-3.5 h-3.5" />
             </button>
@@ -2743,7 +2743,7 @@ function AddNodeMenu({
                 {open && (
                     <motion.div
                         key="add-node-menu"
-                        className="absolute left-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]"
+                        className="absolute start-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]"
                         style={{ transformOrigin: "top left", willChange: "transform, opacity" }}
                         initial={{ opacity: 0, scale: 0.95, y: -4 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}

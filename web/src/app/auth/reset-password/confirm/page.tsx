@@ -47,7 +47,7 @@ export default function ResetPasswordConfirmPage() {
 
             <form onSubmit={onSubmit} className="space-y-4">
                 <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-600 pr-0.5 pl-0">סיסמה חדשה</label>
+                    <label className="text-sm font-medium text-slate-600 pe-0.5 ps-0">סיסמה חדשה</label>
                     <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="הזן סיסמה חדשה" required autoComplete="new-password" className={INPUT} />
                     {password && (() => {
                         const cfg = strengthConfig[strength.score];
@@ -69,7 +69,7 @@ export default function ResetPasswordConfirmPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-600 pr-0.5 pl-0">אימות סיסמה</label>
+                    <label className="text-sm font-medium text-slate-600 pe-0.5 ps-0">אימות סיסמה</label>
                     <input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} placeholder="הזן שוב את הסיסמה החדשה" required autoComplete="new-password" className={INPUT} />
                 </div>
 

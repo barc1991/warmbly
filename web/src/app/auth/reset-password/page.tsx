@@ -41,7 +41,7 @@ export default function ResetPasswordPage() {
 
             <form onSubmit={onSubmit} className="space-y-4">
                 <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-600 pr-0.5 pl-0">אימייל</label>
+                    <label className="text-sm font-medium text-slate-600 pe-0.5 ps-0">אימייל</label>
                     <input type="email" value={mail} onChange={(e) => setMail(e.target.value)} placeholder="name@company.com" required className={INPUT} />
                 </div>
 
