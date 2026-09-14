@@ -3,20 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <script>
-      // Fix for Chromium / Chrome DevTools Live Metrics & Soft Navigation instrumentation bug
+      // Ultimate shield for Chromium / Chrome DevTools Live Metrics & Soft Navigation instrumentation bug
       // (Chromium issue #555794190 / #556160936: Uncaught TypeError: Cannot read properties of undefined (reading 'startTime') in et.reportAllChanges)
       (function () {
         if (typeof window === "undefined") return;
-
-        try {
-          var _reportSoftNavs = false;
-          Object.defineProperty(window, "devToolsReportSoftNavs", {
-            configurable: true,
-            enumerable: true,
-            get: function () { return _reportSoftNavs; },
-            set: function () { _reportSoftNavs = false; }
-          });
-        } catch (e) {}
 
         function isMetricError(err) {
           if (!err) return false;
@@ -26,7 +16,8 @@
             msg.indexOf("starttime") !== -1 ||
             msg.indexOf("reportallchanges") !== -1 ||
             stack.indexOf("reportallchanges") !== -1 ||
-            stack.indexOf("devtoolsreportsoftnavs") !== -1
+            stack.indexOf("devtoolsreportsoftnavs") !== -1 ||
+            stack.indexOf("live-metrics") !== -1
           );
         }
 
@@ -44,22 +35,97 @@
           };
         }
 
-        if (typeof window.requestIdleCallback === "function") {
-          var origRIC = window.requestIdleCallback;
-          window.requestIdleCallback = function (cb, opts) {
-            return origRIC.call(this, safeWrap(cb), opts);
-          };
+        // 1. DevTools internal kill switch interceptor (__chromium_devtools_kill_live_metrics)
+        var _killLiveMetrics = null;
+        try {
+          Object.defineProperty(window, "__chromium_devtools_kill_live_metrics", {
+            configurable: true,
+            enumerable: true,
+            get: function () {
+              return _killLiveMetrics;
+            },
+            set: function (killFn) {
+              _killLiveMetrics = killFn;
+              if (typeof killFn === "function") {
+                try { killFn(); } catch (e) {}
+                setTimeout(function () { try { killFn(); } catch (e) {} }, 0);
+                setTimeout(function () { try { killFn(); } catch (e) {} }, 100);
+                setTimeout(function () { try { killFn(); } catch (e) {} }, 500);
+              }
+            },
+          });
+        } catch (e) {}
+
+        // If it was already defined before this script ran, trigger it now
+        if (typeof window.__chromium_devtools_kill_live_metrics === "function") {
+          try { window.__chromium_devtools_kill_live_metrics(); } catch (e) {}
         }
 
-        var origST = window.setTimeout;
-        window.setTimeout = function (cb, delay) {
-          var args = Array.prototype.slice.call(arguments, 2);
-          if (typeof cb === "function") {
-            return origST.apply(this, [safeWrap(cb), delay].concat(args));
-          }
-          return origST.apply(this, arguments);
-        };
+        // 2. Lock devToolsReportSoftNavs to false
+        try {
+          Object.defineProperty(window, "devToolsReportSoftNavs", {
+            configurable: true,
+            enumerable: true,
+            get: function () { return false; },
+            set: function () { /* lock to false */ }
+          });
+        } catch (e) {}
 
+        // 3. Patch PerformanceObserver globally so any metric callback running inside it is guarded
+        try {
+          var OrigPO = window.PerformanceObserver;
+          if (OrigPO) {
+            function SafePerformanceObserver(callback) {
+              var guardedCb = function (entryList, observer) {
+                try {
+                  return callback.call(this, entryList, observer);
+                } catch (err) {
+                  if (isMetricError(err)) {
+                    return;
+                  }
+                  throw err;
+                }
+              };
+              return new OrigPO(guardedCb);
+            }
+            SafePerformanceObserver.prototype = OrigPO.prototype;
+            SafePerformanceObserver.supportedEntryTypes = OrigPO.supportedEntryTypes;
+            window.PerformanceObserver = SafePerformanceObserver;
+            if (typeof globalThis !== "undefined") {
+              globalThis.PerformanceObserver = SafePerformanceObserver;
+            }
+          }
+        } catch (e) {}
+
+        // 4. Intercept requestIdleCallback on window, Window.prototype, and globalThis
+        function patchRIC(target) {
+          if (!target || typeof target.requestIdleCallback !== "function") return;
+          var orig = target.requestIdleCallback;
+          target.requestIdleCallback = function (cb, opts) {
+            return orig.call(this, safeWrap(cb), opts);
+          };
+        }
+        patchRIC(window);
+        if (typeof globalThis !== "undefined") patchRIC(globalThis);
+        if (window.Window && window.Window.prototype) patchRIC(window.Window.prototype);
+
+        // 5. Intercept setTimeout on window, Window.prototype, and globalThis
+        function patchTimeout(target) {
+          if (!target || typeof target.setTimeout !== "function") return;
+          var orig = target.setTimeout;
+          target.setTimeout = function (cb, delay) {
+            var args = Array.prototype.slice.call(arguments, 2);
+            if (typeof cb === "function") {
+              return orig.apply(this, [safeWrap(cb), delay].concat(args));
+            }
+            return orig.apply(this, arguments);
+          };
+        }
+        patchTimeout(window);
+        if (typeof globalThis !== "undefined") patchTimeout(globalThis);
+        if (window.Window && window.Window.prototype) patchTimeout(window.Window.prototype);
+
+        // 6. Intercept requestAnimationFrame
         if (typeof window.requestAnimationFrame === "function") {
           var origRAF = window.requestAnimationFrame;
           window.requestAnimationFrame = function (cb) {
@@ -67,6 +133,25 @@
           };
         }
 
+        // 7. Filter console.error from logging startTime/reportAllChanges
+        try {
+          var origConsoleError = console.error;
+          console.error = function () {
+            for (var i = 0; i < arguments.length; i++) {
+              var arg = arguments[i];
+              var str = (arg && (arg.message || arg.stack || String(arg))) || "";
+              if (
+                str.indexOf("startTime") !== -1 &&
+                (str.indexOf("reportAllChanges") !== -1 || str.indexOf("undefined") !== -1)
+              ) {
+                return;
+              }
+            }
+            return origConsoleError.apply(this, arguments);
+          };
+        } catch (e) {}
+
+        // 8. Event listeners for error & unhandledrejection
         window.addEventListener("error", function (e) {
           if (isMetricError(e.error) || (e.message && isMetricError({ message: e.message }))) {
             e.preventDefault();
