@@ -12,6 +12,7 @@
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
+import { isRTL } from "@/i18n/config";
 import AdvisorStrip from "@/components/app/advisor/AdvisorStrip";
 import {
     XIcon,
@@ -327,6 +328,7 @@ export default function InboxDetails({
     });
     const mailbox = listMailbox ?? singleQuery.data ?? null;
     const close = () => setView("");
+    const isRtl = isRTL();
 
     return (
         <AnimatePresence>
@@ -341,11 +343,11 @@ export default function InboxDetails({
                         onClick={close}
                     />
                     <motion.aside
-                        initial={{ x: "100%" }}
+                        initial={{ x: isRtl ? "-100%" : "100%" }}
                         animate={{ x: 0 }}
-                        exit={{ x: "100%" }}
+                        exit={{ x: isRtl ? "-100%" : "100%" }}
                         transition={{ type: "spring", damping: 32, stiffness: 320 }}
-                        className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col"
+                        className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col rtl:right-auto rtl:left-0 rtl:border-l-0 rtl:border-r"
                     >
                         {mailbox ? (
                             <Detail key={mailbox.id} mailbox={mailbox} onClose={close} initialTab={initialTab} canWarmup={canWarmup} />
@@ -645,7 +647,7 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
             <SyncStatusCard mailboxId={mailbox.id} />
 
             {/* Key stats */}
-            <div className="grid grid-cols-2 divide-x divide-y divide-slate-200/60">
+            <div className="grid grid-cols-2 divide-x rtl:divide-x-reverse divide-y divide-slate-200/60">
                 <StatCard
                     label="נשלחו היום"
                     value={usage ? usage.campaign_sent : "—"}
@@ -755,7 +757,7 @@ function AnalyticsTab({ warmup, loading }: { warmup?: import("@/lib/api/models/a
 
     return (
         <div className="divide-y divide-slate-200/60">
-            <div className="grid grid-cols-2 divide-x divide-y divide-slate-200/60">
+            <div className="grid grid-cols-2 divide-x rtl:divide-x-reverse divide-y divide-slate-200/60">
                 <StatCard label="סה״כ נשלחו" value={s.total_sent} sub={`ממוצע של ${s.average_daily.toFixed(1)}/יום`} />
                 <StatCard label="תשובות" value={s.total_replied} sub={`שיעור מענה של ${s.reply_rate.toFixed(1)}%`} accent />
                 <StatCard label="התקדמות ליעד" value={`${Math.round(s.target_progress)}%`} sub="בדרך לנפח המקסימלי" />

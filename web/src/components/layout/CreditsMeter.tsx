@@ -72,10 +72,10 @@ export function CreditsMeter() {
             : 0;
 
     const label = spendWindow
-        ? `${spendWindow.spent.toLocaleString()} of ${spendWindow.limit.toLocaleString()} credits used ${spendWindow.word}`
-        : `${c.monthly_balance.toLocaleString()} of ${c.monthly_allowance.toLocaleString()} plan credits left`;
+        ? `${spendWindow.spent.toLocaleString()} מתוך ${spendWindow.limit.toLocaleString()} קרדיטים נוצלו ${spendWindow.word === "today" ? "היום" : spendWindow.word === "this week" ? "השבוע" : "החודש"}`
+        : `${c.monthly_balance.toLocaleString()} מתוך ${c.monthly_allowance.toLocaleString()} קרדיטי תוכנית נותרו`;
     const extraLabel =
-        c.purchased_balance > 0 ? `, plus ${c.purchased_balance.toLocaleString()} extra` : "";
+        c.purchased_balance > 0 ? `, ועוד ${c.purchased_balance.toLocaleString()} נוספים` : "";
 
     return (
         <div ref={ref} className="relative">

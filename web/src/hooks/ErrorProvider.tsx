@@ -34,7 +34,7 @@ export const ErrorProvider = ({ children }: { children: React.ReactNode }) => {
                     <div onClick={async () => {
                         await funcRef.current();
                         setVisible(false);
-                    }} className='absolute top-4 right-4 cursor-pointer'>
+                    }} className='absolute top-4 ltr:right-4 rtl:left-4 cursor-pointer'>
                         <p className='text-lg transition text-gray-400 hover:text-gray-500'>
                             <Close className='w-6'/>
                         </p>

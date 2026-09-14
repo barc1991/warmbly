@@ -36,7 +36,8 @@
     "disable": "השבת",
     "confirm": "אישור",
     "dismiss": "התעלם",
-    "upgrade": "שדרוג מנוי"
+    "upgrade": "שדרוג מנוי",
+    "signingOut": "מתנתק..."
   },
   "states": {
     "all": "הכל",

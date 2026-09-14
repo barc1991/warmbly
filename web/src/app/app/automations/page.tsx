@@ -265,7 +265,7 @@ function AutomationCard({
                 <span className="text-[11px] text-slate-400">
                     {steps} {isHe ? (steps === 1 ? "פעולה" : "פעולות") : (steps === 1 ? "action" : "actions")}
                 </span>
-                <div className="flex -space-x-1">
+                <div className="flex -space-x-1 rtl:space-x-reverse">
                     {providers.slice(0, 5).map((p) => (
                         <span key={p} className="ring-2 ring-white rounded-md">
                             <ProviderGlyph provider={p} name={p} size={7} />

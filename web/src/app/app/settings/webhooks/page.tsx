@@ -546,7 +546,7 @@ function EventsSummary({ endpoint }: { endpoint: WebhookEndpoint }) {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -4 }}
                             transition={{ duration: 0.12 }}
-                            className="absolute left-0 top-full z-40 mt-1 w-56 max-h-56 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg"
+                            className="absolute ltr:left-0 rtl:right-0 top-full z-40 mt-1 w-56 max-h-56 overflow-y-auto rounded-md border border-slate-200 bg-white p-1 shadow-lg"
                             onClick={(e) => e.stopPropagation()}
                         >
                             {endpoint.event_types.map((t) => (

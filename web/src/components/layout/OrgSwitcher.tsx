@@ -45,7 +45,7 @@ export function OrgSwitcher() {
     const switchOrgMutation = useSwitchOrganization();
     const [newOpen, setNewOpen] = React.useState(false);
 
-    const name = currentOrganization?.name ?? "Workspace";
+    const name = currentOrganization?.name ?? "סביבת עבודה";
     const orgAvatar = currentOrganization?.avatar_url ?? currentOrganization?.avatar;
 
     // Picking an org from the sidebar used to call only the local
