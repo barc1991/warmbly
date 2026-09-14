@@ -35,6 +35,15 @@
           };
         }
 
+        // -1. Neutralize Chromium DevTools onINP instrumentation bug at the entrypoint
+        // DevTools injected onINP guards with: `if (!globalThis.PerformanceEventTiming || !("interactionId" in PerformanceEventTiming.prototype)) return;`
+        // Deleting interactionId causes DevTools onINP to exit cleanly without creating buggy observers or timers.
+        try {
+          if (typeof PerformanceEventTiming !== "undefined" && PerformanceEventTiming.prototype) {
+            delete PerformanceEventTiming.prototype.interactionId;
+          }
+        } catch (e) {}
+
         // 0. Neutralize Chromium issue #543499029 in DevTools web-vitals-injected
         // When devToolsReportSoftNavs / reportAllChanges attempts entries[0].startTime on empty array []
         try {
@@ -45,12 +54,13 @@
               try {
                 var stack = (new Error().stack || "").toLowerCase();
                 if (
+                  stack.indexOf("<anonymous>") !== -1 ||
+                  stack.indexOf("vm") !== -1 ||
                   stack.indexOf("reportallchanges") !== -1 ||
                   stack.indexOf("devtoolsreportsoftnavs") !== -1 ||
                   stack.indexOf("web-vitals") !== -1 ||
                   stack.indexOf("live-metrics") !== -1 ||
-                  stack.indexOf("interactionentry") !== -1 ||
-                  (stack.indexOf("<anonymous>") !== -1 && (stack.indexOf("timeout") !== -1 || stack.indexOf("idle") !== -1))
+                  stack.indexOf("interactionentry") !== -1
                 ) {
                   return {
                     startTime: 0,
