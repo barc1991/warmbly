@@ -9,6 +9,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import { isRTL } from "@/i18n/config";
 import {
     AREA_PAD_BOTTOM,
     AREA_PAD_TOP,
@@ -24,7 +25,7 @@ export interface ChartPoint {
 
 function shortDate(iso: string): string {
     try {
-        return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return new Date(iso).toLocaleDateString(isRTL() ? "he-IL" : "en-US", { month: "short", day: "numeric" });
     } catch {
         return iso;
     }
@@ -42,13 +43,14 @@ function compact(n: number): string {
  */
 export function EmptyChart({
     height = 200,
-    label = "No data in this window",
+    label,
     className,
 }: {
     height?: number;
     label?: string;
     className?: string;
 }) {
+    const resolvedLabel = label ?? (isRTL() ? "אין נתונים בטווח זה" : "No data in this window");
     return (
         <div
             style={{ height }}
@@ -60,7 +62,7 @@ export function EmptyChart({
             {/* faint baseline so the frame still reads as an axis */}
             <div className="absolute left-0 right-0 bottom-6 h-px bg-slate-200/70" />
             <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-[11.5px] text-slate-400">{label}</span>
+                <span className="text-[11.5px] text-slate-400">{resolvedLabel}</span>
             </div>
         </div>
     );
@@ -84,7 +86,7 @@ export function MultiTrend({
     labels,
     series,
     height = 260,
-    emptyLabel = "No activity yet",
+    emptyLabel,
     className,
 }: {
     /** ISO dates, one per x position (shared by every series). */
@@ -94,6 +96,7 @@ export function MultiTrend({
     emptyLabel?: string;
     className?: string;
 }) {
+    const resolvedEmptyLabel = emptyLabel ?? (isRTL() ? "אין פעילות עדיין" : "No activity yet");
     const total = series.reduce((s, x) => s + x.values.reduce((a, v) => a + (v || 0), 0), 0);
     const isEmpty = labels.length === 0 || series.length === 0 || total === 0;
 
@@ -103,7 +106,7 @@ export function MultiTrend({
     );
     const shortLabels = React.useMemo(() => labels.map(shortDate), [labels]);
 
-    if (isEmpty) return <EmptyChart height={height} label={emptyLabel} className={className} />;
+    if (isEmpty) return <EmptyChart height={height} label={resolvedEmptyLabel} className={className} />;
 
     const tickH = 18;
     const chartH = height - tickH - 4;

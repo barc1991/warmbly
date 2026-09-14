@@ -23,7 +23,7 @@ export function useRegisterConfirmForm() {
         try {
             await toast.promise(
                 registerConfirm.mutateAsync({ session, code: otp.map(v => v || "0").join(""), turnstile: token }),
-                { loading: "Loading...", success: "Account successfully created.", error: (err: AppError) => buildError(err) }
+                { loading: "יוצר חשבון...", success: "החשבון נוצר בהצלחה.", error: (err: AppError) => buildError(err) }
             );
             navigate("/auth/login?action=0");
         } finally { setPending(false); }

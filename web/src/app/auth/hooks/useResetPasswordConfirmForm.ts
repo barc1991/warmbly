@@ -38,7 +38,7 @@ export function useResetPasswordConfirmForm() {
         try {
             await toast.promise(
                 resetConfirm.mutateAsync({ session, password, turnstile: turnstileToken }),
-                { loading: "Loading...", success: "Password successfully changed", error: (err: AppError) => buildError(err) }
+                { loading: "מעדכן סיסמה...", success: "הסיסמה שונתה בהצלחה.", error: (err: AppError) => buildError(err) }
             );
             navigate("/auth/login?action=1");
         } finally { setPending(false); }

@@ -881,7 +881,7 @@ export function DitherMultiAreaChart({
                                                 style={{ backgroundColor: `rgb(${cr}, ${cg}, ${cb})` }}
                                             />
                                             <span>{s.label}</span>
-                                            <span className="ml-auto pl-2 font-mono tabular-nums text-slate-700">
+                                            <span className="ms-auto ps-2 font-mono tabular-nums text-slate-700">
                                                 {(s.values[hover] ?? 0).toLocaleString()}
                                             </span>
                                         </div>
@@ -1328,6 +1328,7 @@ export function DitherSlider({
         <div
             ref={trackRef}
             className={`relative flex h-5 select-none items-center ${disabled ? "opacity-50" : "cursor-pointer"} ${className ?? ""}`}
+            dir="ltr"
             onPointerDown={(e) => {
                 if (disabled) return;
                 e.currentTarget.setPointerCapture(e.pointerId);
@@ -1344,7 +1345,7 @@ export function DitherSlider({
             <button
                 type="button"
                 role="slider"
-                aria-label={label ?? "Value"}
+                aria-label={label ?? "ערך"}
                 aria-valuemin={min}
                 aria-valuemax={max}
                 aria-valuenow={value}

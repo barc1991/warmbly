@@ -30,7 +30,7 @@ export function useLoginConfirmForm() {
         try {
             const r = await toast.promise(
                 loginConfirm.mutateAsync({ session, code: otp.map(v => v || "0").join(""), turnstile: token }),
-                { loading: "Loading...", success: "Successfully authorized.", error: (err: AppError) => buildError(err) }
+                { loading: "מאמת...", success: "התחברת בהצלחה.", error: (err: AppError) => buildError(err) }
             );
             saveTokens(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v)])));
             // Drop any logged-out cache, then prime the profile with the NEW token

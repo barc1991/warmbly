@@ -23,8 +23,8 @@ function relative(d: Date, isHe = false): string {
   return d.toLocaleDateString(isHe ? "he-IL" : undefined, { month: "short", day: "numeric" });
 }
 
-function fromName(s: string): string {
-  if (!s) return "Unknown sender";
+function fromName(s: string, isHe = false): string {
+  if (!s) return isHe ? "שולח לא ידוע" : "Unknown sender";
   const m = s.match(/^"?([^"<]+)"?\s*<.+>$/);
   if (m) return m[1].trim();
   return s.replace(/<.+>/, "").trim() || s;
@@ -67,7 +67,7 @@ export function ConversationItem({ email }: ConversationItemProps) {
     .join("");
 
   const mailbox = accounts.find((a) => a.id === email.account_id);
-  const sender = fromName(email.from);
+  const sender = fromName(email.from, isHe);
   const hue = hueFor(sender);
 
   // Thread-stacking: count of messages in the conversation behind this
@@ -127,7 +127,7 @@ export function ConversationItem({ email }: ConversationItemProps) {
           {messageCount > 1 && (
             <span
               className="shrink-0 font-mono tabular-nums text-[10px] text-slate-500 bg-slate-100 rounded-full px-1.5 h-4 inline-flex items-center"
-              title={`${messageCount} messages in this conversation`}
+              title={isHe ? `${messageCount} הודעות בשיחה זו` : `${messageCount} messages in this conversation`}
             >
               {messageCount}
             </span>

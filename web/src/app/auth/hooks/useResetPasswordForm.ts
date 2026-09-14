@@ -18,7 +18,7 @@ export function useResetPasswordForm() {
         try {
             await toast.promise(
                 resetPassword.mutateAsync({ email: mail, turnstile: token }),
-                { loading: "Loading...", success: "Email successfully sent.", error: (err: AppError) => buildError(err) }
+                { loading: "שולח אימייל...", success: "אימייל נשלח בהצלחה.", error: (err: AppError) => buildError(err) }
             );
             setSent(true);
         } finally { setPending(false); }

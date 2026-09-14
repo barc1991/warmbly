@@ -479,7 +479,7 @@ function initialsFrom(contact: Contact, displayName: string): string {
     if (first || last) {
         return `${first.charAt(0) || ""}${last.charAt(0) || ""}`.toUpperCase() || "?";
     }
-    if (displayName && displayName !== "Unnamed contact") {
+    if (displayName && displayName !== "Unnamed contact" && displayName !== "איש קשר ללא שם") {
         const parts = displayName.split(/\s+/).filter(Boolean);
         return ((parts[0]?.charAt(0) || "") + (parts[1]?.charAt(0) || "")).toUpperCase() || "?";
     }
