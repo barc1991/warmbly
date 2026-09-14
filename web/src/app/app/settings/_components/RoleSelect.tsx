@@ -3,6 +3,7 @@
 // workspace created); Owner is a membership status and never appears here.
 
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { CheckIcon, ChevronDownIcon, Loader2Icon } from "lucide-react";
 import type OrganizationRole from "@/lib/api/models/app/organizations/OrganizationRole";
 import {
@@ -34,9 +35,11 @@ export default function RoleSelect({
     pending?: boolean;
     align?: "start" | "end";
 }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
     const [open, setOpen] = React.useState(false);
     const current = roles.find((r) => r.id === value);
-    const label = current?.name ?? fallbackLabel ?? "Select role";
+    const label = current?.name ?? fallbackLabel ?? (isHe ? "בחר תפקיד" : "Select role");
     const color = current ? roleColor(current) : FALLBACK_COLOR;
 
     return (
@@ -68,14 +71,14 @@ export default function RoleSelect({
                                 setOpen(false);
                                 onChange(r);
                             }}
-                            className={`w-full px-2.5 py-1.5 text-left hover:bg-slate-100 transition-colors ${
+                            className={`w-full px-2.5 py-1.5 text-start hover:bg-slate-100 transition-colors ${
                                 selected ? "bg-slate-50" : ""
                             }`}
                         >
                             <div className="flex items-center gap-2">
                                 <span className="size-1.5 rounded-full" style={{ backgroundColor: roleColor(r) }} />
                                 <span className="text-[12px] font-medium text-slate-900">{r.name}</span>
-                                {selected && <CheckIcon className="ml-auto w-3 h-3 text-slate-500" />}
+                                {selected && <CheckIcon className="ms-auto w-3 h-3 text-slate-500" />}
                             </div>
 
                         </button>
@@ -83,7 +86,7 @@ export default function RoleSelect({
                 })}
                 {roles.length === 0 && (
                     <div className="px-2.5 py-2 text-[11.5px] text-slate-500">
-                        No roles yet. Create one under Settings → Roles & access.
+                        {isHe ? "אין תפקידים עדיין. צור אחד תחת הגדרות ← תפקידים והרשאות." : "No roles yet. Create one under Settings → Roles & access."}
                     </div>
                 )}
             </PopoverMenuContent>

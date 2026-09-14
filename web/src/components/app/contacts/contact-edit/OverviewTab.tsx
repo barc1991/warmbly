@@ -402,7 +402,7 @@ function ProfileRow({
                 {label}
             </div>
             <div
-                className={`text-[12px] flex-1 text-right break-words text-slate-900 ${
+                className={`text-[12px] flex-1 text-end break-words text-slate-900 ${
                     mono ? "font-mono" : ""
                 }`}
             >

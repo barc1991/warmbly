@@ -953,7 +953,7 @@ export default function AgentPanel() {
                                                 setDraft(act.prompt);
                                                 inputRef.current?.focus();
                                             }}
-                                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-sky-50 text-right transition-colors"
+                                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-sky-50 text-start transition-colors"
                                         >
                                             <span className="font-medium text-slate-800">{act.label}</span>
                                             <span className="font-mono text-[11px] text-sky-600 font-semibold">{act.cmd}</span>

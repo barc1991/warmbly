@@ -343,7 +343,7 @@ function CampaignPicker({
                 {selected.length === 0 ? (
                     <div
                         onClick={() => setOpen((o) => !o)}
-                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600 text-right"
+                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600 text-start"
                     >
                         לא נבחרו קמפיינים. לחץ להוספה.
                     </div>
@@ -352,7 +352,7 @@ function CampaignPicker({
                         {selected.map((c) => (
                             <span
                                 key={c.id}
-                                className="inline-flex items-center gap-1 h-5 pl-1.5 pr-1 rounded text-[11px] font-medium bg-slate-900 text-white"
+                                className="inline-flex items-center gap-1 h-5 ps-1.5 pe-1 rounded text-[11px] font-medium bg-slate-900 text-white"
                             >
                                 <SendIcon className="w-2.5 h-2.5" />
                                 {c.name}
@@ -388,7 +388,7 @@ function CampaignPicker({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: placement === "top" ? 4 : -4 }}
                         transition={{ duration: 0.12 }}
-                        className={`absolute left-0 right-0 z-20 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] overflow-hidden ${
+                        className={`absolute inset-x-0 z-20 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] overflow-hidden ${
                             placement === "top" ? "bottom-full mb-1" : "top-full mt-1"
                         }`}
                     >
@@ -399,7 +399,7 @@ function CampaignPicker({
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="חיפוש קמפיינים…"
                                 autoFocus
-                                className="flex-1 h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-right"
+                                className="flex-1 h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
                             />
                         </div>
                         <div className="max-h-56 overflow-y-auto py-1">

@@ -108,7 +108,7 @@ export default function CategoryPicker({
                 {selectedChips.length === 0 ? (
                     <div
                         onClick={() => setOpen((o) => !o)}
-                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600 text-right"
+                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600 text-start"
                     >
                         {placeholder}
                     </div>
@@ -141,7 +141,7 @@ export default function CategoryPicker({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: placement === "top" ? 4 : -4 }}
                         transition={{ duration: 0.12 }}
-                        className={`absolute left-0 right-0 z-30 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] overflow-hidden ${
+                        className={`absolute inset-x-0 z-30 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] overflow-hidden ${
                             placement === "top" ? "bottom-full mb-1" : "top-full mt-1"
                         }`}
                     >
@@ -151,7 +151,7 @@ export default function CategoryPicker({
                                 onChange={(e) => setQuery(e.target.value)}
                                 placeholder={allowCreate ? "חיפוש או יצירה…" : "חיפוש…"}
                                 autoFocus
-                                className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-right"
+                                className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
                             />
                         </div>
                         <div className="max-h-56 overflow-y-auto py-1">
@@ -227,7 +227,7 @@ export function CategoryChip({
 }) {
     return (
         <span
-            className={`inline-flex items-center gap-1 ${compact ? "h-4 pl-1 pr-1 text-[10px]" : "h-5 pl-1.5 pr-1 text-[11px]"} rounded font-medium`}
+            className={`inline-flex items-center gap-1 ${compact ? "h-4 px-1 text-[10px]" : "h-5 ps-1.5 pe-1 text-[11px]"} rounded font-medium`}
             style={{
                 backgroundColor: hexToRgba(category.color, 0.12),
                 color: category.color,

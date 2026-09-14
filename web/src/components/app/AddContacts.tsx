@@ -629,7 +629,7 @@ export default function AddContacts() {
                                     {loading ? <Loading className="h-4" /> : "הוסף אנשי קשר"}
                                 </button>
                             </div>
-                            {error && <p className="text-right text-red-500">משהו השתבש</p>}
+                            {error && <p className="text-start text-red-500">משהו השתבש</p>}
                         </>}
                         {preview && <>
                             <div>

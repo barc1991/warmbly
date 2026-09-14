@@ -98,7 +98,7 @@ export default function FilterMenu({
                 key={id ?? "__all"}
                 type="button"
                 onClick={() => pick(id)}
-                className="w-full px-2.5 h-7 flex items-center gap-2 text-left hover:bg-slate-50 transition-colors"
+                className="w-full px-2.5 h-7 flex items-center gap-2 text-start hover:bg-slate-50 transition-colors"
             >
                 {color && (
                     <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -115,7 +115,7 @@ export default function FilterMenu({
                 type="button"
                 onClick={toggle}
                 className={cn(
-                    "h-6 pl-1.5 pr-1 inline-flex items-center gap-1 rounded-md border text-[10.5px] font-medium transition-colors",
+                    "h-6 ps-1.5 pe-1 inline-flex items-center gap-1 rounded-md border text-[10.5px] font-medium transition-colors",
                     active && allowAll
                         ? "border-sky-300 bg-sky-50 text-sky-700"
                         : "border-slate-200 text-slate-500 hover:text-slate-700 hover:border-slate-300",

@@ -87,14 +87,14 @@ export function ConversationItem({ email }: ConversationItemProps) {
         setSelectedAccountId(email.account_id ?? null);
       }}
       className={cn(
-        "group w-full text-left px-3 py-2 transition-colors flex items-start gap-2.5 relative",
+        "group w-full text-start px-3 py-2 transition-colors flex items-start gap-2.5 relative",
         isSelected ? "bg-sky-50/80" : "hover:bg-slate-50/80",
       )}
     >
       {unread && (
         <span
           aria-hidden
-          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-sky-500"
+          className="absolute start-0 top-2 bottom-2 w-[3px] rounded-e bg-sky-500"
         />
       )}
       <div
@@ -155,7 +155,7 @@ export function ConversationItem({ email }: ConversationItemProps) {
               />
             </span>
           )}
-          <span className="font-mono text-[10px] text-slate-400 tabular-nums shrink-0 ml-auto">
+          <span className="font-mono text-[10px] text-slate-400 tabular-nums shrink-0 ms-auto">
             {relative(date, isHe)}
           </span>
         </div>
@@ -207,7 +207,7 @@ function TagChip({ title, color }: { title: string; color: string }) {
   // carries the colour, the chip carries the name.
   return (
     <span
-      className="inline-flex items-center gap-1 h-4 pl-1 pr-1.5 rounded-sm border bg-white text-[10px] font-medium text-slate-700 overflow-hidden max-w-[120px]"
+      className="inline-flex items-center gap-1 h-4 ps-1 pe-1.5 rounded-sm border bg-white text-[10px] font-medium text-slate-700 overflow-hidden max-w-[120px]"
       style={{
         borderColor: color ? `${color}60` : "rgb(226 232 240)",
         backgroundColor: color ? `${color}12` : "white",

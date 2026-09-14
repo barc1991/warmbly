@@ -460,7 +460,7 @@ export default function AIModelsSettingsPage() {
                 ) : (
                     <div className="rounded-lg border border-slate-200 overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-right text-[12.5px]">
+                            <table className="w-full text-start text-[12.5px]">
                                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium text-[11.5px]">
                                     <tr>
                                         <th className="px-4 py-2.5">שם מפתח</th>
@@ -468,7 +468,7 @@ export default function AIModelsSettingsPage() {
                                         <th className="px-4 py-2.5">סטטוס רוטציה</th>
                                         <th className="px-4 py-2.5">בקשות / שגיאות</th>
                                         <th className="px-4 py-2.5">שימוש אחרון</th>
-                                        <th className="px-4 py-2.5 text-left">פעולות</th>
+                                        <th className="px-4 py-2.5 text-end">פעולות</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-200">
@@ -506,7 +506,7 @@ export default function AIModelsSettingsPage() {
                                                       })
                                                     : "טרם בוצע"}
                                             </td>
-                                            <td className="px-4 py-3 text-left">
+                                            <td className="px-4 py-3 text-end">
                                                 <div className="inline-flex items-center gap-1.5">
                                                     <button
                                                         type="button"
@@ -773,14 +773,14 @@ export default function AIModelsSettingsPage() {
                 ) : (
                     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-right text-[12.5px]">
+                            <table className="w-full text-start text-[12.5px]">
                                 <thead>
                                     <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-medium">
                                         <th className="py-2.5 px-3">שם מפתח</th>
                                         <th className="py-2.5 px-3">מפתח API מוסתר</th>
                                         <th className="py-2.5 px-3">ניצול מכסה (עד 2,500)</th>
                                         <th className="py-2.5 px-3">סטטוס</th>
-                                        <th className="py-2.5 px-3 text-left">פעולות</th>
+                                        <th className="py-2.5 px-3 text-end">פעולות</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -818,7 +818,7 @@ export default function AIModelsSettingsPage() {
                                                 <td className="py-2.5 px-3">
                                                     <SerperKeyStatusPill keyItem={k} />
                                                 </td>
-                                                <td className="py-2.5 px-3 text-left">
+                                                <td className="py-2.5 px-3 text-end">
                                                     <div className="flex items-center justify-end gap-1.5">
                                                         <button
                                                             type="button"

@@ -68,7 +68,7 @@ export default function ContactRecipientField({
     autoFocus,
 }: ContactRecipientFieldProps) {
     const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
+    const isHe = i18n.language?.startsWith("he");
     const [input, setInput] = React.useState("");
     const [focused, setFocused] = React.useState(false);
     const [highlight, setHighlight] = React.useState(0);
@@ -241,7 +241,7 @@ export default function ContactRecipientField({
                 <span
                     key={v}
                     className={cn(
-                        "inline-flex items-center gap-1 h-5 pl-1.5 pr-0.5 rounded-md text-[11px] font-medium max-w-full min-w-0 border",
+                        "inline-flex items-center gap-1 h-5 ps-1.5 pe-0.5 rounded-md text-[11px] font-medium max-w-full min-w-0 border",
                         looksLikeEmail(v)
                             ? "bg-sky-50 text-sky-800 border-sky-200"
                             : "bg-rose-50 text-rose-800 border-rose-200",
@@ -252,7 +252,7 @@ export default function ContactRecipientField({
                     <button
                         type="button"
                         onClick={() => onChange(value.filter((x) => x !== v))}
-                        aria-label={`Remove ${v}`}
+                        aria-label={isHe ? `הסר את ${v}` : `Remove ${v}`}
                         className="size-4 shrink-0 inline-flex items-center justify-center rounded hover:bg-black/10"
                     >
                         <XIcon className="w-2.5 h-2.5" />
@@ -260,7 +260,7 @@ export default function ContactRecipientField({
                 </span>
             ))}
             {catFilter && (
-                <span className="inline-flex items-center gap-1 h-5 pl-1.5 pr-0.5 rounded-md text-[11px] font-medium border border-slate-200 bg-slate-50 text-slate-700">
+                <span className="inline-flex items-center gap-1 h-5 ps-1.5 pe-0.5 rounded-md text-[11px] font-medium border border-slate-200 bg-slate-50 text-slate-700">
                     <span className="size-1.5 rounded-full" style={{ backgroundColor: catFilter.color }} />
                     {catFilter.title}
                     <button
@@ -269,7 +269,7 @@ export default function ContactRecipientField({
                             setCatFilter(null);
                             inputRef.current?.focus();
                         }}
-                        aria-label={`Clear ${catFilter.title} filter`}
+                        aria-label={isHe ? `נקה מסנן ${catFilter.title}` : `Clear ${catFilter.title} filter`}
                         className="size-4 shrink-0 inline-flex items-center justify-center rounded hover:bg-black/10"
                     >
                         <XIcon className="w-2.5 h-2.5" />
@@ -372,7 +372,7 @@ export default function ContactRecipientField({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
                         transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
-                        className="absolute left-0 right-0 top-full mt-1 z-30 rounded-md border border-slate-200 bg-white shadow-lg overflow-hidden"
+                        className="absolute inset-x-0 top-full mt-1 z-30 rounded-md border border-slate-200 bg-white shadow-lg overflow-hidden"
                     >
                         <AnimatedHeight>
                         {suggestions.length === 0 && matchedCats.length === 0 && searching && (
@@ -391,7 +391,7 @@ export default function ContactRecipientField({
                                 }}
                                 onMouseEnter={() => setHighlight(i)}
                                 className={cn(
-                                    "w-full px-2.5 h-7 flex items-center gap-2 text-left transition-colors",
+                                    "w-full px-2.5 h-7 flex items-center gap-2 text-start transition-colors",
                                     i === highlight ? "bg-sky-50" : "bg-white",
                                 )}
                             >
@@ -419,7 +419,7 @@ export default function ContactRecipientField({
                                     }}
                                     onMouseEnter={() => setHighlight(idx)}
                                     className={cn(
-                                        "w-full px-2.5 h-9 flex items-center gap-2 text-left transition-colors",
+                                        "w-full px-2.5 h-9 flex items-center gap-2 text-start transition-colors",
                                         idx === highlight ? "bg-sky-50" : "bg-white",
                                     )}
                                 >
@@ -551,7 +551,7 @@ export default function ContactRecipientField({
                                             disabled={added}
                                             onClick={() => toggleBrowsePick(c.email)}
                                             className={cn(
-                                                "w-full px-2.5 h-9 flex items-center gap-2 text-left transition-colors",
+                                                "w-full px-2.5 h-9 flex items-center gap-2 text-start transition-colors",
                                                 added ? "opacity-50" : "hover:bg-slate-50",
                                             )}
                                         >

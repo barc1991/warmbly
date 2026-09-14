@@ -863,7 +863,7 @@ export const ContactsProvider = ({ children }: { children: React.ReactNode }) =>
                                             <div className="absolute top-0 left-0 w-full h-full bg-white opacity-40 cursor-not-allowed"/>}
                                         </div>
                                     </div>
-                                    <p className="text-right text-red-500">{error}</p>
+                                    <p className="text-start text-red-500">{error}</p>
                                 </div>
                             </>}
                         </div>

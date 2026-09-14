@@ -2687,7 +2687,7 @@ function CreateRow({ icon, label, onClick }: { icon: React.ReactNode; label: str
         <button
             type="button"
             onClick={onClick}
-            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12.5px] text-slate-700 transition-colors hover:bg-slate-100"
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-start text-[12.5px] text-slate-700 transition-colors hover:bg-slate-100"
         >
             {icon}
             {label}
@@ -2760,11 +2760,11 @@ function AddNodeMenu({
                                 onAddEmail();
                                 setOpen(false);
                             }}
-                            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] font-medium text-slate-800 transition-colors hover:bg-slate-100"
+                            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-start text-[12px] font-medium text-slate-800 transition-colors hover:bg-slate-100"
                         >
                             <MailIcon className="w-3.5 h-3.5 text-sky-600" />
                             שליחת דוא״ל
-                            <span className="ml-auto rounded bg-slate-100 px-1 py-px text-[9px] uppercase tracking-[0.1em] text-slate-400">
+                            <span className="ms-auto rounded bg-slate-100 px-1 py-px text-[9px] uppercase tracking-[0.1em] text-slate-400">
                                 ברירת מחדל
                             </span>
                         </button>
@@ -2774,7 +2774,7 @@ function AddNodeMenu({
                                 onAddAction("switch");
                                 setOpen(false);
                             }}
-                            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] text-slate-700 transition-colors hover:bg-slate-100"
+                            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-start text-[12px] text-slate-700 transition-colors hover:bg-slate-100"
                         >
                             <SplitIcon className="w-3.5 h-3.5 text-purple-600" />
                             {SWITCH_OPTION.label}
@@ -2785,7 +2785,7 @@ function AddNodeMenu({
                                 onAddAction("ai_step");
                                 setOpen(false);
                             }}
-                            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] text-slate-700 transition-colors hover:bg-slate-100"
+                            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-start text-[12px] text-slate-700 transition-colors hover:bg-slate-100"
                         >
                             <SparklesIcon className="w-3.5 h-3.5 text-purple-600" />
                             {AI_STEP_OPTION.label}
@@ -2802,7 +2802,7 @@ function AddNodeMenu({
                                         onAddAction(o.type);
                                         setOpen(false);
                                     }}
-                                    className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] text-slate-700 transition-colors hover:bg-slate-100"
+                                    className="flex w-full items-center gap-2 px-2.5 py-1.5 text-start text-[12px] text-slate-700 transition-colors hover:bg-slate-100"
                                 >
                                     <Icon className={`w-3.5 h-3.5 ${meta.tint}`} />
                                     {o.label}
@@ -2909,7 +2909,7 @@ function NodeTypeSwitcher({
                             type="button"
                             disabled={busy}
                             onClick={() => pick(it.value)}
-                            className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-left text-[11.5px] transition-colors disabled:opacity-60 ${
+                            className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-start text-[11.5px] transition-colors disabled:opacity-60 ${
                                 active
                                     ? "border-sky-300 bg-sky-50 text-sky-700"
                                     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
@@ -3503,7 +3503,7 @@ function AIStepFields({
                                 <button
                                     type="button"
                                     onClick={() => toggle(id)}
-                                    className="flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-right text-[12.5px] text-slate-700 transition-colors hover:bg-slate-50"
+                                    className="flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-start text-[12.5px] text-slate-700 transition-colors hover:bg-slate-50"
                                 >
                                     <span
                                         className={`inline-flex size-4 shrink-0 items-center justify-center rounded border ${
@@ -3518,7 +3518,7 @@ function AIStepFields({
                                     </span>
                                 </button>
                                 {on && hasConfig && CAMPAIGN_AI_POOL_KEY[id] && (
-                                    <div className="mr-[1.35rem] mt-1 space-y-3 border-r border-slate-200 pr-3 pb-1.5">
+                                    <div className="ms-[1.35rem] mt-1 space-y-3 border-s border-slate-200 ps-3 pb-1.5">
                                         <TagPoolField
                                             label={
                                                 id === "add_tag"
@@ -3542,7 +3542,7 @@ function AIStepFields({
                     <button
                         type="button"
                         onClick={() => setAction((a) => ({ ...a, ai_allow_create_tags: !a.ai_allow_create_tags }))}
-                        className="mt-2 flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-right text-[12px] text-slate-600 transition-colors hover:bg-slate-50"
+                        className="mt-2 flex w-full items-center gap-2 rounded px-1.5 py-1.5 text-start text-[12px] text-slate-600 transition-colors hover:bg-slate-50"
                     >
                         <span
                             className={`inline-flex size-4 shrink-0 items-center justify-center rounded border ${
@@ -3602,7 +3602,7 @@ function SwitchStepFields({
                                 key={title}
                                 type="button"
                                 onClick={() => setAction((a) => ({ ...a, switch_on: mode ? "ai" : "value" }))}
-                                className={`flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-right transition-colors ${
+                                className={`flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-start transition-colors ${
                                     active
                                         ? "border-purple-300 bg-purple-50"
                                         : "border-slate-200 bg-white hover:border-slate-300"
@@ -3818,7 +3818,7 @@ function DealNameVariableMenu({ onPick }: { onPick: (token: string) => void }) {
                                 onPick(v);
                                 setOpen(false);
                             }}
-                            className="flex w-full items-center px-2.5 py-1.5 text-right font-mono text-[11.5px] text-slate-700 transition-colors hover:bg-slate-100"
+                            className="flex w-full items-center px-2.5 py-1.5 text-start font-mono text-[11.5px] text-slate-700 transition-colors hover:bg-slate-100"
                         >
                             {v}
                         </button>
@@ -3844,11 +3844,11 @@ function CurrencyPicker({ value, onChange }: { value: string; onChange: (c: stri
                 onClick={() => setOpen((o) => !o)}
                 className="inline-flex h-7 w-24 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-[12px] text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
             >
-                <span className="flex-1 truncate text-right">{value || "ILS"}</span>
+                <span className="flex-1 truncate text-start">{value || "ILS"}</span>
                 <ChevronDownIcon className="w-3 h-3 text-slate-400" />
             </button>
             {open && (
-                <div className="absolute left-0 top-full z-30 mt-1 max-h-56 w-24 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
+                <div className="absolute start-0 top-full z-30 mt-1 max-h-56 w-24 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]">
                     {DEAL_CURRENCIES.map((c) => (
                         <button
                             key={c}
@@ -3857,7 +3857,7 @@ function CurrencyPicker({ value, onChange }: { value: string; onChange: (c: stri
                                 onChange(c);
                                 setOpen(false);
                             }}
-                            className={`flex w-full items-center px-2.5 py-1.5 text-right text-[12px] transition-colors hover:bg-slate-100 ${
+                            className={`flex w-full items-center px-2.5 py-1.5 text-start text-[12px] transition-colors hover:bg-slate-100 ${
                                 c === value ? "font-medium text-slate-900" : "text-slate-700"
                             }`}
                         >

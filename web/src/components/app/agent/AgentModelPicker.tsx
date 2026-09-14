@@ -83,7 +83,7 @@ export default function AgentModelPicker() {
     };
 
     return (
-        <div ref={containerRef} className="relative inline-block text-right">
+        <div ref={containerRef} className="relative inline-block text-start">
             <button
                 type="button"
                 onClick={() => setOpen(!open)}
@@ -106,7 +106,7 @@ export default function AgentModelPicker() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -4, scale: 0.98 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute right-0 top-full mt-1 w-64 rounded-lg border border-slate-200 bg-white shadow-lg p-1.5 z-50 text-[12px]"
+                        className="absolute end-0 top-full mt-1 w-64 rounded-lg border border-slate-200 bg-white shadow-lg p-1.5 z-50 text-[12px]"
                     >
                         <div className="px-2.5 py-1.5 border-b border-slate-100 flex items-center justify-between mb-1">
                             <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
@@ -126,13 +126,13 @@ export default function AgentModelPicker() {
                                         key={m.id}
                                         type="button"
                                         onClick={() => handleSelectModel(m.id)}
-                                        className={`w-full p-2 rounded-md flex items-center justify-between text-right transition-colors ${
+                                        className={`w-full p-2 rounded-md flex items-center justify-between text-start transition-colors ${
                                             selected
                                                 ? "bg-sky-50 text-sky-900 font-medium"
                                                 : "hover:bg-slate-50 text-slate-700"
                                         }`}
                                     >
-                                        <div className="min-w-0 pr-1">
+                                        <div className="min-w-0 pe-1">
                                             <div className="flex items-center gap-1.5">
                                                 <span className="truncate">
                                                     {m.name}

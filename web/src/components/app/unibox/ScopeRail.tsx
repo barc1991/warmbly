@@ -356,7 +356,7 @@ function CollapsibleSection<T extends { id: string }>({
       <button
         type="button"
         onClick={() => setSectionOpen((v) => !v)}
-        className="w-full px-3 pt-3 pb-1 flex items-center gap-1.5 text-left"
+        className="w-full px-3 pt-3 pb-1 flex items-center gap-1.5 text-start"
       >
         {sectionOpen ? (
           <ChevronDownIcon className="w-3 h-3 text-slate-400" />
@@ -366,7 +366,7 @@ function CollapsibleSection<T extends { id: string }>({
         <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold">
           {label}
         </span>
-        <span className="ml-auto font-mono text-[10px] text-slate-400 tabular-nums">
+        <span className="ms-auto font-mono text-[10px] text-slate-400 tabular-nums">
           {items.length}
         </span>
       </button>
@@ -526,7 +526,7 @@ function FolderItem({
         }
       }}
       className={cn(
-        "group/folder w-full h-7 pl-2 pr-1 rounded-md flex items-center gap-2 transition-colors text-start rtl:text-right ltr:text-left cursor-pointer",
+        "group/folder w-full h-7 ps-2 pe-1 rounded-md flex items-center gap-2 transition-colors text-start rtl:text-right ltr:text-left cursor-pointer",
         active
           ? "bg-slate-200/80 text-slate-900"
           : "text-slate-600 hover:bg-slate-200/70 hover:text-slate-900",
@@ -615,7 +615,7 @@ function Item({
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full h-7 pl-2 pr-2 rounded-md flex items-center gap-2 transition-colors text-start rtl:text-right ltr:text-left",
+        "w-full h-7 px-2 rounded-md flex items-center gap-2 transition-colors text-start rtl:text-right ltr:text-left",
         active
           ? "bg-sky-100 text-sky-900 font-medium"
           : "text-slate-600 hover:bg-slate-200/70 hover:text-slate-900",

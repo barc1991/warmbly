@@ -44,6 +44,9 @@ export function VersionPill() {
     const updating = isUpdateRunning(admin);
     const restarting = !!started && (adminQ.isError || versionQ.isError);
 
+    const { i18n } = useTranslation();
+    const isHe = i18n.language?.startsWith("he");
+
     // The backend is back after an update this browser started: say so once,
     // then refresh everything so no page keeps stale data. The dialog handles
     // the reload itself when it is open.
@@ -55,16 +58,13 @@ export function VersionPill() {
             (admin.running?.version && admin.running?.version !== started.fromVersion);
         if (last?.status === "failed") {
             clearUpdateStarted();
-            toast.error(`The update failed: ${last.error ?? "open the version pill for the log"}`);
+            toast.error(isHe ? `העדכון נכשל: ${last.error ?? "פתח את חלון הגרסאות לצפייה בלוג"}` : `The update failed: ${last.error ?? "open the version pill for the log"}`);
         } else if (moved || last?.status === "succeeded") {
             clearUpdateStarted();
-            toast.success(`Updated to ${runningLabel(admin)}`);
+            toast.success(isHe ? `עודכן בהצלחה לגרסה ${runningLabel(admin)}` : `Updated to ${runningLabel(admin)}`);
             void qc.invalidateQueries();
         }
-    }, [started, admin, updating, open, qc]);
-
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
+    }, [started, admin, updating, open, qc, isHe]);
 
     if (!v || !selfHosted) return null;
 

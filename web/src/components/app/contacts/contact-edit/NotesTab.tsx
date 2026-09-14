@@ -80,7 +80,7 @@ export default function NotesTab({ contactId }: { contactId: string }) {
                     onChange={(e) => setDraft(e.target.value)}
                     placeholder="הוסף הערה לגבי איש קשר זה: הקשר שיסייע לאדם הבא שיבדוק אותו."
                     rows={3}
-                    className="w-full resize-none px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-400 outline-none bg-transparent text-right"
+                    className="w-full resize-none px-3 py-2 text-[12px] text-slate-900 placeholder:text-slate-400 outline-none bg-transparent text-start"
                 />
                 <div className="flex items-center justify-between border-t border-slate-100 px-2 py-1.5">
                     <span className="text-[10.5px] text-slate-400">
@@ -199,7 +199,7 @@ function NoteRow({
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         rows={3}
-                        className="w-full resize-none px-2 py-1.5 text-[12px] text-slate-900 border border-slate-200 rounded outline-none focus:border-slate-400 text-right"
+                        className="w-full resize-none px-2 py-1.5 text-[12px] text-slate-900 border border-slate-200 rounded outline-none focus:border-slate-400 text-start"
                         autoFocus
                     />
                     <div className="flex items-center gap-1 mt-1.5">
@@ -227,7 +227,7 @@ function NoteRow({
                     </div>
                 </div>
             ) : (
-                <div className="mt-1 text-[12px] text-slate-700 whitespace-pre-wrap break-words text-right">
+                <div className="mt-1 text-[12px] text-slate-700 whitespace-pre-wrap break-words text-start">
                     {note.content}
                 </div>
             )}
