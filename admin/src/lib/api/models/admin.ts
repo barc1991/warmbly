@@ -689,6 +689,9 @@ export interface UnbanUserRequest {
     reason: string;
 }
 
+// The four slices are nullable on purpose: a backend older than the
+// empty-slice fix in pg_admin.go answers null, and typing them as arrays is
+// what let `email_accounts.length` take the whole page down.
 export interface AdminUserPreview {
     user: AdminUserDetail;
     organizations: Array<{
@@ -698,7 +701,7 @@ export interface AdminUserPreview {
         owner_user_id: string;
         created_at: string;
         updated_at: string;
-    }>;
+    }> | null;
     subscriptions: Array<{
         id: string;
         organization_id: string;
@@ -707,7 +710,7 @@ export interface AdminUserPreview {
         is_enterprise: boolean;
         current_period_end?: string | null;
         trial_end?: string | null;
-    }>;
+    }> | null;
     email_accounts: Array<{
         id: string;
         email: string;
@@ -716,8 +719,8 @@ export interface AdminUserPreview {
         provider: string;
         warmup_enabled: boolean;
         last_synced_at: string;
-    }>;
-    recent_bans: UserBan[];
+    }> | null;
+    recent_bans: UserBan[] | null;
     rate_limits?: AdminUserRateLimits | null;
 }
 
