@@ -690,7 +690,13 @@ export default function SocketProvider({
             };
 
             wsRef.current.onerror = (ev) => {
-                console.error('[WS] Error:', ev);
+                // A WebSocket error event carries no detail by spec, and onclose
+                // always follows it and drives the reconnect, so this is not an
+                // error: as one it reported every deploy and sleep to PostHog.
+                console.warn('[WS] Connection error - reconnecting', {
+                    readyState: wsRef.current?.readyState,
+                    attempt: reconnectAttemptRef.current,
+                });
                 onError?.(ev);
             };
         } catch (err) {
