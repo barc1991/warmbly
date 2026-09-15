@@ -12,7 +12,24 @@
 //! with one line at boot and never fails a request.
 
 use maxminddb::{geoip2, Reader};
+use std::io::Read;
 use std::net::IpAddr;
+use std::time::Duration;
+
+/// The whole download, not one request. Nothing reads the database until it
+/// lands, so this is a boot budget; GeoLite2-ASN is around 12 MB.
+const FETCH_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// What a misconfigured URL is allowed to cost in memory.
+const MAX_DATABASE_BYTES: u64 = 128 << 20;
+
+/// How much of that a length the response claims about itself may reserve up
+/// front. GeoLite2-ASN is around 12 MB, so a real database is sized exactly and
+/// nothing else gets to allocate the whole cap on its say-so.
+const MAX_PREALLOC_BYTES: u64 = 32 << 20;
+
+/// Where the POSIX ustar magic sits in a 512-byte tar header.
+const TAR_MAGIC_OFFSET: usize = 257;
 
 /// A GeoLite2-ASN database, open for the life of the process.
 pub struct AsnDb {
@@ -20,6 +37,31 @@ pub struct AsnDb {
 }
 
 impl AsnDb {
+    /// Resolves the database from whichever source the operator configured: the
+    /// file at `path` when one is readable there, otherwise a download from
+    /// `url`. Either may be empty; with both empty ASN matching is simply off.
+    ///
+    /// A download is held in memory and never written out, so this service
+    /// needs no writable directory and no volume for it. That is free here
+    /// because `open` reads the file into memory anyway, for the reason given
+    /// on it.
+    pub async fn resolve(path: &str, url: &str) -> Option<Self> {
+        if let Some(db) = Self::open(path) {
+            return Some(db);
+        }
+        let url = url.trim();
+        if url.is_empty() {
+            return None;
+        }
+        match download(url).await {
+            Ok(bytes) => Self::from_bytes(bytes, &redact(url)),
+            Err(e) => {
+                tracing::warn!("Scanner ASN database could not be downloaded from {} ({e}), so asn: entries cannot match", redact(url));
+                None
+            }
+        }
+    }
+
     /// Opens the database at `path`, or nothing. An empty path means the
     /// operator configured none; any other failure is reported and then
     /// ignored, because a labelling refinement must never stop the service.
@@ -77,6 +119,170 @@ impl AsnDb {
             .decode::<geoip2::Asn>()
             .ok()??
             .autonomous_system_number
+    }
+}
+
+/// Downloads and unwraps a database. Kept separate from `resolve` so the
+/// unwrapping is testable without a server.
+async fn download(url: &str) -> Result<Vec<u8>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(FETCH_TIMEOUT)
+        .build()
+        .map_err(net_err)?;
+    let mut resp = client.get(url).send().await.map_err(net_err)?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    if resp
+        .content_length()
+        .is_some_and(|n| n > MAX_DATABASE_BYTES)
+    {
+        return Err(TOO_BIG.into());
+    }
+
+    // Collected chunk by chunk rather than through `bytes()`, which would
+    // allocate the whole response before its size could be judged: a chunked
+    // reply declares no length, so the cap above is not a cap at all.
+    let mut body: Vec<u8> = Vec::with_capacity(hint(resp.content_length()));
+    while let Some(chunk) = resp.chunk().await.map_err(net_err)? {
+        if body.len() as u64 + chunk.len() as u64 > MAX_DATABASE_BYTES {
+            return Err(TOO_BIG.into());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    // Borrowed, not copied into a Vec: the compressed body is already the
+    // largest thing held here and duplicating it doubles the peak for nothing.
+    unwrap_archive(&body)
+}
+
+const TOO_BIG: &str = "response is larger than a database has any reason to be";
+
+/// Strips the URL reqwest puts in its own error text. It prints the address it
+/// was given, licence key and all, so logging one defeats the redaction applied
+/// to the URL beside it.
+fn net_err(e: reqwest::Error) -> String {
+    e.without_url().to_string()
+}
+
+/// Unwraps whatever the URL served down to the database bytes. The shape is
+/// read from the content, not from the URL, because the same file is served
+/// under every naming convention there is: MaxMind's permalink hands back a
+/// .tar.gz with the database nested under a dated directory, DB-IP serves a
+/// bare .mmdb.gz, and a mirror often serves the .mmdb itself.
+fn unwrap_archive(body: &[u8]) -> Result<Vec<u8>, String> {
+    if !body.starts_with(&[0x1f, 0x8b]) {
+        return Ok(body.to_vec());
+    }
+    let mut gz = flate2::read::GzDecoder::new(body);
+
+    // Only the tar header is decompressed to decide the shape. Holding the
+    // whole decompressed archive to read one member out of it would cost its
+    // full size a second time, on top of the member itself.
+    let mut head = [0u8; TAR_MAGIC_OFFSET + 5];
+    let read = fill(&mut gz, &mut head).map_err(|e| format!("gzip: {e}"))?;
+    let rest = std::io::Cursor::new(&head[..read]).chain(gz);
+
+    if read == head.len() && &head[TAR_MAGIC_OFFSET..] == b"ustar" {
+        return first_database(rest);
+    }
+    let mut out = Vec::with_capacity(hint(gzip_size(body)));
+    // One byte past the cap, so an oversized stream is refused rather than
+    // silently truncated into something the reader would then reject.
+    let read = rest
+        .take(MAX_DATABASE_BYTES + 1)
+        .read_to_end(&mut out)
+        .map_err(|e| format!("gzip: {e}"))?;
+    if read as u64 > MAX_DATABASE_BYTES {
+        return Err(TOO_BIG.into());
+    }
+    Ok(out)
+}
+
+/// Reads until the buffer is full or the stream ends, reporting how much it
+/// got. `read_to_end` would decompress everything and `read_exact` would fail
+/// on a database smaller than the tar header this is looking for.
+fn fill(r: &mut impl Read, buf: &mut [u8]) -> std::io::Result<usize> {
+    let mut at = 0;
+    while at < buf.len() {
+        match r.read(&mut buf[at..])? {
+            0 => break,
+            n => at += n,
+        }
+    }
+    Ok(at)
+}
+
+/// The uncompressed size gzip records in its last four bytes, so the buffer can
+/// be sized once rather than grown by doubling, which for a 12 MB database
+/// means touching roughly twice that and copying it along the way.
+fn gzip_size(body: &[u8]) -> Option<u64> {
+    let footer = body.len().checked_sub(4).map(|at| &body[at..])?;
+    Some(u32::from_le_bytes([footer[0], footer[1], footer[2], footer[3]]) as u64)
+}
+
+/// A claimed length turned into a capacity to reserve. Every source of one here
+/// is the response talking about itself, so it is believed only up to a size a
+/// real database reaches; past that the buffer grows the ordinary way rather
+/// than letting four attacker-chosen bytes reserve the cap outright.
+fn hint(claimed: Option<u64>) -> usize {
+    claimed.unwrap_or(0).min(MAX_PREALLOC_BYTES) as usize
+}
+
+/// The archive's first .mmdb member. MaxMind ships one per archive alongside a
+/// licence and a changelog, so there is nothing to choose between.
+///
+/// AppleDouble sidecars are skipped rather than matched. An archive rolled up
+/// on macOS carries a ._name companion holding each file's extended attributes,
+/// it is a regular file, it sorts ahead of the file it belongs to, and
+/// ._db.mmdb ends in .mmdb like any other: taking the first match yields a few
+/// hundred bytes of xattrs and the reader then rejects them.
+fn first_database(stream: impl Read) -> Result<Vec<u8>, String> {
+    let mut archive = tar::Archive::new(stream);
+    for entry in archive.entries().map_err(|e| e.to_string())? {
+        let mut entry = entry.map_err(|e| e.to_string())?;
+        let size = entry.size();
+        let name = {
+            let path = entry.path().map_err(|e| e.to_string())?;
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default()
+                .to_string()
+        };
+        if !name.ends_with(".mmdb") || name.starts_with("._") {
+            continue;
+        }
+        if size > MAX_DATABASE_BYTES {
+            return Err(TOO_BIG.into());
+        }
+        // The header states the member's length, so this allocates exactly once.
+        let mut out = Vec::with_capacity(hint(Some(size)));
+        entry.read_to_end(&mut out).map_err(|e| e.to_string())?;
+        return Ok(out);
+    }
+    Err("archive holds no .mmdb file".into())
+}
+
+/// Keeps a download URL out of logs with its shape intact and nothing else.
+/// MaxMind's permalink carries the account's licence key in the query, a mirror
+/// can carry basic-auth credentials in the userinfo, and a warning is the one
+/// place nobody expects to find either.
+///
+/// Parsed rather than cut at the first `?`, so where the credential sits is the
+/// URL library's problem and not a guess made here.
+fn redact(raw: &str) -> String {
+    let Ok(mut url) = reqwest::Url::parse(raw) else {
+        return "<unparseable url>".to_string();
+    };
+    let _ = url.set_username("");
+    let _ = url.set_password(None);
+    url.set_fragment(None);
+    // Appended rather than set through the parser, which would percent-encode
+    // the marker into something nobody reading a log would recognise.
+    let had_query = url.query().is_some();
+    url.set_query(None);
+    match had_query {
+        true => format!("{url}?<redacted>"),
+        false => url.to_string(),
     }
 }
 
@@ -224,6 +430,101 @@ mod tests {
 
     fn db(database_type: &str, entries: &[(&str, u32)]) -> Option<AsnDb> {
         AsnDb::from_bytes(asn_db(database_type, entries), "fixture")
+    }
+
+    fn gzipped(body: &[u8]) -> Vec<u8> {
+        use std::io::Write;
+        let mut w = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        w.write_all(body).unwrap();
+        w.finish().unwrap()
+    }
+
+    /// MaxMind's permalink shape, with the AppleDouble sidecars a macOS tar
+    /// writes. They are the reason this is not simply two members: ._<name>.mmdb
+    /// is a regular file, it is written ahead of the database, and it ends in
+    /// .mmdb, so an extractor taking the first match yields extended attributes
+    /// instead of a database.
+    fn tarball(name: &str, body: &[u8]) -> Vec<u8> {
+        let mut b = tar::Builder::new(Vec::new());
+        let mut write = |path: &str, content: &[u8]| {
+            let mut h = tar::Header::new_gnu();
+            h.set_size(content.len() as u64);
+            h.set_mode(0o644);
+            h.set_cksum();
+            b.append_data(&mut h, path, content).unwrap();
+        };
+        write("GeoLite2-ASN_20260915/._COPYRIGHT.txt", b"AppleDouble");
+        write("GeoLite2-ASN_20260915/COPYRIGHT.txt", b"(c) MaxMind");
+        write(&format!("GeoLite2-ASN_20260915/._{name}"), b"AppleDouble");
+        write(&format!("GeoLite2-ASN_20260915/{name}"), body);
+        gzipped(&b.into_inner().unwrap())
+    }
+
+    // Every naming convention the same database is served under has to end in
+    // the same bytes, because the URL suffix is not read and cannot be trusted.
+    #[test]
+    fn unwraps_every_shape_a_database_is_served_in() {
+        let raw = asn_db("GeoLite2-ASN", &[("67.231.144.0/20", 22843)]);
+        for (shape, body) in [
+            ("bare mmdb", raw.clone()),
+            ("gzipped mmdb", gzipped(&raw)),
+            ("maxmind tar.gz", tarball("GeoLite2-ASN.mmdb", &raw)),
+        ] {
+            let got = unwrap_archive(&body).unwrap_or_else(|e| panic!("{shape}: {e}"));
+            assert_eq!(got, raw, "{shape} did not unwrap to the database");
+            let db = AsnDb::from_bytes(got, shape)
+                .unwrap_or_else(|| panic!("{shape} did not produce a readable database"));
+            assert_eq!(db.lookup("67.231.152.7".parse().unwrap()), Some(22843));
+        }
+    }
+
+    #[test]
+    fn an_archive_with_no_database_in_it_is_an_error() {
+        let bad = tarball("COPYRIGHT2.txt", b"no database here");
+        assert!(unwrap_archive(&bad).is_err());
+    }
+
+    // A gzip bomb is small on the wire and unbounded once expanded, so the cap
+    // has to apply to what comes out rather than to what arrives.
+    #[test]
+    fn an_oversized_database_is_refused_rather_than_held() {
+        use std::io::Write;
+        let mut w = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+        let zeroes = vec![0u8; 1 << 20];
+        for _ in 0..=(MAX_DATABASE_BYTES >> 20) {
+            w.write_all(&zeroes).unwrap();
+        }
+        let bomb = w.finish().unwrap();
+        assert!(
+            (bomb.len() as u64) < MAX_DATABASE_BYTES,
+            "the fixture has to be small on the wire to test anything"
+        );
+        assert_eq!(unwrap_archive(&bomb).unwrap_err(), TOO_BIG);
+    }
+
+    // Four bytes of the response decide a capacity, so they are believed only
+    // up to a size a database actually reaches.
+    #[test]
+    fn a_claimed_length_cannot_reserve_the_whole_cap() {
+        assert_eq!(hint(Some(12 << 20)), 12 << 20, "a real database is exact");
+        assert_eq!(hint(Some(u64::MAX)), MAX_PREALLOC_BYTES as usize);
+        assert_eq!(hint(None), 0);
+    }
+
+    // The permalink carries the account's licence key in its query string.
+    #[test]
+    fn redact_drops_the_licence_key() {
+        let url = "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-ASN&license_key=SECRET&suffix=tar.gz";
+        let got = redact(url);
+        assert!(!got.contains("SECRET"), "{got}");
+        assert_eq!(
+            got,
+            "https://download.maxmind.com/app/geoip_download?<redacted>"
+        );
+        // A mirror can carry its credential in the userinfo instead.
+        let got = redact("https://user:hunter2@mirror.example/GeoLite2-ASN.mmdb");
+        assert!(!got.contains("hunter2"), "{got}");
+        assert_eq!(got, "https://mirror.example/GeoLite2-ASN.mmdb");
     }
 
     #[test]
