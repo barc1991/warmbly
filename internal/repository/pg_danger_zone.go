@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/warmbly/warmbly/internal/models"
 )
@@ -386,6 +387,18 @@ func (r *dangerZoneRepository) hardDelete(ctx context.Context, mailboxScope, del
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// isForeignKeyViolation detects Postgres SQLSTATE 23503 (foreign_key_violation),
+// which for a write keyed on a mailbox or a user means the parent row was
+// deleted before the write landed. Matched through errors.As so a wrapped error
+// still reports.
+func isForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23503"
+	}
+	return false
 }
 
 // isUniqueViolation detects Postgres SQLSTATE 23505 (unique_violation).
