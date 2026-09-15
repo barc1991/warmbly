@@ -132,8 +132,19 @@ func (s *Server) Router(trustedProxies []string) (*gin.Engine, error) {
 		return nil, err
 	}
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
+	r.GET("/", rootPage)
 	r.GET("/forms.js", s.ServeFormsEmbedJS)
 	r.GET("/f/:publicID", s.ServeFormShell)
+
+	// A scripted caller under /api expects JSON; a human anywhere else gets the
+	// page.
+	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
+			return
+		}
+		notFoundPage(c)
+	})
 
 	// Hashed filenames, so the bundles are immutable by construction.
 	assets := r.Group("/assets", func(c *gin.Context) {
