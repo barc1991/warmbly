@@ -165,6 +165,7 @@ func TestLiveContactTimelineIsOrganizationWide(t *testing.T) {
 	ctx := context.Background()
 	repo := NewContactRepostory(handle)
 	step := uuid.New()
+	task := uuid.New()
 
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO contact_activities (contact_id, organization_id, user_id, activity_type, metadata)
@@ -184,6 +185,18 @@ func TestLiveContactTimelineIsOrganizationWide(t *testing.T) {
 	`, f.campaign, f.contact, step); err != nil {
 		t.Fatalf("seed campaign activity: %v", err)
 	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO email_link_clicks (task_id, campaign_id, contact_id, sequence_id, destination, label)
+		VALUES ($1, $2, $3, $4, 'https://example.com/pricing', 'Pricing')
+	`, task, f.campaign, f.contact, step); err != nil {
+		t.Fatalf("seed click: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO email_opens (id, task_id, campaign_id, contact_id, sequence_id, opened_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+	`, uuid.New(), task, f.campaign, f.contact, step); err != nil {
+		t.Fatalf("seed open: %v", err)
+	}
 
 	res, xerr := repo.ListTimeline(ctx, f.org, f.contact, 50, nil)
 	if xerr != nil {
@@ -194,6 +207,12 @@ func TestLiveContactTimelineIsOrganizationWide(t *testing.T) {
 	}
 	if n := countTimeline(res.Data, models.TimelineEmailSent, nil); n != 1 {
 		t.Fatalf("teammate timeline has %d email_sent events, want 1", n)
+	}
+	if n := countTimeline(res.Data, models.TimelineEmailClicked, nil); n != 1 {
+		t.Fatalf("teammate timeline has %d email_clicked events, want 1", n)
+	}
+	if n := countTimeline(res.Data, models.TimelineEmailOpened, nil); n != 1 {
+		t.Fatalf("teammate timeline has %d email_opened events, want 1", n)
 	}
 	if _, xerr := repo.ListTimeline(ctx, uuid.New(), f.contact, 50, nil); xerr != errx.ErrNotFound {
 		t.Fatalf("other organization timeline error = %v, want not found", xerr)
