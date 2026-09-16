@@ -93,8 +93,7 @@ type ContactRepository interface {
 	// 200. Powers the dashboard variable picker's real-field suggestions.
 	DistinctCustomFieldKeys(ctx context.Context, orgID uuid.UUID) ([]string, error)
 
-	// GetDetail also serves user-only reads, where orgID is nil and
-	// organization-scoped joins are skipped.
+	// GetDetail supports user-only reads with nil orgID and skips organization-scoped joins.
 	GetDetail(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, contactID uuid.UUID) (*models.ContactDetail, *errx.Error)
 	ListSentEmails(ctx context.Context, userID, contactID uuid.UUID, limit int, beforeSentAt *time.Time, beforeTaskID *uuid.UUID) (*models.ContactSentEmailsResult, *errx.Error)
 	// ListTimeline is always scoped to the selected organization.
@@ -3408,6 +3407,11 @@ func timelineKeyset(atCol string, source models.ContactTimelineSource, idCol str
 		atCol, source, idCol, first, first+1, first+2)
 }
 
+// timelineCampaignScope keeps contact and tenant checks together for campaign-backed events.
+func timelineCampaignScope(alias string) string {
+	return alias + ".contact_id = $1 AND cam.organization_id = $2"
+}
+
 // ListTimeline merges per-contact events from several source tables
 // into a single, reverse-chronological feed.
 //
@@ -3504,8 +3508,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			ORDER  BY COALESCE(t.id = ccp.dispatch_task_id, false) DESC, t.created_at DESC
 			LIMIT  1
 		) ea ON TRUE
-		WHERE ccp.contact_id = $1
-		  AND cam.organization_id = $2
+		WHERE `+timelineCampaignScope("ccp")+`
 		  AND ev.at IS NOT NULL
 		  AND (ev.at, ev.source, ccp.sequence_id) < ($3::timestamptz, $4::int, $5::uuid)
 		  AND NOT (ev.source = %[2]d AND EXISTS (
@@ -3604,8 +3607,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			JOIN   email_accounts ea ON ea.id = t.email_account_id
 			WHERE  t.id = lc.task_id
 		) ea ON TRUE
-		WHERE lc.contact_id = $1
-		  AND cam.organization_id = $2
+		WHERE ` + timelineCampaignScope("lc") + `
 		  AND ` + timelineKeyset("lc.clicked_at", models.TimelineSourceLinkClick, "lc.id", 3) + `
 		ORDER BY lc.clicked_at DESC, lc.id DESC
 		LIMIT $6
@@ -3688,8 +3690,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			JOIN   email_accounts ea ON ea.id = t.email_account_id
 			WHERE  t.id = o.task_id
 		) ea ON TRUE
-		WHERE o.contact_id = $1
-		  AND cam.organization_id = $2
+		WHERE ` + timelineCampaignScope("o") + `
 		  AND ` + timelineKeyset("o.opened_at", models.TimelineSourceOpen, "o.id", 3) + `
 		ORDER BY o.opened_at DESC, o.id DESC
 		LIMIT $6
@@ -3752,10 +3753,8 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 		return nil, errx.InternalError()
 	}
 
-	// Scope the organization-only sources together.
-	{
-		// 2. Reply intents (inbound replies with classification).
-		replyQuery := `
+	// 2. Reply intents (inbound replies with classification).
+	replyQuery := `
 			SELECT ri.id, ri.created_at, ri.intent, ri.campaign_id, cam.name, ri.task_id
 			FROM reply_intents ri
 			LEFT JOIN campaigns cam ON cam.id = ri.campaign_id
@@ -3765,33 +3764,33 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			ORDER BY ri.created_at DESC, ri.id DESC
 			LIMIT $6
 		`
-		rrows, err := r.DB.Query(ctx, replyQuery, orgID, contactEmail, after.At, afterSource, after.ID, fetch)
-		if err != nil {
-			db.CaptureError(err, replyQuery, nil, "ListTimeline replies")
+	rrows, err := r.DB.Query(ctx, replyQuery, orgID, contactEmail, after.At, afterSource, after.ID, fetch)
+	if err != nil {
+		db.CaptureError(err, replyQuery, nil, "ListTimeline replies")
+		return nil, errx.InternalError()
+	}
+	for rrows.Next() {
+		var ev models.ContactTimelineEvent
+		var id uuid.UUID
+		var intent string
+		if err := rrows.Scan(&id, &ev.At, &intent, &ev.CampaignID, &ev.CampaignName, &ev.TaskID); err != nil {
+			rrows.Close()
+			db.CaptureError(err, "", nil, "ListTimeline replies scan")
 			return nil, errx.InternalError()
 		}
-		for rrows.Next() {
-			var ev models.ContactTimelineEvent
-			var id uuid.UUID
-			var intent string
-			if err := rrows.Scan(&id, &ev.At, &intent, &ev.CampaignID, &ev.CampaignName, &ev.TaskID); err != nil {
-				rrows.Close()
-				db.CaptureError(err, "", nil, "ListTimeline replies scan")
-				return nil, errx.InternalError()
-			}
-			ev.Type = models.TimelineReplyReceived
-			ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceReplyIntent, ID: id}
-			ev.Intent = &intent
-			events = append(events, ev)
-		}
-		rrows.Close()
-		if err := rrows.Err(); err != nil {
-			db.CaptureError(err, replyQuery, nil, "ListTimeline replies rows")
-			return nil, errx.InternalError()
-		}
+		ev.Type = models.TimelineReplyReceived
+		ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceReplyIntent, ID: id}
+		ev.Intent = &intent
+		events = append(events, ev)
+	}
+	rrows.Close()
+	if err := rrows.Err(); err != nil {
+		db.CaptureError(err, replyQuery, nil, "ListTimeline replies rows")
+		return nil, errx.InternalError()
+	}
 
-		// 3. Deliverability events (bounce / complaint / unsubscribe).
-		delivQuery := `
+	// 3. Deliverability events (bounce / complaint / unsubscribe).
+	delivQuery := `
 			SELECT de.id, de.created_at, de.event_type, de.provider, de.reason,
 			       de.campaign_id, cam.name, de.task_id
 			FROM deliverability_events de
@@ -3802,38 +3801,38 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			ORDER BY de.created_at DESC, de.id DESC
 			LIMIT $7
 		`
-		drows, err := r.DB.Query(ctx, delivQuery, orgID, contactID, contactEmail, after.At, afterSource, after.ID, fetch)
-		if err != nil {
-			db.CaptureError(err, delivQuery, nil, "ListTimeline deliv")
+	drows, err := r.DB.Query(ctx, delivQuery, orgID, contactID, contactEmail, after.At, afterSource, after.ID, fetch)
+	if err != nil {
+		db.CaptureError(err, delivQuery, nil, "ListTimeline deliv")
+		return nil, errx.InternalError()
+	}
+	for drows.Next() {
+		var ev models.ContactTimelineEvent
+		var id uuid.UUID
+		var eventType, provider, reason string
+		if err := drows.Scan(&id, &ev.At, &eventType, &provider, &reason, &ev.CampaignID, &ev.CampaignName, &ev.TaskID); err != nil {
+			drows.Close()
+			db.CaptureError(err, "", nil, "ListTimeline deliv scan")
 			return nil, errx.InternalError()
 		}
-		for drows.Next() {
-			var ev models.ContactTimelineEvent
-			var id uuid.UUID
-			var eventType, provider, reason string
-			if err := drows.Scan(&id, &ev.At, &eventType, &provider, &reason, &ev.CampaignID, &ev.CampaignName, &ev.TaskID); err != nil {
-				drows.Close()
-				db.CaptureError(err, "", nil, "ListTimeline deliv scan")
-				return nil, errx.InternalError()
-			}
-			ev.Type = models.TimelineDeliverability
-			ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceDeliverability, ID: id}
-			ev.Source = &eventType
-			ev.Provider = &provider
-			if reason != "" {
-				ev.Reason = &reason
-			}
-			events = append(events, ev)
+		ev.Type = models.TimelineDeliverability
+		ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceDeliverability, ID: id}
+		ev.Source = &eventType
+		ev.Provider = &provider
+		if reason != "" {
+			ev.Reason = &reason
 		}
-		drows.Close()
-		if err := drows.Err(); err != nil {
-			db.CaptureError(err, delivQuery, nil, "ListTimeline deliv rows")
-			return nil, errx.InternalError()
-		}
+		events = append(events, ev)
+	}
+	drows.Close()
+	if err := drows.Err(); err != nil {
+		db.CaptureError(err, delivQuery, nil, "ListTimeline deliv rows")
+		return nil, errx.InternalError()
+	}
 
-		// 4. Suppression: one event per matching entry (the address itself
-		//    and its domain), at create time. Later updates are the same event.
-		suppQuery := `
+	// 4. Suppression: one event per matching entry (the address itself
+	//    and its domain), at create time. Later updates are the same event.
+	suppQuery := `
 			SELECT id, created_at, reason, source
 			FROM suppressed_recipients
 			WHERE organization_id = $1
@@ -3843,39 +3842,39 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			ORDER BY created_at DESC, id DESC
 			LIMIT $6
 		`
-		srows, err := r.DB.Query(ctx, suppQuery, orgID, contactEmail, after.At, afterSource, after.ID, fetch)
-		if err != nil {
-			db.CaptureError(err, suppQuery, nil, "ListTimeline suppression")
+	srows, err := r.DB.Query(ctx, suppQuery, orgID, contactEmail, after.At, afterSource, after.ID, fetch)
+	if err != nil {
+		db.CaptureError(err, suppQuery, nil, "ListTimeline suppression")
+		return nil, errx.InternalError()
+	}
+	for srows.Next() {
+		var id uuid.UUID
+		var sAt time.Time
+		var sReason, sSource string
+		if err := srows.Scan(&id, &sAt, &sReason, &sSource); err != nil {
+			srows.Close()
+			db.CaptureError(err, "", nil, "ListTimeline suppression scan")
 			return nil, errx.InternalError()
 		}
-		for srows.Next() {
-			var id uuid.UUID
-			var sAt time.Time
-			var sReason, sSource string
-			if err := srows.Scan(&id, &sAt, &sReason, &sSource); err != nil {
-				srows.Close()
-				db.CaptureError(err, "", nil, "ListTimeline suppression scan")
-				return nil, errx.InternalError()
-			}
-			ev := models.ContactTimelineEvent{
-				Type:   models.TimelineSuppressed,
-				At:     sAt,
-				Key:    models.ContactTimelineKey{At: sAt, Source: models.TimelineSourceSuppression, ID: id},
-				Source: &sSource,
-			}
-			if sReason != "" {
-				ev.Reason = &sReason
-			}
-			events = append(events, ev)
+		ev := models.ContactTimelineEvent{
+			Type:   models.TimelineSuppressed,
+			At:     sAt,
+			Key:    models.ContactTimelineKey{At: sAt, Source: models.TimelineSourceSuppression, ID: id},
+			Source: &sSource,
 		}
-		srows.Close()
-		if err := srows.Err(); err != nil {
-			db.CaptureError(err, suppQuery, nil, "ListTimeline suppression rows")
-			return nil, errx.InternalError()
+		if sReason != "" {
+			ev.Reason = &sReason
 		}
+		events = append(events, ev)
+	}
+	srows.Close()
+	if err := srows.Err(); err != nil {
+		db.CaptureError(err, suppQuery, nil, "ListTimeline suppression rows")
+		return nil, errx.InternalError()
+	}
 
-		// 5. Notes.
-		notesQuery := `
+	// 5. Notes.
+	notesQuery := `
 			SELECT id, created_at, user_id, content
 			FROM contact_notes
 			WHERE contact_id = $1
@@ -3884,36 +3883,36 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			ORDER BY created_at DESC, id DESC
 			LIMIT $6
 		`
-		nrows, err := r.DB.Query(ctx, notesQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
-		if err != nil {
-			db.CaptureError(err, notesQuery, nil, "ListTimeline notes")
+	nrows, err := r.DB.Query(ctx, notesQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
+	if err != nil {
+		db.CaptureError(err, notesQuery, nil, "ListTimeline notes")
+		return nil, errx.InternalError()
+	}
+	for nrows.Next() {
+		var ev models.ContactTimelineEvent
+		var id, uid uuid.UUID
+		var content string
+		if err := nrows.Scan(&id, &ev.At, &uid, &content); err != nil {
+			nrows.Close()
+			db.CaptureError(err, "", nil, "ListTimeline notes scan")
 			return nil, errx.InternalError()
 		}
-		for nrows.Next() {
-			var ev models.ContactTimelineEvent
-			var id, uid uuid.UUID
-			var content string
-			if err := nrows.Scan(&id, &ev.At, &uid, &content); err != nil {
-				nrows.Close()
-				db.CaptureError(err, "", nil, "ListTimeline notes scan")
-				return nil, errx.InternalError()
-			}
-			ev.Type = models.TimelineNote
-			ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceNote, ID: id}
-			ev.UserID = &uid
-			ev.Content = &content
-			events = append(events, ev)
-		}
-		nrows.Close()
-		if err := nrows.Err(); err != nil {
-			db.CaptureError(err, notesQuery, nil, "ListTimeline notes rows")
-			return nil, errx.InternalError()
-		}
+		ev.Type = models.TimelineNote
+		ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceNote, ID: id}
+		ev.UserID = &uid
+		ev.Content = &content
+		events = append(events, ev)
+	}
+	nrows.Close()
+	if err := nrows.Err(); err != nil {
+		db.CaptureError(err, notesQuery, nil, "ListTimeline notes rows")
+		return nil, errx.InternalError()
+	}
 
-		// 6. Meetings booked through a connected scheduling provider. The event
-		//    time is when the booking arrived; scheduled_for carries the call
-		//    window so the UI can render "Meeting on <date>".
-		meetingQuery := `
+	// 6. Meetings booked through a connected scheduling provider. The event
+	//    time is when the booking arrived; scheduled_for carries the call
+	//    window so the UI can render "Meeting on <date>".
+	meetingQuery := `
 			SELECT id, created_at, status, source, event_name, scheduled_for, join_url, canceled_reason
 			FROM meeting_bookings
 			WHERE contact_id = $1
@@ -3922,58 +3921,58 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			ORDER BY created_at DESC, id DESC
 			LIMIT $6
 		`
-		mrows, err := r.DB.Query(ctx, meetingQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
-		if err != nil {
-			db.CaptureError(err, meetingQuery, nil, "ListTimeline meetings")
+	mrows, err := r.DB.Query(ctx, meetingQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
+	if err != nil {
+		db.CaptureError(err, meetingQuery, nil, "ListTimeline meetings")
+		return nil, errx.InternalError()
+	}
+	for mrows.Next() {
+		var ev models.ContactTimelineEvent
+		var id uuid.UUID
+		var status, source, eventName, joinURL, canceledReason string
+		var scheduledFor *time.Time
+		if err := mrows.Scan(&id, &ev.At, &status, &source, &eventName, &scheduledFor, &joinURL, &canceledReason); err != nil {
+			mrows.Close()
+			db.CaptureError(err, "", nil, "ListTimeline meetings scan")
 			return nil, errx.InternalError()
 		}
-		for mrows.Next() {
-			var ev models.ContactTimelineEvent
-			var id uuid.UUID
-			var status, source, eventName, joinURL, canceledReason string
-			var scheduledFor *time.Time
-			if err := mrows.Scan(&id, &ev.At, &status, &source, &eventName, &scheduledFor, &joinURL, &canceledReason); err != nil {
-				mrows.Close()
-				db.CaptureError(err, "", nil, "ListTimeline meetings scan")
-				return nil, errx.InternalError()
-			}
-			ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceMeeting, ID: id}
-			switch status {
-			case "rescheduled":
-				ev.Type = models.TimelineMeetingRescheduled
-			case "canceled":
-				ev.Type = models.TimelineMeetingCanceled
-			default:
-				ev.Type = models.TimelineMeetingBooked
-			}
-			if eventName != "" {
-				ev.Subject = &eventName
-			}
-			if source != "" {
-				ev.Source = &source
-			}
-			if joinURL != "" {
-				ev.JoinURL = &joinURL
-			}
-			if canceledReason != "" {
-				ev.Reason = &canceledReason
-			}
-			ev.ScheduledFor = scheduledFor
-			st := status
-			ev.MeetingState = &st
-			events = append(events, ev)
+		ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceMeeting, ID: id}
+		switch status {
+		case "rescheduled":
+			ev.Type = models.TimelineMeetingRescheduled
+		case "canceled":
+			ev.Type = models.TimelineMeetingCanceled
+		default:
+			ev.Type = models.TimelineMeetingBooked
 		}
-		mrows.Close()
-		if err := mrows.Err(); err != nil {
-			db.CaptureError(err, meetingQuery, nil, "ListTimeline meetings rows")
-			return nil, errx.InternalError()
+		if eventName != "" {
+			ev.Subject = &eventName
 		}
+		if source != "" {
+			ev.Source = &source
+		}
+		if joinURL != "" {
+			ev.JoinURL = &joinURL
+		}
+		if canceledReason != "" {
+			ev.Reason = &canceledReason
+		}
+		ev.ScheduledFor = scheduledFor
+		st := status
+		ev.MeetingState = &st
+		events = append(events, ev)
+	}
+	mrows.Close()
+	if err := mrows.Err(); err != nil {
+		db.CaptureError(err, meetingQuery, nil, "ListTimeline meetings rows")
+		return nil, errx.InternalError()
+	}
 
-		// 7. Lifecycle: creation (with its first-touch source) and campaign /
-		//    category membership changes, from contact_activities. Names were
-		//    resolved when the row was written, so a renamed or deleted
-		//    campaign still reads correctly.
-		lifeQuery := `
+	// 7. Lifecycle: creation (with its first-touch source) and campaign /
+	//    category membership changes, from contact_activities. Names were
+	//    resolved when the row was written, so a renamed or deleted
+	//    campaign still reads correctly.
+	lifeQuery := `
 			SELECT id, created_at, user_id, activity_type, metadata
 			FROM contact_activities
 			WHERE contact_id = $1
@@ -3983,62 +3982,62 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			ORDER BY created_at DESC, id DESC
 			LIMIT $6
 		`
-		lrows, err := r.DB.Query(ctx, lifeQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
-		if err != nil {
-			db.CaptureError(err, lifeQuery, nil, "ListTimeline lifecycle")
+	lrows, err := r.DB.Query(ctx, lifeQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
+	if err != nil {
+		db.CaptureError(err, lifeQuery, nil, "ListTimeline lifecycle")
+		return nil, errx.InternalError()
+	}
+	for lrows.Next() {
+		var ev models.ContactTimelineEvent
+		var rowID uuid.UUID
+		var typ string
+		var meta map[string]any
+		if err := lrows.Scan(&rowID, &ev.At, &ev.UserID, &typ, &meta); err != nil {
+			lrows.Close()
+			db.CaptureError(err, "", nil, "ListTimeline lifecycle scan")
 			return nil, errx.InternalError()
 		}
-		for lrows.Next() {
-			var ev models.ContactTimelineEvent
-			var rowID uuid.UUID
-			var typ string
-			var meta map[string]any
-			if err := lrows.Scan(&rowID, &ev.At, &ev.UserID, &typ, &meta); err != nil {
-				lrows.Close()
-				db.CaptureError(err, "", nil, "ListTimeline lifecycle scan")
-				return nil, errx.InternalError()
+		ev.Type = models.ContactTimelineEventType(typ)
+		ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceActivity, ID: rowID}
+		str := func(k string) *string {
+			if v, ok := meta[k].(string); ok && v != "" {
+				return &v
 			}
-			ev.Type = models.ContactTimelineEventType(typ)
-			ev.Key = models.ContactTimelineKey{At: ev.At, Source: models.TimelineSourceActivity, ID: rowID}
-			str := func(k string) *string {
-				if v, ok := meta[k].(string); ok && v != "" {
-					return &v
-				}
-				return nil
-			}
-			id := func(k string) *uuid.UUID {
-				if v, ok := meta[k].(string); ok {
-					if u, perr := uuid.Parse(v); perr == nil {
-						return &u
-					}
-				}
-				return nil
-			}
-			switch ev.Type {
-			case models.TimelineContactCreated:
-				ev.Source = str("source")
-				ev.SourceDetail = str("source_detail")
-			case models.TimelineCampaignAdded, models.TimelineCampaignRemoved:
-				ev.CampaignID = id("campaign_id")
-				ev.CampaignName = str("campaign_name")
-			case models.TimelineCategoryAdded, models.TimelineCategoryRemoved:
-				ev.CategoryID = id("category_id")
-				ev.CategoryTitle = str("category_title")
-			case models.TimelineFormSubmitted:
-				ev.FormID = id("form_id")
-				ev.FormName = str("form_name")
-			}
-			events = append(events, ev)
+			return nil
 		}
-		lrows.Close()
-		if err := lrows.Err(); err != nil {
-			db.CaptureError(err, lifeQuery, nil, "ListTimeline lifecycle rows")
-			return nil, errx.InternalError()
+		id := func(k string) *uuid.UUID {
+			if v, ok := meta[k].(string); ok {
+				if u, perr := uuid.Parse(v); perr == nil {
+					return &u
+				}
+			}
+			return nil
 		}
+		switch ev.Type {
+		case models.TimelineContactCreated:
+			ev.Source = str("source")
+			ev.SourceDetail = str("source_detail")
+		case models.TimelineCampaignAdded, models.TimelineCampaignRemoved:
+			ev.CampaignID = id("campaign_id")
+			ev.CampaignName = str("campaign_name")
+		case models.TimelineCategoryAdded, models.TimelineCategoryRemoved:
+			ev.CategoryID = id("category_id")
+			ev.CategoryTitle = str("category_title")
+		case models.TimelineFormSubmitted:
+			ev.FormID = id("form_id")
+			ev.FormName = str("form_name")
+		}
+		events = append(events, ev)
+	}
+	lrows.Close()
+	if err := lrows.Err(); err != nil {
+		db.CaptureError(err, lifeQuery, nil, "ListTimeline lifecycle rows")
+		return nil, errx.InternalError()
+	}
 
-		// 8. Website page views from any browser tied to the contact through
-		//    an email-link ticket.
-		hitQuery := `
+	// 8. Website page views from any browser tied to the contact through
+	//    an email-link ticket.
+	hitQuery := `
 			SELECT h.id, h.visitor_id, h.session_key, h.occurred_at,
 			       h.url, h.path, h.title, h.referrer, h.referrer_domain, h.landing,
 			       h.utm_source, h.utm_medium, h.utm_campaign, h.utm_term, h.utm_content,
@@ -4052,46 +4051,44 @@ func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID u
 			ORDER BY h.occurred_at DESC, h.id DESC
 			LIMIT $6
 		`
-		hrows, err := r.DB.Query(ctx, hitQuery, orgID, contactID, after.At, afterSource, after.ID, fetch)
-		if err != nil {
-			db.CaptureError(err, hitQuery, nil, "ListTimeline page hits")
-			return nil, errx.InternalError()
-		}
-		for hrows.Next() {
-			var h models.WebsitePageHit
-			if err := hrows.Scan(
-				&h.ID, &h.VisitorID, &h.SessionKey, &h.OccurredAt,
-				&h.URL, &h.Path, &h.Title, &h.Referrer, &h.ReferrerDomain, &h.Landing,
-				&h.UTMSource, &h.UTMMedium, &h.UTMCampaign, &h.UTMTerm, &h.UTMContent,
-				&h.DeviceType, &h.OS, &h.Browser, &h.BrowserVersion, &h.DeviceBrand,
-				&h.Language, &h.Timezone, &h.ScreenWidth, &h.ScreenHeight,
-				&h.CountryCode, &h.Region, &h.City,
-			); err != nil {
-				hrows.Close()
-				db.CaptureError(err, "", nil, "ListTimeline page hits scan")
-				return nil, errx.InternalError()
-			}
-			hit := h
-			ev := models.ContactTimelineEvent{
-				Type:    models.TimelinePageHit,
-				At:      h.OccurredAt,
-				Key:     models.ContactTimelineKey{At: h.OccurredAt, Source: models.TimelineSourcePageHit, ID: h.ID},
-				PageHit: &hit,
-			}
-			subject := h.Title
-			if subject == "" {
-				subject = h.Path
-			}
-			ev.Subject = &subject
-			events = append(events, ev)
-		}
-		hrows.Close()
-		if err := hrows.Err(); err != nil {
-			db.CaptureError(err, hitQuery, nil, "ListTimeline page hits rows")
-			return nil, errx.InternalError()
-		}
+	hrows, err := r.DB.Query(ctx, hitQuery, orgID, contactID, after.At, afterSource, after.ID, fetch)
+	if err != nil {
+		db.CaptureError(err, hitQuery, nil, "ListTimeline page hits")
+		return nil, errx.InternalError()
 	}
-
+	for hrows.Next() {
+		var h models.WebsitePageHit
+		if err := hrows.Scan(
+			&h.ID, &h.VisitorID, &h.SessionKey, &h.OccurredAt,
+			&h.URL, &h.Path, &h.Title, &h.Referrer, &h.ReferrerDomain, &h.Landing,
+			&h.UTMSource, &h.UTMMedium, &h.UTMCampaign, &h.UTMTerm, &h.UTMContent,
+			&h.DeviceType, &h.OS, &h.Browser, &h.BrowserVersion, &h.DeviceBrand,
+			&h.Language, &h.Timezone, &h.ScreenWidth, &h.ScreenHeight,
+			&h.CountryCode, &h.Region, &h.City,
+		); err != nil {
+			hrows.Close()
+			db.CaptureError(err, "", nil, "ListTimeline page hits scan")
+			return nil, errx.InternalError()
+		}
+		hit := h
+		ev := models.ContactTimelineEvent{
+			Type:    models.TimelinePageHit,
+			At:      h.OccurredAt,
+			Key:     models.ContactTimelineKey{At: h.OccurredAt, Source: models.TimelineSourcePageHit, ID: h.ID},
+			PageHit: &hit,
+		}
+		subject := h.Title
+		if subject == "" {
+			subject = h.Path
+		}
+		ev.Subject = &subject
+		events = append(events, ev)
+	}
+	hrows.Close()
+	if err := hrows.Err(); err != nil {
+		db.CaptureError(err, hitQuery, nil, "ListTimeline page hits rows")
+		return nil, errx.InternalError()
+	}
 	// Merge sort: newest first, ties broken exactly as each source query
 	// broke them, so the page boundary is the same position everywhere.
 	sort.Slice(events, func(i, j int) bool { return events[j].Key.Before(events[i].Key) })
