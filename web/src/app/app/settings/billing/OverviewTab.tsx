@@ -182,7 +182,7 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                                 <SparklesIcon className="w-3 h-3" />
                                 {onFreeTier ? "Choose a plan" : "Change plan"}
                             </button>
-                            <button
+                            {flow.hasBillingCustomer && <button
                                 type="button"
                                 onClick={flow.openPortal}
                                 disabled={flow.portalPending}
@@ -194,8 +194,8 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                                     <CreditCardIcon className="w-3 h-3" />
                                 )}
                                 Payment method
-                            </button>
-                            <button
+                            </button>}
+                            {flow.hasBillingCustomer && <button
                                 type="button"
                                 onClick={flow.openPortal}
                                 disabled={flow.portalPending}
@@ -203,7 +203,7 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                             >
                                 <FileTextIcon className="w-3 h-3" />
                                 Invoices
-                            </button>
+                            </button>}
                             <Link
                                 to="/app/settings/limits"
                                 className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
@@ -211,7 +211,7 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                                 <SlidersHorizontalIcon className="w-3 h-3" />
                                 Request a limit increase
                             </Link>
-                            {!onFreeTier && (
+                            {flow.hasStripeSubscription && (
                                 <div className="ml-auto">
                                     {cancelAtEnd ? (
                                         <button

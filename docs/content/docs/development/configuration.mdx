@@ -471,6 +471,8 @@ Set these on the backend and the consumer.
 | `BILLING_PROVIDER` | `none` (every feature unlocked, no trial expiry; the dashboard reports the workspace as self-hosted rather than on a free tier and hides billing) or `stripe` | `none` |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY` | Required together when `BILLING_PROVIDER=stripe`. The backend exits at boot if any is missing | unset |
 
+Stripe also needs an active default billing portal configuration, with payment method updates, billing email updates and invoice history enabled. Point its webhook endpoint at `/webhook/stripe` using API version `2023-10-16`, matching stripe-go v76. A newer webhook version is rejected by the SDK even with a valid signature. Subscribe to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed` and `charge.refunded`. If you replace the endpoint, update `STRIPE_WEBHOOK_SECRET` to the new endpoint’s signing secret before disabling the old endpoint.
+
 Delayed sends run through the local poller, so the backend must be running for scheduled work to fire.
 
 ## Observability
