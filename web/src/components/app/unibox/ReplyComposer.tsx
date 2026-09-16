@@ -54,18 +54,16 @@ import {
 import { cn } from "@/lib/utils";
 import { plainToHtml } from "@/lib/email/body";
 import { bareEmail, nameFromAddr } from "@/lib/helper/emailAddress";
+import {
+    loadReplyDraft,
+    replyDraftKey,
+    type ReplyMode,
+    type ReplySeed,
+} from "@/lib/unibox/replyDraft";
 
-export type ReplyMode = "reply" | "forward";
+import { useReplyDraft } from "@/lib/unibox/useReplyDraft";
 
-// Restored content for a cancelled undo-send reply: the composer reopens
-// with exactly what was about to go out.
-export interface ReplySeed {
-    to: string[];
-    cc: string[];
-    bcc: string[];
-    subject: string;
-    body: string;
-}
+export type { ReplyMode, ReplySeed } from "@/lib/unibox/replyDraft";
 
 interface ReplyComposerProps {
     threadId: string;
@@ -159,18 +157,37 @@ function deriveDefaults(replyTo: UniboxEmail, mode: ReplyMode) {
 export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyComposerProps) {
     const accounts = useAppStore((s) => s.emails);
     const { user } = useUserProfile();
+    const orgId = useAppStore((s) => s.currentOrganization?.id);
     const addOutbox = useOutboxStore((s) => s.add);
 
     const initial = React.useMemo(() => deriveDefaults(replyTo, mode), [replyTo, mode]);
 
-    const [body, setBody] = React.useState(seed?.body ?? "");
-    const [subject, setSubject] = React.useState(seed?.subject ?? initial.subject);
-    const [to, setTo] = React.useState<string[]>(seed?.to ?? initial.to);
-    const [cc, setCc] = React.useState<string[]>(seed?.cc ?? []);
-    const [bcc, setBcc] = React.useState<string[]>(seed?.bcc ?? []);
-    const [showCc, setShowCc] = React.useState((seed?.cc.length ?? 0) > 0);
-    const [showBcc, setShowBcc] = React.useState((seed?.bcc.length ?? 0) > 0);
+    const draftKey = orgId ? replyDraftKey(user.id, orgId, threadId, replyTo.id, mode) : null;
+    // A cancelled undo-send seed wins over a stored draft.
+    const [restored] = React.useState<ReplySeed | null>(
+        () => seed ?? (draftKey ? loadReplyDraft(draftKey) : null),
+    );
+
+    const [body, setBody] = React.useState(restored?.body ?? "");
+    const [subject, setSubject] = React.useState(restored?.subject ?? initial.subject);
+    const [to, setTo] = React.useState<string[]>(
+        restored?.to ?? initial.to,
+    );
+    const [cc, setCc] = React.useState<string[]>(restored?.cc ?? []);
+    const [bcc, setBcc] = React.useState<string[]>(restored?.bcc ?? []);
+    const [showCc, setShowCc] = React.useState((restored?.cc.length ?? 0) > 0);
+    const [showBcc, setShowBcc] = React.useState((restored?.bcc.length ?? 0) > 0);
     const [isSending, setIsSending] = React.useState(false);
+    const draft = useReplyDraft(draftKey, { to, cc, bcc, subject, body }, {
+        to: initial.to, cc: [], bcc: [], subject: initial.subject, body: "",
+    });
+    const closeKeepingDraft = () => {
+        if (!draft.flush()) {
+            toast.error("Could not save this draft in your browser. Keep a copy before leaving.");
+            return;
+        }
+        onClose();
+    };
 
     const [scheduleOpen, setScheduleOpen] = React.useState(false);
     const [customMode, setCustomMode] = React.useState(false);
@@ -208,8 +225,10 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     // teammate's presence diff, an arriving mail, a mark-seen, any realtime
     // invalidation). Depending on it cleared the body between keystrokes, which
     // made a reply impossible to type.
+    const resumeDraft = draft.resume;
     React.useEffect(() => {
         if (!seed) return;
+        resumeDraft();
         setSubject(seed.subject);
         setTo(seed.to);
         setCc(seed.cc);
@@ -217,7 +236,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
         setShowCc(seed.cc.length > 0);
         setShowBcc(seed.bcc.length > 0);
         setBody(seed.body);
-    }, [seed]);
+    }, [seed, resumeDraft]);
 
     // Resolve the sending mailbox from the target message's
     // account_id. We look it up in the global emails store so we have
@@ -258,6 +277,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             }
         }
 
+        const submittedDraft = { to, cc, bcc, subject, body };
+        draft.flush();
         setIsSending(true);
         const sentSubject = subject.trim() || (mode === "forward" ? "Fwd:" : "Re:");
         try {
@@ -310,7 +331,9 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             }
             setScheduleOpen(false);
             setCustomMode(false);
-            onClose();
+            const completed = draft.complete(submittedDraft);
+            if (!completed.cleared) toast.error("Reply queued, but the saved draft could not be removed. Discard it before sending again.");
+            if (completed.close) onClose();
         } catch {
             toast.error(mode === "forward" ? "Failed to forward" : "Failed to send reply");
         } finally {
@@ -415,11 +438,34 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     to {replyToName}
                     <span className="text-slate-400"> · {replyTargetSubject}</span>
                 </span>
+                {draft.saved && (
+                    <span className="hidden sm:inline text-[10.5px] text-slate-400 shrink-0">
+                        Draft saved
+                    </span>
+                )}
+                {draft.failed && (
+                    <span role="status" className="text-[10.5px] text-amber-700 shrink-0">
+                        Draft not saved
+                    </span>
+                )}
+                {draft.hasDraft && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (draft.discard()) onClose();
+                            else toast.error("Could not remove the saved draft. Browser storage is unavailable.");
+                        }}
+                        title="Discard this draft"
+                        className="h-6 px-1.5 rounded-md text-[10.5px] text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors shrink-0"
+                    >
+                        Discard
+                    </button>
+                )}
                 <button
                     type="button"
-                    onClick={onClose}
-                    aria-label="Close composer"
-                    title="Close composer"
+                    onClick={closeKeepingDraft}
+                    aria-label="Close composer, keeping the draft"
+                    title="Close, keeping the draft"
                     className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors shrink-0"
                 >
                     <XIcon className="w-3.5 h-3.5" />
@@ -526,7 +572,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         if (canSend) handleInstant();
                     } else if (e.key === "Escape") {
                         e.preventDefault();
-                        onClose();
+                        e.stopPropagation();
+                        closeKeepingDraft();
                     }
                 }}
                 className="w-full min-h-[120px] max-h-72 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-y focus:outline-none"
@@ -749,16 +796,6 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         setBody((b) => (b.trim() ? `${b.trimEnd()}\n\n${text}` : text).slice(0, MAX_BODY_LEN))
                     }
                 />
-
-                {body && (
-                    <button
-                        type="button"
-                        onClick={() => setBody("")}
-                        className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
-                    >
-                        Discard
-                    </button>
-                )}
 
                 <span
                     className={cn(
