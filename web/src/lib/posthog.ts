@@ -172,10 +172,27 @@ const NOISE = [
 const NOISE_TYPES = ["AuthError"];
 
 function isNoise(properties: Properties): boolean {
-    const types = properties.$exception_types;
-    if (Array.isArray(types) && types.some((t) => typeof t === "string" && NOISE_TYPES.includes(t))) {
+    const exceptionList = properties.$exception_list;
+    if (Array.isArray(exceptionList) && exceptionList.some((exception) => {
+        if (!exception || typeof exception !== "object") return false;
+        const entry = exception as Record<string, unknown>;
+        const type = entry.type ?? entry.$exception_type;
+        const value = entry.value ?? entry.$exception_value;
+        return (typeof type === "string" && NOISE_TYPES.includes(type))
+            || (typeof value === "string" && NOISE.includes(value.trim()));
+    })) {
         return true;
     }
+
+    const type = properties.$exception_type;
+    if (typeof type === "string" && NOISE_TYPES.includes(type)) return true;
+    const message = properties.$exception_message;
+    if (typeof message === "string" && NOISE.includes(message.trim())) return true;
+
+    // Keep accepting flattened payloads while cached SDK chunks are still in
+    // browsers during a rolling release.
+    const types = properties.$exception_types;
+    if (Array.isArray(types) && types.some((t) => typeof t === "string" && NOISE_TYPES.includes(t))) return true;
     const values = properties.$exception_values;
     if (!Array.isArray(values)) return false;
     return values.some((v) => typeof v === "string" && NOISE.includes(v.trim()));

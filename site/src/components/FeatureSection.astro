@@ -463,7 +463,7 @@ const mockCol = wide ? `lg:col-span-8 ${side === 'left' ? 'lg:-ml-10' : 'lg:-mr-
       run();
       requestAnimationFrame(run);
       const shell = screen.closest<HTMLElement>('.feat-frame-shell');
-      if (shell) new ResizeObserver(run).observe(shell);
+      if (shell) new ResizeObserver(() => requestAnimationFrame(run)).observe(shell);
     });
     window.addEventListener('load', fitAll);
     window.addEventListener('resize', fitAll);

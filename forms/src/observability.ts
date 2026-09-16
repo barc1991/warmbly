@@ -129,6 +129,17 @@ const NOISE = [
 
 function dropBrowserNoise(event: CaptureResult | null): CaptureResult | null {
     if (!event?.properties || event.event !== "$exception") return event;
+    const exceptionList = event.properties.$exception_list;
+    if (Array.isArray(exceptionList) && exceptionList.some((exception) => {
+        if (!exception || typeof exception !== "object") return false;
+        const entry = exception as Record<string, unknown>;
+        const value = entry.value ?? entry.$exception_value;
+        return typeof value === "string" && NOISE.includes(value.trim());
+    })) return null;
+    const message = event.properties.$exception_message;
+    if (typeof message === "string" && NOISE.includes(message.trim())) return null;
+    // Keep accepting flattened payloads while cached SDK chunks are still in
+    // browsers during a rolling release.
     const values = event.properties.$exception_values;
     if (!Array.isArray(values)) return event;
     if (values.some((v) => typeof v === "string" && NOISE.includes(v.trim()))) return null;
