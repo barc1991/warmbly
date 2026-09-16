@@ -34,7 +34,7 @@ func NewAuthRepostory(db *db.DB) AuthRepository {
 
 func (r *authRepository) IsValidCredentials(ctx context.Context, email, password string) (uuid.UUID, *errx.Error) {
 	var id uuid.UUID
-	var pw string
+	var pw *string
 
 	query := `
 		SELECT id, password_hash
@@ -59,7 +59,12 @@ func (r *authRepository) IsValidCredentials(ctx context.Context, email, password
 		return uuid.Nil, errx.InternalError()
 	}
 
-	val, err := argon2.Verify(password, pw)
+	// External sign-in accounts have no password until one is set through a reset.
+	if pw == nil || *pw == "" {
+		return uuid.Nil, errx.ErrCredentials
+	}
+
+	val, err := argon2.Verify(password, *pw)
 	if err != nil {
 		errs.CaptureException(err)
 		return uuid.Nil, errx.InternalError()
