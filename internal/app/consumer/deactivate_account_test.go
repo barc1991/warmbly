@@ -188,6 +188,9 @@ func TestEveryDeactivationPathRemovesTheMailboxFromItsWorker(t *testing.T) {
 				ErrorType:      "critical",
 				Message:        "the grant is gone",
 			}
+			if name == "rate limited" {
+				event.ErrorCode = string(errx.MailErrorCodeRateLimitExceeded)
+			}
 			if err := handle(s, context.Background(), event); err != nil {
 				t.Fatalf("handler returned %v", err)
 			}
@@ -200,6 +203,33 @@ func TestEveryDeactivationPathRemovesTheMailboxFromItsWorker(t *testing.T) {
 			}
 			if pub.removed[0].workerID != workerID || pub.removed[0].emailID != emailID.String() {
 				t.Errorf("removal = %+v, want worker %s and mailbox %s", pub.removed[0], workerID, emailID)
+			}
+		})
+	}
+}
+
+func TestProviderThrottleDoesNotDeactivateMailbox(t *testing.T) {
+	for _, code := range []errx.MailErrorCode{
+		errx.MailErrorCodeSendingTooFast,
+		errx.MailErrorCodeQuotaExceeded,
+	} {
+		t.Run(string(code), func(t *testing.T) {
+			workerID := uuid.New()
+			userID := uuid.New()
+			emailID := uuid.New()
+			s, repo, pub := newDeactivationFixture(&workerID)
+
+			err := s.HandleEmailRateLimited(context.Background(), models.EmailErrorEvent{
+				EmailAccountID: emailID.String(),
+				UserID:         userID.String(),
+				ErrorCode:      string(code),
+				ErrorType:      string(errx.MailErrorWarning),
+			})
+			if err != nil {
+				t.Fatalf("handler returned %v", err)
+			}
+			if repo.updateCalls != 0 || len(pub.removed) != 0 {
+				t.Fatalf("provider throttle changed mailbox state: %d updates, %d removals", repo.updateCalls, len(pub.removed))
 			}
 		})
 	}

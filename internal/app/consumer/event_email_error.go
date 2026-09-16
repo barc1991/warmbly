@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/repository"
 )
@@ -141,6 +142,21 @@ func (s *JobsService) HandleEmailDisabled(ctx context.Context, event models.Emai
 
 // HandleEmailRateLimited handles rate limit exceeded errors (anti-abuse)
 func (s *JobsService) HandleEmailRateLimited(ctx context.Context, event models.EmailErrorEvent) error {
+	// Older workers grouped provider 429/quota responses onto this topic. Only
+	// Warmbly's own abuse and fair-use decisions may deactivate a mailbox.
+	switch errx.MailErrorCode(event.ErrorCode) {
+	case errx.MailErrorCodeRateLimitExceeded,
+		errx.MailErrorCodeSyncFlood,
+		errx.MailErrorCodeSyncFairUse:
+		// Continue with deactivation below.
+	default:
+		log.Info().
+			Str("email_account_id", event.EmailAccountID).
+			Str("error_code", event.ErrorCode).
+			Msg("Treating provider rate limit as a temporary mailbox error")
+		return s.HandleEmailServerError(ctx, event)
+	}
+
 	log.Warn().
 		Str("email_account_id", event.EmailAccountID).
 		Str("error_code", event.ErrorCode).
