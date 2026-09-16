@@ -38,20 +38,6 @@ func TestLiveContactTimelineAccess(t *testing.T) {
 
 	author, teammate, viewer, restricted := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	org, otherOrg, contactID := uuid.New(), uuid.New(), uuid.New()
-	for _, user := range []uuid.UUID{author, teammate, viewer, restricted} {
-		exec(`INSERT INTO users (id, email, first_name, last_name, password_hash) VALUES ($1, $2, 'Issue550', 'Test', 'x')`, user, user.String()+"@test.local")
-	}
-	exec(`INSERT INTO organizations (id, name, slug, owner_user_id) VALUES ($1, 'Issue 550', $2, $3), ($4, 'Other workspace', $5, $3)`, org, org.String(), author, otherOrg, otherOrg.String())
-	exec(`INSERT INTO organization_members (organization_id, user_id, role, permissions, accepted_at) VALUES
-		($1, $2, 'owner', $7, NOW()),
-		($1, $3, 'manager', $8, NOW()),
-		($1, $4, 'viewer', $8, NOW()),
-		($1, $5, 'manager', 0, NOW()),
-		($6, $2, 'owner', $7, NOW())`,
-		org, author, teammate, viewer, restricted, otherOrg, int64(-1), int64(models.PermViewContacts))
-	exec(`INSERT INTO contacts (id, user_id, organization_id, email, first_name, last_name, company, phone, custom_fields, updated_at, created_at)
-		VALUES ($1, $2, $3, $4, 'Timeline', 'Contact', '', '', '{}', NOW(), NOW())`, contactID, author, org, contactID.String()+"@test.local")
-	exec(`INSERT INTO contact_notes (contact_id, organization_id, user_id, content) VALUES ($1, $2, $3, 'Visible to the workspace')`, contactID, org, author)
 	t.Cleanup(func() {
 		cleanupCtx := context.Background()
 		for _, step := range []struct {
@@ -69,6 +55,20 @@ func TestLiveContactTimelineAccess(t *testing.T) {
 			}
 		}
 	})
+	for _, user := range []uuid.UUID{author, teammate, viewer, restricted} {
+		exec(`INSERT INTO users (id, email, first_name, last_name, password_hash) VALUES ($1, $2, 'Issue550', 'Test', 'x')`, user, user.String()+"@test.local")
+	}
+	exec(`INSERT INTO organizations (id, name, slug, owner_user_id) VALUES ($1, 'Issue 550', $2, $3), ($4, 'Other workspace', $5, $3)`, org, org.String(), author, otherOrg, otherOrg.String())
+	exec(`INSERT INTO organization_members (organization_id, user_id, role, permissions, accepted_at) VALUES
+		($1, $2, 'owner', $7, NOW()),
+		($1, $3, 'manager', $8, NOW()),
+		($1, $4, 'viewer', $8, NOW()),
+		($1, $5, 'manager', 0, NOW()),
+		($6, $2, 'owner', $7, NOW())`,
+		org, author, teammate, viewer, restricted, otherOrg, int64(-1), int64(models.PermViewContacts))
+	exec(`INSERT INTO contacts (id, user_id, organization_id, email, first_name, last_name, company, phone, custom_fields, updated_at, created_at)
+		VALUES ($1, $2, $3, $4, 'Timeline', 'Contact', '', '', '{}', NOW(), NOW())`, contactID, author, org, contactID.String()+"@test.local")
+	exec(`INSERT INTO contact_notes (contact_id, organization_id, user_id, content) VALUES ($1, $2, $3, 'Visible to the workspace')`, contactID, org, author)
 
 	h := &Handler{ContactService: contact.NewService(repository.NewContactRepostory(handle), nil, nil)}
 	m := &middleware.Handler{OrganizationService: organization.NewService(repository.NewOrganizationRepository(handle.Pool), nil, nil, nil, nil)}
