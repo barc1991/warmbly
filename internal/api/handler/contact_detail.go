@@ -143,11 +143,6 @@ func (h *Handler) ListContactCampaignStates(c *gin.Context) {
 // and require a selected organization; we 400 if there isn't one to
 // avoid silently returning a misleadingly thin feed.
 func (h *Handler) ListContactTimeline(c *gin.Context) {
-	userID, err := middleware.GetUserUUID(c)
-	if err != nil {
-		errx.Handle(c, errx.ErrAuth)
-		return
-	}
 	contactID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		errx.Handle(c, errx.ErrUuid)
@@ -194,7 +189,7 @@ func (h *Handler) ListContactTimeline(c *gin.Context) {
 		cursor = &models.ContactTimelineKey{At: t}
 	}
 
-	res, xerr := h.ContactService.ListTimeline(c.Request.Context(), userID, orgID, contactID, limit, cursor)
+	res, xerr := h.ContactService.ListTimeline(c.Request.Context(), *orgID, contactID, limit, cursor)
 	if xerr != nil {
 		errx.Handle(c, xerr)
 		return

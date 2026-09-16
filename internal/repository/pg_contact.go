@@ -93,11 +93,12 @@ type ContactRepository interface {
 	// 200. Powers the dashboard variable picker's real-field suggestions.
 	DistinctCustomFieldKeys(ctx context.Context, orgID uuid.UUID) ([]string, error)
 
-	// 360 view read paths. orgID is optional — when nil, the suppression
-	// + deliverability + reply joins are skipped (they're org-scoped).
+	// GetDetail also serves user-only reads, where orgID is nil and
+	// organization-scoped joins are skipped.
 	GetDetail(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, contactID uuid.UUID) (*models.ContactDetail, *errx.Error)
 	ListSentEmails(ctx context.Context, userID, contactID uuid.UUID, limit int, beforeSentAt *time.Time, beforeTaskID *uuid.UUID) (*models.ContactSentEmailsResult, *errx.Error)
-	ListTimeline(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, contactID uuid.UUID, limit int, cursor *models.ContactTimelineKey) (*models.ContactTimelineResult, *errx.Error)
+	// ListTimeline is always scoped to the selected organization.
+	ListTimeline(ctx context.Context, orgID, contactID uuid.UUID, limit int, cursor *models.ContactTimelineKey) (*models.ContactTimelineResult, *errx.Error)
 	// ListCampaignStates returns the contact's campaigns with their flow,
 	// this contact's progress on every step, and the derived lead status.
 	ListCampaignStates(ctx context.Context, orgID, contactID uuid.UUID) ([]models.ContactCampaignState, *errx.Error)
@@ -3431,7 +3432,7 @@ func timelineKeyset(atCol string, source models.ContactTimelineSource, idCol str
 // the cursor on that tuple, so two events at the same instant, from the
 // same table or different ones, land on one side of a page boundary or the
 // other and are never skipped or repeated. A nil cursor is the first page.
-func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, contactID uuid.UUID, limit int, cursor *models.ContactTimelineKey) (*models.ContactTimelineResult, *errx.Error) {
+func (r *contactRepository) ListTimeline(ctx context.Context, orgID, contactID uuid.UUID, limit int, cursor *models.ContactTimelineKey) (*models.ContactTimelineResult, *errx.Error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
@@ -3442,8 +3443,8 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 	// off email rather than contact_id.
 	var contactEmail string
 	if err := r.DB.QueryRow(ctx,
-		`SELECT email FROM contacts WHERE id = $1 AND user_id = $2`,
-		contactID, userID,
+		`SELECT email FROM contacts WHERE id = $1 AND organization_id = $2`,
+		contactID, orgID,
 	).Scan(&contactEmail); err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, errx.ErrNotFound
@@ -3504,7 +3505,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			LIMIT  1
 		) ea ON TRUE
 		WHERE ccp.contact_id = $1
-		  AND cam.user_id    = $2
+		  AND cam.organization_id = $2
 		  AND ev.at IS NOT NULL
 		  AND (ev.at, ev.source, ccp.sequence_id) < ($3::timestamptz, $4::int, $5::uuid)
 		  AND NOT (ev.source = %[2]d AND EXISTS (
@@ -3526,9 +3527,9 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 		models.TimelineSourceProgressReplied,
 		models.TimelineSourceProgressBounced,
 	)
-	prows, err := r.DB.Query(ctx, progressQuery, contactID, userID, after.At, afterSource, after.ID, fetch)
+	prows, err := r.DB.Query(ctx, progressQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
 	if err != nil {
-		db.CaptureError(err, progressQuery, []any{contactID, userID, after.At, afterSource, after.ID, fetch}, "ListTimeline progress")
+		db.CaptureError(err, progressQuery, []any{contactID, orgID, after.At, afterSource, after.ID, fetch}, "ListTimeline progress")
 		return nil, errx.InternalError()
 	}
 	for prows.Next() {
@@ -3604,14 +3605,14 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			WHERE  t.id = lc.task_id
 		) ea ON TRUE
 		WHERE lc.contact_id = $1
-		  AND cam.user_id   = $2
+		  AND cam.organization_id = $2
 		  AND ` + timelineKeyset("lc.clicked_at", models.TimelineSourceLinkClick, "lc.id", 3) + `
 		ORDER BY lc.clicked_at DESC, lc.id DESC
 		LIMIT $6
 	`
-	crows, err := r.DB.Query(ctx, clickQuery, contactID, userID, after.At, afterSource, after.ID, fetch)
+	crows, err := r.DB.Query(ctx, clickQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
 	if err != nil {
-		db.CaptureError(err, clickQuery, []any{contactID, userID, after.At, afterSource, after.ID, fetch}, "ListTimeline link clicks")
+		db.CaptureError(err, clickQuery, []any{contactID, orgID, after.At, afterSource, after.ID, fetch}, "ListTimeline link clicks")
 		return nil, errx.InternalError()
 	}
 	for crows.Next() {
@@ -3688,14 +3689,14 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			WHERE  t.id = o.task_id
 		) ea ON TRUE
 		WHERE o.contact_id = $1
-		  AND cam.user_id  = $2
+		  AND cam.organization_id = $2
 		  AND ` + timelineKeyset("o.opened_at", models.TimelineSourceOpen, "o.id", 3) + `
 		ORDER BY o.opened_at DESC, o.id DESC
 		LIMIT $6
 	`
-	orows, err := r.DB.Query(ctx, openQuery, contactID, userID, after.At, afterSource, after.ID, fetch)
+	orows, err := r.DB.Query(ctx, openQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
 	if err != nil {
-		db.CaptureError(err, openQuery, []any{contactID, userID, after.At, afterSource, after.ID, fetch}, "ListTimeline opens")
+		db.CaptureError(err, openQuery, []any{contactID, orgID, after.At, afterSource, after.ID, fetch}, "ListTimeline opens")
 		return nil, errx.InternalError()
 	}
 	for orows.Next() {
@@ -3751,7 +3752,8 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 		return nil, errx.InternalError()
 	}
 
-	if orgID != nil {
+	// Scope the organization-only sources together.
+	{
 		// 2. Reply intents (inbound replies with classification).
 		replyQuery := `
 			SELECT ri.id, ri.created_at, ri.intent, ri.campaign_id, cam.name, ri.task_id
@@ -3763,7 +3765,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			ORDER BY ri.created_at DESC, ri.id DESC
 			LIMIT $6
 		`
-		rrows, err := r.DB.Query(ctx, replyQuery, *orgID, contactEmail, after.At, afterSource, after.ID, fetch)
+		rrows, err := r.DB.Query(ctx, replyQuery, orgID, contactEmail, after.At, afterSource, after.ID, fetch)
 		if err != nil {
 			db.CaptureError(err, replyQuery, nil, "ListTimeline replies")
 			return nil, errx.InternalError()
@@ -3800,7 +3802,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			ORDER BY de.created_at DESC, de.id DESC
 			LIMIT $7
 		`
-		drows, err := r.DB.Query(ctx, delivQuery, *orgID, contactID, contactEmail, after.At, afterSource, after.ID, fetch)
+		drows, err := r.DB.Query(ctx, delivQuery, orgID, contactID, contactEmail, after.At, afterSource, after.ID, fetch)
 		if err != nil {
 			db.CaptureError(err, delivQuery, nil, "ListTimeline deliv")
 			return nil, errx.InternalError()
@@ -3841,7 +3843,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			ORDER BY created_at DESC, id DESC
 			LIMIT $6
 		`
-		srows, err := r.DB.Query(ctx, suppQuery, *orgID, contactEmail, after.At, afterSource, after.ID, fetch)
+		srows, err := r.DB.Query(ctx, suppQuery, orgID, contactEmail, after.At, afterSource, after.ID, fetch)
 		if err != nil {
 			db.CaptureError(err, suppQuery, nil, "ListTimeline suppression")
 			return nil, errx.InternalError()
@@ -3882,7 +3884,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			ORDER BY created_at DESC, id DESC
 			LIMIT $6
 		`
-		nrows, err := r.DB.Query(ctx, notesQuery, contactID, *orgID, after.At, afterSource, after.ID, fetch)
+		nrows, err := r.DB.Query(ctx, notesQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
 		if err != nil {
 			db.CaptureError(err, notesQuery, nil, "ListTimeline notes")
 			return nil, errx.InternalError()
@@ -3920,7 +3922,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			ORDER BY created_at DESC, id DESC
 			LIMIT $6
 		`
-		mrows, err := r.DB.Query(ctx, meetingQuery, contactID, *orgID, after.At, afterSource, after.ID, fetch)
+		mrows, err := r.DB.Query(ctx, meetingQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
 		if err != nil {
 			db.CaptureError(err, meetingQuery, nil, "ListTimeline meetings")
 			return nil, errx.InternalError()
@@ -3981,7 +3983,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			ORDER BY created_at DESC, id DESC
 			LIMIT $6
 		`
-		lrows, err := r.DB.Query(ctx, lifeQuery, contactID, *orgID, after.At, afterSource, after.ID, fetch)
+		lrows, err := r.DB.Query(ctx, lifeQuery, contactID, orgID, after.At, afterSource, after.ID, fetch)
 		if err != nil {
 			db.CaptureError(err, lifeQuery, nil, "ListTimeline lifecycle")
 			return nil, errx.InternalError()
@@ -4050,7 +4052,7 @@ func (r *contactRepository) ListTimeline(ctx context.Context, userID uuid.UUID, 
 			ORDER BY h.occurred_at DESC, h.id DESC
 			LIMIT $6
 		`
-		hrows, err := r.DB.Query(ctx, hitQuery, *orgID, contactID, after.At, afterSource, after.ID, fetch)
+		hrows, err := r.DB.Query(ctx, hitQuery, orgID, contactID, after.At, afterSource, after.ID, fetch)
 		if err != nil {
 			db.CaptureError(err, hitQuery, nil, "ListTimeline page hits")
 			return nil, errx.InternalError()
