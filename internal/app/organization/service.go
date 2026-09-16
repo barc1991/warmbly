@@ -69,6 +69,11 @@ type OrganizationService interface {
 	GetMembers(ctx context.Context, orgID uuid.UUID) ([]models.OrganizationMember, *errx.Error)
 	GetMembership(ctx context.Context, orgID, userID uuid.UUID) (*models.OrganizationMember, *errx.Error)
 	InviteMember(ctx context.Context, orgID uuid.UUID, inviterID uuid.UUID, req *models.InviteMemberRequest) (*models.OrganizationInvitation, *errx.Error)
+	// AttachTester joins a tester account to an existing workspace without an
+	// invitation. Operator-only: the admin is not a member, so there is no
+	// actor permission to check against, and the authority is the
+	// manage_testers bit plus the admin audit row the caller writes.
+	AttachTester(ctx context.Context, orgID, userID, adminID, roleID uuid.UUID) (*models.OrganizationMember, *errx.Error)
 	AcceptInvitation(ctx context.Context, token string, userID uuid.UUID, email string) (*models.OrganizationMember, *errx.Error)
 	AcceptInvitationByID(ctx context.Context, invitationID, userID uuid.UUID, email string) (*models.OrganizationMember, *errx.Error)
 	PreviewInvitation(ctx context.Context, token string) (*models.InvitationPreview, *errx.Error)
@@ -446,6 +451,78 @@ func (s *organizationService) GetUserDefaultOrganization(ctx context.Context, us
 		return nil, errx.New(errx.Internal, "failed to get default organization")
 	}
 	return org, nil
+}
+
+// AttachTester joins a user to an existing workspace directly, bypassing the
+// invitation round trip. It exists for one case: a reviewer who has to see a
+// real workspace and cannot read this instance's mail, so neither the invite
+// email nor the accept-as-the-invited-address check can be satisfied.
+//
+// It deliberately does NOT take the escalation check InviteMember applies. That
+// check asks whether the actor holds every permission they are handing out, and
+// an operator is not a member of the workspace at all, so there is nothing to
+// compare against. What stands in for it is the manage_testers permission bit
+// on the route and the admin audit row the handler writes.
+//
+// Idempotent: an existing membership is returned untouched rather than
+// re-roled, so a repeated call cannot quietly widen what a tester can reach.
+func (s *organizationService) AttachTester(ctx context.Context, orgID, userID, adminID, roleID uuid.UUID) (*models.OrganizationMember, *errx.Error) {
+	if _, xerr := s.Get(ctx, orgID); xerr != nil {
+		return nil, xerr
+	}
+
+	// Before the seat check, so a repeat call cannot be refused for a seat it
+	// already holds.
+	if existing, err := s.orgRepo.GetMember(ctx, orgID, userID); err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to read the membership")
+	} else if existing != nil {
+		return existing, nil
+	}
+
+	role, err := s.orgRepo.GetRoleByID(ctx, orgID, roleID)
+	if err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to load the role")
+	}
+	if role == nil {
+		return nil, errx.New(errx.BadRequest, "that role does not exist in this workspace")
+	}
+
+	// Last gate before the write, and the workspace's own: a tester occupies a
+	// seat like anyone else, so exceeding it silently would bill wrong and read
+	// as a bug later.
+	canAdd, xerr := s.CanAddMember(ctx, orgID)
+	if xerr != nil {
+		return nil, xerr
+	}
+	if !canAdd {
+		return nil, errx.New(errx.Forbidden, "that workspace is at its team member limit")
+	}
+
+	now := time.Now()
+	member := &models.OrganizationMember{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		UserID:         userID,
+		Role:           role.Name,
+		RoleID:         &role.ID,
+		Permissions:    role.Permissions,
+		// Recorded as invited by the operator who made the tester, so the
+		// members list names somebody rather than showing a member nobody added.
+		InvitedBy:  &adminID,
+		InvitedAt:  now,
+		AcceptedAt: &now,
+	}
+	if err := s.orgRepo.AddMemberWithRoles(ctx, member, []uuid.UUID{role.ID}); err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to add the tester to the workspace")
+	}
+
+	if updated, _ := s.orgRepo.GetMember(ctx, orgID, userID); updated != nil {
+		return updated, nil
+	}
+	return member, nil
 }
 
 // GetMembers retrieves all members of an organization

@@ -1470,6 +1470,7 @@ func Run(
 		adminRoutes.GET("/organizations", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminListOrganizations)
 		adminRoutes.GET("/organizations/:id", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetOrganization)
 		adminRoutes.GET("/organizations/:id/members", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetOrganizationMembers)
+		adminRoutes.GET("/organizations/:id/roles", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetOrganizationRoles)
 		adminRoutes.GET("/organizations/:id/overrides", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetOrgOverrides)
 		adminRoutes.PUT("/organizations/:id/overrides", middleware.RequireAdminPermission(models.AdminPermManageOrganizations), h.AdminUpdateOrgOverrides)
 		// A plan granted by an operator rather than Stripe. Same permission as
