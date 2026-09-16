@@ -139,6 +139,16 @@ func permanentSendFailure(err *errx.MailError) bool {
 	return false
 }
 
+// providerThrottle is a temporary limit imposed by the mailbox provider. It
+// must not be raised as Warmbly's anti-abuse RATE_LIMIT_EXCEEDED event, which
+// deactivates the mailbox and removes it from warmup.
+func providerThrottle(err *errx.MailError) bool {
+	if err == nil {
+		return false
+	}
+	return err.Code == errx.MailErrorCodeSendingTooFast || err.Code == errx.MailErrorCodeQuotaExceeded
+}
+
 // Send attempts to send an email with retry for transient failures
 func (w *WMail) Send(ctx context.Context, req *SendRequest) *SendResult {
 	// For warmup emails, ensure HTML is empty
@@ -180,6 +190,12 @@ func (w *WMail) Send(ctx context.Context, req *SendRequest) *SendResult {
 		// server answered with a 5xx, so it will answer the same way next
 		// time and another attempt only spends the mailbox's daily budget.
 		if permanentSendFailure(result.Error) {
+			return result
+		}
+		// Retrying a 429 in one, two and four seconds only extends the provider's
+		// throttle. Return it to the scheduler, which already rolls the send back
+		// for a later attempt.
+		if providerThrottle(result.Error) {
 			return result
 		}
 
@@ -496,7 +512,7 @@ func DetermineErrorEventType(err *errx.MailError) models.JobEventType {
 	case errx.MailErrorCodeAccountSuspended, errx.MailErrorCodeAuthorizationFailed:
 		return models.JobEventTypeEmailDisabled
 
-	case errx.MailErrorCodeRateLimitExceeded, errx.MailErrorCodeSendingTooFast, errx.MailErrorCodeQuotaExceeded:
+	case errx.MailErrorCodeRateLimitExceeded:
 		return models.JobEventTypeEmailRateLimited
 
 	case errx.MailErrorCodeServerUnreachable, errx.MailErrorCodeConnectionLost, errx.MailErrorCodeNotFound:

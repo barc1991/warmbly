@@ -27,7 +27,10 @@ func reportable(err error) bool {
 	// mailbox (rate limit, sync fair use, flood) stay reportable, because an
 	// operator does want to see those.
 	switch mailErr.Code {
-	case errx.MailErrorCodeSendingTooFast, errx.MailErrorCodeQuotaExceeded:
+	case errx.MailErrorCodeSendingTooFast,
+		errx.MailErrorCodeQuotaExceeded,
+		errx.MailErrorCodeServerUnreachable,
+		errx.MailErrorCodeConnectionLost:
 		return false
 	}
 	return true
