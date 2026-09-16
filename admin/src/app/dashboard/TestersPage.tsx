@@ -26,6 +26,7 @@ import { useAdminPerm } from "@/hooks/useAdminPerm";
 import { AdminPerm } from "@/lib/auth/permissions";
 import { createTester, listTesters, listOrganizationRoles, revokeTester } from "@/lib/api/client/admin/testers";
 import { listOrganizations } from "@/lib/api/client/admin/organizations";
+import { DASHBOARD_URL } from "@/lib/env";
 import type { AdminOrgListItem, CreatedTester } from "@/lib/api/models/admin";
 
 function fmt(ts?: string | null) {
@@ -110,6 +111,12 @@ export default function TestersPage() {
     }
 
     const rows = testers.data?.data ?? [];
+    // A wrong sign-in address that looks plausible is the failure mode here: it
+    // is copied straight into a vendor's verification form. The local default
+    // surviving onto a deployed panel means nobody configured one.
+    const looksUnset =
+        /^https?:\/\/localhost(:|\/|$)/.test(DASHBOARD_URL) &&
+        !/^https?:\/\/localhost(:|\/|$)/.test(window.location.origin);
 
     return (
         <div className="p-4 space-y-6">
@@ -138,7 +145,7 @@ export default function TestersPage() {
                     </div>
                     <dl className="mt-2 grid gap-1.5 text-xs">
                         {[
-                            ["Sign in at", window.location.origin.replace("admin.", "dev.")],
+                            ["Sign in at", DASHBOARD_URL],
                             ["Email", created.email],
                             ["Password", created.password],
                         ].map(([k, v]) => (
@@ -156,6 +163,13 @@ export default function TestersPage() {
                             </div>
                         ))}
                     </dl>
+                    {looksUnset && (
+                        <div className="text-[11px] text-red-700 mt-1.5">
+                            That sign-in address is this panel&apos;s build-time default, not this
+                            deployment&apos;s dashboard. Set <code>VITE_DASHBOARD_URL</code> (or{" "}
+                            <code>WARMBLY_DASHBOARD_URL</code>) before sending it to anyone.
+                        </div>
+                    )}
                     <Button size="sm" variant="ghost" className="mt-2 h-7" onClick={() => setCreated(null)}>
                         Done
                     </Button>
