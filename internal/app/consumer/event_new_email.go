@@ -97,7 +97,7 @@ func (s *JobsService) ingestNewEmail(ctx context.Context, e *models.JobEventNewE
 	// (replyclassify) and persists reply_class/confidence/source on the contact's
 	// campaign progress, gating replied_at so automated replies (auto_reply /
 	// out_of_office) never count as a human reply for stop_on_reply / branching.
-	if s.AdvancedService != nil {
+	if s.AdvancedService != nil && e.Message.MayBeInbound() {
 		// Logged, not propagated: the ingest must survive it, but a silent
 		// failure here is indistinguishable from a reply that linked fine.
 		if xerr := s.AdvancedService.ProcessIncomingReply(ctx, e.Message.EmailID, e.Message); xerr != nil {

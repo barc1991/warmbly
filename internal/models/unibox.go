@@ -270,6 +270,19 @@ func NormalizeFolder(folder string, flags []string) string {
 	return FolderInbox
 }
 
+func outboundOnlyFolder(folder string) bool {
+	return folder == FolderSent || folder == FolderDrafts
+}
+
+// MayBeInbound reports whether neither folder placement proves the message outbound.
+func (e *EmailMessageStoreData) MayBeInbound() bool {
+	if e == nil {
+		return false
+	}
+	return !outboundOnlyFolder(NormalizeFolder(e.Folder, e.Flags)) &&
+		!outboundOnlyFolder(e.ProviderFolder)
+}
+
 type MailSearchResult struct {
 	Data       []EmailMessageStoreDataPreview `json:"data"`
 	Pagination CPagination                    `json:"pagination"`
