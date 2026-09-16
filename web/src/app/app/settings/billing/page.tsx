@@ -205,14 +205,14 @@ export default function BillingSettingsPage() {
         <SectionShell
             title="Billing"
             description={`Plan, payment and invoices for ${currentOrg?.name ?? "this workspace"}.`}
-            actions={
+            actions={flow.hasBillingCustomer ? (
                 <TopbarAction
                     icon={<ExternalLinkIcon className="w-3 h-3" />}
                     onClick={openPortal}
                 >
                     {flow.portalPending ? "Opening…" : "Manage billing"}
                 </TopbarAction>
-            }
+            ) : undefined}
         >
             <div>
                 <div className="sticky top-0 z-20 bg-white/95 backdrop-blur px-2 md:px-6 flex items-center gap-1 border-b border-slate-200/70 overflow-x-auto">
@@ -281,8 +281,9 @@ export default function BillingSettingsPage() {
                                                 ctaVerb={currentPlan.id === "free" ? "Get" : "Switch to"}
                                                 footer={
                                                     <ProrationNote
+                                                        interval={billingInterval}
                                                         planId={flow.resolveServerPlan(id)?.id}
-                                                        enabled={currentPlan.id !== "free" && currentPlan.id !== id}
+                                                        enabled={flow.hasStripeSubscription && currentPlan.id !== id}
                                                     />
                                                 }
                                                 onChoose={() => upgrade(id)}
@@ -395,7 +396,13 @@ export default function BillingSettingsPage() {
                             </>
                         )}
 
-                        {tab === "payment" && (
+                        {tab === "payment" && !flow.hasBillingCustomer && (
+                            <Section eyebrow="Payment" description="Complete checkout to set up billing. Operator-granted plans do not create a Stripe billing account.">
+                                <button type="button" onClick={() => navigate(pathForTab("plans"))} className="h-7 px-3 rounded-md bg-slate-900 text-white text-[12px]">Choose a plan</button>
+                            </Section>
+                        )}
+
+                        {tab === "payment" && flow.hasBillingCustomer && (
                             <>
                                 <Section
                                     eyebrow="Payment"
@@ -523,12 +530,14 @@ function fmtDate(value?: string | null): string {
 // What a switch costs today, shown on each plan card for a paying workspace.
 // An empty id disables the query, so free workspaces and the current plan never
 // hit /subscription/preview-change.
-function ProrationNote({ planId, enabled }: { planId?: string; enabled: boolean }) {
-    const preview = usePreviewPlanChange(enabled && planId ? planId : "");
+function ProrationNote({ planId, enabled, interval }: { planId?: string; enabled: boolean; interval: BillingInterval }) {
+    const preview = usePreviewPlanChange(enabled && interval === "monthly" && planId ? planId : "");
     if (!enabled) return null;
     return (
         <div className="rounded-md border border-slate-200/80 bg-slate-50 px-2.5 py-1.5 text-[11px] leading-snug">
-            {preview.isPending ? (
+            {interval === "annual" ? (
+                <span className="text-slate-500">Stripe calculates annual proration when you switch.</span>
+            ) : preview.isPending ? (
                 <span className="text-slate-400">Pricing this switch…</span>
             ) : preview.data ? (
                 <>
@@ -539,9 +548,9 @@ function ProrationNote({ planId, enabled }: { planId?: string; enabled: boolean 
                                 preview.data.proration_amount,
                                 preview.data.currency,
                             );
-                            if (due > 0) return `Due today $${fmtMoney(due)}`;
-                            if (due < 0) return `Credit $${fmtMoney(Math.abs(due))}`;
-                            return "No charge today";
+                            if (due > 0) return `Estimated proration $${fmtMoney(due)}`;
+                            if (due < 0) return `Estimated credit $${fmtMoney(Math.abs(due))}`;
+                            return "No estimated proration";
                         })()}
                     </div>
                     <div className="text-slate-400">

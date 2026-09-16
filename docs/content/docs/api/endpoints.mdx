@@ -416,6 +416,8 @@ Alongside them, `api_url` is this API's own public base (for a copyable example 
 - All of `/pool-link/*` and `/cloud-link/*` (the self-hosted warmup pool link: approving an instance's code, listing and unlinking instances, reading the pool plan's price and opening its checkout, and on a self-hosted instance the connect flow and mailbox enrollment). `POST /pool-link/codes` and `POST /pool-link/poll` are public and per-IP rate limited: they are the device-code handshake an instance uses before it has a token, and `/pool-link/instance/*` accepts only an instance token. `/pool-link/instance/oauth/*`, `/pool-link/instance/mailboxes/:id/token`, `/pool-link/instance/workspace-mailboxes` and `/pool-link/instance/mailboxes/adopt` are the cloud-managed mailbox surface (Google and Microsoft sign-in on Warmbly's OAuth apps, brokered access tokens); their instance-side counterparts are `/cloud-link/oauth/*` and `/cloud-link/workspace-mailboxes/*`
 - All of `/admin/*`
 
+`POST /subscription/portal` requires an existing Stripe billing customer. A workspace without one receives `400` with code `bad_request` and a message to complete checkout first; free and operator-granted plans alone do not create a billing customer.
+
 ### Referrals and discounts
 
 The referral program and billing discount history are part of `/subscription/*`, so they are JWT only and never accept an API key. There is no API permission scope for them; browser callers are gated by the org permission below. The discount validation and checkout endpoints are listed under [Subscription and billing](/api/reference/account-org/) in the reference.

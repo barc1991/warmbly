@@ -262,8 +262,6 @@ func (s *stripeService) CreateCheckoutSession(ctx context.Context, userID uuid.U
 
 	if customerID != "" {
 		params.Customer = stripe.String(customerID)
-	} else {
-		params.CustomerCreation = stripe.String("always")
 	}
 
 	// Auto-apply the invitee's referral discount when none was supplied, so a
@@ -508,7 +506,13 @@ func (s *stripeService) AutoTopUpCredits(ctx context.Context, orgID uuid.UUID, p
 }
 
 func (s *stripeService) CreatePortalSession(ctx context.Context, customerID, returnURL string) (string, *errx.Error) {
+	// Free and managed subscriptions may not have a Stripe customer yet.
+	if strings.TrimSpace(customerID) == "" {
+		return "", errx.New(errx.BadRequest, "This workspace has no billing account yet. Complete checkout before opening the billing portal.")
+	}
+
 	params := &stripe.BillingPortalSessionParams{
+		Params:    stripe.Params{Context: ctx},
 		Customer:  stripe.String(customerID),
 		ReturnURL: stripe.String(returnURL),
 	}
@@ -550,7 +554,7 @@ func (s *stripeService) ChangePlan(ctx context.Context, orgID uuid.UUID, newPlan
 	if err != nil {
 		return nil, errx.New(errx.Internal, "failed to get subscription")
 	}
-	if sub == nil || sub.StripeSubscriptionID == nil {
+	if sub == nil || sub.StripeSubscriptionID == nil || strings.TrimSpace(*sub.StripeSubscriptionID) == "" {
 		return nil, errx.New(errx.BadRequest, "no active subscription")
 	}
 
@@ -561,10 +565,10 @@ func (s *stripeService) ChangePlan(ctx context.Context, orgID uuid.UUID, newPlan
 
 	// Pick the monthly or yearly Stripe price for the requested interval.
 	priceID := newPlan.StripePriceID
-	if interval == string(models.DurationYear) && newPlan.StripePriceIDYearly != nil {
+	if interval == string(models.DurationYear) {
 		priceID = newPlan.StripePriceIDYearly
 	}
-	if priceID == nil {
+	if priceID == nil || strings.TrimSpace(*priceID) == "" {
 		return nil, errx.New(errx.BadRequest, "plan has no Stripe price")
 	}
 
@@ -588,7 +592,7 @@ func (s *stripeService) ChangePlan(ctx context.Context, orgID uuid.UUID, newPlan
 		return nil, xerr
 	}
 
-	if len(stripeSub.Items.Data) == 0 {
+	if stripeSub.Items == nil || len(stripeSub.Items.Data) == 0 {
 		return nil, errx.New(errx.Internal, "subscription has no items")
 	}
 
@@ -659,7 +663,7 @@ func (s *stripeService) PreviewPlanChange(ctx context.Context, orgID uuid.UUID, 
 	if err != nil {
 		return nil, errx.New(errx.Internal, "failed to get subscription")
 	}
-	if sub == nil || sub.StripeSubscriptionID == nil {
+	if sub == nil || sub.StripeSubscriptionID == nil || strings.TrimSpace(*sub.StripeSubscriptionID) == "" {
 		return nil, errx.New(errx.BadRequest, "no active subscription")
 	}
 
@@ -669,7 +673,7 @@ func (s *stripeService) PreviewPlanChange(ctx context.Context, orgID uuid.UUID, 
 	if err != nil || newPlan == nil {
 		return nil, errx.New(errx.NotFound, "plan not found")
 	}
-	if newPlan.StripePriceID == nil {
+	if newPlan.StripePriceID == nil || strings.TrimSpace(*newPlan.StripePriceID) == "" {
 		return nil, errx.New(errx.BadRequest, "plan has no Stripe price")
 	}
 
@@ -679,7 +683,7 @@ func (s *stripeService) PreviewPlanChange(ctx context.Context, orgID uuid.UUID, 
 		return nil, xerr
 	}
 
-	if len(stripeSub.Items.Data) == 0 {
+	if stripeSub.Items == nil || len(stripeSub.Items.Data) == 0 {
 		return nil, errx.New(errx.Internal, "subscription has no items")
 	}
 
@@ -742,7 +746,7 @@ func (s *stripeService) ProcessWebhookEvent(ctx context.Context, event *stripe.E
 	// Process based on event type
 	var processErr *errx.Error
 	switch event.Type {
-	case "checkout.session.completed":
+	case "checkout.session.completed", "checkout.session.async_payment_succeeded":
 		processErr = s.handleCheckoutCompleted(ctx, event)
 	case "checkout.session.expired":
 		processErr = s.handleCheckoutExpired(ctx, event)
@@ -817,11 +821,13 @@ func (s *stripeService) handleCheckoutCompleted(ctx context.Context, event *stri
 	// Get or create subscription record
 	var sub *models.Subscription
 	if hasOrgID {
-		sub, _ = s.subRepo.GetByOrganizationID(ctx, orgID)
+		sub, err = s.subRepo.GetByOrganizationID(ctx, orgID)
+	} else {
+		// Only legacy checkouts without an organization may resolve by user.
+		sub, err = s.subRepo.GetByUserID(ctx, userID)
 	}
-	// Fallback to user-based lookup for backward compatibility with in-flight checkouts
-	if sub == nil {
-		sub, _ = s.subRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return errx.New(errx.Internal, "failed to get subscription")
 	}
 
 	if sub == nil {
@@ -938,6 +944,20 @@ func (s *stripeService) fulfillCreditTopup(ctx context.Context, event *stripe.Ev
 		return errx.New(errx.BadRequest, "invalid credits amount in credit checkout metadata")
 	}
 
+	// A first credit purchase also creates the customer's billing account.
+	if sess.Customer != nil && sess.Customer.ID != "" {
+		sub, lookupErr := s.subRepo.GetByOrganizationID(ctx, orgID)
+		if lookupErr != nil || sub == nil {
+			return errx.New(errx.Internal, "failed to get subscription for credit purchase")
+		}
+		if sub.StripeCustomerID == "" {
+			sub.StripeCustomerID = sess.Customer.ID
+			if updateErr := s.subRepo.Update(ctx, sub); updateErr != nil {
+				return errx.New(errx.Internal, "failed to save billing customer")
+			}
+		}
+	}
+
 	if _, gerr := s.credits.GrantPurchased(ctx, orgID, credits, "credit_topup", event.ID); gerr != nil {
 		return errx.New(errx.Internal, "failed to grant purchased credits")
 	}
@@ -993,7 +1013,7 @@ func (s *stripeService) countSubscriptionStarted(ctx context.Context, sub *model
 	if planName != "" {
 		props["plan"] = planName
 	}
-	if len(stripeSub.Items.Data) > 0 {
+	if stripeSub.Items != nil && len(stripeSub.Items.Data) > 0 {
 		if price := stripeSub.Items.Data[0].Price; price != nil {
 			props["currency"] = string(price.Currency)
 			props["amount"] = float64(price.UnitAmount) / 100
@@ -1023,13 +1043,28 @@ func (s *stripeService) handleSubscriptionUpdated(ctx context.Context, event *st
 	}
 
 	sub, err := s.subRepo.GetByStripeSubscriptionID(ctx, stripeSub.ID)
-	if err != nil || sub == nil {
-		// Try to find by customer
-		sub, err = s.subRepo.GetByStripeCustomerID(ctx, stripeSub.Customer.ID)
-		if err != nil || sub == nil {
-			// No local subscription found, might be created via webhook before checkout complete
-			return nil
+	if err != nil {
+		return errx.New(errx.Internal, "failed to get subscription")
+	}
+	// Checkout's organization metadata survives subscription events arriving first.
+	if sub == nil && stripeSub.Metadata["org_id"] != "" {
+		orgID, parseErr := uuid.Parse(stripeSub.Metadata["org_id"])
+		if parseErr != nil {
+			return errx.New(errx.BadRequest, "invalid org_id in subscription metadata")
 		}
+		sub, err = s.subRepo.GetByOrganizationID(ctx, orgID)
+		if err != nil || sub == nil {
+			return errx.New(errx.Internal, "failed to resolve subscription organization")
+		}
+	}
+	if sub == nil && stripeSub.Customer != nil {
+		sub, err = s.subRepo.GetByStripeCustomerID(ctx, stripeSub.Customer.ID)
+		if err != nil {
+			return errx.New(errx.Internal, "failed to get billing customer")
+		}
+	}
+	if sub == nil {
+		return nil
 	}
 
 	// Store old state for migration checks
@@ -1038,6 +1073,9 @@ func (s *stripeService) handleSubscriptionUpdated(ctx context.Context, event *st
 	oldPlan, _ := s.planRepo.GetByID(ctx, oldPlanID)
 
 	// Update status
+	if stripeSub.Customer != nil {
+		sub.StripeCustomerID = stripeSub.Customer.ID
+	}
 	sub.Status = mapStripeStatus(stripeSub.Status)
 	sub.StripeSubscriptionID = &stripeSub.ID
 
@@ -1064,7 +1102,7 @@ func (s *stripeService) handleSubscriptionUpdated(ctx context.Context, event *st
 
 	// Update plan if price changed
 	var newPlan *models.Plan
-	if len(stripeSub.Items.Data) > 0 {
+	if stripeSub.Items != nil && len(stripeSub.Items.Data) > 0 {
 		priceID := stripeSub.Items.Data[0].Price.ID
 		sub.StripePriceID = &priceID
 
@@ -1076,6 +1114,10 @@ func (s *stripeService) handleSubscriptionUpdated(ctx context.Context, event *st
 
 	if err := s.subRepo.Update(ctx, sub); err != nil {
 		return errx.New(errx.Internal, "failed to update subscription")
+	}
+
+	if s.audit != nil {
+		s.audit.LogAction(ctx, sub.OrganizationID, sub.UserID, models.AuditActionUpdate, models.AuditEntitySubscription, &sub.ID, "", "", nil, nil)
 	}
 
 	// The workspace has started paying. Reported after the write, so a failed
@@ -1136,7 +1178,10 @@ func (s *stripeService) handleSubscriptionDeleted(ctx context.Context, event *st
 	}
 
 	sub, err := s.subRepo.GetByStripeSubscriptionID(ctx, stripeSub.ID)
-	if err != nil || sub == nil {
+	if err != nil {
+		return errx.New(errx.Internal, "failed to get canceled subscription")
+	}
+	if sub == nil {
 		return nil
 	}
 
@@ -1149,6 +1194,10 @@ func (s *stripeService) handleSubscriptionDeleted(ctx context.Context, event *st
 
 	if err := s.subRepo.Update(ctx, sub); err != nil {
 		return errx.New(errx.Internal, "failed to update subscription")
+	}
+
+	if s.audit != nil {
+		s.audit.LogAction(ctx, sub.OrganizationID, sub.UserID, models.AuditActionUpdate, models.AuditEntitySubscription, &sub.ID, "", "", nil, nil)
 	}
 
 	// Cancelling releases the reserved worker back to the fleet. Nothing else
@@ -1182,11 +1231,28 @@ func (s *stripeService) handleInvoicePaid(ctx context.Context, event *stripe.Eve
 	// Resolve the org from the subscription, falling back to customer. Shared by
 	// the credit-grant and referral-reward paths below.
 	var sub *models.Subscription
+	var err error
 	if inv.Subscription != nil {
-		sub, _ = s.subRepo.GetByStripeSubscriptionID(ctx, inv.Subscription.ID)
+		sub, err = s.subRepo.GetByStripeSubscriptionID(ctx, inv.Subscription.ID)
+		if err != nil {
+			return errx.New(errx.Internal, "failed to get invoice subscription")
+		}
+	}
+	if sub == nil && inv.SubscriptionDetails != nil && inv.SubscriptionDetails.Metadata["org_id"] != "" {
+		orgID, parseErr := uuid.Parse(inv.SubscriptionDetails.Metadata["org_id"])
+		if parseErr != nil {
+			return errx.New(errx.BadRequest, "invalid invoice organization")
+		}
+		sub, err = s.subRepo.GetByOrganizationID(ctx, orgID)
+		if err != nil || sub == nil {
+			return errx.New(errx.Internal, "failed to resolve invoice organization")
+		}
 	}
 	if sub == nil && inv.Customer != nil {
-		sub, _ = s.subRepo.GetByStripeCustomerID(ctx, inv.Customer.ID)
+		sub, err = s.subRepo.GetByStripeCustomerID(ctx, inv.Customer.ID)
+		if err != nil {
+			return errx.New(errx.Internal, "failed to get invoice customer")
+		}
 	}
 	if sub == nil {
 		return nil
@@ -1196,13 +1262,16 @@ func (s *stripeService) handleInvoicePaid(ctx context.Context, event *stripe.Eve
 	// subscription's plan.
 	var plan *models.Plan
 	if inv.Lines != nil && len(inv.Lines.Data) > 0 && inv.Lines.Data[0].Price != nil {
-		plan, _ = s.planRepo.GetByStripePriceID(ctx, inv.Lines.Data[0].Price.ID)
+		plan, err = s.planRepo.GetByStripePriceID(ctx, inv.Lines.Data[0].Price.ID)
+		if err != nil {
+			return errx.New(errx.Internal, "failed to get invoice plan")
+		}
 	}
 	if plan == nil {
-		plan, _ = s.planRepo.GetByID(ctx, sub.PlanID)
+		plan, err = s.planRepo.GetByID(ctx, sub.PlanID)
 	}
-	if plan == nil {
-		return nil
+	if err != nil || plan == nil {
+		return errx.New(errx.Internal, "failed to resolve invoice plan")
 	}
 
 	// Monthly credit allowance: RESET (set-to-N) the monthly pool to the plan's
@@ -1214,6 +1283,7 @@ func (s *stripeService) handleInvoicePaid(ctx context.Context, event *stripe.Eve
 			inv.BillingReason == stripe.InvoiceBillingReasonSubscriptionCycle) {
 		if err := s.credits.ResetMonthlyAllowance(ctx, sub.OrganizationID, plan.MonthlyCredits, event.ID); err != nil {
 			errs.CaptureException(fmt.Errorf("monthly credit reset failed for org %s: %w", sub.OrganizationID, err))
+			return errx.New(errx.Internal, "failed to reset monthly credits")
 		} else if s.audit != nil {
 			s.audit.LogAction(ctx, sub.OrganizationID, sub.UserID, models.AuditActionUpdate, models.AuditEntityCreditGrant, nil, "", "", nil, map[string]string{
 				"reason":  "monthly_reset",

@@ -148,11 +148,8 @@ export default function AuditPage() {
           )
         : all;
 
-    const stats = React.useMemo(() => {
-        const out: Record<string, number> = { total: all.length };
-        for (const l of all) out[l.action] = (out[l.action] ?? 0) + 1;
-        return out;
-    }, [all]);
+    const stats: Record<string, number> = { total: all.length };
+    for (const log of all) stats[log.action] = (stats[log.action] ?? 0) + 1;
 
     const activeFilterCount =
         (action ? 1 : 0) + (entityType ? 1 : 0) + (date ? 1 : 0) + (search ? 1 : 0);
