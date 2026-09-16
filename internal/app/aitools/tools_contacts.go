@@ -250,7 +250,7 @@ func (d Deps) getContactTimeline(ctx context.Context, inv Invocation, args json.
 		limit = 50
 	}
 	orgID := inv.OrgID
-	res, xerr := d.Contacts.ListTimeline(ctx, inv.UserID, &orgID, cid, limit, nil)
+	res, xerr := d.Contacts.ListTimeline(ctx, orgID, cid, limit, nil)
 	if xerr != nil {
 		return "", fromErrx(xerr)
 	}

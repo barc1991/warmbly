@@ -709,7 +709,7 @@ Returns a `data` array plus a `pagination` envelope.
 
 `GET /contacts/:id/timeline`
 
-Returns the merged activity feed for a contact: sends, opens, clicks (one per link, naming the link), replies, bounces, deliverability and suppression events, notes, meeting bookings, and lifecycle events (the contact's creation with its first-touch source, and every time it joined or left a campaign or a category). Requires a selected organization (org-scoped events would otherwise be hidden), so a request with no organization returns `400`.
+Returns the selected organization's merged activity feed for a contact: sends, opens, clicks (one per link, naming the link), replies, bounces, deliverability and suppression events, notes, meeting bookings, and lifecycle events (the contact's creation with its first-touch source, and every time it joined or left a campaign or a category). Every member with permission to view contacts receives the same timeline, regardless of who created the contact or its campaigns. A request with no selected organization returns `400`, and a contact outside the selected organization returns `404`.
 
 Auth: **Scope** `READ_CONTACTS` · **Org permission** `view_contacts`
 
