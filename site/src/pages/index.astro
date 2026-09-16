@@ -971,7 +971,9 @@ const softwareJsonLd = {
       document.querySelectorAll<HTMLElement>('.hero-screen').forEach((s) => fitHero(s));
     }
     document.querySelectorAll<HTMLElement>('.hero-screen').forEach((screen) => {
-      if (screen.parentElement) new ResizeObserver(() => fitHero(screen)).observe(screen.parentElement);
+      if (screen.parentElement) {
+        new ResizeObserver(() => requestAnimationFrame(() => fitHero(screen))).observe(screen.parentElement);
+      }
     });
     runHero();
     requestAnimationFrame(runHero);

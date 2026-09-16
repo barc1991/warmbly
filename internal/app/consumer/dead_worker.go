@@ -53,19 +53,20 @@ func (s *JobsService) notifyOperatorWorkerDown(ctx context.Context, workerID uui
 }
 
 // notifyWorkerDown tells each affected org's manage_emails members about a
-// dead worker, at most once per worker incident: detection reruns every
-// interval while the worker stays down, and the SetNX guard keeps that from
-// re-alerting. The shared group key coalesces an org's recipients into one
-// email with everyone in To.
+// dead worker, at most once per org and worker incident: cloud workers carry
+// mailboxes for many orgs, and one org's alert must not suppress another's if
+// reassignment completes across multiple scans. The shared group key coalesces
+// an org's recipients into one email with everyone in To.
 func (s *JobsService) notifyWorkerDown(ctx context.Context, workerID uuid.UUID, orgs map[uuid.UUID]int, reassigned bool) {
 	if s.Notifier == nil || len(orgs) == 0 {
 		return
 	}
-	ok, err := s.Cache.SetNX(ctx, "worker:downnotify:"+workerID.String(), "1", 6*time.Hour).Result()
-	if err != nil || !ok {
-		return
-	}
 	for orgID, n := range orgs {
+		key := "worker:downnotify:" + workerID.String() + ":" + orgID.String()
+		ok, err := s.Cache.SetNX(ctx, key, "1", 6*time.Hour).Result()
+		if err != nil || !ok {
+			continue
+		}
 		noun := fmt.Sprintf("%d of your mailboxes were", n)
 		if n == 1 {
 			noun = "One of your mailboxes was"
