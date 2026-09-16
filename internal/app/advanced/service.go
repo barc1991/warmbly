@@ -880,6 +880,37 @@ func parseSenderEmail(addrs []string) string {
 	return strings.ToLower(strings.Trim(primary, "<>"))
 }
 
+func messageAddressesMailbox(msg *models.EmailMessageStoreData, account *models.Email) bool {
+	if msg == nil || account == nil {
+		return false
+	}
+	targets := make(map[string]struct{}, 3)
+	for _, raw := range []string{account.Email, account.SendFrom(), account.ReplyTo} {
+		if address := parseSenderEmail([]string{raw}); address != "" {
+			targets[address] = struct{}{}
+		}
+	}
+	for _, fields := range [][]string{msg.ToAddr, msg.CC, msg.BCC} {
+		for _, raw := range fields {
+			addresses, err := mail.ParseAddressList(raw)
+			if err != nil {
+				if address := parseSenderEmail([]string{raw}); address != "" {
+					if _, ok := targets[address]; ok {
+						return true
+					}
+				}
+				continue
+			}
+			for _, address := range addresses {
+				if _, ok := targets[strings.ToLower(strings.TrimSpace(address.Address))]; ok {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func cleanMessageID(mid string) string {
 	return strings.TrimSpace(strings.Trim(mid, "<>"))
 }
@@ -1035,6 +1066,9 @@ func classifyReply(text string, cfg models.ReplyIntentSettings) (models.ReplyInt
 }
 
 func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.UUID, msg *models.EmailMessageStoreData) *errx.Error {
+	if !msg.MayBeInbound() {
+		return nil
+	}
 	account, xerr := s.emailRepo.GetByID(ctx, emailAccountID)
 	if xerr != nil {
 		return xerr
@@ -1055,6 +1089,12 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	if sender == "" {
 		return nil
 	}
+	if sender == parseSenderEmail([]string{account.Email}) || sender == parseSenderEmail([]string{account.SendFrom()}) {
+		return nil
+	}
+	if !messageAddressesMailbox(msg, account) {
+		return nil
+	}
 
 	text := strings.TrimSpace(msg.Snippet)
 	text = strings.TrimSpace(text + "\n" + msg.Subject)
@@ -1071,6 +1111,7 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	var sequenceID *uuid.UUID
 	var contactID *uuid.UUID
 	var taskID *uuid.UUID
+	var referencesCampaignThread bool
 
 	// First, try exact message threading via In-Reply-To.
 	for _, mid := range msg.InReplyTo {
@@ -1082,13 +1123,25 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		if err != nil || task == nil || task.TaskType != "campaign" {
 			continue
 		}
-		taskID = &task.ID
-		ct, err := s.taskRepo.GetCampaignTask(ctx, task.ID)
-		if err == nil && ct != nil {
-			campaignID = ct.CampaignID
-			contactID = ct.ContactID
-			sequenceID = ct.SequenceID
+		referencesCampaignThread = true
+		if task.EmailAccountID != emailAccountID {
+			continue
 		}
+		ct, err := s.taskRepo.GetCampaignTask(ctx, task.ID)
+		if err != nil || ct == nil || ct.ContactID == nil {
+			continue
+		}
+		contact, contactErr := s.contactRepo.GetByID(ctx, *ct.ContactID)
+		if contactErr != nil {
+			return contactErr
+		}
+		if contact == nil || !strings.EqualFold(strings.TrimSpace(contact.Email), sender) {
+			continue
+		}
+		taskID = &task.ID
+		campaignID = ct.CampaignID
+		contactID = ct.ContactID
+		sequenceID = ct.SequenceID
 		break
 	}
 
@@ -1102,7 +1155,7 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		}
 	}
 
-	if campaignID == nil && contactID != nil {
+	if campaignID == nil && contactID != nil && !referencesCampaignThread {
 		latest, err := s.campaignProgressRepo.GetLatestCampaignSequenceForContact(ctx, *contactID)
 		if err == nil && latest != nil {
 			campaignID = &latest.CampaignID
