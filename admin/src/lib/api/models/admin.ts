@@ -969,6 +969,20 @@ export interface CreatedTester {
     email: string;
     organization_id: string;
     password: string;
+    /** True when the tester joined a workspace that already existed rather
+     *  than one minted for it. */
+    joined_existing: boolean;
+}
+
+/** A workspace role, as the Testers page offers them. Roles are ordinary rows
+ *  an org can rename or delete, so the list is per workspace and not fixed. */
+export interface AdminOrgRole {
+    id: string;
+    organization_id: string;
+    name: string;
+    description?: string | null;
+    color?: string | null;
+    permissions: number;
 }
 
 // --- Promo codes -----------------------------------------------------------

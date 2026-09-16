@@ -179,7 +179,7 @@ Do not:
 
 ## Local Development
 
-Event codec: `CODEC_PROVIDER=json` is required wherever workers are exercised (the worker command/result envelopes carry untyped bodies Avro cannot serialize); the Makefile and docker-compose set it everywhere. `tracking-events` reads the same setting: the consumer decodes both of its topics with one codec, so the Rust publisher honours `CODEC_PROVIDER` on Kafka as well as on NATS. Avro there needs a Schema Registry and is refused at boot without one; JSON needs nothing.
+Event codec: `json` is the default the Makefile and docker-compose set, because it needs nothing. `avro` works too: the worker command and result envelopes carry an `any` body, and a schema is derived for each from the declared registry in `internal/models/event_variants.go` (see `event_schema.go`), so a new event type is not carried until it is added there. It is only compiled into the `-kafka` images and resolves every event against `SCHEMA_REGISTRY_URL`. `tracking-events` reads the same setting: the consumer decodes both of its topics with one codec, so the Rust publisher honours `CODEC_PROVIDER` on Kafka as well as on NATS. Avro there needs a Schema Registry and is refused at boot without one; JSON needs nothing.
 
 Infra runs in docker; the Go services and frontends run natively on the host for fast iteration — no docker image rebuilds when you change app code. Targets live in the `Makefile`.
 
