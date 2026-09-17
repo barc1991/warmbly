@@ -69,7 +69,7 @@ import {
 } from "@/components/layout/Page";
 
 const DefaultFolder = {
-    title: "All accounts",
+    title: "כל החשבונות",
     color: "#c4c8cf",
 } as Tag;
 
@@ -82,9 +82,9 @@ const HEALTH_RANK: Record<string, number> = { healthy: 0, warning: 1, error: 2 }
 function healthTone(status?: AccountStatus): { dot: string; text: string; label: string; pulse: boolean } {
     const h = status?.health;
     if (!h) return { dot: "bg-slate-300", text: "text-slate-500", label: "—", pulse: false };
-    if (h.status === "healthy") return { dot: "bg-emerald-500", text: "text-emerald-600", label: `Healthy ${h.score}`, pulse: false };
-    if (h.status === "warning") return { dot: "bg-amber-500", text: "text-amber-600", label: `At risk ${h.score}`, pulse: true };
-    return { dot: "bg-rose-500", text: "text-rose-600", label: `Issue ${h.score}`, pulse: true };
+    if (h.status === "healthy") return { dot: "bg-emerald-500", text: "text-emerald-600", label: `תקין ${h.score}`, pulse: false };
+    if (h.status === "warning") return { dot: "bg-amber-500", text: "text-amber-600", label: `בסיכון ${h.score}`, pulse: true };
+    return { dot: "bg-rose-500", text: "text-rose-600", label: `בעיה ${h.score}`, pulse: true };
 }
 
 import AdvisorRowFlag from "@/components/app/advisor/AdvisorRowFlag";
@@ -263,39 +263,39 @@ export default function AddressesPage() {
     }
 
     if (!canView) {
-        return <NoAccess feature="email accounts" permissionLabel="Manage mailboxes" />;
+        return <NoAccess feature="חשבונות דוא״ל" permissionLabel="ניהול תיבות דואר" />;
     }
 
     return (
         <Page>
             <PageTopbar
-                eyebrow="Accounts"
+                eyebrow="חשבונות"
                 subtitle={
                     emailsData.emails
-                        ? `${stats.total} mailboxes`
-                        : "Loading…"
+                        ? `${stats.total} תיבות דואר`
+                        : "טוען…"
                 }
             >
                 <TopbarAction
                     onClick={() => p?.setAddEmail(true)}
                     icon={<PlusIcon className="w-3 h-3" />}
                 >
-                    Add account
+                    הוסף חשבון
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={4}>
-                <Stat label="Total" value={<AnimatedNumber value={stats.total} />} sub="connected" />
-                <Stat label="Healthy" value={<AnimatedNumber value={stats.healthy} />} sub="sending now" accent={stats.healthy > 0} />
-                <Stat label="Warming" value={<AnimatedNumber value={stats.warming} />} sub="ramping up" />
-                <Stat label="Needs attention" value={<AnimatedNumber value={stats.issues} />} sub="paused or failing" last />
+                <Stat label="סה״כ" value={<AnimatedNumber value={stats.total} />} sub="מחוברות" />
+                <Stat label="תקינות" value={<AnimatedNumber value={stats.healthy} />} sub="שולחות עכשיו" accent={stats.healthy > 0} />
+                <Stat label="מתחממות" value={<AnimatedNumber value={stats.warming} />} sub="בהדרגה" />
+                <Stat label="דורשות תשומת לב" value={<AnimatedNumber value={stats.issues} />} sub="מושהות או נכשלות" last />
             </StatStrip>
 
-            <SectionBar label="Mailboxes" count={emailsData.emails?.length ?? 0}>
+            <SectionBar label="תיבות דואר" count={emailsData.emails?.length ?? 0}>
                 <SearchInput
                     value={query}
                     onChange={setQuery}
-                    placeholder="Search by email…"
+                    placeholder="חיפוש לפי אימייל…"
                     className="w-full sm:w-56"
                 />
                 <PopoverMenu align="end">
@@ -306,12 +306,12 @@ export default function AddressesPage() {
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={200}>
-                        <PopoverMenuLabel>Tags</PopoverMenuLabel>
+                        <PopoverMenuLabel>תגיות</PopoverMenuLabel>
                         <PopoverMenuItem
                             onSelect={() => setTag("")}
                             selected={!tag}
                         >
-                            All accounts
+                            כל החשבונות
                         </PopoverMenuItem>
                         {(p?.user.tags ?? []).map((t) => (
                             <PopoverMenuItem
@@ -328,7 +328,7 @@ export default function AddressesPage() {
                             onSelect={() => p?.setTagsEdit(true)}
                             icon={<Settings2Icon className="w-3 h-3" />}
                         >
-                            Manage tags
+                            נהל תגיות
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -337,8 +337,8 @@ export default function AddressesPage() {
             <PageBody>
                 <AdvisorSummaryBar
                     surface="emails"
-                    noun="mailbox"
-                    nounPlural="mailboxes"
+                    noun="תיבת דואר"
+                    nounPlural="תיבות דואר"
                     className="mx-5 my-3"
                 />
                 <CloudPoolBanner onConnect={() => setCloudDialog(true)} mailboxCount={stats.total} />
@@ -369,14 +369,14 @@ export default function AddressesPage() {
                 ) : !emailsData.emails || emailsData.emails.length === 0 ? (
                     cloud.selfHosted || authConfigLoading ? (
                     <EmptyBlock
-                        title="No email accounts yet"
-                        body="Connect your first mailbox to start warming up and sending campaigns."
+                        title="אין עדיין חשבונות דוא״ל"
+                        body="חבר את תיבת הדואר הראשונה שלך כדי להתחיל חימום ושליחת קמפיינים."
                         cta={
                             <TopbarAction
                                 onClick={() => p?.setAddEmail(true)}
                                 icon={<PlusIcon className="w-3 h-3" />}
                             >
-                                Add account
+                                הוסף חשבון
                             </TopbarAction>
                         }
                     />
@@ -406,9 +406,9 @@ export default function AddressesPage() {
                                         }}
                                     />
                                 </th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Account</th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-24 text-right">Warmup</th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-10 md:w-32"><span className="hidden md:inline">Health</span></th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">חשבון</th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-24 text-right">חימום</th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-10 md:w-32"><span className="hidden md:inline">בריאות</span></th>
                                 <th className="px-3 py-2 w-16"></th>
                             </tr>
                         </thead>
@@ -440,7 +440,7 @@ export default function AddressesPage() {
                     <div className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex flex-wrap justify-center max-w-[calc(100vw-1rem)] items-center gap-1.5 rounded-md border border-slate-200 bg-white shadow-[0_6px_20px_-4px_rgba(15,23,42,0.12),0_2px_4px_rgba(15,23,42,0.04)] px-2 py-1.5">
                         <div className="inline-flex items-center gap-1.5 px-2 h-7 rounded bg-sky-50 text-sky-700 text-[12px] font-medium">
                             <CheckIcon className="w-3 h-3" />
-                            <span>{selected.length} selected</span>
+                            <span>{selected.length} נבחרו</span>
                         </div>
                         {canWarmup && (
                             <button
@@ -449,7 +449,7 @@ export default function AddressesPage() {
                                 className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-orange-600 hover:bg-orange-50 transition-colors"
                             >
                                 <PlayIcon className="w-3.5 h-3.5" />
-                                Start warmup
+                                התחל חימום
                             </button>
                         )}
                         <button
@@ -458,7 +458,7 @@ export default function AddressesPage() {
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors"
                         >
                             <PauseIcon className="w-3.5 h-3.5" />
-                            Pause
+                            השהה
                         </button>
                         <BulkTagPopover ids={selected} />
                         <div className="w-px h-4 bg-slate-200 mx-0.5" />
@@ -469,7 +469,7 @@ export default function AddressesPage() {
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
                         >
                             <Trash2Icon className="w-3.5 h-3.5" />
-                            Remove
+                            הסר
                         </button>
                         <button
                             type="button"
@@ -477,7 +477,7 @@ export default function AddressesPage() {
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] text-slate-500 hover:bg-slate-100 transition-colors"
                         >
                             <XIcon className="w-3.5 h-3.5" />
-                            Clear
+                            נקה
                         </button>
                     </div>
                 )}
