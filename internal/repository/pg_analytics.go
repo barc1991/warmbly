@@ -12,7 +12,7 @@ import (
 
 type AnalyticsRepository interface {
 	// Warmup analytics
-	GetWarmupStats(ctx context.Context, userID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) ([]models.WarmupDailyStats, *errx.Error)
+	GetWarmupStats(ctx context.Context, orgID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) ([]models.WarmupDailyStats, *errx.Error)
 
 	// Campaign analytics
 	GetCampaignSummary(ctx context.Context, orgID, campaignID uuid.UUID) (*models.CampaignSummary, *errx.Error)
@@ -29,16 +29,16 @@ type AnalyticsRepository interface {
 	GetAccountDailyUsage(ctx context.Context, accountID uuid.UUID, date time.Time) (*models.AccountDailyUsage, *errx.Error)
 
 	// Usage overview
-	GetEmailAccountCounts(ctx context.Context, userID uuid.UUID) (*models.AccountsUsage, *errx.Error)
-	GetCampaignCounts(ctx context.Context, userID uuid.UUID) (*models.CampaignsUsage, *errx.Error)
-	GetContactCounts(ctx context.Context, userID uuid.UUID) (*models.ContactsUsage, *errx.Error)
+	GetEmailAccountCounts(ctx context.Context, orgID uuid.UUID) (*models.AccountsUsage, *errx.Error)
+	GetCampaignCounts(ctx context.Context, orgID uuid.UUID, from, to time.Time) (*models.CampaignsUsage, *errx.Error)
+	GetContactCounts(ctx context.Context, orgID uuid.UUID) (*models.ContactsUsage, *errx.Error)
 
 	// Dashboard analytics
-	GetDashboardOverallStats(ctx context.Context, userID uuid.UUID, from, to time.Time) (*models.DashboardOverallStats, *errx.Error)
-	GetRecentActivity(ctx context.Context, userID uuid.UUID, limit int) ([]models.RecentActivityItem, *errx.Error)
-	GetTopCampaigns(ctx context.Context, userID uuid.UUID, from, to time.Time, limit int, sortBy string) ([]models.TopCampaignStats, *errx.Error)
-	GetDashboardDailyTrend(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]models.DashboardDailyStats, *errx.Error)
-	GetAccountHealthSummary(ctx context.Context, userID uuid.UUID) (*models.AccountHealthSummary, *errx.Error)
+	GetDashboardOverallStats(ctx context.Context, orgID uuid.UUID, from, to time.Time) (*models.DashboardOverallStats, *errx.Error)
+	GetRecentActivity(ctx context.Context, orgID uuid.UUID, limit int) ([]models.RecentActivityItem, *errx.Error)
+	GetTopCampaigns(ctx context.Context, orgID uuid.UUID, from, to time.Time, limit int, sortBy string) ([]models.TopCampaignStats, *errx.Error)
+	GetDashboardDailyTrend(ctx context.Context, orgID uuid.UUID, from, to time.Time) ([]models.DashboardDailyStats, *errx.Error)
+	GetAccountHealthSummary(ctx context.Context, orgID uuid.UUID) (*models.AccountHealthSummary, *errx.Error)
 
 	// Campaign hourly stats
 	GetCampaignHourlyStats(ctx context.Context, campaignID uuid.UUID, date time.Time) ([]models.CampaignHourlyStats, *errx.Error)
@@ -55,23 +55,24 @@ func NewAnalyticsRepository(db *db.DB) AnalyticsRepository {
 	return &analyticsRepository{DB: db}
 }
 
-func (r *analyticsRepository) GetWarmupStats(ctx context.Context, userID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) ([]models.WarmupDailyStats, *errx.Error) {
+func (r *analyticsRepository) GetWarmupStats(ctx context.Context, orgID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) ([]models.WarmupDailyStats, *errx.Error) {
 	query := `
 		SELECT
 			ws.date::text,
-			ws.emails_sent,
-			ws.emails_replied,
-			ws.target_volume
+			SUM(ws.emails_sent),
+			SUM(ws.emails_replied),
+			SUM(ws.target_volume)
 		FROM warmup_statistics ws
 		JOIN email_accounts ea ON ea.id = ws.email_account_id
-		WHERE ea.user_id = $1
+		WHERE ea.organization_id = $1
 		  AND ws.date >= $2
 		  AND ws.date <= $3
 		  AND ($4::uuid IS NULL OR ws.email_account_id = $4)
+		GROUP BY ws.date
 		ORDER BY ws.date ASC
 	`
 
-	params := []any{userID, from, to, emailAccountID}
+	params := []any{orgID, from, to, emailAccountID}
 
 	rows, err := r.DB.Query(ctx, query, params...)
 	if err != nil {
@@ -112,19 +113,27 @@ const (
 
 func (r *analyticsRepository) GetCampaignSummary(ctx context.Context, orgID, campaignID uuid.UUID) (*models.CampaignSummary, *errx.Error) {
 	query := `
+		WITH campaign_plan AS (
+			SELECT
+				(SELECT COUNT(*) FROM campaign_leads WHERE campaign_id = $1) AS total_contacts,
+				(SELECT COUNT(*) FROM sequences WHERE campaign_id = $1 AND kind = 'email') AS email_steps
+		)
 		SELECT
-			COUNT(DISTINCT ccp.contact_id) as total_contacts,
+			cp.total_contacts,
 			COUNT(CASE WHEN ccp.sent_at IS NOT NULL THEN 1 END) as emails_sent,
-			COUNT(CASE WHEN ccp.sent_at IS NULL THEN 1 END) as emails_pending,
+			GREATEST(cp.total_contacts * cp.email_steps - COUNT(CASE WHEN ccp.sent_at IS NOT NULL THEN 1 END), 0) as emails_pending,
 			COUNT(CASE WHEN ccp.opened_at IS NOT NULL THEN 1 END) as unique_opens,
 			COUNT(CASE WHEN ccp.opened_at IS NOT NULL AND ccp.opened_machine THEN 1 END) as machine_opens,
 			COUNT(CASE WHEN ccp.clicked_at IS NOT NULL THEN 1 END) as unique_clicks,
 			` + machineClicksCount + `,
 			COUNT(CASE WHEN ccp.replied_at IS NOT NULL THEN 1 END) as replies,
 			COUNT(CASE WHEN ccp.bounced_at IS NOT NULL THEN 1 END) as bounces
-		FROM campaign_contact_progress ccp
-		JOIN campaigns c ON c.id = ccp.campaign_id` + machineClicksJoin + `
-		WHERE ccp.campaign_id = $1 AND c.organization_id = $2
+		FROM campaigns c
+		CROSS JOIN campaign_plan cp
+		LEFT JOIN campaign_contact_progress ccp ON ccp.campaign_id = c.id
+			AND EXISTS (SELECT 1 FROM sequences s WHERE s.id = ccp.sequence_id AND s.kind = 'email')` + machineClicksJoin + `
+		WHERE c.id = $1 AND c.organization_id = $2
+		GROUP BY cp.total_contacts, cp.email_steps
 	`
 
 	params := []any{campaignID, orgID}
@@ -160,18 +169,19 @@ func (r *analyticsRepository) GetCampaignSummary(ctx context.Context, orgID, cam
 func (r *analyticsRepository) GetCampaignDailyStats(ctx context.Context, campaignID uuid.UUID, from, to time.Time) ([]models.CampaignDailyStats, *errx.Error) {
 	query := `
 		SELECT
-			sent_at::date::text as date,
+			ccp.sent_at::date::text as date,
 			COUNT(*) as sent,
-			COUNT(CASE WHEN opened_at IS NOT NULL THEN 1 END) as opens,
-			COUNT(CASE WHEN clicked_at IS NOT NULL THEN 1 END) as clicks,
-			COUNT(CASE WHEN replied_at IS NOT NULL THEN 1 END) as replies
-		FROM campaign_contact_progress
-		WHERE campaign_id = $1
-		  AND sent_at IS NOT NULL
-		  AND sent_at::date >= $2
-		  AND sent_at::date <= $3
-		GROUP BY sent_at::date
-		ORDER BY sent_at::date ASC
+			COUNT(CASE WHEN ccp.opened_at IS NOT NULL THEN 1 END) as opens,
+			COUNT(CASE WHEN ccp.clicked_at IS NOT NULL THEN 1 END) as clicks,
+			COUNT(CASE WHEN ccp.replied_at IS NOT NULL THEN 1 END) as replies
+		FROM campaign_contact_progress ccp
+		JOIN sequences s ON s.id = ccp.sequence_id AND s.kind = 'email'
+		WHERE ccp.campaign_id = $1
+		  AND ccp.sent_at IS NOT NULL
+		  AND ccp.sent_at::date >= $2
+		  AND ccp.sent_at::date <= $3
+		GROUP BY ccp.sent_at::date
+		ORDER BY ccp.sent_at::date ASC
 	`
 
 	params := []any{campaignID, from, to}
@@ -275,7 +285,7 @@ func (r *analyticsRepository) GetSequenceStats(ctx context.Context, campaignID u
 			COUNT(CASE WHEN ccp.bounced_at IS NOT NULL THEN 1 END) as bounces
 		FROM sequences s
 		LEFT JOIN campaign_contact_progress ccp ON ccp.sequence_id = s.id AND ccp.campaign_id = $1` + machineClicksJoin + `
-		WHERE s.campaign_id = $1
+		WHERE s.campaign_id = $1 AND s.kind = 'email'
 		GROUP BY s.id, s.name, s.created_at
 		ORDER BY s.created_at
 	`
@@ -342,12 +352,20 @@ func (r *analyticsRepository) GetAccountDailyUsage(ctx context.Context, accountI
 	query := `
 		SELECT
 			$2::date::text as date,
-			COALESCE(dec.count, 0) as campaign_sent,
+			(
+				SELECT COUNT(*)
+				FROM tasks t
+				WHERE t.email_account_id = ea.id
+				  AND t.status = 'completed'
+				  AND t.task_type = 'campaign'
+				  AND t.completed_at >= $2::date
+				  AND t.completed_at < $2::date + INTERVAL '1 day'
+				  AND ` + taskDispatchedEmail + `
+			) as campaign_sent,
 			COALESCE(ea.campaign_limit, 50) as campaign_limit,
 			COALESCE(ws.emails_sent, 0) as warmup_sent,
 			COALESCE(ea.warmup_max, 0) as warmup_limit
 		FROM email_accounts ea
-		LEFT JOIN daily_email_counts dec ON dec.email_account_id = ea.id AND dec.date = $2::date
 		LEFT JOIN warmup_statistics ws ON ws.email_account_id = ea.id AND ws.date = $2::date
 		WHERE ea.id = $1
 	`
@@ -370,7 +388,7 @@ func (r *analyticsRepository) GetAccountDailyUsage(ctx context.Context, accountI
 	return &usage, nil
 }
 
-func (r *analyticsRepository) GetEmailAccountCounts(ctx context.Context, userID uuid.UUID) (*models.AccountsUsage, *errx.Error) {
+func (r *analyticsRepository) GetEmailAccountCounts(ctx context.Context, orgID uuid.UUID) (*models.AccountsUsage, *errx.Error) {
 	query := `
 		SELECT
 			COUNT(*) as total,
@@ -379,20 +397,20 @@ func (r *analyticsRepository) GetEmailAccountCounts(ctx context.Context, userID 
 			COUNT(DISTINCT eae.email_account_id) as with_errors
 		FROM email_accounts ea
 		LEFT JOIN email_account_errors eae ON eae.email_account_id = ea.id AND eae.resolved_at IS NULL
-		WHERE ea.user_id = $1
+		WHERE ea.organization_id = $1
 	`
 
 	var usage models.AccountsUsage
-	err := r.DB.QueryRow(ctx, query, userID).Scan(&usage.Total, &usage.Active, &usage.InWarmup, &usage.WithErrors)
+	err := r.DB.QueryRow(ctx, query, orgID).Scan(&usage.Total, &usage.Active, &usage.InWarmup, &usage.WithErrors)
 	if err != nil {
-		db.CaptureError(err, query, []any{userID}, "queryrow")
+		db.CaptureError(err, query, []any{orgID}, "queryrow")
 		return nil, errx.InternalError()
 	}
 
 	return &usage, nil
 }
 
-func (r *analyticsRepository) GetCampaignCounts(ctx context.Context, userID uuid.UUID) (*models.CampaignsUsage, *errx.Error) {
+func (r *analyticsRepository) GetCampaignCounts(ctx context.Context, orgID uuid.UUID, from, to time.Time) (*models.CampaignsUsage, *errx.Error) {
 	query := `
 		SELECT
 			COUNT(*) as total,
@@ -401,35 +419,38 @@ func (r *analyticsRepository) GetCampaignCounts(ctx context.Context, userID uuid
 			COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft,
 			(SELECT COUNT(*) FROM campaign_contact_progress ccp
 			 JOIN campaigns c ON c.id = ccp.campaign_id
-			 WHERE c.user_id = $1 AND ccp.sent_at IS NOT NULL) as emails_sent
+			 JOIN sequences s ON s.id = ccp.sequence_id AND s.kind = 'email'
+			 WHERE c.organization_id = $1
+			   AND ccp.sent_at >= $2 AND ccp.sent_at <= $3) as emails_sent
 		FROM campaigns
-		WHERE user_id = $1
+		WHERE organization_id = $1
 	`
 
 	var usage models.CampaignsUsage
-	err := r.DB.QueryRow(ctx, query, userID).Scan(&usage.Total, &usage.Active, &usage.Paused, &usage.Draft, &usage.EmailsSent)
+	params := []any{orgID, from, to}
+	err := r.DB.QueryRow(ctx, query, params...).Scan(&usage.Total, &usage.Active, &usage.Paused, &usage.Draft, &usage.EmailsSent)
 	if err != nil {
-		db.CaptureError(err, query, []any{userID}, "queryrow")
+		db.CaptureError(err, query, params, "queryrow")
 		return nil, errx.InternalError()
 	}
 
 	return &usage, nil
 }
 
-func (r *analyticsRepository) GetContactCounts(ctx context.Context, userID uuid.UUID) (*models.ContactsUsage, *errx.Error) {
+func (r *analyticsRepository) GetContactCounts(ctx context.Context, orgID uuid.UUID) (*models.ContactsUsage, *errx.Error) {
 	query := `
 		SELECT
 			COUNT(*) as total,
 			COUNT(CASE WHEN subscribed = true THEN 1 END) as subscribed,
 			COUNT(CASE WHEN created_at::date = CURRENT_DATE THEN 1 END) as added_today
 		FROM contacts
-		WHERE user_id = $1
+		WHERE organization_id = $1
 	`
 
 	var usage models.ContactsUsage
-	err := r.DB.QueryRow(ctx, query, userID).Scan(&usage.Total, &usage.Subscribed, &usage.AddedToday)
+	err := r.DB.QueryRow(ctx, query, orgID).Scan(&usage.Total, &usage.Subscribed, &usage.AddedToday)
 	if err != nil {
-		db.CaptureError(err, query, []any{userID}, "queryrow")
+		db.CaptureError(err, query, []any{orgID}, "queryrow")
 		return nil, errx.InternalError()
 	}
 
@@ -458,6 +479,7 @@ func (r *analyticsRepository) GetDashboardOverallStats(ctx context.Context, orgI
 			(SELECT COUNT(*) FROM email_accounts WHERE organization_id = $1 AND status = 'active') as active_accounts
 		FROM campaign_contact_progress ccp
 		JOIN campaigns c ON c.id = ccp.campaign_id
+		JOIN sequences s ON s.id = ccp.sequence_id AND s.kind = 'email'
 		WHERE c.organization_id = $1
 	`
 
@@ -595,6 +617,7 @@ func (r *analyticsRepository) GetTopCampaigns(ctx context.Context, orgID uuid.UU
 		FROM campaigns c
 		LEFT JOIN campaign_contact_progress ccp ON ccp.campaign_id = c.id
 			AND ccp.sent_at >= $2 AND ccp.sent_at <= $3
+			AND EXISTS (SELECT 1 FROM sequences s WHERE s.id = ccp.sequence_id AND s.kind = 'email')
 		WHERE c.organization_id = $1
 		GROUP BY c.id, c.name, c.status
 		HAVING COUNT(CASE WHEN ccp.sent_at IS NOT NULL THEN 1 END) > 0
@@ -634,6 +657,7 @@ func (r *analyticsRepository) GetDashboardDailyTrend(ctx context.Context, orgID 
 			COUNT(CASE WHEN replied_at IS NOT NULL THEN 1 END) as replies
 		FROM campaign_contact_progress ccp
 		JOIN campaigns c ON c.id = ccp.campaign_id
+		JOIN sequences s ON s.id = ccp.sequence_id AND s.kind = 'email'
 		WHERE c.organization_id = $1
 		  AND ccp.sent_at IS NOT NULL
 		  AND ccp.sent_at::date >= $2
@@ -666,22 +690,46 @@ func (r *analyticsRepository) GetDashboardDailyTrend(ctx context.Context, orgID 
 
 func (r *analyticsRepository) GetAccountHealthSummary(ctx context.Context, orgID uuid.UUID) (*models.AccountHealthSummary, *errx.Error) {
 	query := `
+		WITH account_health AS (
+			SELECT CASE
+				WHEN ea.status != 'active'
+					OR wh.health_state IN ('throttled', 'quarantined', 'blocked')
+					OR EXISTS (
+						SELECT 1 FROM email_account_errors eae
+						WHERE eae.email_account_id = ea.id
+						  AND eae.resolved_at IS NULL AND eae.severity = 'CRITICAL'
+					) THEN 'error'
+				WHEN wh.health_state = 'watch'
+					OR EXISTS (
+						SELECT 1 FROM email_account_errors eae
+						WHERE eae.email_account_id = ea.id
+						  AND eae.resolved_at IS NULL AND eae.severity = 'WARNING'
+					) THEN 'warning'
+				ELSE 'healthy'
+			END AS status
+			FROM email_accounts ea
+			LEFT JOIN LATERAL (
+				SELECT health_state
+				FROM warmup_pool_participants
+				WHERE email_account_id = ea.id
+				ORDER BY CASE health_state
+					WHEN 'blocked' THEN 0
+					WHEN 'quarantined' THEN 1
+					WHEN 'throttled' THEN 2
+					WHEN 'watch' THEN 3
+					WHEN 'healthy' THEN 4
+					ELSE 5
+				END
+				LIMIT 1
+			) wh ON true
+			WHERE ea.organization_id = $1
+		)
 		SELECT
 			COUNT(*) as total,
-			COUNT(CASE WHEN ea.status = 'active' AND NOT EXISTS (
-				SELECT 1 FROM email_account_errors eae
-				WHERE eae.email_account_id = ea.id AND eae.resolved_at IS NULL
-			) THEN 1 END) as healthy,
-			COUNT(CASE WHEN EXISTS (
-				SELECT 1 FROM email_account_errors eae
-				WHERE eae.email_account_id = ea.id AND eae.resolved_at IS NULL AND eae.severity = 'WARNING'
-			) THEN 1 END) as warning,
-			COUNT(CASE WHEN ea.status != 'active' OR EXISTS (
-				SELECT 1 FROM email_account_errors eae
-				WHERE eae.email_account_id = ea.id AND eae.resolved_at IS NULL AND eae.severity = 'CRITICAL'
-			) THEN 1 END) as error
-		FROM email_accounts ea
-		WHERE ea.organization_id = $1
+			COUNT(*) FILTER (WHERE status = 'healthy') as healthy,
+			COUNT(*) FILTER (WHERE status = 'warning') as warning,
+			COUNT(*) FILTER (WHERE status = 'error') as error
+		FROM account_health
 	`
 
 	var summary models.AccountHealthSummary
@@ -697,16 +745,17 @@ func (r *analyticsRepository) GetAccountHealthSummary(ctx context.Context, orgID
 func (r *analyticsRepository) GetCampaignHourlyStats(ctx context.Context, campaignID uuid.UUID, date time.Time) ([]models.CampaignHourlyStats, *errx.Error) {
 	query := `
 		SELECT
-			EXTRACT(HOUR FROM sent_at)::int as hour,
+			EXTRACT(HOUR FROM ccp.sent_at)::int as hour,
 			COUNT(*) as sent,
-			COUNT(CASE WHEN opened_at IS NOT NULL THEN 1 END) as opens,
-			COUNT(CASE WHEN clicked_at IS NOT NULL THEN 1 END) as clicks,
-			COUNT(CASE WHEN replied_at IS NOT NULL THEN 1 END) as replies
-		FROM campaign_contact_progress
-		WHERE campaign_id = $1
-		  AND sent_at IS NOT NULL
-		  AND sent_at::date = $2::date
-		GROUP BY EXTRACT(HOUR FROM sent_at)
+			COUNT(CASE WHEN ccp.opened_at IS NOT NULL THEN 1 END) as opens,
+			COUNT(CASE WHEN ccp.clicked_at IS NOT NULL THEN 1 END) as clicks,
+			COUNT(CASE WHEN ccp.replied_at IS NOT NULL THEN 1 END) as replies
+		FROM campaign_contact_progress ccp
+		JOIN sequences s ON s.id = ccp.sequence_id AND s.kind = 'email'
+		WHERE ccp.campaign_id = $1
+		  AND ccp.sent_at IS NOT NULL
+		  AND ccp.sent_at::date = $2::date
+		GROUP BY EXTRACT(HOUR FROM ccp.sent_at)
 		ORDER BY hour
 	`
 
@@ -754,6 +803,7 @@ func (r *analyticsRepository) CompareCampaigns(ctx context.Context, orgID uuid.U
 		FROM campaigns c
 		LEFT JOIN campaign_contact_progress ccp ON ccp.campaign_id = c.id
 			AND ccp.sent_at >= $2 AND ccp.sent_at <= $3
+			AND EXISTS (SELECT 1 FROM sequences s WHERE s.id = ccp.sequence_id AND s.kind = 'email')
 		WHERE c.organization_id = $1 AND c.id = ANY($4)
 		GROUP BY c.id, c.name, c.status
 		ORDER BY c.name

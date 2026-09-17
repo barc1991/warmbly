@@ -13,11 +13,11 @@ Dates are parsed as `YYYY-MM-DD` unless noted. Errors follow the standard `{erro
 
 `GET /analytics/dashboard`
 
-Returns the main dashboard overview for the active organization: aggregate stats, recent activity, top campaigns, account health, and a daily trend series. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
+Returns the main dashboard overview for the active organization: aggregate stats, recent activity, top campaigns, account health, and a daily trend series. Sent and engagement totals include email steps only; completed wait and action steps do not inflate them. Account-health buckets are mutually exclusive and use the most severe current connection, sync, or warmup-reputation state. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
 
 | Parameter | In | Type | Description |
 | --- | --- | --- | --- |
-| `period` | query | string | One of `7d`, `30d`, `90d`. Defaults to `7d`; any other value falls back to `7d`. |
+| `period` | query | string | One of `7d`, `30d`, `90d`, measured as UTC calendar days including today. Defaults to `7d`; any other value falls back to `7d`. |
 
 ### Response
 
@@ -186,6 +186,8 @@ The `intent_*` counters and `reply_count` are two different things and do not ad
 
 Returns warmup send and reply statistics over a date range, with a summary and per-day series. Optionally scoped to a single mailbox. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
 
+Results are scoped to the selected workspace, so every member with access sees the same mailbox history. Workspace-wide results combine all mailboxes into one row per date. `average_daily` uses active days (dates with a warmup statistics row) as its denominator. `target_progress` is total sends divided by total planned target volume across those active days and may exceed `100` when sends beat the plan.
+
 | Parameter | In | Type | Description |
 | --- | --- | --- | --- |
 | `from` | query | string | Required. Range start (`YYYY-MM-DD`). |
@@ -207,7 +209,7 @@ Returns warmup send and reply statistics over a date range, with a summary and p
     "total_replied": 84,
     "average_daily": 17.5,
     "reply_rate": 40.0,
-    "target_progress": 0,
+    "target_progress": 87.5,
     "days_active": 12
   },
   "daily_stats": [
@@ -222,7 +224,7 @@ Returns warmup send and reply statistics over a date range, with a summary and p
 
 `GET /analytics/campaigns/:id`
 
-Returns a single campaign's performance summary plus per-sequence-step stats. The campaign must belong to the caller. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
+Returns a single campaign's performance summary plus per-sequence-step stats. `total_contacts` counts enrolled leads, and `emails_pending` is the remaining planned email-step sends across those leads. The campaign must belong to the selected workspace. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
 
 | Parameter | In | Type | Description |
 | --- | --- | --- | --- |
@@ -383,7 +385,7 @@ Returns side-by-side performance for up to 10 campaigns over a date range. Every
 
 `GET /analytics/accounts`
 
-Returns the health and usage status of every email account the caller owns. Accounts whose status fails to build are skipped. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
+Returns the health and usage status of every email account in the selected workspace. The request fails if any account's status cannot be calculated, so clients never receive a silently incomplete list. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
 
 ### Response
 
@@ -417,7 +419,7 @@ The list is returned under a `data` envelope (no cursor; all of the caller's acc
 
 `GET /analytics/accounts/:id`
 
-Returns the detailed status for one email account: a combined health score (folding in warmup-pool reputation), active errors, today's usage, warmup status, and warmup-pool health. The account must belong to the caller. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
+Returns the detailed status for one email account: a combined health score (folding in warmup-pool reputation), active errors, today's UTC usage, warmup status, and warmup-pool health. The account must belong to the selected workspace. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
 
 | Parameter | In | Type | Description |
 | --- | --- | --- | --- |
@@ -480,11 +482,13 @@ Returns the detailed status for one email account: a combined health score (fold
 
 `GET /analytics/usage`
 
-Returns account, campaign, contact, and API usage counters for the caller. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
+Returns account, campaign, and contact usage counters for the selected workspace. `campaigns.emails_sent` counts sent email steps in the requested period; wait and action steps do not count. Auth: **Scope** `READ_ANALYTICS` · **Org permission** `view_analytics`.
+
+The `api` object is a compatibility placeholder. For real API-key request totals, error rates, latency, and endpoint breakdowns use `GET /api-keys/usage/summary` and the API-key analytics endpoints.
 
 | Parameter | In | Type | Description |
 | --- | --- | --- | --- |
-| `period` | query | string | One of `day`, `week`, `month`. Defaults to `day`; any other value falls back to `day`. |
+| `period` | query | string | `day` counts from 00:00 UTC today, `week` is a rolling seven-day window, and `month` is a rolling one-month window. Defaults to `day`; any other value falls back to `day`. |
 
 ### Response
 
@@ -493,7 +497,7 @@ Returns account, campaign, contact, and API usage counters for the caller. Auth:
   "user_id": "11111111-0000-0000-0000-000000000007",
   "period": "day",
   "email_accounts": { "total": 12, "active": 11, "in_warmup": 8, "with_errors": 1 },
-  "campaigns": { "total": 9, "active": 4, "paused": 2, "draft": 3, "emails_sent": 12400 },
+  "campaigns": { "total": 9, "active": 4, "paused": 2, "draft": 3, "emails_sent": 124 },
   "contacts": { "total": 8200, "subscribed": 8050, "added_today": 120 },
   "api": { "total_calls": 0, "daily_limit": 50000, "top_endpoints": [] }
 }

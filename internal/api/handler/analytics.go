@@ -10,13 +10,12 @@ import (
 	"github.com/warmbly/warmbly/internal/errx"
 )
 
-// GetWarmupAnalytics gets warmup statistics for the user
+// GetWarmupAnalytics gets warmup statistics for the selected organization.
 // GET /analytics/warmup
 func (h *Handler) GetWarmupAnalytics(c *gin.Context) {
-	userIDStr := middleware.GetUserID(c)
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		errx.Handle(c, errx.ErrAuth)
+	orgID := middleware.GetOrganizationID(c)
+	if orgID == nil {
+		errx.Handle(c, errx.New(errx.BadRequest, "no organization selected"))
 		return
 	}
 
@@ -49,7 +48,7 @@ func (h *Handler) GetWarmupAnalytics(c *gin.Context) {
 		return
 	}
 
-	analytics, xerr := h.AnalyticsService.GetWarmupAnalytics(c.Request.Context(), userID, emailAccountID, from, to)
+	analytics, xerr := h.AnalyticsService.GetWarmupAnalytics(c.Request.Context(), *orgID, emailAccountID, from, to)
 	if xerr != nil {
 		errx.Handle(c, xerr)
 		return
@@ -175,9 +174,14 @@ func (h *Handler) GetAccountStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, status)
 }
 
-// GetUsageOverview gets usage overview for the user
+// GetUsageOverview gets usage overview for the selected organization.
 // GET /analytics/usage
 func (h *Handler) GetUsageOverview(c *gin.Context) {
+	orgID := middleware.GetOrganizationID(c)
+	if orgID == nil {
+		errx.Handle(c, errx.New(errx.BadRequest, "no organization selected"))
+		return
+	}
 	userIDStr := middleware.GetUserID(c)
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
@@ -190,7 +194,7 @@ func (h *Handler) GetUsageOverview(c *gin.Context) {
 		period = "day"
 	}
 
-	overview, xerr := h.AnalyticsService.GetUsageOverview(c.Request.Context(), userID, period)
+	overview, xerr := h.AnalyticsService.GetUsageOverview(c.Request.Context(), *orgID, userID, period)
 	if xerr != nil {
 		errx.Handle(c, xerr)
 		return

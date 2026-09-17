@@ -22,11 +22,12 @@ type WarmupAnalytics struct {
 }
 
 type WarmupSummary struct {
-	TotalSent      int     `json:"total_sent"`
-	TotalReplied   int     `json:"total_replied"`
-	AverageDaily   float64 `json:"average_daily"`
-	ReplyRate      float64 `json:"reply_rate"`      // percentage
-	TargetProgress float64 `json:"target_progress"` // percentage to max
+	TotalSent    int     `json:"total_sent"`
+	TotalReplied int     `json:"total_replied"`
+	AverageDaily float64 `json:"average_daily"`
+	ReplyRate    float64 `json:"reply_rate"` // percentage
+	// TargetProgress is actual sends divided by planned target volume for active days.
+	TargetProgress float64 `json:"target_progress"`
 	DaysActive     int     `json:"days_active"`
 }
 
@@ -211,8 +212,9 @@ type WarmupStatusInfo struct {
 	CurrentVolume int        `json:"current_volume"`
 	TargetVolume  int        `json:"target_volume"`
 	MaxVolume     int        `json:"max_volume"`
-	ReplyRate     int        `json:"reply_rate"`
-	DaysActive    int        `json:"days_active"`
+	// ReplyRate is the configured share of warmup sends that receive synthetic replies.
+	ReplyRate  int `json:"reply_rate"`
+	DaysActive int `json:"days_active"`
 	// RampHold explains a ramp that is not climbing, so a target below the
 	// plain ramp is never an unexplained drop.
 	RampHold *WarmupRampHold `json:"ramp_hold,omitempty"`
@@ -250,10 +252,11 @@ type AccountsUsage struct {
 }
 
 type CampaignsUsage struct {
-	Total      int `json:"total"`
-	Active     int `json:"active"`
-	Paused     int `json:"paused"`
-	Draft      int `json:"draft"`
+	Total  int `json:"total"`
+	Active int `json:"active"`
+	Paused int `json:"paused"`
+	Draft  int `json:"draft"`
+	// EmailsSent counts sent email steps inside UsageOverview.Period.
 	EmailsSent int `json:"emails_sent"`
 }
 

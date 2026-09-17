@@ -14,7 +14,7 @@ import (
 
 type AnalyticsService interface {
 	// Warmup analytics
-	GetWarmupAnalytics(ctx context.Context, userID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) (*models.WarmupAnalytics, *errx.Error)
+	GetWarmupAnalytics(ctx context.Context, orgID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) (*models.WarmupAnalytics, *errx.Error)
 
 	// Campaign analytics
 	GetCampaignAnalytics(ctx context.Context, orgID, campaignID uuid.UUID) (*models.CampaignAnalytics, *errx.Error)
@@ -25,10 +25,10 @@ type AnalyticsService interface {
 	GetAllAccountStatuses(ctx context.Context, orgID uuid.UUID) ([]models.EmailAccountStatus, *errx.Error)
 
 	// Usage overview
-	GetUsageOverview(ctx context.Context, userID uuid.UUID, period string) (*models.UsageOverview, *errx.Error)
+	GetUsageOverview(ctx context.Context, orgID, userID uuid.UUID, period string) (*models.UsageOverview, *errx.Error)
 
 	// Dashboard analytics
-	GetDashboardAnalytics(ctx context.Context, userID uuid.UUID, period string) (*models.DashboardAnalytics, *errx.Error)
+	GetDashboardAnalytics(ctx context.Context, orgID uuid.UUID, period string) (*models.DashboardAnalytics, *errx.Error)
 	GetCampaignHourlyStats(ctx context.Context, orgID, campaignID uuid.UUID, date time.Time) ([]models.CampaignHourlyStats, *errx.Error)
 	CompareCampaigns(ctx context.Context, orgID uuid.UUID, campaignIDs []uuid.UUID, from, to time.Time) (*models.CampaignComparison, *errx.Error)
 }
@@ -64,27 +64,31 @@ func NewService(
 // premium first so paid orgs reflect their premium-pool reputation.
 var warmupHealthPoolLookup = []string{"premium", "free"}
 
-func (s *analyticsService) GetWarmupAnalytics(ctx context.Context, userID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) (*models.WarmupAnalytics, *errx.Error) {
+func (s *analyticsService) GetWarmupAnalytics(ctx context.Context, orgID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) (*models.WarmupAnalytics, *errx.Error) {
 	// Get daily stats
-	dailyStats, xerr := s.analyticsRepo.GetWarmupStats(ctx, userID, emailAccountID, from, to)
+	dailyStats, xerr := s.analyticsRepo.GetWarmupStats(ctx, orgID, emailAccountID, from, to)
 	if xerr != nil {
 		return nil, xerr
 	}
 
 	// Calculate summary
-	var totalSent, totalReplied int
+	var totalSent, totalReplied, totalTarget int
 	for _, day := range dailyStats {
 		totalSent += day.EmailsSent
 		totalReplied += day.EmailsReplied
+		totalTarget += day.TargetVolume
 	}
 
 	daysActive := len(dailyStats)
-	var averageDaily, replyRate float64
+	var averageDaily, replyRate, targetProgress float64
 	if daysActive > 0 {
 		averageDaily = float64(totalSent) / float64(daysActive)
 	}
 	if totalSent > 0 {
 		replyRate = float64(totalReplied) / float64(totalSent) * 100
+	}
+	if totalTarget > 0 {
+		targetProgress = float64(totalSent) / float64(totalTarget) * 100
 	}
 
 	analytics := &models.WarmupAnalytics{
@@ -93,11 +97,12 @@ func (s *analyticsService) GetWarmupAnalytics(ctx context.Context, userID uuid.U
 			To:   to,
 		},
 		Summary: models.WarmupSummary{
-			TotalSent:    totalSent,
-			TotalReplied: totalReplied,
-			AverageDaily: averageDaily,
-			ReplyRate:    replyRate,
-			DaysActive:   daysActive,
+			TotalSent:      totalSent,
+			TotalReplied:   totalReplied,
+			AverageDaily:   averageDaily,
+			ReplyRate:      replyRate,
+			TargetProgress: targetProgress,
+			DaysActive:     daysActive,
 		},
 		DailyStats: dailyStats,
 	}
@@ -162,12 +167,10 @@ func (s *analyticsService) GetAccountStatus(ctx context.Context, orgID, accountI
 	}
 
 	// Get daily usage
-	usage, xerr := s.analyticsRepo.GetAccountDailyUsage(ctx, accountID, time.Now())
+	now := time.Now().UTC()
+	usage, xerr := s.analyticsRepo.GetAccountDailyUsage(ctx, accountID, now)
 	if xerr != nil {
-		// Non-fatal, use empty usage
-		usage = &models.AccountDailyUsage{
-			Date: time.Now().Format("2006-01-02"),
-		}
+		return nil, xerr
 	}
 
 	// Get errors
@@ -198,10 +201,17 @@ func (s *analyticsService) GetAccountStatus(ctx context.Context, orgID, accountI
 	warmupHealth := s.buildWarmupHealth(ctx, accountID)
 	applyWarmupHealth(&health, warmupHealth)
 
+	inCampaign := false
+	if s.campaignRepo != nil {
+		if n, err := s.campaignRepo.CountActiveCampaignsForAccount(ctx, accountID); err == nil {
+			inCampaign = n > 0
+		}
+	}
+
 	// Build warmup status if warmup has ever been enabled (active or paused).
 	var warmupStatus *models.WarmupStatusInfo
 	if email.Warmup != nil {
-		target, hold := s.warmupTargetAndHold(ctx, email, warmupHealthState(warmupHealth))
+		target, hold := s.warmupTargetAndHold(ctx, email, warmupHealthState(warmupHealth), inCampaign)
 		warmupStatus = &models.WarmupStatusInfo{
 			Enabled:       true,
 			Paused:        email.WarmupPausedAt != nil,
@@ -213,13 +223,6 @@ func (s *analyticsService) GetAccountStatus(ctx context.Context, orgID, accountI
 			ReplyRate:     email.WarmupReplyRate,
 			DaysActive:    int(time.Since(*email.Warmup).Hours() / 24),
 			RampHold:      hold,
-		}
-	}
-
-	inCampaign := false
-	if s.campaignRepo != nil {
-		if n, err := s.campaignRepo.CountActiveCampaignsForAccount(ctx, accountID); err == nil {
-			inCampaign = n > 0
 		}
 	}
 
@@ -333,7 +336,7 @@ func (s *analyticsService) GetAllAccountStatuses(ctx context.Context, orgID uuid
 	for _, email := range emailsResult.Data {
 		status, xerr := s.GetAccountStatus(ctx, orgID, email.ID)
 		if xerr != nil {
-			continue // Skip failed accounts
+			return nil, xerr
 		}
 		statuses = append(statuses, *status)
 	}
@@ -341,21 +344,33 @@ func (s *analyticsService) GetAllAccountStatuses(ctx context.Context, orgID uuid
 	return statuses, nil
 }
 
-func (s *analyticsService) GetUsageOverview(ctx context.Context, userID uuid.UUID, period string) (*models.UsageOverview, *errx.Error) {
+func (s *analyticsService) GetUsageOverview(ctx context.Context, orgID, userID uuid.UUID, period string) (*models.UsageOverview, *errx.Error) {
+	now := time.Now().UTC()
+	var from time.Time
+	switch period {
+	case "week":
+		from = now.AddDate(0, 0, -7)
+	case "month":
+		from = now.AddDate(0, -1, 0)
+	default:
+		period = "day"
+		from = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	}
+
 	// Get email account counts
-	accountsUsage, xerr := s.analyticsRepo.GetEmailAccountCounts(ctx, userID)
+	accountsUsage, xerr := s.analyticsRepo.GetEmailAccountCounts(ctx, orgID)
 	if xerr != nil {
 		return nil, xerr
 	}
 
 	// Get campaign counts
-	campaignsUsage, xerr := s.analyticsRepo.GetCampaignCounts(ctx, userID)
+	campaignsUsage, xerr := s.analyticsRepo.GetCampaignCounts(ctx, orgID, from, now)
 	if xerr != nil {
 		return nil, xerr
 	}
 
 	// Get contact counts
-	contactsUsage, xerr := s.analyticsRepo.GetContactCounts(ctx, userID)
+	contactsUsage, xerr := s.analyticsRepo.GetContactCounts(ctx, orgID)
 	if xerr != nil {
 		return nil, xerr
 	}
@@ -420,7 +435,7 @@ func calculateAccountHealth(email *models.Email, errors []models.AccountError) m
 // is holding it down. It runs the shared warmupramp policy rather than its own
 // arithmetic: a drawer saying "target 25" for a mailbox sending 18 is worse
 // than no number.
-func (s *analyticsService) warmupTargetAndHold(ctx context.Context, email *models.Email, health models.WarmupHealthState) (int, *models.WarmupRampHold) {
+func (s *analyticsService) warmupTargetAndHold(ctx context.Context, email *models.Email, health models.WarmupHealthState, inCampaign bool) (int, *models.WarmupRampHold) {
 	if email.Warmup == nil {
 		return 0, nil
 	}
@@ -431,6 +446,7 @@ func (s *analyticsService) warmupTargetAndHold(ctx context.Context, email *model
 		Base:            email.WarmupBase,
 		Increase:        email.WarmupIncrease,
 		Max:             email.WarmupMax,
+		InCampaign:      inCampaign,
 		Health:          health,
 		Now:             time.Now(),
 	})
@@ -452,18 +468,19 @@ func (s *analyticsService) warmupTargetAndHold(ctx context.Context, email *model
 
 func (s *analyticsService) GetDashboardAnalytics(ctx context.Context, orgID uuid.UUID, period string) (*models.DashboardAnalytics, *errx.Error) {
 	// Calculate date range from period
-	var from, to time.Time
-	to = time.Now()
+	to := time.Now().UTC()
+	startOfToday := time.Date(to.Year(), to.Month(), to.Day(), 0, 0, 0, 0, time.UTC)
+	var from time.Time
 
 	switch period {
 	case "7d":
-		from = to.AddDate(0, 0, -7)
+		from = startOfToday.AddDate(0, 0, -6)
 	case "30d":
-		from = to.AddDate(0, 0, -30)
+		from = startOfToday.AddDate(0, 0, -29)
 	case "90d":
-		from = to.AddDate(0, 0, -90)
+		from = startOfToday.AddDate(0, 0, -89)
 	default:
-		from = to.AddDate(0, 0, -7) // Default to 7 days
+		from = startOfToday.AddDate(0, 0, -6)
 		period = "7d"
 	}
 
