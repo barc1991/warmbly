@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"os"
 	"sort"
 	"strings"
@@ -103,10 +104,7 @@ func (h *Handler) FleetJoin(c *gin.Context) {
 		nodeID = parsed
 	}
 
-	address := strings.TrimSpace(req.Address)
-	if address == "" {
-		address = c.ClientIP()
-	}
+	address := heartbeatAddress(req.Address, c.ClientIP())
 
 	// Registering here rather than waiting for the first beat means the node
 	// shows up in the dashboard the moment it joins, even if it then fails to
@@ -154,6 +152,7 @@ func (h *Handler) FleetHeartbeat(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "decode body"})
 		return
 	}
+	beat.Address = heartbeatAddress(beat.Address, c.ClientIP())
 	reply, err := h.FleetNodes.Heartbeat(c.Request.Context(), beat)
 	if err != nil {
 		switch {
@@ -180,6 +179,49 @@ func (h *Handler) FleetHeartbeat(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, reply)
+}
+
+// heartbeatAddress prefers the public IPv4 observed by the trusted backend edge.
+func heartbeatAddress(reported, observed string) string {
+	reported = strings.TrimSpace(reported)
+	observed = strings.TrimSpace(observed)
+	if normalized, ok := normalizedPublicIPv4(observed); ok {
+		return normalized
+	}
+	if normalized, ok := normalizedPublicIPv4(reported); ok {
+		return normalized
+	}
+	if observed != "" {
+		return observed
+	}
+	return reported
+}
+
+func normalizedPublicIPv4(raw string) (string, bool) {
+	ip, err := netip.ParseAddr(raw)
+	if err != nil {
+		return "", false
+	}
+	ip = ip.Unmap()
+	if !ip.Is4() || !ip.IsGlobalUnicast() || ip.IsPrivate() {
+		return "", false
+	}
+	for _, prefix := range nonPublicIPv4Prefixes {
+		if prefix.Contains(ip) {
+			return "", false
+		}
+	}
+	return ip.String(), true
+}
+
+var nonPublicIPv4Prefixes = []netip.Prefix{
+	netip.MustParsePrefix("100.64.0.0/10"),
+	netip.MustParsePrefix("192.0.0.0/24"),
+	netip.MustParsePrefix("192.0.2.0/24"),
+	netip.MustParsePrefix("198.18.0.0/15"),
+	netip.MustParsePrefix("198.51.100.0/24"),
+	netip.MustParsePrefix("203.0.113.0/24"),
+	netip.MustParsePrefix("240.0.0.0/4"),
 }
 
 // nodeHeartbeatSeconds derives the beat interval from the server's liveness

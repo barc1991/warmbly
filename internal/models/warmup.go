@@ -6,6 +6,16 @@ import (
 	"github.com/google/uuid"
 )
 
+// WarmupPoolType separates free and paid warmup participation.
+type WarmupPoolType string
+
+const (
+	// WarmupPoolFree is the default pool for unpaid workspaces.
+	WarmupPoolFree WarmupPoolType = "free"
+	// WarmupPoolPremium is the pool for paid workspaces.
+	WarmupPoolPremium WarmupPoolType = "premium"
+)
+
 type WarmupToken struct {
 	Token              uuid.UUID `json:"token"`
 	TaskID             uuid.UUID `json:"task_id"`

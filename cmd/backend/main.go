@@ -1083,7 +1083,7 @@ func main() {
 		decisionLogRepo := repository.NewDecisionLogRepository(primaryDB)
 
 		// Refresh worker_capacity_view every minute so placement, rotation,
-		// scale and quarantine all see fresh rolling metrics. The materialized
+		// scale all see fresh rolling metrics. The materialized
 		// view is what aggregates the 1h windows across all workers.
 		go jobrun.Loop(ctx, "worker_capacity_refresh", time.Minute, false, workerRepository.RefreshWorkerCapacityView)
 
@@ -1096,11 +1096,6 @@ func main() {
 			WorkerRepo: workerRepository,
 			Decisions:  decisionLogRepo,
 		}).Run(ctx)
-		go (&fleet.QuarantineEvaluator{
-			WorkerRepo: workerRepository,
-			Decisions:  decisionLogRepo,
-		}).Run(ctx)
-
 		workerRepoForHandler = workerRepository
 
 		// Releases service. Off by default for self-host (no vendor image
