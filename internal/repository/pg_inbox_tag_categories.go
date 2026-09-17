@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -75,30 +76,42 @@ func (s *TagCategoryStore) EnsureCategory(ctx context.Context, orgID uuid.UUID, 
 	}
 	s.mu.RUnlock()
 
-	var id uuid.UUID
-	err := s.db.QueryRow(ctx,
-		`SELECT id FROM categories WHERE organization_id = $1 AND LOWER(title) = LOWER($2) LIMIT 1`,
-		orgID, slug).Scan(&id)
-
+	tx, err := s.db.Begin(ctx)
 	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Category titles are deliberately not unique, so serialize automatic
+	// category creation per workspace to avoid racing into duplicate labels.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, orgID.String()); err != nil {
+		return uuid.Nil, err
+	}
+
+	var id uuid.UUID
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM categories
+		WHERE organization_id = $1 AND LOWER(title) = LOWER($2)
+		ORDER BY position, id LIMIT 1
+	`, orgID, slug).Scan(&id)
+	if err != nil && err != pgx.ErrNoRows {
+		return uuid.Nil, err
+	}
+	if err == pgx.ErrNoRows {
 		color := tagColors[slug]
 		if color == "" {
 			color = defaultTagColor
 		}
-		// position: after everything the workspace already has, so automatic
-		// labels never reorder the ones a person arranged.
-		if err := s.db.QueryRow(ctx, `
+		if err := tx.QueryRow(ctx, `
 			INSERT INTO categories (organization_id, title, color, position)
 			VALUES ($1, $2, $3, COALESCE((SELECT MAX(position) + 1 FROM categories WHERE organization_id = $1), 0))
-			ON CONFLICT DO NOTHING
-			RETURNING id`, orgID, slug, color).Scan(&id); err != nil {
-			// A concurrent insert won the race; read back what it created.
-			if rerr := s.db.QueryRow(ctx,
-				`SELECT id FROM categories WHERE organization_id = $1 AND LOWER(title) = LOWER($2) LIMIT 1`,
-				orgID, slug).Scan(&id); rerr != nil {
-				return uuid.Nil, rerr
-			}
+			RETURNING id
+		`, orgID, slug, color).Scan(&id); err != nil {
+			return uuid.Nil, err
 		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
 	}
 
 	s.mu.Lock()
@@ -188,32 +201,43 @@ func (s *TagCategoryStore) SyncExclusiveLabels(ctx context.Context, orgID uuid.U
 	}
 
 	remove := make([]uuid.UUID, 0, len(family))
+	var wantID uuid.UUID
 	for _, slug := range family {
-		if slug == want {
-			continue
-		}
 		id, err := s.EnsureCategory(ctx, orgID, slug)
 		if err != nil {
 			return err
 		}
-		remove = append(remove, id)
+		if slug == want {
+			wantID = id
+		} else {
+			remove = append(remove, id)
+		}
 	}
 
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
 	if len(remove) > 0 {
-		if _, err := s.db.Exec(ctx, `
+		if _, err := tx.Exec(ctx, `
 			DELETE FROM unibox_thread_labels
-			WHERE organization_id = $1 AND thread_id = $2 AND category_id = ANY($3)
+			WHERE organization_id = $1 AND thread_id = $2
+			  AND category_id = ANY($3) AND user_id IS NULL
 		`, orgID, threadID, remove); err != nil {
 			return err
 		}
 	}
 
-	if want == "" {
-		return nil
+	if wantID != uuid.Nil {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO unibox_thread_labels (organization_id, thread_id, category_id)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (organization_id, thread_id, category_id) DO NOTHING
+		`, orgID, threadID, wantID); err != nil {
+			return err
+		}
 	}
-	id, err := s.EnsureCategory(ctx, orgID, want)
-	if err != nil {
-		return err
-	}
-	return s.AddThreadLabels(ctx, orgID, threadID, []uuid.UUID{id})
+	return tx.Commit(ctx)
 }

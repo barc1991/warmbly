@@ -298,10 +298,7 @@ type ThreadFollowUpState struct {
 	ThreadID       string
 	LastInboundAt  time.Time
 	LastOutboundAt time.Time
-	// BestIntent is the furthest this thread ever got. Resolved in SQL by
-	// preferring the classified intent of the most recent inbound message that
-	// had one, because a thread that agreed and then asked a question is still
-	// a thread that agreed.
+	// BestIntent is the most recent trusted intent in this thread.
 	BestIntent string
 	// LastKind is the classified kind of the newest inbound message, which is
 	// what says whether the "reply" was a person or a mail server.
@@ -312,34 +309,59 @@ type ThreadFollowUpState struct {
 // cutoff.
 //
 // Scoped through email_accounts because unibox_emails carries no organization
-// of its own, and grouped per mailbox+thread for the same reason the analytics
-// queries are: the same provider thread id in two mailboxes is two threads.
+// of its own. Follow-up labels use the same organization-plus-thread key as the
+// rest of the unibox.
 func (r *inboxTagRepository) ThreadStates(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) ([]ThreadFollowUpState, error) {
 	const q = `
-		WITH threads AS (
+	WITH scoped_emails AS (
+		SELECT ue.*
+		FROM unibox_emails ue
+		JOIN email_accounts ea ON ea.id = ue.email_id
+		WHERE ea.organization_id = $1 AND ue.thread_id <> ''
+	),
+	active_threads AS (
+		SELECT DISTINCT thread_id
+		FROM scoped_emails
+		WHERE internal_date >= $2
+	),
+	threads AS (
 			SELECT ue.thread_id,
 			       MAX(ue.internal_date) FILTER (WHERE ue.folder = 'inbox') AS last_in,
 			       MAX(ue.internal_date) FILTER (WHERE ue.folder = 'sent')  AS last_out
-			FROM unibox_emails ue
-			JOIN email_accounts ea ON ea.id = ue.email_id
-			WHERE ea.organization_id = $1
-			  AND ue.thread_id <> ''
-			  AND ue.internal_date >= $2
+			FROM scoped_emails ue
+			JOIN active_threads active ON active.thread_id = ue.thread_id
 			GROUP BY ue.thread_id
+	),
+	latest_inbound AS (
+		SELECT DISTINCT ON (ue.thread_id)
+		       ue.thread_id, ue.email_id, ue.message_id
+		FROM scoped_emails ue
+		JOIN active_threads active ON active.thread_id = ue.thread_id
+		WHERE ue.folder = 'inbox'
+		ORDER BY ue.thread_id, ue.internal_date DESC
 		)
 		SELECT t.thread_id, t.last_in, t.last_out,
 		       COALESCE(best.intent, ''), COALESCE(newest.kind, '')
 		FROM threads t
 		LEFT JOIN LATERAL (
-			SELECT r.intent FROM inbox_tag_results r
-			WHERE r.organization_id = $1 AND r.thread_id = t.thread_id AND r.intent <> ''
-			ORDER BY r.created_at DESC LIMIT 1
-		) best ON TRUE
-		LEFT JOIN LATERAL (
-			SELECT r.kind FROM inbox_tag_results r
+			SELECT r.intent
+			FROM inbox_tag_results r
+			JOIN scoped_emails ue
+			  ON ue.email_id = r.email_account_id
+			 AND ue.thread_id = r.thread_id
+			 AND ue.message_id = r.message_id
 			WHERE r.organization_id = $1 AND r.thread_id = t.thread_id
-			ORDER BY r.created_at DESC LIMIT 1
-		) newest ON TRUE
+			  AND r.status = 'complete' AND r.review_reason <> 'intent' AND r.intent <> ''
+			ORDER BY ue.internal_date DESC, r.created_at DESC LIMIT 1
+		) best ON TRUE
+		LEFT JOIN latest_inbound latest ON latest.thread_id = t.thread_id
+		LEFT JOIN inbox_tag_results newest
+		  ON newest.organization_id = $1
+		 AND newest.email_account_id = latest.email_id
+		 AND newest.thread_id = latest.thread_id
+		 AND newest.message_id = latest.message_id
+		 AND newest.status = 'complete'
+		 AND newest.review_reason <> 'kind'
 		WHERE t.last_out IS NOT NULL
 		ORDER BY GREATEST(COALESCE(t.last_in, 'epoch'::timestamptz), t.last_out) DESC
 		LIMIT $3

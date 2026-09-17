@@ -49,7 +49,7 @@ const TAG_MEANINGS: Record<string, string> = {
     "going-cold": "They were interested, then went quiet for ten days. Worth a nudge.",
 
     // The one that means the system declined to decide.
-    "needs-review": "The classifier was not confident enough to label this, so nothing was applied.",
+    "needs-review": "At least one classifier answer was below the confidence floor and needs review.",
 };
 
 /**

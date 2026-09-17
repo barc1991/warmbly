@@ -20,12 +20,17 @@ func TestFollowUp(t *testing.T) {
 	}{
 		{
 			"they replied and we have not answered for days",
-			ThreadState{LastOutboundAt: ago(6), LastInboundAt: ago(3), BestIntent: IntentWantsInfo},
+			ThreadState{LastOutboundAt: ago(6), LastInboundAt: ago(3), BestIntent: IntentWantsInfo, LastKind: KindHumanReply},
 			LabelBallInOurCourt,
 		},
 		{
 			"they replied yesterday, which is not yet a delay worth flagging",
-			ThreadState{LastOutboundAt: ago(2), LastInboundAt: ago(1), BestIntent: IntentWantsInfo},
+			ThreadState{LastOutboundAt: ago(2), LastInboundAt: ago(1), BestIntent: IntentWantsInfo, LastKind: KindHumanReply},
+			"",
+		},
+		{
+			"an unclassified inbound message is not treated as a human reply",
+			ThreadState{LastOutboundAt: ago(6), LastInboundAt: ago(3)},
 			"",
 		},
 		{
@@ -172,13 +177,11 @@ func (f *fakeCategories) SyncExclusiveLabels(ctx context.Context, orgID uuid.UUI
 }
 func (f *fakeCategories) has(threadID, label string) bool { return f.labels[threadID][label] }
 
-// The sweep must run with no API key and make no calls: whether a message was
-// answered is a fact, so a workspace that never turns on the classifier still
-// gets "they replied and you have not".
+// The sweep reuses stored classifications and makes no model calls of its own.
 func TestSweepNeedsNoModel(t *testing.T) {
 	now := time.Now()
 	repo := &fakeRepo{states: []repository.ThreadFollowUpState{
-		{ThreadID: "t-ours", LastOutboundAt: now.AddDate(0, 0, -6), LastInboundAt: now.AddDate(0, 0, -3), BestIntent: IntentWantsInfo},
+		{ThreadID: "t-ours", LastOutboundAt: now.AddDate(0, 0, -6), LastInboundAt: now.AddDate(0, 0, -3), BestIntent: IntentWantsInfo, LastKind: KindHumanReply},
 		{ThreadID: "t-chase", LastOutboundAt: now.AddDate(0, 0, -8)},
 		{ThreadID: "t-cold", LastOutboundAt: now.AddDate(0, 0, -12), LastInboundAt: now.AddDate(0, 0, -14), BestIntent: IntentAgreed},
 		{ThreadID: "t-closed", LastOutboundAt: now.AddDate(0, 0, -30), LastInboundAt: now.AddDate(0, 0, -31), BestIntent: IntentOptOut},
@@ -245,6 +248,7 @@ func TestSweepReplacesRatherThanAccumulates(t *testing.T) {
 
 	// They finally answer, so nothing is owed by them any more.
 	repo.states[0].LastInboundAt = now
+	repo.states[0].LastKind = KindHumanReply
 	if _, err := svc.SweepFollowUps(context.Background(), orgID, now.AddDate(0, 0, -90), 0); err != nil {
 		t.Fatalf("third sweep: %v", err)
 	}

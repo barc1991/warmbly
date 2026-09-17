@@ -46,8 +46,8 @@ type Decision struct {
 	Relevance int
 	Priority  string
 
-	// NeedsReview is set when a Choice came back below ConfFloor. The thread
-	// gets the needs-review label and no other label is trusted.
+	// NeedsReview is set when a Choice came back below ConfFloor. ReviewReason
+	// identifies the untrusted part of an otherwise usable decision.
 	NeedsReview  bool
 	ReviewReason string
 

@@ -44,7 +44,7 @@ Four labels answer the question a pipeline actually turns on, which is not "what
 
 `going-cold` is separate from `follow-up-due` on purpose. A stalled deal and an unanswered cold email need different things from you, and someone who already said yes has earned more patience than someone who never answered. That is why its fuse is longer.
 
-**No model is involved.** Whether a message was answered, and how long ago, are facts in your mailbox. These labels are arithmetic over stored timestamps, they cost nothing, and they work on a workspace that never switches the classifier on at all.
+**The sweep makes no additional model calls.** When automatic tagging is enabled, it reuses stored classifications so bounces, autoresponders, and platform notices are not treated as human replies.
 
 **Threads that said no are never chased.** A reply classified `not-interested`, `opt-out`, `wrong-person` or `not-now` gets no follow-up label, ever. Nagging someone who declined is rude, and nagging someone who asked to be removed is a compliance problem rather than a missed opportunity. Bounces, autoresponders and platform notices are skipped too: there is nobody on the other end to chase.
 
@@ -76,15 +76,11 @@ This matters more than it sounds. Given only a message body, the model classifie
 
 Common out-of-office subject prefixes and automated sender addresses are checked offline. When one is decisive, no model call is made. The review page shows which verdicts were decided offline and which came from the model.
 
-## Self-hosting without the external service
+## Follow-ups without TypeSafe
 
-Warmbly's rule is that anything with a third-party dependency keeps a self-hosted path. This feature has one, and it is not a token gesture.
+With no `TYPESAFE_API_KEY`, Warmbly can still compute `awaiting-reply` and `follow-up-due` locally from sent-message dates. It makes no external call. `ball-in-our-court` and `going-cold` also need a trusted stored classification so an automated message is not mistaken for a person and a weak intent is not treated as interest.
 
-With no `TYPESAFE_API_KEY` at all, the **follow-up labels still run**: `ball-in-our-court`, `awaiting-reply`, `follow-up-due` and `going-cold` are arithmetic over your own mailbox and need nothing outside your instance. "They replied and you have not" is arguably the most useful label here, and it costs nothing and leaves no data.
-
-What the key adds is the classification half: what a message *is* and what a reply *wants*. That half is genuinely optional, and an instance without it loses those labels and keeps everything else, including the whole inbox.
-
-Nothing about the rest of Warmbly changes either way. No message content leaves the instance unless you set both variables.
+The key and switch add message classification. When both are unset, automatic inbox tagging sends no message content to TypeSafe. Other optional AI features use their separately configured provider; see [data control](/development/data-control/).
 
 ## Turning it on
 

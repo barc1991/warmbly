@@ -2,18 +2,14 @@ package inboxtag
 
 import "time"
 
-// ThreadState is everything the follow-up decision needs, and all of it comes
-// from the database. No question is asked, nothing is inferred from prose, and
-// the whole thing is arithmetic over two timestamps and a direction.
+// ThreadState contains the stored classification and timestamps used for follow-up labels.
 type ThreadState struct {
 	ThreadID string
 	// LastInboundAt and LastOutboundAt are the most recent message each way.
 	// Zero means there has never been one.
 	LastInboundAt  time.Time
 	LastOutboundAt time.Time
-	// BestIntent is the furthest the thread ever got, taken from what was
-	// already classified. Empty when nothing in the thread was ever classified,
-	// which is the normal case for a thread with no inbound reply.
+	// BestIntent is the most recent trusted intent already classified in this thread.
 	BestIntent string
 	// Kind of the most recent classified inbound message. A thread whose only
 	// inbound was a bounce or an autoresponder is not a conversation.
@@ -57,6 +53,10 @@ func FollowUp(s ThreadState, now time.Time) string {
 	// They spoke last. The ball is ours, and the only question is whether we
 	// have been sitting on it long enough to say so.
 	if hasInbound && s.LastInboundAt.After(s.LastOutboundAt) {
+		// An unknown inbound message may be automated rather than a person waiting on us.
+		if s.LastKind == "" {
+			return ""
+		}
 		if daysSince(s.LastInboundAt, now) >= OurCourtDays {
 			return LabelBallInOurCourt
 		}

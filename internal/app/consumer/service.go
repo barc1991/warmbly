@@ -145,6 +145,9 @@ func (s *JobsService) sweepFollowUps(ctx context.Context) {
 				log.Warn().Err(serr).Str("org_id", orgID.String()).Msg("follow-up sweep failed")
 			} else if p.Threads > 0 {
 				log.Debug().Str("org_id", orgID.String()).Int("threads", p.Threads).Msg("follow-up sweep")
+				if s.StreamingPublisher != nil {
+					s.StreamingPublisher.PublishEmailUpdated(ctx, &pubsub.EmailInboxEvent{OrgID: orgID.String()})
+				}
 			}
 		}
 

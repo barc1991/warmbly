@@ -409,18 +409,8 @@ func main() {
 	jobrun.Configure(repository.NewJobRunRepository(primaryDB), "consumer")
 
 	// JobsService
-	// Automatic inbox tagging. The tagger is always constructed; what it can do
-	// depends on what is configured.
-	//
-	// Without a TypeSafe key it still runs the follow-up sweep, which is pure
-	// arithmetic over the workspace's own mailbox: who replied, who did not,
-	// and how long ago. That is the self-hosted path this repo asks for from
-	// anything carrying an external dependency, and it is not a token one:
-	// "they replied and you have not" needs no third party and is the most
-	// actionable label here.
-	//
-	// With a key it additionally classifies arriving mail, which is the only
-	// part that sends message content anywhere.
+	// Follow-up labels use stored mailbox facts and run without TypeSafe.
+	// Message classification still requires both the key and opt-in switch.
 	tagCategories := repository.NewTagCategoryStore(primaryDB.Pool)
 	var tagAsker inboxtag.Asker
 	classify := config.InboxTaggingEnabled()
@@ -428,14 +418,12 @@ func main() {
 		tagAsker = inboxtag.NewClient(config.TypeSafeAPIKey())
 		log.Printf("automatic inbox tagging enabled (model %s)", inboxtag.Model)
 	} else {
-		log.Printf("automatic inbox classification off; follow-up labels still run (no external service)")
+		log.Printf("automatic inbox classification off; timestamp-based follow-up labels still run locally")
 	}
 	inboxTagger := inboxtag.NewService(
 		tagAsker,
 		repository.NewInboxTagRepository(primaryDB.Pool),
 		tagCategories,
-		// The store also answers "is this sender one of ours", which is the
-		// backstop behind the folder-based direction check upstream.
 		tagCategories,
 		classify,
 	)

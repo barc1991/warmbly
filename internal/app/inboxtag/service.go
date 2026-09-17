@@ -443,15 +443,8 @@ type FollowUpProgress struct {
 
 // SweepFollowUps recomputes the follow-up label on every recently active thread.
 //
-// No model call, ever. Whether a message was answered and how long ago are
-// facts, so this is pure arithmetic over stored data and costs nothing to run.
-// That is what makes it safe to run on a schedule: these states change because
-// the calendar moved, not because anything happened, so there is no event to
-// hang them off and they have to be recomputed.
-//
-// Runs whether or not the classifier is enabled. A workspace that never turns
-// on tagging still gets "they replied and you have not" and "you sent this a
-// week ago", which need no model and are arguably the most useful labels here.
+// The sweep makes no model calls. It runs when tagging is enabled and reuses
+// trusted classifications so automated mail is not treated as a human reply.
 func (s *Service) SweepFollowUps(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) (FollowUpProgress, error) {
 	p := FollowUpProgress{Labelled: map[string]int{}}
 	if s == nil || s.repo == nil || s.categories == nil {
@@ -465,7 +458,9 @@ func (s *Service) SweepFollowUps(ctx context.Context, orgID uuid.UUID, since tim
 	if err != nil {
 		return p, err
 	}
-	s.seedTaxonomy(ctx, orgID)
+	if err := s.categories.EnsureAll(ctx, orgID, FollowUpLabels); err != nil {
+		log.Warn().Err(err).Msg("inbox tagging: could not seed follow-up labels")
+	}
 
 	now := time.Now()
 	for _, st := range states {

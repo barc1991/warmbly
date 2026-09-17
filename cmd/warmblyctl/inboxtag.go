@@ -131,11 +131,10 @@ func runInboxTagBackfill(ctx context.Context, args []string) error {
 		p.Considered, p.Classified, p.Skipped, p.Failed)
 
 	if *dryRun {
-		// ~1,300 input tokens per message at $0.042/Mtok. Output is not billed.
-		// Rounded up and stated as an estimate, because an operator deciding
-		// whether to run this wants an order of magnitude, not a promise.
-		cost := float64(p.Classified) * 1300 * 0.042 / 1_000_000
-		fmt.Printf("Estimated cost if run: about $%.4f. Re-run without --dry-run to classify.\n", cost)
+		// Pricing changes independently of this release, so report the measured
+		// fixture estimate and leave the conversion to the current pricing page.
+		tokens := p.Classified * 1300
+		fmt.Printf("Estimated input if run: about %d tokens. Check current TypeSafe pricing, then re-run without --dry-run to classify.\n", tokens)
 	} else if p.Considered == *limit {
 		fmt.Printf("Hit the --limit. Run it again to continue; already-tagged mail is skipped.\n")
 	}
@@ -175,10 +174,8 @@ func truncateSubject(s string, n int) string {
 
 // runInboxTagFollowUps recomputes who owes whom a reply.
 //
-// No model call and no key needed: whether a message was answered and how long
-// ago are facts. A workspace that never switches the classifier on still gets
-// "they replied and you have not", which is arguably the most useful label here
-// and costs nothing.
+// The sweep makes no new model calls. Human-reply labels use classifications
+// already stored by automatic tagging; outbound-last labels need only dates.
 func runInboxTagFollowUps(ctx context.Context, args []string) error {
 	fs := newFlagSet("inbox-tag follow-ups")
 	org := fs.String("org", "", "organization id, or the owner's email address")
