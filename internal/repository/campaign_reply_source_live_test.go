@@ -160,3 +160,52 @@ func TestLiveReplySourceUsesStoredDirectionAtTheWriteBoundary(t *testing.T) {
 		t.Fatal("Inbox source did not stamp replied_at")
 	}
 }
+
+// A cross-provider reply is eligible only when its receiving mailbox sent to the lead.
+func TestLiveCrossProviderReplyRequiresReceivingMailboxUsedForLead(t *testing.T) {
+	_, pool := liveContactDB(t)
+	f := newThreadParentFixture(t, pool)
+	ctx := context.Background()
+	root := f.step(1, "Hello", true)
+	rootTask := f.send(root, f.mailbox, "<opener@test.local>", "thread-1", 120)
+
+	if _, err := pool.Exec(ctx, `
+		UPDATE email_accounts
+		SET provider = CASE id WHEN $1 THEN 'outlook'::email_provider ELSE 'smtp_imap'::email_provider END
+		WHERE id IN ($1, $2)
+	`, f.mailbox, f.other); err != nil {
+		t.Fatalf("set cross-provider fixture: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO campaign_contact_progress (campaign_id, contact_id, sequence_id, dispatch_task_id, sent_at)
+		VALUES ($1, $2, $3, $4, NOW() - INTERVAL '2 minutes')
+	`, f.campaign, f.contact, root, rootTask); err != nil {
+		t.Fatalf("insert root progress: %v", err)
+	}
+
+	repo := NewCampaignProgressRepository(pool)
+	used, err := repo.CampaignContactSentFromAccount(ctx, f.campaign, f.contact, f.other)
+	if err != nil {
+		t.Fatalf("check unused SMTP/IMAP mailbox: %v", err)
+	}
+	if used {
+		t.Fatal("unused workspace mailbox was accepted for a cross-mailbox reply")
+	}
+
+	followup := f.step(2, "Re: Hello", true)
+	followupTask := f.send(followup, f.other, "<followup@test.local>", "thread-1", 60)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO campaign_contact_progress (campaign_id, contact_id, sequence_id, dispatch_task_id, sent_at)
+		VALUES ($1, $2, $3, $4, NOW() - INTERVAL '1 minute')
+	`, f.campaign, f.contact, followup, followupTask); err != nil {
+		t.Fatalf("insert cross-provider progress: %v", err)
+	}
+
+	used, err = repo.CampaignContactSentFromAccount(ctx, f.campaign, f.contact, f.other)
+	if err != nil {
+		t.Fatalf("check used SMTP/IMAP mailbox: %v", err)
+	}
+	if !used {
+		t.Fatal("mailbox that sent a later campaign step was rejected for a cross-provider reply")
+	}
+}

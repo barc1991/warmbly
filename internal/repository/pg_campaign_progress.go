@@ -185,6 +185,8 @@ type CampaignProgressRepository interface {
 	GetStepSentAt(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) (*time.Time, error)
 	// IsInboundReplySource confirms the stored unibox row is not outbound.
 	IsInboundReplySource(ctx context.Context, emailAccountID, messageID uuid.UUID) (bool, error)
+	// CampaignContactSentFromAccount confirms the mailbox sent this contact a campaign step.
+	CampaignContactSentFromAccount(ctx context.Context, campaignID, contactID, emailAccountID uuid.UUID) (bool, error)
 	// ClaimIncomingReply leases one stored inbound message for reply processing.
 	ClaimIncomingReply(ctx context.Context, emailAccountID, messageID uuid.UUID) (uuid.UUID, error)
 	// CompleteIncomingReply prevents a successfully processed message from being retried.
@@ -808,6 +810,24 @@ func (r *campaignProgressRepository) IsInboundReplySource(ctx context.Context, e
 		)
 	`, messageID, emailAccountID).Scan(&inbound)
 	return inbound, err
+}
+
+// CampaignContactSentFromAccount proves a cross-mailbox reply arrived at a sender used for this lead.
+func (r *campaignProgressRepository) CampaignContactSentFromAccount(ctx context.Context, campaignID, contactID, emailAccountID uuid.UUID) (bool, error) {
+	var sent bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM campaign_tasks campaign_task
+			JOIN tasks task ON task.id = campaign_task.task_id
+			WHERE campaign_task.campaign_id = $1
+			  AND campaign_task.contact_id = $2
+			  AND task.task_type = 'campaign'
+			  AND task.status = 'completed'
+			  AND task.email_account_id = $3
+		)
+	`, campaignID, contactID, emailAccountID).Scan(&sent)
+	return sent, err
 }
 
 const incomingReplyClaimLease = "10 minutes"
