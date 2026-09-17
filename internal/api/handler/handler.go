@@ -298,6 +298,11 @@ type Handler struct {
 	// /api/v1/internal/tracked-links/:id (same no-direct-Postgres rule).
 	TrackedLinks repository.TrackedLinkRepository
 
+	// InboxTagRepo backs the automatic-tagging review page. Optional: nil when
+	// the feature was never configured, and the endpoint says so rather than
+	// failing.
+	InboxTagRepo repository.InboxTagRepository
+
 	// Verified custom tracking and forms domains, read by the on-demand TLS
 	// gate at /tls/authorize so a reverse proxy can obtain a certificate for a
 	// hostname that was not known when the instance was installed.

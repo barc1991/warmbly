@@ -856,6 +856,8 @@ func Run(
 			{
 				analytics.GET("/dashboard", h.GetDashboardAnalytics)
 				analytics.GET("/direct", h.GetDirectMailAnalytics)
+				// Automatic inbox tagging: the phase-1 review surface (read-only).
+				analytics.GET("/inbox-tagging", h.GetInboxTaggingReview)
 				analytics.GET("/deliverability", m.RequireOrganization(), h.GetDeliverabilityDashboard)
 				analytics.GET("/warmup", h.GetWarmupAnalytics)
 				analytics.GET("/campaigns/compare", h.CompareCampaigns)

@@ -114,6 +114,9 @@ type EmailRepository interface {
 	SetWarmupLifecycle(ctx context.Context, userID, emailAccountID, action string) (*models.Email, *errx.Error)
 	UpdateTrackingDomain(ctx context.Context, orgID, emailAccountID, domain string, verified bool, verifiedAt *time.Time) *errx.Error
 	UpdateTrackDirectMail(ctx context.Context, orgID, emailAccountID string, enabled bool) *errx.Error
+	// ListOrganizationIDs names every workspace with a mailbox, for sweeps that
+	// run per workspace rather than per event.
+	ListOrganizationIDs(ctx context.Context) ([]uuid.UUID, error)
 	// ListTrackingDomainCheckDue returns active mailboxes with a custom
 	// tracking domain that has not been resolved since staleBefore (or never),
 	// oldest-first. Drives the background re-verification sweep.
@@ -2006,4 +2009,23 @@ func (r *emailRepository) UpdateTrackDirectMail(ctx context.Context, orgID, emai
 		return errx.ErrNotFound
 	}
 	return nil
+}
+
+// ListOrganizationIDs returns every workspace that has at least one mailbox.
+func (r *emailRepository) ListOrganizationIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := r.DB.Query(ctx, `SELECT DISTINCT organization_id FROM email_accounts WHERE organization_id IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }

@@ -89,7 +89,7 @@ export function useRealtimeEvents() {
       }
 
       if (includes('EMAIL_UPDATED', 'EMAIL_DELETED', 'INBOX_UPDATE')) {
-        invalidate([['unibox'], ['analytics']])
+        invalidate([['unibox'], ['analytics'], ['inbox-tagging']])
         if (threadId) invalidate([['unibox', 'thread', threadId]])
         if (emailId) invalidate([['unibox', 'email', emailId]])
         return

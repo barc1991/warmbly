@@ -47,6 +47,8 @@ import {
   PopoverMenuTrigger,
 } from "@/components/ui/popover-menu";
 import type { UniboxFolder } from "@/lib/api/models/app/unibox/UniboxSearch";
+import { TagMeaningTooltip } from "@/components/ui/tag-meaning-tooltip";
+import { isAutomaticTag } from "@/lib/unibox/tagMeanings";
 
 export type UniboxScope =
   | { kind: "all" }
@@ -245,15 +247,17 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
           searchPlaceholder="Filter labels"
           getSearchKey={(c) => c.title}
           renderItem={(c) => (
-            <Item
-              key={c.id}
-              icon={<Dot color={c.color} />}
-              label={c.title}
-              count={c.unread || c.total || undefined}
-              accent={c.unread > 0}
-              active={active === `category:${c.id}`}
-              onClick={() => onChange({ kind: "category", categoryId: c.id })}
-            />
+            <TagMeaningTooltip key={c.id} title={c.title}>
+              <Item
+                icon={<Dot color={c.color} />}
+                label={c.title}
+                hideNativeTitle={isAutomaticTag(c.title)}
+                count={c.unread || c.total || undefined}
+                accent={c.unread > 0}
+                active={active === `category:${c.id}`}
+                onClick={() => onChange({ kind: "category", categoryId: c.id })}
+              />
+            </TagMeaningTooltip>
           )}
         />
       )}
@@ -545,6 +549,7 @@ function FolderItem({
 function Item({
   icon,
   label,
+  hideNativeTitle,
   count,
   accent,
   active,
@@ -552,6 +557,7 @@ function Item({
 }: {
   icon: React.ReactNode;
   label: string;
+  hideNativeTitle?: boolean;
   count?: number;
   accent?: boolean;
   active?: boolean;
@@ -562,7 +568,7 @@ function Item({
       type="button"
       onClick={onClick}
       className={cn("group/item", ROW, active ? ROW_ACTIVE : ROW_IDLE)}
-      title={label}
+      title={hideNativeTitle ? undefined : label}
     >
       <span className={cn("shrink-0", active ? "text-slate-800" : "text-slate-400 group-hover/item:text-slate-600")}>
         {icon}
