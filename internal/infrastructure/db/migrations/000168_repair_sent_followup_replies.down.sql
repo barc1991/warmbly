@@ -1,0 +1,2 @@
+-- One-way data repair: restoring reply markers proven to come from outbound
+-- Sent-folder messages would restore issue #549, so this migration is a no-op.

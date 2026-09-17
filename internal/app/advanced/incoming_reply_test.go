@@ -66,8 +66,13 @@ func (r incomingReplyContactRepo) GetByID(context.Context, uuid.UUID) (*models.C
 
 type incomingReplyProgressRepo struct {
 	repository.CampaignProgressRepository
-	replied int
-	latest  *repository.CampaignSequencePair
+	replied       int
+	latest        *repository.CampaignSequencePair
+	sourceInbound bool
+}
+
+func (r *incomingReplyProgressRepo) IsInboundReplySource(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return r.sourceInbound, nil
 }
 
 func (r *incomingReplyProgressRepo) GetLatestCampaignSequenceForContact(context.Context, uuid.UUID) (*repository.CampaignSequencePair, error) {
@@ -82,7 +87,7 @@ func (r *incomingReplyProgressRepo) RecordReplyClassification(context.Context, u
 	return nil
 }
 
-func (r *incomingReplyProgressRepo) RecordEmailReplied(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error {
+func (r *incomingReplyProgressRepo) RecordEmailReplied(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) error {
 	r.replied++
 	return nil
 }
@@ -95,7 +100,7 @@ func (incomingReplyCampaignRepo) GetSequencesRoutingByCampaignID(context.Context
 
 func newIncomingReplyService(account *models.Email, senderContact *models.Contact, taskContact uuid.UUID) (*service, *incomingReplyProgressRepo) {
 	taskID, campaignID, sequenceID := uuid.New(), uuid.New(), uuid.New()
-	progress := &incomingReplyProgressRepo{}
+	progress := &incomingReplyProgressRepo{sourceInbound: true}
 	taskContactRecord := &models.Contact{ID: taskContact, Email: "task-contact@example.test"}
 	if senderContact != nil && senderContact.ID == taskContact {
 		taskContactRecord = senderContact
@@ -192,6 +197,31 @@ func TestProcessIncomingReplyRejectsOutboundFolder(t *testing.T) {
 				t.Fatalf("RecordEmailReplied calls = %d, want 0 for outbound folder", progress.replied)
 			}
 		})
+	}
+}
+
+func TestProcessIncomingReplyTrustsPersistedDirectionOverEventPayload(t *testing.T) {
+	orgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New()
+	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "sender@example.test"}
+	service, progress := newIncomingReplyService(account, &models.Contact{
+		ID: contactID, Email: "recipient@example.test",
+	}, contactID)
+	progress.sourceInbound = false
+
+	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
+		ID:        uuid.New(),
+		EmailID:   accountID,
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Recipient <recipient@example.test>"},
+		ToAddr:    []string{"sender@example.test"},
+		InReplyTo: []string{"<opener@example.test>"},
+		Subject:   "Re: Hello",
+	})
+	if xerr != nil {
+		t.Fatal(xerr)
+	}
+	if progress.replied != 0 {
+		t.Fatalf("RecordEmailReplied calls = %d, want 0 when the stored source is outbound", progress.replied)
 	}
 }
 

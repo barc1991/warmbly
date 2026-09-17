@@ -183,7 +183,9 @@ type CampaignProgressRepository interface {
 	// the reference point for telling an instant machine open or click from a
 	// person's.
 	GetStepSentAt(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) (*time.Time, error)
-	RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error
+	// IsInboundReplySource confirms the stored unibox row is not outbound.
+	IsInboundReplySource(ctx context.Context, emailAccountID, messageID uuid.UUID) (bool, error)
+	RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID, emailAccountID, messageID uuid.UUID) error
 	RecordEmailBounced(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error
 	RecordEmailComplained(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error
 
@@ -787,8 +789,24 @@ func (r *campaignProgressRepository) GetStepSentAt(ctx context.Context, campaign
 	return sentAt, nil
 }
 
-// RecordEmailReplied records that a contact replied
-func (r *campaignProgressRepository) RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error {
+// IsInboundReplySource verifies direction from the row stored by the consumer.
+func (r *campaignProgressRepository) IsInboundReplySource(ctx context.Context, emailAccountID, messageID uuid.UUID) (bool, error) {
+	var inbound bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM unibox_emails
+			WHERE id = $1
+			  AND email_id = $2
+			  AND folder NOT IN ('sent', 'drafts')
+			  AND provider_folder NOT IN ('sent', 'drafts')
+		)
+	`, messageID, emailAccountID).Scan(&inbound)
+	return inbound, err
+}
+
+// RecordEmailReplied records that a contact replied when its source is still inbound.
+func (r *campaignProgressRepository) RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID, emailAccountID, messageID uuid.UUID) error {
 	query := `
 		UPDATE campaign_contact_progress
 		SET replied_at = NOW()
@@ -796,9 +814,17 @@ func (r *campaignProgressRepository) RecordEmailReplied(ctx context.Context, cam
 		  AND contact_id = $2
 		  AND sequence_id = $3
 		  AND replied_at IS NULL
+		  AND EXISTS (
+			SELECT 1
+			FROM unibox_emails
+			WHERE id = $4
+			  AND email_id = $5
+			  AND folder NOT IN ('sent', 'drafts')
+			  AND provider_folder NOT IN ('sent', 'drafts')
+		  )
 	`
 
-	_, err := r.db.Exec(ctx, query, campaignID, contactID, sequenceID)
+	_, err := r.db.Exec(ctx, query, campaignID, contactID, sequenceID, messageID, emailAccountID)
 	return err
 }
 

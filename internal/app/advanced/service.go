@@ -1069,6 +1069,13 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	if !msg.MayBeInbound() {
 		return nil
 	}
+	inbound, err := s.campaignProgressRepo.IsInboundReplySource(ctx, emailAccountID, msg.ID)
+	if err != nil {
+		return toErrx(err)
+	}
+	if !inbound {
+		return nil
+	}
 	account, xerr := s.emailRepo.GetByID(ctx, emailAccountID)
 	if xerr != nil {
 		return xerr
@@ -1219,7 +1226,9 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 			s.evidence.RecordEvidence(ctx, ctID, models.Step(&cID, &sID), kind, msg.ID.String(), "")
 		}
 		if !replyclassify.IsAutomated(replyResult.Class) {
-			_ = s.campaignProgressRepo.RecordEmailReplied(ctx, cID, ctID, sID)
+			if err := s.campaignProgressRepo.RecordEmailReplied(ctx, cID, ctID, sID, emailAccountID, msg.ID); err != nil {
+				return toErrx(err)
+			}
 			_ = s.repo.MarkVariantEvent(ctx, cID, ctID, string(models.DeliverabilityEventReply))
 
 			// Live org-wide pulse: the team sees the reply land on the
