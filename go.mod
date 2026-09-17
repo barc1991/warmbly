@@ -27,6 +27,7 @@ require (
 	github.com/golangci/golangci-lint v1.64.8
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.0
+	github.com/hamba/avro/v2 v2.24.0
 	github.com/invopop/jsonschema v0.13.0
 	github.com/jackc/pgx/v5 v5.9.0
 	github.com/meszmate/apple-go v0.0.0-20250828163208-7fea48c91b32
@@ -42,7 +43,7 @@ require (
 	github.com/redis/go-redis/v9 v9.11.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
-	github.com/stripe/stripe-go/v76 v76.25.0
+	github.com/stripe/stripe-go/v86 v86.4.2
 	github.com/xuri/excelize/v2 v2.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.55.0
@@ -175,7 +176,6 @@ require (
 	github.com/gostaticanalysis/comment v1.5.0 // indirect
 	github.com/gostaticanalysis/forcetypeassert v0.2.0 // indirect
 	github.com/gostaticanalysis/nilerr v0.1.1 // indirect
-	github.com/hamba/avro/v2 v2.24.0 // indirect
 	github.com/hashicorp/go-immutable-radix/v2 v2.1.0 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect

@@ -13,17 +13,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"github.com/stripe/stripe-go/v76"
-	portalsession "github.com/stripe/stripe-go/v76/billingportal/session"
-	"github.com/stripe/stripe-go/v76/checkout/session"
-	"github.com/stripe/stripe-go/v76/coupon"
-	"github.com/stripe/stripe-go/v76/customer"
-	balancetxn "github.com/stripe/stripe-go/v76/customerbalancetransaction"
-	"github.com/stripe/stripe-go/v76/invoice"
-	"github.com/stripe/stripe-go/v76/paymentintent"
-	"github.com/stripe/stripe-go/v76/price"
-	"github.com/stripe/stripe-go/v76/subscription"
-	"github.com/stripe/stripe-go/v76/webhook"
+	"github.com/stripe/stripe-go/v86"
+	portalsession "github.com/stripe/stripe-go/v86/billingportal/session"
+	"github.com/stripe/stripe-go/v86/checkout/session"
+	"github.com/stripe/stripe-go/v86/coupon"
+	"github.com/stripe/stripe-go/v86/customer"
+	balancetxn "github.com/stripe/stripe-go/v86/customerbalancetransaction"
+	"github.com/stripe/stripe-go/v86/invoice"
+	"github.com/stripe/stripe-go/v86/paymentintent"
+	"github.com/stripe/stripe-go/v86/price"
+	"github.com/stripe/stripe-go/v86/subscription"
+	taxcalculation "github.com/stripe/stripe-go/v86/tax/calculation"
+	"github.com/stripe/stripe-go/v86/webhook"
 	"github.com/warmbly/warmbly/internal/app/discount"
 	"github.com/warmbly/warmbly/internal/app/worker"
 	"github.com/warmbly/warmbly/internal/config"
@@ -239,7 +240,10 @@ func (s *stripeService) CreateCheckoutSession(ctx context.Context, userID uuid.U
 	}
 
 	params := &stripe.CheckoutSessionParams{
-		Mode: stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+		Mode:                     stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+		AutomaticTax:             &stripe.CheckoutSessionAutomaticTaxParams{Enabled: stripe.Bool(true)},
+		BillingAddressCollection: stripe.String(string(stripe.CheckoutSessionBillingAddressCollectionRequired)),
+		TaxIDCollection:          &stripe.CheckoutSessionTaxIDCollectionParams{Enabled: stripe.Bool(true)},
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
 				Price:    stripe.String(priceID),
@@ -262,6 +266,10 @@ func (s *stripeService) CreateCheckoutSession(ctx context.Context, userID uuid.U
 
 	if customerID != "" {
 		params.Customer = stripe.String(customerID)
+		params.CustomerUpdate = &stripe.CheckoutSessionCustomerUpdateParams{
+			Address: stripe.String("auto"),
+			Name:    stripe.String("auto"),
+		}
 	}
 
 	// Auto-apply the invitee's referral discount when none was supplied, so a
@@ -400,7 +408,10 @@ func (s *stripeService) CreateCreditCheckoutSession(ctx context.Context, userID,
 	}
 
 	params := &stripe.CheckoutSessionParams{
-		Mode: stripe.String(string(stripe.CheckoutSessionModePayment)),
+		Mode:                     stripe.String(string(stripe.CheckoutSessionModePayment)),
+		AutomaticTax:             &stripe.CheckoutSessionAutomaticTaxParams{Enabled: stripe.Bool(true)},
+		BillingAddressCollection: stripe.String(string(stripe.CheckoutSessionBillingAddressCollectionRequired)),
+		TaxIDCollection:          &stripe.CheckoutSessionTaxIDCollectionParams{Enabled: stripe.Bool(true)},
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{Price: stripe.String(priceID), Quantity: stripe.Int64(1)},
 		},
@@ -418,6 +429,10 @@ func (s *stripeService) CreateCreditCheckoutSession(ctx context.Context, userID,
 	}
 	if sub != nil && sub.StripeCustomerID != "" {
 		params.Customer = stripe.String(sub.StripeCustomerID)
+		params.CustomerUpdate = &stripe.CheckoutSessionCustomerUpdateParams{
+			Address: stripe.String("auto"),
+			Name:    stripe.String("auto"),
+		}
 	} else {
 		params.CustomerCreation = stripe.String("always")
 	}
@@ -451,6 +466,9 @@ func (s *stripeService) AutoTopUpCredits(ctx context.Context, orgID uuid.UUID, p
 	if perr != nil {
 		return false, fmt.Errorf("resolve pack price: %w", perr)
 	}
+	if p.TaxBehavior != stripe.PriceTaxBehaviorInclusive && p.TaxBehavior != stripe.PriceTaxBehaviorExclusive {
+		return false, fmt.Errorf("credit pack price %q must have an explicit tax behavior", priceID)
+	}
 
 	// Off-session confirmation needs the customer's saved default payment
 	// method (the card the subscription bills). Without one, auto top-up
@@ -469,18 +487,42 @@ func (s *stripeService) AutoTopUpCredits(ctx context.Context, orgID uuid.UUID, p
 		return false, fmt.Errorf("no saved payment method")
 	}
 
+	lineItem := &stripe.TaxCalculationLineItemParams{
+		Amount:    stripe.Int64(p.UnitAmount),
+		Quantity:  stripe.Int64(1),
+		Reference: stripe.String(packKey),
+	}
+	if p.Product != nil && p.Product.ID != "" {
+		lineItem.Product = stripe.String(p.Product.ID)
+	}
+	lineItem.TaxBehavior = stripe.String(string(p.TaxBehavior))
+	taxCalc, taxErr := taxcalculation.New(&stripe.TaxCalculationParams{
+		Currency:  stripe.String(string(p.Currency)),
+		Customer:  stripe.String(sub.StripeCustomerID),
+		LineItems: []*stripe.TaxCalculationLineItemParams{lineItem},
+	})
+	if taxErr != nil {
+		return false, fmt.Errorf("calculate credit top-up tax: %w", taxErr)
+	}
+
 	pi, ierr := paymentintent.New(&stripe.PaymentIntentParams{
-		Amount:        stripe.Int64(p.UnitAmount),
+		Amount:        stripe.Int64(taxCalc.AmountTotal),
 		Currency:      stripe.String(string(p.Currency)),
 		Customer:      stripe.String(sub.StripeCustomerID),
 		PaymentMethod: stripe.String(pmID),
 		OffSession:    stripe.Bool(true),
 		Confirm:       stripe.Bool(true),
+		Hooks: &stripe.PaymentIntentHooksParams{
+			Inputs: &stripe.PaymentIntentHooksInputsParams{
+				Tax: &stripe.PaymentIntentHooksInputsTaxParams{Calculation: stripe.String(taxCalc.ID)},
+			},
+		},
 		Metadata: map[string]string{
-			"org_id":   orgID.String(),
-			"purpose":  "credit_auto_topup",
-			"pack_key": packKey,
-			"credits":  strconv.Itoa(creditAmount),
+			"org_id":             orgID.String(),
+			"purpose":            "credit_auto_topup",
+			"pack_key":           packKey,
+			"credits":            strconv.Itoa(creditAmount),
+			"tax_calculation_id": taxCalc.ID,
 		},
 	})
 	if ierr != nil {
@@ -490,17 +532,8 @@ func (s *stripeService) AutoTopUpCredits(ctx context.Context, orgID uuid.UUID, p
 		return false, fmt.Errorf("off-session charge not settled (status %s)", pi.Status)
 	}
 
-	// Fulfill immediately, idempotent on the PaymentIntent id so a concurrent
-	// webhook or retry can never double-grant.
-	if _, gerr := s.credits.GrantPurchased(ctx, orgID, creditAmount, "credit_auto_topup", pi.ID); gerr != nil {
-		return false, fmt.Errorf("grant after charge: %w", gerr)
-	}
-	if s.audit != nil {
-		s.audit.LogAction(ctx, orgID, uuid.Nil, models.AuditActionCreate, models.AuditEntityCreditPurchase, nil, "", "", nil, map[string]string{
-			"pack_key": packKey,
-			"credits":  strconv.Itoa(creditAmount),
-			"auto":     "true",
-		})
+	if xerr := s.fulfillAutoTopUp(ctx, pi, false); xerr != nil {
+		return false, fmt.Errorf("grant after charge: %s", xerr.Message)
 	}
 	return true, nil
 }
@@ -633,9 +666,10 @@ func (s *stripeService) ChangePlan(ctx context.Context, orgID uuid.UUID, newPlan
 			},
 		},
 		ProrationBehavior: stripe.String(prorationBehavior),
+		AutomaticTax:      &stripe.SubscriptionAutomaticTaxParams{Enabled: stripe.Bool(true)},
 	}
 	if couponID != nil {
-		params.Coupon = stripe.String(*couponID)
+		params.Discounts = []*stripe.SubscriptionDiscountParams{{Coupon: stripe.String(*couponID)}}
 	}
 
 	updated, stripeErr := subscription.Update(*sub.StripeSubscriptionID, params)
@@ -690,19 +724,22 @@ func (s *stripeService) PreviewPlanChange(ctx context.Context, orgID uuid.UUID, 
 	itemID := stripeSub.Items.Data[0].ID
 
 	// Preview the upcoming invoice with the plan change
-	params := &stripe.InvoiceUpcomingParams{
+	params := &stripe.InvoiceCreatePreviewParams{
+		AutomaticTax: &stripe.InvoiceCreatePreviewAutomaticTaxParams{Enabled: stripe.Bool(true)},
 		Customer:     stripe.String(sub.StripeCustomerID),
 		Subscription: stripe.String(*sub.StripeSubscriptionID),
-		SubscriptionItems: []*stripe.SubscriptionItemsParams{
-			{
-				ID:    stripe.String(itemID),
-				Price: stripe.String(*newPlan.StripePriceID),
+		SubscriptionDetails: &stripe.InvoiceCreatePreviewSubscriptionDetailsParams{
+			Items: []*stripe.InvoiceCreatePreviewSubscriptionDetailsItemParams{
+				{
+					ID:    stripe.String(itemID),
+					Price: stripe.String(*newPlan.StripePriceID),
+				},
 			},
+			ProrationBehavior: stripe.String("create_prorations"),
 		},
-		SubscriptionProrationBehavior: stripe.String("create_prorations"),
 	}
 
-	preview, stripeErr := invoice.Upcoming(params)
+	preview, stripeErr := invoice.CreatePreview(params)
 	if stripeErr != nil {
 		return nil, errx.New(errx.Internal, fmt.Sprintf("failed to preview invoice: %v", stripeErr))
 	}
@@ -710,7 +747,7 @@ func (s *stripeService) PreviewPlanChange(ctx context.Context, orgID uuid.UUID, 
 	// Calculate proration amount from line items
 	var prorationAmount int64
 	for _, line := range preview.Lines.Data {
-		if line.Proration {
+		if invoiceLineIsProration(line) {
 			prorationAmount += line.Amount
 		}
 	}
@@ -726,7 +763,9 @@ func (s *stripeService) PreviewPlanChange(ctx context.Context, orgID uuid.UUID, 
 }
 
 func (s *stripeService) VerifyWebhook(payload []byte, signature string) (*stripe.Event, *errx.Error) {
-	event, err := webhook.ConstructEvent(payload, signature, s.cfg.WebhookSecret)
+	event, err := webhook.ConstructEventWithOptions(payload, signature, s.cfg.WebhookSecret, webhook.ConstructEventOptions{
+		IgnoreAPIVersionMismatch: true,
+	})
 	if err != nil {
 		return nil, errx.New(errx.BadRequest, "invalid webhook signature")
 	}
@@ -760,6 +799,10 @@ func (s *stripeService) ProcessWebhookEvent(ctx context.Context, event *stripe.E
 		processErr = s.handleInvoicePaid(ctx, event)
 	case "invoice.payment_failed":
 		processErr = s.handleInvoicePaymentFailed(ctx, event)
+	case "invoice.finalization_failed":
+		processErr = s.handleInvoiceFinalizationFailed(event)
+	case "payment_intent.succeeded":
+		processErr = s.handlePaymentIntentSucceeded(ctx, event)
 	case "charge.refunded":
 		processErr = s.handleChargeRefunded(ctx, event)
 	}
@@ -783,6 +826,46 @@ func (s *stripeService) ProcessWebhookEvent(ctx context.Context, event *stripe.E
 	}
 
 	return processErr
+}
+
+func (s *stripeService) handlePaymentIntentSucceeded(ctx context.Context, event *stripe.Event) *errx.Error {
+	var pi stripe.PaymentIntent
+	if err := json.Unmarshal(event.Data.Raw, &pi); err != nil {
+		return errx.New(errx.Internal, "failed to parse payment intent")
+	}
+	return s.fulfillAutoTopUp(ctx, &pi, true)
+}
+
+func (s *stripeService) fulfillAutoTopUp(ctx context.Context, pi *stripe.PaymentIntent, audit bool) *errx.Error {
+	if pi == nil || pi.Metadata["purpose"] != "credit_auto_topup" {
+		return nil
+	}
+	if pi.Status != stripe.PaymentIntentStatusSucceeded {
+		return nil
+	}
+	if s.credits == nil {
+		return errx.New(errx.Internal, "credits service is unavailable")
+	}
+
+	orgID, err := uuid.Parse(pi.Metadata["org_id"])
+	if err != nil {
+		return errx.New(errx.BadRequest, "invalid org_id in auto top-up metadata")
+	}
+	creditAmount, err := strconv.Atoi(pi.Metadata["credits"])
+	if err != nil || creditAmount <= 0 {
+		return errx.New(errx.BadRequest, "invalid credits amount in auto top-up metadata")
+	}
+	if _, err := s.credits.GrantPurchased(ctx, orgID, creditAmount, "credit_auto_topup", pi.ID); err != nil {
+		return errx.New(errx.Internal, "failed to grant auto top-up credits")
+	}
+	if audit && s.audit != nil {
+		s.audit.LogAction(ctx, orgID, uuid.Nil, models.AuditActionCreate, models.AuditEntityCreditPurchase, nil, "", "", nil, map[string]string{
+			"pack_key": pi.Metadata["pack_key"],
+			"credits":  strconv.Itoa(creditAmount),
+			"auto":     "true",
+		})
+	}
+	return nil
 }
 
 func (s *stripeService) handleCheckoutCompleted(ctx context.Context, event *stripe.Event) *errx.Error {
@@ -1079,11 +1162,25 @@ func (s *stripeService) handleSubscriptionUpdated(ctx context.Context, event *st
 	sub.Status = mapStripeStatus(stripeSub.Status)
 	sub.StripeSubscriptionID = &stripeSub.ID
 
-	// Update period
-	periodStart := time.Unix(stripeSub.CurrentPeriodStart, 0)
-	periodEnd := time.Unix(stripeSub.CurrentPeriodEnd, 0)
-	sub.CurrentPeriodStart = &periodStart
-	sub.CurrentPeriodEnd = &periodEnd
+	// Billing periods live on subscription items in current Stripe API versions.
+	if stripeSub.Items != nil && len(stripeSub.Items.Data) > 0 {
+		periodStart := time.Unix(stripeSub.Items.Data[0].CurrentPeriodStart, 0)
+		periodEnd := time.Unix(stripeSub.Items.Data[0].CurrentPeriodEnd, 0)
+		sub.CurrentPeriodStart = &periodStart
+		sub.CurrentPeriodEnd = &periodEnd
+	} else {
+		// Accept the pre-dahlia webhook shape while the endpoint is upgraded.
+		var legacy struct {
+			CurrentPeriodStart int64 `json:"current_period_start"`
+			CurrentPeriodEnd   int64 `json:"current_period_end"`
+		}
+		if json.Unmarshal(event.Data.Raw, &legacy) == nil && legacy.CurrentPeriodEnd > 0 {
+			periodStart := time.Unix(legacy.CurrentPeriodStart, 0)
+			periodEnd := time.Unix(legacy.CurrentPeriodEnd, 0)
+			sub.CurrentPeriodStart = &periodStart
+			sub.CurrentPeriodEnd = &periodEnd
+		}
+	}
 	sub.CancelAtPeriodEnd = stripeSub.CancelAtPeriodEnd
 
 	if stripeSub.CanceledAt > 0 {
@@ -1227,19 +1324,20 @@ func (s *stripeService) handleInvoicePaid(ctx context.Context, event *stripe.Eve
 	if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
 		return errx.New(errx.Internal, "failed to parse invoice")
 	}
+	subscriptionID, subscriptionMetadata, priceID := invoiceReferences(&inv, event.Data.Raw)
 
 	// Resolve the org from the subscription, falling back to customer. Shared by
 	// the credit-grant and referral-reward paths below.
 	var sub *models.Subscription
 	var err error
-	if inv.Subscription != nil {
-		sub, err = s.subRepo.GetByStripeSubscriptionID(ctx, inv.Subscription.ID)
+	if subscriptionID != "" {
+		sub, err = s.subRepo.GetByStripeSubscriptionID(ctx, subscriptionID)
 		if err != nil {
 			return errx.New(errx.Internal, "failed to get invoice subscription")
 		}
 	}
-	if sub == nil && inv.SubscriptionDetails != nil && inv.SubscriptionDetails.Metadata["org_id"] != "" {
-		orgID, parseErr := uuid.Parse(inv.SubscriptionDetails.Metadata["org_id"])
+	if sub == nil && subscriptionMetadata["org_id"] != "" {
+		orgID, parseErr := uuid.Parse(subscriptionMetadata["org_id"])
 		if parseErr != nil {
 			return errx.New(errx.BadRequest, "invalid invoice organization")
 		}
@@ -1261,8 +1359,8 @@ func (s *stripeService) handleInvoicePaid(ctx context.Context, event *stripe.Eve
 	// Resolve the plan: prefer the invoiced price, fall back to the local
 	// subscription's plan.
 	var plan *models.Plan
-	if inv.Lines != nil && len(inv.Lines.Data) > 0 && inv.Lines.Data[0].Price != nil {
-		plan, err = s.planRepo.GetByStripePriceID(ctx, inv.Lines.Data[0].Price.ID)
+	if priceID != "" {
+		plan, err = s.planRepo.GetByStripePriceID(ctx, priceID)
 		if err != nil {
 			return errx.New(errx.Internal, "failed to get invoice plan")
 		}
@@ -1278,7 +1376,7 @@ func (s *stripeService) handleInvoicePaid(ctx context.Context, event *stripe.Eve
 	// grant on each subscription billing cycle. Only subscription create/cycle
 	// invoices refresh the allowance; plan-change or one-off invoices don't, and
 	// the top-up (purchased) pool is never touched. Idempotent on the event id.
-	if s.credits != nil && inv.Subscription != nil &&
+	if s.credits != nil && subscriptionID != "" &&
 		(inv.BillingReason == stripe.InvoiceBillingReasonSubscriptionCreate ||
 			inv.BillingReason == stripe.InvoiceBillingReasonSubscriptionCycle) {
 		if err := s.credits.ResetMonthlyAllowance(ctx, sub.OrganizationID, plan.MonthlyCredits, event.ID); err != nil {
@@ -1351,6 +1449,39 @@ func (s *stripeService) handleInvoicePaymentFailed(ctx context.Context, event *s
 	return nil
 }
 
+func (s *stripeService) handleInvoiceFinalizationFailed(event *stripe.Event) *errx.Error {
+	if s.opsNotify == nil {
+		return nil
+	}
+	var inv struct {
+		ID            string `json:"id"`
+		CustomerEmail string `json:"customer_email"`
+		Customer      string `json:"customer"`
+		Number        string `json:"number"`
+		AutomaticTax  struct {
+			Status         string `json:"status"`
+			DisabledReason string `json:"disabled_reason"`
+		} `json:"automatic_tax"`
+		LastFinalizationError struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"last_finalization_error"`
+	}
+	_ = json.Unmarshal(event.Data.Raw, &inv)
+	s.opsNotify.NotifyOperator(
+		"subscription.payment_failed",
+		"Invoice finalization failed",
+		"Stripe could not finalize an invoice. Check the customer's billing address and tax location before retrying it.",
+		map[string]string{
+			"Customer": firstNonEmpty(inv.CustomerEmail, inv.Customer),
+			"Invoice":  firstNonEmpty(inv.Number, inv.ID),
+			"Code":     inv.LastFinalizationError.Code,
+			"Reason":   firstNonEmpty(inv.LastFinalizationError.Message, inv.AutomaticTax.DisabledReason, inv.AutomaticTax.Status),
+		},
+	)
+	return nil
+}
+
 // zeroDecimalCurrencies have no minor unit, so their amounts are already whole
 // units and must not be divided. https://docs.stripe.com/currencies
 var zeroDecimalCurrencies = map[string]bool{
@@ -1379,6 +1510,64 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+func invoiceLineIsProration(line *stripe.InvoiceLineItem) bool {
+	if line == nil || line.Parent == nil {
+		return false
+	}
+	if d := line.Parent.InvoiceItemDetails; d != nil {
+		return d.Proration
+	}
+	if d := line.Parent.SubscriptionItemDetails; d != nil {
+		return d.Proration
+	}
+	return false
+}
+
+func invoiceReferences(inv *stripe.Invoice, raw json.RawMessage) (subscriptionID string, metadata map[string]string, priceID string) {
+	if inv != nil {
+		if inv.Parent != nil && inv.Parent.SubscriptionDetails != nil {
+			details := inv.Parent.SubscriptionDetails
+			metadata = details.Metadata
+			if details.Subscription != nil {
+				subscriptionID = details.Subscription.ID
+			}
+		}
+		if inv.Lines != nil && len(inv.Lines.Data) > 0 {
+			line := inv.Lines.Data[0]
+			if line != nil && line.Pricing != nil && line.Pricing.PriceDetails != nil && line.Pricing.PriceDetails.Price != nil {
+				priceID = line.Pricing.PriceDetails.Price.ID
+			}
+		}
+	}
+
+	// Stripe webhook endpoints keep their configured API version until an
+	// operator upgrades them. Read the legacy fields during that transition.
+	var legacy struct {
+		Subscription        *stripe.Subscription `json:"subscription"`
+		SubscriptionDetails *struct {
+			Metadata map[string]string `json:"metadata"`
+		} `json:"subscription_details"`
+		Lines *struct {
+			Data []*struct {
+				Price *stripe.Price `json:"price"`
+			} `json:"data"`
+		} `json:"lines"`
+	}
+	if json.Unmarshal(raw, &legacy) != nil {
+		return subscriptionID, metadata, priceID
+	}
+	if subscriptionID == "" && legacy.Subscription != nil {
+		subscriptionID = legacy.Subscription.ID
+	}
+	if len(metadata) == 0 && legacy.SubscriptionDetails != nil {
+		metadata = legacy.SubscriptionDetails.Metadata
+	}
+	if priceID == "" && legacy.Lines != nil && len(legacy.Lines.Data) > 0 && legacy.Lines.Data[0].Price != nil {
+		priceID = legacy.Lines.Data[0].Price.ID
+	}
+	return subscriptionID, metadata, priceID
 }
 
 func mapStripeStatus(status stripe.SubscriptionStatus) models.SubscriptionStatus {
