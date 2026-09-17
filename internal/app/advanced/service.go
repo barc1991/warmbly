@@ -1132,12 +1132,25 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 			continue
 		}
 		referencesCampaignThread = true
-		if task.EmailAccountID != emailAccountID {
+		ct, err := s.taskRepo.GetCampaignTask(ctx, task.ID)
+		if err != nil || ct == nil || ct.CampaignID == nil || ct.ContactID == nil {
 			continue
 		}
-		ct, err := s.taskRepo.GetCampaignTask(ctx, task.ID)
-		if err != nil || ct == nil || ct.ContactID == nil {
-			continue
+		if task.EmailAccountID != emailAccountID {
+			campaign, err := s.campaignRepo.GetByID(ctx, *ct.CampaignID)
+			if err != nil || campaign == nil || campaign.OrganizationID == nil ||
+				*campaign.OrganizationID != *account.OrganizationID {
+				continue
+			}
+			sentFromReceivingAccount, err := s.campaignProgressRepo.CampaignContactSentFromAccount(
+				ctx, *ct.CampaignID, *ct.ContactID, emailAccountID,
+			)
+			if err != nil {
+				return toErrx(err)
+			}
+			if !sentFromReceivingAccount {
+				continue
+			}
 		}
 		contact, contactErr := s.contactRepo.GetByID(ctx, *ct.ContactID)
 		if contactErr != nil {

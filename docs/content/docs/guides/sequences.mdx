@@ -221,7 +221,9 @@ A campaign-level toggle in the flow toolbar. When on and a contact replies, the 
 
 Only inbound mail from that campaign contact to the sending mailbox counts. A threaded follow-up synchronized from Sent or Drafts stays outbound even though its `In-Reply-To` header points at an earlier campaign step.
 
-When an upgrade repairs a reply marker that was provably created by a synchronized Sent message, the contact resumes at the next due step and the campaign reply totals update with it. Warmbly also recalculates address verification from the contact's remaining delivery, open, click, reply, and bounce evidence. It leaves ambiguous historical replies untouched.
+When a campaign rotates between sender accounts, a real inbound reply still links to the campaign if the mail client references an earlier step from another mailbox in the same workspace.
+
+When an upgrade repairs a reply marker that was provably created by a synchronized Sent message, the contact resumes at the next due step and the campaign reply totals update with it. An upgrade also restores provable human replies that were received by one campaign mailbox but referenced a thread started by another mailbox in the workspace. Warmbly recalculates address verification from the corrected delivery, open, click, reply, and bounce evidence. It leaves ambiguous historical replies untouched.
 
 <Callout type="warn" title="Turn on stop on reply">
 With it off and more than one step, Warmbly warns you on the canvas: replies that don't match a reply branch would otherwise keep receiving cold follow-ups. Turning it on still runs your reply branches, so it is strictly safer.

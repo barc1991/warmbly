@@ -458,6 +458,7 @@ func Run(
 				emails.GET("/allowance", m.RequireOrganization(), m.RequireAccess(models.PermManageEmails, models.APIPermReadEmails), h.GetMailboxAllowance)
 				emails.GET("/:id/track", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.GetEmailTrackingDomain)
 				emails.PATCH("/:id/track", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.UpdateEmailTrackingDomain)
+				emails.PATCH("/:id/direct-tracking", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.UpdateEmailDirectTracking)
 				// Write-scoped like the auth-check refresh: persisting the
 				// verdict is what routes real links through the custom host.
 				emails.POST("/:id/track/verify", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.VerifyEmailTrackingDomain)
@@ -854,6 +855,9 @@ func Run(
 			analytics.Use(m.RateLimitMiddleware(models.RateLimitAnalytics), m.RequireAccess(models.PermViewAnalytics, models.APIPermReadAnalytics))
 			{
 				analytics.GET("/dashboard", h.GetDashboardAnalytics)
+				analytics.GET("/direct", h.GetDirectMailAnalytics)
+				// Automatic inbox tagging: the phase-1 review surface (read-only).
+				analytics.GET("/inbox-tagging", h.GetInboxTaggingReview)
 				analytics.GET("/deliverability", m.RequireOrganization(), h.GetDeliverabilityDashboard)
 				analytics.GET("/warmup", h.GetWarmupAnalytics)
 				analytics.GET("/campaigns/compare", h.CompareCampaigns)

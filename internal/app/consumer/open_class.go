@@ -8,28 +8,13 @@ import (
 	"github.com/warmbly/warmbly/internal/repository"
 )
 
-// isMachineOpen reports whether an open event came from an automated fetcher
-// rather than a human-rendered view. The edge already filters crawlers and
-// security scanners outright; this classifies the gray zone we still WANT to
-// count (it is real delivery signal) but must not present as a human open:
-//
-//   - Apple Mail Privacy Protection prefetches every pixel at delivery time
-//     with a WebKit UA that ends at the engine token. A real Safari/Mail
-//     render continues with "Version/... Safari/...", so the bare suffix is
-//     the canonical MPP fingerprint.
-//   - A missing UA is never a real mail client or browser.
-//
-// Gmail's image proxy is deliberately treated as HUMAN: it fetches at open
-// time (not delivery), and it is the only open signal Gmail exposes.
-func isMachineOpen(userAgent *string) bool {
+// isBareWebKit reports the stripped image-fetcher signature shared by Apple MPP and Outlook.
+func isBareWebKit(userAgent *string) bool {
 	if userAgent == nil {
-		return true
+		return false
 	}
 	ua := strings.ToLower(strings.TrimSpace(*userAgent))
-	if ua == "" {
-		return true
-	}
-	return strings.HasSuffix(ua, "(khtml, like gecko)")
+	return strings.Contains(ua, "applewebkit/") && strings.HasSuffix(ua, "(khtml, like gecko)")
 }
 
 // isInstant reports whether an engagement arrived so soon after the step was
@@ -133,8 +118,9 @@ func eventTime(stamp string) time.Time {
 
 // classifyOpen applies the per-event open rules and names the one that
 // caught it: scanner for a fetch from a known mail-filtering network,
-// prefetch for a mail proxy or a fetch with no browser, instant for a fetch
-// inside the machine window after dispatch. An empty reason is a person.
+// prefetch for a fetch with no browser or a proxy signature at delivery,
+// instant for any other fetch inside the machine window. An empty reason is
+// a person.
 //
 // The two windows work as they do for clicks: a source the edge recognised but
 // could not settle is measured against the wider one and otherwise left to the
@@ -143,13 +129,16 @@ func classifyOpen(e engagement, window, probable time.Duration) (bool, string) {
 	if e.certainScanner() {
 		return true, repository.EmailOpenReasonScanner
 	}
-	if isMachineOpen(e.userAgent) {
+	if e.userAgent == nil || strings.TrimSpace(*e.userAgent) == "" {
 		return true, repository.EmailOpenReasonPrefetch
 	}
 	if e.probableScanner() && isInstant(e.sentAt, e.at, probable) {
 		return true, repository.EmailOpenReasonScanner
 	}
 	if isInstant(e.sentAt, e.at, window) {
+		if isBareWebKit(e.userAgent) {
+			return true, repository.EmailOpenReasonPrefetch
+		}
 		return true, repository.EmailOpenReasonInstant
 	}
 	return false, ""
@@ -176,9 +165,8 @@ func clientName(userAgent string) string {
 		return "Proton Mail"
 	case strings.Contains(ua, "hey.com"):
 		return "HEY"
-	case strings.HasSuffix(ua, "(khtml, like gecko)"):
-		// Apple Mail Privacy Protection's prefetch fingerprint.
-		return "Apple Mail"
+	case isBareWebKit(&userAgent):
+		return "Image proxy"
 	}
 	return ""
 }

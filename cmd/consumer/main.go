@@ -24,6 +24,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/creditwatch"
 	"github.com/warmbly/warmbly/internal/app/feature"
 	"github.com/warmbly/warmbly/internal/app/inboxagent"
+	"github.com/warmbly/warmbly/internal/app/inboxtag"
 	"github.com/warmbly/warmbly/internal/app/instancesettings"
 	"github.com/warmbly/warmbly/internal/app/integration"
 	"github.com/warmbly/warmbly/internal/app/nativeactions"
@@ -408,6 +409,25 @@ func main() {
 	jobrun.Configure(repository.NewJobRunRepository(primaryDB), "consumer")
 
 	// JobsService
+	// Follow-up labels use stored mailbox facts and run without TypeSafe.
+	// Message classification still requires both the key and opt-in switch.
+	tagCategories := repository.NewTagCategoryStore(primaryDB.Pool)
+	var tagAsker inboxtag.Asker
+	classify := config.InboxTaggingEnabled()
+	if classify {
+		tagAsker = inboxtag.NewClient(config.TypeSafeAPIKey())
+		log.Printf("automatic inbox tagging enabled (model %s)", inboxtag.Model)
+	} else {
+		log.Printf("automatic inbox classification off; timestamp-based follow-up labels still run locally")
+	}
+	inboxTagger := inboxtag.NewService(
+		tagAsker,
+		repository.NewInboxTagRepository(primaryDB.Pool),
+		tagCategories,
+		tagCategories,
+		classify,
+	)
+
 	jobsService := &jobs.JobsService{
 		Bus:                         consumerBus,
 		Codec:                       consumerCodec,
@@ -430,6 +450,7 @@ func main() {
 		Publisher:                   eventsPublisher,
 		StreamingPublisher:          streamingPublisher,
 		AdvancedService:             advancedService,
+		InboxTagger:                 inboxTagger,
 		Cache:                       redisCache,
 		AdminRepo:                   repository.NewAdminRepository(primaryDB.Pool),
 		AssignmentService:           workerAssignmentSvc,
@@ -550,6 +571,7 @@ func main() {
 		trackingSettings := instancesettings.NewService(instancesettings.NewStore(primaryDB.Pool))
 		trackingConsumer.WireRetention(trackingSettings)
 		trackingConsumer.WireTrackingPolicy(trackingSettings)
+		trackingConsumer.WireDirectMail(emailRepo)
 		defer trackingConsumer.Close()
 		go func() {
 			if err := trackingConsumer.Start(ctx); err != nil {

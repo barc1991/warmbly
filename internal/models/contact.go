@@ -630,7 +630,7 @@ type ContactLinkClick struct {
 
 // EngagementOrigin is what an open or click said about where it came from.
 // Client names the mail client or image proxy when the user agent does
-// (Gmail, Apple Mail, Outlook); the browser fields describe the rest. The
+// (Gmail, Outlook, Image proxy); the browser fields describe the rest. The
 // location is resolved from the source network and the address itself is
 // never stored. Every field is empty when unknown.
 type EngagementOrigin struct {

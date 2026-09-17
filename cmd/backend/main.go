@@ -294,6 +294,7 @@ func main() {
 	var emailMessageMapForHandler repository.EmailMessageMapRepository
 	var emailSyncStateRepository repository.EmailSyncStateRepository
 	var trackedLinkRepository repository.TrackedLinkRepository
+	var inboxTagRepository repository.InboxTagRepository
 	var unsubscribeLinkRepository repository.UnsubscribeLinkRepository
 	var customDomainRepository repository.CustomDomainRepository
 	// instanceSettings and the health registry are built after the handler
@@ -636,6 +637,7 @@ func main() {
 		)
 		emailMessageMapForHandler = repository.NewEmailMessageMapRepository(primaryDB)
 		trackedLinkRepository = repository.NewTrackedLinkRepository(primaryDB.Pool)
+		inboxTagRepository = repository.NewInboxTagRepository(primaryDB.Pool)
 		unsubscribeLinkRepository = repository.NewUnsubscribeLinkRepository(primaryDB.Pool)
 		customDomainRepository = repository.NewCustomDomainRepository(primaryDB.Pool)
 		instanceChecksDB = primaryDB.Pool
@@ -1355,6 +1357,9 @@ func main() {
 		if aware, ok := emailSendService.(emailsend.OrgRiskAware); ok {
 			aware.WireOrgRisk(orgRiskRepository)
 		}
+		if aware, ok := emailSendService.(emailsend.TrackedLinksAware); ok {
+			aware.WireTrackedLinks(trackedLinkRepository)
+		}
 		composeService = compose.NewService(emailRepostory, repository.NewComposeRepository(primaryDB))
 		// uniboxService is constructed here (rather than alongside the
 		// other service constructors above) because cancel-scheduled
@@ -2029,6 +2034,7 @@ func main() {
 		EmailMessageMap:        emailMessageMapForHandler,
 		EmailSyncState:         emailSyncStateRepository,
 		TrackedLinks:           trackedLinkRepository,
+		InboxTagRepo:           inboxTagRepository,
 		UnsubscribeTickets:     unsubscribeLinkRepository,
 		CustomDomains:          customDomainRepository,
 		WebsiteTrackingService: websiteTrackingService,

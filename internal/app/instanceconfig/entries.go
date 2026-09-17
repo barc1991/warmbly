@@ -27,6 +27,7 @@ const (
 	docsSSO        = "/development/accounts-and-access/#single-sign-on"
 	docsFirstOwner = "/development/accounts-and-access/#first-owner"
 	docsUpdates    = "/development/updates/"
+	docsAI         = "/development/configuration/#ai-and-search"
 	// The database-backed settings document, which is the one tier the
 	// environment does not own.
 	docsSettingsDoc = "/development/configuration/#settings-stored-in-the-database"
@@ -128,6 +129,18 @@ var table = []Entry{
 		Effect:     "Credential for the AI provider. An empty AI_PROVIDER with this set sends the key to api.openai.com.",
 		DocsAnchor: docsDeployment,
 		Resolve:    envValue("AI_API_KEY"),
+	},
+	{
+		Key: "TYPESAFE_API_KEY", Group: GroupDeployment, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Credential for optional automatic inbox tagging. The feature remains off until INBOX_TAGGING_ENABLED is also true.",
+		DocsAnchor: docsAI,
+		Resolve:    envValue("TYPESAFE_API_KEY"),
+	},
+	{
+		Key: "INBOX_TAGGING_ENABLED", Group: GroupDeployment, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Enables TypeSafe classification of inbound message content when its API key is configured.",
+		DocsAnchor: docsAI,
+		Resolve:    boolOr("INBOX_TAGGING_ENABLED", false),
 	},
 
 	// Addresses.

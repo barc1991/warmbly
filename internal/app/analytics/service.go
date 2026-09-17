@@ -29,6 +29,7 @@ type AnalyticsService interface {
 
 	// Dashboard analytics
 	GetDashboardAnalytics(ctx context.Context, orgID uuid.UUID, period string) (*models.DashboardAnalytics, *errx.Error)
+	GetDirectMailAnalytics(ctx context.Context, orgID uuid.UUID, period string) (*models.DirectMailAnalytics, *errx.Error)
 	GetCampaignHourlyStats(ctx context.Context, orgID, campaignID uuid.UUID, date time.Time) ([]models.CampaignHourlyStats, *errx.Error)
 	CompareCampaigns(ctx context.Context, orgID uuid.UUID, campaignIDs []uuid.UUID, from, to time.Time) (*models.CampaignComparison, *errx.Error)
 }
@@ -627,4 +628,35 @@ func (s *analyticsService) campaignForOrg(ctx context.Context, orgID, campaignID
 		return nil, errx.InternalError()
 	}
 	return campaign, nil
+}
+
+// GetDirectMailAnalytics reports on mail written by hand rather than sent by a
+// campaign. Same period vocabulary as the dashboard so the two views agree on
+// what "last 7 days" means.
+func (s *analyticsService) GetDirectMailAnalytics(ctx context.Context, orgID uuid.UUID, period string) (*models.DirectMailAnalytics, *errx.Error) {
+	from, to, period := dashboardRange(period)
+
+	out, xerr := s.analyticsRepo.GetDirectMailAnalytics(ctx, orgID, from, to)
+	if xerr != nil {
+		return nil, xerr
+	}
+	out.Period = period
+	return out, nil
+}
+
+// dashboardRange turns a period name into a window, and hands back the name it
+// actually used so a caller echoing it back never reports a period it did not
+// measure.
+func dashboardRange(period string) (time.Time, time.Time, string) {
+	to := time.Now()
+	switch period {
+	case "30d":
+		return to.AddDate(0, 0, -30), to, period
+	case "90d":
+		return to.AddDate(0, 0, -90), to, period
+	case "7d":
+		return to.AddDate(0, 0, -7), to, period
+	default:
+		return to.AddDate(0, 0, -7), to, "7d"
+	}
 }

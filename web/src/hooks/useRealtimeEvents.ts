@@ -89,7 +89,7 @@ export function useRealtimeEvents() {
       }
 
       if (includes('EMAIL_UPDATED', 'EMAIL_DELETED', 'INBOX_UPDATE')) {
-        invalidate([['unibox'], ['analytics']])
+        invalidate([['unibox'], ['analytics'], ['inbox-tagging']])
         if (threadId) invalidate([['unibox', 'thread', threadId]])
         if (emailId) invalidate([['unibox', 'email', emailId]])
         return
@@ -165,6 +165,11 @@ export function useRealtimeEvents() {
       // timeline moves.
       if (event === 'PAGE_HIT') {
         if (contactId) invalidate([['contacts', contactId, 'timeline']])
+        return
+      }
+
+      if (event === 'DIRECT_EMAIL_OPENED' || event === 'DIRECT_EMAIL_CLICKED') {
+        invalidate([['analytics'], ['analytics', 'direct']])
         return
       }
 

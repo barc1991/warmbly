@@ -357,6 +357,11 @@ services:
       TRACKING_DOMAIN: ${TRACKING_DOMAIN:-${PUBLIC_HOST:-localhost}:3000}
       GEODB_PATH: ${GEODB_PATH:-/app/data/GeoLite2-City.mmdb}
       GEODB_URL: ${GEODB_URL:-}
+      # Automatic inbox tagging. Optional and off: the backend only serves the
+      # review page from it, the consumer does the classifying. Both halves are
+      # required, so an instance that sets neither never reaches the network.
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+      INBOX_TAGGING_ENABLED: ${INBOX_TAGGING_ENABLED:-false}
       # Gmail mailbox OAuth (leave unset to connect only SMTP/IMAP + Outlook
       # mailboxes). See the self-hosting docs for the Google Cloud setup.
       BOX_GOOGLE_CLIENT_ID: ${BOX_GOOGLE_CLIENT_ID:-}
@@ -469,6 +474,11 @@ services:
       # country and city on the contact's timeline.
       GEODB_PATH: ${GEODB_PATH:-/app/data/GeoLite2-City.mmdb}
       GEODB_URL: ${GEODB_URL:-}
+      # Automatic inbox tagging. This is where inbound mail is classified, so a
+      # key set only here still works; the backend needs it to report whether
+      # the feature is on. Off unless both are set.
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-}
+      INBOX_TAGGING_ENABLED: ${INBOX_TAGGING_ENABLED:-false}
     volumes:
       - ${WARMBLY_BLOBS:-blobs}:/data/blobs
     depends_on:

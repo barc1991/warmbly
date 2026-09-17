@@ -28,6 +28,7 @@ import { TONE_DOT } from "@/components/ui/tones";
 import type { DitherTone } from "@/components/ui/dither";
 import AnalyticsShareButton from "@/components/app/analytics/AnalyticsShareButton";
 import useDashboard from "@/lib/api/hooks/app/analytics/useDashboard";
+import DirectMailSection from "@/components/app/analytics/DirectMailSection";
 
 const AUTO_OPENS_TIP = "Auto-opens: pixel fetches from privacy proxies (e.g. Apple Mail) or within seconds of sending, not a person reading";
 const AUTO_CLICKS_TIP = "Auto-clicks: links followed by a security gateway scanning the email, not a person; not counted as clicks";
@@ -240,6 +241,8 @@ export default function AnalyticsPage() {
                             })}
                         </div>
                     )}
+
+                    <DirectMailSection period={range} />
 
                     <SectionBar label="Recent activity" />
                     <PageBody>

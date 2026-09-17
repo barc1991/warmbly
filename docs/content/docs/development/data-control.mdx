@@ -72,6 +72,10 @@ Every window below lives in the database, not the environment, and is edited und
 
 Mail over a daily budget is deferred, never dropped: the provider cursor is held and the mail is re-offered on the next pass. Replies to the mailbox's own outreach ride a separate budget of the same size and keep landing regardless.
 
+### Automatic inbox tagging
+
+Automatic inbox tagging is off unless both `TYPESAFE_API_KEY` and `INBOX_TAGGING_ENABLED=true` are set. When enabled, the consumer sends the inbound subject and bounded plain-text body, plus the previous outbound message in the thread when one exists, to TypeSafe for classification. The result and raw probabilities are stored in `inbox_tag_results`. Completed results travel with the Inbox group in a workspace export; temporary processing claims do not. See [Automatic inbox tagging](/guides/inbox-tagging/).
+
 ### Event history
 
 | Setting | Default | What it holds |
