@@ -626,13 +626,13 @@ function TemplatesActivity() {
 // Analytics row: a live, compact tally of emails sent this period — the headline
 // throughput metric, surfaced right in the nav. From the org-wide usage overview.
 function AnalyticsActivity() {
-    const { data } = useUsageOverview();
+    const { data } = useUsageOverview("day");
     const sent = data?.campaigns?.emails_sent ?? 0;
     return (
         <TabStat
             total={sent}
             format={compactN}
-            title={`${sent.toLocaleString()} emails sent this period`}
+            title={`${sent.toLocaleString()} emails sent today`}
         />
     );
 }

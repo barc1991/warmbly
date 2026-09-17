@@ -655,7 +655,7 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
                     }
                 />
                 <StatCard label="Warmup today" value={ws ? ws.current_volume : (usage?.warmup_sent ?? "—")} sub={ws ? `target ${ws.target_volume}` : undefined} accent />
-                <StatCard label="Reply rate" value={ws ? `${ws.reply_rate}%` : "—"} sub="warmup replies" />
+                <StatCard label="Reply target" value={ws ? `${ws.reply_rate}%` : "—"} sub="configured warmup share" />
                 <StatCard label="Days warming" value={ws ? ws.days_active : "—"} sub={ws ? `max ${ws.max_volume}/day` : undefined} />
             </div>
 
@@ -751,9 +751,9 @@ function AnalyticsTab({ warmup, loading }: { warmup?: import("@/lib/api/models/a
     return (
         <div className="divide-y divide-slate-200/60">
             <div className="grid grid-cols-2 divide-x divide-y divide-slate-200/60">
-                <StatCard label="Total sent" value={s.total_sent} sub={`${s.average_daily.toFixed(1)}/day avg`} />
+                <StatCard label="Total sent" value={s.total_sent} sub={`${s.average_daily.toFixed(1)}/active day`} />
                 <StatCard label="Replies" value={s.total_replied} sub={`${s.reply_rate.toFixed(1)}% reply rate`} accent />
-                <StatCard label="Target progress" value={`${Math.round(s.target_progress)}%`} sub="toward max volume" />
+                <StatCard label="Target met" value={`${Math.round(s.target_progress)}%`} sub="of planned volume" />
                 <StatCard label="Days active" value={s.days_active} sub={`${warmup.date_range.from} → ${warmup.date_range.to}`} />
             </div>
 

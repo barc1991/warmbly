@@ -34,6 +34,7 @@ export interface WarmupStatusInfo {
     current_volume: number;
     target_volume: number;
     max_volume: number;
+    /** Configured percent of warmup sends that should receive a synthetic reply. */
     reply_rate: number;
     days_active: number;
     /** Present while a recent junk placement is holding the ramp. */

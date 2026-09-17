@@ -37,13 +37,15 @@ Live, scoped by `7d`, `30d`, or `90d` tabs.
 | Headline rates | Total sent, open rate, reply rate, bounce rate |
 | Email performance | One metric per day (sent, opens, clicks, replies), for spotting the day something moved |
 | Breakdown | Raw window totals behind the rates |
-| Account health | Mailboxes counted as Healthy, At risk, Issues |
+| Account health | Each mailbox counted once as Healthy, At risk, or Issues, using its most severe current connection, sync, or warmup-reputation state |
 | Top campaigns | Best performers with sent, open rate, reply rate, and a status dot |
-| Recent activity | A live feed of individual sends, opens, clicks, replies, and bounces |
+| Recent activity | A live feed of individual opens, clicks, replies, and bounces |
+
+Sending totals, trends, comparisons, and top-campaign rates count email steps only. Completed wait and action steps move a sequence forward but never inflate the number of messages sent.
 
 ## Per-campaign
 
-Each campaign reports its own totals: contacts, sent, pending, unique opens and clicks, replies, bounces, unsubscribes, and the four rates.
+Each campaign reports its own totals: enrolled contacts, sent email steps, remaining planned email-step sends, unique opens and clicks, replies, bounces, unsubscribes, and the four rates. Wait and action steps do not count as messages.
 
 **Per-step stats** break sent, opens, clicks, replies, and bounces down by sequence step, which is how you find the touch pulling replies and the follow-ups that are dead weight. Each count carries the step's own rate underneath it, measured against that step's sends rather than the campaign's, so a fourth touch that reached 11 contacts still compares against a first touch that reached 337. A step that has sent nothing shows a dash rather than 0%, and a dotted rate means some of those events were automated: hover it for the split. Daily stats drive the trend chart, and hourly stats show when sends land and get engagement. Campaigns can also be compared side by side on the same metrics.
 
@@ -61,8 +63,10 @@ These records back the engagement rows on a contact's [activity timeline](/guide
 |--------|-------------------|
 | Health | Healthy, warning, or error, with a score and specific issues |
 | Daily usage | Campaign emails sent today against `campaign_limit` (default `50`/day), plus warmup sent and limit |
-| Warmup status | Whether warmup is on, current volume, target, and max |
+| Warmup status | Whether warmup is on, actual volume today, the target the scheduler is using, max volume, configured reply target, and elapsed warmup days |
 | Warmup health | Pool standing: healthy, watch, throttled, quarantined, or blocked, with the score and reason the band decided, and the block expiry |
+
+The overview calls the configured percentage **Reply target** because it controls how much synthetic warmup mail should receive a reply. The Analytics tab reports the measured reply rate from actual sends and replies. Its **Target met** percentage is actual warmup sends divided by planned target volume across the active days in the selected range; it can exceed 100% when volume beats the plan.
 
 Use this to find the one mailbox dragging down a campaign's bounce rate instead of blaming the campaign.
 
