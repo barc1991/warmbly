@@ -729,6 +729,7 @@ func main() {
 			writingGenerator = generation.NewAnthropicClient(aiKey)
 		}
 		creditRepository = repository.NewCreditRepository(primaryDB)
+		creditAutoTopUpAttemptRepository := repository.NewCreditAutoTopUpAttemptRepository(primaryDB)
 		aiSettingsRepository = repository.NewAISettingsRepository(primaryDB)
 		creditService = credits.NewService(creditRepository, aiSettingsRepository, cache)
 		webhookRepository := repository.NewWebhookRepository(primaryDB.Pool)
@@ -812,7 +813,7 @@ func main() {
 				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
-			stripeService = stripe.NewService(stripeCfg, subscriptionRepository, planRepository, workerAssignmentService, discountService)
+			stripeService = stripe.NewService(stripeCfg, subscriptionRepository, planRepository, workerAssignmentService, discountService, creditAutoTopUpAttemptRepository)
 		} else {
 			stripeService = stripe.NewDisabledService()
 		}
