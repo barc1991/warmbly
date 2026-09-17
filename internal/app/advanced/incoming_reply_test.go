@@ -79,12 +79,17 @@ type incomingReplyProgressRepo struct {
 	sourceInbound bool
 	sourceClaimed bool
 	replyAccepted bool
+	receivingSent bool
 	completeErr   error
 	advanced      *incomingReplyAdvancedRepo
 }
 
 func (r *incomingReplyProgressRepo) IsInboundReplySource(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
 	return r.sourceInbound, nil
+}
+
+func (r *incomingReplyProgressRepo) CampaignContactSentFromAccount(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (bool, error) {
+	return r.receivingSent, nil
 }
 
 func (r *incomingReplyProgressRepo) GetLatestCampaignSequenceForContact(context.Context, uuid.UUID) (*repository.CampaignSequencePair, error) {
@@ -118,7 +123,14 @@ func (r *incomingReplyProgressRepo) RecordEmailReplied(context.Context, uuid.UUI
 	return r.replyAccepted, nil
 }
 
-type incomingReplyCampaignRepo struct{ repository.CampaignRepository }
+type incomingReplyCampaignRepo struct {
+	repository.CampaignRepository
+	campaign *models.Campaign
+}
+
+func (r incomingReplyCampaignRepo) GetByID(context.Context, uuid.UUID) (*models.Campaign, error) {
+	return r.campaign, nil
+}
 
 func (incomingReplyCampaignRepo) GetSequencesRoutingByCampaignID(context.Context, uuid.UUID) ([]models.Sequence, error) {
 	return nil, nil
@@ -126,7 +138,12 @@ func (incomingReplyCampaignRepo) GetSequencesRoutingByCampaignID(context.Context
 
 func newIncomingReplyService(account *models.Email, senderContact *models.Contact, taskContact uuid.UUID) (*service, *incomingReplyProgressRepo) {
 	taskID, campaignID, sequenceID := uuid.New(), uuid.New(), uuid.New()
-	progress := &incomingReplyProgressRepo{sourceInbound: true, sourceClaimed: true, replyAccepted: true}
+	progress := &incomingReplyProgressRepo{
+		sourceInbound: true,
+		sourceClaimed: true,
+		replyAccepted: true,
+		receivingSent: true,
+	}
 	advancedRepo := &incomingReplyAdvancedRepo{}
 	progress.advanced = advancedRepo
 	taskContactRecord := &models.Contact{ID: taskContact, Email: "task-contact@example.test"}
@@ -134,9 +151,12 @@ func newIncomingReplyService(account *models.Email, senderContact *models.Contac
 		taskContactRecord = senderContact
 	}
 	return &service{
-		repo:         advancedRepo,
-		campaignRepo: incomingReplyCampaignRepo{},
-		emailRepo:    incomingReplyEmailRepo{account: account},
+		repo: advancedRepo,
+		campaignRepo: incomingReplyCampaignRepo{campaign: &models.Campaign{
+			ID:             campaignID,
+			OrganizationID: account.OrganizationID,
+		}},
+		emailRepo: incomingReplyEmailRepo{account: account},
 		taskRepo: incomingReplyTaskRepo{
 			task:     &repository.Task{ID: taskID, TaskType: "campaign", EmailAccountID: account.ID},
 			campaign: &repository.CampaignTask{TaskID: taskID, CampaignID: &campaignID, ContactID: &taskContact, SequenceID: &sequenceID},
@@ -374,7 +394,7 @@ func TestProcessIncomingReplyRequiresRecipientToMatchMailbox(t *testing.T) {
 	}
 }
 
-func TestProcessIncomingReplyRequiresThreadToMatchMailbox(t *testing.T) {
+func TestProcessIncomingReplyAcceptsCrossMailboxThreadWhenStoredSourceIsInbound(t *testing.T) {
 	orgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New()
 	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "sender@example.test"}
 	service, progress := newIncomingReplyService(account, &models.Contact{
@@ -395,8 +415,64 @@ func TestProcessIncomingReplyRequiresThreadToMatchMailbox(t *testing.T) {
 	if xerr != nil {
 		t.Fatal(xerr)
 	}
+	if progress.replied != 1 {
+		t.Fatalf("RecordEmailReplied calls = %d, want 1 for an inbound cross-mailbox thread", progress.replied)
+	}
+	if progress.completed != 1 {
+		t.Fatalf("CompleteIncomingReply calls = %d, want 1 for an inbound cross-mailbox thread", progress.completed)
+	}
+}
+
+func TestProcessIncomingReplyRejectsCrossOrganizationThread(t *testing.T) {
+	orgID, otherOrgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "sender@example.test"}
+	service, progress := newIncomingReplyService(account, &models.Contact{
+		ID: contactID, Email: "recipient@example.test",
+	}, contactID)
+	service.taskRepo.(incomingReplyTaskRepo).task.EmailAccountID = uuid.New()
+	service.campaignRepo = incomingReplyCampaignRepo{campaign: &models.Campaign{
+		ID:             uuid.New(),
+		OrganizationID: &otherOrgID,
+	}}
+
+	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
+		EmailID:   accountID,
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Recipient <recipient@example.test>"},
+		ToAddr:    []string{"sender@example.test"},
+		InReplyTo: []string{"<opener@example.test>"},
+		Subject:   "Re: Hello",
+	})
+	if xerr != nil {
+		t.Fatal(xerr)
+	}
 	if progress.replied != 0 {
-		t.Fatalf("RecordEmailReplied calls = %d, want 0 when the thread belongs to another mailbox", progress.replied)
+		t.Fatalf("RecordEmailReplied calls = %d, want 0 for a cross-organization thread", progress.replied)
+	}
+}
+
+func TestProcessIncomingReplyRejectsCrossMailboxThreadAtUnrelatedWorkspaceMailbox(t *testing.T) {
+	orgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New()
+	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "unrelated@example.test"}
+	service, progress := newIncomingReplyService(account, &models.Contact{
+		ID: contactID, Email: "recipient@example.test",
+	}, contactID)
+	service.taskRepo.(incomingReplyTaskRepo).task.EmailAccountID = uuid.New()
+	progress.receivingSent = false
+
+	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
+		EmailID:   accountID,
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Recipient <recipient@example.test>"},
+		ToAddr:    []string{"unrelated@example.test"},
+		InReplyTo: []string{"<opener@example.test>"},
+		Subject:   "Re: Hello",
+	})
+	if xerr != nil {
+		t.Fatal(xerr)
+	}
+	if progress.replied != 0 {
+		t.Fatalf("RecordEmailReplied calls = %d, want 0 for an unrelated workspace mailbox", progress.replied)
 	}
 }
 
