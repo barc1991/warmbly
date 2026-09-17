@@ -2,6 +2,7 @@ package advanced
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,6 +13,8 @@ import (
 
 type incomingReplyAdvancedRepo struct {
 	repository.AdvancedOutreachRepository
+	marked  int
+	intents int
 }
 
 func (incomingReplyAdvancedRepo) GetOutreachSettings(context.Context, uuid.UUID) (*models.AdvancedOutreachSettings, error) {
@@ -19,11 +22,13 @@ func (incomingReplyAdvancedRepo) GetOutreachSettings(context.Context, uuid.UUID)
 	return &settings, nil
 }
 
-func (incomingReplyAdvancedRepo) MarkVariantEvent(context.Context, uuid.UUID, uuid.UUID, string) error {
+func (r *incomingReplyAdvancedRepo) MarkVariantEvent(context.Context, uuid.UUID, uuid.UUID, string) error {
+	r.marked++
 	return nil
 }
 
-func (incomingReplyAdvancedRepo) CreateReplyIntent(context.Context, *models.ReplyIntentRecord) error {
+func (r *incomingReplyAdvancedRepo) CreateReplyIntent(context.Context, *models.ReplyIntentRecord) error {
+	r.intents++
 	return nil
 }
 
@@ -66,8 +71,20 @@ func (r incomingReplyContactRepo) GetByID(context.Context, uuid.UUID) (*models.C
 
 type incomingReplyProgressRepo struct {
 	repository.CampaignProgressRepository
-	replied int
-	latest  *repository.CampaignSequencePair
+	replied       int
+	classified    int
+	claims        int
+	completed     int
+	latest        *repository.CampaignSequencePair
+	sourceInbound bool
+	sourceClaimed bool
+	replyAccepted bool
+	completeErr   error
+	advanced      *incomingReplyAdvancedRepo
+}
+
+func (r *incomingReplyProgressRepo) IsInboundReplySource(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return r.sourceInbound, nil
 }
 
 func (r *incomingReplyProgressRepo) GetLatestCampaignSequenceForContact(context.Context, uuid.UUID) (*repository.CampaignSequencePair, error) {
@@ -79,12 +96,26 @@ func (r *incomingReplyProgressRepo) GetLatestReplyClass(context.Context, uuid.UU
 }
 
 func (r *incomingReplyProgressRepo) RecordReplyClassification(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, float64) error {
+	r.classified++
 	return nil
 }
 
-func (r *incomingReplyProgressRepo) RecordEmailReplied(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error {
+func (r *incomingReplyProgressRepo) ClaimIncomingReply(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error) {
+	r.claims++
+	if !r.sourceClaimed {
+		return uuid.Nil, nil
+	}
+	return uuid.New(), nil
+}
+
+func (r *incomingReplyProgressRepo) CompleteIncomingReply(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error {
+	r.completed++
+	return r.completeErr
+}
+
+func (r *incomingReplyProgressRepo) RecordEmailReplied(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (bool, error) {
 	r.replied++
-	return nil
+	return r.replyAccepted, nil
 }
 
 type incomingReplyCampaignRepo struct{ repository.CampaignRepository }
@@ -95,13 +126,15 @@ func (incomingReplyCampaignRepo) GetSequencesRoutingByCampaignID(context.Context
 
 func newIncomingReplyService(account *models.Email, senderContact *models.Contact, taskContact uuid.UUID) (*service, *incomingReplyProgressRepo) {
 	taskID, campaignID, sequenceID := uuid.New(), uuid.New(), uuid.New()
-	progress := &incomingReplyProgressRepo{}
+	progress := &incomingReplyProgressRepo{sourceInbound: true, sourceClaimed: true, replyAccepted: true}
+	advancedRepo := &incomingReplyAdvancedRepo{}
+	progress.advanced = advancedRepo
 	taskContactRecord := &models.Contact{ID: taskContact, Email: "task-contact@example.test"}
 	if senderContact != nil && senderContact.ID == taskContact {
 		taskContactRecord = senderContact
 	}
 	return &service{
-		repo:         incomingReplyAdvancedRepo{},
+		repo:         advancedRepo,
 		campaignRepo: incomingReplyCampaignRepo{},
 		emailRepo:    incomingReplyEmailRepo{account: account},
 		taskRepo: incomingReplyTaskRepo{
@@ -192,6 +225,103 @@ func TestProcessIncomingReplyRejectsOutboundFolder(t *testing.T) {
 				t.Fatalf("RecordEmailReplied calls = %d, want 0 for outbound folder", progress.replied)
 			}
 		})
+	}
+}
+
+func TestProcessIncomingReplyTrustsPersistedDirectionOverEventPayload(t *testing.T) {
+	orgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New()
+	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "sender@example.test"}
+	service, progress := newIncomingReplyService(account, &models.Contact{
+		ID: contactID, Email: "recipient@example.test",
+	}, contactID)
+	progress.sourceInbound = false
+
+	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
+		ID:        uuid.New(),
+		EmailID:   accountID,
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Recipient <recipient@example.test>"},
+		ToAddr:    []string{"sender@example.test"},
+		InReplyTo: []string{"<opener@example.test>"},
+		Subject:   "Re: Hello",
+	})
+	if xerr != nil {
+		t.Fatal(xerr)
+	}
+	if progress.replied != 0 {
+		t.Fatalf("RecordEmailReplied calls = %d, want 0 when the stored source is outbound", progress.replied)
+	}
+}
+
+func TestProcessIncomingReplyStopsWhenWriteBoundaryRejectsSource(t *testing.T) {
+	orgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New()
+	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "sender@example.test"}
+	service, progress := newIncomingReplyService(account, &models.Contact{
+		ID: contactID, Email: "recipient@example.test",
+	}, contactID)
+	progress.replyAccepted = false
+
+	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
+		ID:        uuid.New(),
+		EmailID:   accountID,
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Recipient <recipient@example.test>"},
+		ToAddr:    []string{"sender@example.test"},
+		InReplyTo: []string{"<opener@example.test>"},
+		Subject:   "Re: Hello",
+	})
+	if xerr != nil {
+		t.Fatal(xerr)
+	}
+	if progress.replied != 1 {
+		t.Fatalf("RecordEmailReplied calls = %d, want 1 write-boundary claim", progress.replied)
+	}
+	if progress.advanced.marked != 0 {
+		t.Fatalf("MarkVariantEvent calls = %d, want 0 after rejected claim", progress.advanced.marked)
+	}
+	if progress.advanced.intents != 0 {
+		t.Fatalf("CreateReplyIntent calls = %d, want 0 after rejected claim", progress.advanced.intents)
+	}
+	if progress.completed != 1 {
+		t.Fatalf("CompleteIncomingReply calls = %d, want 1 after rejected write", progress.completed)
+	}
+}
+
+func TestProcessIncomingReplyClaimsBeforePersistingAutomatedState(t *testing.T) {
+	orgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New()
+	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "sender@example.test"}
+	service, progress := newIncomingReplyService(account, &models.Contact{
+		ID: contactID, Email: "recipient@example.test",
+	}, contactID)
+	progress.sourceClaimed = false
+
+	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
+		ID:        uuid.New(),
+		EmailID:   accountID,
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Recipient <recipient@example.test>"},
+		ToAddr:    []string{"sender@example.test"},
+		InReplyTo: []string{"<opener@example.test>"},
+		Subject:   "Automatic reply: out of office",
+		Snippet:   "I am out of the office.",
+	})
+	if xerr != nil {
+		t.Fatal(xerr)
+	}
+	if progress.claims != 1 {
+		t.Fatalf("ClaimIncomingReply calls = %d, want 1", progress.claims)
+	}
+	if progress.classified != 0 {
+		t.Fatalf("RecordReplyClassification calls = %d, want 0 after rejected claim", progress.classified)
+	}
+	if progress.replied != 0 {
+		t.Fatalf("RecordEmailReplied calls = %d, want 0 for rejected automated reply", progress.replied)
+	}
+	if progress.advanced.intents != 0 {
+		t.Fatalf("CreateReplyIntent calls = %d, want 0 after rejected claim", progress.advanced.intents)
+	}
+	if progress.completed != 0 {
+		t.Fatalf("CompleteIncomingReply calls = %d, want 0 without a claim", progress.completed)
 	}
 }
 
@@ -290,5 +420,39 @@ func TestProcessIncomingReplyAcceptsMatchingThreadSender(t *testing.T) {
 	}
 	if progress.replied != 1 {
 		t.Fatalf("RecordEmailReplied calls = %d, want 1 for the matching contact", progress.replied)
+	}
+	if progress.completed != 1 {
+		t.Fatalf("CompleteIncomingReply calls = %d, want 1 for the matching contact", progress.completed)
+	}
+}
+
+func TestProcessIncomingReplyFencesExpiredClaimBeforeSideEffects(t *testing.T) {
+	orgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New()
+	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "sender@example.test"}
+	service, progress := newIncomingReplyService(account, &models.Contact{
+		ID: contactID, Email: "recipient@example.test",
+	}, contactID)
+	progress.completeErr = errors.New("claim was replaced")
+
+	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
+		ID:        uuid.New(),
+		EmailID:   accountID,
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Recipient <recipient@example.test>"},
+		ToAddr:    []string{"sender@example.test"},
+		InReplyTo: []string{"<opener@example.test>"},
+		Subject:   "Re: Hello",
+	})
+	if xerr == nil {
+		t.Fatal("expected the replaced claim to stop processing")
+	}
+	if progress.completed != 1 {
+		t.Fatalf("CompleteIncomingReply calls = %d, want 1", progress.completed)
+	}
+	if progress.advanced.marked != 0 {
+		t.Fatalf("MarkVariantEvent calls = %d, want 0 after ownership was lost", progress.advanced.marked)
+	}
+	if progress.advanced.intents != 0 {
+		t.Fatalf("CreateReplyIntent calls = %d, want 0 after ownership was lost", progress.advanced.intents)
 	}
 }

@@ -583,7 +583,8 @@ var Tables = []Table{
 	},
 	{
 		Name: "unibox_emails", Group: models.OrgDataGroupInbox,
-		Scope: `email_id IN ` + orgMailboxes,
+		Scope:         `email_id IN ` + orgMailboxes,
+		ResetOnImport: []string{"campaign_reply_claimed_at", "campaign_reply_claim_token", "campaign_reply_processed_at"},
 	},
 	{
 		Name: "unibox_thread_labels", Group: models.OrgDataGroupInbox,

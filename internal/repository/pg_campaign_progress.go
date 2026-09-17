@@ -183,7 +183,14 @@ type CampaignProgressRepository interface {
 	// the reference point for telling an instant machine open or click from a
 	// person's.
 	GetStepSentAt(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) (*time.Time, error)
-	RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error
+	// IsInboundReplySource confirms the stored unibox row is not outbound.
+	IsInboundReplySource(ctx context.Context, emailAccountID, messageID uuid.UUID) (bool, error)
+	// ClaimIncomingReply leases one stored inbound message for reply processing.
+	ClaimIncomingReply(ctx context.Context, emailAccountID, messageID uuid.UUID) (uuid.UUID, error)
+	// CompleteIncomingReply prevents a successfully processed message from being retried.
+	CompleteIncomingReply(ctx context.Context, emailAccountID, messageID, claimToken uuid.UUID) error
+	// RecordEmailReplied stamps a human reply while its source is still inbound.
+	RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID, emailAccountID, messageID uuid.UUID) (bool, error)
 	RecordEmailBounced(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error
 	RecordEmailComplained(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error
 
@@ -787,19 +794,92 @@ func (r *campaignProgressRepository) GetStepSentAt(ctx context.Context, campaign
 	return sentAt, nil
 }
 
-// RecordEmailReplied records that a contact replied
-func (r *campaignProgressRepository) RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error {
+// IsInboundReplySource verifies direction from the row stored by the consumer.
+func (r *campaignProgressRepository) IsInboundReplySource(ctx context.Context, emailAccountID, messageID uuid.UUID) (bool, error) {
+	var inbound bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM unibox_emails
+			WHERE id = $1
+			  AND email_id = $2
+			  AND folder NOT IN ('sent', 'drafts')
+			  AND provider_folder NOT IN ('sent', 'drafts')
+		)
+	`, messageID, emailAccountID).Scan(&inbound)
+	return inbound, err
+}
+
+const incomingReplyClaimLease = "10 minutes"
+
+// ClaimIncomingReply leases one inbound message so duplicate events cannot repeat its effects.
+func (r *campaignProgressRepository) ClaimIncomingReply(ctx context.Context, emailAccountID, messageID uuid.UUID) (uuid.UUID, error) {
+	claimToken := uuid.New()
+	result, err := r.db.Exec(ctx, `
+		UPDATE unibox_emails
+		SET campaign_reply_claimed_at = NOW(),
+		    campaign_reply_claim_token = $3
+		WHERE id = $1
+		  AND email_id = $2
+		  AND folder NOT IN ('sent', 'drafts')
+		  AND provider_folder NOT IN ('sent', 'drafts')
+		  AND campaign_reply_processed_at IS NULL
+		  AND (
+			campaign_reply_claimed_at IS NULL
+			OR campaign_reply_claimed_at < NOW() - INTERVAL '`+incomingReplyClaimLease+`'
+		  )
+	`, messageID, emailAccountID, claimToken)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if result.RowsAffected() == 0 {
+		return uuid.Nil, nil
+	}
+	return claimToken, nil
+}
+
+// CompleteIncomingReply marks a claimed message as processed.
+func (r *campaignProgressRepository) CompleteIncomingReply(ctx context.Context, emailAccountID, messageID, claimToken uuid.UUID) error {
+	result, err := r.db.Exec(ctx, `
+		UPDATE unibox_emails
+		SET campaign_reply_processed_at = NOW()
+		WHERE id = $1
+		  AND email_id = $2
+		  AND campaign_reply_claim_token = $3
+		  AND campaign_reply_processed_at IS NULL
+	`, messageID, emailAccountID, claimToken)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("incoming reply claim is no longer owned")
+	}
+	return nil
+}
+
+// RecordEmailReplied records that a contact replied when its source is still inbound.
+func (r *campaignProgressRepository) RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID, emailAccountID, messageID uuid.UUID) (bool, error) {
 	query := `
 		UPDATE campaign_contact_progress
-		SET replied_at = NOW()
+		SET replied_at = COALESCE(replied_at, NOW())
 		WHERE campaign_id = $1
 		  AND contact_id = $2
 		  AND sequence_id = $3
-		  AND replied_at IS NULL
+		  AND EXISTS (
+			SELECT 1
+			FROM unibox_emails
+			WHERE id = $4
+			  AND email_id = $5
+			  AND folder NOT IN ('sent', 'drafts')
+			  AND provider_folder NOT IN ('sent', 'drafts')
+		  )
 	`
 
-	_, err := r.db.Exec(ctx, query, campaignID, contactID, sequenceID)
-	return err
+	result, err := r.db.Exec(ctx, query, campaignID, contactID, sequenceID, messageID, emailAccountID)
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected() == 1, nil
 }
 
 // RecordEmailBounced records that an email bounced

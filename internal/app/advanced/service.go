@@ -1069,6 +1069,13 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	if !msg.MayBeInbound() {
 		return nil
 	}
+	inbound, err := s.campaignProgressRepo.IsInboundReplySource(ctx, emailAccountID, msg.ID)
+	if err != nil {
+		return toErrx(err)
+	}
+	if !inbound {
+		return nil
+	}
 	account, xerr := s.emailRepo.GetByID(ctx, emailAccountID)
 	if xerr != nil {
 		return xerr
@@ -1105,7 +1112,8 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	// model call. verdict is what it decided, read after the block; held is
 	// when an out-of-office hold lifts, for the notification to name.
 	var verdict replyclassify.Result
-	var held *time.Time
+	replyClaimToken := uuid.Nil
+	replyClaimCompleted := false
 
 	var campaignID *uuid.UUID
 	var sequenceID *uuid.UUID
@@ -1182,6 +1190,15 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 			return true
 		}
 
+		claimToken, err := s.campaignProgressRepo.ClaimIncomingReply(ctx, emailAccountID, msg.ID)
+		if err != nil {
+			return toErrx(err)
+		}
+		if claimToken == uuid.Nil {
+			return nil
+		}
+		replyClaimToken = claimToken
+
 		replyResult := replyclassify.ClassifyGated(ctx, replyclassify.Input{
 			Headers:  buildReplyHeaders(msg),
 			Subject:  msg.Subject,
@@ -1195,15 +1212,6 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		verdict = replyResult
 		_ = s.campaignProgressRepo.RecordReplyClassification(ctx, cID, ctID, sID, replyResult.Class, replyResult.Source, replyResult.Confidence)
 
-		// Out of office: park the contact's next step until they are back
-		// rather than writing to an empty desk. An automated reply never
-		// stamps replied_at, so without this the follow-up goes out on
-		// schedule and the sequence is over before they read any of it
-		// (issue #470).
-		if replyResult.Class == replyclassify.ClassOutOfOffice && settings.ReplyIntent.HoldOnOutOfOffice {
-			held = s.holdForOutOfOffice(ctx, ctID, settings.ReplyIntent, msg)
-		}
-
 		// OOO trap fix: only a HUMAN reply stamps replied_at. An auto_reply /
 		// out_of_office must NOT count as a reply, or it would (a) trip
 		// stop_on_reply and silently halt the sequence, and (b) match the plain
@@ -1211,6 +1219,18 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		// replied_at IS NOT NULL, so gating the stamp here fixes both at once.
 		// Any reply, human or automatic, proves the mailbox is live; only a
 		// human one counts as engagement.
+		if !replyclassify.IsAutomated(replyResult.Class) {
+			accepted, err := s.campaignProgressRepo.RecordEmailReplied(ctx, cID, ctID, sID, emailAccountID, msg.ID)
+			if err != nil {
+				return toErrx(err)
+			}
+			if !accepted {
+				if err := s.campaignProgressRepo.CompleteIncomingReply(ctx, emailAccountID, msg.ID, replyClaimToken); err != nil {
+					return toErrx(err)
+				}
+				return nil
+			}
+		}
 		if s.evidence != nil {
 			kind := "replied"
 			if replyclassify.IsAutomated(replyResult.Class) {
@@ -1218,8 +1238,13 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 			}
 			s.evidence.RecordEvidence(ctx, ctID, models.Step(&cID, &sID), kind, msg.ID.String(), "")
 		}
+		// Fence the claim before non-idempotent effects so an expired worker stops here.
+		if err := s.campaignProgressRepo.CompleteIncomingReply(ctx, emailAccountID, msg.ID, replyClaimToken); err != nil {
+			return toErrx(err)
+		}
+		replyClaimCompleted = true
+
 		if !replyclassify.IsAutomated(replyResult.Class) {
-			_ = s.campaignProgressRepo.RecordEmailReplied(ctx, cID, ctID, sID)
 			_ = s.repo.MarkVariantEvent(ctx, cID, ctID, string(models.DeliverabilityEventReply))
 
 			// Live org-wide pulse: the team sees the reply land on the
@@ -1276,6 +1301,16 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 			BodyText: firstNonEmpty(msg.BodyText, msg.Snippet),
 		})
 	}
+	if replyClaimToken == uuid.Nil && !replyClaimCompleted {
+		claimToken, err := s.campaignProgressRepo.ClaimIncomingReply(ctx, emailAccountID, msg.ID)
+		if err != nil {
+			return toErrx(err)
+		}
+		if claimToken == uuid.Nil {
+			return nil
+		}
+		replyClaimToken = claimToken
+	}
 
 	intent, confidence := classifyReply(text, settings.ReplyIntent)
 	// The layered classifier reads auto-reply headers and a multilingual
@@ -1284,6 +1319,16 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	// classes are folded in: sentiment stays the keyword list's call.
 	if replyclassify.IsAutomated(verdict.Class) {
 		intent, confidence = automatedIntent(verdict)
+	}
+	if !replyClaimCompleted {
+		if err := s.campaignProgressRepo.CompleteIncomingReply(ctx, emailAccountID, msg.ID, replyClaimToken); err != nil {
+			return toErrx(err)
+		}
+	}
+
+	var held *time.Time
+	if campaignID != nil && contactID != nil && verdict.Class == replyclassify.ClassOutOfOffice && settings.ReplyIntent.HoldOnOutOfOffice {
+		held = s.holdForOutOfOffice(ctx, *contactID, settings.ReplyIntent, msg)
 	}
 
 	actionTaken := ""
