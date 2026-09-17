@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	workerapp "github.com/warmbly/warmbly/internal/app/worker"
 	"github.com/warmbly/warmbly/internal/jobrun"
 	"github.com/warmbly/warmbly/internal/models"
 )
@@ -38,7 +39,7 @@ func (s *JobsService) notifyOperatorWorkerDown(ctx context.Context, workerID uui
 	}
 	outcome := "Mailboxes were moved to a healthy worker automatically."
 	if !reassigned {
-		outcome = "No healthy replacement of the same tier was available, so sending from those mailboxes is paused."
+		outcome = "No healthy replacement had room, so sending from those mailboxes is paused."
 	}
 	s.OpsNotifier.NotifyOperator(
 		"worker.offline",
@@ -139,44 +140,56 @@ func (s *JobsService) detectDeadWorkers(ctx context.Context) {
 			continue
 		}
 
-		// Find a healthy replacement worker of the same tier
-		replacement, err := s.findHealthyWorker(ctx, w)
-		if err != nil || replacement == nil {
-			log.Warn().Str("worker_id", w.ID.String()).Msg("no healthy replacement worker found")
-			s.notifyWorkerDown(ctx, w.ID, s.accountOrgs(ctx, accountIDs), false)
-			s.notifyOperatorWorkerDown(ctx, w.ID, len(accountIDs), false)
-			continue
-		}
-
-		// Reassign accounts to the healthy worker
+		// Score each mailbox independently so recovery does not create a hotspot.
 		reassigned := 0
 		affectedOrgs := map[uuid.UUID]int{}
+		destinations := map[uuid.UUID]struct{}{}
 		for _, accountID := range accountIDs {
-			if err := s.WorkerRepo.UpdateEmailAccountWorker(ctx, accountID, replacement.ID); err != nil {
+			account, aerr := s.EmailRepository.GetByID(ctx, accountID)
+			if aerr != nil || account == nil || account.OrganizationID == nil {
+				log.Warn().Err(aerr).Str("account_id", accountID.String()).Msg("dead worker reassign: mailbox owner unavailable")
+				continue
+			}
+
+			var target *models.Worker
+			if s.AssignmentService != nil {
+				result, rerr := s.AssignmentService.SelectWorkerFor(ctx, workerapp.PlacementLookup{
+					EmailAccountID:  accountID,
+					OrgID:           *account.OrganizationID,
+					CurrentWorkerID: &w.ID,
+					ExcludeWorkerID: &w.ID,
+					Region:          w.Region,
+				})
+				if rerr != nil {
+					log.Warn().Err(rerr).Str("account_id", accountID.String()).Msg("dead worker reassign: placement failed")
+					continue
+				}
+				if result != nil {
+					target = result.Worker
+				}
+			} else {
+				target, _ = s.findHealthyWorker(ctx, w)
+			}
+			if target == nil {
+				continue
+			}
+
+			if s.AssignmentService != nil {
+				if err := s.AssignmentService.MoveMailbox(ctx, accountID, &w.ID, target.ID); err != nil {
+					log.Error().Err(err).Str("account_id", accountID.String()).Msg("failed to reassign email account")
+					continue
+				}
+			} else if err := s.WorkerRepo.UpdateEmailAccountWorker(ctx, accountID, target.ID); err != nil {
 				log.Error().Err(err).Str("account_id", accountID.String()).Msg("failed to reassign email account")
 				continue
+			} else {
+				_ = s.WorkerRepo.DecrementAccountCount(ctx, w.ID)
+				_ = s.WorkerRepo.IncrementAccountCount(ctx, target.ID)
 			}
+
 			reassigned++
-
-			// Keep the placement counters honest on both rows; without this
-			// every auto-reassignment permanently skews account_count. The
-			// move itself already succeeded, so a counter failure is logged
-			// rather than retried: capacity self-corrects on the next
-			// placement pass, and unwinding the move would strand the mailbox.
-			if cerr := s.WorkerRepo.DecrementAccountCount(ctx, w.ID); cerr != nil {
-				log.Warn().Err(cerr).Str("worker_id", w.ID.String()).Msg("dead worker reassign: account_count not decremented")
-			}
-			if cerr := s.WorkerRepo.IncrementAccountCount(ctx, replacement.ID); cerr != nil {
-				log.Warn().Err(cerr).Str("worker_id", replacement.ID.String()).Msg("dead worker reassign: account_count not incremented")
-			}
-
-			account, aerr := s.EmailRepository.GetByID(ctx, accountID)
-			if aerr != nil || account == nil {
-				continue
-			}
-			if account.OrganizationID != nil {
-				affectedOrgs[*account.OrganizationID]++
-			}
+			affectedOrgs[*account.OrganizationID]++
+			destinations[target.ID] = struct{}{}
 
 			// The backend's worker reconciler loads the account onto its new
 			// worker with the full payload (decrypted credentials, cursors,
@@ -187,7 +200,7 @@ func (s *JobsService) detectDeadWorkers(ctx context.Context) {
 		if reassigned > 0 {
 			log.Info().
 				Str("dead_worker", w.ID.String()).
-				Str("replacement", replacement.ID.String()).
+				Int("destinations", len(destinations)).
 				Int("reassigned", reassigned).
 				Msg("email accounts reassigned from dead worker")
 
@@ -202,7 +215,7 @@ func (s *JobsService) detectDeadWorkers(ctx context.Context) {
 					TargetType:  "worker",
 					TargetID:    w.ID,
 					Details: map[string]any{
-						"replacement":         replacement.ID.String(),
+						"replacement_workers": len(destinations),
 						"accounts_reassigned": reassigned,
 						"reason":              "heartbeat_expired",
 					},
@@ -214,6 +227,10 @@ func (s *JobsService) detectDeadWorkers(ctx context.Context) {
 
 			s.notifyWorkerDown(ctx, w.ID, affectedOrgs, true)
 			s.notifyOperatorWorkerDown(ctx, w.ID, reassigned, true)
+		} else {
+			log.Warn().Str("worker_id", w.ID.String()).Msg("no healthy replacement worker found")
+			s.notifyWorkerDown(ctx, w.ID, s.accountOrgs(ctx, accountIDs), false)
+			s.notifyOperatorWorkerDown(ctx, w.ID, len(accountIDs), false)
 		}
 
 		if reassigned == len(accountIDs) {

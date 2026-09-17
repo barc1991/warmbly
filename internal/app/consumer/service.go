@@ -68,8 +68,8 @@ type JobsService struct {
 	// here so admins can see why their fleet moved). Nil disables logging.
 	AdminRepo repository.AdminRepository
 
-	// AssignmentService is used by the risk rebalancer to pick replacement
-	// workers when a mailbox's risk band changes. Nil disables the job.
+	// AssignmentService is used by dead-worker recovery and placement-aware
+	// control loops. Nil keeps the legacy least-loaded fallback.
 	AssignmentService workerapp.WorkerAssignmentService
 
 	// Notifier tells affected orgs (members with manage_emails) when the

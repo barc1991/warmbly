@@ -866,7 +866,11 @@ func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUI
 	args := []interface{}{workerID, limit + 1}
 	whereClause := "WHERE ea.worker_id = $1"
 	if cursor != nil {
-		whereClause += " AND ea.id < $3"
+		whereClause += ` AND (ea.created_at, ea.id) < (
+			SELECT cursor_ea.created_at, cursor_ea.id
+			FROM email_accounts cursor_ea
+			WHERE cursor_ea.id = $3
+		)`
 		args = append(args, *cursor)
 	}
 
@@ -896,7 +900,7 @@ func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUI
 			LIMIT 1
 		) wh ON true
 		` + whereClause + `
-		ORDER BY ea.created_at DESC
+		ORDER BY ea.created_at DESC, ea.id DESC
 		LIMIT $2
 	`
 

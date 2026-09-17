@@ -27,6 +27,8 @@ type EmailAccountWorkerInfo struct {
 	EmailAccountID uuid.UUID
 	WorkerID       *uuid.UUID
 	UserID         uuid.UUID
+	OrganizationID *uuid.UUID
+	WorkerRegion   string
 }
 
 // EmailAccountPlacementHint carries the small slice of mailbox metadata the
@@ -72,7 +74,7 @@ type WorkerRepository interface {
 	GetEmailAccountWorkerInfo(ctx context.Context, emailAccountID uuid.UUID) (*EmailAccountWorkerInfo, error)
 	UpdateEmailAccountWorker(ctx context.Context, emailAccountID, workerID uuid.UUID) error
 	ClearEmailAccountWorker(ctx context.Context, emailAccountID uuid.UUID) error
-	UpdateEmailAccountWarmupPoolType(ctx context.Context, emailAccountID uuid.UUID, poolType string) error
+	UpdateEmailAccountWarmupPoolType(ctx context.Context, emailAccountID uuid.UUID, poolType models.WarmupPoolType) error
 
 	// Worker rows. A worker is created by its node enrolling, never by an
 	// admin form, so there is no create here: EnsureWorkerRow is called by the
@@ -101,7 +103,6 @@ type WorkerRepository interface {
 	// counts the placement score needs, resolved in one round trip.
 	ListPlacementCandidates(ctx context.Context, orgID uuid.UUID, provider string, allowedStates []models.WorkerHealthState) ([]PlacementCandidateRow, error)
 	CountOrgMailboxes(ctx context.Context, orgID uuid.UUID) (int, error)
-	GetMailboxPlacementState(ctx context.Context, emailAccountID uuid.UUID) (*MailboxPlacementState, error)
 	ListRotationCandidates(ctx context.Context, hotUtilization float64, limit int) ([]MailboxPlacementState, error)
 	GetCapacityRow(ctx context.Context, workerID uuid.UUID) (*WorkerCapacityRowDB, error)
 	AddLoadScore(ctx context.Context, workerID uuid.UUID, delta float64) error
@@ -446,12 +447,8 @@ func (r *workerRepository) ClearEmailAccountWorker(ctx context.Context, emailAcc
 	return err
 }
 
-// UpdateEmailAccountWarmupPoolType writes the tier and moves the mailbox's pool membership to
-// match in one transaction: they record the same fact, and updating only the column left
-// downgraded mailboxes in the premium pool (issue #211). A mailbox in no pool stays in none.
-// The move into premium is refused while the organization is restricted (issue #242); the tier
-// column is still written, since it records what the workspace pays for, not where it warms.
-func (r *workerRepository) UpdateEmailAccountWarmupPoolType(ctx context.Context, emailAccountID uuid.UUID, poolType string) error {
+// UpdateEmailAccountWarmupPoolType writes the tier and moves eligible participation atomically.
+func (r *workerRepository) UpdateEmailAccountWarmupPoolType(ctx context.Context, emailAccountID uuid.UUID, poolType models.WarmupPoolType) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -488,14 +485,15 @@ func (r *workerRepository) UpdateEmailAccountWarmupPoolType(ctx context.Context,
 // GetEmailAccountWorkerInfo retrieves worker info for an email account
 func (r *workerRepository) GetEmailAccountWorkerInfo(ctx context.Context, emailAccountID uuid.UUID) (*EmailAccountWorkerInfo, error) {
 	query := `
-		SELECT ea.id, ea.worker_id, ea.user_id
+		SELECT ea.id, ea.worker_id, ea.user_id, ea.organization_id, COALESCE(node.region, '')
 		FROM email_accounts ea
+		LEFT JOIN fleet_nodes node ON node.id = ea.worker_id
 		WHERE ea.id = $1
 	`
 
 	var info EmailAccountWorkerInfo
 	err := r.db.QueryRow(ctx, query, emailAccountID).Scan(
-		&info.EmailAccountID, &info.WorkerID, &info.UserID,
+		&info.EmailAccountID, &info.WorkerID, &info.UserID, &info.OrganizationID, &info.WorkerRegion,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil

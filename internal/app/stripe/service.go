@@ -1120,6 +1120,13 @@ func (s *stripeService) handleSubscriptionUpdated(ctx context.Context, event *st
 		s.audit.LogAction(ctx, sub.OrganizationID, sub.UserID, models.AuditActionUpdate, models.AuditEntitySubscription, &sub.ID, "", "", nil, nil)
 	}
 
+	// Promote existing mailboxes synchronously so webhook failure remains retryable.
+	if s.workerAssignment != nil && sub.HasPaidSubscription() {
+		if err := s.workerAssignment.SetOrganizationWarmupPool(ctx, sub.OrganizationID, models.WarmupPoolPremium); err != nil {
+			return errx.New(errx.Internal, "failed to update mailbox warmup tier")
+		}
+	}
+
 	// The workspace has started paying. Reported after the write, so a failed
 	// update never counts as a start, and keyed off the same transition the
 	// premium-worker migration below uses, so a redelivered webhook does not
@@ -1128,16 +1135,8 @@ func (s *stripeService) handleSubscriptionUpdated(ctx context.Context, event *st
 		s.countSubscriptionStarted(ctx, sub, newPlan, &stripeSub)
 	}
 
-	// Handle worker migrations if workerAssignment service is available
+	// Handle isolated-egress reservation changes if workerAssignment is available.
 	if s.workerAssignment != nil {
-		isNowPaid := sub.HasPaidSubscription()
-
-		// Converting a trial to paid no longer moves anything: workers are
-		// interchangeable, so an org's mailboxes are already wherever the
-		// placer thinks they belong.
-		_ = wasTrialOnly
-		_ = isNowPaid
-
 		// Isolated egress is the only plan change with a placement effect, and
 		// it is a reservation, not a migration: the rotation loop converges the
 		// org's mailboxes onto the reserved worker on its own schedule, which
@@ -1200,9 +1199,8 @@ func (s *stripeService) handleSubscriptionDeleted(ctx context.Context, event *st
 		s.audit.LogAction(ctx, sub.OrganizationID, sub.UserID, models.AuditActionUpdate, models.AuditEntitySubscription, &sub.ID, "", "", nil, nil)
 	}
 
-	// Cancelling releases the reserved worker back to the fleet. Nothing else
-	// moves: a cancelled org's mailboxes keep the workers they are on, which
-	// is both cheaper and better for them than a forced re-authentication.
+	// Cancelling releases the reserved worker back to the fleet. The mailboxes
+	// keep their current workers, avoiding needless provider re-authentication.
 	if s.workerAssignment != nil && hadIsolation {
 		orgID := sub.OrganizationID
 		go func() {

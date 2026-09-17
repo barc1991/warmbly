@@ -102,9 +102,6 @@ func TestPlacementQueriesLive(t *testing.T) {
 	if _, err := repo.CountOrgMailboxes(ctx, orgID); err != nil {
 		t.Fatalf("CountOrgMailboxes: %v", err)
 	}
-	if _, err := repo.GetMailboxPlacementState(ctx, uuid.New()); err != nil {
-		t.Fatalf("GetMailboxPlacementState: %v", err)
-	}
 	if _, err := repo.ListRotationCandidates(ctx, 0.85, 10); err != nil {
 		t.Fatalf("ListRotationCandidates: %v", err)
 	}

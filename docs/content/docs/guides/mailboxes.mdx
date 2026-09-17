@@ -276,9 +276,9 @@ Every worker is the same kind of worker. There are no tiers to qualify for and n
 - how much of your workspace is already on that one machine, so a single failure never stops all of your sending
 - how many other mailboxes on the same provider already sign in from that address
 
-Each mailbox contributes a load weight, so a worker's planned volume tracks the sum of its mailboxes' budgets rather than a flat machine limit.
+Each assigned mailbox counts as one unit against the worker's configurable planning target. Provider sending budgets remain attached to each mailbox and do not reduce the worker target.
 
-**Mailboxes move only when there is a reason.** A worker going offline, getting blocked, or running out of capacity will move yours. Ordinary rebalancing will not: a settled mailbox has to have been in place for three days before it is even considered, and the alternative has to be meaningfully better. A mailbox that never moves is the ideal, not a stuck one.
+**Mailboxes move only when there is a reason.** A worker going offline or running hot (above 85% of its planning target) will move yours. Warmbly also corrects workspace or provider concentration across the live fleet. A settled mailbox has to have been in place for three days before an ordinary rebalance is considered, and the alternative has to be meaningfully better. A mailbox that never needs to move is the ideal, not a stuck one.
 
 Plans that include reserved sending give your workspace a worker no other customer sends from, so your mailboxes always sign in from an address that is yours alone. It is a preference, not a lock: if that machine goes down your mailboxes keep working on the rest of the fleet and return when a replacement is ready.
 

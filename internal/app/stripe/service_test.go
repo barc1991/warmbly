@@ -10,10 +10,45 @@ import (
 
 	"github.com/google/uuid"
 	stripeapi "github.com/stripe/stripe-go/v76"
+	workerapp "github.com/warmbly/warmbly/internal/app/worker"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/repository"
 )
+
+type billingWorkerAssignment struct {
+	workerapp.WorkerAssignmentService
+	org    uuid.UUID
+	pool   models.WarmupPoolType
+	called bool
+}
+
+func (a *billingWorkerAssignment) SetOrganizationWarmupPool(_ context.Context, orgID uuid.UUID, pool models.WarmupPoolType) error {
+	a.org, a.pool, a.called = orgID, pool, true
+	return nil
+}
+
+func TestSubscriptionPaymentRecoveryDoesNotDemoteMailboxes(t *testing.T) {
+	orgID := uuid.New()
+	repo := &billingSubRepo{sub: &models.Subscription{OrganizationID: orgID}}
+	assignment := &billingWorkerAssignment{}
+	s := &stripeService{subRepo: repo, planRepo: &billingPlanRepo{}, workerAssignment: assignment}
+	raw, err := json.Marshal(map[string]any{
+		"id":       "sub_pending",
+		"status":   "past_due",
+		"metadata": map[string]string{"org_id": orgID.String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if xerr := s.handleSubscriptionUpdated(context.Background(), &stripeapi.Event{Data: &stripeapi.EventData{Raw: raw}}); xerr != nil {
+		t.Fatal(xerr)
+	}
+	if assignment.called {
+		t.Fatal("a non-active subscription update changed mailbox pool membership")
+	}
+}
 
 type billingSubRepo struct {
 	repository.SubscriptionRepository
@@ -86,7 +121,8 @@ func TestPortalRejectsMissingCustomer(t *testing.T) {
 func TestSubscriptionEventBeforeCheckout(t *testing.T) {
 	orgID, planID := uuid.New(), uuid.New()
 	repo := &billingSubRepo{sub: &models.Subscription{OrganizationID: orgID}}
-	s := &stripeService{subRepo: repo, planRepo: &billingPlanRepo{plan: &models.Plan{ID: planID}}}
+	assignment := &billingWorkerAssignment{}
+	s := &stripeService{subRepo: repo, planRepo: &billingPlanRepo{plan: &models.Plan{ID: planID}}, workerAssignment: assignment}
 	raw, err := json.Marshal(map[string]any{"id": "sub_new", "customer": "cus_new", "status": "active", "metadata": map[string]string{"org_id": orgID.String()}, "items": map[string]any{"data": []any{map[string]any{"price": map[string]string{"id": "price_new"}}}}})
 	if err != nil {
 		t.Fatal(err)
@@ -96,6 +132,9 @@ func TestSubscriptionEventBeforeCheckout(t *testing.T) {
 	}
 	if !repo.updated || repo.sub.PlanID != planID || repo.sub.StripeCustomerID != "cus_new" || repo.sub.StripeSubscriptionID == nil || *repo.sub.StripeSubscriptionID != "sub_new" || repo.sub.Status != models.SubscriptionStatusActive {
 		t.Fatalf("subscription event did not activate the workspace: %+v", repo.sub)
+	}
+	if assignment.org != orgID || assignment.pool != "premium" {
+		t.Fatalf("mailboxes moved to %q for %s, want premium for %s", assignment.pool, assignment.org, orgID)
 	}
 }
 
