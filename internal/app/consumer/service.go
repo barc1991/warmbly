@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/warmbly/warmbly/internal/app/advanced"
+	"github.com/warmbly/warmbly/internal/app/inboxtag"
 	warmupapp "github.com/warmbly/warmbly/internal/app/warmup"
 	workerapp "github.com/warmbly/warmbly/internal/app/worker"
 	"github.com/warmbly/warmbly/internal/events"
@@ -59,6 +60,11 @@ type JobsService struct {
 	// Pub/Sub for real-time notifications to users
 	StreamingPublisher *pubsub.StreamingPublisher
 	AdvancedService    advanced.Service
+
+	// InboxTagger classifies inbound mail into labels and a relevance score.
+	// Optional and nil by default: an instance with no TypeSafe key configured
+	// never constructs it, and this handler's tagging step is skipped entirely.
+	InboxTagger *inboxtag.Service
 
 	// Cache for dead worker detection
 	Cache *cache.Cache

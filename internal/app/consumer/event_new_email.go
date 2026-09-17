@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/warmbly/warmbly/internal/app/inboxtag"
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/infrastructure/pubsub"
 	"github.com/warmbly/warmbly/internal/models"
@@ -90,6 +91,18 @@ func (s *JobsService) ingestNewEmail(ctx context.Context, e *models.JobEventNewE
 				})
 			}
 		}
+	}
+
+	// Automatic tagging. Optional, off unless an operator configured it, and
+	// best-effort in exactly the same way as the reply automation below: a
+	// classification that fails must never cost the workspace the message.
+	//
+	// MayBeInbound is the direction filter, read from the folder rather than
+	// guessed from the content. Given only a body, the model called our own
+	// outbound a human reply at 0.94 confidence, so direction is decided here
+	// and the model is never asked.
+	if s.InboxTagger.Enabled() && e.Message.MayBeInbound() {
+		s.tagInboundMessage(ctx, e)
 	}
 
 	// Advanced reply-intent automation is best-effort and should not block inbox
@@ -447,4 +460,40 @@ func containsSpamFlag(flags []string) bool {
 		}
 	}
 	return false
+}
+
+// tagInboundMessage runs the optional automatic tagger for one arrival.
+//
+// Everything here is best-effort: the message is already stored and visible by
+// the time this runs, so a tagging failure costs a label, never the mail. The
+// campaign name and our previous message in the thread are looked up in code,
+// because they are facts and a question about a fact is a question that can be
+// answered confidently and wrongly.
+func (s *JobsService) tagInboundMessage(ctx context.Context, e *models.JobEventNewEmail) {
+	orgID, err := s.orgForMailbox(ctx, e.Message.EmailID)
+	if err != nil || orgID == uuid.Nil {
+		return
+	}
+
+	msg := inboxtag.MessageFrom(orgID, e.UserID, e.Message, nil, "", "")
+	if _, err := s.InboxTagger.Classify(ctx, msg); err != nil {
+		log.Warn().Err(err).
+			Str("email_account_id", e.Message.EmailID.String()).
+			Str("message_id", e.Message.MessageID).
+			Msg("Inbox tagging failed; ingest kept")
+	}
+}
+
+// orgForMailbox resolves the workspace that owns a mailbox. Tagging is scoped
+// per workspace (labels, storage, idempotency), so a mailbox with no org is not
+// taggable rather than taggable into nowhere.
+func (s *JobsService) orgForMailbox(ctx context.Context, accountID uuid.UUID) (uuid.UUID, error) {
+	if s.EmailRepository == nil {
+		return uuid.Nil, nil
+	}
+	account, xerr := s.EmailRepository.GetByID(ctx, accountID)
+	if xerr != nil || account == nil || account.OrganizationID == nil {
+		return uuid.Nil, nil
+	}
+	return *account.OrganizationID, nil
 }

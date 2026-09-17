@@ -595,6 +595,13 @@ var Tables = []Table{
 		Scope: `thread_id IN ` + orgThreads,
 	},
 	{
+		Name: "inbox_tag_results", Group: models.OrgDataGroupInbox,
+		Scope: scopeOrg,
+		Note: "Automatic tagging verdicts, including the raw probabilities. They travel because retuning the weights " +
+			"against stored answers is free while re-running the model over the history is not. Below email_accounts, " +
+			"which it references.",
+	},
+	{
 		Name: "email_message_map", Group: models.OrgDataGroupInbox,
 		Scope: `email_id IN ` + orgMailboxes,
 		Note:  "Maps provider message ids to internal ones, so replies still thread after the move.",

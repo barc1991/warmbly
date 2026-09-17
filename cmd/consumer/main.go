@@ -24,6 +24,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/creditwatch"
 	"github.com/warmbly/warmbly/internal/app/feature"
 	"github.com/warmbly/warmbly/internal/app/inboxagent"
+	"github.com/warmbly/warmbly/internal/app/inboxtag"
 	"github.com/warmbly/warmbly/internal/app/instancesettings"
 	"github.com/warmbly/warmbly/internal/app/integration"
 	"github.com/warmbly/warmbly/internal/app/nativeactions"
@@ -408,6 +409,22 @@ func main() {
 	jobrun.Configure(repository.NewJobRunRepository(primaryDB), "consumer")
 
 	// JobsService
+	// Automatic inbox tagging. Optional and off by default: it is the only
+	// feature that sends message content to a third party, so it needs both a
+	// key and an explicit switch. Without them inboxTagger stays nil and the
+	// ingest path never reaches it.
+	var inboxTagger *inboxtag.Service
+	if config.InboxTaggingEnabled() {
+		inboxTagger = inboxtag.NewService(
+			inboxtag.NewClient(config.TypeSafeAPIKey()),
+			repository.NewInboxTagRepository(primaryDB.Pool),
+			nil, // labels are applied by the backend surface, not the consumer
+			nil,
+			true,
+		)
+		log.Printf("automatic inbox tagging enabled (model %s)", inboxtag.Model)
+	}
+
 	jobsService := &jobs.JobsService{
 		Bus:                         consumerBus,
 		Codec:                       consumerCodec,
@@ -430,6 +447,7 @@ func main() {
 		Publisher:                   eventsPublisher,
 		StreamingPublisher:          streamingPublisher,
 		AdvancedService:             advancedService,
+		InboxTagger:                 inboxTagger,
 		Cache:                       redisCache,
 		AdminRepo:                   repository.NewAdminRepository(primaryDB.Pool),
 		AssignmentService:           workerAssignmentSvc,
