@@ -54,6 +54,9 @@ type EmailTask struct {
 	ThreadID  *string
 	SendMode  string
 	Encrypted bool
+	// Tracked records that this send carries an open pixel and click tickets,
+	// which only happens when the sending mailbox opted in.
+	Tracked bool
 }
 
 // TaskFailure represents a task failure record
@@ -97,6 +100,11 @@ type TaskRepository interface {
 	GetTask(ctx context.Context, taskID uuid.UUID) (*Task, error)
 	GetTaskByMessageID(ctx context.Context, messageID string) (*Task, error)
 	GetCampaignTask(ctx context.Context, taskID uuid.UUID) (*CampaignTask, error)
+	// Direct-mail engagement. Both are no-ops for a task that is not a tracked
+	// direct send, so the tracking consumer can call them without first working
+	// out which kind of send it is looking at.
+	MarkDirectOpened(ctx context.Context, taskID uuid.UUID, at time.Time, machine bool) (bool, error)
+	MarkDirectClicked(ctx context.Context, taskID uuid.UUID, at time.Time) (bool, error)
 	GetWarmupTask(ctx context.Context, taskID uuid.UUID) (*WarmupTask, error)
 	GetEmailTask(ctx context.Context, taskID uuid.UUID) (*EmailTask, error)
 
@@ -242,8 +250,8 @@ func (r *taskRepository) CreateWarmupTask(ctx context.Context, warmupTask *Warmu
 // CreateEmailTask creates email-specific task data
 func (r *taskRepository) CreateEmailTask(ctx context.Context, emailTask *EmailTask) error {
 	query := `
-		INSERT INTO email_tasks (task_id, to_addrs, cc, bcc, in_reply_to, subject, body, body_html, body_plain, thread_id, send_mode, encrypted)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO email_tasks (task_id, to_addrs, cc, bcc, in_reply_to, subject, body, body_html, body_plain, thread_id, send_mode, encrypted, tracked)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	sendMode := emailTask.SendMode
@@ -264,6 +272,7 @@ func (r *taskRepository) CreateEmailTask(ctx context.Context, emailTask *EmailTa
 		emailTask.ThreadID,
 		sendMode,
 		emailTask.Encrypted,
+		emailTask.Tracked,
 	)
 
 	return err
@@ -462,8 +471,8 @@ func (r *taskRepository) CreateEmailTaskFull(ctx context.Context, task *Task, em
 	}
 
 	etQuery := `
-		INSERT INTO email_tasks (task_id, to_addrs, cc, bcc, in_reply_to, subject, body, body_html, body_plain, thread_id, send_mode, encrypted)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO email_tasks (task_id, to_addrs, cc, bcc, in_reply_to, subject, body, body_html, body_plain, thread_id, send_mode, encrypted, tracked)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 	_, err = tx.Exec(ctx, etQuery,
 		emailTask.TaskID,
@@ -478,6 +487,7 @@ func (r *taskRepository) CreateEmailTaskFull(ctx context.Context, task *Task, em
 		emailTask.ThreadID,
 		sendMode,
 		emailTask.Encrypted,
+		emailTask.Tracked,
 	)
 	if err != nil {
 		return err
@@ -1145,4 +1155,43 @@ func (r *taskRepository) CancelScheduledByUser(ctx context.Context, taskID, user
 		return nil, false, err
 	}
 	return cloudTaskName, true, nil
+}
+
+// MarkDirectOpened stamps the first open on a tracked direct send. Reports
+// whether this was the first one, so the caller can tell a new open from a
+// repeat without a second query.
+//
+// The guard is in the WHERE, not in Go: two pixel fetches of the same message
+// can land on different consumer instances at once, and the first-open flag has
+// to be decided by the database.
+func (r *taskRepository) MarkDirectOpened(ctx context.Context, taskID uuid.UUID, at time.Time, machine bool) (bool, error) {
+	const query = `
+		UPDATE email_tasks
+		SET opened_at = $2, opened_machine = $3
+		WHERE task_id = $1 AND tracked AND opened_at IS NULL
+	`
+	tag, err := r.db.Exec(ctx, query, taskID, at, machine)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+// MarkDirectClicked counts a click on a tracked direct send and keeps the last
+// click time. Reports whether this was the first click on the message.
+func (r *taskRepository) MarkDirectClicked(ctx context.Context, taskID uuid.UUID, at time.Time) (bool, error) {
+	const query = `
+		UPDATE email_tasks
+		SET clicked_at = $2, click_count = click_count + 1
+		WHERE task_id = $1 AND tracked
+		RETURNING click_count
+	`
+	var count int
+	if err := r.db.QueryRow(ctx, query, taskID, at).Scan(&count); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return count == 1, nil
 }

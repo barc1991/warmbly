@@ -61,6 +61,11 @@ type Email struct {
 	TrackingDomainVerified   bool       `json:"tracking_domain_verified"`
 	TrackingDomainVerifiedAt *time.Time `json:"tracking_domain_verified_at"`
 
+	// TrackDirectMail opts this mailbox's hand-written unibox sends into the
+	// open/click tracking campaign mail already gets. Off by default: a pixel
+	// in a one-to-one reply is the operator's call, not ours.
+	TrackDirectMail bool `json:"track_direct_mail"`
+
 	// Sending-domain authentication (SPF/DKIM/DMARC), refreshed by the
 	// background auth-check sweep. AuthState is "unknown" until checked (or
 	// when a DNS lookup failed transiently), distinct from a real "failing".

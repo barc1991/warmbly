@@ -41,6 +41,7 @@ type EmailService interface {
 	// UpdateTrackingDomain sets or clears the custom open/click tracking
 	// domain and resolves it once, persisting the verdict.
 	UpdateTrackingDomain(ctx context.Context, orgID, emailAccountID, domain string) (*models.TrackingDomainStatus, *errx.Error)
+	UpdateTrackDirectMail(ctx context.Context, orgID, emailAccountID string, enabled bool) *errx.Error
 	// GetTrackingDomain reports the stored state plus the CNAME target this
 	// install expects. Read-only: it does no DNS work.
 	GetTrackingDomain(ctx context.Context, orgID, emailAccountID string) (*models.TrackingDomainStatus, *errx.Error)

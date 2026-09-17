@@ -43,6 +43,29 @@ Live, scoped by `7d`, `30d`, or `90d` tabs.
 
 Sending totals, trends, comparisons, and top-campaign rates count email steps only. Completed wait and action steps move a sequence forward but never inflate the number of messages sent.
 
+## Direct mail
+
+The rest of this page measures campaigns. **Direct mail** measures what you write by hand in the [unified inbox](/guides/unified-inbox/), which most workspaces do far more of than they expect.
+
+It is built from two different sources, and they are shown apart because they cover different sets of messages.
+
+**Volume and replies** come from your synced mailboxes, so they cover every message the mailbox sent, including mail you wrote in Gmail or on your phone, and they cover history from before any of this existed. Nothing has to be switched on.
+
+| Figure | Means |
+|--------|-------|
+| Sent by hand | Messages in the Sent folder of every connected mailbox, in range |
+| Received | Messages that arrived in the inbox, in range |
+| Reply rate | Of the threads you started, how many got an answer |
+| Median reply time | How long the other person took to answer, across answered threads |
+
+A thread counts as yours when the first message in it was one you sent, and as answered when a message came back after it. The delay is measured from your first send to their first reply, so a long exchange is one data point rather than many.
+
+**Opens and clicks** are opt-in and measured differently. They come from the send records, so they only cover mail sent through Warmbly from a mailbox with tracking switched on, and only from the moment you switched it on. That is why the card states its own denominator rather than reusing "sent by hand" above: dividing opens by messages that were never asked would invent a rate.
+
+To switch it on, open the mailbox and turn on **Track opens and clicks on direct mail**. See [Mailboxes](/guides/mailboxes/#tracking-direct-mail).
+
+**Per mailbox** ranks your mailboxes by how much each sent and received, and marks the ones that are tracking. **Top correspondents** ranks the people you exchange the most mail with. Your own mailboxes are excluded from that list, so a copy to yourself is not a correspondent.
+
 ## Per-campaign
 
 Each campaign reports its own totals: enrolled contacts, sent email steps, remaining planned email-step sends, unique opens and clicks, replies, bounces, unsubscribes, and the four rates. Wait and action steps do not count as messages.

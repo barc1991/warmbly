@@ -374,3 +374,81 @@ type CampaignComparisonItem struct {
 	ReplyRate  float64   `json:"reply_rate"`
 	BounceRate float64   `json:"bounce_rate"`
 }
+
+// DirectMailAnalytics reports on mail written by hand rather than sent by a
+// campaign. Two sources, deliberately, because they answer different questions
+// and cover different sets of messages:
+//
+//   - Volume and replies come from the synced mailbox (unibox_emails), so they
+//     cover everything the mailbox sent, including mail written in Gmail or on
+//     a phone, and they cover history from before any of this shipped.
+//   - Opens and clicks come from the send records (email_tasks), so they cover
+//     only mail sent through Warmbly by a mailbox with tracking switched on,
+//     and only from the moment it was switched on.
+//
+// Reporting them as one blended rate would be a lie, so they stay apart and the
+// UI labels each for what it is.
+type DirectMailAnalytics struct {
+	Period      string                   `json:"period"`
+	Volume      DirectMailVolume         `json:"volume"`
+	Tracking    DirectMailTracking       `json:"tracking"`
+	DailyTrend  []DirectMailDailyStats   `json:"daily_trend"`
+	Mailboxes   []DirectMailMailboxStats `json:"mailboxes"`
+	TopContacts []DirectMailContact      `json:"top_contacts"`
+}
+
+// DirectMailVolume is the "how much did we actually send and hear back" half,
+// measured from the synced mailbox.
+type DirectMailVolume struct {
+	Sent     int `json:"sent"`
+	Received int `json:"received"`
+	// ThreadsStarted counts outbound threads whose first message was ours.
+	ThreadsStarted int `json:"threads_started"`
+	// Replied counts those that got an inbound message back.
+	Replied   int     `json:"replied"`
+	ReplyRate float64 `json:"reply_rate"`
+	// Bounced counts the delivery failures that came back. Excluded from
+	// Replied, and reported here because it is the most actionable number on
+	// the page.
+	Bounced int `json:"bounced"`
+	// MedianReplyMinutes is how long the contact took to answer, across the
+	// threads that were answered. Zero when nothing has been.
+	MedianReplyMinutes int `json:"median_reply_minutes"`
+}
+
+// DirectMailTracking is the opt-in half. TrackedSent is the denominator for
+// both rates: untracked sends are not failures to open, they are messages that
+// were never asked.
+type DirectMailTracking struct {
+	// MailboxesOptedIn says how much of the picture this covers.
+	MailboxesOptedIn int     `json:"mailboxes_opted_in"`
+	MailboxesTotal   int     `json:"mailboxes_total"`
+	TrackedSent      int     `json:"tracked_sent"`
+	Opened           int     `json:"opened"`
+	MachineOpened    int     `json:"machine_opened"`
+	Clicked          int     `json:"clicked"`
+	OpenRate         float64 `json:"open_rate"`
+	ClickRate        float64 `json:"click_rate"`
+}
+
+type DirectMailDailyStats struct {
+	Date     time.Time `json:"date"`
+	Sent     int       `json:"sent"`
+	Received int       `json:"received"`
+}
+
+type DirectMailMailboxStats struct {
+	EmailAccountID  uuid.UUID `json:"email_account_id"`
+	Email           string    `json:"email"`
+	TrackDirectMail bool      `json:"track_direct_mail"`
+	Sent            int       `json:"sent"`
+	Received        int       `json:"received"`
+}
+
+// DirectMailContact is one correspondent, ranked by how much was sent to them.
+type DirectMailContact struct {
+	Email    string    `json:"email"`
+	Sent     int       `json:"sent"`
+	Received int       `json:"received"`
+	LastAt   time.Time `json:"last_at"`
+}

@@ -23,6 +23,8 @@ export default interface Inbox {
     tracking_domain: string;
     tracking_domain_verified: boolean;
     tracking_domain_verified_at?: Date | null;
+    /** Opt-in: adds the open pixel and link tickets to hand-written sends. */
+    track_direct_mail?: boolean;
     /**
      * Sending-domain authentication, refreshed by a background check.
      * "unknown" means not checked yet or DNS could not answer, and never gates.

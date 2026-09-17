@@ -281,8 +281,10 @@ func (tc *TrackingConsumer) HandleTrackingEvent(ctx context.Context, event *even
 		return nil
 	}
 	if campaignTask == nil || campaignTask.CampaignID == nil || campaignTask.ContactID == nil || campaignTask.SequenceID == nil {
-		// Task not found, not a campaign task, or missing its linkage: skip
-		return nil
+		// Not a campaign send. It may still be a direct one the mailbox opted
+		// into tracking, which has no contact or sequence to classify against
+		// and so takes a much simpler path.
+		return tc.handleDirectTrackingEvent(ctx, taskID, event)
 	}
 	campaignID, contactID, sequenceID := *campaignTask.CampaignID, *campaignTask.ContactID, *campaignTask.SequenceID
 
@@ -772,4 +774,50 @@ func hashURL(u string) string {
 	}
 	h := sha256.Sum256([]byte(u))
 	return hex.EncodeToString(h[:8])
+}
+
+// handleDirectTrackingEvent records an open or a click on a hand-written send.
+//
+// Deliberately thinner than the campaign path. There is no contact, sequence or
+// step progress to update, nothing to feed the automation engine, and no
+// per-link row: email_link_clicks requires a campaign, contact and sequence,
+// and every campaign analytics query joins on all three. The repository writes
+// are no-ops unless the send was actually tracked, so a task that turns out to
+// be neither kind costs one UPDATE that matches nothing.
+func (tc *TrackingConsumer) handleDirectTrackingEvent(ctx context.Context, taskID uuid.UUID, event *events.TrackingEvent) error {
+	if tc.taskRepo == nil {
+		return nil
+	}
+	at := eventTime(event.Timestamp)
+
+	switch event.EventType {
+	case events.EventTypeEmailOpened:
+		// Same classification as a campaign open so an Apple MPP prefetch is
+		// labelled rather than counted as a human read. sentAt is left nil:
+		// the machine window needs a dispatch time this path does not carry,
+		// so classification falls back to the user agent, which is what the
+		// campaign path does when its own lookup fails.
+		windows := tc.machineWindows(ctx)
+		kind := windows.OpenWindow()
+		machine, reason := classifyOpen(engagement{
+			userAgent: event.UserAgent,
+			scanner:   event.Scanner,
+			probable:  event.ScannerProbable,
+			at:        at,
+		}, kind, windows.ProbableWindow(kind))
+
+		first, err := tc.taskRepo.MarkDirectOpened(ctx, taskID, at, machine)
+		if err != nil {
+			log.Warn().Err(err).Str("task_id", taskID.String()).Msg("failed to record direct-mail open")
+			return nil
+		}
+		if first {
+			log.Debug().Str("task_id", taskID.String()).Bool("machine", machine).Str("reason", reason).Msg("direct-mail open")
+		}
+	case events.EventTypeEmailClicked:
+		if _, err := tc.taskRepo.MarkDirectClicked(ctx, taskID, at); err != nil {
+			log.Warn().Err(err).Str("task_id", taskID.String()).Msg("failed to record direct-mail click")
+		}
+	}
+	return nil
 }

@@ -27,6 +27,7 @@ All paths below are relative to the versioned base URL `https://api.warmbly.com/
 | GET | `/emails/:id/track` | `READ_EMAILS` |
 | PATCH | `/emails/:id/track` | `WRITE_EMAILS` |
 | POST | `/emails/:id/track/verify` | `WRITE_EMAILS` |
+| PATCH | `/emails/:id/direct-tracking` | `WRITE_EMAILS` |
 | GET | `/emails/:id/sync` | `READ_EMAILS` |
 | GET | `/emails/:id/identity` | `READ_EMAILS` |
 | POST | `/emails/:id/identity/refresh` | `WRITE_EMAILS` |
@@ -255,7 +256,7 @@ The `agent-drafts` endpoints back the [inbox agent](/guides/inbox-agent/): the a
 
 | Method | Path | API Permission |
 |--------|------|----------------|
-| GET | `/analytics/*` (dashboard, deliverability, warmup, campaigns, accounts, usage) | `READ_ANALYTICS` |
+| GET | `/analytics/*` (dashboard, direct, deliverability, warmup, campaigns, accounts, usage) | `READ_ANALYTICS` |
 | GET | `/audit-logs` | `READ_AUDIT_LOGS` |
 
 Analytics reads use the selected workspace for JWT callers and the key's workspace for API-key callers. This includes warmup and usage totals, so teammates see the same workspace history regardless of which member connected a mailbox or created a campaign.
