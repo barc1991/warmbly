@@ -38,7 +38,7 @@ function formatWhen(iso: string): { absolute: string; relative: string } {
     const days = Math.round(absMs / 86_400_000);
 
     let relative: string;
-    if (absMs < 60_000) relative = future ? "in a moment" : "any moment";
+    if (absMs < 60_000) relative = future ? "עוד רגע" : "כל רגע";
     else if (minutes < 60) relative = future ? `in ${minutes}m` : `${minutes}m late`;
     else if (hours < 24) relative = future ? `in ${hours}h` : `${hours}h late`;
     else relative = future ? `in ${days}d` : `${days}d late`;
@@ -63,7 +63,7 @@ export function ScheduledList({ onOpenScopeSheet }: { onOpenScopeSheet?: () => v
         mutationFn: (taskId: string) => cancelScheduled(taskId),
         onMutate: (taskId: string) => setCancelingId(taskId),
         onSuccess: () => {
-            toast.success("Scheduled send cancelled");
+            toast.success("שליחה מתוזמנת בוטלה");
             queryClient.invalidateQueries({ queryKey: ["unibox", "scheduled"] });
             queryClient.invalidateQueries({ queryKey: ["unibox", "overview"] });
         },
@@ -85,7 +85,7 @@ export function ScheduledList({ onOpenScopeSheet }: { onOpenScopeSheet?: () => v
                     <PanelLeftIcon className="w-4 h-4" />
                 </button>
             )}
-            <h1 className="text-[13.5px] font-semibold text-slate-900">Scheduled</h1>
+            <h1 className="text-[13.5px] font-semibold text-slate-900">מתוזמנים</h1>
             {items.length > 0 && (
                 <span className="tabular-nums text-[11.5px] text-slate-400">{items.length}</span>
             )}
@@ -223,7 +223,7 @@ function ScheduledRow({
                             )}
                             title={item.scheduled_at}
                         >
-                            {when.relative || "soon"}
+                            {when.relative || "בקרוב"}
                         </span>
                         <span className="text-[11px] text-slate-500 truncate">
                             {when.absolute}
@@ -235,7 +235,7 @@ function ScheduledRow({
                     </p>
 
                     <p className="mt-0.5 text-[11.5px] text-slate-500 truncate">
-                        <span className="text-slate-400">to</span> {recipients}
+                        <span className="text-slate-400">אל</span> {recipients}
                         {ccCount > 0 && (
                             <span className="text-slate-400"> · +{ccCount} cc/bcc</span>
                         )}
@@ -276,7 +276,7 @@ function ScheduledRow({
                     ) : (
                         <XIcon className="w-3 h-3" />
                     )}
-                    {isPending ? "Cancelling…" : "Cancel"}
+                    {isPending ? "מבטל…" : "בטל"}
                 </button>
             </div>
         </li>
