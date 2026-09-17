@@ -43,8 +43,12 @@ func TestLiveReplySourceUsesStoredDirectionAtTheWriteBoundary(t *testing.T) {
 	if inbound {
 		t.Fatal("Sent-folder source was accepted as inbound")
 	}
-	if err := repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.other, sentID); err != nil {
+	claimed, err := repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.other, sentID)
+	if err != nil {
 		t.Fatalf("record sent source: %v", err)
+	}
+	if claimed {
+		t.Fatal("Sent-folder source claimed reply progress")
 	}
 
 	var replied bool
@@ -79,8 +83,19 @@ func TestLiveReplySourceUsesStoredDirectionAtTheWriteBoundary(t *testing.T) {
 	if !inbound {
 		t.Fatal("Inbox source was rejected as outbound")
 	}
-	if err := repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.mailbox, inboxID); err != nil {
+	claimed, err = repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.mailbox, inboxID)
+	if err != nil {
 		t.Fatalf("record inbound source: %v", err)
+	}
+	if !claimed {
+		t.Fatal("Inbox source did not claim reply progress")
+	}
+	claimed, err = repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.mailbox, inboxID)
+	if err != nil {
+		t.Fatalf("repeat inbound claim: %v", err)
+	}
+	if claimed {
+		t.Fatal("Already-recorded reply was claimed twice")
 	}
 	if err := pool.QueryRow(ctx, `
 		SELECT replied_at IS NOT NULL

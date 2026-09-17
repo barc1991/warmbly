@@ -1218,6 +1218,15 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		// replied_at IS NOT NULL, so gating the stamp here fixes both at once.
 		// Any reply, human or automatic, proves the mailbox is live; only a
 		// human one counts as engagement.
+		if !replyclassify.IsAutomated(replyResult.Class) {
+			claimed, err := s.campaignProgressRepo.RecordEmailReplied(ctx, cID, ctID, sID, emailAccountID, msg.ID)
+			if err != nil {
+				return toErrx(err)
+			}
+			if !claimed {
+				return nil
+			}
+		}
 		if s.evidence != nil {
 			kind := "replied"
 			if replyclassify.IsAutomated(replyResult.Class) {
@@ -1226,9 +1235,6 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 			s.evidence.RecordEvidence(ctx, ctID, models.Step(&cID, &sID), kind, msg.ID.String(), "")
 		}
 		if !replyclassify.IsAutomated(replyResult.Class) {
-			if err := s.campaignProgressRepo.RecordEmailReplied(ctx, cID, ctID, sID, emailAccountID, msg.ID); err != nil {
-				return toErrx(err)
-			}
 			_ = s.repo.MarkVariantEvent(ctx, cID, ctID, string(models.DeliverabilityEventReply))
 
 			// Live org-wide pulse: the team sees the reply land on the

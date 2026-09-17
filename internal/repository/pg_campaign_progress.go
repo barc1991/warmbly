@@ -185,7 +185,8 @@ type CampaignProgressRepository interface {
 	GetStepSentAt(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) (*time.Time, error)
 	// IsInboundReplySource confirms the stored unibox row is not outbound.
 	IsInboundReplySource(ctx context.Context, emailAccountID, messageID uuid.UUID) (bool, error)
-	RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID, emailAccountID, messageID uuid.UUID) error
+	// RecordEmailReplied claims the first human reply while its source is inbound.
+	RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID, emailAccountID, messageID uuid.UUID) (bool, error)
 	RecordEmailBounced(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error
 	RecordEmailComplained(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error
 
@@ -806,7 +807,7 @@ func (r *campaignProgressRepository) IsInboundReplySource(ctx context.Context, e
 }
 
 // RecordEmailReplied records that a contact replied when its source is still inbound.
-func (r *campaignProgressRepository) RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID, emailAccountID, messageID uuid.UUID) error {
+func (r *campaignProgressRepository) RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID, emailAccountID, messageID uuid.UUID) (bool, error) {
 	query := `
 		UPDATE campaign_contact_progress
 		SET replied_at = NOW()
@@ -824,8 +825,11 @@ func (r *campaignProgressRepository) RecordEmailReplied(ctx context.Context, cam
 		  )
 	`
 
-	_, err := r.db.Exec(ctx, query, campaignID, contactID, sequenceID, messageID, emailAccountID)
-	return err
+	result, err := r.db.Exec(ctx, query, campaignID, contactID, sequenceID, messageID, emailAccountID)
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected() == 1, nil
 }
 
 // RecordEmailBounced records that an email bounced

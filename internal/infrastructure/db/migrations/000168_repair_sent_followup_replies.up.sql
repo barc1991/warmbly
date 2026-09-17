@@ -35,7 +35,11 @@ WITH false_replies AS (
      AND EXISTS (
             SELECT 1
             FROM unnest(ue.to_addr) AS recipients(address)
-            WHERE lower(recipients.address) LIKE '%' || lower(c.email) || '%'
+            WHERE lower(btrim(COALESCE(
+                substring(recipients.address FROM '<([^>]*)>'),
+                substring(recipients.address FROM '\(([^()]*)\)\s*$'),
+                recipients.address
+            ))) = lower(btrim(c.email))
         )
     WHERE p.replied_at IS NOT NULL
       AND p.reply_class IN ('', 'unknown')
@@ -85,7 +89,11 @@ WITH false_replies AS (
      AND EXISTS (
             SELECT 1
             FROM unnest(ue.to_addr) AS recipients(address)
-            WHERE lower(recipients.address) LIKE '%' || lower(c.email) || '%'
+            WHERE lower(btrim(COALESCE(
+                substring(recipients.address FROM '<([^>]*)>'),
+                substring(recipients.address FROM '\(([^()]*)\)\s*$'),
+                recipients.address
+            ))) = lower(btrim(c.email))
         )
     WHERE p.replied_at IS NOT NULL
       AND p.reply_class IN ('', 'unknown')
@@ -138,7 +146,11 @@ WITH false_replies AS (
      AND EXISTS (
             SELECT 1
             FROM unnest(ue.to_addr) AS recipients(address)
-            WHERE lower(recipients.address) LIKE '%' || lower(c.email) || '%'
+            WHERE lower(btrim(COALESCE(
+                substring(recipients.address FROM '<([^>]*)>'),
+                substring(recipients.address FROM '\(([^()]*)\)\s*$'),
+                recipients.address
+            ))) = lower(btrim(c.email))
         )
     WHERE p.replied_at IS NOT NULL
       AND p.reply_class IN ('', 'unknown')
