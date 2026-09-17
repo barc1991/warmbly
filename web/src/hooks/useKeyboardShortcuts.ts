@@ -102,7 +102,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   // ── The assistant, which is reachable while typing ───────────────────────
   {
     keys: ['Ctrl', 'i'],
-    description: 'Open / close the assistant',
+    description: 'פתח / סגור את העוזר',
     group: 'assistant',
     whileTyping: true,
     available: () => checkPermission('USE_AI'),
@@ -122,7 +122,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   // ── Navigation: g then a letter ───────────────────────────────────────────
   ...navRoutes.map<GlobalShortcut>(([key, path, label]) => ({
     keys: ['g', key],
-    description: `Go to ${label}`,
+    description: `נווט ל${label}`,
     group: 'navigation',
     sequence: ['g', key],
     run: ({ navigate }) => navigate(path),
@@ -131,7 +131,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   // ── List navigation: only on screens that register a list ─────────────────
   {
     keys: ['j'],
-    description: 'Move down in list',
+    description: 'הזז למטה ברשימה',
     group: 'list',
     needs: 'listMove',
     match: plain('j'),
@@ -139,7 +139,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   },
   {
     keys: ['k'],
-    description: 'Move up in list',
+    description: 'הזז למעלה ברשימה',
     group: 'list',
     needs: 'listMove',
     match: plain('k'),
@@ -147,7 +147,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   },
   {
     keys: ['g', 'g'],
-    description: 'Go to first item',
+    description: 'עבור לפריט ראשון',
     group: 'list',
     needs: 'listEdge',
     sequence: ['g', 'g'],
@@ -155,7 +155,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   },
   {
     keys: ['G'],
-    description: 'Go to last item',
+    description: 'עבור לפריט אחרון',
     group: 'list',
     needs: 'listEdge',
     match: (e) => !mod(e) && !e.altKey && e.shiftKey && e.key.toLowerCase() === 'g',
@@ -163,7 +163,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   },
   {
     keys: ['Enter'],
-    description: 'Open selected item',
+    description: 'פתח פריט נבחר',
     group: 'list',
     needs: 'listOpen',
     match: (e) => !mod(e) && !e.altKey && e.key === 'Enter' && !onAControl(e.target),
@@ -171,7 +171,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   },
   {
     keys: ['Escape'],
-    description: 'Clear the selection',
+    description: 'נקה בחירה',
     group: 'list',
     needs: 'listDeselect',
     match: (e) => e.key === 'Escape' && !layerOpen(),
@@ -179,7 +179,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   },
   {
     keys: ['c'],
-    description: 'Label the open conversation',
+    description: 'תייג את השיחה הפתוחה',
     group: 'list',
     needs: 'labelThread',
     match: plain('c'),
@@ -189,7 +189,7 @@ export const globalShortcuts: GlobalShortcut[] = [
   // ── Actions ───────────────────────────────────────────────────────────────
   {
     keys: ['/'],
-    description: 'Focus search',
+    description: 'מקד חיפוש',
     group: 'actions',
     available: () => !!shortcutAction('focusSearch') || !!pageSearchInput(),
     match: plain('/'),
@@ -204,21 +204,21 @@ export const globalShortcuts: GlobalShortcut[] = [
   },
   {
     keys: ['n'],
-    description: 'Compose a new email',
+    description: 'כתוב אימייל חדש',
     group: 'actions',
     match: plain('n'),
     run: () => useComposeStore.getState().openCompose(),
   },
   {
     keys: ['b'],
-    description: 'Collapse / expand the sidebar',
+    description: 'כווץ / הרחב את הסרגל הצדדי',
     group: 'actions',
     match: plain('b'),
     run: () => useAppStore.getState().toggleSidebar(),
   },
   {
     keys: ['?'],
-    description: 'Show shortcuts',
+    description: 'הצג קיצורים',
     group: 'actions',
     match: (e) => !mod(e) && !e.altKey && (e.key === '?' || (e.shiftKey && e.key === '/')),
     run: () => useAppStore.getState().setShortcutsModalOpen(true),
@@ -227,7 +227,7 @@ export const globalShortcuts: GlobalShortcut[] = [
     // Listed last but matched anywhere in this array: a modifier combo
     // cannot collide with the bare keys above it.
     keys: ['Ctrl', 'k'],
-    description: 'Command palette',
+    description: 'לוח פקודות',
     group: 'actions',
     whileTyping: true,
     match: (e) => mod(e) && e.key.toLowerCase() === 'k',
@@ -346,10 +346,10 @@ export function dispatchPanelShortcut(e: ReactKeyboardEvent, ctx: PanelCtx): boo
 // ── The modal's view of all of it ───────────────────────────────────────────
 
 export const shortcutGroupTitles: Record<ShortcutGroupId, string> = {
-  navigation: 'Navigation',
-  list: 'Lists',
-  actions: 'Actions',
-  assistant: 'Assistant',
+  navigation: 'ניווט',
+  list: 'רשימות',
+  actions: 'פעולות',
+  assistant: 'עוזר',
 }
 
 const allRows: ShortcutRow[] = [...globalShortcuts, ...panelShortcuts]
