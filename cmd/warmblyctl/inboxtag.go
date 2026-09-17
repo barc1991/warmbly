@@ -91,7 +91,7 @@ func runInboxTagBackfill(ctx context.Context, args []string) error {
 		inboxtag.NewClient(config.TypeSafeAPIKey()),
 		repo,
 		categories,
-		nil,
+		categories,
 		true,
 	)
 

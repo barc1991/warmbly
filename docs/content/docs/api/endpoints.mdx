@@ -261,6 +261,8 @@ The `agent-drafts` endpoints back the [inbox agent](/guides/inbox-agent/): the a
 
 Analytics reads use the selected workspace for JWT callers and the key's workspace for API-key callers. This includes warmup and usage totals, so teammates see the same workspace history regardless of which member connected a mailbox or created a campaign.
 
+`GET /analytics/inbox-tagging` accepts `limit`, opaque `cursor`, and `needs_review` query parameters and returns `data`, aggregate `summary`, and `pagination`. Invalid cursors, limits, or booleans return `400`.
+
 ### Advisor
 
 Recommendations about deliverability, mailbox configuration, warmup, campaign performance, copy, and list quality. See the [Advisor guide](/guides/advisor/).

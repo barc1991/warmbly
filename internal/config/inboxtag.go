@@ -8,11 +8,8 @@ import (
 
 // Automatic inbox tagging is OPTIONAL and off by default.
 //
-// It is the only feature in Warmbly that sends message content to a third
-// party, so it is opt-in twice over: an operator has to supply a key AND turn
-// the feature on. An instance that sets neither behaves exactly as it did
-// before, with no code path reaching the network and no dependency on an
-// external service being up.
+// It sends message content to TypeSafe, so an operator has to supply a key and
+// turn the feature on. An instance that sets neither never calls the service.
 //
 // TYPESAFE_API_KEY       the key. No key means the feature cannot run.
 // INBOX_TAGGING_ENABLED  the switch. Default false even when a key is present,

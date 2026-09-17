@@ -409,17 +409,15 @@ func main() {
 	jobrun.Configure(repository.NewJobRunRepository(primaryDB), "consumer")
 
 	// JobsService
-	// Automatic inbox tagging. Optional and off by default: it is the only
-	// feature that sends message content to a third party, so it needs both a
-	// key and an explicit switch. Without them inboxTagger stays nil and the
-	// ingest path never reaches it.
+	// Automatic inbox tagging is optional and requires a key plus an explicit switch.
 	var inboxTagger *inboxtag.Service
 	if config.InboxTaggingEnabled() {
+		tagCategories := repository.NewTagCategoryStore(primaryDB.Pool)
 		inboxTagger = inboxtag.NewService(
 			inboxtag.NewClient(config.TypeSafeAPIKey()),
 			repository.NewInboxTagRepository(primaryDB.Pool),
-			nil, // labels are applied by the backend surface, not the consumer
-			nil,
+			tagCategories,
+			tagCategories,
 			true,
 		)
 		log.Printf("automatic inbox tagging enabled (model %s)", inboxtag.Model)

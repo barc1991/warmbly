@@ -148,6 +148,9 @@ func TestLowConfidenceStopsAtNeedsReview(t *testing.T) {
 	if !d.NeedsReview {
 		t.Fatal("expected needs-review")
 	}
+	if d.ReviewReason != "kind" {
+		t.Errorf("review reason = %q, want kind", d.ReviewReason)
+	}
 	if len(d.Labels) != 1 || d.Labels[0] != LabelNeedsReview {
 		t.Errorf("labels = %v, want only %q", d.Labels, LabelNeedsReview)
 	}
@@ -206,8 +209,19 @@ type fakeRepo struct {
 	previous string
 }
 
-func (f *fakeRepo) AlreadyTagged(_ context.Context, _ uuid.UUID, id string) (bool, error) {
-	return f.tagged[id], nil
+func (f *fakeRepo) Claim(_ context.Context, _, _ uuid.UUID, id, _ string) (bool, error) {
+	if f.tagged == nil {
+		f.tagged = map[string]bool{}
+	}
+	if f.tagged[id] {
+		return false, nil
+	}
+	f.tagged[id] = true
+	return true, nil
+}
+func (f *fakeRepo) ReleaseClaim(_ context.Context, _ uuid.UUID, id string) error {
+	delete(f.tagged, id)
+	return nil
 }
 func (f *fakeRepo) Save(_ context.Context, r *repository.InboxTagResult) error {
 	if f.tagged == nil {
@@ -220,12 +234,15 @@ func (f *fakeRepo) Save(_ context.Context, r *repository.InboxTagResult) error {
 func (f *fakeRepo) ListForReview(context.Context, uuid.UUID, int, int, bool) ([]repository.InboxTagResult, int, error) {
 	return nil, 0, nil
 }
+func (f *fakeRepo) ReviewSummary(context.Context, uuid.UUID) (repository.InboxTagReviewSummary, error) {
+	return repository.InboxTagReviewSummary{}, nil
+}
 
 func (f *fakeRepo) ListUntagged(context.Context, uuid.UUID, time.Time, int) ([]repository.BackfillCandidate, error) {
 	return f.untagged, nil
 }
-func (f *fakeRepo) PreviousOutbound(context.Context, uuid.UUID, string, time.Time) (string, error) {
-	return f.previous, nil
+func (f *fakeRepo) PreviousOutbound(context.Context, uuid.UUID, string, time.Time) (string, string, error) {
+	return f.previous, "", nil
 }
 
 func newService(t *testing.T, asker Asker, repo repository.InboxTagRepository) *Service {

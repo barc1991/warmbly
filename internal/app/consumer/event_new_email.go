@@ -478,9 +478,9 @@ func (s *JobsService) tagInboundMessage(ctx context.Context, e *models.JobEventN
 	// Our previous message in the thread, read from the database rather than
 	// asked. A reply is an answer, and the question it answers is not in it:
 	// without this, "yes" and "that works" carry no meaning for the model.
-	previous := s.InboxTagger.PreviousOutbound(ctx, e.Message.EmailID, e.Message.ThreadID, e.Message.InternalDate)
+	previous, campaign := s.InboxTagger.PreviousContext(ctx, e.Message.EmailID, e.Message.ThreadID, e.Message.InternalDate)
 
-	msg := inboxtag.MessageFrom(orgID, e.UserID, e.Message, nil, previous, "")
+	msg := inboxtag.MessageFrom(orgID, e.UserID, e.Message, nil, previous, campaign)
 	d, err := s.InboxTagger.Classify(ctx, msg)
 	if err != nil {
 		log.Warn().Err(err).
@@ -499,7 +499,7 @@ func (s *JobsService) tagInboundMessage(ctx context.Context, e *models.JobEventN
 	// this second event is what makes the label appear a moment later without
 	// anybody reloading. Without it the tag showed up on the next refetch,
 	// which is a refresh, a scope change, or whenever the 30s cache went stale.
-	if len(d.Labels) > 0 {
+	if d.KindSource != "" {
 		s.publishEmailUpdated(ctx, e.UserID, e.Message)
 	}
 }

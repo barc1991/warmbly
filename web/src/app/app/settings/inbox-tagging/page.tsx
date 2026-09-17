@@ -94,7 +94,7 @@ function Row({ r }: { r: InboxTagRow }) {
                     </span>
                     <span>·</span>
                     <span title="Where the verdict came from">
-                        {r.kind_source === "header" ? "decided by a mail header" : `model ${r.model}`}
+                        {r.kind_source === "header" ? "decided offline" : `model ${r.model}`}
                     </span>
                     {r.input_tokens > 0 && (
                         <>
@@ -107,11 +107,11 @@ function Row({ r }: { r: InboxTagRow }) {
 
             <div className="shrink-0 flex items-center gap-2">
                 <span className="text-[11.5px] text-slate-600">{r.kind || "—"}</span>
-                <ConfidenceChip value={r.kind_confidence} floorBreached={r.needs_review} />
+                <ConfidenceChip value={r.kind_confidence} floorBreached={r.review_reason === "kind"} />
                 {r.intent && (
                     <>
                         <span className="text-[11.5px] text-slate-600">{r.intent}</span>
-                        <ConfidenceChip value={r.intent_confidence} floorBreached={false} />
+                        <ConfidenceChip value={r.intent_confidence} floorBreached={r.review_reason === "intent"} />
                     </>
                 )}
             </div>
@@ -120,18 +120,16 @@ function Row({ r }: { r: InboxTagRow }) {
 }
 
 export default function InboxTaggingPage() {
-    const canView = usePermission("MANAGE_SETTINGS");
+    const canView = usePermission("VIEW_ANALYTICS");
     const [needsReviewOnly, setNeedsReviewOnly] = useState(false);
     const q = useInboxTagReview(needsReviewOnly);
-    const d = q.data;
+    const d = q.data?.pages[0];
 
     if (!canView) {
-        return <NoAccess feature="automatic inbox tagging" permissionLabel="Manage settings" />;
+        return <NoAccess feature="automatic inbox tagging" permissionLabel="View analytics" />;
     }
 
-    const rows = d?.data ?? [];
-    const reviewed = rows.filter((r) => r.needs_review).length;
-    const fromHeaders = rows.filter((r) => r.kind_source === "header").length;
+    const rows = q.data?.pages.flatMap((page) => page.data) ?? [];
 
     return (
         <Page>
@@ -140,21 +138,21 @@ export default function InboxTaggingPage() {
                 subtitle="What the classifier decided, and how sure it was. Phase 1 writes labels only."
             />
 
-            {!d?.enabled && !q.isPending && (
+            {!d?.enabled && !q.isPending && !q.isError && (
                 <div className="mx-5 mt-4 px-3 py-2.5 rounded-md border border-amber-200 bg-amber-50 flex items-start gap-2">
                     <InfoIcon className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-[11.5px] text-amber-800 leading-relaxed">
                         Tagging is off on this instance. It needs a <code className="font-mono">TYPESAFE_API_KEY</code> and{" "}
-                        <code className="font-mono">INBOX_TAGGING_ENABLED=true</code>. It is the only feature that sends
-                        message content to a third party, so it stays off until an operator turns it on deliberately.
+                        <code className="font-mono">INBOX_TAGGING_ENABLED=true</code>. It sends message content to the
+                        configured classifier, so it stays off until an operator turns it on deliberately.
                     </p>
                 </div>
             )}
 
             <StatStrip cols={4}>
-                <Stat label="Classified" value={q.isPending ? "—" : (d?.total ?? 0).toLocaleString()} sub="messages" accent={(d?.total ?? 0) > 0} />
-                <Stat label="Needs review" value={q.isPending ? "—" : reviewed.toLocaleString()} sub="below the confidence floor" />
-                <Stat label="Decided by headers" value={q.isPending ? "—" : fromHeaders.toLocaleString()} sub="no model call made" />
+                <Stat label="Classified" value={q.isPending ? "—" : (d?.summary.total ?? 0).toLocaleString()} sub="messages" accent={(d?.summary.total ?? 0) > 0} />
+                <Stat label="Needs review" value={q.isPending ? "—" : (d?.summary.needs_review ?? 0).toLocaleString()} sub="below the confidence floor" />
+                <Stat label="Decided offline" value={q.isPending ? "—" : (d?.summary.from_offline ?? 0).toLocaleString()} sub="no model call made" />
                 <Stat label="Actions taken" value="0" sub="phase 1 writes labels only" last />
             </StatStrip>
 
@@ -184,21 +182,37 @@ export default function InboxTaggingPage() {
                             </div>
                         ))}
                     </div>
+                ) : q.isError ? (
+                    <EmptyBlock title="Couldn't load inbox tagging" body="Try again in a moment." />
                 ) : rows.length === 0 ? (
                     <EmptyBlock
                         title={needsReviewOnly ? "Nothing needs review" : "Nothing classified yet"}
                         body={
                             d?.enabled
-                                ? "Inbound mail is labelled as it arrives. Our own sends are never classified, and an out-of-office is decided by its headers without a model call."
+                                ? "Inbound mail is labelled as it arrives. Our own sends are never classified, and common automated replies are decided offline without a model call."
                                 : "Turn the feature on and inbound mail starts being labelled as it arrives."
                         }
                     />
                 ) : (
-                    <div className="divide-y divide-slate-200/60">
-                        {rows.map((r) => (
-                            <Row key={r.id} r={r} />
-                        ))}
-                    </div>
+                    <>
+                        <div className="divide-y divide-slate-200/60">
+                            {rows.map((r) => (
+                                <Row key={r.id} r={r} />
+                            ))}
+                        </div>
+                        {q.hasNextPage && (
+                            <div className="px-5 py-3 border-t border-slate-200">
+                                <button
+                                    type="button"
+                                    onClick={() => q.fetchNextPage()}
+                                    disabled={q.isFetchingNextPage}
+                                    className="h-7 px-3 rounded-md border border-slate-200 text-[11.5px] text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    {q.isFetchingNextPage ? "Loading…" : "Load more"}
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </PageBody>
 

@@ -11,6 +11,7 @@ import (
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/repository"
+	"github.com/warmbly/warmbly/internal/utils/paging"
 )
 
 // The phase-1 review surface. Automatic tagging writes labels and a score and
@@ -18,7 +19,7 @@ import (
 // for a week before it is allowed to act. That is only possible if what it
 // decided, and how sure it was, is on a screen.
 //
-// GET /inbox-tagging/review?limit=&offset=&needs_review=
+// GET /analytics/inbox-tagging?limit=&cursor=&needs_review=
 
 type inboxTagRow struct {
 	ID               string          `json:"id"`
@@ -32,6 +33,7 @@ type inboxTagRow struct {
 	Relevance        int             `json:"relevance"`
 	Priority         string          `json:"priority"`
 	NeedsReview      bool            `json:"needs_review"`
+	ReviewReason     string          `json:"review_reason"`
 	Labels           []string        `json:"labels"`
 	Answers          json.RawMessage `json:"answers"`
 	Model            string          `json:"model"`
@@ -42,9 +44,22 @@ type inboxTagRow struct {
 type inboxTagReviewResponse struct {
 	// Enabled says whether the feature is switched on for this instance, so the
 	// page can explain an empty list rather than implying nothing was found.
-	Enabled bool          `json:"enabled"`
-	Data    []inboxTagRow `json:"data"`
-	Total   int           `json:"total"`
+	Enabled    bool                     `json:"enabled"`
+	Data       []inboxTagRow            `json:"data"`
+	Total      int                      `json:"total"`
+	Summary    inboxTagReviewSummary    `json:"summary"`
+	Pagination inboxTagReviewPagination `json:"pagination"`
+}
+
+type inboxTagReviewSummary struct {
+	Total       int `json:"total"`
+	NeedsReview int `json:"needs_review"`
+	FromOffline int `json:"from_offline"`
+}
+
+type inboxTagReviewPagination struct {
+	NextCursor *string `json:"next_cursor"`
+	HasMore    bool    `json:"has_more"`
 }
 
 func (h *Handler) GetInboxTaggingReview(c *gin.Context) {
@@ -60,15 +75,21 @@ func (h *Handler) GetInboxTaggingReview(c *gin.Context) {
 		return
 	}
 
-	limit := 50
-	if v, err := strconv.Atoi(c.DefaultQuery("limit", "50")); err == nil && v > 0 && v <= 200 {
-		limit = v
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	if err != nil || limit < 1 || limit > 200 {
+		errx.Handle(c, errx.New(errx.BadRequest, "limit must be between 1 and 200"))
+		return
 	}
-	offset := 0
-	if v, err := strconv.Atoi(c.DefaultQuery("offset", "0")); err == nil && v >= 0 {
-		offset = v
+	offset, xerr := paging.DecodeOffsetCursor(c.Query("cursor"))
+	if xerr != nil {
+		errx.Handle(c, xerr)
+		return
 	}
-	needsReviewOnly, _ := strconv.ParseBool(c.DefaultQuery("needs_review", "false"))
+	needsReviewOnly, err := strconv.ParseBool(c.DefaultQuery("needs_review", "false"))
+	if err != nil {
+		errx.Handle(c, errx.New(errx.BadRequest, "needs_review must be true or false"))
+		return
+	}
 
 	rows, total, err := h.InboxTagRepo.ListForReview(c.Request.Context(), *orgID, limit, offset, needsReviewOnly)
 	if err != nil {
@@ -80,7 +101,23 @@ func (h *Handler) GetInboxTaggingReview(c *gin.Context) {
 	for _, r := range rows {
 		out = append(out, toTagRow(r))
 	}
-	c.JSON(http.StatusOK, inboxTagReviewResponse{Enabled: enabled, Data: out, Total: total})
+	summary, err := h.InboxTagRepo.ReviewSummary(c.Request.Context(), *orgID)
+	if err != nil {
+		errx.Handle(c, errx.InternalError())
+		return
+	}
+	hasMore := offset+len(rows) < total
+	var nextCursor *string
+	if hasMore {
+		nextCursor = paging.EncodeOffset(offset + len(rows))
+	}
+	c.JSON(http.StatusOK, inboxTagReviewResponse{
+		Enabled:    enabled,
+		Data:       out,
+		Total:      total,
+		Summary:    inboxTagReviewSummary{Total: summary.Total, NeedsReview: summary.NeedsReview, FromOffline: summary.FromOffline},
+		Pagination: inboxTagReviewPagination{NextCursor: nextCursor, HasMore: hasMore},
+	})
 }
 
 func toTagRow(r repository.InboxTagResult) inboxTagRow {
@@ -104,6 +141,7 @@ func toTagRow(r repository.InboxTagResult) inboxTagRow {
 		Relevance:        r.Relevance,
 		Priority:         r.Priority,
 		NeedsReview:      r.NeedsReview,
+		ReviewReason:     r.ReviewReason,
 		Labels:           labels,
 		Answers:          answers,
 		Model:            r.Model,

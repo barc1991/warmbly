@@ -23,11 +23,7 @@ type Facts struct {
 	// layers (internal/app/replyclassify), when they reached one. Empty means
 	// they were inconclusive.
 	//
-	// These headers are authoritative in a way the body is not: RFC 3834
-	// Auto-Submitted, X-Autoreply and a DSN content type are written by the
-	// sending system and say what the message IS. The model reads the same
-	// message as prose and infers. Where the two disagree, the header wins,
-	// and both are stored so the disagreement is visible on the review page.
+	// These deterministic signals are authoritative in a way the body is not.
 	DeterministicKind string
 }
 
@@ -52,7 +48,8 @@ type Decision struct {
 
 	// NeedsReview is set when a Choice came back below ConfFloor. The thread
 	// gets the needs-review label and no other label is trusted.
-	NeedsReview bool
+	NeedsReview  bool
+	ReviewReason string
 
 	// Signals are the nouls that fired, above Yes.
 	Signals []string
@@ -109,6 +106,7 @@ func Decide(answers map[string]Answer, facts Facts) Decision {
 			KindConfidence: d.KindConfidence,
 			KindSource:     d.KindSource,
 			NeedsReview:    true,
+			ReviewReason:   "kind",
 			Labels:         []string{LabelNeedsReview},
 			Priority:       PriorityWhenever,
 			Scores:         map[string]float64{},
@@ -133,6 +131,7 @@ func Decide(answers map[string]Answer, facts Facts) Decision {
 				// that what they want could not be read. The intent itself is
 				// left unset, because that is the part not to be trusted.
 				d.NeedsReview = true
+				d.ReviewReason = "intent"
 			} else {
 				d.Intent = a.Choice
 			}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,6 +25,7 @@ type InboxTagResult struct {
 	Relevance        int
 	Priority         string
 	NeedsReview      bool
+	ReviewReason     string
 	Answers          json.RawMessage
 	Labels           []string
 	Model            string
@@ -32,17 +34,17 @@ type InboxTagResult struct {
 }
 
 type InboxTagRepository interface {
-	// AlreadyTagged is the idempotency check. Webhooks retry and a re-sync
-	// replays the same message, so this runs before anything is asked.
-	AlreadyTagged(ctx context.Context, orgID uuid.UUID, messageID string) (bool, error)
+	Claim(ctx context.Context, orgID, accountID uuid.UUID, messageID, threadID string) (bool, error)
+	ReleaseClaim(ctx context.Context, orgID uuid.UUID, messageID string) error
 	Save(ctx context.Context, r *InboxTagResult) error
 	// ListForReview backs the phase-1 review page: what was decided, how
 	// confident it was, and what it would have done.
 	ListForReview(ctx context.Context, orgID uuid.UUID, limit, offset int, needsReviewOnly bool) ([]InboxTagResult, int, error)
+	ReviewSummary(ctx context.Context, orgID uuid.UUID) (InboxTagReviewSummary, error)
 
 	// ListUntagged and PreviousOutbound back the historical backfill.
 	ListUntagged(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) ([]BackfillCandidate, error)
-	PreviousOutbound(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) (string, error)
+	PreviousOutbound(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) (string, string, error)
 }
 
 type inboxTagRepository struct {
@@ -53,19 +55,39 @@ func NewInboxTagRepository(db *pgxpool.Pool) InboxTagRepository {
 	return &inboxTagRepository{db: db}
 }
 
-func (r *inboxTagRepository) AlreadyTagged(ctx context.Context, orgID uuid.UUID, messageID string) (bool, error) {
+func (r *inboxTagRepository) Claim(ctx context.Context, orgID, accountID uuid.UUID, messageID, threadID string) (bool, error) {
 	if messageID == "" {
-		// No key to be idempotent on. Treated as already handled rather than
-		// classified repeatedly: a message with no Message-ID would otherwise
-		// be re-tagged on every sync, spending a call each time.
-		return true, nil
+		return false, nil
 	}
-	const q = `SELECT EXISTS (SELECT 1 FROM inbox_tag_results WHERE organization_id = $1 AND message_id = $2)`
-	var exists bool
-	if err := r.db.QueryRow(ctx, q, orgID, messageID).Scan(&exists); err != nil {
+	const q = `
+		INSERT INTO inbox_tag_results (
+			organization_id, email_account_id, message_id, thread_id, status, claimed_at
+		) VALUES ($1, $2, $3, $4, 'processing', NOW())
+		ON CONFLICT (organization_id, message_id) DO UPDATE
+		SET email_account_id = EXCLUDED.email_account_id,
+		    thread_id = EXCLUDED.thread_id,
+		    claimed_at = NOW(),
+		    updated_at = NOW()
+		WHERE inbox_tag_results.status = 'processing'
+		  AND inbox_tag_results.claimed_at < NOW() - INTERVAL '15 minutes'
+		RETURNING id
+	`
+	var id uuid.UUID
+	if err := r.db.QueryRow(ctx, q, orgID, accountID, messageID, threadID).Scan(&id); err != nil {
+		if err == pgx.ErrNoRows {
+			return false, nil
+		}
 		return false, err
 	}
-	return exists, nil
+	return true, nil
+}
+
+func (r *inboxTagRepository) ReleaseClaim(ctx context.Context, orgID uuid.UUID, messageID string) error {
+	_, err := r.db.Exec(ctx, `
+		DELETE FROM inbox_tag_results
+		WHERE organization_id = $1 AND message_id = $2 AND status = 'processing'
+	`, orgID, messageID)
+	return err
 }
 
 func (r *inboxTagRepository) Save(ctx context.Context, res *InboxTagResult) error {
@@ -73,9 +95,26 @@ func (r *inboxTagRepository) Save(ctx context.Context, res *InboxTagResult) erro
 		INSERT INTO inbox_tag_results (
 			organization_id, email_account_id, message_id, thread_id,
 			kind, kind_confidence, kind_source, intent, intent_confidence,
-			relevance, priority, needs_review, answers, labels, model, input_tokens
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-		ON CONFLICT (organization_id, message_id) DO NOTHING
+			relevance, priority, needs_review, review_reason, answers, labels, model, input_tokens
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+		ON CONFLICT (organization_id, message_id) DO UPDATE SET
+			email_account_id = EXCLUDED.email_account_id,
+			thread_id = EXCLUDED.thread_id,
+			kind = EXCLUDED.kind,
+			kind_confidence = EXCLUDED.kind_confidence,
+			kind_source = EXCLUDED.kind_source,
+			intent = EXCLUDED.intent,
+			intent_confidence = EXCLUDED.intent_confidence,
+			relevance = EXCLUDED.relevance,
+			priority = EXCLUDED.priority,
+			needs_review = EXCLUDED.needs_review,
+			review_reason = EXCLUDED.review_reason,
+			answers = EXCLUDED.answers,
+			labels = EXCLUDED.labels,
+			model = EXCLUDED.model,
+			input_tokens = EXCLUDED.input_tokens,
+			status = 'complete',
+			updated_at = NOW()
 	`
 	answers := res.Answers
 	if len(answers) == 0 {
@@ -88,13 +127,13 @@ func (r *inboxTagRepository) Save(ctx context.Context, res *InboxTagResult) erro
 	_, err := r.db.Exec(ctx, q,
 		res.OrganizationID, res.EmailAccountID, res.MessageID, res.ThreadID,
 		res.Kind, res.KindConfidence, res.KindSource, res.Intent, res.IntentConfidence,
-		res.Relevance, res.Priority, res.NeedsReview, answers, labels, res.Model, res.InputTokens,
+		res.Relevance, res.Priority, res.NeedsReview, res.ReviewReason, answers, labels, res.Model, res.InputTokens,
 	)
 	return err
 }
 
 func (r *inboxTagRepository) ListForReview(ctx context.Context, orgID uuid.UUID, limit, offset int, needsReviewOnly bool) ([]InboxTagResult, int, error) {
-	where := `WHERE organization_id = $1`
+	where := `WHERE organization_id = $1 AND status = 'complete'`
 	if needsReviewOnly {
 		where += ` AND needs_review`
 	}
@@ -107,7 +146,7 @@ func (r *inboxTagRepository) ListForReview(ctx context.Context, orgID uuid.UUID,
 	rows, err := r.db.Query(ctx, `
 		SELECT id, organization_id, email_account_id, message_id, thread_id,
 		       kind, kind_confidence, kind_source, intent, intent_confidence,
-		       relevance, priority, needs_review, answers, labels, model, input_tokens, created_at
+		       relevance, priority, needs_review, review_reason, answers, labels, model, input_tokens, created_at
 		FROM inbox_tag_results `+where+`
 		ORDER BY relevance DESC, created_at DESC
 		LIMIT $2 OFFSET $3`, orgID, limit, offset)
@@ -122,13 +161,32 @@ func (r *inboxTagRepository) ListForReview(ctx context.Context, orgID uuid.UUID,
 		if err := rows.Scan(
 			&x.ID, &x.OrganizationID, &x.EmailAccountID, &x.MessageID, &x.ThreadID,
 			&x.Kind, &x.KindConfidence, &x.KindSource, &x.Intent, &x.IntentConfidence,
-			&x.Relevance, &x.Priority, &x.NeedsReview, &x.Answers, &x.Labels, &x.Model, &x.InputTokens, &x.CreatedAt,
+			&x.Relevance, &x.Priority, &x.NeedsReview, &x.ReviewReason, &x.Answers, &x.Labels, &x.Model, &x.InputTokens, &x.CreatedAt,
 		); err != nil {
 			return nil, 0, err
 		}
 		out = append(out, x)
 	}
 	return out, total, rows.Err()
+}
+
+type InboxTagReviewSummary struct {
+	Total       int
+	NeedsReview int
+	FromOffline int
+}
+
+func (r *inboxTagRepository) ReviewSummary(ctx context.Context, orgID uuid.UUID) (InboxTagReviewSummary, error) {
+	const q = `
+		SELECT COUNT(*),
+		       COUNT(*) FILTER (WHERE needs_review),
+		       COUNT(*) FILTER (WHERE kind_source = 'header')
+		FROM inbox_tag_results
+		WHERE organization_id = $1 AND status = 'complete'
+	`
+	var out InboxTagReviewSummary
+	err := r.db.QueryRow(ctx, q, orgID).Scan(&out.Total, &out.NeedsReview, &out.FromOffline)
+	return out, err
 }
 
 // BackfillCandidate is one historical message the backfill may classify.
@@ -166,11 +224,16 @@ func (r *inboxTagRepository) ListUntagged(ctx context.Context, orgID uuid.UUID, 
 		  AND ue.folder = 'inbox'
 		  AND ue.internal_date >= $2
 		  AND ue.message_id <> ''
-		  AND LOWER(COALESCE(NULLIF((regexp_match(COALESCE(ue.from_addr[1], ''), '\(([^()]+)\)\s*$'))[1], ''), TRIM(COALESCE(ue.from_addr[1], ''))))
+		  AND LOWER(COALESCE(
+		        NULLIF((regexp_match(COALESCE(ue.from_addr[1], ''), '<([^<>]+)>\s*$'))[1], ''),
+		        NULLIF((regexp_match(COALESCE(ue.from_addr[1], ''), '\(([^()]+)\)\s*$'))[1], ''),
+		        TRIM(COALESCE(ue.from_addr[1], ''))
+		      ))
 		      NOT IN (SELECT LOWER(email) FROM email_accounts WHERE organization_id = $1)
 		  AND NOT EXISTS (
 		        SELECT 1 FROM inbox_tag_results r
-		        WHERE r.organization_id = $1 AND r.message_id = ue.message_id
+			        WHERE r.organization_id = $1 AND r.message_id = ue.message_id
+			          AND (r.status = 'complete' OR r.claimed_at >= NOW() - INTERVAL '15 minutes')
 		      )
 		ORDER BY ue.internal_date DESC
 		LIMIT $3
@@ -199,22 +262,28 @@ func (r *inboxTagRepository) ListUntagged(ctx context.Context, orgID uuid.UUID, 
 // Without it a reply cannot be read: "yes", "that works" and "sounds good" are
 // answers, and the question they answer is not in them. Giving the model our
 // side of the exchange is what lets the reply mean anything.
-func (r *inboxTagRepository) PreviousOutbound(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) (string, error) {
+func (r *inboxTagRepository) PreviousOutbound(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) (string, string, error) {
 	if threadID == "" {
-		return "", nil
+		return "", "", nil
 	}
 	const q = `
-		SELECT body_text
-		FROM unibox_emails
-		WHERE email_id = $1 AND thread_id = $2 AND folder = 'sent' AND internal_date < $3
-		ORDER BY internal_date DESC
+		SELECT ue.body_text, COALESCE(c.name, '')
+		FROM unibox_emails ue
+		LEFT JOIN tasks t
+		       ON t.email_account_id = ue.email_id
+		      AND t.task_type = 'campaign'
+		      AND BTRIM(t.message_id, '<> ') = BTRIM(ue.message_id, '<> ')
+		LEFT JOIN campaign_tasks ct ON ct.task_id = t.id
+		LEFT JOIN campaigns c ON c.id = ct.campaign_id
+		WHERE ue.email_id = $1 AND ue.thread_id = $2 AND ue.folder = 'sent' AND ue.internal_date < $3
+		ORDER BY ue.internal_date DESC
 		LIMIT 1
 	`
-	var body string
-	if err := r.db.QueryRow(ctx, q, accountID, threadID, before).Scan(&body); err != nil {
+	var body, campaign string
+	if err := r.db.QueryRow(ctx, q, accountID, threadID, before).Scan(&body, &campaign); err != nil {
 		// No previous message is the normal case for the first inbound of a
 		// thread, not an error worth failing a classification over.
-		return "", nil
+		return "", "", nil
 	}
-	return body, nil
+	return body, campaign, nil
 }

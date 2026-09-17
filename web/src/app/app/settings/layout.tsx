@@ -72,7 +72,7 @@ const GROUPS: SectionGroup[] = [
             { path: "workspace", label: "Workspace", icon: BriefcaseIcon, description: "Org-wide settings.", ownerOnly: true },
             { path: "sending", label: "Sending", icon: SendIcon, description: "When campaign mail reaches each recipient.", permission: "MANAGE_SETTINGS" },
             { path: "tracking", label: "Website tracking", icon: GlobeIcon, description: "Page views on your site, in the contact timeline.", permission: "MANAGE_SETTINGS" },
-            { path: "inbox-tagging", label: "Inbox tagging", icon: TagsIcon, description: "Label and score inbound mail automatically.", permission: "MANAGE_SETTINGS" },
+            { path: "inbox-tagging", label: "Inbox tagging", icon: TagsIcon, description: "Label and score inbound mail automatically.", permission: "VIEW_ANALYTICS" },
             { path: "ai-skills", label: "AI skills", icon: SparklesIcon, description: "Playbooks your AI features follow.", permission: "MANAGE_SETTINGS" },
             { path: "billing", label: "Billing", icon: CreditCardIcon, description: "Plan, payment, invoices.", ownerOnly: true, billingOnly: true },
             { path: "referral", label: "Refer & earn", icon: GiftIcon, description: "Invite teams and earn account credit.", ownerOnly: true, billingOnly: true },
@@ -110,6 +110,7 @@ function SettingsLayoutInner() {
     const access = useFeatureAccess();
     const canManageApiKeys = usePermission("MANAGE_API_KEYS");
     const canManageSettings = usePermission("MANAGE_SETTINGS");
+    const canViewAnalytics = usePermission("VIEW_ANALYTICS");
     const navRef = React.useRef<HTMLElement>(null);
     const unsaved = useUnsavedRegistry();
     const [savingLeave, setSavingLeave] = React.useState(false);
@@ -176,7 +177,8 @@ function SettingsLayoutInner() {
                 (!s.ownerOnly || access.isOwner) &&
                 (!s.billingOnly || access.billing) &&
                 (s.permission !== "MANAGE_API_KEYS" || canManageApiKeys) &&
-                (s.permission !== "MANAGE_SETTINGS" || canManageSettings),
+                (s.permission !== "MANAGE_SETTINGS" || canManageSettings) &&
+                (s.permission !== "VIEW_ANALYTICS" || canViewAnalytics),
         ),
     })).filter((g) => g.items.length > 0);
 

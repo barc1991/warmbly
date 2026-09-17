@@ -114,21 +114,18 @@ func (s *Service) Classify(ctx context.Context, m Message) (Decision, error) {
 		return DecideOutbound(), nil
 	}
 
-	// 2. Idempotency. A webhook retry and a folder re-sync both replay the same
-	// Message-ID, and neither should spend a second call to reach the answer
-	// already on the row.
-	done, err := s.repo.AlreadyTagged(ctx, m.OrganizationID, m.MessageID)
+	// 2. Claim before the network call so concurrent deliveries spend once.
+	claimed, err := s.repo.Claim(ctx, m.OrganizationID, m.EmailAccountID, m.MessageID, m.ThreadID)
 	if err != nil {
 		return Decision{}, err
 	}
-	if done {
+	if !claimed {
 		return Decision{}, nil
 	}
+	release := func() { _ = s.repo.ReleaseClaim(context.Background(), m.OrganizationID, m.MessageID) }
 
-	// 3. The free layers first. Headers written by the sending system say what
-	// a message IS: RFC 3834 Auto-Submitted, X-Autoreply, a DSN content type.
-	// The model reads the same message as prose and infers. Where a header has
-	// spoken there is nothing to ask, so nothing is asked.
+	// 3. Check deterministic subject, sender, and any supplied header signals
+	// before spending a model call.
 	facts := Facts{DeterministicKind: deterministicKind(m)}
 
 	state := BuildState(m.Subject, m.BodyText, m.PreviousMessage, m.Campaign)
@@ -136,6 +133,7 @@ func (s *Service) Classify(ctx context.Context, m Message) (Decision, error) {
 	var resp *Response
 	if facts.DeterministicKind == "" {
 		if !HasContent(state) {
+			release()
 			return Decision{}, nil
 		}
 		// 4. ONE call. Every question at once: they are evaluated in parallel
@@ -143,6 +141,7 @@ func (s *Service) Classify(ctx context.Context, m Message) (Decision, error) {
 		// member costs. A loop per tag would be a bug.
 		resp, err = s.asker.Ask(ctx, state, Questions())
 		if err != nil {
+			release()
 			return Decision{}, err
 		}
 	}
@@ -160,6 +159,7 @@ func (s *Service) Classify(ctx context.Context, m Message) (Decision, error) {
 	decision := Decide(answers, facts)
 
 	if err := s.persist(ctx, m, decision, answers, model, tokens); err != nil {
+		release()
 		return decision, err
 	}
 
@@ -228,6 +228,7 @@ func (s *Service) persist(ctx context.Context, m Message, d Decision, answers ma
 		Relevance:        d.Relevance,
 		Priority:         d.Priority,
 		NeedsReview:      d.NeedsReview,
+		ReviewReason:     d.ReviewReason,
 		Answers:          raw,
 		Labels:           d.Labels,
 		Model:            model,
@@ -284,6 +285,12 @@ func MessageFrom(orgID, userID uuid.UUID, msg *models.EmailMessageStoreData, hea
 	from := ""
 	if len(msg.FromAddr) > 0 {
 		from = strings.TrimSpace(msg.FromAddr[0])
+	}
+	if headers == nil {
+		headers = map[string][]string{}
+	}
+	if from != "" && len(headers["From"]) == 0 {
+		headers["From"] = []string{from}
 	}
 	return Message{
 		OrganizationID:  orgID,
@@ -375,7 +382,7 @@ func (s *Service) Backfill(ctx context.Context, orgID uuid.UUID, opts BackfillOp
 
 		// Our previous message in the thread, looked up rather than asked:
 		// a reply cannot be read without the thing it replies to.
-		previous, _ := s.repo.PreviousOutbound(ctx, c.EmailAccountID, c.ThreadID, c.InternalDate)
+		previous, campaign, _ := s.repo.PreviousOutbound(ctx, c.EmailAccountID, c.ThreadID, c.InternalDate)
 
 		d, err := s.Classify(ctx, Message{
 			OrganizationID:  orgID,
@@ -387,6 +394,7 @@ func (s *Service) Backfill(ctx context.Context, orgID uuid.UUID, opts BackfillOp
 			BodyText:        c.BodyText,
 			FromAddr:        c.FromAddr,
 			PreviousMessage: previous,
+			Campaign:        campaign,
 		})
 		switch {
 		case err != nil:
@@ -411,13 +419,13 @@ func (s *Service) Backfill(ctx context.Context, orgID uuid.UUID, opts BackfillOp
 // context rather than one of them sending a reply with nothing to answer.
 // Nil-safe and never fatal: no previous message is the normal case for the
 // first inbound of a thread.
-func (s *Service) PreviousOutbound(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) string {
+func (s *Service) PreviousContext(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) (string, string) {
 	if !s.Enabled() || threadID == "" {
-		return ""
+		return "", ""
 	}
-	body, err := s.repo.PreviousOutbound(ctx, accountID, threadID, before)
+	body, campaign, err := s.repo.PreviousOutbound(ctx, accountID, threadID, before)
 	if err != nil {
-		return ""
+		return "", ""
 	}
-	return body
+	return body, campaign
 }

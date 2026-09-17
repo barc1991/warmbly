@@ -596,7 +596,7 @@ var Tables = []Table{
 	},
 	{
 		Name: "inbox_tag_results", Group: models.OrgDataGroupInbox,
-		Scope: scopeOrg,
+		Scope: scopeOrg + ` AND status = 'complete'`,
 		Note: "Automatic tagging verdicts, including the raw probabilities. They travel because retuning the weights " +
 			"against stored answers is free while re-running the model over the history is not. Below email_accounts, " +
 			"which it references.",

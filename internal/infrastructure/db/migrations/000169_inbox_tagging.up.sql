@@ -17,9 +17,8 @@ CREATE TABLE IF NOT EXISTS inbox_tag_results (
 
     kind              TEXT NOT NULL DEFAULT '',
     kind_confidence   REAL NOT NULL DEFAULT 0,
-    -- 'header' when the deterministic layer decided, 'model' when Jev did,
-    -- 'skipped' when nothing was asked. Kept so a disagreement between the two
-    -- is visible rather than silently resolved.
+    -- 'header' when the offline deterministic layer decided, 'model' when Jev
+    -- did, and 'skipped' when nothing was asked.
     kind_source       TEXT NOT NULL DEFAULT '',
 
     intent            TEXT NOT NULL DEFAULT '',
@@ -28,6 +27,8 @@ CREATE TABLE IF NOT EXISTS inbox_tag_results (
     relevance         SMALLINT NOT NULL DEFAULT 0,
     priority          TEXT NOT NULL DEFAULT '',
     needs_review      BOOLEAN NOT NULL DEFAULT FALSE,
+    review_reason     TEXT NOT NULL DEFAULT ''
+                      CHECK (review_reason IN ('', 'kind', 'intent')),
 
     -- Every answer exactly as the API returned it, including the full
     -- probability distribution per question. This is what makes a retune
@@ -40,7 +41,12 @@ CREATE TABLE IF NOT EXISTS inbox_tag_results (
     model             TEXT NOT NULL DEFAULT '',
     input_tokens      INTEGER NOT NULL DEFAULT 0,
 
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    status            TEXT NOT NULL DEFAULT 'complete'
+                      CHECK (status IN ('processing', 'complete')),
+    claimed_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- The idempotency guarantee itself. Scoped by organization because a
@@ -51,7 +57,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_inbox_tag_results_message
 -- The review page reads newest-first within a workspace, and sorts by
 -- relevance. Both are the same index.
 CREATE INDEX IF NOT EXISTS idx_inbox_tag_results_review
-    ON inbox_tag_results (organization_id, relevance DESC, created_at DESC);
+    ON inbox_tag_results (organization_id, relevance DESC, created_at DESC)
+    WHERE status = 'complete';
 
 CREATE INDEX IF NOT EXISTS idx_inbox_tag_results_thread
     ON inbox_tag_results (organization_id, thread_id);

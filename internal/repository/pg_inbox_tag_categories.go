@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"net/mail"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -136,4 +138,30 @@ func (s *TagCategoryStore) AddThreadLabels(ctx context.Context, orgID uuid.UUID,
 		ON CONFLICT (organization_id, thread_id, category_id) DO NOTHING
 	`, orgID, threadID, categoryIDs)
 	return err
+}
+
+// IsOwnAddress reports whether the sender belongs to this workspace.
+func (s *TagCategoryStore) IsOwnAddress(ctx context.Context, orgID uuid.UUID, raw string) (bool, error) {
+	address := normalizeMailboxAddress(raw)
+	if address == "" {
+		return false, nil
+	}
+	var own bool
+	err := s.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM email_accounts
+			WHERE organization_id = $1 AND LOWER(email) = $2
+		)
+	`, orgID, address).Scan(&own)
+	return own, err
+}
+
+func normalizeMailboxAddress(raw string) string {
+	address := strings.TrimSpace(raw)
+	if parsed, err := mail.ParseAddress(address); err == nil {
+		address = parsed.Address
+	} else if start, end := strings.LastIndex(address, "("), strings.LastIndex(address, ")"); start >= 0 && end > start {
+		address = address[start+1 : end]
+	}
+	return strings.ToLower(strings.TrimSpace(address))
 }

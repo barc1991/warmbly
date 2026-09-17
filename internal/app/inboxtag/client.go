@@ -110,8 +110,9 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 // APIError is a non-2xx response, with the message dug out of whichever shape
 // `detail` arrived in.
 type APIError struct {
-	Status  int
-	Message string
+	Status     int
+	Message    string
+	RetryAfter time.Duration
 	// Retryable marks 429 and 529, the two the caller may try again.
 	Retryable bool
 }
@@ -250,8 +251,7 @@ func (c *Client) once(ctx context.Context, payload []byte) (*Response, error) {
 			Retryable: httpResp.StatusCode == http.StatusTooManyRequests || httpResp.StatusCode == 529,
 		}
 		if apiErr.Retryable {
-			apiErr.Message = fmt.Sprintf("%s (retry-after %s)", apiErr.Message, httpResp.Header.Get("Retry-After"))
-			retryAfterHint = parseRetryAfter(httpResp.Header.Get("Retry-After"))
+			apiErr.RetryAfter = parseRetryAfter(httpResp.Header.Get("Retry-After"))
 		}
 		return nil, apiErr
 	}
@@ -262,11 +262,6 @@ func (c *Client) once(ctx context.Context, payload []byte) (*Response, error) {
 	}
 	return &out, nil
 }
-
-// retryAfterHint carries the server's own wait across to backoff. Package-level
-// rather than threaded through the error because it is advisory: a stale value
-// only ever makes the next wait slightly longer.
-var retryAfterHint time.Duration
 
 // parseRetryAfter reads the header in both forms the RFC allows: delta-seconds,
 // and an HTTP date.
@@ -288,11 +283,10 @@ func parseRetryAfter(v string) time.Duration {
 // backoff honours the server's Retry-After when it sent one, and otherwise
 // doubles with jitter. Jitter matters here: an inbox flood retries in lockstep
 // without it, and arrives back at the same overloaded service together.
-func backoff(attempt int, _ error) time.Duration {
-	if retryAfterHint > 0 {
-		d := retryAfterHint
-		retryAfterHint = 0
-		return min(d, 60*time.Second)
+func backoff(attempt int, err error) time.Duration {
+	var apiErr *APIError
+	if asAPIError(err, &apiErr) && apiErr.RetryAfter > 0 {
+		return min(apiErr.RetryAfter, 60*time.Second)
 	}
 	base := time.Duration(math.Pow(2, float64(attempt))) * 250 * time.Millisecond
 	jitter := time.Duration(rand.Int63n(int64(base/2 + 1)))

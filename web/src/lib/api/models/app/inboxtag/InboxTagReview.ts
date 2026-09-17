@@ -11,7 +11,7 @@ export interface InboxTagRow {
     /** What the message is. One of the eight kinds in the taxonomy. */
     kind: string;
     kind_confidence: number;
-    /** "header" when a deterministic rule decided, "model" when Jev did. */
+    /** "header" when an offline deterministic rule decided, "model" when Jev did. */
     kind_source: string;
     /** Only set for a human reply; meaningless on a bounce. */
     intent: string;
@@ -20,6 +20,8 @@ export interface InboxTagRow {
     priority: string;
     /** True when a choice came back below the confidence floor. */
     needs_review: boolean;
+    /** Which confidence fell below the floor: kind or intent. */
+    review_reason: "" | "kind" | "intent";
     labels: string[];
     /** Every raw probability, exactly as the API returned it. */
     answers: Record<string, unknown>;
@@ -33,4 +35,13 @@ export default interface InboxTagReview {
     enabled: boolean;
     data: InboxTagRow[];
     total: number;
+    summary: {
+        total: number;
+        needs_review: number;
+        from_offline: number;
+    };
+    pagination: {
+        next_cursor: string | null;
+        has_more: boolean;
+    };
 }

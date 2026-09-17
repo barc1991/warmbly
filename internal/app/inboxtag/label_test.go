@@ -106,6 +106,9 @@ func TestUnreadableIntentKeepsTheConfidentKind(t *testing.T) {
 	if !d.NeedsReview {
 		t.Error("an unreadable intent should still raise needs-review")
 	}
+	if d.ReviewReason != "intent" {
+		t.Errorf("review reason = %q, want intent", d.ReviewReason)
+	}
 	if d.Intent != "" {
 		t.Errorf("intent %q kept despite being below the floor", d.Intent)
 	}
