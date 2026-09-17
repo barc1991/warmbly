@@ -19,7 +19,11 @@ Four families, all of them ordinary workspace labels. The inbox filters on them 
 
 **What the message is.** Exactly one applies: `bounce-hard`, `bounce-soft`, `auto-reply-ooo`, `auto-reply-ticket`, `human-reply`, `cold-inbound`, `notification`, `internal`.
 
-**What a reply wants.** Only on a human reply: `agreed`, `wants-info`, `wants-pricing`, `not-now`, `not-interested`, `wrong-person`, `opt-out`, `unclear`.
+**What a reply wants.** Only on a human reply.
+
+For a first answer to an approach: `agreed`, `wants-info`, `wants-pricing`, `not-now`, `not-interested`, `wrong-person`, `opt-out`.
+
+For a thread that is already a working relationship: `scheduling` (proposes or confirms a time), `in-progress` (reports progress, or says their side is done), `question-answered` (answers something you asked). Most of a real inbox is this, once anything has been agreed, and without these buckets those replies score badly for the wrong reason.
 
 `unclear` is deliberate. A reply whose intent genuinely cannot be read needs somewhere to go, or it gets forced into a bucket that is simply wrong.
 

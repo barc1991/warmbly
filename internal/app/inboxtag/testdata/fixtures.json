@@ -29,7 +29,7 @@
   "body": "Sounds promising. Can we jump on a quick call next week to talk it through? Here is my calendar: https://cal.com/example/30min",
   "previous": "Would you be open to a partnership?",
   "expect_kind": "human_reply",
-  "expect_intent": "agreed"
+  "expect_intent": "scheduling"
  },
  {
   "name": "not_now",
@@ -158,5 +158,29 @@
   "previous": "We build DynoWeb, a Shopify app. Open to a collab?",
   "expect_kind": "human_reply",
   "expect_intent": "wants_info"
+ },
+ {
+  "name": "scheduling_proposes_slot",
+  "subject": "Re: Collaboration idea",
+  "body": "Thanks for reaching out. The collaboration sounds interesting, and I would be happy to connect for a quick chat. Would 2pm GMT+8 on 22nd Sep work for you?",
+  "previous": "Would you be open to a partnership?",
+  "expect_kind": "human_reply",
+  "expect_intent": "scheduling"
+ },
+ {
+  "name": "in_progress_their_side_done",
+  "subject": "Re: Guest post exchange",
+  "body": "Hi Parteek, We have updated everything on our end. You can check the details and links in the tracking sheet. Please take a look and let us know if you have any questions.",
+  "previous": "I'll add your link this week, will you do the same?",
+  "expect_kind": "human_reply",
+  "expect_intent": "in_progress"
+ },
+ {
+  "name": "question_answered",
+  "subject": "Re: Quick question about your stack",
+  "body": "Hi, yes we are on Shopify Plus and we use Klaviyo for email. We have about 40,000 subscribers and we send two campaigns a week.",
+  "previous": "Which platform are you on, and roughly what list size?",
+  "expect_kind": "human_reply",
+  "expect_intent": "question_answered"
  }
 ]

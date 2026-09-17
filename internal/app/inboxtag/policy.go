@@ -99,16 +99,33 @@ const (
 	IntentWrongPerson   = "wrong_person"
 	IntentOptOut        = "opt_out"
 	IntentUnclear       = "unclear"
+
+	// Mid-conversation intents. The seven above describe a first answer to cold
+	// outreach; these describe a thread that is already a working relationship,
+	// which is most of a real inbox once anything has been agreed.
+	//
+	// Added after reading the replies that scored lowest. They were not
+	// ambiguous: "Would 2pm on the 22nd work?", "We have updated everything on
+	// our end", "For the guest post you will write an article to our
+	// guidelines" are all perfectly clear, and the model was splitting
+	// probability between `agreed` and `wants_info` because neither was true.
+	// Low confidence there was a missing bucket, not a hard message.
+	IntentScheduling       = "scheduling"
+	IntentInProgress       = "in_progress"
+	IntentQuestionAnswered = "question_answered"
 )
 
 var intentCriteria = map[string]string{
-	IntentAgreed:        "Clearly agrees to the partnership, call, or next step",
-	IntentWantsInfo:     "Open, but asking questions before deciding",
-	IntentWantsPricing:  "Specifically asking about price, terms, or commercials",
-	IntentNotNow:        "Open in principle, says the timing is wrong",
-	IntentNotInterested: "Declines, without demanding removal",
-	IntentWrongPerson:   "Says they are not the right contact, or names someone else",
-	IntentOptOut:        "Demands removal, complains, or threatens",
+	IntentAgreed:           "Clearly agrees to the partnership, call, or next step",
+	IntentWantsInfo:        "Open, but asking questions before deciding",
+	IntentWantsPricing:     "Specifically asking about price, terms, or commercials",
+	IntentNotNow:           "Open in principle, says the timing is wrong",
+	IntentNotInterested:    "Declines, without demanding removal",
+	IntentWrongPerson:      "Says they are not the right contact, or names someone else",
+	IntentOptOut:           "Demands removal, complains, or threatens",
+	IntentScheduling:       "Proposes, confirms, or changes a specific time to meet or talk",
+	IntentInProgress:       "Reports progress on something already agreed, or says their side is done",
+	IntentQuestionAnswered: "Answers a question we asked, or supplies information we requested",
 	// Deliberate: somewhere to put a genuinely ambiguous reply, so the model is
 	// never forced to pick a wrong bucket to answer at all.
 	IntentUnclear: "A reply whose intent cannot be determined from the text",
@@ -185,18 +202,25 @@ var scoreInstructions = map[string]string{
 // Weights are points added to relevance when the named condition holds. The
 // keys are intents, signals, scores and kind families, resolved by decide().
 var Weights = map[string]float64{
-	IntentAgreed:        50,
-	IntentWantsPricing:  35,
-	IntentWantsInfo:     30,
-	SigAsksForCall:      25,
-	SigIsDecisionMaker:  15,
-	ScoreUrgency:        10, // multiplied by the normalised score, 0..1
-	ScoreHeat:           8,  // multiplied by the normalised score, 0..1
-	SigHostileTone:      -20,
-	IntentNotNow:        -25,
-	IntentNotInterested: -40,
-	"auto_reply":        -60, // either auto_reply_* kind
-	"bounce":            -80, // either bounce_* kind
+	IntentAgreed: 50,
+	// A proposed time is further along than an agreement in principle: someone
+	// naming a slot has already decided, and missing it costs the meeting.
+	IntentScheduling:   45,
+	IntentWantsPricing: 35,
+	IntentWantsInfo:    30,
+	// Work in flight still needs answering, but it is not a decision waiting on
+	// us, so it sits below the intents that are.
+	IntentQuestionAnswered: 20,
+	IntentInProgress:       15,
+	SigAsksForCall:         25,
+	SigIsDecisionMaker:     15,
+	ScoreUrgency:           10, // multiplied by the normalised score, 0..1
+	ScoreHeat:              8,  // multiplied by the normalised score, 0..1
+	SigHostileTone:         -20,
+	IntentNotNow:           -25,
+	IntentNotInterested:    -40,
+	"auto_reply":           -60, // either auto_reply_* kind
+	"bounce":               -80, // either bounce_* kind
 }
 
 // Priority buckets, applied to the clamped 0-100 relevance.
@@ -248,7 +272,9 @@ func Questions() map[string]Question {
 	q["intent"] = Question{
 		Type: QuestionChoice,
 		Instructions: "A person replied to an email we sent them. Classify what the reply " +
-			"asks for or decides. Judge only the new message, not the quoted history.",
+			"asks for, decides, or reports. The thread may already be an agreed working " +
+			"relationship rather than a first answer to an approach. Judge only the new " +
+			"message, not the quoted history.",
 		Criteria: intentCriteria,
 	}
 
