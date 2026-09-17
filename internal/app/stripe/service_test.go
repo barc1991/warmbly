@@ -166,6 +166,46 @@ type billingCredits struct {
 	reset    int
 }
 
+type billingTopUpAttempts struct {
+	attempt *models.CreditAutoTopUpAttempt
+}
+
+func (r *billingTopUpAttempts) GetOrCreatePending(_ context.Context, orgID uuid.UUID, packKey string, credits int) (*models.CreditAutoTopUpAttempt, error) {
+	if r.attempt == nil || r.attempt.Status != "pending" {
+		r.attempt = &models.CreditAutoTopUpAttempt{
+			ID:      uuid.New(),
+			OrgID:   orgID,
+			PackKey: packKey,
+			Credits: credits,
+			Status:  "pending",
+		}
+	}
+	return r.attempt, nil
+}
+
+func (r *billingTopUpAttempts) SetTaxCalculation(_ context.Context, _ uuid.UUID, id string) (*models.CreditAutoTopUpAttempt, error) {
+	r.attempt.TaxCalculationID = id
+	return r.attempt, nil
+}
+
+func (r *billingTopUpAttempts) SetPaymentIntent(_ context.Context, _ uuid.UUID, id string) (*models.CreditAutoTopUpAttempt, error) {
+	r.attempt.PaymentIntentID = id
+	return r.attempt, nil
+}
+
+func (r *billingTopUpAttempts) MarkSucceededByPaymentIntent(_ context.Context, id string) error {
+	if r.attempt != nil && r.attempt.PaymentIntentID == id {
+		r.attempt.Status = "succeeded"
+	}
+	return nil
+}
+
+func (r *billingTopUpAttempts) MarkFailed(_ context.Context, _ uuid.UUID, message string) error {
+	r.attempt.Status = "failed"
+	r.attempt.FailureMessage = message
+	return nil
+}
+
 func (c *billingCredits) ResetMonthlyAllowance(_ context.Context, _ uuid.UUID, amount int, _ string) error {
 	c.reset = amount
 	return c.resetErr
@@ -182,6 +222,7 @@ func (r *billingSubRepo) RecordWebhookEvent(context.Context, *models.StripeWebho
 
 func TestAutoTopUpCalculatesAndAssociatesTax(t *testing.T) {
 	orgID := uuid.New()
+	attempts := &billingTopUpAttempts{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
@@ -190,6 +231,9 @@ func TestAutoTopUpCalculatesAndAssociatesTax(t *testing.T) {
 		case r.Method == http.MethodGet && r.URL.Path == "/v1/customers/cus_test":
 			_, _ = w.Write([]byte(`{"id":"cus_test","invoice_settings":{"default_payment_method":"pm_test"}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/tax/calculations":
+			if r.Header.Get("Idempotency-Key") != "warmbly-credit-auto-topup-tax-"+attempts.attempt.ID.String() {
+				t.Errorf("unexpected tax idempotency key %q", r.Header.Get("Idempotency-Key"))
+			}
 			if err := r.ParseForm(); err != nil {
 				t.Fatal(err)
 			}
@@ -198,6 +242,9 @@ func TestAutoTopUpCalculatesAndAssociatesTax(t *testing.T) {
 			}
 			_, _ = w.Write([]byte(`{"id":"taxcalc_test","currency":"usd","amount_total":1200}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/payment_intents":
+			if r.Header.Get("Idempotency-Key") != "warmbly-credit-auto-topup-payment-"+attempts.attempt.ID.String() {
+				t.Errorf("unexpected payment idempotency key %q", r.Header.Get("Idempotency-Key"))
+			}
 			if err := r.ParseForm(); err != nil {
 				t.Fatal(err)
 			}
@@ -216,13 +263,67 @@ func TestAutoTopUpCalculatesAndAssociatesTax(t *testing.T) {
 
 	credits := &billingCredits{}
 	s := &stripeService{
-		cfg:     &config.StripeConfig{CreditPackPriceIDs: map[string]string{"pack_500": "price_pack"}},
-		subRepo: &billingSubRepo{sub: &models.Subscription{StripeCustomerID: "cus_test"}},
-		credits: credits,
+		cfg:           &config.StripeConfig{CreditPackPriceIDs: map[string]string{"pack_500": "price_pack"}},
+		subRepo:       &billingSubRepo{sub: &models.Subscription{StripeCustomerID: "cus_test"}},
+		credits:       credits,
+		topupAttempts: attempts,
 	}
 	granted, err := s.AutoTopUpCredits(context.Background(), orgID, "pack_500", 500)
 	if err != nil || !granted || credits.granted != 500 {
 		t.Fatalf("granted=%v credits=%d err=%v", granted, credits.granted, err)
+	}
+	if attempts.attempt.Status != "succeeded" || attempts.attempt.PaymentIntentID != "pi_test" {
+		t.Fatalf("attempt was not completed: %+v", attempts.attempt)
+	}
+}
+
+func TestAutoTopUpResumesPersistedStripeObjects(t *testing.T) {
+	orgID := uuid.New()
+	attempts := &billingTopUpAttempts{attempt: &models.CreditAutoTopUpAttempt{
+		ID:               uuid.New(),
+		OrgID:            orgID,
+		PackKey:          "pack_500",
+		Credits:          500,
+		Status:           "pending",
+		TaxCalculationID: "taxcalc_saved",
+		PaymentIntentID:  "pi_saved",
+	}}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/prices/price_pack":
+			_, _ = w.Write([]byte(`{"id":"price_pack","currency":"usd","unit_amount":1000,"tax_behavior":"exclusive","product":"prod_credits"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/customers/cus_test":
+			_, _ = w.Write([]byte(`{"id":"cus_test","invoice_settings":{"default_payment_method":"pm_test"}}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/tax/calculations/taxcalc_saved":
+			_, _ = w.Write([]byte(`{"id":"taxcalc_saved","currency":"usd","amount_total":1200}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/payment_intents/pi_saved":
+			_, _ = w.Write([]byte(`{"id":"pi_saved","status":"succeeded","metadata":{"org_id":"` + orgID.String() + `","purpose":"credit_auto_topup","pack_key":"pack_500","credits":"500","tax_calculation_id":"taxcalc_saved"}}`))
+		case r.Method == http.MethodPost:
+			t.Errorf("retry created a new Stripe object: %s", r.URL.Path)
+			http.Error(w, "unexpected create", http.StatusInternalServerError)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	old := stripeapi.GetBackend(stripeapi.APIBackend)
+	stripeapi.SetBackend(stripeapi.APIBackend, stripeapi.GetBackendWithConfig(stripeapi.APIBackend, &stripeapi.BackendConfig{URL: stripeapi.String(server.URL), HTTPClient: server.Client()}))
+	t.Cleanup(func() { stripeapi.SetBackend(stripeapi.APIBackend, old) })
+
+	credits := &billingCredits{}
+	s := &stripeService{
+		cfg:           &config.StripeConfig{CreditPackPriceIDs: map[string]string{"pack_500": "price_pack"}},
+		subRepo:       &billingSubRepo{sub: &models.Subscription{StripeCustomerID: "cus_test"}},
+		credits:       credits,
+		topupAttempts: attempts,
+	}
+	granted, err := s.AutoTopUpCredits(context.Background(), orgID, "pack_500", 500)
+	if err != nil || !granted || credits.granted != 500 {
+		t.Fatalf("granted=%v credits=%d err=%v", granted, credits.granted, err)
+	}
+	if attempts.attempt.Status != "succeeded" {
+		t.Fatalf("attempt was not completed: %+v", attempts.attempt)
 	}
 }
 

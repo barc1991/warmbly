@@ -782,6 +782,11 @@ var Tables = []Table{
 		Scope: scopeOrgAlt, ImportSkip: true,
 	},
 	{
+		Name: "credit_auto_topup_attempts", Group: models.OrgDataGroupBilling,
+		Scope: scopeOrg, ImportSkip: true,
+		Note: "Stripe charge attempts belong to the source instance's Stripe account.",
+	},
+	{
 		Name: "referral_earnings_ledger", Group: models.OrgDataGroupBilling,
 		Scope: scopeOrgAlt, ImportSkip: true,
 	},

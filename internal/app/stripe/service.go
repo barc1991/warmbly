@@ -3,6 +3,7 @@ package stripe
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -148,6 +149,7 @@ type stripeService struct {
 	audit            AuditLogger
 	opsNotify        OperatorNotifier
 	productAnalytics ProductAnalytics
+	topupAttempts    repository.CreditAutoTopUpAttemptRepository
 }
 
 // WireOperatorNotifier attaches the operator alert channel.
@@ -165,6 +167,7 @@ func NewService(
 	planRepo repository.PlanRepository,
 	workerAssignment worker.WorkerAssignmentService,
 	discountService discount.DiscountService,
+	topupAttempts repository.CreditAutoTopUpAttemptRepository,
 ) StripeService {
 	stripe.Key = cfg.SecretKey
 	return &stripeService{
@@ -173,6 +176,7 @@ func NewService(
 		planRepo:         planRepo,
 		workerAssignment: workerAssignment,
 		discountService:  discountService,
+		topupAttempts:    topupAttempts,
 	}
 }
 
@@ -449,11 +453,10 @@ func (s *stripeService) AutoTopUpCredits(ctx context.Context, orgID uuid.UUID, p
 	if s.credits == nil {
 		return false, fmt.Errorf("credits not wired")
 	}
-	priceID := ""
-	if s.cfg != nil && s.cfg.CreditPackPriceIDs != nil {
-		priceID = s.cfg.CreditPackPriceIDs[packKey]
+	if s.topupAttempts == nil {
+		return false, fmt.Errorf("credit auto top-up attempts not wired")
 	}
-	if priceID == "" || creditAmount <= 0 {
+	if s.cfg == nil || s.cfg.CreditPackPriceIDs == nil || s.cfg.CreditPackPriceIDs[packKey] == "" || creditAmount <= 0 {
 		return false, fmt.Errorf("credit pack %q not configured", packKey)
 	}
 
@@ -462,7 +465,21 @@ func (s *stripeService) AutoTopUpCredits(ctx context.Context, orgID uuid.UUID, p
 		return false, fmt.Errorf("no billing customer for org")
 	}
 
-	p, perr := price.Get(priceID, nil)
+	// Create the durable attempt before any Stripe object. Retries reuse this
+	// row and its idempotency keys until the charge reaches a terminal state.
+	attempt, err := s.topupAttempts.GetOrCreatePending(ctx, orgID, packKey, creditAmount)
+	if err != nil {
+		return false, fmt.Errorf("create credit auto top-up attempt: %w", err)
+	}
+	packKey = attempt.PackKey
+	creditAmount = attempt.Credits
+	priceID := s.cfg.CreditPackPriceIDs[packKey]
+	if priceID == "" {
+		_ = s.topupAttempts.MarkFailed(ctx, attempt.ID, "credit pack is no longer configured")
+		return false, fmt.Errorf("credit pack %q not configured", packKey)
+	}
+
+	p, perr := price.Get(priceID, &stripe.PriceParams{Params: stripe.Params{Context: ctx}})
 	if perr != nil {
 		return false, fmt.Errorf("resolve pack price: %w", perr)
 	}
@@ -474,7 +491,7 @@ func (s *stripeService) AutoTopUpCredits(ctx context.Context, orgID uuid.UUID, p
 	// method (the card the subscription bills). Without one, auto top-up
 	// cannot run and the org keeps buying manually via Checkout.
 	cust, cerr := customer.Get(sub.StripeCustomerID, &stripe.CustomerParams{
-		Params: stripe.Params{Expand: []*string{stripe.String("invoice_settings.default_payment_method")}},
+		Params: stripe.Params{Context: ctx, Expand: []*string{stripe.String("invoice_settings.default_payment_method")}},
 	})
 	if cerr != nil {
 		return false, fmt.Errorf("load customer: %w", cerr)
@@ -496,39 +513,85 @@ func (s *stripeService) AutoTopUpCredits(ctx context.Context, orgID uuid.UUID, p
 		lineItem.Product = stripe.String(p.Product.ID)
 	}
 	lineItem.TaxBehavior = stripe.String(string(p.TaxBehavior))
-	taxCalc, taxErr := taxcalculation.New(&stripe.TaxCalculationParams{
-		Currency:  stripe.String(string(p.Currency)),
-		Customer:  stripe.String(sub.StripeCustomerID),
-		LineItems: []*stripe.TaxCalculationLineItemParams{lineItem},
-	})
-	if taxErr != nil {
-		return false, fmt.Errorf("calculate credit top-up tax: %w", taxErr)
+	var taxCalc *stripe.TaxCalculation
+	if attempt.TaxCalculationID != "" {
+		taxCalc, err = taxcalculation.Get(attempt.TaxCalculationID, &stripe.TaxCalculationParams{
+			Params: stripe.Params{Context: ctx},
+		})
+	} else {
+		taxParams := &stripe.TaxCalculationParams{
+			Params:    stripe.Params{Context: ctx},
+			Currency:  stripe.String(string(p.Currency)),
+			Customer:  stripe.String(sub.StripeCustomerID),
+			LineItems: []*stripe.TaxCalculationLineItemParams{lineItem},
+		}
+		taxParams.SetIdempotencyKey("warmbly-credit-auto-topup-tax-" + attempt.ID.String())
+		taxCalc, err = taxcalculation.New(taxParams)
+		if err == nil {
+			attempt, err = s.topupAttempts.SetTaxCalculation(ctx, attempt.ID, taxCalc.ID)
+		}
+	}
+	if err != nil {
+		return false, fmt.Errorf("calculate credit top-up tax: %w", err)
 	}
 
-	pi, ierr := paymentintent.New(&stripe.PaymentIntentParams{
-		Amount:        stripe.Int64(taxCalc.AmountTotal),
-		Currency:      stripe.String(string(p.Currency)),
-		Customer:      stripe.String(sub.StripeCustomerID),
-		PaymentMethod: stripe.String(pmID),
-		OffSession:    stripe.Bool(true),
-		Confirm:       stripe.Bool(true),
-		Hooks: &stripe.PaymentIntentHooksParams{
-			Inputs: &stripe.PaymentIntentHooksInputsParams{
-				Tax: &stripe.PaymentIntentHooksInputsTaxParams{Calculation: stripe.String(taxCalc.ID)},
+	var pi *stripe.PaymentIntent
+	var paymentErr error
+	if attempt.PaymentIntentID != "" {
+		pi, paymentErr = paymentintent.Get(attempt.PaymentIntentID, &stripe.PaymentIntentParams{
+			Params: stripe.Params{Context: ctx},
+		})
+	} else {
+		paymentParams := &stripe.PaymentIntentParams{
+			Params:        stripe.Params{Context: ctx},
+			Amount:        stripe.Int64(taxCalc.AmountTotal),
+			Currency:      stripe.String(string(p.Currency)),
+			Customer:      stripe.String(sub.StripeCustomerID),
+			PaymentMethod: stripe.String(pmID),
+			OffSession:    stripe.Bool(true),
+			Confirm:       stripe.Bool(true),
+			Hooks: &stripe.PaymentIntentHooksParams{
+				Inputs: &stripe.PaymentIntentHooksInputsParams{
+					Tax: &stripe.PaymentIntentHooksInputsTaxParams{Calculation: stripe.String(taxCalc.ID)},
+				},
 			},
-		},
-		Metadata: map[string]string{
-			"org_id":             orgID.String(),
-			"purpose":            "credit_auto_topup",
-			"pack_key":           packKey,
-			"credits":            strconv.Itoa(creditAmount),
-			"tax_calculation_id": taxCalc.ID,
-		},
-	})
-	if ierr != nil {
-		return false, fmt.Errorf("off-session charge failed: %w", ierr)
+			Metadata: map[string]string{
+				"org_id":             orgID.String(),
+				"purpose":            "credit_auto_topup",
+				"pack_key":           packKey,
+				"credits":            strconv.Itoa(creditAmount),
+				"tax_calculation_id": taxCalc.ID,
+				"topup_attempt_id":   attempt.ID.String(),
+			},
+		}
+		paymentParams.SetIdempotencyKey("warmbly-credit-auto-topup-payment-" + attempt.ID.String())
+		pi, paymentErr = paymentintent.New(paymentParams)
+		if pi == nil {
+			var stripeErr *stripe.Error
+			if errors.As(paymentErr, &stripeErr) {
+				pi = stripeErr.PaymentIntent
+			}
+		}
+		if pi != nil && pi.ID != "" {
+			attempt, err = s.topupAttempts.SetPaymentIntent(ctx, attempt.ID, pi.ID)
+			if err != nil {
+				return false, fmt.Errorf("persist auto top-up payment intent: %w", err)
+			}
+		}
+	}
+	if paymentErr != nil && pi == nil {
+		return false, fmt.Errorf("off-session charge failed: %w", paymentErr)
+	}
+	if pi == nil {
+		return false, fmt.Errorf("off-session charge returned no payment intent")
 	}
 	if pi.Status != stripe.PaymentIntentStatusSucceeded {
+		if pi.Status == stripe.PaymentIntentStatusCanceled || pi.Status == stripe.PaymentIntentStatusRequiresPaymentMethod {
+			_ = s.topupAttempts.MarkFailed(ctx, attempt.ID, "payment intent status: "+string(pi.Status))
+		}
+		if paymentErr != nil {
+			return false, fmt.Errorf("off-session charge failed: %w", paymentErr)
+		}
 		return false, fmt.Errorf("off-session charge not settled (status %s)", pi.Status)
 	}
 
@@ -857,6 +920,11 @@ func (s *stripeService) fulfillAutoTopUp(ctx context.Context, pi *stripe.Payment
 	}
 	if _, err := s.credits.GrantPurchased(ctx, orgID, creditAmount, "credit_auto_topup", pi.ID); err != nil {
 		return errx.New(errx.Internal, "failed to grant auto top-up credits")
+	}
+	if s.topupAttempts != nil {
+		if err := s.topupAttempts.MarkSucceededByPaymentIntent(ctx, pi.ID); err != nil {
+			return errx.New(errx.Internal, "failed to complete auto top-up attempt")
+		}
 	}
 	if audit && s.audit != nil {
 		s.audit.LogAction(ctx, orgID, uuid.Nil, models.AuditActionCreate, models.AuditEntityCreditPurchase, nil, "", "", nil, map[string]string{
