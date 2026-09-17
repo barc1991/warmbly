@@ -645,10 +645,15 @@ func (tc *TrackingConsumer) logOpen(ctx context.Context, task *repository.Campai
 func (tc *TrackingConsumer) originOf(event *events.TrackingEvent) models.EngagementOrigin {
 	var o models.EngagementOrigin
 	if event.UserAgent != nil && strings.TrimSpace(*event.UserAgent) != "" {
-		ua := useragent.Parse(*event.UserAgent)
-		o.OS, o.Browser, o.BrowserVersion = ua.OS, ua.Name, ua.Version
-		o.DeviceType = deviceType(ua)
-		o.Client = clientName(*event.UserAgent)
+		if isBareWebKit(event.UserAgent) {
+			// The signature's Macintosh platform belongs to the proxy, not the recipient.
+			o.Client = clientName(*event.UserAgent)
+		} else {
+			ua := useragent.Parse(*event.UserAgent)
+			o.OS, o.Browser, o.BrowserVersion = ua.OS, ua.Name, ua.Version
+			o.DeviceType = deviceType(ua)
+			o.Client = clientName(*event.UserAgent)
+		}
 	}
 	if event.ClientIP != nil && tc.geo != nil {
 		if addr, err := netip.ParseAddr(strings.TrimSpace(*event.ClientIP)); err == nil && !addr.IsPrivate() && !addr.IsLoopback() {

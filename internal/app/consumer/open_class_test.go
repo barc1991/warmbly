@@ -6,6 +6,7 @@ import (
 
 	"github.com/warmbly/warmbly/internal/app/instancesettings"
 	"github.com/warmbly/warmbly/internal/config"
+	"github.com/warmbly/warmbly/internal/events"
 	"github.com/warmbly/warmbly/internal/repository"
 )
 
@@ -14,6 +15,7 @@ func strp(s string) *string { return &s }
 // chromeUA is an ordinary desktop browser: the user agent a security gateway
 // presents, which is exactly why the UA rules cannot see one.
 const chromeUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+const bareWebKitUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
 
 // seen builds the engagement the per-event rules read, with a browser UA and
 // no recognised source unless the test says otherwise.
@@ -96,6 +98,38 @@ func TestOpenAndClickWindowsAreIndependent(t *testing.T) {
 	cw, cp := clicks(windows)
 	if m, r := classifyClick(seen(sent, at), cw, cp); m || r != "" {
 		t.Fatalf("the same moment is outside the shipped click window, got %v %q", m, r)
+	}
+}
+
+func TestLateBareWebKitOpenIsNotEnoughToProveApplePrefetch(t *testing.T) {
+	sent := time.Now()
+	at := sent.Add(24 * time.Minute)
+	w, p := opens(instancesettings.DefaultTracking())
+
+	if machine, reason := classifyOpen(engagement{userAgent: strp(bareWebKitUA), sentAt: &sent, at: at}, w, p); machine || reason != "" {
+		t.Fatalf("a late unlabelled image fetch is a person, got %v %q", machine, reason)
+	}
+	if machine, reason := classifyOpen(engagement{userAgent: strp(bareWebKitUA), sentAt: &sent, at: sent.Add(5 * time.Second)}, w, p); !machine || reason != repository.EmailOpenReasonPrefetch {
+		t.Fatalf("the same proxy signature at delivery is a prefetch, got %v %q", machine, reason)
+	}
+	if machine, reason := classifyOpen(engagement{userAgent: strp(bareWebKitUA), at: at}, w, p); machine || reason != "" {
+		t.Fatalf("the proxy signature without a dispatch clock is inconclusive, got %v %q", machine, reason)
+	}
+}
+
+func TestBareWebKitProxyDoesNotInventAppleDeviceMetadata(t *testing.T) {
+	origin := (&TrackingConsumer{}).originOf(&events.TrackingEvent{UserAgent: strp(bareWebKitUA)})
+
+	if origin.Client != "Image proxy" {
+		t.Fatalf("ambiguous proxy client = %q, want Image proxy", origin.Client)
+	}
+	if origin.DeviceType != "" || origin.OS != "" || origin.Browser != "" || origin.BrowserVersion != "" {
+		t.Fatalf("ambiguous proxy invented device metadata: %+v", origin)
+	}
+
+	compatibilityOnly := "Mozilla/5.0 (KHTML, like Gecko)"
+	if isBareWebKit(&compatibilityOnly) {
+		t.Fatal("the generic compatibility suffix without an AppleWebKit engine is not an image proxy")
 	}
 }
 
