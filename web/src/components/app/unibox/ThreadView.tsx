@@ -94,17 +94,17 @@ function toUniboxEmail(m: UniboxThreadMessage): UniboxEmail {
 // Filing copy, per destination. "Deleted" is deliberately not said anywhere:
 // the message is moved to Trash here and still sits in the mail client.
 const FILE_COPY: Record<FilableFolder, { done: string; failed: string }> = {
-  archive: { done: "Archived", failed: "Couldn't archive" },
-  trash: { done: "Moved to Trash", failed: "Couldn't move to Trash" },
-  inbox: { done: "Moved to Inbox", failed: "Couldn't move to Inbox" },
+  archive: { done: "אורכב", failed: "לא ניתן לארכב" },
+  trash: { done: "הועבר לאשפה", failed: "לא ניתן להעביר לאשפה" },
+  inbox: { done: "הועבר לתיבת דואר", failed: "לא ניתן להעביר לתיבת דואר" },
 };
 
 const SNOOZE_PRESETS: { label: string; until: () => Date }[] = [
-  { label: "In 1 hour", until: () => offsetHours(1) },
-  { label: "In 3 hours", until: () => offsetHours(3) },
-  { label: "Tomorrow 9:00", until: () => atHour(1, 9) },
-  { label: "Monday 9:00", until: () => nextMonday9() },
-  { label: "Next week", until: () => offsetDays(7) },
+  { label: "בעוד שעה", until: () => offsetHours(1) },
+  { label: "בעוד 3 שעות", until: () => offsetHours(3) },
+  { label: "מחר 9:00", until: () => atHour(1, 9) },
+  { label: "יום שני 9:00", until: () => nextMonday9() },
+  { label: "שבוע הבא", until: () => offsetDays(7) },
 ];
 
 function offsetHours(h: number): Date {
@@ -154,7 +154,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
   const cancel = useMutation({
     mutationFn: (taskId: string) => cancelScheduled(taskId),
     onSuccess: () => {
-      toast.success("Scheduled send cancelled");
+      toast.success("שליחה מתוזמנת בוטלה");
       // Three caches to refresh: the per-thread list (this view),
       // the global scheduled list (Scheduled scope), and the
       // overview that powers the scope-rail counter.
@@ -311,7 +311,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
             moveFolderRequest({ ids, folder: "inbox" })
               .then(() => {
                 queryClient.invalidateQueries({ queryKey: ["unibox"] });
-                toast.success("Moved back to Inbox");
+                toast.success("הוחזר לתיבת דואר");
               })
               .catch(() => toast.error("Couldn't undo"));
           }}
@@ -395,7 +395,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
             Couldn't load this conversation
           </p>
           <p className="text-[11.5px] text-slate-500 mb-3">
-            {q.error?.message ?? "Request failed"}
+            {q.error?.message ?? "הבקשה נכשלה"}
           </p>
           <button
             type="button"
@@ -502,7 +502,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
           >
             <PopoverMenuTrigger asChild>
               <button
-                aria-label="Snooze this thread"
+                aria-label="השהה שרשור זה"
                 title="Snooze"
                 className={cn(
                   "size-7 rounded-md inline-flex items-center justify-center transition-colors",
@@ -560,7 +560,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
                   >
-                    <PopoverMenuLabel>Snooze until</PopoverMenuLabel>
+                    <PopoverMenuLabel>השהה עד</PopoverMenuLabel>
                     {SNOOZE_PRESETS.map((p) => (
                       <PopoverMenuItem
                         key={p.label}
@@ -586,20 +586,20 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
 
           <div className="hidden sm:flex items-center gap-0.5">
             <IconAction
-              label="Mark as unread"
+              label="סמן כלא נקרא"
               icon={<MailCheckIcon className="w-[15px] h-[15px]" />}
               onClick={markUnread}
             />
             {filed ? (
               <IconAction
-                label="Move to inbox"
+                label="העבר לתיבת דואר"
                 icon={<InboxIcon className="w-[15px] h-[15px]" />}
                 disabled={moveFolder.isPending}
                 onClick={() => fileThread("inbox")}
               />
             ) : (
               <IconAction
-                label="Archive thread"
+                label="ארכב שרשור"
                 icon={<ArchiveIcon className="w-[15px] h-[15px]" />}
                 disabled={moveFolder.isPending}
                 onClick={() => fileThread("archive")}
@@ -607,7 +607,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
             )}
             {urlScope !== "trash" && (
               <IconAction
-                label="Delete thread"
+                label="מחק שרשור"
                 danger
                 icon={<TrashIcon className="w-[15px] h-[15px]" />}
                 disabled={moveFolder.isPending}
@@ -621,7 +621,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
               <button
                 type="button"
                 onClick={() => setCrmOpen(!crmOpen)}
-                aria-label={crmOpen ? "Hide contact panel" : "Show contact panel"}
+                aria-label={crmOpen ? "הסתר פאנל איש קשר" : "הצג פאנל איש קשר"}
                 className={cn(
                   "size-7 rounded-md inline-flex items-center justify-center transition-colors",
                   crmOpen
@@ -632,13 +632,13 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
                 <UserIcon className="w-[15px] h-[15px]" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">{crmOpen ? "Hide contact" : "Show contact"}</TooltipContent>
+            <TooltipContent side="bottom">{crmOpen ? "הסתר איש קשר" : "הצג איש קשר"}</TooltipContent>
           </Tooltip>
           <PopoverMenu align="end" side="bottom">
             <PopoverMenuTrigger asChild>
               <button
                 type="button"
-                aria-label="More thread actions"
+                aria-label="פעולות נוספות לשרשור"
                 className="sm:hidden size-7 rounded-md inline-flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
               >
                 <MoreVerticalIcon className="w-3.5 h-3.5" />
@@ -794,7 +794,7 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
 // land in is already on screen.
 function ThreadSkeleton() {
   return (
-    <div className="flex h-full min-h-0" aria-busy aria-label="Loading conversation">
+    <div className="flex h-full min-h-0" aria-busy aria-label="טוען שיחה">
       <div className="flex-1 flex flex-col min-w-0 bg-white">
         <div className="min-h-12 px-4 sm:px-5 py-2 border-b border-slate-200 flex items-center gap-3 shrink-0">
           <div className="min-w-0 flex-1 space-y-2">
@@ -961,7 +961,7 @@ function ScheduledMessageBubble({
             type="button"
             onClick={onCancel}
             disabled={cancelling}
-            title="Cancel this scheduled send"
+            title="בטל שליחה מתוזמנת זו"
             className="shrink-0 inline-flex items-center gap-1 h-6 px-1.5 rounded-md border border-sky-200 bg-white text-sky-700 hover:text-rose-700 hover:border-rose-300 hover:bg-rose-50 text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {cancelling ? (

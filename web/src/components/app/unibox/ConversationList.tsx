@@ -30,10 +30,10 @@ import type { UniboxSearchParams } from "@/lib/api/models/app/unibox/UniboxSearc
 type Bucket = "today" | "yesterday" | "week" | "earlier";
 
 const BUCKET_LABELS: Record<Bucket, string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  week: "This week",
-  earlier: "Earlier",
+  today: "היום",
+  yesterday: "אתמול",
+  week: "השבוע",
+  earlier: "מוקדם יותר",
 };
 
 function bucketFor(d: Date): Bucket {
@@ -249,7 +249,7 @@ export function ConversationList({
           <button
             type="button"
             onClick={onOpenScopeSheet}
-            aria-label="Switch view"
+            aria-label="החלף תצוגה"
             className="lg:hidden size-7 -ml-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
           >
             <PanelLeftIcon className="w-4 h-4" />
@@ -282,7 +282,7 @@ export function ConversationList({
         <button
           type="button"
           onClick={() => useComposeStore.getState().openCompose()}
-          aria-label="New email"
+          aria-label="אימייל חדש"
           className="lg:hidden size-7 rounded-md bg-sky-600 hover:bg-sky-700 text-white inline-flex items-center justify-center transition-colors shrink-0"
         >
           <PenLineIcon className="w-3.5 h-3.5" />
@@ -305,7 +305,7 @@ export function ConversationList({
             // that is the difference between it looking broken and looking
             // useful: nobody tries an address in a box labelled "Search inbox".
             placeholder={`Search ${scopeLabel.toLowerCase()}: name, address, or any word`}
-            title={'Searches the sender, recipients, subject and message body. "quoted phrases", OR and -exclude work.'}
+            title={'מחפש בשולח, נמענים, נושא וגוף ההודעה. "ביטויים במרכאות", OR ו- -להוציא עובדים.'}
             className="flex-1 min-w-0 h-full bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
           />
           {search ? (
@@ -346,7 +346,7 @@ export function ConversationList({
               Couldn't load inbox
             </p>
             <p className="text-[11.5px] text-slate-500 mb-3">
-              {q.error?.message ?? "Request failed"}
+              {q.error?.message ?? "הבקשה נכשלה"}
             </p>
             <button
               type="button"
@@ -359,7 +359,7 @@ export function ConversationList({
         ) : emails.length === 0 ? (
           <div className="px-5 py-16 text-center">
             <p className="text-[12.5px] text-slate-700 font-medium mb-1">
-              {filtering ? "No matches" : "Nothing here"}
+              {filtering ? "אין תוצאות" : "אין כאן כלום"}
             </p>
             <p className="text-[11.5px] text-slate-400 max-w-[32ch] mx-auto leading-relaxed">
               {filtering
@@ -444,7 +444,7 @@ export function ConversationList({
                       onClick={() => fetchNextPage()}
                       className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
                     >
-                      {isFetchNextPageError ? "Try again" : "Load more"}
+                      {isFetchNextPageError ? "נסה שוב" : "טען עוד"}
                     </button>
                   </div>
                 )}

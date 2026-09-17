@@ -357,34 +357,34 @@ export default function UniboxPage() {
       }
       case "tag": {
         const t = overviewData?.tags.find((x) => x.id === scope.tagId);
-        return t ? t.title : "Tag";
+        return t ? t.title : "תגית";
       }
       case "category": {
         const c = overviewData?.categories?.find(
           (x) => x.id === scope.categoryId,
         );
-        return c ? c.title : "Label";
+        return c ? c.title : "תווית";
       }
       default:
-        return "All mail";
+        return "כל הדואר";
     }
   }, [scope, overviewData]);
 
   if (!canAccess) {
-    return <NoAccess feature="the unified inbox" permissionLabel="Use unified inbox" />;
+    return <NoAccess feature="תיבת דואר מאוחדת" permissionLabel="שימוש בתיבת דואר מאוחדת" />;
   }
 
   return (
     <LockedSurface
       locked={!access.loading && !access.hasInbox}
-      feature="Unified inbox"
-      blurb="Read and reply to every inbound message across every connected mailbox from one place — searchable, filterable, with realtime updates."
+      feature="תיבת דואר מאוחדת"
+      blurb="קרא והשב לכל הודעה נכנסת מכל תיבות הדואר המחוברות ממקום אחד, עם חיפוש, סינון ועדכונים בזמן אמת."
       minPlan="starter"
       bullets={[
-        "Inbox, unread, awaiting reply and snoozed views with live counts",
-        "Per-mailbox, per-label and per-tag views in one rail",
-        "Deep-linkable threads as a clean URL path",
-        "Snooze any thread to clear it from the inbox until later",
+        "תצוגות תיבת דואר, לא נקראו, ממתינים לתשובה ומושהים עם ספירות חיות",
+        "תצוגות לפי תיבה, תווית ותגית בסרגל אחד",
+        "שרשורים עם קישורים נקיים כנתיב URL",
+        "השהה כל שרשור כדי לנקות אותו מתיבת הדואר עד מועד מאוחר יותר",
       ]}
     >
       <div className="flex flex-col h-full bg-white">
@@ -468,7 +468,7 @@ export default function UniboxPage() {
                       className="md:hidden flex items-center gap-1 px-3 h-10 shrink-0 border-b border-slate-200 text-[12.5px] font-medium text-slate-600 hover:text-slate-900 active:bg-slate-50"
                     >
                       <ChevronLeftIcon className="w-4 h-4" />
-                      Inbox
+                      תיבת דואר
                     </button>
                     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                       {/* Keyed: the list is what has to survive a thread
@@ -483,10 +483,10 @@ export default function UniboxPage() {
                     <div className="text-center px-5">
                       <InboxIcon className="w-5 h-5 text-slate-300 mx-auto mb-2.5" strokeWidth={1.5} />
                       <p className="text-[12.5px] font-medium text-slate-600">
-                        No conversation open
+                        לא נבחרה שיחה
                       </p>
                       <p className="text-[11.5px] text-slate-400 mt-1">
-                        Pick one from the list, or press{" "}
+                        בחר שיחה מהרשימה, או לחץ{" "}
                         <kbd className="inline-flex h-4 px-1 items-center rounded border border-slate-200 bg-slate-50 font-mono text-[10px] text-slate-500">j</kbd>
                       </p>
                     </div>

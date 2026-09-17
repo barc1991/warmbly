@@ -86,11 +86,11 @@ const MAIL_FOLDERS: {
   label: string;
   icon: React.ReactNode;
 }[] = [
-  { folder: "drafts", label: "Drafts", icon: <FileTextIcon className={ICON} /> },
-  { folder: "sent", label: "Sent", icon: <SendIcon className={ICON} /> },
-  { folder: "archive", label: "Archive", icon: <ArchiveIcon className={ICON} /> },
-  { folder: "spam", label: "Spam", icon: <OctagonAlertIcon className={ICON} /> },
-  { folder: "trash", label: "Trash", icon: <Trash2Icon className={ICON} /> },
+  { folder: "drafts", label: "טיוטות", icon: <FileTextIcon className={ICON} /> },
+  { folder: "sent", label: "נשלחו", icon: <SendIcon className={ICON} /> },
+  { folder: "archive", label: "ארכיון", icon: <ArchiveIcon className={ICON} /> },
+  { folder: "spam", label: "ספאם", icon: <OctagonAlertIcon className={ICON} /> },
+  { folder: "trash", label: "אשפה", icon: <Trash2Icon className={ICON} /> },
 ];
 
 const COLLAPSE_THRESHOLD = 8;
@@ -140,14 +140,14 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
   return (
     <nav className="h-full w-full bg-white border-r border-slate-200 overflow-y-auto py-3">
       <div className="px-3 pb-3">
-        <ShortcutTooltip label="New email" combo="n" side="bottom">
+        <ShortcutTooltip label="אימייל חדש" combo="n" side="bottom">
           <button
             type="button"
             onClick={() => useComposeStore.getState().openCompose()}
             className="w-full h-8 rounded-md bg-sky-600 text-white text-[12.5px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-sky-700 active:bg-sky-800 transition-colors"
           >
             <PenLineIcon className="w-3.5 h-3.5" />
-            Compose
+            חדש
           </button>
         </ShortcutTooltip>
         <ComposeDraftsItem />
@@ -156,15 +156,15 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
       <Group>
         <Item
           icon={<LayersIcon className={ICON} />}
-          label="All mail"
+          label="כל הדואר"
           count={data?.total}
           active={active === "all"}
           onClick={() => onChange({ kind: "all" })}
         />
-        {folderRow("inbox", "Inbox", <InboxIcon className={ICON} />)}
+        {folderRow("inbox", "תיבת דואר", <InboxIcon className={ICON} />)}
         <Item
           icon={<MailIcon className={ICON} />}
-          label="Unread"
+          label="לא נקראו"
           count={data?.unread}
           accent={!!data?.unread}
           active={active === "unread"}
@@ -172,7 +172,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
         />
         <Item
           icon={<ReplyIcon className={ICON} />}
-          label="Awaiting reply"
+          label="ממתינים לתשובה"
           count={data?.awaiting_reply}
           accent={!!data?.awaiting_reply}
           active={active === "awaiting"}
@@ -180,7 +180,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
         />
         <Item
           icon={<SparklesIcon className={ICON} />}
-          label="Agent drafts"
+          label="טיוטות סוכן"
           count={data?.awaiting_agent_draft}
           accent={!!data?.awaiting_agent_draft}
           active={active === "agent_drafts"}
@@ -188,7 +188,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
         />
         <Item
           icon={<MoonIcon className={ICON} />}
-          label="Snoozed"
+          label="מושהים"
           count={data?.snoozed}
           active={active === "snoozed"}
           onClick={() => onChange({ kind: "snoozed" })}
@@ -199,7 +199,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
         {MAIL_FOLDERS.slice(0, 2).map((f) => folderRow(f.folder, f.label, f.icon))}
         <Item
           icon={<ClockIcon className={ICON} />}
-          label="Scheduled"
+          label="מתוזמנים"
           count={data?.scheduled_pending}
           accent={!!data?.scheduled_pending}
           active={active === "scheduled"}
@@ -221,10 +221,10 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
       </Group>
 
       <CollapsibleSection
-        label="Mailboxes"
+        label="תיבות דואר"
         items={data?.mailboxes ?? []}
-        emptyText={overview.isPending ? "Loading…" : "No mailboxes connected."}
-        searchPlaceholder="Filter mailboxes"
+        emptyText={overview.isPending ? "טוען…" : "אין תיבות דואר מחוברות."}
+        searchPlaceholder="סנן תיבות דואר"
         getSearchKey={(m) => `${m.email} ${m.name}`}
         renderItem={(m) => (
           <Item
@@ -241,10 +241,10 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
 
       {data && data.categories && data.categories.length > 0 && (
         <CollapsibleSection
-          label="Labels"
+          label="תוויות"
           items={data.categories}
-          emptyText="No labels yet."
-          searchPlaceholder="Filter labels"
+          emptyText="אין עדיין תוויות."
+          searchPlaceholder="סנן תוויות"
           getSearchKey={(c) => c.title}
           renderItem={(c) => (
             <TagMeaningTooltip key={c.id} title={c.title}>
@@ -264,10 +264,10 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
 
       {data && data.tags.length > 0 && (
         <CollapsibleSection
-          label="Tags"
+          label="תגיות"
           items={data.tags}
-          emptyText="No tags yet."
-          searchPlaceholder="Filter tags"
+          emptyText="אין עדיין תגיות."
+          searchPlaceholder="סנן תגיות"
           getSearchKey={(t) => t.title}
           renderItem={(t) => (
             <Item
