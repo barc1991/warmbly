@@ -19,8 +19,10 @@ func TestPrefixTSQuery(t *testing.T) {
 		// Every one of these makes to_tsquery raise when passed through raw.
 		{"operators are stripped", "a & b | c", "a:* & b:* & c:*"},
 		{"unbalanced bracket", "re: (urgent", "re:* & urgent:*"},
-		{"negation and colons", "!foo:bar", "foo:* & bar:*"},
-		{"quotes", `"exact phrase"`, "exact:* & phrase:*"},
+		{"punctuation and colons", "!foo:bar", "foo:* & bar:*"},
+		{"negation keeps web-search semantics", "foo -bar", ""},
+		{"quotes keep web-search semantics", `"exact phrase"`, ""},
+		{"OR keeps web-search semantics", "foo OR bar", ""},
 		{"a lone operator has nothing to search", "&&&", ""},
 
 		{"empty", "", ""},
@@ -37,11 +39,17 @@ func TestPrefixTSQuery(t *testing.T) {
 	}
 }
 
-// A pasted paragraph must not become a 200-term query the planner has to walk.
+// Long input stays on websearch_to_tsquery instead of being broadened by a truncated prefix query.
 func TestPrefixTSQueryCapsTerms(t *testing.T) {
 	got := prefixTSQuery("one two three four five six seven eight nine ten eleven")
-	want := "one:* & two:* & three:* & four:* & five:* & six:* & seven:* & eight:*"
+	want := ""
 	if got != want {
-		t.Fatalf("prefixTSQuery capped = %q, want %q", got, want)
+		t.Fatalf("prefixTSQuery long input = %q, want %q", got, want)
+	}
+}
+
+func TestEscapeLikePattern(t *testing.T) {
+	if got, want := escapeLikePattern(`100%_done\later`), `100\%\_done\\later`; got != want {
+		t.Fatalf("escapeLikePattern = %q, want %q", got, want)
 	}
 }

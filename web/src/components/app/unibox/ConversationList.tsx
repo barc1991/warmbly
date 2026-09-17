@@ -304,7 +304,7 @@ export function ConversationList({
             // The box searches people, subject and message body, and naming
             // that is the difference between it looking broken and looking
             // useful: nobody tries an address in a box labelled "Search inbox".
-            placeholder={`Search ${scopeLabel.toLowerCase()} — name, address, or any word`}
+            placeholder={`Search ${scopeLabel.toLowerCase()}: name, address, or any word`}
             title={'Searches the sender, recipients, subject and message body. "quoted phrases", OR and -exclude work.'}
             className="flex-1 min-w-0 h-full bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
           />

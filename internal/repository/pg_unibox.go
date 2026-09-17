@@ -519,7 +519,7 @@ func (r *uniboxRepository) Search(ctx context.Context, orgID uuid.UUID, params *
 		// declares it, or the index is not used.
 		q := *params.Subject
 		webPos, addrPos := argPos, argPos+1
-		args = append(args, q, q)
+		args = append(args, q, escapeLikePattern(q))
 		argPos += 2
 
 		match := fmt.Sprintf(`ue.search_tsv @@ websearch_to_tsquery('english', $%d)
@@ -536,9 +536,9 @@ func (r *uniboxRepository) Search(ctx context.Context, orgID uuid.UUID, params *
 		// Participants. The stored header is "Display Name (addr)", so one
 		// substring match covers searching by either.
 		match += fmt.Sprintf(`
-				OR EXISTS (SELECT 1 FROM unnest(ue.from_addr) AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%')
-				OR EXISTS (SELECT 1 FROM unnest(ue.to_addr)   AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%')
-				OR EXISTS (SELECT 1 FROM unnest(ue.cc)        AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%')`,
+				OR EXISTS (SELECT 1 FROM unnest(ue.from_addr) AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%' ESCAPE '\')
+				OR EXISTS (SELECT 1 FROM unnest(ue.to_addr)   AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%' ESCAPE '\')
+				OR EXISTS (SELECT 1 FROM unnest(ue.cc)        AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%' ESCAPE '\')`,
 			addrPos, addrPos, addrPos)
 
 		inner += ` AND (` + match + `)`
@@ -1494,6 +1494,9 @@ func (r *uniboxRepository) scanGrounding(ctx context.Context, query string, orgI
 // so adding a word narrows rather than widens.
 func prefixTSQuery(input string) string {
 	const maxTerms = 8
+	if hasWebSearchSyntax(input) {
+		return ""
+	}
 
 	cleaned := strings.Map(func(r rune) rune {
 		switch {
@@ -1509,10 +1512,26 @@ func prefixTSQuery(input string) string {
 		return ""
 	}
 	if len(terms) > maxTerms {
-		terms = terms[:maxTerms]
+		return ""
 	}
 	for i, t := range terms {
 		terms[i] = t + ":*"
 	}
 	return strings.Join(terms, " & ")
+}
+
+func hasWebSearchSyntax(input string) bool {
+	if strings.Contains(input, `"`) {
+		return true
+	}
+	for _, term := range strings.Fields(input) {
+		if strings.HasPrefix(term, "-") || strings.EqualFold(term, "OR") {
+			return true
+		}
+	}
+	return false
+}
+
+func escapeLikePattern(input string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(input)
 }
