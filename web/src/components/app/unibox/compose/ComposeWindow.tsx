@@ -332,7 +332,7 @@ function ComposeWindowInner({
     const requestClose = React.useCallback(() => {
         if (dirty) {
             saveNow();
-            toast.success("Saved to Drafts");
+            toast.success("נשמר בטיוטות");
         } else if (everSavedRef.current) {
             deleteMut.mutate(draftIdRef.current);
         }
@@ -341,11 +341,11 @@ function ComposeWindowInner({
 
     const send = async (scheduledAt?: Date) => {
         if (!canSend) {
-            if (to.length === 0) toast.error("Add a recipient");
-            else if (!to.every(looksLikeEmail)) toast.error("Recipient email looks invalid");
-            else if (suppressed) toast.error("This recipient is suppressed");
-            else if (!subject.trim()) toast.error("Add a subject");
-            else if (!trimmedBody) toast.error("Body is empty");
+            if (to.length === 0) toast.error("הוסף נמען");
+            else if (!to.every(looksLikeEmail)) toast.error("כתובת הנמען נראית שגויה");
+            else if (suppressed) toast.error("נמען זה חסום");
+            else if (!subject.trim()) toast.error("הוסף נושא");
+            else if (!trimmedBody) toast.error("הגוף ריק");
             return;
         }
         setIsSending(true);
@@ -470,7 +470,7 @@ function ComposeWindowInner({
                 >
                     <MailPlusIcon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                     <span className="min-w-0 flex-1 text-[11.5px] text-slate-500 truncate">
-                        <span className="font-semibold text-slate-800">New email</span>
+                        <span className="font-semibold text-slate-800">אימייל חדש</span>
                         {contact ? (
                             <>
                                 {" "}
@@ -484,7 +484,7 @@ function ComposeWindowInner({
                     <div className="flex items-center gap-0.5 shrink-0">
                         {!minimized && dirty && (
                             <span className="mr-1 text-[10px] text-slate-400 select-none">
-                                {saveMut.isPending ? "Saving…" : saved ? "Saved" : ""}
+                                {saveMut.isPending ? "שומר…" : saved ? "נשמר" : ""}
                             </span>
                         )}
                         {!minimized && (
@@ -494,8 +494,8 @@ function ComposeWindowInner({
                                 disabled={!primary}
                                 title={
                                     primary
-                                        ? "Conversations and sent mail with this recipient"
-                                        : "Add a recipient to see your history with them"
+                                        ? "שיחות ודואר שנשלח עם נמען זה"
+                                        : "הוסף נמען כדי לראות את ההיסטוריה איתו"
                                 }
                                 className={cn(
                                     "hidden sm:inline-flex size-6 rounded-md items-center justify-center transition-colors disabled:opacity-30",
@@ -514,8 +514,8 @@ function ComposeWindowInner({
                                     e.stopPropagation();
                                     setExpanded(!expanded);
                                 }}
-                                aria-label={expanded ? "Exit full screen" : "Full screen"}
-                                title={expanded ? "Exit full screen" : "Full screen"}
+                                aria-label={expanded ? "צא ממסך מלא" : "מסך מלא"}
+                                title={expanded ? "צא ממסך מלא" : "מסך מלא"}
                                 className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
                             >
                                 {expanded ? (
@@ -531,11 +531,11 @@ function ComposeWindowInner({
                                 e.stopPropagation();
                                 setMinimized(!minimized);
                             }}
-                            aria-label={minimized ? "Restore composer" : "Minimize composer"}
+                            aria-label={minimized ? "שחזר חלון חיבור" : "מזער חלון חיבור"}
                             title={
                                 minimized
-                                    ? "Restore"
-                                    : "Minimize; your draft stays while you work elsewhere"
+                                    ? "שחזר"
+                                    : "מזער; הטיוטה נשמרת בזמן שאתה עובד במקום אחר"
                             }
                             className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
                         >
@@ -551,7 +551,7 @@ function ComposeWindowInner({
                                 e.stopPropagation();
                                 requestClose();
                             }}
-                            aria-label="Close composer"
+                            aria-label="סגור חלון חיבור"
                             className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
                         >
                             <XIcon className="w-3.5 h-3.5" />
@@ -569,7 +569,7 @@ function ComposeWindowInner({
                         <ContactRecipientField
                             value={to}
                             onChange={setTo}
-                            placeholder="Search contacts or type an email"
+                            placeholder="חפש אנשי קשר או הקלד אימייל"
                             autoFocus={!prefillTo}
                         />
                         {(!showCc || !showBcc) && (

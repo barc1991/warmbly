@@ -260,15 +260,15 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const send = async (scheduledAt?: Date) => {
         if (!canSend && !isSending) {
             if (!trimmedBody) {
-                toast.error("Body is empty");
+                toast.error("הגוף ריק");
                 return;
             }
             if (to.length === 0) {
-                toast.error("Add at least one recipient");
+                toast.error("הוסף לפחות נמען אחד");
                 return;
             }
             if (!to.every(looksLikeEmail)) {
-                toast.error("Recipient email looks invalid");
+                toast.error("כתובת הנמען נראית שגויה");
                 return;
             }
             if (!accountId) {
@@ -325,8 +325,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     scheduledAt
                         ? `Scheduled for ${formatFriendly(scheduledAt)}`
                         : mode === "forward"
-                          ? "Forward queued"
-                          : "Reply queued",
+                          ? "העברה תוזמנה"
+                          : "תשובה תוזמנה",
                 );
             }
             setScheduleOpen(false);
@@ -335,7 +335,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             if (!completed.cleared) toast.error("Reply queued, but the saved draft could not be removed. Discard it before sending again.");
             if (completed.close) onClose();
         } catch {
-            toast.error(mode === "forward" ? "Failed to forward" : "Failed to send reply");
+            toast.error(mode === "forward" ? "ההעברה נכשלה" : "שליחת תשובה נכשלה");
         } finally {
             setIsSending(false);
         }
@@ -355,7 +355,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     };
     const handleCustom = () => {
         if (!customValue) {
-            toast.error("Pick a time first");
+            toast.error("בחר שעה קודם");
             return;
         }
         handleSchedule(new Date(customValue));
@@ -455,7 +455,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             if (draft.discard()) onClose();
                             else toast.error("Could not remove the saved draft. Browser storage is unavailable.");
                         }}
-                        title="Discard this draft"
+                        title="מחק טיוטה זו"
                         className="h-6 px-1.5 rounded-md text-[10.5px] text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors shrink-0"
                     >
                         Discard
@@ -510,7 +510,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             setShowCc(false);
                         }}
                     >
-                        <ContactRecipientField value={cc} onChange={setCc} placeholder="Add Cc recipients" />
+                        <ContactRecipientField value={cc} onChange={setCc} placeholder="הוסף נמעני Cc" />
                     </HeaderRow>
                 )}
                 {showBcc && (
@@ -521,7 +521,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             setShowBcc(false);
                         }}
                     >
-                        <ContactRecipientField value={bcc} onChange={setBcc} placeholder="Add Bcc recipients" />
+                        <ContactRecipientField value={bcc} onChange={setBcc} placeholder="הוסף נמעני Bcc" />
                     </HeaderRow>
                 )}
 
@@ -708,7 +708,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                     transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
                                     className="px-1 py-1 w-[260px]"
                                 >
-                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
+                                    <PopoverMenuLabel>שלח ב</PopoverMenuLabel>
                                     <div className="mt-1">
                                         <DateTimePicker value={customValue} onChange={setCustomValue} stepMinutes={15} />
                                     </div>
@@ -773,7 +773,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <PopoverMenuTrigger asChild>
                         <button
                             type="button"
-                            title="Drop a saved reply into the body"
+                            title="הכנס תשובה שמורה לגוף"
                             className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors"
                         >
                             <FileTextIcon className="w-3 h-3" />
@@ -816,9 +816,9 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     }
                 >
                     <PenLineIcon className="w-2.5 h-2.5" />
-                    {signatureState.kind === "on" && "Signature on"}
-                    {signatureState.kind === "off" && "Signature off"}
-                    {signatureState.kind === "none" && "No signature"}
+                    {signatureState.kind === "on" && "חתימה פעילה"}
+                    {signatureState.kind === "off" && "חתימה כבויה"}
+                    {signatureState.kind === "none" && "ללא חתימה"}
                 </span>
 
                 <span className="font-mono text-[10px] text-slate-400 tabular-nums">
