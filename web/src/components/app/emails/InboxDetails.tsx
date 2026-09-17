@@ -314,11 +314,11 @@ function statusTone(status: string) {
 /* ── tabs ─────────────────────── */
 
 const TABS: { key: string; label: string; icon: LucideIcon }[] = [
-    { key: "overview", label: "Overview", icon: GaugeIcon },
-    { key: "analytics", label: "Analytics", icon: BarChart3Icon },
-    { key: "warmup", label: "Warmup", icon: FlameIcon },
-    { key: "sending", label: "Sending", icon: ClockFadingIcon },
-    { key: "settings", label: "Settings", icon: Settings2Icon },
+    { key: "overview", label: "סקירה", icon: GaugeIcon },
+    { key: "analytics", label: "ניתוחים", icon: BarChart3Icon },
+    { key: "warmup", label: "חימום", icon: FlameIcon },
+    { key: "sending", label: "שליחה", icon: ClockFadingIcon },
+    { key: "settings", label: "הגדרות", icon: Settings2Icon },
 ];
 
 /* ═══════════════════════════════════════════
@@ -409,7 +409,7 @@ function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }:
         }
         try {
             await mutation.mutateAsync(patch);
-            toast.success("Mailbox updated");
+            toast.success("תיבת דואר עודכנה");
         } catch (e) {
             toast.error(buildError(e as AppError));
         }
@@ -483,7 +483,7 @@ function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }:
                         transition={{ duration: 0.2 }}
                         className="shrink-0 h-14 px-5 flex items-center gap-2 border-t border-slate-200 bg-slate-50/60"
                     >
-                        <span className="text-[11.5px] text-slate-500">Unsaved changes</span>
+                        <span className="text-[11.5px] text-slate-500">שינויים שלא נשמרו</span>
                         <div className="ml-auto flex items-center gap-2">
                             <button onClick={() => setForm(mailbox)} className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors">
                                 Discard
@@ -612,7 +612,7 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
             {/* Health */}
             <div className="px-5 py-4">
                 <div className="flex items-center justify-between">
-                    <Eyebrow>Health</Eyebrow>
+                    <Eyebrow>בריאות</Eyebrow>
                     {health && (
                         <span className={cn("inline-flex items-center gap-1 text-[11px] font-medium capitalize", healthTone.text)}>
                             <HealthIcon className="w-3.5 h-3.5" /> {health.status}
@@ -643,21 +643,21 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
             {/* Key stats */}
             <div className="grid grid-cols-2 divide-x divide-y divide-slate-200/60">
                 <StatCard
-                    label="Sent today"
+                    label="נשלח היום"
                     value={usage ? usage.campaign_sent : "—"}
                     sub={
                         today
                             ? today.is_working_day
-                                ? `of ${today.daily_limit} rolled for today`
-                                : "not a sending day"
+                                ? `מתוך ${today.daily_limit} שהוקצו להיום`
+                                : "לא יום שליחה"
                             : usage
-                                ? `of ${usage.campaign_limit}/day cap`
+                                ? `מתוך ${usage.campaign_limit}/יום`
                                 : undefined
                     }
                 />
-                <StatCard label="Warmup today" value={ws ? ws.current_volume : (usage?.warmup_sent ?? "—")} sub={ws ? `target ${ws.target_volume}` : undefined} accent />
-                <StatCard label="Reply target" value={ws ? `${ws.reply_rate}%` : "—"} sub="configured warmup share" />
-                <StatCard label="Days warming" value={ws ? ws.days_active : "—"} sub={ws ? `max ${ws.max_volume}/day` : undefined} />
+                <StatCard label="חימום היום" value={ws ? ws.current_volume : (usage?.warmup_sent ?? "—")} sub={ws ? `יעד ${ws.target_volume}` : undefined} accent />
+                <StatCard label="יעד תשובות" value={ws ? `${ws.reply_rate}%` : "—"} sub="חלק חימום מוגדר" />
+                <StatCard label="ימי חימום" value={ws ? ws.days_active : "—"} sub={ws ? `מקסימום ${ws.max_volume}/יום` : undefined} />
             </div>
 
             {ws?.ramp_hold && <RampHoldNotice hold={ws.ramp_hold} />}

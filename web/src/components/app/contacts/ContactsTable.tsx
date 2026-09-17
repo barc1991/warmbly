@@ -649,11 +649,11 @@ export default function ContactsTable({
     if (embedded) {
         return (
             <>
-                <SectionBar label="Leads" count={total}>
+                <SectionBar label="לידים" count={total}>
                     <SearchInput
                         value={searchProps.query}
                         onChange={(v) => setSearchProps((s) => ({ ...s, query: v }))}
-                        placeholder="Search leads…"
+                        placeholder="חיפוש לידים…"
                         className="w-full sm:w-56"
                     />
                     <TopbarAction
@@ -884,34 +884,34 @@ export default function ContactsTable({
                     icon={<UserPlusIcon className="w-3 h-3" />}
                     onClick={() => setNewOpen(true)}
                 >
-                    New contact
+                    איש קשר חדש
                 </TopbarAction>
             </PageTopbar>
 
             {!segment && <StatStrip cols={4}>
                 <Stat
-                    label="All"
+                    label="הכל"
                     value={counts.total}
-                    sub={counts.exact ? "total contacts" : "on this page"}
+                    sub={counts.exact ? "סה״כ אנשי קשר" : "בעמוד זה"}
                     onClick={() => setSubFilter("all")}
                 />
                 <Stat
-                    label="Subscribed"
+                    label="מנויים"
                     value={counts.subscribed}
-                    sub="receiving mail"
+                    sub="מקבלים דואר"
                     accent={counts.subscribed > 0}
                     onClick={() => setSubFilter("subscribed")}
                 />
                 <Stat
-                    label="Unsubscribed"
+                    label="הסירו מנוי"
                     value={counts.unsubscribed}
-                    sub="suppressed"
+                    sub="חסומים"
                     onClick={() => setSubFilter("unsubscribed")}
                 />
                 <Stat
-                    label="In campaigns"
+                    label="בקמפיינים"
                     value={counts.inCampaign}
-                    sub="active touchpoints"
+                    sub="נקודות מגע פעילות"
                     last
                 />
             </StatStrip>}
@@ -923,24 +923,24 @@ export default function ContactsTable({
                 <SearchInput
                     value={searchProps.query}
                     onChange={(v) => setSearchProps((s) => ({ ...s, query: v }))}
-                    placeholder="Search by name, email, company…"
+                    placeholder="חיפוש לפי שם, אימייל, חברה…"
                     className="w-full sm:w-72"
                 />
                 <PopoverMenu align="end">
                     <PopoverMenuTrigger asChild>
                         <SelectButton
                             icon={<Settings2Icon className="w-3.5 h-3.5" />}
-                            label="Sort"
+                            label="מיין"
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent>
-                        <PopoverMenuLabel>Sort by</PopoverMenuLabel>
+                        <PopoverMenuLabel>מיין לפי</PopoverMenuLabel>
                         {[
-                            ["created_at", "Date added"],
-                            ["email", "Email"],
-                            ["first_name", "First name"],
-                            ["last_name", "Last name"],
-                            ["company", "Company"],
+                            ["created_at", "תאריך הוספה"],
+                            ["email", "אימייל"],
+                            ["first_name", "שם פרטי"],
+                            ["last_name", "שם משפחה"],
+                            ["company", "חברה"],
                         ].map(([key, label]) => (
                             <PopoverMenuItem
                                 key={key}
@@ -1274,9 +1274,9 @@ function ContactsTableBody({
                                 onChange={onToggleAll}
                             />
                         </th>
-                        <Th>Name</Th>
-                        <Th className={companyCol}>Company</Th>
-                        {!embedded && <Th className={phoneCol}>Phone</Th>}
+                        <Th>שם</Th>
+                        <Th className={companyCol}>חברה</Th>
+                        {!embedded && <Th className={phoneCol}>טלפון</Th>}
                         <Th className="w-12 sm:w-32">
                             {/* Below sm the pill is its icon alone, so the column
                                 narrows to it and the label waits for the room —
@@ -1297,13 +1297,13 @@ function ContactsTableBody({
                                         </span>
                                     </span>
                                 </Th>
-                                <Th className="w-24 hidden lg:table-cell">Clicked</Th>
-                                <Th className="w-24 hidden lg:table-cell">Replied</Th>
+                                <Th className="w-24 hidden lg:table-cell">לחיצות</Th>
+                                <Th className="w-24 hidden lg:table-cell">השיבו</Th>
                             </>
                         )}
                         {embedded ? (
                             <>
-                                <Th className="w-32 hidden xl:table-cell">Current step</Th>
+                                <Th className="w-32 hidden xl:table-cell">שלב נוכחי</Th>
                                 <Th className="w-36 hidden 2xl:table-cell">
                                     <span className="inline-flex items-center gap-1">
                                         Sender
@@ -1317,7 +1317,7 @@ function ContactsTableBody({
                                 </Th>
                             </>
                         ) : (
-                            <Th className="w-28 text-right hidden lg:table-cell">Campaigns</Th>
+                            <Th className="w-28 text-right hidden lg:table-cell">קמפיינים</Th>
                         )}
                         <Th className={`text-right ${embedded ? "w-32 hidden 2xl:table-cell" : "w-24 hidden md:table-cell"}`}>
                             {embedded ? "Last activity" : "Added"}
@@ -1487,7 +1487,7 @@ function ContactsTableBody({
                                                 <span className="truncate">{lead.current_step}</span>
                                             </span>
                                         ) : (
-                                            <span className="text-[11px] text-slate-300">Not started</span>
+                                            <span className="text-[11px] text-slate-300">לא התחיל</span>
                                         )}
                                     </td>
                                     <td className="px-3 overflow-hidden hidden 2xl:table-cell">
@@ -1499,7 +1499,7 @@ function ContactsTableBody({
                                                 {lead.sender}
                                             </span>
                                         ) : (
-                                            <span className="text-[11px] text-slate-300">Not assigned</span>
+                                            <span className="text-[11px] text-slate-300">לא שויך</span>
                                         )}
                                     </td>
                                     </>
@@ -1529,7 +1529,7 @@ function ContactsTableBody({
                                         {lead?.hold && onResumeLead ? (
                                             <button
                                                 type="button"
-                                                aria-label="Resume lead"
+                                                aria-label="המשך ליד"
                                                 title={`${holdSummary(lead.hold)}. Resume now`}
                                                 onClick={() => onResumeLead(c.id)}
                                                 className="size-6 rounded text-violet-500 hover:text-violet-700 hover:bg-violet-50 flex items-center justify-center transition-colors"
@@ -1539,8 +1539,8 @@ function ContactsTableBody({
                                         ) : onPauseLead && !terminal ? (
                                             <button
                                                 type="button"
-                                                aria-label="Pause lead"
-                                                title="Pause this lead until a date, without unsubscribing them"
+                                                aria-label="השהה ליד"
+                                                title="השהה ליד זה עד תאריך, בלי להסיר מנוי"
                                                 onClick={() => onPauseLead(c.id, name)}
                                                 className="size-6 rounded text-slate-400 hover:text-violet-600 hover:bg-violet-50 flex items-center justify-center transition-colors"
                                             >
@@ -1550,7 +1550,7 @@ function ContactsTableBody({
                                         {onRemoveFromCampaign ? (
                                             <button
                                                 type="button"
-                                                aria-label="Remove from campaign"
+                                                aria-label="הסר מקמפיין"
                                                 onClick={() => onRemoveFromCampaign(c.id)}
                                                 className="size-6 rounded text-slate-400 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors"
                                             >
