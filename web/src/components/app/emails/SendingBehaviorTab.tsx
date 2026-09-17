@@ -177,7 +177,7 @@ function TodayCard({ mailboxId, enabled }: { mailboxId: string; enabled: boolean
     if (!p.is_working_day) {
         return (
             <div className="px-5 py-4">
-                <Eyebrow>Today</Eyebrow>
+                <Eyebrow>היום</Eyebrow>
                 <p className="mt-2 text-[12.5px] text-slate-700">
                     Not a sending day for this mailbox. The next working day picks up its own hours.
                 </p>
@@ -349,7 +349,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                 >
                     {/* Working days */}
                     <div className="px-5 py-5 space-y-2">
-                        <Eyebrow>Working days</Eyebrow>
+                        <Eyebrow>ימי עבודה</Eyebrow>
                         <WeekdayBitmask
                             weekdays={[...WEEKDAY_LABELS]}
                             value={form.weekdays}
@@ -362,7 +362,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
 
                     {/* Workday */}
                     <div className="px-5 py-5 space-y-5">
-                        <Eyebrow>Workday</Eyebrow>
+                        <Eyebrow>יום עבודה</Eyebrow>
                         <RangeRow
                             icon={<SunriseIcon className="w-3.5 h-3.5" />}
                             label="Starts somewhere between"
@@ -392,7 +392,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                     {/* Lunch */}
                     <div className="px-5 py-5 space-y-5">
                         <div className="flex items-center justify-between gap-3">
-                            <Eyebrow>Lunch break</Eyebrow>
+                            <Eyebrow>הפסקת צהריים</Eyebrow>
                             <Toggle value={form.lunch_enabled} onChange={(v) => update({ lunch_enabled: v })} />
                         </div>
                         {form.lunch_enabled && (
@@ -420,7 +420,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
 
                     {/* Volume + spacing */}
                     <div className="px-5 py-5 space-y-5">
-                        <Eyebrow>Volume and spacing</Eyebrow>
+                        <Eyebrow>נפח וריווח</Eyebrow>
                         <FieldShell
                             label="Cold emails per day"
                             hint="Rolled once a day inside this range. It can only lower the mailbox's daily cap, never raise it."
@@ -492,7 +492,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                         transition={{ duration: 0.2 }}
                         className="sticky bottom-0 z-10 h-14 px-5 flex items-center gap-2 border-t border-slate-200 bg-slate-50/95 backdrop-blur-sm"
                     >
-                        <span className="text-[11.5px] text-slate-500">Unsaved changes</span>
+                        <span className="text-[11.5px] text-slate-500">שינויים שלא נשמרו</span>
                         <div className="ml-auto flex items-center gap-2">
                             <button
                                 onClick={() => query.data && setForm(query.data)}

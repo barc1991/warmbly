@@ -123,19 +123,19 @@ export default function BillingSettingsPage() {
 
     if (!access.loading && !access.isOwner) {
         return (
-            <SectionShell title="Billing" description="Owner only.">
-                <Section eyebrow="Permission denied">
+            <SectionShell title="חיוב" description="בעלים בלבד.">
+                <Section eyebrow="הרשאה נדחתה">
                     <div className="flex items-start gap-3">
                         <div className="size-9 rounded-md bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
                             <LockIcon className="w-4 h-4" />
                         </div>
                         <div>
                             <div className="text-[13px] font-semibold text-slate-900">
-                                Only the workspace owner can view billing
+                                רק בעל המרחב יכול לצפות בחיוב
                             </div>
                             <p className="text-[12px] text-slate-500 leading-relaxed mt-1 max-w-md">
-                                Plan changes, invoices and payment methods are scoped to the
-                                owner role. Ask your owner to share an update if you need one.
+                                שינוי תוכנית, חשבוניות ואמצעי תשלום שמורים לתפקיד בעלים.
+                                בקש מבעל המרחב לשתף עדכון אם אתה צריך.
                             </p>
                         </div>
                     </div>

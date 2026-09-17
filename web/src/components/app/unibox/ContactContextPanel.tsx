@@ -123,12 +123,12 @@ export default function ContactContextPanel({
             />
             <aside className="fixed inset-y-0 right-0 z-[60] flex w-[min(20rem,90vw)] shrink-0 flex-col border-l border-slate-200 bg-white min-h-0 shadow-xl lg:static lg:z-auto lg:w-80 lg:shadow-none">
             <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-2 shrink-0 bg-white">
-                <span className="text-[12.5px] font-semibold text-slate-900">Contact</span>
+                <span className="text-[12.5px] font-semibold text-slate-900">איש קשר</span>
                 {onClose && (
                     <button
                         type="button"
                         onClick={onClose}
-                        aria-label="Close contact panel"
+                        aria-label="סגור פאנל איש קשר"
                         className="ml-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                     >
                         <XIcon className="w-3.5 h-3.5" />
@@ -162,9 +162,9 @@ export default function ContactContextPanel({
                             </div>
                             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                                 {contact.subscribed ? (
-                                    <Badge tone="emerald" icon={<CheckIcon className="w-2.5 h-2.5" />}>Subscribed</Badge>
+                                    <Badge tone="emerald" icon={<CheckIcon className="w-2.5 h-2.5" />}>מנוי</Badge>
                                 ) : (
-                                    <Badge tone="slate" icon={<UserXIcon className="w-2.5 h-2.5" />}>Unsubscribed</Badge>
+                                    <Badge tone="slate" icon={<UserXIcon className="w-2.5 h-2.5" />}>הסיר מנוי</Badge>
                                 )}
                                 {supp && (
                                     <Badge tone="red" icon={<BanIcon className="w-2.5 h-2.5" />}>
@@ -204,7 +204,7 @@ export default function ContactContextPanel({
                         </div>
 
                         {/* Lead source : campaigns */}
-                        <Section label="Campaigns" hint={campaigns.length ? undefined : "Not in any campaign"}>
+                        <Section label="קמפיינים" hint={campaigns.length ? undefined : "לא בשום קמפיין"}>
                             {campaigns.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5">
                                     {campaigns.map((c) => (
@@ -223,12 +223,12 @@ export default function ContactContextPanel({
 
                         {/* Engagement */}
                         {eng && (
-                            <Section label="Engagement">
+                            <Section label="מעורבות">
                                 <div className="grid grid-cols-4 gap-1.5">
-                                    <Metric label="Sent" value={eng.total_sent} />
-                                    <Metric label="Open" value={eng.total_opened} />
-                                    <Metric label="Click" value={eng.total_clicked} />
-                                    <Metric label="Reply" value={eng.total_replied} accent />
+                                    <Metric label="נשלחו" value={eng.total_sent} />
+                                    <Metric label="פתיחות" value={eng.total_opened} />
+                                    <Metric label="לחיצות" value={eng.total_clicked} />
+                                    <Metric label="תשובות" value={eng.total_replied} accent />
                                 </div>
                             </Section>
                         )}
@@ -363,7 +363,7 @@ function DealsSection({
 
     return (
         <Section
-            label="Deals"
+            label="עסקאות"
             action={
                 canAdd ? (
                     <AddButton open={open} onClick={() => setOpen((o) => !o)} />
@@ -565,7 +565,7 @@ function TasksSection({
     }
 
     return (
-        <Section label="Tasks" action={<AddButton open={open} onClick={() => setOpen((o) => !o)} />}>
+        <Section label="משימות" action={<AddButton open={open} onClick={() => setOpen((o) => !o)} />}>
             {open && (
                 <div className="mb-2 rounded-md border border-slate-200 bg-white p-2 space-y-1.5">
                     <TextInput
@@ -663,7 +663,7 @@ function NotesSection({
     }
 
     return (
-        <Section label="Notes">
+        <Section label="הערות">
             <div className="mb-2 rounded-md border border-slate-200 bg-white p-2">
                 <textarea
                     value={draft}
@@ -817,7 +817,7 @@ function NotAContact({ email, name }: { email?: string; name?: string }) {
     return (
         <div className="px-4 py-8 text-center">
             <UserIcon className="w-5 h-5 text-slate-300 mx-auto mb-2.5" strokeWidth={1.5} />
-            <p className="text-[12px] font-medium text-slate-700 mb-0.5">Not a known contact</p>
+            <p className="text-[12px] font-medium text-slate-700 mb-0.5">לא איש קשר מוכר</p>
             {email && <p className="text-[11px] text-slate-400 break-all mb-3">{email}</p>}
             <div className="flex items-center justify-center gap-1.5">
                 {email && (
