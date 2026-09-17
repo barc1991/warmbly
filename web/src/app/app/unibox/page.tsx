@@ -317,6 +317,20 @@ export default function UniboxPage() {
     setParams((prev) => paramsForScope(prev.sortBy));
   }
 
+  // ── Search text ────────────────────────────────────────────────
+  // Owned here, not in the list, because "Search all mail" changes scope and
+  // has to keep what was typed. A scope change the reader made themselves
+  // still clears it: a query typed for one view silently filtering the next is
+  // what the list used to guard against.
+  const [search, setSearch] = React.useState("");
+  const keepSearch = React.useRef(false);
+  const [searchScope, setSearchScope] = React.useState(scope);
+  if (searchScope !== scope) {
+    setSearchScope(scope);
+    if (keepSearch.current) keepSearch.current = false;
+    else setSearch("");
+  }
+
   // ── Scope label for header chip ────────────────────────────────
   const overviewData = overview.data;
   const scopeLabel = React.useMemo(() => {
@@ -412,6 +426,18 @@ export default function UniboxPage() {
                   params={params}
                   baseParams={baseParams}
                   setParams={setParams}
+                  search={search}
+                  setSearch={setSearch}
+                  onSearchAllMail={
+                    scope.kind === "all"
+                      ? undefined
+                      : () => {
+                          // Widening keeps the query; the reset below reads
+                          // this flag on the scope change it causes.
+                          keepSearch.current = true;
+                          setScope({ kind: "all" });
+                        }
+                  }
                   onOpenScopeSheet={() => setScopeSheetOpen(true)}
                 />
               </div>

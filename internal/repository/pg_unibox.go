@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -496,13 +497,51 @@ func (r *uniboxRepository) Search(ctx context.Context, orgID uuid.UUID, params *
 	}
 
 	if params.Subject != nil && *params.Subject != "" {
-		// Two indexes, one query: search_tsv covers subject + preview, and the
-		// body expression matches idx_unibox_emails_body_search exactly (it has
-		// to be written the same way, or the index is not used).
-		inner += fmt.Sprintf(` AND (ue.search_tsv @@ plainto_tsquery('english', $%d)
-				OR to_tsvector('english'::regconfig, ue.body_text) @@ plainto_tsquery('english', $%d))`, argPos, argPos)
-		args = append(args, *params.Subject)
-		argPos++
+		// One box, everything a person searches an inbox for: the words in the
+		// subject or the body, and the people the message was with.
+		//
+		// Three matchers, because no single one covers it:
+		//
+		//   full text  — websearch_to_tsquery over search_tsv (subject +
+		//                preview) and the body. It reads "quoted phrases",
+		//                OR and -excluded the way every search box does, and
+		//                unlike to_tsquery it cannot be made to raise on
+		//                punctuation, so a user typing `re: (urgent)` gets
+		//                results rather than a 500.
+		//   prefix     — whole words only is wrong while someone is still
+		//                typing: "dyno" found 2 of the 100+ messages that say
+		//                dynoweb. The sanitized prefix query fixes that.
+		//   people     — the addresses. Searching a name or an address was
+		//                finding nothing at all unless it also appeared in the
+		//                body, which is not what anyone expects from an inbox.
+		//
+		// The body expression is written exactly as idx_unibox_emails_body_search
+		// declares it, or the index is not used.
+		q := *params.Subject
+		webPos, addrPos := argPos, argPos+1
+		args = append(args, q, escapeLikePattern(q))
+		argPos += 2
+
+		match := fmt.Sprintf(`ue.search_tsv @@ websearch_to_tsquery('english', $%d)
+				OR to_tsvector('english'::regconfig, ue.body_text) @@ websearch_to_tsquery('english', $%d)`, webPos, webPos)
+
+		if prefix := prefixTSQuery(q); prefix != "" {
+			match += fmt.Sprintf(`
+				OR ue.search_tsv @@ to_tsquery('english', $%d)
+				OR to_tsvector('english'::regconfig, ue.body_text) @@ to_tsquery('english', $%d)`, argPos, argPos)
+			args = append(args, prefix)
+			argPos++
+		}
+
+		// Participants. The stored header is "Display Name (addr)", so one
+		// substring match covers searching by either.
+		match += fmt.Sprintf(`
+				OR EXISTS (SELECT 1 FROM unnest(ue.from_addr) AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%' ESCAPE '\')
+				OR EXISTS (SELECT 1 FROM unnest(ue.to_addr)   AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%' ESCAPE '\')
+				OR EXISTS (SELECT 1 FROM unnest(ue.cc)        AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%' ESCAPE '\')`,
+			addrPos, addrPos, addrPos)
+
+		inner += ` AND (` + match + `)`
 	}
 
 	if params.Sender != nil && *params.Sender != "" {
@@ -1439,4 +1478,60 @@ func (r *uniboxRepository) scanGrounding(ctx context.Context, query string, orgI
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// prefixTSQuery turns what the user has typed into a prefix tsquery, so a
+// half-typed word still matches: "dynow" finds "dynoweb".
+//
+// Built here rather than in SQL because to_tsquery is a parser, not a matcher:
+// an `&`, a `:` or an unbalanced bracket in the input makes it raise, and a
+// search box is exactly where those arrive. Everything that is not a letter, a
+// digit or a space is dropped, which leaves nothing that can change the shape
+// of the query. Returns "" when there is nothing left to search on, and the
+// caller then relies on the other matchers.
+//
+// Terms are ANDed, matching what websearch_to_tsquery does with a bare phrase,
+// so adding a word narrows rather than widens.
+func prefixTSQuery(input string) string {
+	const maxTerms = 8
+	if hasWebSearchSyntax(input) {
+		return ""
+	}
+
+	cleaned := strings.Map(func(r rune) rune {
+		switch {
+		case unicode.IsLetter(r), unicode.IsDigit(r):
+			return unicode.ToLower(r)
+		default:
+			return ' '
+		}
+	}, input)
+
+	terms := strings.Fields(cleaned)
+	if len(terms) == 0 {
+		return ""
+	}
+	if len(terms) > maxTerms {
+		return ""
+	}
+	for i, t := range terms {
+		terms[i] = t + ":*"
+	}
+	return strings.Join(terms, " & ")
+}
+
+func hasWebSearchSyntax(input string) bool {
+	if strings.Contains(input, `"`) {
+		return true
+	}
+	for _, term := range strings.Fields(input) {
+		if strings.HasPrefix(term, "-") || strings.EqualFold(term, "OR") {
+			return true
+		}
+	}
+	return false
+}
+
+func escapeLikePattern(input string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(input)
 }

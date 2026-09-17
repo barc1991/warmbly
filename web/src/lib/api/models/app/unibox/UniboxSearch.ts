@@ -21,7 +21,12 @@ export const UNIBOX_FOLDERS: UniboxFolder[] = [
 ];
 
 export interface UniboxSearchParams {
-  query?: string; // Free text — currently matched as subject ILIKE
+  /**
+   * Free text. Matched against the subject, the preview, the message body,
+   * and the sender and recipients. Quoted phrases, OR and -exclusion work;
+   * a half-typed word matches as a prefix.
+   */
+  query?: string;
   from?: string; // Sender substring
   /** Exact address match against sender or recipients (compose history). */
   address?: string;
