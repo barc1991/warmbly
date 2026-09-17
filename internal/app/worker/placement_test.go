@@ -87,6 +87,29 @@ func TestRebalanceCanCorrectExistingConcentration(t *testing.T) {
 	}
 }
 
+func TestConcentrationMoveUsesFreshCandidateCounts(t *testing.T) {
+	result := &PlacementResult{
+		CountsKnown:                  true,
+		IncumbentOrgMailboxes:        10,
+		IncumbentProviderMailboxes:   8,
+		DestinationOrgMailboxes:      9,
+		DestinationProviderMailboxes: 8,
+	}
+	if !result.RelievesConcentration(true, true) {
+		t.Fatal("a destination that reduces one concentration without worsening the other should be accepted")
+	}
+
+	result.DestinationProviderMailboxes = 9
+	if result.RelievesConcentration(true, true) {
+		t.Fatal("a destination that worsens provider concentration should be refused")
+	}
+
+	result.CountsKnown = false
+	if result.RelievesConcentration(true, false) {
+		t.Fatal("fallback placement without fresh neighbour counts must not drive a concentration move")
+	}
+}
+
 func TestIncumbentLosesWhenItHasNoHeadroom(t *testing.T) {
 	incumbent := uuid.New()
 	other := uuid.New()

@@ -7,10 +7,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// WorkerHealthState is the rolled-up health label maintained by the
-// assignment loop. Authoritative for "can this worker accept new
-// mailboxes" placement decisions. Mirrors the warmup health vocabulary
-// but applies to whole workers, not per-mailbox warmup state.
+// WorkerHealthState is the externally managed machine-health label used by placement.
 type WorkerHealthState string
 
 const (

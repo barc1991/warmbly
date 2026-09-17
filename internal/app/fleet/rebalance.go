@@ -90,7 +90,9 @@ func (r *Rotator) tick(ctx context.Context) error {
 		}
 
 		awayFromOwn := state.ReservedWorkerID != nil && *state.ReservedWorkerID != *state.WorkerID
-		imbalanced := state.PlacementImbalanced()
+		orgImbalanced := state.OrganizationPlacementImbalanced()
+		providerImbalanced := state.ProviderPlacementImbalanced()
+		imbalanced := orgImbalanced || providerImbalanced
 		urgency, reason := workerapp.EvaluateRotation(workerapp.RotationInput{
 			WorkerActive:                 state.WorkerActive,
 			WorkerLive:                   state.WorkerLive,
@@ -134,6 +136,11 @@ func (r *Rotator) tick(ctx context.Context) error {
 			continue
 		}
 		if res.Worker.ID == *state.WorkerID {
+			continue
+		}
+		concentrationMove := imbalanced && !awayFromOwn &&
+			state.WorkerUtilization <= workerapp.RotationHotUtilization && !leaving
+		if concentrationMove && !res.RelievesConcentration(orgImbalanced, providerImbalanced) {
 			continue
 		}
 		if landed[res.Worker.ID] >= r.MaxMovesPerDestination {

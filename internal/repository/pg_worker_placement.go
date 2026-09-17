@@ -78,8 +78,8 @@ func (s MailboxPlacementState) Residency(now time.Time) time.Duration {
 	return d
 }
 
-// PlacementImbalanced reports concentration that another live worker can relieve.
-func (s MailboxPlacementState) PlacementImbalanced() bool {
+// OrganizationPlacementImbalanced reports organization concentration above a fair share.
+func (s MailboxPlacementState) OrganizationPlacementImbalanced() bool {
 	if s.LiveWorkerCount <= 1 {
 		return false
 	}
@@ -87,8 +87,24 @@ func (s MailboxPlacementState) PlacementImbalanced() bool {
 		return false
 	}
 	orgShare := math.Ceil(float64(s.OrgTotalMailboxes) / float64(s.LiveWorkerCount))
+	return float64(s.WorkerOrgMailboxes) > orgShare
+}
+
+// ProviderPlacementImbalanced reports provider concentration above a fair share.
+func (s MailboxPlacementState) ProviderPlacementImbalanced() bool {
+	if s.LiveWorkerCount <= 1 {
+		return false
+	}
+	if s.ReservedWorkerID != nil && s.WorkerID != nil && *s.ReservedWorkerID == *s.WorkerID {
+		return false
+	}
 	providerShare := math.Ceil(float64(s.ProviderTotalMailboxes) / float64(s.LiveWorkerCount))
-	return float64(s.WorkerOrgMailboxes) > orgShare || float64(s.WorkerProviderMailboxes) > providerShare
+	return float64(s.WorkerProviderMailboxes) > providerShare
+}
+
+// PlacementImbalanced reports concentration that another live worker can relieve.
+func (s MailboxPlacementState) PlacementImbalanced() bool {
+	return s.OrganizationPlacementImbalanced() || s.ProviderPlacementImbalanced()
 }
 
 const placementCandidateSelect = `

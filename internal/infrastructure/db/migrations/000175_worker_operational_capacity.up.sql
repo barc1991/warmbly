@@ -12,11 +12,6 @@ UPDATE workers w
         WHERE ea.worker_id = w.id
    );
 
--- Previous automatic states were derived from recipient bounces and
--- complaints. Those outcomes describe the mailbox, campaign, domain, or
--- recipient list and cannot diagnose the worker machine.
-UPDATE workers SET health_state = 'healthy' WHERE health_state <> 'healthy';
-
 CREATE MATERIALIZED VIEW worker_capacity_view AS
  WITH aggregated AS (
          SELECT worker_health_samples.worker_id,

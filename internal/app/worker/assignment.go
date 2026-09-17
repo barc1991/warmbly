@@ -12,10 +12,7 @@ import (
 	"github.com/warmbly/warmbly/internal/repository"
 )
 
-// defaultMailboxWeight is the weight applied when placement can't fetch the
-// mailbox's provider (row just deleted, or the lookup failed). 1.0 lines up
-// with a raw SMTP mailbox, which is the conservative assumption: better to
-// over-account for the placement than to let a worker over-commit.
+// defaultMailboxWeight counts one assigned mailbox when its metadata cannot be read.
 const defaultMailboxWeight = 1.0
 
 var (
@@ -121,6 +118,28 @@ type PlacementResult struct {
 	// bonus, so comparing them would refuse the move forever and the
 	// organization would never converge onto the worker it is paying for.
 	Mandated bool
+	// CountsKnown distinguishes a scored capacity-view result from the
+	// least-loaded fallback, which cannot prove that a concentration move helps.
+	CountsKnown                  bool
+	IncumbentOrgMailboxes        int
+	IncumbentProviderMailboxes   int
+	DestinationOrgMailboxes      int
+	DestinationProviderMailboxes int
+}
+
+// RelievesConcentration verifies a destination against fresh candidate counts.
+func (r *PlacementResult) RelievesConcentration(checkOrg, checkProvider bool) bool {
+	if r == nil || !r.CountsKnown || (!checkOrg && !checkProvider) {
+		return false
+	}
+	if checkOrg && r.DestinationOrgMailboxes > r.IncumbentOrgMailboxes {
+		return false
+	}
+	if checkProvider && r.DestinationProviderMailboxes > r.IncumbentProviderMailboxes {
+		return false
+	}
+	return (checkOrg && r.DestinationOrgMailboxes < r.IncumbentOrgMailboxes) ||
+		(checkProvider && r.DestinationProviderMailboxes < r.IncumbentProviderMailboxes)
 }
 
 type workerAssignmentService struct {
@@ -151,16 +170,8 @@ func (s *workerAssignmentService) AssignWorkerToEmail(ctx context.Context, email
 		return nil, ErrNoAvailableWorkers
 	}
 
-	if err := s.workerRepo.UpdateEmailAccountWorker(ctx, emailAccountID, res.Worker.ID); err != nil {
+	if err := s.workerRepo.MoveEmailAccountWorker(ctx, emailAccountID, nil, res.Worker.ID, s.resolveMailboxWeight(ctx, emailAccountID)); err != nil {
 		return nil, err
-	}
-	if err := s.workerRepo.IncrementAccountCount(ctx, res.Worker.ID); err != nil {
-		// Non-fatal: the next capacity-view refresh corrects any drift, and
-		// stranding a freshly connected mailbox would be much worse.
-		log.Warn().Err(err).Str("worker_id", res.Worker.ID.String()).Msg("placement: increment account count failed")
-	}
-	if err := s.workerRepo.AddLoadScore(ctx, res.Worker.ID, s.resolveMailboxWeight(ctx, emailAccountID)); err != nil {
-		log.Warn().Err(err).Str("worker_id", res.Worker.ID.String()).Msg("placement: load score bump failed")
 	}
 
 	// Warmup pool membership still follows the subscription. It used to be a
@@ -280,7 +291,13 @@ func (s *workerAssignmentService) buildResult(
 	if worker == nil {
 		return nil, ErrNoAvailableWorkers
 	}
-	res := &PlacementResult{Worker: worker, Score: chosen.Score(req)}
+	res := &PlacementResult{
+		Worker:                       worker,
+		Score:                        chosen.Score(req),
+		CountsKnown:                  true,
+		DestinationOrgMailboxes:      chosen.OrgMailboxesHere,
+		DestinationProviderMailboxes: chosen.ProviderMailboxesHere,
+	}
 	if req.CurrentWorkerID != nil {
 		for _, c := range all {
 			if c.WorkerID != *req.CurrentWorkerID {
@@ -288,6 +305,8 @@ func (s *workerAssignmentService) buildResult(
 			}
 			res.IncumbentEligible = c.Eligible(req)
 			res.IncumbentScore = c.Score(req)
+			res.IncumbentOrgMailboxes = c.OrgMailboxesHere
+			res.IncumbentProviderMailboxes = c.ProviderMailboxesHere
 			break
 		}
 	}
@@ -361,8 +380,7 @@ func (s *workerAssignmentService) hasIsolatedEgress(ctx context.Context, orgID u
 	return plan.IsolatedEgress()
 }
 
-// resolveMailboxWeight turns the mailbox's provider + warmup flag into a load
-// weight. Any error falls back to the conservative default.
+// resolveMailboxWeight reads mailbox metadata at the load-accounting boundary.
 func (s *workerAssignmentService) resolveMailboxWeight(ctx context.Context, emailAccountID uuid.UUID) float64 {
 	hint, err := s.workerRepo.GetEmailAccountPlacementHint(ctx, emailAccountID)
 	if err != nil || hint == nil {
@@ -406,24 +424,7 @@ func (s *workerAssignmentService) MoveMailbox(ctx context.Context, emailAccountI
 	}
 	weight := s.resolveMailboxWeight(ctx, emailAccountID)
 
-	if err := s.workerRepo.UpdateEmailAccountWorker(ctx, emailAccountID, to); err != nil {
-		return err
-	}
-	if from != nil {
-		if err := s.workerRepo.DecrementAccountCount(ctx, *from); err != nil {
-			log.Warn().Err(err).Msg("move: decrement source account count failed")
-		}
-		if err := s.workerRepo.AddLoadScore(ctx, *from, -weight); err != nil {
-			log.Warn().Err(err).Msg("move: source load refund failed")
-		}
-	}
-	if err := s.workerRepo.IncrementAccountCount(ctx, to); err != nil {
-		log.Warn().Err(err).Msg("move: increment target account count failed")
-	}
-	if err := s.workerRepo.AddLoadScore(ctx, to, weight); err != nil {
-		log.Warn().Err(err).Msg("move: target load bump failed")
-	}
-	return nil
+	return s.workerRepo.MoveEmailAccountWorker(ctx, emailAccountID, from, to, weight)
 }
 
 // ReserveIsolatedWorker binds an idle worker to an organization so its

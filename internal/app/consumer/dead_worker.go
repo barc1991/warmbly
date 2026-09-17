@@ -252,20 +252,16 @@ func (s *JobsService) detectDeadWorkers(ctx context.Context) {
 					recordFailure("move_failed", account.OrganizationID)
 					continue
 				}
-			} else if err := s.WorkerRepo.UpdateEmailAccountWorker(ctx, accountID, target.ID); err != nil {
+			} else if err := s.WorkerRepo.MoveEmailAccountWorker(
+				ctx,
+				accountID,
+				&w.ID,
+				target.ID,
+				workerapp.MailboxWeight(account.Provider, account.Warmup != nil),
+			); err != nil {
 				log.Error().Err(err).Str("account_id", accountID.String()).Msg("failed to reassign email account")
 				recordFailure("move_failed", account.OrganizationID)
 				continue
-			} else {
-				_ = s.WorkerRepo.DecrementAccountCount(ctx, w.ID)
-				_ = s.WorkerRepo.IncrementAccountCount(ctx, target.ID)
-				weight := workerapp.MailboxWeight(account.Provider, account.Warmup != nil)
-				if err := s.WorkerRepo.AddLoadScore(ctx, w.ID, -weight); err != nil {
-					log.Warn().Err(err).Str("worker_id", w.ID.String()).Msg("dead worker reassign: source load update failed")
-				}
-				if err := s.WorkerRepo.AddLoadScore(ctx, target.ID, weight); err != nil {
-					log.Warn().Err(err).Str("worker_id", target.ID.String()).Msg("dead worker reassign: destination load update failed")
-				}
 			}
 
 			outcome.Reassigned++
