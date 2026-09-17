@@ -121,21 +121,21 @@ func Decide(answers map[string]Answer, facts Facts) Decision {
 	// answer to a question that had no subject.
 	if d.Kind == KindHumanReply {
 		if a, ok := answers["intent"]; ok {
-			if a.Confidence < ConfFloor {
-				return Decision{
-					Kind:             d.Kind,
-					KindConfidence:   d.KindConfidence,
-					KindSource:       d.KindSource,
-					Intent:           a.Choice,
-					IntentConfidence: a.Confidence,
-					NeedsReview:      true,
-					Labels:           []string{LabelNeedsReview},
-					Priority:         PriorityWhenever,
-					Scores:           map[string]float64{},
-				}
-			}
-			d.Intent = a.Choice
 			d.IntentConfidence = a.Confidence
+			if a.Confidence < ConfFloor {
+				// An unreadable intent is not an unreadable message. On the
+				// first backfill over real mail this discarded a `human_reply`
+				// the model was 0.97 sure of, because it was only 0.6 sure
+				// whether the person wanted information or wanted pricing.
+				//
+				// So the confident half is kept: the kind label, the signals
+				// and the score all stand, and needs-review is added to say
+				// that what they want could not be read. The intent itself is
+				// left unset, because that is the part not to be trusted.
+				d.NeedsReview = true
+			} else {
+				d.Intent = a.Choice
+			}
 		}
 	}
 
@@ -166,6 +166,9 @@ func Decide(answers map[string]Answer, facts Facts) Decision {
 	d.Relevance = relevance(d)
 	d.Priority = bucket(float64(d.Relevance))
 	d.Labels = labelsFor(d)
+	if d.NeedsReview {
+		d.Labels = append(d.Labels, LabelNeedsReview)
+	}
 
 	return d
 }
@@ -226,12 +229,21 @@ func labelsFor(d Decision) []string {
 		add(slug(d.Intent))
 	}
 
-	// Only the signals a human would want to find a thread by. The rest are
-	// stored and scored but would turn the label list into noise.
-	for _, sig := range d.Signals {
-		switch sig {
-		case SigRequestsRemoval, SigLegalThreat, SigAsksForCall, SigNeedsHumanJudgement:
-			add(slug(sig))
+	// Only the signals a human would want to find a thread by, and only where
+	// they can mean anything.
+	//
+	// Gated on a human reply because the first backfill over real mail put
+	// "needs-human-judgement" on nearly every row, bounces and platform
+	// notifications included. A label that is on everything is not a filter,
+	// and "a bounce needs a person to read it" is not true. The signals are
+	// still recorded and still feed the score for every kind; they just do not
+	// become labels on mail no person wrote.
+	if d.Kind == KindHumanReply {
+		for _, sig := range d.Signals {
+			switch sig {
+			case SigRequestsRemoval, SigLegalThreat, SigAsksForCall, SigNeedsHumanJudgement:
+				add(slug(sig))
+			}
 		}
 	}
 

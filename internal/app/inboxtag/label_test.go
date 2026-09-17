@@ -60,3 +60,77 @@ func TestAllLabelsIsSortedAndUnique(t *testing.T) {
 		t.Errorf("only %d labels; expected the full taxonomy", len(labels))
 	}
 }
+
+// The first backfill over real mail put "needs-human-judgement" on bounces and
+// platform notifications: the model answers the question honestly for any text,
+// but the answer is meaningless on mail no person wrote, and a label that lands
+// on everything is not a filter.
+func TestSignalLabelsOnlyOnHumanReplies(t *testing.T) {
+	signals := []string{SigNeedsHumanJudgement, SigAsksForCall, SigRequestsRemoval, SigLegalThreat}
+
+	for _, kind := range []string{KindBounceHard, KindBounceSoft, KindNotification, KindAutoReplyOOO} {
+		got := labelsFor(Decision{Kind: kind, Signals: signals})
+		for _, l := range got {
+			if l != slugOf(kind) {
+				t.Errorf("kind %s got signal label %q; signals only label a human reply", kind, l)
+			}
+		}
+	}
+
+	human := labelsFor(Decision{Kind: KindHumanReply, Intent: IntentAgreed, Signals: signals})
+	for _, want := range []string{"human-reply", "agreed", "asks-for-call", "needs-human-judgement"} {
+		found := false
+		for _, l := range human {
+			if l == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("a human reply lost the %q label: got %v", want, human)
+		}
+	}
+}
+
+// A kind the model is sure of survives an intent it is not sure of. The first
+// backfill over real mail threw away four `human_reply` verdicts at 0.97
+// confidence because the intent behind them sat at 0.6, which is the confident
+// half being discarded along with the doubtful one.
+func TestUnreadableIntentKeepsTheConfidentKind(t *testing.T) {
+	answers := map[string]Answer{
+		"kind":         {Type: QuestionChoice, Choice: KindHumanReply, Confidence: 0.97},
+		"intent":       {Type: QuestionChoice, Choice: IntentWantsInfo, Confidence: 0.60},
+		SigAsksForCall: {Type: QuestionNoul, Noul: 0.95},
+	}
+	d := Decide(answers, Facts{})
+
+	if !d.NeedsReview {
+		t.Error("an unreadable intent should still raise needs-review")
+	}
+	if d.Intent != "" {
+		t.Errorf("intent %q kept despite being below the floor", d.Intent)
+	}
+	if d.Kind != KindHumanReply {
+		t.Errorf("kind = %q; a 0.97 verdict should survive", d.Kind)
+	}
+
+	has := func(want string) bool {
+		for _, l := range d.Labels {
+			if l == want {
+				return true
+			}
+		}
+		return false
+	}
+	if !has("human-reply") {
+		t.Errorf("lost the confident kind label: %v", d.Labels)
+	}
+	if !has(LabelNeedsReview) {
+		t.Errorf("did not flag it for review: %v", d.Labels)
+	}
+	if has("wants-info") {
+		t.Errorf("applied the untrusted intent as a label: %v", d.Labels)
+	}
+	if d.Relevance == 0 {
+		t.Error("scored 0 despite a confident kind and a call request")
+	}
+}

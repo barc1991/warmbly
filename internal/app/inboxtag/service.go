@@ -3,8 +3,10 @@ package inboxtag
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -39,7 +41,10 @@ type Categories interface {
 	// filterable from the moment the feature is on rather than appearing one
 	// at a time as each first fires.
 	EnsureAll(ctx context.Context, orgID uuid.UUID, slugs []string) error
-	SetThreadLabels(ctx context.Context, orgID, userID uuid.UUID, threadID string, categoryIDs []uuid.UUID) error
+	// AddThreadLabels is additive on purpose. Automatic tagging must never
+	// remove a label a teammate applied by hand, and a "set" would do exactly
+	// that on every re-classification.
+	AddThreadLabels(ctx context.Context, orgID uuid.UUID, threadID string, categoryIDs []uuid.UUID) error
 }
 
 // MailboxAddresses answers "is this one of ours", which is a fact and must
@@ -270,7 +275,7 @@ func (s *Service) applyLabels(ctx context.Context, m Message, d Decision) error 
 		}
 		ids = append(ids, id)
 	}
-	return s.categories.SetThreadLabels(ctx, m.OrganizationID, m.UserID, m.ThreadID, ids)
+	return s.categories.AddThreadLabels(ctx, m.OrganizationID, m.ThreadID, ids)
 }
 
 // MessageFrom projects a stored inbound message into the service's input.
@@ -294,4 +299,125 @@ func MessageFrom(orgID, userID uuid.UUID, msg *models.EmailMessageStoreData, hea
 		Campaign:        campaign,
 		Outbound:        !msg.MayBeInbound(),
 	}
+}
+
+// ── Backfill ───────────────────────────────────────────────────────────────
+
+// BackfillProgress is reported after each message so a long run says what it
+// is doing rather than going quiet for an hour.
+type BackfillProgress struct {
+	Considered int
+	Classified int
+	Skipped    int
+	Failed     int
+	Tokens     int
+}
+
+// BackfillOptions bound one run.
+type BackfillOptions struct {
+	// Since is the oldest message to consider.
+	Since time.Time
+	// Limit caps how many messages this run classifies. A backfill over a
+	// large mailbox is real money and real time, so it is always bounded and
+	// always resumable rather than being one unbounded job.
+	Limit int
+	// DryRun lists what would be classified and calls nothing. This is how you
+	// find out the size and cost of a run before paying for it.
+	DryRun bool
+	// OnProgress is called after each message. Optional.
+	OnProgress func(BackfillProgress, string)
+}
+
+// Backfill classifies historical inbound mail that has never been tagged.
+//
+// It exists because a classifier that only sees new arrivals is useless on the
+// day you turn it on: the inbox you want sorted is the one already sitting
+// there. Phase 1 of the plan says to run it over the existing inbox for exactly
+// that reason, and then watch it for a week.
+//
+// Safe to re-run. Every message is idempotent on its Message-ID, so an
+// interrupted run resumes where it stopped and a repeated run costs nothing.
+// Cancelling the context stops it cleanly: each message is saved as it goes, so
+// the work already done is kept.
+func (s *Service) Backfill(ctx context.Context, orgID uuid.UUID, opts BackfillOptions) (BackfillProgress, error) {
+	var p BackfillProgress
+	if !s.Enabled() {
+		return p, errors.New("inbox tagging is not enabled on this instance")
+	}
+	if opts.Limit <= 0 {
+		opts.Limit = 200
+	}
+
+	candidates, err := s.repo.ListUntagged(ctx, orgID, opts.Since, opts.Limit)
+	if err != nil {
+		return p, err
+	}
+
+	// The taxonomy is created up front even on a dry run, so the labels are
+	// filterable in the inbox before the first message is classified.
+	if !opts.DryRun {
+		s.seedTaxonomy(ctx, orgID)
+	}
+
+	for _, c := range candidates {
+		if err := ctx.Err(); err != nil {
+			return p, err
+		}
+		p.Considered++
+
+		if opts.DryRun {
+			p.Classified++
+			if opts.OnProgress != nil {
+				opts.OnProgress(p, c.Subject)
+			}
+			continue
+		}
+
+		// Our previous message in the thread, looked up rather than asked:
+		// a reply cannot be read without the thing it replies to.
+		previous, _ := s.repo.PreviousOutbound(ctx, c.EmailAccountID, c.ThreadID, c.InternalDate)
+
+		d, err := s.Classify(ctx, Message{
+			OrganizationID:  orgID,
+			UserID:          c.UserID,
+			EmailAccountID:  c.EmailAccountID,
+			MessageID:       c.MessageID,
+			ThreadID:        c.ThreadID,
+			Subject:         c.Subject,
+			BodyText:        c.BodyText,
+			FromAddr:        c.FromAddr,
+			PreviousMessage: previous,
+		})
+		switch {
+		case err != nil:
+			p.Failed++
+			log.Warn().Err(err).Str("message_id", c.MessageID).Msg("inbox tagging backfill: message failed")
+		case d.Skipped() || d.KindSource == "":
+			p.Skipped++
+		default:
+			p.Classified++
+		}
+
+		if opts.OnProgress != nil {
+			opts.OnProgress(p, c.Subject)
+		}
+	}
+
+	return p, nil
+}
+
+// PreviousOutbound exposes the thread lookup to callers that build a Message
+// themselves, so the live ingest path and the backfill give the model the same
+// context rather than one of them sending a reply with nothing to answer.
+// Nil-safe and never fatal: no previous message is the normal case for the
+// first inbound of a thread.
+func (s *Service) PreviousOutbound(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) string {
+	if !s.Enabled() || threadID == "" {
+		return ""
+	}
+	body, err := s.repo.PreviousOutbound(ctx, accountID, threadID, before)
+	if err != nil {
+		return ""
+	}
+	return body
 }

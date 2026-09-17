@@ -39,6 +39,10 @@ type InboxTagRepository interface {
 	// ListForReview backs the phase-1 review page: what was decided, how
 	// confident it was, and what it would have done.
 	ListForReview(ctx context.Context, orgID uuid.UUID, limit, offset int, needsReviewOnly bool) ([]InboxTagResult, int, error)
+
+	// ListUntagged and PreviousOutbound back the historical backfill.
+	ListUntagged(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) ([]BackfillCandidate, error)
+	PreviousOutbound(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) (string, error)
 }
 
 type inboxTagRepository struct {
@@ -125,4 +129,92 @@ func (r *inboxTagRepository) ListForReview(ctx context.Context, orgID uuid.UUID,
 		out = append(out, x)
 	}
 	return out, total, rows.Err()
+}
+
+// BackfillCandidate is one historical message the backfill may classify.
+type BackfillCandidate struct {
+	EmailAccountID uuid.UUID
+	UserID         uuid.UUID
+	MessageID      string
+	ThreadID       string
+	Subject        string
+	BodyText       string
+	FromAddr       string
+	InternalDate   time.Time
+}
+
+// ListUntagged returns inbound messages that have never been classified, newest
+// first, for the backfill.
+//
+// Three exclusions, all deliberate:
+//
+//   - folder = 'inbox' only. Our own sends are never classified, and the folder
+//     is the fact that says which is which. Reading direction from content is
+//     how our own outbound gets labelled a human reply at 0.94 confidence.
+//   - a sender that is one of our own mailboxes is dropped even inside the
+//     inbox folder: mail between two connected mailboxes lands in the second
+//     one's inbox and is still ours.
+//   - anything already in inbox_tag_results, so a re-run resumes rather than
+//     repeats. Same key the live path is idempotent on.
+func (r *inboxTagRepository) ListUntagged(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) ([]BackfillCandidate, error) {
+	const q = `
+		SELECT ue.email_id, ue.user_id, ue.message_id, ue.thread_id,
+		       ue.subject, ue.body_text, COALESCE(ue.from_addr[1], ''), ue.internal_date
+		FROM unibox_emails ue
+		JOIN email_accounts ea ON ea.id = ue.email_id
+		WHERE ea.organization_id = $1
+		  AND ue.folder = 'inbox'
+		  AND ue.internal_date >= $2
+		  AND ue.message_id <> ''
+		  AND LOWER(COALESCE(NULLIF((regexp_match(COALESCE(ue.from_addr[1], ''), '\(([^()]+)\)\s*$'))[1], ''), TRIM(COALESCE(ue.from_addr[1], ''))))
+		      NOT IN (SELECT LOWER(email) FROM email_accounts WHERE organization_id = $1)
+		  AND NOT EXISTS (
+		        SELECT 1 FROM inbox_tag_results r
+		        WHERE r.organization_id = $1 AND r.message_id = ue.message_id
+		      )
+		ORDER BY ue.internal_date DESC
+		LIMIT $3
+	`
+	rows, err := r.db.Query(ctx, q, orgID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []BackfillCandidate
+	for rows.Next() {
+		var c BackfillCandidate
+		if err := rows.Scan(&c.EmailAccountID, &c.UserID, &c.MessageID, &c.ThreadID,
+			&c.Subject, &c.BodyText, &c.FromAddr, &c.InternalDate); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// PreviousOutbound is the plain text of the last message we sent in a thread
+// before a given moment.
+//
+// Without it a reply cannot be read: "yes", "that works" and "sounds good" are
+// answers, and the question they answer is not in them. Giving the model our
+// side of the exchange is what lets the reply mean anything.
+func (r *inboxTagRepository) PreviousOutbound(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) (string, error) {
+	if threadID == "" {
+		return "", nil
+	}
+	const q = `
+		SELECT body_text
+		FROM unibox_emails
+		WHERE email_id = $1 AND thread_id = $2 AND folder = 'sent' AND internal_date < $3
+		ORDER BY internal_date DESC
+		LIMIT 1
+	`
+	var body string
+	if err := r.db.QueryRow(ctx, q, accountID, threadID, before).Scan(&body); err != nil {
+		// No previous message is the normal case for the first inbound of a
+		// thread, not an error worth failing a classification over.
+		return "", nil
+	}
+	return body, nil
 }

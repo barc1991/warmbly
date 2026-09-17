@@ -58,7 +58,26 @@ INBOX_TAGGING_ENABLED=true  # off by default even when a key is present
 
 Then **Settings > Inbox tagging** shows every decision: the labels, the relevance, the confidence, and where the verdict came from. Watch it for a week before trusting it. That is what this phase is for.
 
+## Backfilling mail you already have
+
+A classifier that only sees new arrivals is no use on the day you switch it on: the inbox you want sorted is the one already sitting there. Run it over your history:
+
+```bash
+# See what it would cover, and what it would cost. Calls nothing, writes nothing.
+warmblyctl inbox-tag backfill --org you@example.com --days 30 --dry-run
+
+# Then do it.
+warmblyctl inbox-tag backfill --org you@example.com --days 30 --limit 200
+```
+
+It is bounded and resumable. Every message is idempotent on its Message-ID, so hitting the limit, pressing Ctrl-C, or running it twice all behave the way you would want: work already done is kept, and the next run picks up where the last one stopped. Nothing is classified twice.
+
+Only inbound mail is covered. Your own sends are excluded, and so is mail from one of your connected mailboxes to another, which lands in the second one's inbox and is still yours.
+
+A backfill fills in the previous message in each thread from your sent mail, so a reply reading "yes, let's do it" is judged against the thing it is agreeing to.
+
 ## What it costs
+
 
 One call per message, with every question in it. The questions do not see each other's answers, so asking twenty costs what asking one costs, and a message runs about 1,300 input tokens. Output tokens are not billed. At current pricing that is a small fraction of a cent per message; it is not a reason to skip the feature, and it is not a reason to batch.
 

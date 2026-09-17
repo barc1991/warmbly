@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/repository"
@@ -199,8 +200,10 @@ func (c *countingAsker) Ask(_ context.Context, _ any, q map[string]Question) (*R
 }
 
 type fakeRepo struct {
-	tagged map[string]bool
-	saved  []*repository.InboxTagResult
+	tagged   map[string]bool
+	saved    []*repository.InboxTagResult
+	untagged []repository.BackfillCandidate
+	previous string
 }
 
 func (f *fakeRepo) AlreadyTagged(_ context.Context, _ uuid.UUID, id string) (bool, error) {
@@ -216,6 +219,13 @@ func (f *fakeRepo) Save(_ context.Context, r *repository.InboxTagResult) error {
 }
 func (f *fakeRepo) ListForReview(context.Context, uuid.UUID, int, int, bool) ([]repository.InboxTagResult, int, error) {
 	return nil, 0, nil
+}
+
+func (f *fakeRepo) ListUntagged(context.Context, uuid.UUID, time.Time, int) ([]repository.BackfillCandidate, error) {
+	return f.untagged, nil
+}
+func (f *fakeRepo) PreviousOutbound(context.Context, uuid.UUID, string, time.Time) (string, error) {
+	return f.previous, nil
 }
 
 func newService(t *testing.T, asker Asker, repo repository.InboxTagRepository) *Service {

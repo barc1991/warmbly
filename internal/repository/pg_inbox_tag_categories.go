@@ -116,3 +116,24 @@ func (s *TagCategoryStore) EnsureAll(ctx context.Context, orgID uuid.UUID, slugs
 	}
 	return nil
 }
+
+// AddThreadLabels attaches labels without removing any, mirroring the unibox
+// repository's own additive path.
+//
+// Additive is the whole point: a person who labelled a thread "important" must
+// not lose it because the classifier ran again. Only the workspace's own
+// categories are attached (the SELECT is the guard), and the applier is left
+// NULL because there is no human behind an automatic label.
+func (s *TagCategoryStore) AddThreadLabels(ctx context.Context, orgID uuid.UUID, threadID string, categoryIDs []uuid.UUID) error {
+	if threadID == "" || len(categoryIDs) == 0 {
+		return nil
+	}
+	_, err := s.db.Exec(ctx, `
+		INSERT INTO unibox_thread_labels (organization_id, thread_id, category_id)
+		SELECT $1, $2, c.id
+		FROM categories c
+		WHERE c.organization_id = $1 AND c.id = ANY($3)
+		ON CONFLICT (organization_id, thread_id, category_id) DO NOTHING
+	`, orgID, threadID, categoryIDs)
+	return err
+}

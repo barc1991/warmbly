@@ -475,7 +475,12 @@ func (s *JobsService) tagInboundMessage(ctx context.Context, e *models.JobEventN
 		return
 	}
 
-	msg := inboxtag.MessageFrom(orgID, e.UserID, e.Message, nil, "", "")
+	// Our previous message in the thread, read from the database rather than
+	// asked. A reply is an answer, and the question it answers is not in it:
+	// without this, "yes" and "that works" carry no meaning for the model.
+	previous := s.InboxTagger.PreviousOutbound(ctx, e.Message.EmailID, e.Message.ThreadID, e.Message.InternalDate)
+
+	msg := inboxtag.MessageFrom(orgID, e.UserID, e.Message, nil, previous, "")
 	if _, err := s.InboxTagger.Classify(ctx, msg); err != nil {
 		log.Warn().Err(err).
 			Str("email_account_id", e.Message.EmailID.String()).
