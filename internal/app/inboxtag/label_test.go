@@ -109,8 +109,8 @@ func TestUnreadableIntentKeepsTheConfidentKind(t *testing.T) {
 	if d.ReviewReason != "intent" {
 		t.Errorf("review reason = %q, want intent", d.ReviewReason)
 	}
-	if d.Intent != "" {
-		t.Errorf("intent %q kept despite being below the floor", d.Intent)
+	if d.Intent != IntentWantsInfo {
+		t.Errorf("intent %q not retained for review", d.Intent)
 	}
 	if d.Kind != KindHumanReply {
 		t.Errorf("kind = %q; a 0.97 verdict should survive", d.Kind)

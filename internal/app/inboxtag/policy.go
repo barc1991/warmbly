@@ -10,16 +10,15 @@
 // Three rules shape the design, and each one exists because breaking it
 // produced a wrong answer in testing:
 //
-//  1. One call per email. Questions do not see each other's answers; they run
-//     in parallel against a single state ingest, so asking twelve costs what
-//     asking one costs. A per-tag loop is a bug, not an optimisation.
+//  1. One call per email. Questions run in parallel against one state ingest,
+//     which avoids repeated requests and duplicated state tokens.
 //
 //  2. The model tags, code decides. No answer here reaches a side effect on its
 //     own. decide() in decide.go is the only thing that turns answers into
 //     labels, and in this phase labels are all it may produce.
 //
 //  3. Never ask the model what the system already knows. Direction, sender,
-//     campaign, thread length and the RFC-3834 auto-reply headers are facts.
+//     campaign context and deterministic automated-message signals are facts.
 //     Given only a body, Jev called our own outbound a human reply at 0.94
 //     confidence: confidently wrong, and confidence cannot save you from a
 //     question that should never have been asked.
@@ -87,9 +86,8 @@ var kindCriteria = map[string]string{
 	KindInternal:        "From our own team or forwarded internally",
 }
 
-// Intent is asked on every message because questions are free, and read only
-// when the kind is a human reply. Reading it on a bounce would be reading an
-// answer to a question that had no subject.
+// Intent travels in the same request but is read only when the kind is a human
+// reply. Reading it on a bounce would use an answer with no subject.
 const (
 	IntentAgreed        = "agreed"
 	IntentWantsInfo     = "wants_info"
@@ -256,9 +254,7 @@ func bucket(relevance float64) string {
 // the one label that means "the system declined to decide".
 const LabelNeedsReview = "needs-review"
 
-// Questions is the entire question set, built once. Every call sends all of
-// them: they are evaluated in parallel against one state ingest, so the set
-// costs the same as its largest member.
+// Questions is the entire question set, built once for one parallel request.
 func Questions() map[string]Question {
 	q := make(map[string]Question, len(signalInstructions)+len(scoreCriteria)+2)
 

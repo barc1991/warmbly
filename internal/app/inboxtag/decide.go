@@ -114,12 +114,12 @@ func Decide(answers map[string]Answer, facts Facts) Decision {
 	}
 
 	// ── Intent: only meaningful for a human reply ──────────────────────────
-	// It is asked on every message because questions are free, and read here
-	// only when there was a person on the other end. Intent on a bounce is an
-	// answer to a question that had no subject.
+	// It travels in the same request and is read only when there was a person on
+	// the other end. Intent on a bounce is an answer with no subject.
 	if d.Kind == KindHumanReply {
 		if a, ok := answers["intent"]; ok {
 			d.IntentConfidence = a.Confidence
+			d.Intent = a.Choice
 			if a.Confidence < ConfFloor {
 				// An unreadable intent is not an unreadable message. On the
 				// first backfill over real mail this discarded a `human_reply`
@@ -128,12 +128,10 @@ func Decide(answers map[string]Answer, facts Facts) Decision {
 				//
 				// So the confident half is kept: the kind label, the signals
 				// and the score all stand, and needs-review is added to say
-				// that what they want could not be read. The intent itself is
-				// left unset, because that is the part not to be trusted.
+				// that what they want could not be read. The untrusted answer is
+				// retained for review but does not affect labels or relevance.
 				d.NeedsReview = true
 				d.ReviewReason = "intent"
-			} else {
-				d.Intent = a.Choice
 			}
 		}
 	}
@@ -187,7 +185,7 @@ func relevance(d Decision) int {
 	}
 
 	// Intent, which is only ever set for a human reply.
-	if w, ok := Weights[d.Intent]; ok && d.Intent != "" {
+	if w, ok := Weights[d.Intent]; ok && d.Intent != "" && d.ReviewReason != "intent" {
 		total += w
 	}
 
@@ -224,7 +222,7 @@ func labelsFor(d Decision) []string {
 	}
 
 	add(slug(d.Kind))
-	if d.Kind == KindHumanReply {
+	if d.Kind == KindHumanReply && d.ReviewReason != "intent" {
 		add(slug(d.Intent))
 	}
 

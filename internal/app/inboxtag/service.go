@@ -140,9 +140,7 @@ func (s *Service) Classify(ctx context.Context, m Message) (Decision, error) {
 			release()
 			return Decision{}, nil
 		}
-		// 4. ONE call. Every question at once: they are evaluated in parallel
-		// against a single state ingest, so the set costs what its largest
-		// member costs. A loop per tag would be a bug.
+		// 4. Send every question in one request to avoid repeated state ingest.
 		resp, err = s.asker.Ask(ctx, state, Questions())
 		if err != nil {
 			release()
