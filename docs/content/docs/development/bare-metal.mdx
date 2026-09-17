@@ -39,7 +39,7 @@ flowchart LR
 | PostgreSQL 16, Redis 7, NATS 2.10+ | The backing services. Any packaging works: distro packages, upstream repositories, or a managed instance elsewhere |
 | Go 1.25 | Builds the backend, consumer, worker, `migrate` and `warmblyctl` |
 | Rust (stable, 1.93 or newer) | Builds the tracking service |
-| Elixir 1.18 on OTP 26 | Builds the realtime service |
+| Elixir 1.18 on OTP 27 | Builds the realtime service |
 | Node 22 and pnpm | Builds the dashboard, admin panel and forms app |
 | nginx | Serves the static frontends and terminates TLS for the API, websocket, tracking and forms hosts |
 | Six DNS names | `app`, `admin`, `api`, `ws`, `t` and `forms` under your domain, all pointing at the host |
