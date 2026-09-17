@@ -131,45 +131,45 @@ interface NavSection {
 
 const topItems: NavItem[] = [
     {
-        title: "Inbox",
+        title: "תיבת דואר",
         url: "/app/unibox",
         icon: InboxIcon,
         badgeStoreKey: "unseenCount",
         requires: "inbox",
         permission: "ACCESS_UNIBOX",
-        permissionLabel: "Use unified inbox",
+        permissionLabel: "שימוש בתיבת דואר מאוחדת",
     },
 ];
 
 const sections: NavSection[] = [
     {
-        label: "Email",
+        label: "דוא״ל",
         items: [
-            { title: "Accounts", url: "/app/emails", icon: MailIcon, indicator: "accounts", advisorSurface: "emails", permission: "MANAGE_EMAILS", permissionLabel: "Manage mailboxes" },
-            { title: "Campaigns", requires: "subscription", url: "/app/campaigns", icon: MegaphoneIcon, indicator: "campaigns", advisorSurface: "campaigns", permission: "VIEW_CAMPAIGNS", permissionLabel: "View campaigns" },
-            { title: "Contacts", requires: "subscription", url: "/app/contacts", icon: UsersIcon, indicator: "contacts", advisorSurface: "contacts", permission: "VIEW_CONTACTS", permissionLabel: "View contacts" },
-            { title: "Forms", requires: "subscription", url: "/app/forms", icon: ClipboardListIcon, permission: "VIEW_CONTACTS", permissionLabel: "View contacts" },
-            { title: "Analytics", requires: "subscription", url: "/app/analytics", icon: BarChart3Icon, indicator: "analytics", permission: "VIEW_ANALYTICS", permissionLabel: "View analytics" },
-            { title: "Deliverability", requires: "subscription", url: "/app/deliverability", icon: ShieldCheckIcon, advisorSurface: "deliverability", permission: "VIEW_ANALYTICS", permissionLabel: "View analytics" },
+            { title: "חשבונות", url: "/app/emails", icon: MailIcon, indicator: "accounts", advisorSurface: "emails", permission: "MANAGE_EMAILS", permissionLabel: "ניהול תיבות דואר" },
+            { title: "קמפיינים", requires: "subscription", url: "/app/campaigns", icon: MegaphoneIcon, indicator: "campaigns", advisorSurface: "campaigns", permission: "VIEW_CAMPAIGNS", permissionLabel: "צפייה בקמפיינים" },
+            { title: "אנשי קשר", requires: "subscription", url: "/app/contacts", icon: UsersIcon, indicator: "contacts", advisorSurface: "contacts", permission: "VIEW_CONTACTS", permissionLabel: "צפייה באנשי קשר" },
+            { title: "טפסים", requires: "subscription", url: "/app/forms", icon: ClipboardListIcon, permission: "VIEW_CONTACTS", permissionLabel: "צפייה באנשי קשר" },
+            { title: "אנליטיקה", requires: "subscription", url: "/app/analytics", icon: BarChart3Icon, indicator: "analytics", permission: "VIEW_ANALYTICS", permissionLabel: "צפייה באנליטיקה" },
+            { title: "יכולת מסירה", requires: "subscription", url: "/app/deliverability", icon: ShieldCheckIcon, advisorSurface: "deliverability", permission: "VIEW_ANALYTICS", permissionLabel: "צפייה באנליטיקה" },
         ],
     },
     {
         label: "CRM",
         items: [
-            { title: "Pipelines", requires: "subscription", url: "/app/crm/pipelines", icon: GitBranchIcon, indicator: "pipelines", permission: "VIEW_CONTACTS", permissionLabel: "View contacts" },
-            { title: "Deals", requires: "subscription", url: "/app/crm/deals", icon: CircleDollarSignIcon, indicator: "deals", permission: "VIEW_CONTACTS", permissionLabel: "View contacts" },
-            { title: "Tasks", requires: "subscription", url: "/app/crm/tasks", icon: CheckSquareIcon, indicator: "tasks", permission: "VIEW_CONTACTS", permissionLabel: "View contacts" },
-            { title: "Meetings", requires: "subscription", url: "/app/crm/meetings", icon: CalendarClockIcon, indicator: "meetings", permission: "VIEW_CONTACTS", permissionLabel: "View contacts" },
+            { title: "צינורות", requires: "subscription", url: "/app/crm/pipelines", icon: GitBranchIcon, indicator: "pipelines", permission: "VIEW_CONTACTS", permissionLabel: "צפייה באנשי קשר" },
+            { title: "עסקאות", requires: "subscription", url: "/app/crm/deals", icon: CircleDollarSignIcon, indicator: "deals", permission: "VIEW_CONTACTS", permissionLabel: "צפייה באנשי קשר" },
+            { title: "משימות", requires: "subscription", url: "/app/crm/tasks", icon: CheckSquareIcon, indicator: "tasks", permission: "VIEW_CONTACTS", permissionLabel: "צפייה באנשי קשר" },
+            { title: "פגישות", requires: "subscription", url: "/app/crm/meetings", icon: CalendarClockIcon, indicator: "meetings", permission: "VIEW_CONTACTS", permissionLabel: "צפייה באנשי קשר" },
         ],
     },
     {
-        label: "Resources",
+        label: "משאבים",
         items: [
-            { title: "Templates", requires: "subscription", url: "/app/templates", icon: FileTextIcon, indicator: "templates" },
-            { title: "Integrations", requires: "subscription", url: "/app/integrations", icon: CableIcon, indicator: "integrations", permission: "USE_INTEGRATIONS", permissionLabel: "Use integrations" },
-            { title: "Automations", requires: "subscription", url: "/app/automations", icon: ZapIcon, permission: "USE_INTEGRATIONS", permissionLabel: "Use integrations" },
-            { title: "API Keys", requires: "subscription", url: "/app/api-keys", icon: KeyIcon, indicator: "apikeys", permission: "MANAGE_API_KEYS", permissionLabel: "Manage API keys" },
-            { title: "Audit log", requires: "subscription", url: "/app/audit", icon: ListChecksIcon, rolesAllowed: "manage" },
+            { title: "תבניות", requires: "subscription", url: "/app/templates", icon: FileTextIcon, indicator: "templates" },
+            { title: "אינטגרציות", requires: "subscription", url: "/app/integrations", icon: CableIcon, indicator: "integrations", permission: "USE_INTEGRATIONS", permissionLabel: "שימוש באינטגרציות" },
+            { title: "אוטומציות", requires: "subscription", url: "/app/automations", icon: ZapIcon, permission: "USE_INTEGRATIONS", permissionLabel: "שימוש באינטגרציות" },
+            { title: "מפתחות API", requires: "subscription", url: "/app/api-keys", icon: KeyIcon, indicator: "apikeys", permission: "MANAGE_API_KEYS", permissionLabel: "ניהול מפתחות API" },
+            { title: "יומן ביקורת", requires: "subscription", url: "/app/audit", icon: ListChecksIcon, rolesAllowed: "manage" },
         ],
     },
 ];
@@ -509,7 +509,7 @@ function CampaignActivity() {
             active={active}
             activeClass="text-sky-600"
             activeGlyph={<span className="campaign-grid" aria-hidden />}
-            title={`${campaigns.length} campaign${campaigns.length === 1 ? "" : "s"}${active > 0 ? `, ${active} sending now` : ""}`}
+            title={`${campaigns.length} קמפיינים${active > 0 ? `, ${active} שולחים עכשיו` : ""}`}
         />
     );
 }
@@ -533,7 +533,7 @@ function MailboxActivity() {
             activeGlyph={
                 <FlameIcon className="w-3.5 h-3.5 flame-flicker" strokeWidth={2.2} />
             }
-            title={`${emails.length} mailbox${emails.length === 1 ? "" : "es"}${warming > 0 ? `, ${warming} warming up` : ""}`}
+            title={`${emails.length} תיבות דואר${warming > 0 ? `, ${warming} מתחממות` : ""}`}
         />
     );
 }
@@ -560,7 +560,7 @@ function TasksActivity() {
                     <span className="absolute inset-0 rounded-full bg-red-500/40 animate-ping" />
                 </span>
             }
-            title={`${todo} open task${todo === 1 ? "" : "s"}${overdue > 0 ? `, ${overdue} overdue` : ""}`}
+            title={`${todo} משימות פתוחות${overdue > 0 ? `, ${overdue} באיחור` : ""}`}
         />
     );
 }
@@ -582,7 +582,7 @@ function MeetingsActivity() {
                     <span className="absolute inset-0 rounded-full bg-sky-500/40 animate-ping" />
                 </span>
             }
-            title={`${upcoming} upcoming meeting${upcoming === 1 ? "" : "s"}${today > 0 ? `, ${today} today` : ""}`}
+            title={`${upcoming} פגישות קרובות${today > 0 ? `, ${today} היום` : ""}`}
         />
     );
 }
@@ -593,7 +593,7 @@ function MeetingsActivity() {
 function ContactsActivity() {
     const { data } = useSearchContacts({ options: CONTACTS_COUNT_SEARCH, limit: 10 });
     const total = data?.pages?.[0]?.pagination?.total ?? 0;
-    return <TabStat total={total} title={`${total.toLocaleString()} contacts`} />;
+    return <TabStat total={total} title={`${total.toLocaleString()} אנשי קשר`} />;
 }
 
 // Deals row: open (not won/lost) deals.
@@ -601,7 +601,7 @@ function DealsActivity() {
     const { data } = useDealsSummary(EMPTY_DEAL_SEARCH);
     const open = data?.open_count ?? 0;
     return (
-        <TabStat total={open} title={`${open} open deal${open === 1 ? "" : "s"}`} />
+        <TabStat total={open} title={`${open} עסקאות פתוחות`} />
     );
 }
 
@@ -610,7 +610,7 @@ function PipelinesActivity() {
     const { data } = usePipelines();
     const n = data?.length ?? 0;
     return (
-        <TabStat total={n} title={`${n} pipeline${n === 1 ? "" : "s"}`} />
+        <TabStat total={n} title={`${n} צינורות`} />
     );
 }
 
@@ -619,7 +619,7 @@ function TemplatesActivity() {
     const { data } = useTemplates();
     const n = data?.length ?? 0;
     return (
-        <TabStat total={n} title={`${n} template${n === 1 ? "" : "s"}`} />
+        <TabStat total={n} title={`${n} תבניות`} />
     );
 }
 
@@ -632,7 +632,7 @@ function AnalyticsActivity() {
         <TabStat
             total={sent}
             format={compactN}
-            title={`${sent.toLocaleString()} emails sent today`}
+            title={`${sent.toLocaleString()} אימיילים נשלחו היום`}
         />
     );
 }
@@ -645,7 +645,7 @@ function ApiKeysActivity() {
         <TabStat
             total={active}
             format={(v) => String(Math.round(v))}
-            title={`${active} active API key${active === 1 ? "" : "s"}`}
+            title={`${active} מפתחות API פעילים`}
         />
     );
 }
@@ -864,7 +864,7 @@ function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
             <div className="border-t border-slate-100 px-2.5 py-1.5 flex items-center gap-3 text-[10.5px]">
                 <span
                     className="inline-flex items-center gap-1 text-slate-500"
-                    title={`${mailboxes} ${mailboxes === 1 ? "mailbox" : "mailboxes"} connected`}
+                    title={`${mailboxes} תיבות דואר מחוברות`}
                 >
                     <MailIcon className="w-3 h-3 text-slate-400" />
                     <span className="font-mono tabular-nums">{mailboxes}</span>
@@ -1107,7 +1107,7 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
                     <button
                         type="button"
                         onClick={onClose}
-                        aria-label="Close menu"
+                        aria-label="סגור תפריט"
                         className="w-8 h-8 -mr-1 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
                         <XIcon className="w-4 h-4" />
@@ -1137,7 +1137,7 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
 
             <div className="border-t border-slate-200/60 py-1 shrink-0">
                 <NavRow
-                    item={{ title: "Settings", url: "/app/settings", icon: SettingsIcon }}
+                    item={{ title: "הגדרות", url: "/app/settings", icon: SettingsIcon }}
                     collapsed={iconOnly}
                 />
                 <CollapseToggle collapsed={iconOnly} onToggle={toggleSidebar} />
@@ -1165,7 +1165,7 @@ function CollapseToggle({
     collapsed: boolean;
     onToggle: () => void;
 }) {
-    const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+    const label = collapsed ? "הרחב סרגל צד" : "צמצם סרגל צד";
     return (
         <ShortcutTooltip label={label} combo="b" side="right">
             <button
