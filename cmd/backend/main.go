@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -56,7 +57,6 @@ import (
 	"github.com/warmbly/warmbly/internal/app/fleet"
 	"github.com/warmbly/warmbly/internal/app/fleetnode"
 	"github.com/warmbly/warmbly/internal/app/form"
-	"github.com/warmbly/warmbly/internal/app/geminikeys"
 	"github.com/warmbly/warmbly/internal/app/group"
 	"github.com/warmbly/warmbly/internal/app/guardrail"
 	idempotencyapp "github.com/warmbly/warmbly/internal/app/idempotency"
@@ -85,7 +85,6 @@ import (
 	"github.com/warmbly/warmbly/internal/app/research"
 	"github.com/warmbly/warmbly/internal/app/segment"
 	"github.com/warmbly/warmbly/internal/app/sequence"
-	"github.com/warmbly/warmbly/internal/app/serperkeys"
 	"github.com/warmbly/warmbly/internal/app/settings"
 	"github.com/warmbly/warmbly/internal/app/skills"
 	"github.com/warmbly/warmbly/internal/app/socialauth"
@@ -199,9 +198,6 @@ func main() {
 	var researchService research.Service
 	var skillsService skills.Service
 	var mcpService mcp.Service
-	var geminiKeysService geminikeys.Service
-	var serperKeysService serperkeys.Service
-	var oauthSlotRepository repository.OAuthSlotRepository
 	var emailVerifyService emailverifyapp.Service
 	var placementRepository repository.PlacementRepository
 	var placementService placement.Service
@@ -292,9 +288,14 @@ func main() {
 	// repository / object-storage needs. Declared up here so they
 	// survive the config block where they're initialized.
 	var s3ForHandler storage.Store
+	// The root of trust, surfaced so /api/v1/internal/dek/decrypt can open a
+	// sealed key for a node that carries no KMS credential of its own.
+	var kmsForHandler kms.Provider
 	var emailMessageMapForHandler repository.EmailMessageMapRepository
 	var emailSyncStateRepository repository.EmailSyncStateRepository
 	var trackedLinkRepository repository.TrackedLinkRepository
+	var inboxTagRepository repository.InboxTagRepository
+	var unsubscribeLinkRepository repository.UnsubscribeLinkRepository
 	var customDomainRepository repository.CustomDomainRepository
 	// instanceSettings and the health registry are built after the handler
 	// dependencies, so the pool is hoisted out of the connection block.
@@ -329,7 +330,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		if err := observability.InitSentry(ctx, cfg, "backend"); err != nil {
+		if err := observability.Init(ctx, cfg, "backend"); err != nil {
 			log.Fatal(err)
 		}
 
@@ -384,11 +385,21 @@ func main() {
 			errs.CaptureFatal(err)
 			log.Fatal(err)
 		}
+		kmsForHandler = kms
 
 		geoPath, err := cfg.LoadGeoDBPath(ctx)
 		if err != nil {
 			errs.CaptureFatal(err)
 			log.Fatal(err)
+		}
+
+		// A database the operator pointed us at is fetched once, when nothing is
+		// at the path yet. Failing to get one costs city labels and nothing else,
+		// so it is reported and stepped over.
+		if fetched, ferr := geo.Ensure(ctx, geoPath, cfg.LoadGeoDBURL(ctx)); ferr != nil {
+			log.Printf("GeoIP download failed: %v", ferr)
+		} else if fetched {
+			log.Printf("GeoIP database downloaded to %s.", geoPath)
 		}
 
 		// GeoIP is optional everywhere. It only labels session and audit records
@@ -408,6 +419,18 @@ func main() {
 		if err != nil {
 			errs.CaptureFatal(err)
 			log.Fatal(err)
+		}
+		// The brokered store asks the control plane to sign each operation, so
+		// on the control plane it is asking itself. It also cannot enumerate,
+		// which would leave every mailbox erasure stuck with the customer's
+		// mail still in the bucket. Refused here rather than discovered later
+		// as a queue that never drains.
+		//
+		// The empty prefix is a safe probe: every real backend refuses it with
+		// ErrUnsafePrefix before touching anything, and only the brokered one
+		// answers ErrUnsupported.
+		if _, err := s3.DeletePrefix(ctx, ""); errors.Is(err, storage.ErrUnsupported) {
+			log.Fatal("BLOB_PROVIDER=brokered is for fleet nodes, not the backend: it cannot delete a prefix, so mailbox erasure could never complete. Set s3 or filesystem.")
 		}
 		s3ForHandler = s3
 
@@ -430,6 +453,12 @@ func main() {
 			log.Fatal("Failed to run migrations: ", err)
 		}
 		log.Println("Database migrations completed")
+		// Once, not per warmup tick: the pools are fixed rows, and their absence
+		// (a data-only restore, a manual delete) otherwise fails every tick quietly.
+		if n, perr := instancecheck.CountSeededWarmupPools(ctx, primaryDB.Pool); perr == nil && n != 2 {
+			errs.CaptureException(fmt.Errorf("warmup pools missing: %d of 2 present; see the warmup_pools_missing health check", n))
+			log.Printf("WARNING: only %d of the 2 warmup pools exist; warmup cannot place any mailbox until they are restored", n)
+		}
 
 		primaryRedis, err := cfg.LoadPrimaryRedisEndpoint(ctx)
 		if err != nil {
@@ -608,6 +637,8 @@ func main() {
 		)
 		emailMessageMapForHandler = repository.NewEmailMessageMapRepository(primaryDB)
 		trackedLinkRepository = repository.NewTrackedLinkRepository(primaryDB.Pool)
+		inboxTagRepository = repository.NewInboxTagRepository(primaryDB.Pool)
+		unsubscribeLinkRepository = repository.NewUnsubscribeLinkRepository(primaryDB.Pool)
 		customDomainRepository = repository.NewCustomDomainRepository(primaryDB.Pool)
 		instanceChecksDB = primaryDB.Pool
 		instanceSettings = instancesettings.NewService(instancesettings.NewStore(primaryDB.Pool))
@@ -698,6 +729,7 @@ func main() {
 			writingGenerator = generation.NewAnthropicClient(aiKey)
 		}
 		creditRepository = repository.NewCreditRepository(primaryDB)
+		creditAutoTopUpAttemptRepository := repository.NewCreditAutoTopUpAttemptRepository(primaryDB)
 		aiSettingsRepository = repository.NewAISettingsRepository(primaryDB)
 		creditService = credits.NewService(creditRepository, aiSettingsRepository, cache)
 		webhookRepository := repository.NewWebhookRepository(primaryDB.Pool)
@@ -759,8 +791,10 @@ func main() {
 		subscriptionService = subscription.NewService(subscriptionRepository, planRepository)
 		// dailyThrottleService needs the cache that's constructed
 		// earlier in main; instantiate up here so org create can use it.
-		dailyThrottleService = dailythrottle.NewService(cache)
-		organizationService = organization.NewService(organizationRepository, subscriptionRepository, userRepostory, dailyThrottleService)
+		if dailyThrottleService == nil {
+			dailyThrottleService = dailythrottle.NewService(cache)
+		}
+		organizationService = organization.NewService(organizationRepository, subscriptionRepository, userRepostory, planRepository, dailyThrottleService)
 
 		// Plan-based webhook/integration fan-out throttle. The cap scales with
 		// the org's effective mailbox allowance (see WebhookDispatchLimit) so a
@@ -779,7 +813,7 @@ func main() {
 				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
-			stripeService = stripe.NewService(stripeCfg, subscriptionRepository, planRepository, workerAssignmentService, discountService)
+			stripeService = stripe.NewService(stripeCfg, subscriptionRepository, planRepository, workerAssignmentService, discountService, creditAutoTopUpAttemptRepository)
 		} else {
 			stripeService = stripe.NewDisabledService()
 		}
@@ -1049,7 +1083,7 @@ func main() {
 		decisionLogRepo := repository.NewDecisionLogRepository(primaryDB)
 
 		// Refresh worker_capacity_view every minute so placement, rotation,
-		// scale and quarantine all see fresh rolling metrics. The materialized
+		// scale all see fresh rolling metrics. The materialized
 		// view is what aggregates the 1h windows across all workers.
 		go jobrun.Loop(ctx, "worker_capacity_refresh", time.Minute, false, workerRepository.RefreshWorkerCapacityView)
 
@@ -1062,11 +1096,6 @@ func main() {
 			WorkerRepo: workerRepository,
 			Decisions:  decisionLogRepo,
 		}).Run(ctx)
-		go (&fleet.QuarantineEvaluator{
-			WorkerRepo: workerRepository,
-			Decisions:  decisionLogRepo,
-		}).Run(ctx)
-
 		workerRepoForHandler = workerRepository
 
 		// Releases service. Off by default for self-host (no vendor image
@@ -1135,8 +1164,6 @@ func main() {
 		emailSyncStateRepository = repository.NewEmailSyncStateRepository(primaryDB)
 		emailService.WireSyncState(emailSyncStateRepository)
 		emailService.WireMailboxes(repository.NewMailboxRepository(primaryDB))
-		oauthSlotRepository = repository.NewOAuthSlotRepository(primaryDB)
-		emailService.WireOAuthSlots(oauthSlotRepository)
 		if instanceSettings != nil {
 			emailService.WireSyncBudget(instanceSettings)
 		}
@@ -1331,6 +1358,9 @@ func main() {
 		if aware, ok := emailSendService.(emailsend.OrgRiskAware); ok {
 			aware.WireOrgRisk(orgRiskRepository)
 		}
+		if aware, ok := emailSendService.(emailsend.TrackedLinksAware); ok {
+			aware.WireTrackedLinks(trackedLinkRepository)
+		}
 		composeService = compose.NewService(emailRepostory, repository.NewComposeRepository(primaryDB))
 		// uniboxService is constructed here (rather than alongside the
 		// other service constructors above) because cancel-scheduled
@@ -1338,6 +1368,9 @@ func main() {
 		// tasksClient isn't initialised until the Cloud Tasks config
 		// block runs.
 		uniboxService = unibox.NewService(cache, s3, uniboxRepository, taskRepository, tasksClient)
+		// Read and unread in the unibox are carried out to the mailbox itself,
+		// so a thread read here is read in Gmail too.
+		uniboxService.WireProviderRelay(eventsPublisher)
 
 		// Org AI skills (playbooks): CRUD for settings + prompt injection + the
 		// load_skill tool source.
@@ -1371,10 +1404,6 @@ func main() {
 			aware.WireAttachments(attachmentRepoForHandler)
 		}
 
-		// Serper Google search & BDR enrichment service
-		serperKeysRepo := repository.NewSerperKeysRepository(primaryDB)
-		serperKeysService = serperkeys.NewService(serperKeysRepo, cipherService, cache)
-
 		// Shared AI tool registry: every tool calls a service-layer function as
 		// the invoking user, so the dashboard agent (M3) and MCP server (M8) can
 		// never exceed the caller's permissions. Built once here with the same
@@ -1389,7 +1418,6 @@ func main() {
 			Audit:        auditService,
 			Search:       aiSearch,
 			Cache:        cache,
-			Serper:       serperKeysService,
 			Emails:       emailService,
 			EmailSend:    emailSendService,
 			Compose:      composeService,
@@ -1414,33 +1442,23 @@ func main() {
 		mcpService = mcp.NewService(repository.NewMCPRepository(primaryDB), cipherService)
 		aiToolRegistry.AddDynamicSource(mcpService)
 
-		// Gemini API keys & multi-key rotation service
-		geminiKeysRepo := repository.NewGeminiKeysRepository(primaryDB)
-		geminiKeysService = geminikeys.NewService(geminiKeysRepo, cipherService)
-
 		// Dashboard AI agent: sessions + streamed, approval-gated, credit-charged
-		// runs over the tool registry. Constructed when a provider or Gemini keys are configured.
-		if aiProvider != nil || geminiKeysService != nil {
+		// runs over the tool registry. Only constructed when a provider is set.
+		if aiProvider != nil {
 			aiAgentService = aiagent.NewService(
 				repository.NewAgentRepository(primaryDB),
 				aiToolRegistry, aiProvider, creditService, featureGateService, auditService, skillsService,
 				aiagent.NewVoicePreamble(organizationService),
 				organizationService,
 			)
-			if geminiKeysService != nil {
-				aiAgentService.SetGeminiService(geminiKeysService)
-			}
 			// Contact research agent + its bounded background drain pool.
-			if aiProvider != nil {
-				researchService = research.NewService(
-					repository.NewResearchRepository(primaryDB),
-					aiToolRegistry, aiProvider, creditService, featureGateService,
-					contactService, organizationService, streamingPublisher, skillsService,
-				)
-				researchService.StartDrainPool(ctx)
-			}
+			researchService = research.NewService(
+				repository.NewResearchRepository(primaryDB),
+				aiToolRegistry, aiProvider, creditService, featureGateService,
+				contactService, organizationService, streamingPublisher, skillsService,
+			)
+			researchService.StartDrainPool(ctx)
 		}
-
 		// Fan reply + bounce events from the advanced-outreach brain out to
 		// customer webhooks AND third-party integration actions (Slack / CRM).
 		advancedService.WireDispatcher(webhookService)
@@ -1504,13 +1522,11 @@ func main() {
 		// agent wired onto the advanced service so any reply processed here also
 		// drafts. Paid + opt-in checked inside; nil provider leaves it inert.
 		aiDraftRepo = repository.NewAIDraftRepository(primaryDB.Pool)
-		inboxAgentSvc := inboxagent.NewService(
+		advancedService.WireInboxAgent(inboxagent.NewService(
 			aiProvider, creditService, featureGateService,
 			organizationRepository, uniboxRepository, skillsService,
 			contactRepostory, aiDraftRepo, streamingPublisher,
-		)
-		inboxAgentSvc.SetBDRComponents(serperKeysRepo, emailRepostory, emailSendService)
-		advancedService.WireInboxAgent(inboxAgentSvc)
+		))
 		emailSender := tasks.NewEmailSender(emailRepostory, eventsPublisher)
 		// Never hand a send to a worker that stopped heartbeating: nothing
 		// would execute it and nothing would report it, so the step would
@@ -1543,7 +1559,7 @@ func main() {
 			trackedLinkRepository,
 			integrationServiceForHandler, // AutomationRunner for campaign run_automation steps
 		)
-		tasksService.SetUnsubscribeLinks(unsubSigner)
+		tasksService.SetUnsubscribeLinks(unsubSigner, unsubscribeLinkRepository)
 		// Sequence action nodes that pin a contact into or out of a segment,
 		// both on the scheduled path (tasks) and the instant reply path (advanced).
 		if aware, ok := tasksService.(tasks.SegmentAware); ok {
@@ -1665,6 +1681,17 @@ func main() {
 		dangerZoneJob := jobs.NewDangerZoneJob(dangerZoneService)
 		dangerZoneScheduler := jobs.NewDangerZoneScheduler(dangerZoneJob, 1*time.Hour)
 		go dangerZoneScheduler.Start(ctx)
+
+		// Finish deleting a mailbox: revoke its OAuth grant at Google, and
+		// remove the message bodies it synced from the blob store. Both
+		// outlive the transaction that deleted the rows, so both are queued by
+		// it and worked off here. A minute, because this is the "delete my
+		// data" path and the provider's clock is the one that matters.
+		go jobs.NewMailboxErasureJob(
+			repository.NewMailboxErasureRepository(primaryDB),
+			s3,
+			credEncrypter,
+		).Start(ctx, 1*time.Minute)
 
 		// Workspace archives: export a whole organization to a portable file
 		// and import one back, so a workspace can move between instances.
@@ -1828,9 +1855,9 @@ func main() {
 		systemChecker.Add("redis", func(ctx context.Context) error { return cache.Ping(ctx).Err() })
 		switch bus.Name() {
 		case "kafka":
-			systemChecker.Add("kafka", sysstatus.TCPCheck(kafkaBootstrapServers))
+			systemChecker.Add("kafka", sysstatus.TCPCheck(kafkaBootstrapServers, "9092"))
 		case "nats":
-			systemChecker.Add("nats", sysstatus.TCPCheck(strings.TrimPrefix(getenvDefault("NATS_URL", "nats://localhost:4222"), "nats://")))
+			systemChecker.Add("nats", sysstatus.TCPCheck(getenvDefault("NATS_URL", "nats://localhost:4222"), "4222"))
 		}
 		if sr := os.Getenv("SCHEMA_REGISTRY_URL"); sr != "" {
 			systemChecker.Add("schema-registry", sysstatus.HTTPCheck(strings.TrimRight(sr, "/")+"/subjects"))
@@ -1965,20 +1992,16 @@ func main() {
 		WarmupContentService: warmupContentService,
 
 		// AI writing assistant + credit ledger
-		CreditService:       creditService,
-		WritingGenerator:    writingGenerator,
-		AIProvider:          aiProvider,
-		AISearch:            aiSearch,
-		AITools:             aiToolRegistry,
-		AIAgentService:      aiAgentService,
-		ResearchService:     researchService,
-		SkillsService:       skillsService,
-		MCPService:          mcpService,
-		GeminiKeysService:   geminiKeysService,
-		SerperKeysService:   serperKeysService,
-		OAuthSlotRepository: oauthSlotRepository,
-		CipherService:       cipherService,
-		AIDraftRepo:         aiDraftRepo,
+		CreditService:    creditService,
+		WritingGenerator: writingGenerator,
+		AIProvider:       aiProvider,
+		AISearch:         aiSearch,
+		AITools:          aiToolRegistry,
+		AIAgentService:   aiAgentService,
+		ResearchService:  researchService,
+		SkillsService:    skillsService,
+		MCPService:       mcpService,
+		AIDraftRepo:      aiDraftRepo,
 
 		// Pre-send email verification
 		EmailVerifyService: emailVerifyService,
@@ -2008,9 +2031,12 @@ func main() {
 		// without a dedicated service layer (avatars, etc.).
 		Storage:                s3ForHandler,
 		EncryptedKeys:          encryptedKeys,
+		KMS:                    kmsForHandler,
 		EmailMessageMap:        emailMessageMapForHandler,
 		EmailSyncState:         emailSyncStateRepository,
 		TrackedLinks:           trackedLinkRepository,
+		InboxTagRepo:           inboxTagRepository,
+		UnsubscribeTickets:     unsubscribeLinkRepository,
 		CustomDomains:          customDomainRepository,
 		WebsiteTrackingService: websiteTrackingService,
 		UserRepo:               userRepoForHandler,
@@ -2059,7 +2085,7 @@ func main() {
 		AppEnv:         os.Getenv("APP_ENV"),
 	}
 
-	errs.CaptureMessage("Starting the backend on " + addr)
+	log.Printf("Starting the backend on %s", addr)
 
 	router := api.Run(h, m, oidcH, addr, ginMode, allowedOrigins)
 

@@ -10,9 +10,7 @@
 // validation. Read data: /analytics/accounts/:id and /analytics/warmup?email_id=.
 
 import React, { useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
-import { isRTL } from "@/i18n/config";
 import AdvisorStrip from "@/components/app/advisor/AdvisorStrip";
 import {
     XIcon,
@@ -37,7 +35,9 @@ import {
     BanIcon,
     HourglassIcon,
     XCircleIcon,
+    HelpCircleIcon,
     RefreshCwIcon,
+    TrashIcon,
     type LucideIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -48,19 +48,23 @@ import type { AccountError } from "@/lib/api/models/app/analytics/AccountStatus"
 import useAccountStatus from "@/lib/api/hooks/app/analytics/useAccountStatus";
 import useWarmupAnalytics from "@/lib/api/hooks/app/analytics/useWarmupAnalytics";
 import useUpdateEmail from "@/lib/api/hooks/app/emails/useUpdateEmail";
+import useRemoveEmail from "@/lib/api/hooks/app/emails/useRemoveEmail";
 import useWarmupLifecycle from "@/lib/api/hooks/app/emails/useWarmupLifecycle";
 import useSendHold from "@/lib/api/hooks/app/emails/useSendHold";
 import useWarmupBanStatus from "@/lib/api/hooks/app/emails/useWarmupBanStatus";
 import useAppealWarmupBan from "@/lib/api/hooks/app/emails/useAppealWarmupBan";
 import useAuthCheck from "@/lib/api/hooks/app/emails/useAuthCheck";
 import useRefreshAuthCheck from "@/lib/api/hooks/app/emails/useRefreshAuthCheck";
+import useSendIdentity from "@/lib/api/hooks/app/emails/useSendIdentity";
+import useRefreshSendIdentity from "@/lib/api/hooks/app/emails/useRefreshSendIdentity";
+import getEmail from "@/lib/api/client/app/emails/getEmail";
+import { SelectMenu, type SelectOption } from "@/components/ui/select-menu";
 import useUpdateEmailTrackingDomain from "@/lib/api/hooks/app/emails/useUpdateEmailTrackingDomain";
 import useEmailTrackingDomain from "@/lib/api/hooks/app/emails/useEmailTrackingDomain";
 import useVerifyEmailTrackingDomain from "@/lib/api/hooks/app/emails/useVerifyEmailTrackingDomain";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import getEmail from "@/lib/api/client/app/emails/getEmail";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import reauthEmailOAuth from "@/lib/api/client/app/emails/reauthEmailOAuth";
 import onboardOAuthFinish from "@/lib/api/client/app/emails/onboardOAuthFinish";
 import { openEmailOAuthPopup } from "@/lib/emails/emailOAuthPopup";
@@ -68,7 +72,10 @@ import UpdateCredentialsDialog from "./UpdateCredentialsDialog";
 import EmailEditor from "../EmailEditor";
 import SendingBehaviorTab from "./SendingBehaviorTab";
 import SyncStatusCard from "./SyncStatusCard";
+import CloudWarmupCard from "./CloudWarmupCard";
+import useCloudPool from "@/hooks/useCloudPool";
 import { Toggle } from "@/components/app/campaigns/preferences/components/CampaignPreferenceBoolBox";
+import setDirectTracking from "@/lib/api/client/app/emails/setDirectTracking";
 import useSendingBehavior from "@/lib/api/hooks/app/emails/useSendingBehavior";
 import useSendingPlan from "@/lib/api/hooks/app/emails/useSendingPlan";
 import { minutesToClock, secondsToLabel } from "@/lib/api/models/app/emails/SendingBehavior";
@@ -94,26 +101,29 @@ const Eyebrow = ({ children }: { children: React.ReactNode }) => (
 // separately.
 function RampHoldNotice({ hold }: { hold: import("@/lib/api/models/app/analytics/AccountStatus").WarmupRampHold }) {
     const hours = Math.max(0, Math.round((new Date(hold.resumes_at).getTime() - Date.now()) / 3_600_000));
-    const resumesIn = hours > 0 ? ` למשך כ-${hours} ${hours === 1 ? "שעה" : "שעות"}` : "";
+    const resumesIn = hours > 0 ? ` for about ${hours} more ${hours === 1 ? "hour" : "hours"}` : "";
     return (
         <div className="px-5 py-4">
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
                 <AlertTriangleIcon className="w-3.5 h-3.5 mt-px shrink-0 text-amber-600" />
                 <div className="min-w-0">
                     <p className="text-[12.5px] font-medium text-amber-900">
-                        {hold.volume_cut ? "נפח החימום הוגבל" : "העלייה בנפח החימום הושהתה"}
+                        {hold.volume_cut ? "Warmup volume held back" : "Warmup ramp paused"}
                     </p>
                     <p className="text-[11.5px] text-amber-800/90 leading-relaxed mt-0.5">
                         {hold.volume_cut ? (
                             <>
-                                {hold.placements === 1 ? "אימייל חימום אחד" : `${hold.placements} אימיילי חימום`} הגיעו לספאם ב-48 השעות האחרונות{hold.sends > 0 ? ` מתוך ${hold.sends} שנשלחו` : ""}. יעד היום הופחת ברבע והתוספת היומית מושהית{resumesIn}.
+                                {hold.placements === 1 ? "1 warmup email" : `${hold.placements} warmup emails`} landed in spam in
+                                the last 48 hours{hold.sends > 0 ? ` out of ${hold.sends} sent` : ""}. Today's target is cut by a
+                                quarter and the daily increase is paused{resumesIn}.
                             </>
                         ) : (
                             <>
-                                הנפח חזר למצב תקין, אך התוספת היומית נשארת מושהית{resumesIn} בעקבות הגעה אחרונה לספאם.
+                                Volume is back to normal, but the daily increase stays paused{resumesIn} after a recent spam
+                                placement.
                             </>
                         )}{" "}
-                        העלייה תתחדש אוטומטית אם לא יהיו הגעות נוספות לספאם.
+                        It resumes on its own if nothing else lands in spam.
                     </p>
                 </div>
             </div>
@@ -122,6 +132,7 @@ function RampHoldNotice({ hold }: { hold: import("@/lib/api/models/app/analytics
 }
 
 // A mailbox that has quietly stopped receiving campaign sends looks broken.
+// hasHealthSignal is warmup_health presence: the pool row the rebalancer reads, not the warmup setting.
 function LifecycleNotice({
     mailboxId,
     state,
@@ -134,17 +145,17 @@ function LifecycleNotice({
     const hold = useSendHold(mailboxId);
     const reserve = state.state === "reserve";
     const copy = reserve
-        ? "תיבת דואר זו מושהית מקמפיינים. החימום ממשיך לפעול. כבה את ההשהיה למטה כדי להחזירה לסבב השליחה."
+        ? "You are holding this mailbox out of campaigns. Warmup keeps running. Turn the hold off below to put it back into rotation."
         : hasHealthSignal
-            ? "תיבת דואר זו במנוחה: קמפיינים אינם שולחים ממנה בזמן שבריאות החימום שלה מתאוששת. היא תחזור לפעילות בעצמה ברגע שהבריאות תתאושש ותישאר יציבה במשך 3 ימים."
-            : "תיבת דואר זו במנוחה, אך אינה משויכת למאגר חימום ולכן אין מדד בריאות להתאושש לפיו. היא תחזור לפעילות לאחר שלושה ימי מנוחה, או כעת אם תחזיר אותה.";
+            ? "This mailbox is resting: campaigns are not sending from it while its warmup health recovers. It returns on its own once that health is back and has held steady for three days."
+            : "This mailbox is resting, but it is in no warmup pool, so there is no health signal to recover on. It returns on its own after three days of rest, or now if you put it back.";
     const resume = () =>
         hold.mutate(false, {
             onSuccess: (data) =>
                 toast.success(
                     data.state === "resting"
-                        ? "עדיין במנוחה: בריאות החימום מוגבלת או גרוע מכך, לכן היא תישאר בחוץ עד שתתאושש"
-                        : "תיבת הדואר חזרה לסבב הקמפיינים",
+                        ? "Still resting: its warmup health is throttled or worse, so it stays out until that recovers"
+                        : "Mailbox back in campaign rotation",
                 ),
             onError: (e) => toast.error(buildError(e as unknown as AppError)),
         });
@@ -154,7 +165,7 @@ function LifecycleNotice({
                 <PauseIcon className="w-3.5 h-3.5 mt-px shrink-0 text-slate-500" />
                 <div className="min-w-0 flex-1">
                     <p className="text-[12.5px] font-medium text-slate-900">
-                        אינה שולחת קמפיינים ({reserve ? "מושהית" : state.state})
+                        Not sending campaigns ({reserve ? "held" : state.state})
                     </p>
                     <p className="text-[11.5px] text-slate-600 leading-relaxed mt-0.5">
                         {copy}
@@ -167,7 +178,7 @@ function LifecycleNotice({
                             disabled={hold.isPending}
                             className="mt-2 h-7 px-2.5 inline-flex items-center rounded-md border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:border-sky-400 hover:text-sky-700 disabled:opacity-50 transition-colors"
                         >
-                            {hold.isPending ? "מחזיר…" : "החזר לקמפיינים"}
+                            {hold.isPending ? "Putting back…" : "Put back into campaigns"}
                         </button>
                     )}
                 </div>
@@ -185,19 +196,19 @@ function SendHoldControl({ mailboxId, state }: { mailboxId: string; state?: impo
             onSuccess: (data) =>
                 toast.success(
                     v
-                        ? "תיבת הדואר הושהתה מקמפיינים"
+                        ? "Mailbox held out of campaigns"
                         : data.state === "resting"
-                            ? "ההשהיה שוחררה. תיבת הדואר תנוח עד שבריאות החימום שלה תתאושש"
-                            : "תיבת הדואר חזרה לסבב הקמפיינים",
+                            ? "Hold released. The mailbox rests until its warmup health recovers"
+                            : "Mailbox back in campaign rotation",
                 ),
             onError: (e) => toast.error(buildError(e as unknown as AppError)),
         });
     return (
         <div className="px-5 py-4 flex items-start justify-between gap-3">
             <div className="min-w-0">
-                <div className="text-[12.5px] font-medium text-slate-900">השהה מקמפיינים</div>
+                <div className="text-[12.5px] font-medium text-slate-900">Hold from campaigns</div>
                 <div className="text-[11px] text-slate-400">
-                    מונע מתיבת דואר זו לשלוח קמפיינים עד שתכבה את ההשהיה. החימום אינו מושפע, ו-Warmbly לעולם אינו משחרר השהיה בעצמו.
+                    Keeps this mailbox out of campaign sending until you turn the hold off. Warmup is not affected, and Warmbly never releases a hold on its own.
                 </div>
             </div>
             <div className="shrink-0">
@@ -215,16 +226,19 @@ function ColdRampNotice({ ramp }: { ramp: import("@/lib/api/models/app/analytics
                 <GaugeIcon className="w-3.5 h-3.5 mt-px shrink-0 text-sky-600" />
                 <div className="min-w-0">
                     <p className="text-[12.5px] font-medium text-sky-900">
-                        עלייה הדרגתית בשליחה קרה: {ramp.ceiling} מתוך {ramp.mailbox_cap} ליום
+                        Easing into cold sending: {ramp.ceiling} of {ramp.mailbox_cap} a day
                     </p>
                     <p className="text-[11.5px] text-sky-800/90 leading-relaxed mt-0.5">
                         {ramp.held ? (
                             <>
-                                העלייה מושהית בעקבות הגעה אחרונה לספאם. היא תתחדש אוטומטית, ולאחר מכן תוסיף 5 ביום עד שתגיע ל-{ramp.mailbox_cap}.
+                                The climb is paused after a recent spam placement. It resumes on its own, then adds 5 a
+                                day until it reaches {ramp.mailbox_cap}.
                             </>
                         ) : (
                             <>
-                                מעבר ישיר מחימום למכסה קרה מלאה מהווה קפיצת נפח שספקי הדואר מענישים עליה, לכן מתווספים 5 ביום במקום זאת. בקצב זה היא תגיע ל-{ramp.mailbox_cap} בתוך כ-{ramp.days_to_full_cap} {ramp.days_to_full_cap === 1 ? "יום" : "ימים"}.
+                                Going straight from warmup to a full cold cap is the volume jump mailbox providers
+                                penalise, so this adds 5 a day instead. At this rate it reaches {ramp.mailbox_cap} in
+                                about {ramp.days_to_full_cap} {ramp.days_to_full_cap === 1 ? "day" : "days"}.
                             </>
                         )}
                     </p>
@@ -248,7 +262,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     return (
         <div className="flex items-center justify-between gap-3 px-5 h-10 border-b border-slate-200/60 text-[12.5px]">
             <span className="text-slate-500">{label}</span>
-            <span className="text-slate-900 truncate text-left rtl:text-right">{children}</span>
+            <span className="text-slate-900 truncate text-right">{children}</span>
         </div>
     );
 }
@@ -278,11 +292,15 @@ function NumField({ value, onChange, suffix, max }: { value: number; onChange: (
     );
 }
 
+// min_wait_time is stored in SECONDS. Render it as a duration so the number
+// can never be read as minutes — a 600 shown as "600 min" (or a 10 typed into a
+// field labelled minutes) is the difference between a 10-minute gap and a
+// 10-second burst.
 function formatGap(seconds: number): string {
-    if (!Number.isFinite(seconds) || seconds < 60) return `${seconds ?? 0} שנ'`;
+    if (!Number.isFinite(seconds) || seconds < 60) return `${seconds ?? 0}s`;
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    return s === 0 ? `${m} דק'` : `${m} דק' ${s} שנ'`;
+    return s === 0 ? `${m} min` : `${m} min ${s}s`;
 }
 
 function statusTone(status: string) {
@@ -296,11 +314,11 @@ function statusTone(status: string) {
 /* ── tabs ─────────────────────── */
 
 const TABS: { key: string; label: string; icon: LucideIcon }[] = [
-    { key: "overview", label: "סקירה כללית", icon: GaugeIcon },
-    { key: "analytics", label: "אנליטיקה", icon: BarChart3Icon },
-    { key: "warmup", label: "חימום", icon: FlameIcon },
-    { key: "sending", label: "שליחה", icon: ClockFadingIcon },
-    { key: "settings", label: "הגדרות", icon: Settings2Icon },
+    { key: "overview", label: "Overview", icon: GaugeIcon },
+    { key: "analytics", label: "Analytics", icon: BarChart3Icon },
+    { key: "warmup", label: "Warmup", icon: FlameIcon },
+    { key: "sending", label: "Sending", icon: ClockFadingIcon },
+    { key: "settings", label: "Settings", icon: Settings2Icon },
 ];
 
 /* ═══════════════════════════════════════════
@@ -314,25 +332,18 @@ export default function InboxDetails({
     initialTab = "overview",
     canWarmup = true,
 }: {
-    emails?: Inbox[];
+    emails: Inbox[] | null;
     view: string;
-    setView: (id: string) => void;
+    setView: React.Dispatch<React.SetStateAction<string>>;
     initialTab?: string;
     canWarmup?: boolean;
 }) {
-    const listMailbox = emails?.find((e) => e.id === view) ?? null;
-    const singleQuery = useQuery({
-        queryKey: ["emails", "single", view],
-        queryFn: () => getEmail(view),
-        enabled: Boolean(view && !listMailbox),
-    });
-    const mailbox = listMailbox ?? singleQuery.data ?? null;
+    const mailbox = emails?.find((e) => e.id === view) ?? null;
     const close = () => setView("");
-    const isRtl = isRTL();
 
     return (
         <AnimatePresence>
-            {view && (mailbox || singleQuery.isPending) && (
+            {view && mailbox && (
                 <>
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -343,19 +354,13 @@ export default function InboxDetails({
                         onClick={close}
                     />
                     <motion.aside
-                        initial={{ x: isRtl ? "-100%" : "100%" }}
+                        initial={{ x: "100%" }}
                         animate={{ x: 0 }}
-                        exit={{ x: isRtl ? "-100%" : "100%" }}
+                        exit={{ x: "100%" }}
                         transition={{ type: "spring", damping: 32, stiffness: 320 }}
-                        className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col rtl:right-auto rtl:left-0 rtl:border-l-0 rtl:border-r"
+                        className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col"
                     >
-                        {mailbox ? (
-                            <Detail key={mailbox.id} mailbox={mailbox} onClose={close} initialTab={initialTab} canWarmup={canWarmup} />
-                        ) : (
-                            <div className="flex-1 flex items-center justify-center p-8">
-                                <Loading className="w-6 h-6 text-sky-500" />
-                            </div>
-                        )}
+                        <Detail key={mailbox.id} mailbox={mailbox} onClose={close} initialTab={initialTab} canWarmup={canWarmup} />
                     </motion.aside>
                 </>
             )}
@@ -366,14 +371,13 @@ export default function InboxDetails({
 /* ── editable fields tracked for the save bar ─────────────────────── */
 const EDITABLE: (keyof Inbox)[] = [
     "name", "signature_html", "signature_plain", "signature_sync", "signature_code",
+    "send_as_email",
     "tags", "campaign_limit", "min_wait_time", "reply_to", "save_to_sent",
     "warmup_base", "warmup_max", "warmup_increase", "warmup_reply_rate",
     "warmup_tag", "warmup_start_time", "warmup_end_time", "warmup_days",
 ];
 
 function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }: { mailbox: Inbox; onClose: () => void; initialTab?: string; canWarmup?: boolean }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     const [tab, setTab] = useState(initialTab);
     const [form, setForm] = useState<Inbox>(mailbox);
     const update = (patch: Partial<Inbox>) => setForm((f) => ({ ...f, ...patch }));
@@ -405,7 +409,7 @@ function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }:
         }
         try {
             await mutation.mutateAsync(patch);
-            toast.success("תיבת הדואר עודכנה");
+            toast.success("Mailbox updated");
         } catch (e) {
             toast.error(buildError(e as AppError));
         }
@@ -425,20 +429,10 @@ function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }:
                     <div className="text-[10.5px] text-slate-400 capitalize">{mailbox.provider?.replace("_", "/")}</div>
                 </div>
                 <span className={cn("h-5 px-2 rounded-full border text-[10px] font-semibold uppercase tracking-wide inline-flex items-center shrink-0", statusTone(mailbox.status))}>
-                    {isHe
-                        ? mailbox.status === "active"
-                            ? "פעיל"
-                            : mailbox.status === "inactive"
-                              ? "לא פעיל"
-                              : mailbox.status === "paused"
-                                ? "מושהה"
-                                : mailbox.status === "error"
-                                  ? "שגיאה"
-                                  : mailbox.status
-                        : mailbox.status}
+                    {mailbox.status}
                 </span>
                 <ResourceViewers resource={mailbox.id ? `mailbox:${mailbox.id}` : null} className="shrink-0" />
-                <button onClick={onClose} aria-label="סגור" className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0">
+                <button onClick={onClose} aria-label="Close" className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0">
                     <XIcon className="w-4 h-4" />
                 </button>
             </div>
@@ -476,7 +470,7 @@ function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }:
                 {tab === "analytics" && <AnalyticsTab warmup={warmup.data} loading={warmup.isPending} />}
                 {tab === "warmup" && <WarmupTab form={form} update={update} status={status.data} mailbox={mailbox} canWarmup={canWarmup} />}
                 {tab === "sending" && <SendingBehaviorTab mailboxId={mailbox.id} />}
-                {tab === "settings" && <SettingsTab form={form} update={update} mailbox={mailbox} />}
+                {tab === "settings" && <SettingsTab form={form} update={update} mailbox={mailbox} onDisconnected={onClose} />}
             </div>
 
             {/* Save bar — only when something changed */}
@@ -489,14 +483,14 @@ function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }:
                         transition={{ duration: 0.2 }}
                         className="shrink-0 h-14 px-5 flex items-center gap-2 border-t border-slate-200 bg-slate-50/60"
                     >
-                        <span className="text-[11.5px] text-slate-500">שינויים שלא נשמרו</span>
-                        <div className="ms-auto flex items-center gap-2">
+                        <span className="text-[11.5px] text-slate-500">Unsaved changes</span>
+                        <div className="ml-auto flex items-center gap-2">
                             <button onClick={() => setForm(mailbox)} className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors">
-                                בטל
+                                Discard
                             </button>
                             <button onClick={save} disabled={mutation.isPending} className="h-8 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60">
                                 {mutation.isPending && <Loading className="!w-3.5 h-3.5 text-white" />}
-                                שמור שינויים
+                                Save changes
                             </button>
                         </div>
                     </motion.div>
@@ -535,7 +529,7 @@ function ReconnectAction({ mailbox }: { mailbox: Inbox }) {
             const { url, state } = await reauthEmailOAuth(mailbox.id);
             const { code } = await openEmailOAuthPopup(url, state);
             await onboardOAuthFinish(code, state);
-            toast.success("תיבת הדואר אושרה מחדש וחזרה לפעילות.");
+            toast.success("Mailbox re-authorized. It's back online.");
             qc.invalidateQueries({ queryKey: ["emails", "list"] });
             qc.invalidateQueries({ queryKey: ["analytics", "accounts"] });
         } catch (e) {
@@ -555,7 +549,7 @@ function ReconnectAction({ mailbox }: { mailbox: Inbox }) {
                     className="h-7 px-2.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                 >
                     {busy ? <Loading className="!w-3 h-3 text-white" /> : <ShieldCheckIcon className="w-3 h-3" />}
-                    {busy ? "ממתין לאישור…" : `אשר מחדש עם ${providerLabel}`}
+                    {busy ? "Waiting for authorization…" : `Re-authorize with ${providerLabel}`}
                 </button>
             ) : (
                 <button
@@ -564,7 +558,7 @@ function ReconnectAction({ mailbox }: { mailbox: Inbox }) {
                     className="h-7 px-2.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                 >
                     <ShieldCheckIcon className="w-3 h-3" />
-                    עדכן פרטי גישה
+                    Update credentials
                 </button>
             )}
             <UpdateCredentialsDialog
@@ -618,10 +612,10 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
             {/* Health */}
             <div className="px-5 py-4">
                 <div className="flex items-center justify-between">
-                    <Eyebrow>בריאות התיבה</Eyebrow>
+                    <Eyebrow>Health</Eyebrow>
                     {health && (
                         <span className={cn("inline-flex items-center gap-1 text-[11px] font-medium capitalize", healthTone.text)}>
-                            <HealthIcon className="w-3.5 h-3.5" /> {health.status === "healthy" ? "תקין" : health.status === "warning" ? "אזהרה" : "דורש טיפול"}
+                            <HealthIcon className="w-3.5 h-3.5" /> {health.status}
                         </span>
                     )}
                 </div>
@@ -647,23 +641,23 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
             <SyncStatusCard mailboxId={mailbox.id} />
 
             {/* Key stats */}
-            <div className="grid grid-cols-2 divide-x rtl:divide-x-reverse divide-y divide-slate-200/60">
+            <div className="grid grid-cols-2 divide-x divide-y divide-slate-200/60">
                 <StatCard
-                    label="נשלחו היום"
+                    label="Sent today"
                     value={usage ? usage.campaign_sent : "—"}
                     sub={
                         today
                             ? today.is_working_day
-                                ? `מתוך ${today.daily_limit} שנקבעו להיום`
-                                : "לא יום שליחה"
+                                ? `of ${today.daily_limit} rolled for today`
+                                : "not a sending day"
                             : usage
-                                ? `מתוך מכסה של ${usage.campaign_limit}/יום`
+                                ? `of ${usage.campaign_limit}/day cap`
                                 : undefined
                     }
                 />
-                <StatCard label="חימום היום" value={ws ? ws.current_volume : (usage?.warmup_sent ?? "—")} sub={ws ? `יעד: ${ws.target_volume}` : undefined} accent />
-                <StatCard label="אחוז מענה" value={ws ? `${ws.reply_rate}%` : "—"} sub="תשובות חימום" />
-                <StatCard label="ימי חימום" value={ws ? ws.days_active : "—"} sub={ws ? `מקס' ${ws.max_volume}/יום` : undefined} />
+                <StatCard label="Warmup today" value={ws ? ws.current_volume : (usage?.warmup_sent ?? "—")} sub={ws ? `target ${ws.target_volume}` : undefined} accent />
+                <StatCard label="Reply target" value={ws ? `${ws.reply_rate}%` : "—"} sub="configured warmup share" />
+                <StatCard label="Days warming" value={ws ? ws.days_active : "—"} sub={ws ? `max ${ws.max_volume}/day` : undefined} />
             </div>
 
             {ws?.ramp_hold && <RampHoldNotice hold={ws.ramp_hold} />}
@@ -674,7 +668,7 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
             {/* Errors */}
             {status?.errors && status.errors.length > 0 && (
                 <div className="px-5 py-4">
-                    <Eyebrow>דורש טיפול</Eyebrow>
+                    <Eyebrow>Needs attention</Eyebrow>
                     <div className="mt-2 space-y-2">
                         {status.errors.map((e: AccountError) => (
                             <div key={e.id} className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2">
@@ -690,38 +684,38 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
 
             {/* Identity */}
             <div>
-                <Row label="ספק"><span className="capitalize">{mailbox.provider?.replace("_", "/")}</span></Row>
-                <Row label="דומיין מעקב">{mailbox.tracking_domain || <span className="text-slate-400">לא הוגדר</span>}</Row>
-                <Row label="מכסה יומית">
+                <Row label="Provider"><span className="capitalize">{mailbox.provider?.replace("_", "/")}</span></Row>
+                <Row label="Tracking domain">{mailbox.tracking_domain || <span className="text-slate-400">Not set</span>}</Row>
+                <Row label="Daily cap">
                     {today?.is_working_day
-                        ? `${today.daily_limit} / יום היום (טווח ${behavior.data?.daily_limit_min}-${behavior.data?.daily_limit_max})`
-                        : `${mailbox.campaign_limit} / יום`}
+                        ? `${today.daily_limit} / day today (${behavior.data?.daily_limit_min}-${behavior.data?.daily_limit_max} range)`
+                        : `${mailbox.campaign_limit} / day`}
                 </Row>
-                <Row label="מרווח מינימלי">
+                <Row label="Min gap">
                     {today
                         ? `${secondsToLabel(today.gap_min_seconds)}-${secondsToLabel(today.gap_max_seconds)}`
                         : formatGap(mailbox.min_wait_time)}
                 </Row>
                 {today?.is_working_day && (
-                    <Row label="יום עבודה">
+                    <Row label="Workday">
                         {minutesToClock(today.work_start_minute)}-{minutesToClock(today.work_end_minute)}
                         {today.lunch_start_minute !== null && today.lunch_end_minute !== null && (
                             <span className="text-slate-400">
-                                {" "}(הפסקת צהריים {minutesToClock(today.lunch_start_minute)}-{minutesToClock(today.lunch_end_minute)})
+                                {" "}(lunch {minutesToClock(today.lunch_start_minute)}-{minutesToClock(today.lunch_end_minute)})
                             </span>
                         )}
                     </Row>
                 )}
-                <Row label="סנכרון אחרון">
+                <Row label="Last synced">
                     <span className="inline-flex items-center gap-1.5 text-slate-600">
                         <ClockIcon className="w-3.5 h-3.5 text-slate-400" />
-                        {synced ? synced.toLocaleString("he-IL") : "אף פעם"}
+                        {synced ? synced.toLocaleString() : "Never"}
                     </span>
                 </Row>
-                <Row label="חובר בתאריך">
+                <Row label="Connected">
                     <span className="inline-flex items-center gap-1.5 text-slate-600">
                         <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
-                        {new Date(mailbox.created_at).toLocaleDateString("he-IL")}
+                        {new Date(mailbox.created_at).toLocaleDateString()}
                     </span>
                 </Row>
             </div>
@@ -741,8 +735,8 @@ function AnalyticsTab({ warmup, loading }: { warmup?: import("@/lib/api/models/a
         return (
             <div className="px-5 py-16 text-center">
                 <BarChart3Icon className="w-5 h-5 text-slate-300 mx-auto mb-2" />
-                <p className="text-[12.5px] text-slate-700 font-medium">אין עדיין פעילות חימום</p>
-                <p className="text-[11.5px] text-slate-400 mt-1 max-w-[34ch] mx-auto leading-relaxed">ברגע שתיבת דואר זו תתחיל בחימום, נפח השליחה היומי והתשובות יוצגו כאן בגרף.</p>
+                <p className="text-[12.5px] text-slate-700 font-medium">No warmup activity yet</p>
+                <p className="text-[11.5px] text-slate-400 mt-1 max-w-[34ch] mx-auto leading-relaxed">Once this mailbox starts warming, its daily volume and replies will chart here.</p>
             </div>
         );
     }
@@ -750,26 +744,26 @@ function AnalyticsTab({ warmup, loading }: { warmup?: import("@/lib/api/models/a
     const chartData = warmup.daily_stats.map((d) => ({
         key: d.date,
         value: d.emails_sent,
-        hint: `${d.date}: ${d.emails_sent} נשלחו / יעד ${d.target_volume} · ${d.emails_replied} תשובות`,
+        hint: `${d.date}: ${d.emails_sent} sent / ${d.target_volume} target · ${d.emails_replied} replies`,
     }));
     const targets = warmup.daily_stats.map((d) => d.target_volume);
     const selectedIndex = selectedDay ? warmup.daily_stats.findIndex((d) => d.date === selectedDay) : -1;
 
     return (
         <div className="divide-y divide-slate-200/60">
-            <div className="grid grid-cols-2 divide-x rtl:divide-x-reverse divide-y divide-slate-200/60">
-                <StatCard label="סה״כ נשלחו" value={s.total_sent} sub={`ממוצע של ${s.average_daily.toFixed(1)}/יום`} />
-                <StatCard label="תשובות" value={s.total_replied} sub={`שיעור מענה של ${s.reply_rate.toFixed(1)}%`} accent />
-                <StatCard label="התקדמות ליעד" value={`${Math.round(s.target_progress)}%`} sub="בדרך לנפח המקסימלי" />
-                <StatCard label="ימים פעילים" value={s.days_active} sub={`${warmup.date_range.from} → ${warmup.date_range.to}`} />
+            <div className="grid grid-cols-2 divide-x divide-y divide-slate-200/60">
+                <StatCard label="Total sent" value={s.total_sent} sub={`${s.average_daily.toFixed(1)}/active day`} />
+                <StatCard label="Replies" value={s.total_replied} sub={`${s.reply_rate.toFixed(1)}% reply rate`} accent />
+                <StatCard label="Target met" value={`${Math.round(s.target_progress)}%`} sub="of planned volume" />
+                <StatCard label="Days active" value={s.days_active} sub={`${warmup.date_range.from} → ${warmup.date_range.to}`} />
             </div>
 
             <div className="px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
-                    <Eyebrow>נפח שליחה יומי</Eyebrow>
+                    <Eyebrow>Daily volume</Eyebrow>
                     <div className="flex items-center gap-3 text-[10px] text-slate-400">
-                        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-sky-500" /> נשלחו</span>
-                        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-200" /> יעד</span>
+                        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-sky-500" /> Sent</span>
+                        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-200" /> Target</span>
                     </div>
                 </div>
                 <DitherBarChart
@@ -789,7 +783,7 @@ function AnalyticsTab({ warmup, loading }: { warmup?: import("@/lib/api/models/a
                     if (!d) return null;
                     return (
                         <p className="mt-2 text-[11px] text-slate-500 font-mono tabular-nums">
-                            {d.date}: {d.emails_sent} נשלחו / יעד {d.target_volume} · {d.emails_replied} תשובות
+                            {d.date}: {d.emails_sent} sent / {d.target_volume} target · {d.emails_replied} replies
                         </p>
                     );
                 })()}
@@ -800,14 +794,14 @@ function AnalyticsTab({ warmup, loading }: { warmup?: import("@/lib/api/models/a
 
 /* ── Warmup (editable) ─────────────────────── */
 
-const WEEKDAYS = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"];
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const warmupStateTone: Record<string, { text: string; bar: string; label: string }> = {
-    healthy: { text: "text-emerald-600", bar: "bg-emerald-500", label: "תקין" },
-    watch: { text: "text-amber-600", bar: "bg-amber-500", label: "במעקב" },
-    throttled: { text: "text-amber-700", bar: "bg-amber-500", label: "מוגבל" },
-    quarantined: { text: "text-rose-600", bar: "bg-rose-500", label: "בהסגר" },
-    blocked: { text: "text-rose-700", bar: "bg-rose-600", label: "חסום" },
+    healthy: { text: "text-emerald-600", bar: "bg-emerald-500", label: "Healthy" },
+    watch: { text: "text-amber-600", bar: "bg-amber-500", label: "Watch" },
+    throttled: { text: "text-amber-700", bar: "bg-amber-500", label: "Throttled" },
+    quarantined: { text: "text-rose-600", bar: "bg-rose-500", label: "Quarantined" },
+    blocked: { text: "text-rose-700", bar: "bg-rose-600", label: "Blocked" },
 };
 
 /* ── Warmup ban banner + appeal form ─────────────────────── */
@@ -828,12 +822,12 @@ function WarmupBanBanner({ emailId }: { emailId: string }) {
     const submit = async () => {
         const trimmed = reason.trim();
         if (!trimmed) {
-            toast.error("נא לתאר מדוע יש להחזיר תיבת דואר זו לפעילות.");
+            toast.error("Please describe why this mailbox should be reinstated.");
             return;
         }
         try {
             await appeal.mutateAsync(trimmed);
-            toast.success("הערעור הוגש — הצוות שלנו יבדוק אותו.");
+            toast.success("Appeal submitted — our team will review it.");
             setOpen(false);
             setReason("");
         } catch (e) {
@@ -850,24 +844,24 @@ function WarmupBanBanner({ emailId }: { emailId: string }) {
                     </div>
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                            <span className="text-[12.5px] font-semibold text-rose-900">חסום מחימום</span>
+                            <span className="text-[12.5px] font-semibold text-rose-900">Blocked from warmup</span>
                             <span className="h-5 px-2 rounded-full border border-rose-200 bg-white/60 text-rose-700 text-[10px] font-semibold uppercase tracking-wide inline-flex items-center capitalize">
                                 {data.health_state}
                             </span>
                         </div>
                         <p className="mt-1 text-[11.5px] text-rose-800/90 leading-relaxed">
-                            {data.reason || "תיבת דואר זו הוסרה ממאגר החימום כדי להגן על מוניטין השולחים המשותף."}
+                            {data.reason || "This mailbox was removed from the warmup pool to protect shared sender reputation."}
                         </p>
                         {(data.blocked_at || data.blocked_until) && (
                             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10.5px] text-rose-700/80">
                                 {data.blocked_at && (
                                     <span className="inline-flex items-center gap-1">
-                                        <ClockIcon className="w-3 h-3" /> נחסם ב-{new Date(data.blocked_at).toLocaleDateString("he-IL")}
+                                        <ClockIcon className="w-3 h-3" /> Blocked {new Date(data.blocked_at).toLocaleDateString()}
                                     </span>
                                 )}
                                 {data.blocked_until && (
                                     <span className="inline-flex items-center gap-1">
-                                        <CalendarIcon className="w-3 h-3" /> עד {new Date(data.blocked_until).toLocaleDateString("he-IL")}
+                                        <CalendarIcon className="w-3 h-3" /> Until {new Date(data.blocked_until).toLocaleDateString()}
                                     </span>
                                 )}
                             </div>
@@ -876,20 +870,20 @@ function WarmupBanBanner({ emailId }: { emailId: string }) {
                         {/* Appeal affordance */}
                         {data.pending_appeal ? (
                             <div className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11.5px] font-medium text-amber-800">
-                                <HourglassIcon className="w-3.5 h-3.5" /> ערעור הוגש — בבדיקה
+                                <HourglassIcon className="w-3.5 h-3.5" /> Appeal submitted — under review
                             </div>
                         ) : data.can_appeal ? (
                             open ? (
                                 <div className="mt-3 space-y-2">
                                     <label className="block text-[10px] uppercase tracking-[0.14em] text-rose-700/80 font-medium">
-                                        סיבת הערעור
+                                        Appeal reason
                                     </label>
                                     <textarea
                                         value={reason}
                                         onChange={(e) => setReason(e.target.value)}
                                         rows={3}
                                         autoFocus
-                                        placeholder="פרט מה השתנה או מדוע חסימה זו היא טעות…"
+                                        placeholder="Tell us what changed or why this block is a mistake…"
                                         className="w-full px-2.5 py-2 rounded-md border border-rose-200 bg-white text-[12px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-none transition-colors"
                                     />
                                     <div className="flex items-center gap-2">
@@ -899,14 +893,14 @@ function WarmupBanBanner({ emailId }: { emailId: string }) {
                                             className="h-8 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                                         >
                                             {appeal.isPending && <Loading className="!w-3.5 h-3.5 text-white" />}
-                                            הגש ערעור
+                                            Submit appeal
                                         </button>
                                         <button
                                             onClick={() => { setOpen(false); setReason(""); }}
                                             disabled={appeal.isPending}
                                             className="h-8 px-3 rounded-md border border-rose-200 hover:border-rose-300 text-[12px] text-rose-700 hover:text-rose-900 transition-colors disabled:opacity-60"
                                         >
-                                            בטל
+                                            Cancel
                                         </button>
                                     </div>
                                 </div>
@@ -915,7 +909,7 @@ function WarmupBanBanner({ emailId }: { emailId: string }) {
                                     onClick={() => setOpen(true)}
                                     className="mt-3 h-8 px-3 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                                 >
-                                    <ShieldAlertIcon className="w-3.5 h-3.5" /> ערער על חסימה זו
+                                    <ShieldAlertIcon className="w-3.5 h-3.5" /> Appeal this block
                                 </button>
                             )
                         ) : null}
@@ -928,19 +922,28 @@ function WarmupBanBanner({ emailId }: { emailId: string }) {
 
 /* ── Domain authentication (SPF / DKIM / DMARC live check) ─────────────────────── */
 
-// One row per auth record. Green check when present/aligned, red cross when
-// missing. Optional detail (selectors, the SPF record, the DMARC policy) is
-// shown muted underneath.
-function AuthRecordRow({ label, ok, detail }: { label: string; ok: boolean; detail?: React.ReactNode }) {
+// One row per auth record, in one of three states. "unverified" is not a
+// softer "missing": DKIM keys sit at a selector DNS cannot enumerate, so a
+// probe that finds nothing says nothing about whether the domain signs, and
+// showing that as a red Missing tells an owner whose DKIM is fine to go fix it.
+type AuthRecordState = "found" | "missing" | "unverified";
+
+function AuthRecordRow({ label, state, detail }: { label: string; state: AuthRecordState; detail?: React.ReactNode }) {
+    const badge = {
+        found: { className: "text-emerald-600", icon: <CheckCircle2Icon className="w-3.5 h-3.5" />, text: "Found" },
+        missing: { className: "text-rose-600", icon: <XCircleIcon className="w-3.5 h-3.5" />, text: "Missing" },
+        unverified: { className: "text-slate-400", icon: <HelpCircleIcon className="w-3.5 h-3.5" />, text: "Not verified" },
+    }[state];
+
     return (
         <div className="flex items-start justify-between gap-3 py-2 border-b border-slate-200/60 last:border-b-0">
             <div className="min-w-0">
                 <div className="text-[12.5px] font-medium text-slate-900">{label}</div>
-                {detail && <div className="mt-0.5 text-[10.5px] text-slate-500 font-mono break-all leading-relaxed">{detail}</div>}
+                {detail && <div className="mt-0.5 text-[10.5px] text-slate-500 leading-relaxed">{detail}</div>}
             </div>
-            <span className={cn("inline-flex items-center gap-1 shrink-0 text-[11px] font-medium", ok ? "text-emerald-600" : "text-rose-600")}>
-                {ok ? <CheckCircle2Icon className="w-3.5 h-3.5" /> : <XCircleIcon className="w-3.5 h-3.5" />}
-                {ok ? "נמצא" : "חסר"}
+            <span className={cn("inline-flex items-center gap-1 shrink-0 text-[11px] font-medium", badge.className)}>
+                {badge.icon}
+                {badge.text}
             </span>
         </div>
     );
@@ -957,9 +960,10 @@ function AuthGateNotice({ mailbox }: { mailbox: Inbox }) {
         <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 flex gap-2.5">
             <ShieldAlertIcon className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <div className="min-w-0 text-[11.5px] text-rose-900/90 leading-relaxed">
-                <span className="font-medium">דומיין זה נכשל באימות.</span>{" "}
-                שליחה קרה וחימום מתיבת דואר זו מושהים כל עוד הבעיה נמשכת
-                {since ? `, נכשל מאז ${since.toLocaleDateString("he-IL")}` : ""}. הוסף את רשומות ה-DNS החסרות אצל רשם הדומיינים שלך, ולאחר מכן בדוק שוב למטה כדי לאשר מיידית.
+                <span className="font-medium">This domain is failing authentication.</span>{" "}
+                Cold sending and warmup from this mailbox stop while it stays that way
+                {since ? `, failing since ${since.toLocaleDateString()}` : ""}. Add the missing DNS
+                records at your registrar, then re-check below to clear it straight away.
             </div>
         </div>
     );
@@ -975,12 +979,24 @@ function AuthCheckPanel({ mailbox }: { mailbox: Inbox }) {
     const data = refresh.data ?? check.data;
     const busy = check.isFetching || refresh.isPending;
 
+    // The verdict follows what the check can actually prove. SPF and DMARC are
+    // discoverable, so a miss there is a real miss; DKIM is not, so a domain
+    // with both of those in place is aligned as far as anyone can tell, and
+    // saying "needs attention" over an unverifiable DKIM is a false alarm.
+    const verdict = !data
+        ? null
+        : data.all_aligned
+          ? { ok: true, tone: "text-emerald-700", title: "Authentication aligned" }
+          : data.spf_found && data.dmarc_found
+            ? { ok: true, tone: "text-emerald-700", title: "SPF and DMARC aligned, DKIM unverified" }
+            : { ok: false, tone: "text-amber-700", title: "Authentication needs attention" };
+
     return (
         <div className="px-5 py-4">
             <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                    <Eyebrow>אימות דומיין</Eyebrow>
-                    <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">בדיקה חיה של SPF, DKIM ו-DMARC בדומיין השליחה.</p>
+                    <Eyebrow>Domain authentication</Eyebrow>
+                    <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">Live SPF, DKIM &amp; DMARC check on the sending domain.</p>
                 </div>
                 <button
                     onClick={() => {
@@ -995,7 +1011,7 @@ function AuthCheckPanel({ mailbox }: { mailbox: Inbox }) {
                     className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] font-medium text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60 shrink-0"
                 >
                     {busy ? <Loading className="!w-3.5 h-3.5" /> : <RefreshCwIcon className="w-3.5 h-3.5" />}
-                    {open ? "בדוק שוב" : "בדוק"}
+                    {open ? "Re-check" : "Check"}
                 </button>
             </div>
 
@@ -1009,33 +1025,43 @@ function AuthCheckPanel({ mailbox }: { mailbox: Inbox }) {
                         </div>
                     ) : check.isFetching && !data ? (
                         <div className="rounded-md border border-slate-200 bg-slate-50/70 px-3 py-3 flex items-center gap-2 text-[12px] text-slate-500">
-                            <Loading className="!w-3.5 h-3.5" /> מאתר רשומות DNS…
+                            <Loading className="!w-3.5 h-3.5" /> Looking up DNS records…
                         </div>
-                    ) : data ? (
+                    ) : data && verdict ? (
                         <div className="rounded-md border border-slate-200 bg-white">
-                            <div className={cn("flex items-start gap-2 px-3 py-2.5 border-b border-slate-200/60", data.all_aligned ? "text-emerald-700" : "text-amber-700")}>
-                                {data.all_aligned ? <ShieldCheckIcon className="w-4 h-4 shrink-0 mt-0.5" /> : <ShieldAlertIcon className="w-4 h-4 shrink-0 mt-0.5" />}
+                            <div className={cn("flex items-start gap-2 px-3 py-2.5 border-b border-slate-200/60", verdict.tone)}>
+                                {verdict.ok ? <ShieldCheckIcon className="w-4 h-4 shrink-0 mt-0.5" /> : <ShieldAlertIcon className="w-4 h-4 shrink-0 mt-0.5" />}
                                 <div className="min-w-0">
-                                    <div className="text-[12px] font-medium">{data.all_aligned ? "האימות תקין ומסונכרן" : "האימות דורש תשומת לב"}</div>
+                                    <div className="text-[12px] font-medium">{verdict.title}</div>
                                     {data.summary && <div className="mt-0.5 text-[11px] text-slate-500 leading-relaxed">{data.summary}</div>}
                                 </div>
                             </div>
                             <div className="px-3">
-                                <AuthRecordRow label="SPF" ok={data.spf_found} detail={data.spf_record} />
+                                <AuthRecordRow
+                                    label="SPF"
+                                    state={data.spf_found ? "found" : "missing"}
+                                    detail={data.spf_record ? <span className="font-mono break-all">{data.spf_record}</span> : undefined}
+                                />
                                 <AuthRecordRow
                                     label="DKIM"
-                                    ok={data.dkim_found}
-                                    detail={data.dkim_selectors && data.dkim_selectors.length > 0 ? `סלקטורים: ${data.dkim_selectors.join(", ")}` : undefined}
+                                    state={data.dkim_found ? "found" : "unverified"}
+                                    detail={
+                                        data.dkim_found ? (
+                                            <span className="font-mono break-all">selectors: {(data.dkim_selectors ?? []).join(", ")}</span>
+                                        ) : (
+                                            "A DKIM key sits at a selector only your provider knows, and DNS cannot be asked to list them, so this is unconfirmed rather than absent. Confirm signing is on in your provider's console. It never affects whether this mailbox may send."
+                                        )
+                                    }
                                 />
                                 <AuthRecordRow
                                     label="DMARC"
-                                    ok={data.dmarc_found}
+                                    state={data.dmarc_found ? "found" : "missing"}
                                     detail={
-                                        data.dmarc_found && data.dmarc_policy
-                                            ? data.dmarc_inherited
-                                                ? `מדיניות: ${data.dmarc_policy} (מורש מ-${data.dmarc_domain})`
-                                                : `מדיניות: ${data.dmarc_policy}`
-                                            : undefined
+                                        data.dmarc_found && data.dmarc_policy ? (
+                                            <span className="font-mono break-all">
+                                                {data.dmarc_inherited ? `policy: ${data.dmarc_policy} (inherited from ${data.dmarc_domain})` : `policy: ${data.dmarc_policy}`}
+                                            </span>
+                                        ) : undefined
                                     }
                                 />
                             </div>
@@ -1061,22 +1087,23 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
     const off = !mailbox.warmup;
     const paused = !!mailbox.warmup && !!mailbox.warmup_paused_at;
     const active = !!mailbox.warmup && !mailbox.warmup_paused_at;
+    // When Warmbly Cloud warms this mailbox the local controls step aside.
+    const pool = useCloudPool();
+    const inCloud = pool.connected && pool.isEnrolled(mailbox.id);
 
-    const run = (action: "start" | "pause" | "resume" | "stop") => {
-        const verb = action === "start" ? "הופעל" : action === "pause" ? "הושהה" : action === "resume" ? "חודש" : "הופסק";
+    const run = (action: "start" | "pause" | "resume" | "stop", verb: string) =>
         life.mutate(action, {
-            onSuccess: () => toast.success(`חימום ${verb}`),
+            onSuccess: () => toast.success(`Warmup ${verb}`),
             onError: (e) => toast.error(buildError(e as unknown as AppError)),
         });
-    };
 
     const stopReset = () => {
         confirm.show(
-            "להפסיק את החימום ולאפס את התקדמות ההדרגתיות? הפעלה מחדש תחל מנפח הבסיס. השתמש ב'השהה' כדי לשמור על ההתקדמות.",
+            "Stop warmup and reset ramp progress? Restarting begins from the base volume. Use Pause to keep progress.",
             async () => {
                 try {
                     await life.mutateAsync("stop");
-                    toast.success("החימום הופסק");
+                    toast.success("Warmup stopped");
                 } catch (e) {
                     toast.error(buildError(e as unknown as AppError));
                 }
@@ -1091,45 +1118,48 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
             {/* Ban banner + appeal — only when the mailbox is blocked from the pool */}
             <WarmupBanBanner emailId={mailbox.id} />
 
+            <CloudWarmupCard mailboxId={mailbox.id} email={mailbox.email} provider={mailbox.provider} />
+
             {/* Lifecycle control */}
+            {!inCloud && (
             <div className="px-5 py-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                     <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", active ? "bg-orange-50 text-orange-600" : paused ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-400")}>
                         <FlameIcon className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                        <div className="text-[12.5px] font-medium text-slate-900">{active ? "חימום פעיל" : paused ? "מושהה" : "חימום כבוי"}</div>
-                        <div className="text-[11px] text-slate-400 truncate">{active ? "בניית מוניטין שולח" : paused ? "התקדמות ההדרגתיות נשמרת — ניתן לחדש בכל עת" : "לא בונה מוניטין"}</div>
+                        <div className="text-[12.5px] font-medium text-slate-900">{active ? "Warming up" : paused ? "Paused" : "Warmup off"}</div>
+                        <div className="text-[11px] text-slate-400 truncate">{active ? "Building sender reputation" : paused ? "Ramp progress kept — resume anytime" : "Not building reputation"}</div>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     {(off || paused) && canWarmup && (
                         <button
-                            onClick={() => run(off ? "start" : "resume")}
+                            onClick={() => run(off ? "start" : "resume", off ? "started" : "resumed")}
                             disabled={life.isPending}
                             className="h-8 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                         >
                             {life.isPending ? <Loading className="!w-3.5 h-3.5 text-white" /> : <PlayIcon className="w-3.5 h-3.5" />}
-                            {off ? "הפעל" : "המשך"}
+                            {off ? "Start" : "Resume"}
                         </button>
                     )}
                     {active && (
                         <>
                             <button
-                                onClick={() => run("pause")}
+                                onClick={() => run("pause", "paused")}
                                 disabled={life.isPending}
                                 className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] font-medium text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 {life.isPending ? <Loading className="!w-3.5 h-3.5" /> : <PauseIcon className="w-3.5 h-3.5" />}
-                                השהה
+                                Pause
                             </button>
                             <button
                                 onClick={stopReset}
                                 disabled={life.isPending}
-                                title="הפסק חימום ואפס התקדמות"
+                                title="Stop warmup and reset ramp progress"
                                 className="h-8 px-3 rounded-md border border-slate-200 hover:border-rose-200 text-[12px] font-medium text-slate-600 hover:text-rose-600 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
-                                הפסק
+                                Stop
                             </button>
                         </>
                     )}
@@ -1137,20 +1167,21 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
                         <button
                             onClick={stopReset}
                             disabled={life.isPending}
-                            title="הפסק חימום ואפס התקדמות"
+                            title="Stop warmup and reset ramp progress"
                             className="h-8 px-3 rounded-md border border-slate-200 hover:border-rose-200 text-[12px] font-medium text-slate-600 hover:text-rose-600 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                         >
-                            הפסק
+                            Stop
                         </button>
                     )}
                 </div>
             </div>
+            )}
 
             {/* Upsell when warmup isn't available on the plan */}
-            {off && !canWarmup && (
+            {!inCloud && off && !canWarmup && (
                 <div className="px-5 py-4">
                     <div className="rounded-md border border-sky-100 bg-sky-50/70 px-3 py-2.5 text-[11.5px] text-sky-900/90 leading-relaxed">
-                        חימום דואר זמין במסלולים בתשלום. שדרג כדי לבנות ולהגן על מוניטין השולח באופן אוטומטי.
+                        Warmup is available on paid plans. Upgrade to build and protect sender reputation automatically.
                     </div>
                 </div>
             )}
@@ -1158,9 +1189,9 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
             {/* Live volume */}
             {ws && active && (
                 <div className="px-5 py-4">
-                    <Eyebrow>היום</Eyebrow>
+                    <Eyebrow>Today</Eyebrow>
                     <div className="mt-2 flex items-center gap-2 text-[12.5px] text-slate-700">
-                        <span>שולח <b className="text-slate-900 tabular-nums">{ws.current_volume}</b> מתוך <b className="text-slate-900 tabular-nums">{ws.target_volume}</b> · יום {ws.days_active}</span>
+                        <span>Sending <b className="text-slate-900 tabular-nums">{ws.current_volume}</b> of <b className="text-slate-900 tabular-nums">{ws.target_volume}</b> · day {ws.days_active}</span>
                     </div>
                     <div className="mt-2.5 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div className="h-full rounded-full bg-orange-400 transition-all" style={{ width: `${Math.min(100, (ws.current_volume / Math.max(1, ws.target_volume)) * 100)}%` }} />
@@ -1172,14 +1203,14 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
             {wh && (
                 <div className="px-5 py-4">
                     <div className="flex items-center justify-between">
-                        <Eyebrow>מוניטין חימום</Eyebrow>
+                        <Eyebrow>Warmup reputation</Eyebrow>
                         <span className={cn("inline-flex items-center gap-1 text-[11px] font-medium", warmupStateTone[wh.state]?.text ?? "text-slate-500")}>
                             <ShieldCheckIcon className="w-3.5 h-3.5" /> {warmupStateTone[wh.state]?.label ?? wh.state}
                         </span>
                     </div>
                     {wh.reason && <p className="mt-1.5 text-[11.5px] text-slate-500 leading-relaxed">{wh.reason}</p>}
                     {wh.blocked_until && (
-                        <p className="mt-1 text-[11px] text-rose-600">מושהה מהמאגר עד {new Date(wh.blocked_until).toLocaleDateString("he-IL")}.</p>
+                        <p className="mt-1 text-[11px] text-rose-600">Paused from the pool until {new Date(wh.blocked_until).toLocaleDateString()}.</p>
                     )}
                 </div>
             )}
@@ -1193,9 +1224,9 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
                     <div className="rounded-md border border-sky-100 bg-sky-50/70 px-3 py-2.5 flex gap-2.5">
                         <ShieldCheckIcon className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
                         <p className="text-[11.5px] text-sky-900/90 leading-relaxed">
-                            תיבת דואר זו פעילה בקמפיין. Warmbly שומר על נפח נמוך של
-                            {" "}<b>חימום לבדיקת בריאות (~5/יום)</b> זורם{active ? "" : " גם כאשר החימום כבוי"} כדי שנוכל
-                            לעקוב באופן רציף אחר עבירות ההודעות בזמן שליחת תפוצה קרה.
+                            This mailbox is active in a campaign. Warmbly keeps a low volume of
+                            {" "}<b>health-check warmup (~5/day)</b> flowing{active ? "" : " even while warmup is off"} so we can
+                            continuously watch deliverability while it sends cold outreach.
                         </p>
                     </div>
                 </div>
@@ -1203,26 +1234,26 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
 
             {/* Ramp configuration */}
             <div className="px-5 py-5 space-y-5">
-                <Eyebrow>הגדרות הדרגתיות (Ramp)</Eyebrow>
-                <FieldShell label="נפח התחלתי" hint="מספר אימיילים ביום בתחילת החימום.">
-                    <NumField value={form.warmup_base} onChange={(v) => update({ warmup_base: v })} suffix="אימיילים / יום" />
+                <Eyebrow>Ramp configuration</Eyebrow>
+                <FieldShell label="Starting volume" hint="Emails per day when warmup begins.">
+                    <NumField value={form.warmup_base} onChange={(v) => update({ warmup_base: v })} suffix="emails / day" />
                 </FieldShell>
-                <FieldShell label="עלייה יומית" hint="כמה אימיילים נוספים לשלוח בכל יום עם התחזקות המוניטין.">
-                    <NumField value={form.warmup_increase} onChange={(v) => update({ warmup_increase: v })} suffix="+ / יום" />
+                <FieldShell label="Daily increase" hint="How many more emails to send each day as reputation builds.">
+                    <NumField value={form.warmup_increase} onChange={(v) => update({ warmup_increase: v })} suffix="+ / day" />
                 </FieldShell>
-                <FieldShell label="נפח מקסימלי" hint="תקרת היעד של העלייה ההדרגתית. מומלץ לשמור על ערך שמרני לתיבות חדשות (≈40/יום).">
-                    <NumField value={form.warmup_max} onChange={(v) => update({ warmup_max: v })} suffix="אימיילים / יום" />
+                <FieldShell label="Maximum volume" hint="Ceiling the ramp grows toward. Keep conservative for new mailboxes (≈40/day).">
+                    <NumField value={form.warmup_max} onChange={(v) => update({ warmup_max: v })} suffix="emails / day" />
                 </FieldShell>
                 {baseOverMax && (
-                    <p className="text-[11px] text-rose-600 -mt-3">הנפח ההתחלתי אינו יכול לעלות על הנפח המקסימלי.</p>
+                    <p className="text-[11px] text-rose-600 -mt-3">Starting volume can't exceed the maximum.</p>
                 )}
-                <FieldShell label="שיעור מענה" hint="אחוז ממיילי החימום שמקבלים תשובה, כדי לדמות שיחה אמיתית.">
+                <FieldShell label="Reply rate" hint="Share of warmup mail that gets a reply, to mimic real conversation.">
                     <NumField value={form.warmup_reply_rate} onChange={(v) => update({ warmup_reply_rate: v })} suffix="%" />
                 </FieldShell>
-                <FieldShell label="פלח תוכן" hint="מייעד תוכן חימום ספציפי לתחום (למשל saas, agency). השאר ריק עבור תוכן כללי.">
+                <FieldShell label="Content segment" hint="Targets segment-specific warmup content (e.g. saas, agency). Leave empty for generic content.">
                     <TextInput
                         value={form.warmup_tag ?? ""}
-                        placeholder="לדוגמה: saas, agency"
+                        placeholder="e.g. saas, agency"
                         onChange={(v) => update({ warmup_tag: v.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
                         className="w-full h-9"
                     />
@@ -1231,16 +1262,16 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
 
             {/* Schedule */}
             <div className="px-5 py-5 space-y-5">
-                <Eyebrow>חלון שליחה</Eyebrow>
+                <Eyebrow>Sending window</Eyebrow>
                 <div className="grid grid-cols-2 gap-3">
-                    <FieldShell label="שעת התחלה">
+                    <FieldShell label="Start time">
                         <TimeSelect value={form.warmup_start_time || "08:00"} onChange={(v) => update({ warmup_start_time: v })} />
                     </FieldShell>
-                    <FieldShell label="שעת סיום">
+                    <FieldShell label="End time">
                         <TimeSelect value={form.warmup_end_time || "20:00"} onChange={(v) => update({ warmup_end_time: v })} />
                     </FieldShell>
                 </div>
-                <FieldShell label="ימי שליחה" hint="ימים בהם נשלחים מיילי חימום. השאר הכל ריק לשליחה בכל יום.">
+                <FieldShell label="Sending days" hint="Days warmup mail goes out. Leave all unselected to send every day.">
                     <div className="mt-1">
                         <WeekdayBitmask
                             weekdays={WEEKDAYS}
@@ -1249,6 +1280,57 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
                         />
                     </div>
                 </FieldShell>
+            </div>
+        </div>
+    );
+}
+
+/* ── Direct-mail open/click tracking (per mailbox, off by default) ────── */
+
+// Campaign mail has always carried a pixel and wrapped links. A reply written
+// by hand went out clean, which is the right default for one-to-one mail and
+// the reason this is opt-in rather than a platform-wide switch.
+function DirectMailTrackingControl({ mailbox }: { mailbox: Inbox }) {
+    const queryClient = useQueryClient();
+    // Optimistic: the switch paints immediately and the write follows, so the
+    // toggle never feels like it round-trips.
+    const [enabled, setEnabled] = useState(!!mailbox.track_direct_mail);
+
+    const save = useMutation({
+        mutationFn: (next: boolean) => setDirectTracking(mailbox.id, next),
+        onSuccess: (_res, next) => {
+            queryClient.invalidateQueries({ queryKey: ["emails"] });
+            queryClient.invalidateQueries({ queryKey: ["analytics", "direct"] });
+            toast.success(next ? "Tracking direct mail from this mailbox" : "Direct mail is no longer tracked");
+        },
+        onError: (e, next) => {
+            setEnabled(!next);
+            toast.error(buildError(e as unknown as AppError));
+        },
+    });
+
+    const toggle = (next: boolean) => {
+        setEnabled(next);
+        save.mutate(next);
+    };
+
+    return (
+        <div className="px-5 py-4 flex items-start justify-between gap-3 border-t border-slate-200">
+            <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-slate-900">Track opens and clicks on direct mail</div>
+                <div className="text-[11px] text-slate-400">
+                    Adds the same open pixel and link tracking your campaigns use to replies you write by hand in the inbox. Off by
+                    default: it costs a little deliverability and it would also track mail to people you know. Applies to mail sent
+                    from now on, and the results show up under Direct mail in Analytics.
+                </div>
+            </div>
+            <div className="shrink-0">
+                <Toggle
+                    value={enabled}
+                    onChange={toggle}
+                    disabled={save.isPending}
+                    ariaLabel="Track opens and clicks on direct mail"
+                />
             </div>
         </div>
     );
@@ -1276,19 +1358,17 @@ function normalizeTrackingDomain(raw: string): string {
 // round trip instead of after it.
 function trackingDomainProblem(host: string): string | null {
     if (!host) return null;
-    if (host.length > 253) return "הדומיין ארוך מדי.";
-    if (/[^a-z0-9.-]/.test(host)) return "השתמש בשם מארח פשוט, לדוגמה track.yourdomain.com.";
-    if (!host.includes(".")) return "השתמש בתת-דומיין של דומיין בבעלותך, לדוגמה track.yourdomain.com.";
+    if (host.length > 253) return "That domain is too long.";
+    if (/[^a-z0-9.-]/.test(host)) return "Use a plain hostname, like track.yourdomain.com.";
+    if (!host.includes(".")) return "Use a subdomain of a domain you own, like track.yourdomain.com.";
     if (host.split(".").some((l) => !l || l.startsWith("-") || l.endsWith("-"))) {
-        return "השתמש בשם מארח פשוט, לדוגמה track.yourdomain.com.";
+        return "Use a plain hostname, like track.yourdomain.com.";
     }
-    if (!/^[a-z]{2,}$/.test(host.split(".").pop() ?? "")) return "הדומיין חייב להסתיים בסיומת תקינה, לדוגמה .com.";
+    if (!/^[a-z]{2,}$/.test(host.split(".").pop() ?? "")) return "That does not end in a domain ending, like .com.";
     return null;
 }
 
 function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     const [domain, setDomain] = useState(mailbox.tracking_domain ?? "");
     const [copied, setCopied] = useState(false);
     const status = useEmailTrackingDomain(mailbox.id);
@@ -1305,10 +1385,7 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
     const target = status.data?.cname_target ?? "";
     const busy = mutation.isPending || verify.isPending;
     // Show the diagnostic while something is wrong, not once it is fixed.
-    const rawMessage = !verified && status.data?.message && !dirty ? status.data.message : "";
-    const message = isHe && rawMessage.includes("No custom tracking domain is set")
-        ? "לא הוגדר דומיין מעקב מותאם אישית, לכן פתיחות ולחיצות עוברות דרך שרת המעקב המשותף וקישור ההסרה נשאר על כתובת ה-API של ההתקנה."
-        : rawMessage;
+    const message = !verified && status.data?.message && !dirty ? status.data.message : "";
 
     const copyTarget = async () => {
         if (!target) return;
@@ -1327,11 +1404,11 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
             const res = await mutation.mutateAsync(normalized);
             setDomain(res.tracking_domain);
             if (!normalized) {
-                toast.success("דומיין המעקב הוסר");
+                toast.success("Tracking domain cleared");
             } else if (res.tracking_domain_verified) {
-                toast.success(res.tracking_host_unresolvable ? "נשמר, אך שרת המעקב אינו מגיב" : "דומיין המעקב אומת");
+                toast.success(res.tracking_host_unresolvable ? "Saved, but the tracking host is not answering" : "Tracking domain verified");
             } else {
-                toast(res.message || "נשמר. ה-DNS טרם התעדכן, בדוק שוב בעוד מספר דקות.", { icon: "⏳" });
+                toast(res.message || "Saved. DNS hasn't propagated yet, check again in a few minutes.", { icon: "⏳" });
             }
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -1342,9 +1419,9 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
         try {
             const res = await verify.mutateAsync();
             if (res.tracking_domain_verified) {
-                toast.success(res.tracking_host_unresolvable ? "הרשומה שלך נכונה, אך שרת המעקב אינו מגיב" : "דומיין המעקב אומת");
+                toast.success(res.tracking_host_unresolvable ? "Your record is correct, but the tracking host is not answering" : "Tracking domain verified");
             } else {
-                toast(res.message || "עדיין ממתין לעדכון DNS.", { icon: "⏳" });
+                toast(res.message || "Still waiting on DNS.", { icon: "⏳" });
             }
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -1355,7 +1432,7 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
         setDomain("");
         try {
             await mutation.mutateAsync("");
-            toast.success("דומיין המעקב הוסר");
+            toast.success("Tracking domain cleared");
         } catch (e) {
             toast.error(buildError(e as AppError));
         }
@@ -1364,25 +1441,25 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
     return (
         <div className="px-5 py-5 space-y-3">
             <div className="flex items-center justify-between">
-                <Eyebrow>דומיין מעקב</Eyebrow>
+                <Eyebrow>Tracking domain</Eyebrow>
                 {saved ? (
                     verified ? (
                         <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full border border-emerald-100 bg-emerald-50 text-emerald-700 text-[10px] font-semibold uppercase tracking-wide">
-                            <CheckCircle2Icon className="w-3 h-3" /> מאומת
+                            <CheckCircle2Icon className="w-3 h-3" /> Verified
                         </span>
                     ) : (
                         <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full border border-amber-100 bg-amber-50 text-amber-700 text-[10px] font-semibold uppercase tracking-wide">
-                            <ClockIcon className="w-3 h-3" /> ממתין ל-DNS
+                            <ClockIcon className="w-3 h-3" /> Pending DNS
                         </span>
                     )
                 ) : (
                     <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full border border-slate-200 bg-slate-100 text-slate-500 text-[10px] font-semibold uppercase tracking-wide">
-                        לא הוגדר
+                        Not set
                     </span>
                 )}
             </div>
 
-            <FieldShell label="דומיין מעקב מותאם אישית" hint="עקוב אחר פתיחות ולחיצות דרך תת-דומיין משלך במקום השרת המשותף, והצג גם את קישור ההסרה שם. משפר את עבירות ההודעות.">
+            <FieldShell label="Custom tracking domain" hint="Track opens & clicks through your own subdomain instead of the shared host, and serve the unsubscribe link there too. Improves deliverability.">
                 <TextInput value={domain} placeholder="track.yourdomain.com" onChange={setDomain} className="w-full h-9" />
             </FieldShell>
 
@@ -1397,28 +1474,28 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
             {!problem && normalized && status.data && !target && (
                 <div className="flex items-start gap-1.5 text-[11.5px] text-amber-700">
                     <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0 mt-px" />
-                    <span>התקנה זו של Warmbly אינה כוללת שרת מעקב מוגדר, ולכן לא ניתן לאמת דומיין מותאם עדיין. פנה למנהל המערכת להגדרת TRACKING_DOMAIN.</span>
+                    <span>This Warmbly install has no tracking host configured, so a custom domain cannot be verified yet. Ask your administrator to set TRACKING_DOMAIN.</span>
                 </div>
             )}
 
             {!problem && normalized && target && (
                 <div className="rounded-md border border-slate-200 bg-slate-50/70 p-3 space-y-2">
                     <div className="text-[11px] text-slate-500 leading-relaxed">
-                        הוסף רשומת CNAME זו אצל ספק ה-DNS שלך, ולאחר מכן שמור לאימות:
+                        Add this CNAME record at your DNS provider, then save to verify:
                     </div>
                     <div className="grid grid-cols-[56px_1fr] gap-x-3 gap-y-1.5 text-[11.5px] items-center">
-                        <span className="text-slate-400">סוג</span>
+                        <span className="text-slate-400">Type</span>
                         <span className="font-mono text-slate-700">CNAME</span>
-                        <span className="text-slate-400">שם</span>
+                        <span className="text-slate-400">Name</span>
                         <span className="font-mono text-slate-700 truncate">{normalized}</span>
-                        <span className="text-slate-400">ערך</span>
+                        <span className="text-slate-400">Value</span>
                         <span className="font-mono text-slate-700 inline-flex items-center gap-1.5 min-w-0">
                             <span className="truncate">{target}</span>
                             <button
                                 type="button"
                                 onClick={copyTarget}
                                 className="shrink-0 text-slate-400 hover:text-slate-700 transition-colors"
-                                aria-label="העתק יעד CNAME"
+                                aria-label="Copy CNAME target"
                             >
                                 {copied ? <CheckIcon className="w-3 h-3 text-emerald-600" /> : <CopyIcon className="w-3 h-3" />}
                             </button>
@@ -1434,7 +1511,7 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
                     <span>
                         {message}
                         {status.data?.observed && status.data.status === "wrong_target" && (
-                            <> נמצא <span className="font-mono text-slate-600">{status.data.observed}</span>.</>
+                            <> Found <span className="font-mono text-slate-600">{status.data.observed}</span>.</>
                         )}
                     </span>
                 </div>
@@ -1458,14 +1535,14 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
                         className="h-8 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                     >
                         {mutation.isPending && <Loading className="!w-3.5 h-3.5 text-white" />}
-                        שמור ואמת
+                        Save &amp; verify
                     </button>
                 ) : verified ? (
                     <button
                         disabled
                         className="h-8 px-3.5 rounded-md bg-sky-600 text-white text-[12px] font-medium inline-flex items-center gap-1.5 disabled:opacity-60"
                     >
-                        <CheckCircle2Icon className="w-3.5 h-3.5" /> מאומת
+                        <CheckCircle2Icon className="w-3.5 h-3.5" /> Verified
                     </button>
                 ) : (
                     <button
@@ -1474,7 +1551,7 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
                         className="h-8 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                     >
                         {verify.isPending ? <Loading className="!w-3.5 h-3.5 text-white" /> : <RefreshCwIcon className="w-3.5 h-3.5" />}
-                        בדוק שוב
+                        Check again
                     </button>
                 )}
                 {saved && !dirty && (
@@ -1483,7 +1560,7 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
                         disabled={busy}
                         className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-600 hover:text-slate-900 transition-colors disabled:opacity-60"
                     >
-                        נקה
+                        Clear
                     </button>
                 )}
             </div>
@@ -1491,19 +1568,219 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
     );
 }
 
+
+/* ── sending identity ─────────────────────────────────────────────── */
+
+/**
+ * Which of the mailbox's verified addresses its mail goes out as, and the
+ * signature its owner already wrote at the provider.
+ *
+ * Both come from the same place (Gmail's settings API) and are refreshed by
+ * the same press, so they live in one card. Only Gmail exposes either, so the
+ * card is absent for Outlook and SMTP/IMAP rather than showing a control that
+ * cannot do anything.
+ *
+ * The alias is part of the drawer's shared form and saves with the save bar.
+ * The signature import is not: it writes immediately, then hands the imported
+ * text back so the editor above shows what was stored instead of quietly
+ * saving the old text over it.
+ */
+function SendIdentityCard({
+    mailbox,
+    value,
+    onChange,
+    onSignatureImported,
+}: {
+    mailbox: Inbox;
+    value: string;
+    onChange: (v: string) => void;
+    onSignatureImported: (html: string, plain: string) => void;
+}) {
+    const isGmail = mailbox.provider === "gmail";
+    const identity = useSendIdentity(mailbox.id, isGmail);
+    const refresh = useRefreshSendIdentity(mailbox.id);
+    const [importing, setImporting] = useState(false);
+
+    const data = identity.data;
+    const aliases = (data?.identities ?? []).filter((i) => i.email !== data?.mailbox_email);
+
+    const options: SelectOption[] = [
+        { value: "", label: `${mailbox.email} (mailbox address)` },
+        ...aliases.map((a) => ({
+            value: a.email,
+            label: a.verified ? (a.name ? `${a.name} · ${a.email}` : a.email) : `${a.email} (not verified)`,
+            disabled: !a.verified,
+        })),
+    ];
+
+    // A stored choice the provider has since stopped verifying is cleared on
+    // the next refresh, but until then it is still what mail goes out as, so
+    // it stays selectable rather than disappearing from its own dropdown.
+    if (value && !options.some((o) => o.value === value)) {
+        options.push({ value, label: `${value} (no longer listed)` });
+    }
+
+    const reload = async (importSignature: boolean) => {
+        try {
+            if (importSignature) setImporting(true);
+            const next = await refresh.mutateAsync(importSignature);
+            if (importSignature) {
+                // The import wrote the row; read it back so the editor holds
+                // what was stored and the save bar cannot undo it.
+                const fresh = await getEmail(mailbox.id);
+                onSignatureImported(fresh.signature_html, fresh.signature_plain);
+                toast.success(
+                    fresh.signature_html.trim()
+                        ? "Signature imported from Gmail"
+                        : "Your Gmail signature is empty, so nothing was changed",
+                );
+            } else {
+                toast.success(
+                    next.identities.length > 1
+                        ? `Found ${next.identities.length} addresses you can send as`
+                        : "No other send-as addresses on this mailbox",
+                );
+            }
+        } catch (e) {
+            toast.error(buildError(e as AppError));
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const busy = refresh.isPending || importing;
+
+    if (!isGmail) return null;
+
+    return (
+        <div className="px-5 py-5 space-y-3 border-b border-slate-100">
+            <Eyebrow>Sending identity</Eyebrow>
+
+            <FieldShell
+                label="Send mail as"
+                hint="Any address Google has verified this mailbox to send as. Add and verify one in Gmail's settings first, then refresh. Warmup always uses the mailbox address."
+            >
+                <SelectMenu
+                    value={value}
+                    onChange={onChange}
+                    options={options}
+                    fullWidth
+                    disabled={busy}
+                    aria-label="Send mail as"
+                />
+            </FieldShell>
+
+            <div className="flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => reload(false)}
+                    disabled={busy}
+                    className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-600 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                >
+                    {refresh.isPending && !importing ? <Loading className="!w-3.5 h-3.5" /> : <RefreshCwIcon className="w-3.5 h-3.5" />}
+                    Refresh addresses
+                </button>
+                <button
+                    type="button"
+                    onClick={() => reload(true)}
+                    disabled={busy}
+                    className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-600 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                >
+                    {importing ? <Loading className="!w-3.5 h-3.5" /> : <SendIcon className="w-3.5 h-3.5" />}
+                    Import signature from Gmail
+                </button>
+            </div>
+
+            <p className="text-[10.5px] text-slate-400 leading-relaxed">
+                {data?.signature_source === "provider" && data?.signature_imported_at
+                    ? `Signature imported from Gmail on ${new Date(data.signature_imported_at).toLocaleDateString()}. Editing it below makes it yours again.`
+                    : "Importing replaces the signature below with the one set in Gmail."}
+            </p>
+        </div>
+    );
+}
+
 /* ── Settings (editable) ─────────────────────── */
 
-function SettingsTab({ form, update, mailbox }: { form: Inbox; update: (p: Partial<Inbox>) => void; mailbox: Inbox }) {
+/* ── disconnect ───────────────────────────────────────────────────── */
+
+/**
+ * The only per-mailbox delete in the product, at the bottom of the tab the
+ * row's "More" button opens.
+ *
+ * It was previously reachable only by ticking a row's checkbox in the list and
+ * finding the selection bar, which nobody looks for when they want to remove
+ * one mailbox. The action is destructive and unrecoverable, so it says what it
+ * takes before asking, and the copy differs by provider because what happens to
+ * the connection does: Google accepts a revocation and Microsoft does not.
+ */
+function DisconnectCard({ mailbox, onDisconnected }: { mailbox: Inbox; onDisconnected: () => void }) {
+    const confirm = useConfirm();
+    const remove = useRemoveEmail(mailbox.id);
+
+    const revocation =
+        mailbox.provider === "gmail"
+            ? "Warmbly's access to your Google account is revoked, so it disappears from your third-party access list."
+            : mailbox.provider === "outlook"
+              ? "The stored Microsoft tokens are destroyed. Microsoft has no way for us to remove the app itself, so do that in your Microsoft account privacy settings."
+              : "The stored SMTP and IMAP credentials are destroyed.";
+
+    const ask = () =>
+        confirm.show(
+            `Disconnect ${mailbox.email}? This deletes its imported mail, warmup history and credentials, and cannot be undone. Set the mailbox inactive instead if you only want it to stop sending.`,
+            async () => {
+                try {
+                    await remove.mutateAsync();
+                    toast.success(`${mailbox.email} disconnected`);
+                    // The drawer is showing a mailbox that no longer exists.
+                    onDisconnected();
+                } catch (e) {
+                    toast.error(buildError(e as AppError));
+                }
+            },
+        );
+
+    return (
+        <div className="px-5 py-5 space-y-3">
+            <Eyebrow>Danger zone</Eyebrow>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 sm:items-center border-l-2 border-red-200 pl-3">
+                <div className="min-w-0 flex-1">
+                    <div className="text-[12.5px] font-medium text-red-700 leading-tight flex items-center gap-1.5">
+                        <TrashIcon className="w-3 h-3" />
+                        Disconnect this mailbox
+                    </div>
+                    <div className="text-[11.5px] text-red-700/70 leading-tight mt-0.5">
+                        Deletes its imported mail, warmup history, credentials and any scheduled send.
+                        {" "}
+                        {revocation}
+                        {" "}
+                        There is no recovery window, so export the workspace first if you want a copy.
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={ask}
+                    disabled={remove.isPending}
+                    className="self-start sm:ml-auto h-7 px-2.5 rounded-md border border-red-300 hover:border-red-400 text-red-700 hover:text-red-800 hover:bg-red-100/60 text-[12px] font-medium transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    {remove.isPending ? "Disconnecting…" : "Disconnect…"}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; update: (p: Partial<Inbox>) => void; mailbox: Inbox; onDisconnected: () => void }) {
     return (
         <div className="divide-y divide-slate-200/60">
             <div className="px-5 py-5 space-y-4">
-                <Eyebrow>פרופיל שולח</Eyebrow>
-                <FieldShell label="שם תצוגה">
-                    <TextInput value={form.name ?? ""} placeholder="שם פרטי ומשפחה" onChange={(v) => update({ name: v })} className="w-full h-9" />
+                <Eyebrow>Sender profile</Eyebrow>
+                <FieldShell label="Display name">
+                    <TextInput value={form.name ?? ""} placeholder="First Last" onChange={(v) => update({ name: v })} className="w-full h-9" />
                 </FieldShell>
                 <FieldShell
-                    label="כתובת למענה (Reply-to)"
-                    hint={`לאן מגיעות התשובות. השאר ריק כדי להשתמש ב-${mailbox.email}.`}
+                    label="Reply-to"
+                    hint={`Where replies land. Leave empty to use ${mailbox.email}.`}
                 >
                     <div className="flex items-center gap-1.5">
                         <TextInput
@@ -1518,7 +1795,7 @@ function SettingsTab({ form, update, mailbox }: { form: Inbox; update: (p: Parti
                                 onClick={() => update({ reply_to: mailbox.email })}
                                 className="h-9 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors shrink-0"
                             >
-                                השתמש בכתובת התיבה
+                                Use mailbox address
                             </button>
                         )}
                     </div>
@@ -1527,14 +1804,16 @@ function SettingsTab({ form, update, mailbox }: { form: Inbox; update: (p: Parti
 
             {mailbox.provider === "smtp_imap" && (
                 <div className="px-5 py-5 space-y-3">
-                    <Eyebrow>תיקיית דואר יוצא</Eyebrow>
+                    <Eyebrow>Sent folder</Eyebrow>
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                             <div className="text-[12.5px] font-medium text-slate-900">
-                                שמור עותק של דואר שנשלח
+                                Keep a copy of sent mail
                             </div>
                             <div className="text-[11px] text-slate-400">
-                                שומר כל הודעה ש-Warmbly שולח לתוך תיקיית הפריטים שנשלחו של תיבת דואר זו. כבה אפשרות זו אם הספק שלך כבר שומר עותק, אחרת תראה כל הודעה פעמיים.
+                                Files each message Warmbly sends into this mailbox's Sent
+                                folder. Turn it off if your provider already saves one, or
+                                you will see every message twice.
                             </div>
                         </div>
                         <Toggle
@@ -1545,8 +1824,15 @@ function SettingsTab({ form, update, mailbox }: { form: Inbox; update: (p: Parti
                 </div>
             )}
 
+            <SendIdentityCard
+                mailbox={mailbox}
+                value={form.send_as_email}
+                onChange={(v) => update({ send_as_email: v })}
+                onSignatureImported={(html, plain) => update({ signature_html: html, signature_plain: plain })}
+            />
+
             <div className="px-5 py-5 space-y-2">
-                <Eyebrow>חתימה</Eyebrow>
+                <Eyebrow>Signature</Eyebrow>
                 <div className="overflow-x-auto">
                     <EmailEditor
                         id="inbox-signature"
@@ -1563,7 +1849,7 @@ function SettingsTab({ form, update, mailbox }: { form: Inbox; update: (p: Parti
             </div>
 
             <div className="px-5 py-5 space-y-2">
-                <Eyebrow>תגיות</Eyebrow>
+                <Eyebrow>Tags</Eyebrow>
                 <TagSelector
                     selected={form.tags}
                     onAdd={(v) => update({ tags: [...form.tags, v] })}
@@ -1572,27 +1858,33 @@ function SettingsTab({ form, update, mailbox }: { form: Inbox; update: (p: Parti
             </div>
 
             <div className="px-5 py-5 space-y-5">
-                <Eyebrow>מגבלות שליחה</Eyebrow>
-                <FieldShell label="מכסת קמפיין יומית" hint="מקסימום אימיילים לקמפיין קר ביום, עד 5,000. ברירת מחדל 50; הגדל רק עם מוניטין מוכח.">
-                    <NumField value={form.campaign_limit} onChange={(v) => update({ campaign_limit: v })} suffix="אימיילים / יום" max={5000} />
+                <Eyebrow>Sending limits</Eyebrow>
+                <FieldShell label="Daily campaign cap" hint="Max cold-campaign emails per day, up to 5,000. Default 50; raise only with good reputation.">
+                    <NumField value={form.campaign_limit} onChange={(v) => update({ campaign_limit: v })} suffix="emails / day" max={5000} />
                     {form.campaign_limit > 100 && (
                         <p className="text-[11px] text-amber-600 mt-1 leading-relaxed">
-                            הרבה מעבר לטווח הבטוח של 30–50 ביום עבור פניות קרות. מכסות כה גבוהות דורשות תיבת דואר ותיקה ומחוממת היטב וספק שמאפשר נפח כזה (Google Workspace מוגבל ל-2,000 ביום). פגיעה בעבירות מתבטאת בהגעה לספאם ולא בהודעות שגיאה.
+                            Well above the 30–50/day safe band for cold outreach. Caps this high need a warmed,
+                            established mailbox and a provider that allows the volume (Google Workspace tops out at
+                            2,000/day). Deliverability damage shows up as spam placement, not as errors.
                         </p>
                     )}
                 </FieldShell>
                 <FieldShell
-                    label="מרווח מינימלי"
-                    hint={`ההשהיה הקצרה ביותר בין שתי שליחות מתיבה זו — כרגע ${formatGap(form.min_wait_time)}. מוחלף כאשר הגדרות התנהגות שליחה פעילות, הקובעות השהיה ייחודית לכל שליחה.`}
+                    label="Minimum gap"
+                    hint={`Smallest delay between two sends from this mailbox — currently ${formatGap(form.min_wait_time)}. Overridden while Sending behaviour is on, which draws a fresh delay for every send.`}
                 >
-                    <NumField value={form.min_wait_time} onChange={(v) => update({ min_wait_time: v })} suffix="שניות" max={86400} />
+                    <NumField value={form.min_wait_time} onChange={(v) => update({ min_wait_time: v })} suffix="seconds" max={86400} />
                 </FieldShell>
             </div>
 
             <TrackingDomainCard mailbox={mailbox} />
 
+            <DirectMailTrackingControl mailbox={mailbox} />
+
+            <DisconnectCard mailbox={mailbox} onDisconnected={onDisconnected} />
+
             <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 text-[11px] text-slate-400">
-                <SendIcon className="w-3 h-3" /> השינויים יחולו על שליחות חדשות. <ReplyIcon className="w-3 h-3 ms-1 me-1" /> החתימה חלה גם על תשובות.
+                <SendIcon className="w-3 h-3" /> Changes apply to new sends. <ReplyIcon className="w-3 h-3 ml-1" /> Signature applies to replies too.
             </div>
         </div>
     );

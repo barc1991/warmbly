@@ -279,13 +279,17 @@ func (s *contactService) ImportCommit(
 			parsed = append(parsed, p)
 			continue
 		}
-		contact.Email = strings.TrimSpace(contact.Email)
-		if contact.Email == "" || !email.IsValid(contact.Email) {
+		// Normalized rather than lowercased: a cell holding
+		// `Dana Reyes <dana@acme.com>` parses as an address and used to be
+		// imported whole as the recipient. The dedupe below keys on the result,
+		// so the two spellings of one address also collapse into one contact.
+		addr, ok := email.Normalize(contact.Email)
+		if !ok {
 			p.errMsg = "missing or invalid email"
 			parsed = append(parsed, p)
 			continue
 		}
-		contact.Email = strings.ToLower(contact.Email)
+		contact.Email = addr
 
 		if prev, dup := firstByEmail[contact.Email]; dup {
 			// Same address twice in one file. "skip" keeps the first row;
@@ -309,14 +313,14 @@ func (s *contactService) ImportCommit(
 	}
 
 	// Resolve every category title the file mentions in one round trip,
-	// creating the ones the user doesn't have yet.
+	// creating the ones the workspace doesn't have yet.
 	titleToID := map[string]uuid.UUID{}
 	var allTitles []string
 	for i := range parsed {
 		allTitles = append(allTitles, parsed[i].categories...)
 	}
 	if len(allTitles) > 0 {
-		titleToID, xerr = s.contactRepository.ResolveCategoryNames(ctx, uid, allTitles)
+		titleToID, xerr = s.contactRepository.ResolveCategoryNames(ctx, orgID, uid, allTitles)
 		if xerr != nil {
 			return nil, xerr
 		}

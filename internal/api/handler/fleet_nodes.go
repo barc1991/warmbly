@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"os"
 	"sort"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/app/fleetnode"
+	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 )
@@ -102,10 +104,7 @@ func (h *Handler) FleetJoin(c *gin.Context) {
 		nodeID = parsed
 	}
 
-	address := strings.TrimSpace(req.Address)
-	if address == "" {
-		address = c.ClientIP()
-	}
+	address := heartbeatAddress(req.Address, c.ClientIP())
 
 	// Registering here rather than waiting for the first beat means the node
 	// shows up in the dashboard the moment it joins, even if it then fails to
@@ -130,10 +129,12 @@ func (h *Handler) FleetJoin(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, fleetJoinResponse{
-		NodeID:           nodeID,
-		Role:             string(role),
-		EnvB64:           base64.StdEncoding.EncodeToString([]byte(renderNodeEnv(nodeID, role, req.Region))),
-		DesiredVersion:   reply.DesiredVersion,
+		NodeID: nodeID,
+		Role:   string(role),
+		EnvB64: base64.StdEncoding.EncodeToString([]byte(renderNodeEnv(nodeID, role, req.Region))),
+		// Not reply.DesiredVersion: an empty answer is "no opinion" to a node
+		// that is already running something, but this one has nothing to run.
+		DesiredVersion:   h.FleetNodes.JoinVersion(ctx, nodeID),
 		HeartbeatSeconds: nodeHeartbeatSeconds(reply.LivenessSeconds),
 	})
 }
@@ -151,6 +152,7 @@ func (h *Handler) FleetHeartbeat(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "decode body"})
 		return
 	}
+	beat.Address = heartbeatAddress(beat.Address, c.ClientIP())
 	reply, err := h.FleetNodes.Heartbeat(c.Request.Context(), beat)
 	if err != nil {
 		switch {
@@ -179,6 +181,49 @@ func (h *Handler) FleetHeartbeat(c *gin.Context) {
 	c.JSON(http.StatusOK, reply)
 }
 
+// heartbeatAddress prefers the public IPv4 observed by the trusted backend edge.
+func heartbeatAddress(reported, observed string) string {
+	reported = strings.TrimSpace(reported)
+	observed = strings.TrimSpace(observed)
+	if normalized, ok := normalizedPublicIPv4(observed); ok {
+		return normalized
+	}
+	if normalized, ok := normalizedPublicIPv4(reported); ok {
+		return normalized
+	}
+	if observed != "" {
+		return observed
+	}
+	return reported
+}
+
+func normalizedPublicIPv4(raw string) (string, bool) {
+	ip, err := netip.ParseAddr(raw)
+	if err != nil {
+		return "", false
+	}
+	ip = ip.Unmap()
+	if !ip.Is4() || !ip.IsGlobalUnicast() || ip.IsPrivate() {
+		return "", false
+	}
+	for _, prefix := range nonPublicIPv4Prefixes {
+		if prefix.Contains(ip) {
+			return "", false
+		}
+	}
+	return ip.String(), true
+}
+
+var nonPublicIPv4Prefixes = []netip.Prefix{
+	netip.MustParsePrefix("100.64.0.0/10"),
+	netip.MustParsePrefix("192.0.0.0/24"),
+	netip.MustParsePrefix("192.0.2.0/24"),
+	netip.MustParsePrefix("198.18.0.0/15"),
+	netip.MustParsePrefix("198.51.100.0/24"),
+	netip.MustParsePrefix("203.0.113.0/24"),
+	netip.MustParsePrefix("240.0.0.0/4"),
+}
+
 // nodeHeartbeatSeconds derives the beat interval from the server's liveness
 // window: beat three times per window, so two lost beats still do not look
 // like a dead machine.
@@ -198,13 +243,28 @@ func nodeHeartbeatSeconds(livenessSeconds int) int {
 // is configured with exactly the infrastructure the control plane uses and
 // there is nothing to keep in sync by hand.
 //
-// Deliberately excluded: PRIMARY_DB and anything else that would give a node
-// direct database access. Workers reach relational data through the internal
-// API and nothing else, and handing them a DSN here would quietly undo that.
+// Every name here must be one the node's own code reads. Two of them were not
+// (S3_BUCKET and KMS_KEY_ID, against a storage layer reading BLOB_BUCKET and a
+// KMS factory reading KMS_AWS_KEY_ID), which sent an AWS-backed node to the
+// default bucket and the default key alias with nothing logged.
+//
+// KMS_PROVIDER and BLOB_PROVIDER are absent because they are not copied but
+// translated; see nodeProviders. The AWS-shaped settings above stay, so an
+// operator who deliberately overrides a node back to a direct provider in
+// node.local.env only has to add the credential.
+//
+// Deliberately excluded: PRIMARY_DB for a worker, and anything else that would
+// give one direct database access. A worker reaches relational data through
+// the internal API and nothing else. renderNodeEnv sends the DSN to a consumer,
+// which is control plane and updates relational state itself.
 var nodeEnvKeys = []string{
 	"APP_ENV",
 	"EVENTBUS_PROVIDER",
 	"NATS_URL",
+	// Base64, not a path: a node has no file to point at, and the env file
+	// docker reads cannot hold a multi-line value.
+	"NATS_CREDS_B64",
+	"NATS_MAX_BYTES",
 	"KAFKA_BOOTSTRAP_SERVERS",
 	"KAFKA_SASL_USERNAME",
 	"KAFKA_SASL_PASSWORD",
@@ -213,20 +273,48 @@ var nodeEnvKeys = []string{
 	"SCHEMA_REGISTRY_SECRET",
 	"CODEC_PROVIDER",
 	"REDIS",
-	"KMS_PROVIDER",
 	"KMS_LOCAL_MASTER_KEY",
-	"KMS_KEY_ID",
+	"KMS_AWS_KEY_ID",
 	"CREDENTIALS_ENCRYPTION_KEY",
-	"BLOB_PROVIDER",
 	"BLOB_FS_ROOT",
+	"BLOB_BUCKET",
 	"AWS_REGION",
-	"S3_BUCKET",
+	"AWS_ENDPOINT_URL_S3",
 	"BOX_GOOGLE_CLIENT_ID",
 	"BOX_GOOGLE_CLIENT_SECRET",
 	"BOX_OUTLOOK_CLIENT_ID",
 	"BOX_OUTLOOK_CLIENT_SECRET",
 	"MAIL_TLS_INSECURE",
+	"POSTHOG_KEY",
+	"POSTHOG_HOST",
+	"POSTHOG_ERROR_TRACKING",
 	"SENTRY_DSN",
+}
+
+// nodeProviders translates the control plane's own crypto and blob providers
+// into the ones a node should run.
+//
+// A node has no cloud credentials and no way to be handed any: node.env is
+// regenerated from this instance's environment on every join, and shipping an
+// IAM key to every machine in the fleet is exactly the thing worth avoiding. So
+// a provider that needs a credential becomes its brokered form, which
+// authenticates with the internal API token the node already holds and asks
+// this instance to do the one privileged operation. A provider that needs no
+// credential (local KMS, filesystem blobs) passes through unchanged.
+//
+// Brokering costs one HTTPS call to the control plane per DEK open (Redis
+// caches the result) and per blob operation. The bytes still go straight
+// between the node and the object store.
+func nodeProviders() (kmsProvider, blobProvider string) {
+	kmsProvider = config.KMSProvider()
+	if kmsProvider == "aws" || kmsProvider == "aws-kms" {
+		kmsProvider = "brokered"
+	}
+	blobProvider = config.BlobProvider()
+	if blobProvider == "s3" {
+		blobProvider = "brokered"
+	}
+	return kmsProvider, blobProvider
 }
 
 // renderNodeEnv builds the env file a node writes to disk on join.
@@ -248,11 +336,35 @@ func renderNodeEnv(nodeID uuid.UUID, role models.NodeRole, region string) string
 	if backend == "" {
 		backend = strings.TrimRight(os.Getenv("APP_INTERNAL_URL"), "/")
 	}
+	// A consumer is control plane: it opens Postgres itself, so it gets the DSN
+	// a worker is deliberately never given, and reads keys straight from the
+	// table rather than back through the API it sits behind. An instance whose
+	// DSN lives in SSM rather than the environment has nothing to send, so the
+	// node falls back to the worker's HTTP key path and join.sh tells the
+	// operator to supply PRIMARY_DB in node.local.env.
+	dsn := os.Getenv("PRIMARY_DB")
+	keysProvider := "http"
+	if role == models.NodeRoleConsumer && dsn != "" {
+		keysProvider = "postgres"
+		fmt.Fprintf(&b, "PRIMARY_DB=%s\n", dsn)
+	}
+
 	fmt.Fprintf(&b, "WARMBLY_BACKEND_URL=%s\n", backend)
-	fmt.Fprintf(&b, "ENCRYPTED_KEYS_PROVIDER=%s\n", "http")
+	fmt.Fprintf(&b, "ENCRYPTED_KEYS_PROVIDER=%s\n", keysProvider)
 	fmt.Fprintf(&b, "ENCRYPTED_KEYS_BACKEND_URL=%s\n", backend)
 	fmt.Fprintf(&b, "ENCRYPTED_KEYS_WORKER_TOKEN=%s\n", os.Getenv("INTERNAL_API_TOKEN"))
 	fmt.Fprintf(&b, "INTERNAL_API_TOKEN=%s\n", os.Getenv("INTERNAL_API_TOKEN"))
+
+	kmsProvider, blobProvider := nodeProviders()
+	fmt.Fprintf(&b, "KMS_PROVIDER=%s\n", kmsProvider)
+	fmt.Fprintf(&b, "BLOB_PROVIDER=%s\n", blobProvider)
+
+	// The credential for the two endpoints that open a key and sign a blob
+	// operation. Sent only when the instance issues a separate one; otherwise
+	// the node falls back to the internal token it already has.
+	if v := os.Getenv("NODE_BROKER_TOKEN"); v != "" {
+		fmt.Fprintf(&b, "NODE_BROKER_TOKEN=%s\n", v)
+	}
 
 	for _, k := range nodeEnvKeys {
 		if v := os.Getenv(k); v != "" {

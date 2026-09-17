@@ -7,17 +7,16 @@ export type IntegrationProvider =
     | "salesforce"
     | "pipedrive"
     | "close"
-    | "frappe_crm"
     | "zapier"
     | "make"
     | "n8n"
     | "slack"
     | "discord"
-    | "telegram"
     | "calendly"
     | "cal_com"
     | "google_sheets"
-    | "millionverifier";
+    | "millionverifier"
+    | "cleanmylist";
 
 export type IntegrationAuthMethod = "oauth" | "api_key" | "webhook";
 
@@ -160,12 +159,10 @@ export interface IntegrationConnection {
 export type IntegrationAction =
     | "slack.notify"
     | "discord.notify"
-    | "telegram.notify"
     | "hubspot.upsert_contact"
     | "pipedrive.upsert_person"
     | "salesforce.upsert_contact"
     | "close.upsert_lead"
-    | "frappe_crm.upsert_lead"
     | "webhook.ping"
     // Native (Warmbly built-in) automation actions — no external connection.
     | "warmbly.add_tag"
@@ -284,11 +281,11 @@ export interface CreateMeetingInput {
 
 export const CATEGORY_LABELS: Record<IntegrationCategory, string> = {
     crm: "CRM",
-    automation: "אוטומציה",
-    notifications: "התראות",
-    meetings: "פגישות",
-    data: "נתונים",
-    verification: "אימות",
+    automation: "Automation",
+    notifications: "Notifications",
+    meetings: "Meetings",
+    data: "Data",
+    verification: "Verification",
 };
 
 export const CATEGORY_ORDER: IntegrationCategory[] = [
@@ -303,27 +300,28 @@ export const CATEGORY_ORDER: IntegrationCategory[] = [
 // Reply-intent classifier buckets, used to filter reply automations
 // ("only notify me on positive replies"). Mirrors models.ReplyIntentType.
 export const REPLY_INTENT_OPTIONS: { value: string; label: string }[] = [
-    { value: "positive", label: "חיובי" },
-    { value: "question", label: "שאלה" },
-    { value: "neutral", label: "ניטרלי" },
-    { value: "negative", label: "שלילי" },
-    { value: "out_of_office", label: "מחוץ למשרד" },
+    { value: "positive", label: "Positive" },
+    { value: "question", label: "Question" },
+    { value: "neutral", label: "Neutral" },
+    { value: "negative", label: "Negative" },
+    { value: "out_of_office", label: "Out of office" },
+    { value: "automated", label: "Automated" },
 ];
 
 // Human labels for the Warmbly event vocabulary (subset surfaced as triggers).
 export const EVENT_LABELS: Record<string, string> = {
-    "campaign.reply_received": "ליד משיב",
-    "contact.created": "איש קשר נוצר",
-    "form.submitted": "טופס נשלח",
-    "campaign.email_bounced": "אימייל נדחה (Bounce)",
-    "campaign.unsubscribed": "איש קשר הסיר הרשמה",
-    "warmup.health_changed": "בריאות החימום השתנתה",
-    "deliverability.complaint": "תלונת ספאם",
-    "meeting.booked": "פגישה נקבעה",
-    "meeting.rescheduled": "פגישה נדחתה למועד אחר",
-    "meeting.canceled": "פגישה בוטלה",
-    "campaign.action": "הופעל על ידי שלב בקמפיין",
-    "inbound.webhook": "וובהוק נכנס",
+    "campaign.reply_received": "Prospect replies",
+    "contact.created": "Contact created",
+    "form.submitted": "Form submitted",
+    "campaign.email_bounced": "Email bounces",
+    "campaign.unsubscribed": "Contact unsubscribes",
+    "warmup.health_changed": "Warmup health changes",
+    "deliverability.complaint": "Spam complaint",
+    "meeting.booked": "Meeting booked",
+    "meeting.rescheduled": "Meeting rescheduled",
+    "meeting.canceled": "Meeting canceled",
+    "campaign.action": "Launched by a campaign step",
+    "inbound.webhook": "Inbound webhook",
 };
 
 // Which action a provider performs for an event subscription.
@@ -341,8 +339,6 @@ export function defaultActionForProvider(provider: IntegrationProvider): Integra
             return "salesforce.upsert_contact";
         case "close":
             return "close.upsert_lead";
-        case "frappe_crm":
-            return "frappe_crm.upsert_lead";
         default:
             return "webhook.ping";
     }
@@ -354,7 +350,6 @@ export const PUSHABLE_PROVIDERS: IntegrationProvider[] = [
     "pipedrive",
     "salesforce",
     "close",
-    "frappe_crm",
 ];
 
 // Display names for providers, used by contextual menus that list connections.
@@ -363,17 +358,16 @@ export const PROVIDER_LABELS: Record<IntegrationProvider, string> = {
     salesforce: "Salesforce",
     pipedrive: "Pipedrive",
     close: "Close",
-    frappe_crm: "Frappe CRM",
     zapier: "Zapier",
     make: "Make",
     n8n: "n8n",
     slack: "Slack",
     discord: "Discord",
-    telegram: "Telegram",
     calendly: "Calendly",
     cal_com: "Cal.com",
     google_sheets: "Google Sheets",
     millionverifier: "MillionVerifier",
+    cleanmylist: "CleanMyList",
 };
 
 // A connection is bookable when it's a connected scheduling provider with a

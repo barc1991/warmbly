@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/errx"
+	"github.com/warmbly/warmbly/internal/events"
 	"github.com/warmbly/warmbly/internal/infrastructure/cache"
 	"github.com/warmbly/warmbly/internal/infrastructure/storage"
 	"github.com/warmbly/warmbly/internal/models"
@@ -22,7 +23,6 @@ type UniboxService interface {
 	Search(
 		ctx context.Context,
 		orgID uuid.UUID,
-		userID uuid.UUID,
 		params *models.MailSearchParams,
 	) (*models.MailSearchResult, *errx.Error)
 	GetByID(
@@ -45,6 +45,7 @@ type UniboxService interface {
 	) (int64, *errx.Error)
 	MarkSeen(ctx context.Context, userID, emailID uuid.UUID, seen bool) *errx.Error
 	MarkSeenBulk(ctx context.Context, orgID uuid.UUID, data *models.MarkSeen) (*models.MarkSeen, *errx.Error)
+	MoveFolderBulk(ctx context.Context, orgID uuid.UUID, data *models.MoveFolder) (*models.MoveFolder, *errx.Error)
 
 	// Snooze hides a thread until `until`. Unsnooze drops the row.
 	Snooze(ctx context.Context, userID uuid.UUID, threadID string, until time.Time) (*models.UniboxSnooze, *errx.Error)
@@ -56,8 +57,8 @@ type UniboxService interface {
 
 	// Conversation labels. SetThreadLabels replaces a thread's full
 	// label set (idempotent); ListThreadLabels reads the current set.
-	SetThreadLabels(ctx context.Context, userID uuid.UUID, threadID string, categoryIDs []uuid.UUID) ([]models.MiniCategory, *errx.Error)
-	ListThreadLabels(ctx context.Context, userID uuid.UUID, threadID string) ([]models.MiniCategory, *errx.Error)
+	SetThreadLabels(ctx context.Context, orgID, userID uuid.UUID, threadID string, categoryIDs []uuid.UUID) ([]models.MiniCategory, *errx.Error)
+	ListThreadLabels(ctx context.Context, orgID uuid.UUID, threadID string) ([]models.MiniCategory, *errx.Error)
 
 	// Scheduled-sends review + cancel. CancelScheduled is DB-only: we
 	// flip status to 'cancelled' and let the queued Cloud Task fire as
@@ -79,6 +80,10 @@ type UniboxService interface {
 	// before bodies were indexed. Runs until the archive is caught up, then
 	// returns; blocking, so callers run it in a goroutine.
 	StartBodyTextBackfill(ctx context.Context)
+
+	// WireProviderRelay attaches the worker bus, after which a read/unread
+	// change made here is carried out to the mailbox provider too.
+	WireProviderRelay(p events.Publisher)
 }
 
 type uniboxService struct {
@@ -87,6 +92,18 @@ type uniboxService struct {
 	tasksClient      tasksched.Scheduler
 	cache            *cache.Cache
 	blob             storage.Store
+	// publisher relays read/unread changes out to the mailbox providers.
+	// Optional: without it the unibox still works and only Warmbly's own copy
+	// of the read state changes.
+	publisher events.Publisher
+}
+
+// WireProviderRelay attaches the bus the unibox relays read state through.
+// Wired after construction, like the webhook dispatcher on the mailbox
+// service, because a deployment without a worker bus is still a working
+// unibox.
+func (s *uniboxService) WireProviderRelay(p events.Publisher) {
+	s.publisher = p
 }
 
 func NewService(

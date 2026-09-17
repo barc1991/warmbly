@@ -46,11 +46,14 @@ Returns the `AdvancedOutreachSettings` object directly (not wrapped in an envelo
     "enabled": true,
     "positive_keywords": ["interested", "demo", "pricing"],
     "negative_keywords": ["not interested", "unsubscribe", "stop"],
-    "out_of_office_keywords": ["out of office", "ooo", "vacation"],
+    "out_of_office_keywords": ["out of office", "ooo", "vacation", "abwesenheitsnotiz"],
     "question_keywords": ["?", "how", "price"],
     "auto_create_crm_task": true,
+    "crm_task_intents": ["positive", "question", "neutral", "negative"],
     "auto_pause_on_negative": false,
-    "auto_suppress_on_unsubscribe_keyword": true
+    "auto_suppress_on_unsubscribe_keyword": true,
+    "hold_on_out_of_office": true,
+    "out_of_office_hold_days": 7
   },
   "send_time_optimization": {
     "enabled": false,
@@ -85,10 +88,18 @@ Returns the `AdvancedOutreachSettings` object directly (not wrapped in an envelo
 }
 ```
 
-The `unsubscribe` block is the workspace default for the opt-out appended after the signature of every campaign email: `mode` is `text` (a reply-to-opt-out sentence, the default), `link` (a sentence with the recipient's signed unsubscribe link) or `off`; a campaign's own `unsubscribe_mode` (`inherit` by default) overrides it. Copy fields are single lines of at most 300 characters and fall back to the defaults when blank. See the [unsubscribe guide](/guides/unsubscribe/).
+The `unsubscribe` block is the workspace default for the opt-out appended after the signature of every campaign email: `mode` is `text` (a reply-to-opt-out sentence, the default), `link` (a sentence with the recipient's own unsubscribe link) or `off`; a campaign's own `unsubscribe_mode` (`inherit` by default) overrides it. Copy fields are single lines of at most 300 characters and fall back to the defaults when blank. See the [unsubscribe guide](/guides/unsubscribe/).
+
+<Callout type="info" title="Reply follow-up tasks are per intent">
+`reply_intent.auto_create_crm_task` opens a CRM task when a classified reply lands, and `reply_intent.crm_task_intents` names which intents are worth one. Omit the field (or send `null`) and the default applies: `positive`, `question`, `neutral`, `negative`, which is every human intent and no automated one. Send `["positive"]` to narrow it, `["positive", "question", "neutral", "negative", "out_of_office", "automated"]` to include auto-responders and bounces, or `[]` to open nothing (the same as turning the switch off). An intent outside that vocabulary is refused with `400`. See [Tasks](/guides/contacts-crm/#tasks).
+</Callout>
 
 <Callout type="info" title="Content score floor is clamped">
 `preflight.min_content_score` is stored clamped to `1`-`100`. A value outside that range is corrected on write rather than rejected, so a floor above `100` cannot flag every campaign permanently. Set `preflight.check_content_score` to `false` to turn the check off; the score never blocks or delays a send either way. See [Content checks](/guides/campaigns/).
+</Callout>
+
+<Callout type="info" title="Out-of-office holds are on by default">
+`reply_intent.hold_on_out_of_office` defaults to `true`. When a recipient's mailbox answers a campaign step with an away message, the contact's next step in that campaign is held until they are back: the return date in the auto-reply when one can be read, plus a working day, and `out_of_office_hold_days` (1 to 90, default `7`) when none can. An auto-reply is never counted as a human reply, so without this the follow-up goes out on schedule while the person is away. `out_of_office_keywords` feeds the reply-intent record and is workspace-editable; detection itself carries its own multilingual vocabulary and does not depend on it. See [out of office and pausing one lead](/guides/campaigns/#out-of-office-and-pausing-one-lead) and [pause a lead](/api/reference/campaigns/#pause-a-lead).
 </Callout>
 
 <Callout type="info" title="Send-time optimization is off by default">
@@ -376,7 +387,7 @@ Auth: **Scope** `WARMUP_ROUTING` · **Org permission** `manage_settings`
 | `sender_match_value` | string | Conditional | Required unless `sender_match_type` is `any`. Domain (`acme.com`), TLD (`com`), or provider bucket (`google`, `microsoft`, `yahoo`, `apple`, `proton`, `zoho`, `custom`). |
 | `recipient_match_type` | string | Yes | One of `any`, `domain`, `tld`, `provider`. |
 | `recipient_match_value` | string | Conditional | Required unless `recipient_match_type` is `any`. Same value forms as the sender side. |
-| `weight` | number | No | Selection weight, must be `>= 0`. |
+| `weight` | number | No | Selection weight, must be `>= 0`. Above `1` prefers the pairing, below `1` avoids it, and exactly `0` excludes it: a matching pair is never chosen, even when nothing else is available, and is not replied to either. |
 | `enabled` | boolean | No | Whether the rule is active. |
 
 ```json
@@ -714,15 +725,121 @@ Auth: **Scope** `READ_TEMPLATES` · **Org permission** `view_campaigns`
 
 `200 OK` with the score and any advisory issues.
 
+Each issue is located. `field` is `subject` or `body` when the issue lives in exactly one of them, and absent when it straddles both or describes the send as a whole (an attachment count). `spans` quote the exact fragments that caused it, with the 1-based line within that field and the whole line for context. `suggestion` is the fix in one sentence.
+
 ```json
 {
-  "score": 92,
+  "score": 84,
   "issues": [
     {
       "severity": "warn",
-      "code": "too_many_links",
-      "message": "4 links found; keep cold-email link count low."
+      "code": "spam_trigger_terms",
+      "message": "2 spam-trigger term(s): free, limited time.",
+      "field": "body",
+      "spans": [
+        {
+          "field": "body",
+          "text": "free",
+          "line": 3,
+          "excerpt": "Here is a free look at what we do."
+        },
+        {
+          "field": "body",
+          "text": "limited time",
+          "line": 5,
+          "excerpt": "This is a limited time offer."
+        }
+      ],
+      "suggestion": "Rewrite those words in plain language, or cut the sentence they sit in."
     }
   ]
 }
 ```
+
+A `spans` list is capped at eight entries. The count that drives the deduction is taken before that cap, so a message naming fourteen links is consistent with a score that deducted for fourteen.
+
+## Analyze template content with AI
+
+`POST /templates/analyze`
+
+Runs the deployment's configured AI provider over the same subject and body and returns what to change: the specific word or sentence, quoted from the copy, whether it is in the subject or the body, why it hurts, and what to write instead. The rules-based pass runs in the same request and comes back under `rules`, so both halves are scored from one reading of the copy.
+
+Advisory only, exactly like `/templates/score`: nothing here blocks or delays a send.
+
+Auth: **Scope** `WRITE_TEMPLATES` · **Org permission** `view_campaigns` and `use_ai`
+
+It writes no template, but it spends the workspace's AI credits, so it takes the write scope: a read-only key must not be able to spend money. A signed-in member still needs only `view_campaigns`, plus `use_ai`.
+
+This endpoint spends AI credits (see [AI credits](/guides/ai-credits/)), unless the deployment runs an unmetered model (`AI_PROVIDER=ollama`, or any provider with `AI_FREE=true`), where `credits_charged` comes back `0`. Send an `Idempotency-Key` header to make a retry safe; the same key is never charged twice.
+
+### Request body
+
+Identical to `/templates/score`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `subject` | string | No | Subject line to analyze. |
+| `body_html` | string | No | HTML body (used when `body_plain` is empty). |
+| `body_plain` | string | No | Plain-text body, preferred over HTML when present. |
+
+At least one of the three must carry something, and the three together are capped at 60,000 bytes.
+
+### Response
+
+`200 OK` with the analysis.
+
+```json
+{
+  "score": 62,
+  "verdict": "This reads like a promotion rather than a note from a person.",
+  "findings": [
+    {
+      "severity": "high",
+      "field": "subject",
+      "text": "FREE bonus inside",
+      "line": 1,
+      "excerpt": "Your FREE bonus inside",
+      "issue": "Capitalised offer wording in the subject is one of the strongest promotional signals a filter reads.",
+      "suggestion": "Name the thing you noticed about them instead, in lower case.",
+      "category": "trigger_word"
+    }
+  ],
+  "suggested_subject": "quick question about your onboarding",
+  "improvements": [
+    "Cut the closing paragraph. One ask lands better than three."
+  ],
+  "rules": {
+    "score": 84,
+    "issues": []
+  },
+  "model": "gpt-4o-mini",
+  "tokens_used": 812,
+  "credits_remaining": 248,
+  "credits_charged": 2
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `score` | Overall deliverability score, 0 to 100, higher is safer. Grounded on `rules`, never argued against it. |
+| `verdict` | One sentence on how the email will land. |
+| `findings` | Located problems, most severe first. `severity` is `high`, `warn` or `info`; `field` is `subject` or `body`, absent only when the model labelled neither and nothing in the finding could be anchored in the copy; `category` is one of `trigger_word`, `tone`, `formatting`, `links`, `structure`, `authenticity`, and is absent when the model named something outside that set. |
+| `findings[].text` | The fragment quoted from your copy. Absent when the finding is about the email as a whole. |
+| `suggested_subject` | A rewritten subject, or absent when the current one is fine. |
+| `improvements` | Copy-level advice with no single fragment to quote. |
+| `rules` | The `/templates/score` result for the same content. |
+
+<Callout type="info" title="Quotes are verified, not trusted">
+Every `text` is checked against the submitted subject and body before it is returned. A fragment that is not in the copy is dropped and the finding keeps only its `issue` and `suggestion`, so a response never quotes a sentence you did not send. A finding whose quote was found in the other half has its `field` corrected.
+</Callout>
+
+The analysis runs at a fixed temperature, so re-analyzing unchanged copy returns the same score. A change in the score means a change in the copy, which is what makes re-checking after an edit worth doing.
+
+### Errors
+
+| Status | When |
+|--------|------|
+| `400` | Nothing written to analyze, or the template is over the size cap. |
+| `402` | The workspace is out of AI credits. Nothing is charged and no provider call is made. |
+| `403` | The plan or trial does not cover AI, or the member lacks `use_ai`. |
+| `503` | No AI provider is configured on this deployment (`code` is `ai_not_configured`, which is permanent for that deployment), or the provider failed (`code` is `service_unavailable`, and the reserved credits are refunded). |

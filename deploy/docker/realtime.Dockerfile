@@ -1,5 +1,5 @@
 # Build stage
-FROM elixir:1.18-otp-26-alpine AS builder
+FROM elixir:1.18-otp-27-alpine AS builder
 
 RUN apk add --no-cache git build-base
 
@@ -30,6 +30,17 @@ FROM alpine:3.23
 
 RUN apk add --no-cache libstdc++ openssl ncurses-libs
 RUN adduser -D -u 1000 warmbly
+
+# Amazon RDS presents a chain rooted in an RDS CA that is in no public trust
+# store, and Postgrex verifies the peer against the system store by default.
+# Shipping AWS's truststore lets an operator opt in with
+# DATABASE_SSL_CA_FILE=/etc/ssl/rds/global-bundle.pem; nothing here changes the
+# default, because pointing every install at an RDS-only store would break a
+# Postgres fronted by a public CA.
+RUN mkdir -p /etc/ssl/rds && \
+    wget -qO /etc/ssl/rds/global-bundle.pem \
+      https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem && \
+    chmod 0644 /etc/ssl/rds/global-bundle.pem
 
 WORKDIR /app
 

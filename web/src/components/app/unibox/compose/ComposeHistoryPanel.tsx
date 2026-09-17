@@ -17,6 +17,7 @@ import type { UniboxListRow } from "@/lib/api/client/app/unibox/searchIncoming";
 import { SearchInput } from "@/components/ui/field";
 import { useAppStore } from "@/stores";
 import { cn } from "@/lib/utils";
+import { bareEmail } from "@/lib/helper/emailAddress";
 
 type HistoryTab = "all" | "sent";
 
@@ -29,11 +30,7 @@ interface ComposeHistoryPanelProps {
     affinityLine?: string;
 }
 
-function bareEmail(s: string): string {
-    const m = s.match(/<([^>]+)>/);
-    if (m) return m[1].trim();
-    return s.trim();
-}
+
 
 import i18n from "i18next";
 
@@ -70,6 +67,7 @@ export default function ComposeHistoryPanel({
             // History is reference material: include snoozed threads too.
             snoozed: "any",
         },
+        `history:${address}:${tab}`,
         !!address,
     );
 

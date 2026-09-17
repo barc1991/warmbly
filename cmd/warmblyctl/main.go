@@ -77,6 +77,8 @@ func dispatch(ctx context.Context, args []string) error {
 		return runAPI(ctx, args[1:])
 	case "fleet":
 		return runFleet(ctx, args[1:])
+	case "inbox-tag":
+		return runInboxTag(ctx, args[1:])
 	}
 	if _, ok := apiFamilies[args[0]]; ok {
 		return runAPIResource(ctx, args[0], args[1:])
@@ -102,11 +104,14 @@ var commands = []command{
 	{"user list", "List accounts; --admin answers whether any platform admin survives", composeExec + "user list --admin"},
 	{"user reset-password", "Print a one-time reset link, or set the password from stdin", composeExec + "user reset-password --email you@example.com"},
 	{"user grant-admin", "Give an account a platform admin role", composeExec + "user grant-admin --email you@example.com --role super"},
+	{"user login-code-exempt", "Excuse one account from the emailed login code, for a reviewer who cannot read this instance's mail", composeExec + "user login-code-exempt --email reviewer@example.com --reason 'Google OAuth verification' --by you@example.com"},
 	{"user revoke-admin", "Take platform admin away from an account", composeExec + "user revoke-admin --email old@example.com"},
 	{"user disable-2fa", "Clear an account's TOTP enrollment after a lost authenticator", composeExec + "user disable-2fa --email you@example.com"},
 	{"hash-password", "Print an argon2 hash for WARMBLY_BOOTSTRAP_PASSWORD_HASH", "printf '%s' 'your-password' | docker compose -p warmbly exec -T backend warmblyctl hash-password"},
 	{"backup", "Write the whole instance (database, blobs, keys) to one restorable bundle", composeExec + "backup --out /data/blobs/warmbly-backup.tar.gz"},
 	{"restore", "Restore a bundle onto this instance, replacing everything on it", composeExec + "restore --file /data/blobs/warmbly-backup.tar.gz"},
+	{"inbox-tag backfill", "Classify mail that arrived before automatic tagging was switched on", composeExec + "inbox-tag backfill --org you@example.com --days 30 --dry-run"},
+	{"inbox-tag follow-ups", "Recompute who owes whom a reply from stored mail and classifications", composeExec + "inbox-tag follow-ups --org you@example.com"},
 	{"org list", "List the workspaces on this instance with their id, owner, and size", composeExec + "org list"},
 	{"org export", "Write a whole workspace to a portable archive file", composeExec + "org export --org you@example.com --out /tmp/workspace.warmbly.zip"},
 	{"org import", "Apply an archive to a workspace on this instance", composeExec + "org import --org you@example.com --file /tmp/workspace.warmbly.zip"},

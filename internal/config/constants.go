@@ -13,6 +13,13 @@ const (
 
 	CampaignDailyLimitMin = 3
 
+	// SignatureHTMLMax/SignaturePlainMax bound a stored mailbox signature.
+	// The old ceiling was 1000 characters for both, which a real signature
+	// exceeds the moment it carries a logo or a table: Gmail itself allows
+	// 10,000, so an imported one had nowhere to go.
+	SignatureHTMLMax  = 20000
+	SignaturePlainMax = 10000
+
 	CampaignLimitDefault  = 50
 	MinWaitTimeDefault    = 600
 	WarmupBaseDefault     = 10
@@ -116,6 +123,25 @@ const (
 	// follow-up early; a task that fired on time always passes.
 	CampaignNotDueGraceSeconds = 60
 
+	// CampaignPlacementCandidates is how many due leads one scheduling pass
+	// routes and tries to place before it gives up and defers the campaign.
+	// Placement can refuse a single lead for a reason that is entirely that
+	// lead's (ESP-strict has no mailbox for their provider, their own mailbox
+	// is busy, their preferred hours are hours away); the leads behind them are
+	// still sendable, so the pass moves on instead of parking the campaign on
+	// the first refusal (issue #437). Every extra candidate costs a handful of
+	// reads and only on a pass that is being refused, so this is deliberately
+	// generous — but bounded, because a campaign whose every lead is refused
+	// must still end the pass rather than walk a million-row list.
+	CampaignPlacementCandidates = 25
+
+	// WarmupReputationLedgerDays is how long the standing of a removed mailbox
+	// is held against its address, counted from the later of its removal and
+	// the end of its block. Long enough that removing and re-adding a mailbox
+	// is never a shortcut past a block, short enough that the address of a
+	// mailbox nobody re-added is not kept indefinitely. Fixed, not a setting.
+	WarmupReputationLedgerDays = 90
+
 	// CampaignMaxDeferMinutes bounds how far ahead a DEFERRED campaign tick may
 	// park its successor. A deferral means "nothing is sendable right now", and
 	// the reasons it says that (no lead is due, the new-lead cap is spent, no
@@ -153,13 +179,54 @@ const (
 	// it must stay well clear of a slow provider handshake.
 	CampaignSendReclaimAfterMinutes = 30
 
-	// TrackingMachineWindowSeconds is how soon after a step was dispatched an
-	// open or click is treated as automated rather than a person. The clock
-	// starts when the send is handed to the worker, before the provider has
-	// even accepted the message, so a person cannot plausibly have read and
-	// acted on it inside this window; security gateways that detonate every
-	// link at delivery time routinely do.
-	TrackingMachineWindowSeconds = 10
+	// TrackingMachineWindowOpenSecondsDefault and
+	// TrackingMachineWindowClickSecondsDefault are how soon after a step was
+	// dispatched an open or a click is treated as automated rather than a
+	// person. Operator-editable under Instance settings.
+	//
+	// The clock starts when the send is handed to the worker, NOT when the
+	// recipient's server received it, so the window has to absorb the worker's
+	// SMTP handshake, the sending provider's outbound queue and the transit to
+	// the recipient's MX before the gateway that scans on arrival even starts.
+	// That is why these are not the "no human could read this fast" numbers
+	// they look like: against this anchor, ten seconds routinely expired before
+	// the scan it was meant to catch.
+	//
+	// Opens get the longer window. The two failure modes are not symmetric: a
+	// misjudged open costs a metric and an open-triggered branch, while a
+	// misjudged click costs an interested lead the automation behind it, and
+	// clicks have the scanner-network catalogue covering them as well.
+	TrackingMachineWindowOpenSecondsDefault  = 60
+	TrackingMachineWindowClickSecondsDefault = 30
+
+	// Bounds on both windows. One second is the floor rather than zero because
+	// it is effectively "off" while still keeping the rule's shape, and 15
+	// minutes is past any plausible delivery lag.
+	TrackingMachineWindowSecondsMin = 1
+	TrackingMachineWindowSecondsMax = 900
+
+	// TrackingMachineWindowProbableSecondsDefault is the window used instead
+	// of the two above when the tracking edge recognised the source as a
+	// scanner network that ALSO carries people's own requests: Proofpoint
+	// Isolation and Mimecast Browser Isolation render a clicked page in the
+	// vendor's own cloud, so the request may have a person behind it.
+	//
+	// Such a match cannot settle the verdict, but it moves the odds a long
+	// way, which is what buys the wider window: inside it the event is the
+	// delivery-time scan, outside it the person who got to the mail later. Ten
+	// minutes covers a gateway scanning on arrival behind a slow provider
+	// queue while leaving all but the fastest recipients on the human side.
+	//
+	// Never shorter than the per-kind window in effect: the classifier takes
+	// the wider of the two, so this setting can only ever catch more.
+	TrackingMachineWindowProbableSecondsDefault = 600
+
+	// Bounds on that window. It reaches a day because how long a vendor takes
+	// to detonate a link is the vendor's property, not the instance's, and an
+	// operator whose recipients sit almost entirely behind one may want the
+	// whole of it.
+	TrackingMachineWindowProbableSecondsMin = 1
+	TrackingMachineWindowProbableSecondsMax = 86400
 
 	// TrackingClickBurstSeconds is the window inside which clicks on two
 	// different links of the same email from the same source are treated as
@@ -192,14 +259,32 @@ const (
 	// falling back to the worker result to repair it.
 	CampaignSendStampAttempts = 3
 
-	// Webhook/integration fan-out throttle.
-	WebhookDispatchBasePerMinute       = 60_000  // generous floor for any org
-	WebhookDispatchPerMailboxPerMinute = 300     // added per mailbox the plan allows
-	WebhookDispatchMaxPerMinute        = 600_000 // hard ceiling for any plan
+	// Webhook/integration fan-out throttle. Caps how many events of a single
+	// type one org can fan out to its webhooks + integration sinks
+	// (Slack/Discord/CRM) per minute — the backstop against a campaign "notify"
+	// action, or any per-contact event, flooding a customer's endpoints. Over
+	// the cap, further events of that type in the same minute are dropped
+	// (logged), not queued.
+	//
+	// The effective cap is PLAN-BASED: it scales with the org's resolved mailbox
+	// allowance (override > plan > hard cap), so bigger plans get more webhook
+	// throughput. These three knobs are "what we centrally allow":
+	//
+	//   - Base: a generous floor every org gets, including free/no-plan orgs, so
+	//     normal usage never trips the throttle (good UX by default).
+	//   - PerMailbox: how much each mailbox in the plan's allowance adds, since
+	//     webhook volume tracks sending activity.
+	//   - Max: a hard ceiling so even an "unlimited" plan stays bounded.
+	//
+	// Sized far above normally-spaced sending (per-mailbox daily caps + min-gap
+	// spacing); only a runaway loop or a huge per-contact fan-out approaches it.
+	WebhookDispatchBasePerMinute       = 600  // generous floor for any org (10/s)
+	WebhookDispatchPerMailboxPerMinute = 30   // added per mailbox the plan allows
+	WebhookDispatchMaxPerMinute        = 6000 // hard ceiling (100/s) for any plan
 
 	// Unibox
 	UniboxLimitMin     = 1
-	UniboxLimitMax     = 1000
+	UniboxLimitMax     = 100
 	UniboxLimitDefault = 50
 
 	// VerificationRecheckDays is how long a verification verdict is trusted
@@ -216,15 +301,20 @@ const (
 	// bounce the delivery counts as evidence the mailbox exists.
 	VerificationDeliveryWindowHours = 72
 	// VerificationBatchSize is how many contacts one scheduler pass checks.
-	VerificationBatchSize = 2000
+	VerificationBatchSize = 200
 	// VerificationIntervalSeconds is how often the scheduler passes. A pass
 	// that finds a full batch runs again immediately, so a large import drains
 	// at the verifier's speed rather than one batch per interval.
 	VerificationIntervalSeconds = 60
 	// VerificationProbeConcurrency bounds parallel in-house SMTP probes.
-	VerificationProbeConcurrency = 32
+	VerificationProbeConcurrency = 4
 	// VerificationProviderConcurrency bounds parallel paid-provider lookups.
-	VerificationProviderConcurrency = 64
+	VerificationProviderConcurrency = 8
+	// VerificationExhaustedCooldownMinutes is how long an out-of-allowance
+	// account is left alone when its provider publishes no balance endpoint.
+	// Nothing but a billable check can tell such an account has been topped up,
+	// so retrying sooner only re-runs the batch that found it empty.
+	VerificationExhaustedCooldownMinutes = 15
 	// VerificationBreakerWindow and VerificationBreakerInvalidPct are the
 	// in-house probe's self-check: when this share of the last window of
 	// probe verdicts is "invalid", the probe itself is suspect (issue #200,
@@ -287,7 +377,7 @@ const (
 	// per-org is intentionally not exposed in the override editor
 	// because the per-day shape protects abuse posture rather than
 	// product utility.
-	DailyThrottleNewCampaigns = 10_000 // new campaigns per org per day
+	DailyThrottleNewCampaigns = 20 // new campaigns per org per day
 
 	// Pool link: mailboxes a self-hosted instance may enroll in the hosted
 	// warmup pool without a paid pool plan, and the handshake lifetimes.
@@ -295,9 +385,9 @@ const (
 	PoolLinkPollIntervalSeconds  = 3
 	PoolLinkPlanID               = "00000000-0000-0000-0000-000000000002"
 	PoolLinkPlanPriceUSD         = 15
-	WarmupPoolTierFallbackFloor  = 10_000 // always borrow fallback recipients
-	WarmupPoolFallbackMinAgeDays = 0      // immediately fill in
-	DailyThrottleNewOrgs         = 1_000  // new workspaces per owner per day
+	WarmupPoolTierFallbackFloor  = 25 // below this many own-tier recipients, a premium tier borrows up to this many proven free mailboxes
+	WarmupPoolFallbackMinAgeDays = 3  // a free mailbox must have been a pool member this long before premium may borrow it
+	DailyThrottleNewOrgs         = 3  // new workspaces per owner per day
 
 	// CLI sign-in handshake (`warmbly auth login`). Shorter-lived than the pool
 	// link handshake because a person is watching the terminal while it runs.
@@ -305,12 +395,31 @@ const (
 	CLIAuthPollIntervalSeconds = 3
 
 	// DailyThrottleNewScheduledSends caps how many NEW scheduled-send
-	// schedules a single user can create in a rolling 24h window.
-	DailyThrottleNewScheduledSends = 100_000
+	// schedules a single user can create in a rolling 24h window. The
+	// real defense against burst abuse — someone writing a loop that
+	// queues thousands of scheduled sends in seconds. Set high enough
+	// that no human-driven volume comes close (a power user replying
+	// to 200 inbound messages a day couldn't hit it organically).
+	DailyThrottleNewScheduledSends = 1000
 
 	// MaxPendingScheduledSendsPerUser caps how many pending scheduled
-	// email sends one user can have queued at once.
-	MaxPendingScheduledSendsPerUser = 1_000_000
+	// email sends one user can have queued at once. The DAILY rate
+	// (DailyThrottleNewScheduledSends) is the primary abuse defense;
+	// this is the DB-bloat defense — each pending row carries a body
+	// (~5KB), so capping pending count keeps total scheduled-queue
+	// storage bounded per user.
+	//
+	// 10,000 is generous: a user scheduling 100 sends/day for the next
+	// 100 days hits this exactly once. The combination of "1K new/day"
+	// + "10K total pending" means a legitimate user cannot organically
+	// hit either, while a scripted attacker is bounded on both axes.
+	//
+	// Cloud Tasks cost is negligible at this size — at $0.40/M
+	// operations, 10K pending = 20K ops = $0.008/user even at the
+	// hardest abuse. The cap exists for DB sanity, not cost.
+	//
+	// Future: per-plan ceiling lookup. Today: single backstop.
+	MaxPendingScheduledSendsPerUser = 10000
 
 	// Undo send: instant sends are queued this many seconds in the
 	// future so the sender can still cancel. Per-user setting stored in

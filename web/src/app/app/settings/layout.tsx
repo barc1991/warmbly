@@ -31,6 +31,7 @@ import {
     UsersIcon,
     WebhookIcon,
     GlobeIcon,
+    TagsIcon,
 } from "lucide-react";
 import { UnsavedProvider, useUnsavedRegistry } from "@/hooks/context/unsaved";
 import { usePermission, type PermissionKey } from "@/hooks/usePermission";
@@ -71,6 +72,7 @@ const GROUPS: SectionGroup[] = [
             { path: "workspace", label: "סביבת עבודה", icon: BriefcaseIcon, description: "הגדרות כלל-ארגוניות ומיתוג.", ownerOnly: true },
             { path: "sending", label: "שליחה", icon: SendIcon, description: "מועדי מסירה, אימות כתובות והסרות.", permission: "MANAGE_SETTINGS" },
             { path: "tracking", label: "מעקב אתר", icon: GlobeIcon, description: "צפיות באתר בציר הזמן של אנשי הקשר.", permission: "MANAGE_SETTINGS" },
+            { path: "inbox-tagging", label: "תיוג תיבת דואר", icon: TagsIcon, description: "תייוג וניקוד דואר נכנס אוטומטית.", permission: "VIEW_ANALYTICS" },
             { path: "ai", label: "בינה מלאכותית", icon: SparklesIcon, description: "קול המותג, כלי סוכן ה-AI ותרחישי מענה.", permission: "MANAGE_SETTINGS" },
             { path: "ai-models", label: "מודלי AI ומפתחות", icon: CpuIcon, description: "הגדרת מודל ג'מיני, שרשרת Fallback ומפתחות API מרובים.", permission: "MANAGE_SETTINGS" },
             { path: "oauth-slots", label: "סלוטים לחיבורי מייל (OAuth)", icon: BoxesIcon, description: "חיבור פרויקטים מרובים של Google Cloud לעקיפת מגבלת 100 התיבות.", permission: "MANAGE_SETTINGS" },
@@ -108,6 +110,7 @@ function SettingsLayoutInner() {
     const access = useFeatureAccess();
     const canManageApiKeys = usePermission("MANAGE_API_KEYS");
     const canManageSettings = usePermission("MANAGE_SETTINGS");
+    const canViewAnalytics = usePermission("VIEW_ANALYTICS");
     const navRef = React.useRef<HTMLElement>(null);
     const unsaved = useUnsavedRegistry();
     const [savingLeave, setSavingLeave] = React.useState(false);
@@ -174,7 +177,8 @@ function SettingsLayoutInner() {
                 (!s.ownerOnly || access.isOwner) &&
                 (!s.billingOnly || access.billing) &&
                 (s.permission !== "MANAGE_API_KEYS" || canManageApiKeys) &&
-                (s.permission !== "MANAGE_SETTINGS" || canManageSettings),
+                (s.permission !== "MANAGE_SETTINGS" || canManageSettings) &&
+                (s.permission !== "VIEW_ANALYTICS" || canViewAnalytics),
         ),
     })).filter((g) => g.items.length > 0);
 

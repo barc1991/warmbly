@@ -15,9 +15,9 @@ import { Toggle } from "../_components/SectionShell";
 import { providerLabel, providerSupported } from "./providers";
 
 const STEPS = [
-    { label: "קישור", icon: CloudIcon },
-    { label: "תיבות דואר", icon: InboxIcon },
-    { label: "סיום", icon: SparklesIcon },
+    { label: "Link", icon: CloudIcon },
+    { label: "Mailboxes", icon: InboxIcon },
+    { label: "Done", icon: SparklesIcon },
 ] as const;
 type Step = 0 | 1 | 2;
 
@@ -39,8 +39,11 @@ export default function ConnectFlow({
     const [nudged, setNudged] = React.useState(false);
     const [linked, setLinked] = React.useState(status.connected);
     const [enrolledCount, setEnrolledCount] = React.useState(0);
+    // The status prop was read before the handshake, so the workspace name has
+    // to come from the poll that completed it.
+    const [orgName, setOrgName] = React.useState(status.link?.organization_name ?? "");
 
-    const issue = step === 0 && !linked ? "אשר תחילה את הקוד ב-Warmbly Cloud" : null;
+    const issue = step === 0 && !linked ? "Approve the code on Warmbly Cloud first" : null;
     React.useEffect(() => {
         if (!issue) setNudged(false);
     }, [issue]);
@@ -80,14 +83,16 @@ export default function ConnectFlow({
                                 <LinkStep
                                     status={status}
                                     linked={linked}
-                                    onLinked={() => {
+                                    orgName={orgName}
+                                    onLinked={(name) => {
+                                        setOrgName(name);
                                         setLinked(true);
                                         setTimeout(() => goTo(1), 650);
                                     }}
                                 />
                             )}
                             {step === 1 && <MailboxesStep onCountChange={setEnrolledCount} />}
-                            {step === 2 && <DoneStep status={status} enrolledCount={enrolledCount} />}
+                            {step === 2 && <DoneStep orgName={orgName} enrolledCount={enrolledCount} />}
                         </motion.div>
                     </AnimatePresence>
                 </div>
@@ -111,7 +116,6 @@ export default function ConnectFlow({
 }
 
 function Stepper({ step, canReach, goTo }: { step: Step; canReach: (s: Step) => boolean; goTo: (s: Step) => void }) {
-    const isRtl = typeof document !== "undefined" && (document.documentElement.dir === "rtl" || document.body.dir === "rtl");
     return (
         <div className="px-5 pt-4 pb-3 border-b border-slate-200/70 flex items-center gap-2">
             {STEPS.map((s, idx) => {
@@ -130,29 +134,17 @@ function Stepper({ step, canReach, goTo }: { step: Step; canReach: (s: Step) => 
                             } ${reachable ? "" : "cursor-not-allowed"}`}
                         >
                             <span
-                                className={`relative size-5 rounded-full flex items-center justify-center shrink-0 border transition-colors ${
+                                className={`relative size-5 rounded-full inline-flex items-center justify-center text-[10px] border transition-colors ${
                                     done ? "bg-sky-600 border-sky-600 text-white" : active ? "border-sky-600 text-sky-700" : "border-slate-300 text-slate-400"
                                 }`}
                             >
                                 <AnimatePresence mode="wait" initial={false}>
                                     {done ? (
-                                        <motion.span
-                                            key="check"
-                                            initial={{ scale: 0.4, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            exit={{ scale: 0.4, opacity: 0 }}
-                                            className="flex size-full items-center justify-center"
-                                        >
-                                            <CheckIcon className="size-3 text-white" strokeWidth={2.75} />
+                                        <motion.span key="check" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }}>
+                                            <CheckIcon className="w-3 h-3" />
                                         </motion.span>
                                     ) : (
-                                        <motion.span
-                                            key="num"
-                                            initial={{ scale: 0.4, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            exit={{ scale: 0.4, opacity: 0 }}
-                                            className="flex size-full items-center justify-center text-[10px] font-semibold leading-none"
-                                        >
+                                        <motion.span key="num" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }}>
                                             {i + 1}
                                         </motion.span>
                                     )}
@@ -164,7 +156,7 @@ function Stepper({ step, canReach, goTo }: { step: Step; canReach: (s: Step) => 
                             <span className="relative flex-1 h-px bg-slate-200 overflow-hidden">
                                 <motion.span
                                     className="absolute inset-0 bg-sky-500"
-                                    style={{ originX: isRtl ? 1 : 0 }}
+                                    style={{ originX: 0 }}
                                     animate={{ scaleX: done ? 1 : 0 }}
                                     transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                                 />
@@ -197,7 +189,7 @@ function Footer({ step, issue, nudged, onBack, onNext }: { step: Step; issue: st
             </div>
             {step > 0 && (
                 <button type="button" onClick={onBack} className="h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors">
-                    חזרה
+                    Back
                 </button>
             )}
             <button
@@ -207,27 +199,16 @@ function Footer({ step, issue, nudged, onBack, onNext }: { step: Step; issue: st
                     issue ? "bg-slate-300 cursor-not-allowed" : "bg-sky-600 hover:bg-sky-700"
                 }`}
             >
-                {step === 2 ? "סיום" : "המשך"}
-                <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
+                {step === 2 ? "Finish" : "Continue"}
+                <ArrowRightIcon className="w-3.5 h-3.5" />
             </button>
         </div>
     );
 }
 
 // Step 1: the shared link card.
-function LinkStep({ status, linked, onLinked }: { status: CloudLinkStatus; linked: boolean; onLinked: () => void }) {
-    const [orgName, setOrgName] = React.useState(status.link?.organization_name ?? "");
-    return (
-        <CloudLinkCard
-            linked={linked}
-            orgName={orgName}
-            cloudUrl={status.default_cloud_url}
-            onLinked={(name) => {
-                setOrgName(name);
-                onLinked();
-            }}
-        />
-    );
+function LinkStep({ status, linked, orgName, onLinked }: { status: CloudLinkStatus; linked: boolean; orgName: string; onLinked: (orgName: string) => void }) {
+    return <CloudLinkCard linked={linked} orgName={orgName} cloudUrl={status.default_cloud_url} onLinked={onLinked} />;
 }
 
 // Step 2: pick mailboxes.
@@ -246,10 +227,10 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
         try {
             if (row.enrolled) {
                 await unenroll.mutateAsync(row.id);
-                toast.success(`${row.email} הוסרה מהמאגר`);
+                toast.success(`${row.email} removed from the pool`);
             } else {
                 await enroll.mutateAsync(row.id);
-                toast.success(`${row.email} מתחממת כעת במאגר`);
+                toast.success(`${row.email} is now warming in the pool`);
             }
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -261,9 +242,9 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-[14px] font-semibold text-slate-900">בחר את תיבות הדואר לחימום</h3>
+                <h3 className="text-[14px] font-semibold text-slate-900">Choose the mailboxes to warm</h3>
                 <p className="text-[12.5px] text-slate-500 leading-relaxed mt-1">
-                    כל תיבת דואר רשומה תחומם מעתה על ידי Warmbly Cloud. החימום המקומי שלה ייפסק; קמפיינים ימשיכו לשלוח מכאן כרגיל.
+                    Each enrolled mailbox is warmed by Warmbly Cloud from now on. Its local warmup stops; campaigns keep sending from here as usual.
                 </p>
             </div>
             {rows.isLoading ? (
@@ -271,7 +252,7 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
                     <Loader2Icon className="w-4 h-4 animate-spin" />
                 </div>
             ) : (rows.data ?? []).length === 0 ? (
-                <p className="text-[12.5px] text-slate-500">אין עדיין תיבות דואר פעילות. חבר תיבה תחת "תיבות דואר" ולאחר מכן חזור לכאן.</p>
+                <p className="text-[12.5px] text-slate-500">No active mailboxes yet. Connect one under Mailboxes, then come back here.</p>
             ) : (
                 <ul className="rounded-md border border-slate-200 divide-y divide-slate-200/70 overflow-hidden">
                     {(rows.data ?? []).map((row, i) => {
@@ -285,10 +266,10 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
                                 className="flex items-center gap-3 px-3 h-11 bg-white"
                             >
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-[12.5px] text-slate-900 truncate" dir="ltr">{row.email}</p>
+                                    <p className="text-[12.5px] text-slate-900 truncate">{row.email}</p>
                                     <p className="text-[11px] text-slate-400 truncate">
                                         {providerLabel(row.provider)}
-                                        {!supported && " · חבר עם SMTP/IMAP כדי להירשם"}
+                                        {!supported && " · connect with SMTP/IMAP to enroll"}
                                     </p>
                                 </div>
                                 {busy === row.id ? (
@@ -302,14 +283,14 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
                 </ul>
             )}
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                הרשמה שולחת את פרטי ה-SMTP/IMAP של תיבת הדואר אל Warmbly Cloud, כשהם אטומים במעבר ובמנוחה, ומשמשים אך ורק לשליחה וקריאה של דואר חימום.
-                שום תוכן אחר בתיבת הדואר אינו נשמר.
+                Enrolling sends the mailbox's SMTP/IMAP credential to Warmbly Cloud, sealed in transit and at rest, and used only to send and read warmup mail.
+                Nothing else in the mailbox is stored.
             </p>
         </div>
     );
 }
 
-function DoneStep({ status, enrolledCount }: { status: CloudLinkStatus; enrolledCount: number }) {
+function DoneStep({ orgName, enrolledCount }: { orgName: string; enrolledCount: number }) {
     return (
         <div className="flex flex-col items-center justify-center text-center gap-3 py-8">
             <motion.span
@@ -322,11 +303,11 @@ function DoneStep({ status, enrolledCount }: { status: CloudLinkStatus; enrolled
             </motion.span>
             <div>
                 <p className="text-[14px] font-semibold text-slate-900">
-                    {enrolledCount === 0 ? "הכל מוכן" : `${enrolledCount} ${enrolledCount === 1 ? "תיבת דואר מתחממת" : "תיבות דואר מתחממות"} במאגר`}
+                    {enrolledCount === 0 ? "You are all set" : `${enrolledCount} mailbox${enrolledCount === 1 ? "" : "es"} warming in the pool`}
                 </p>
                 <p className="text-[12.5px] text-slate-500 mt-0.5 max-w-md">
-                    {status.link?.organization_name ? `מקושר ל-${status.link.organization_name}. ` : ""}
-                    החימום מתחיל בחלון הזמנים הראשון של כל תיבת דואר ומתגבר מדי יום. נתוני תקינות ונפח יוצגו בעמוד זה עם הגעתם.
+                    {orgName ? `Linked to ${orgName}. ` : ""}
+                    Warmup starts on the first slot of each mailbox's window and ramps daily. Health and volume show up on this page as they arrive.
                 </p>
             </div>
         </div>

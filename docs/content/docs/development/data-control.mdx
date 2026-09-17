@@ -36,7 +36,7 @@ Two keys, and they are not interchangeable.
 
 | Key | Opens | Read by |
 |---|---|---|
-| `CREDENTIALS_ENCRYPTION_KEY` | Mailbox SMTP and IMAP credentials | Backend and workers, without an organization context |
+| `CREDENTIALS_ENCRYPTION_KEY` | Mailbox SMTP and IMAP credentials, and OAuth tokens | Backend and workers, without an organization context |
 | `KMS_LOCAL_MASTER_KEY` | The per-organization data keys, which in turn open everything else | Backend and consumer |
 
 Both are unrecoverable. A database backup without them restores an instance whose mailboxes authenticate against nothing, and there is no way back from that. They are in `.env`, and `install.sh` also writes them to `keys-backup.txt` next to the install, which is on the same disk as the database and therefore not a backup either. Copy them somewhere else.
@@ -72,6 +72,10 @@ Every window below lives in the database, not the environment, and is edited und
 
 Mail over a daily budget is deferred, never dropped: the provider cursor is held and the mail is re-offered on the next pass. Replies to the mailbox's own outreach ride a separate budget of the same size and keep landing regardless.
 
+### Automatic inbox tagging
+
+Automatic inbox tagging is off unless both `TYPESAFE_API_KEY` and `INBOX_TAGGING_ENABLED=true` are set. When enabled, the consumer sends the inbound subject and bounded plain-text body, plus the previous outbound message in the thread when one exists, to TypeSafe for classification. The result and raw probabilities are stored in `inbox_tag_results`. Completed results travel with the Inbox group in a workspace export; temporary processing claims do not. See [Automatic inbox tagging](/guides/inbox-tagging/).
+
 ### Event history
 
 | Setting | Default | What it holds |
@@ -89,6 +93,29 @@ There is no grace period and no copy. Take a backup first if you are not sure.
 </Callout>
 
 The **minimal retention** preset in the admin panel and in the installer sets all three to 30 days.
+
+### Warmup standing by address
+
+Warmup keeps the standing of every penalised mailbox (score, state, and any block) against its address as well as its row, so removing the mailbox or dropping out of the pool and coming back does not start it clean. The copy is cleared as soon as the mailbox recovers, and once the mailbox is gone it is kept for 90 days after the block ends or after the removal, whichever is later; a block that requires review is kept until an operator lifts it. A mailbox in good standing has no such copy. The window is fixed rather than a setting, and the rows are purged by the same sweep.
+
+### Pending inbox verification
+
+Mail whose warmup verification is temporarily unavailable waits in the `unibox_pending_emails` Postgres table. It holds the sync event, including message metadata and bounded searchable body text, until verification succeeds or the mailbox is deleted. The consumer retries it automatically after restarts. Full bodies remain in blob storage. This pending queue is included in instance backups but excluded from workspace exports, whose destination re-syncs provider mail.
+
+### Disconnecting a mailbox
+
+Disconnecting a mailbox, or deleting the workspace holding it, removes its rows from Postgres straight away through the database's own cascades. Two things cannot be done in that instant and are queued instead, then worked off within about a minute:
+
+| Owed | What happens |
+|---|---|
+| The OAuth grant | A Gmail mailbox's refresh token is sent to Google's revocation endpoint, which invalidates it and removes the instance from the customer's third-party access list. Microsoft publishes no per-application revocation endpoint, so an Outlook mailbox's tokens are destroyed locally and the customer removes the app themselves |
+| The message bodies | Everything the mailbox wrote under `users/<user>/emails/<mailbox>/` in the blob store is deleted, whether that is a filesystem path or an S3 bucket |
+
+While an erasure is outstanding its row holds a copy of the mailbox's OAuth refresh token, still sealed under `CREDENTIALS_ENCRYPTION_KEY`, because the row it was read from goes with the mailbox and the token is what the revocation sends. It is destroyed with the rest of the row when the erasure finishes.
+
+The queue is the `mailbox_erasures` table, and it holds only work still owed: a finished erasure is removed rather than kept, because the row names the address the customer asked to have forgotten. A failure is retried with a widening backoff, capped at six hours, and never abandoned, so an unreachable provider or store delays the erasure instead of losing it. Anything still outstanding after a day is reported by the `mailbox_erasure` job, visible under scheduled jobs in the admin panel.
+
+This runs on the control plane, which is the only place holding both the credential key and a credential for the blob store. A worker cannot do it: it signs one object at a time through the control plane and holds no bucket credential at all.
 
 ### Set them at install time
 
@@ -208,28 +235,40 @@ Everything else is you: mail through the mailboxes you connect, DNS lookups for 
 
 ### Error reporting
 
-An instance reports errors nowhere unless you point it somewhere. Every service reads its own DSN and none of them ship with one, so a default install sends no crash, no stack trace and no browser error to anybody, including us.
+An instance reports errors nowhere unless you point it somewhere. Every service reads its own credentials and none of them ship with any, so a default install sends no crash, no stack trace and no browser error to anybody, including us.
 
-| Service | Variable |
-|---|---|
-| Backend, consumer, worker | `SENTRY_DSN` |
-| Forms service | `SENTRY_DSN` |
-| Tracking service | `SENTRY_DSN` |
-| Realtime service | `SENTRY_DSN` |
-| Dashboard and admin containers | `WARMBLY_SENTRY_DSN` |
-| Public form pages | `WARMBLY_SENTRY_DSN` on the forms service |
+Two backends are supported and you choose either, both, or neither. PostHog is the default one; Sentry works exactly as it always has.
 
-Set one and that service reports to whatever Sentry Cloud project, self-hosted Sentry or Sentry-compatible server you name. Leave it unset, which is the default the installer writes, and nothing leaves the process: there is no host to contact and nothing to opt out of. Errors still reach that service's own log, as they always did. The dashboard, the admin panel and form pages go further and load no reporting code at all, so there is not even a script to block.
+| Service | PostHog | Sentry |
+|---|---|---|
+| Backend, consumer, worker | `POSTHOG_KEY` | `SENTRY_DSN` |
+| Forms service | `POSTHOG_KEY` | `SENTRY_DSN` |
+| Tracking service | `POSTHOG_KEY` | `SENTRY_DSN` |
+| Realtime service | `POSTHOG_KEY` | `SENTRY_DSN` |
+| Dashboard and admin containers | `WARMBLY_POSTHOG_KEY` | `WARMBLY_SENTRY_DSN` |
+| Public form pages | `WARMBLY_POSTHOG_KEY` on the forms service | `WARMBLY_SENTRY_DSN` on the forms service |
 
-The `warmbly` CLI runs on your own machine and reports nowhere, ever. It has no DSN to set.
+`POSTHOG_HOST` decides which PostHog receives them, including one you run yourself, and `POSTHOG_ERROR_TRACKING=false` turns error reporting off while leaving the key configured for the product analytics below. A Sentry DSN names whatever Sentry Cloud project, self-hosted Sentry or Sentry-compatible server you like.
+
+Leave them unset, which is the default the installer writes, and nothing leaves the process: there is no host to contact and nothing to opt out of. Errors still reach that service's own log, as they always did. The dashboard, the admin panel and form pages go further and load no reporting code at all, so there is not even a script to block.
+
+What a reported error carries is the exception, its stack trace, the service, the environment and the build, plus enough context to answer it:
+
+- **Which workspace and user.** A browser exception carries the organization id and user id of whoever hit it, and a server-side one carries them for the request that panicked, along with its route and request id. That is what makes "this customer says campaigns are broken" a search rather than a guess. On the server side that is a property and nothing more: no person is identified. In the dashboard and the admin panel, with a browser key set, the signed-in user is identified to PostHog (a person profile with their email and name, and an identifier in local storage and a cookie), so the exception belongs to that person; see usage analytics below.
+- **What led to it.** The last routes visited and the last API calls that failed, with their method, path, status and request id.
+- **Nothing else about the request.** No headers, no bodies, no query strings. Session replay exists only in the dashboard and the admin panel, only with a browser key set, and `WARMBLY_POSTHOG_SESSION_REPLAY=false` turns it off; the marketing site and public form pages are never recorded.
+
+Server-side reports that belong to no request, a scheduled job or a worker, are attributed to the process that raised them and to nobody.
+
+The `warmbly` CLI runs on your own machine and reports nowhere, ever. It has nothing to set.
 
 ### Usage analytics
 
 There are none. A self-hosted instance loads no analytics script and sends no usage data, not aggregated, not anonymised, not "to help us improve the product".
 
-The hosted service at warmbly.com does measure its own marketing site and dashboard, and the code for that ships in the same images you run. It is inert without a key: the installer never asks for one, the `.env` template does not mention it, and a build without one contains no analytics script for you to block. If you want to check, `grep posthog` the served assets of your own dashboard.
+The hosted service at warmbly.com does measure its own marketing site, dashboard and admin panel, including session replay in the two apps, and the code for that ships in the same images you run. It is inert without a key: the installer never asks for one, the `.env` template does not mention it, and a build without one contains no analytics script for you to block. If you want to check, `grep posthog` the served assets of your own dashboard.
 
-If you do want product analytics on your own instance, the variables are on [configuration](/development/configuration/#product-analytics) and they accept a self-hosted PostHog. That is your decision to make, and nothing about it points at us.
+If you do want product analytics on your own instance, the variables are on [configuration](/development/configuration/#product-analytics-and-session-replay) and they accept a self-hosted PostHog. The server-side `POSTHOG_KEY` carries the backend's error tracking and its product events; the browser-side `WARMBLY_POSTHOG_KEY` is what turns on the dashboard's and the admin panel's analytics, session replay and browser errors, and `WARMBLY_POSTHOG_ERROR_TRACKING` and `WARMBLY_POSTHOG_SESSION_REPLAY` switch those last two off separately. That is your decision to make, and nothing about it points at us.
 
 ## See also
 

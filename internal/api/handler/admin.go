@@ -11,6 +11,7 @@ import (
 	"github.com/warmbly/warmbly/internal/api/middleware"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/utils/paging"
 )
 
 // User Management Handlers
@@ -297,10 +298,14 @@ func (h *Handler) AdminGetWorkerEmails(c *gin.Context) {
 		return
 	}
 
-	cursor := parseCursor(c.Query("cursor"))
+	beforeAt, beforeID, cursorErr := paging.DecodeTimeCursor(c.Query("cursor"))
+	if cursorErr != nil {
+		errx.JSON(c, cursorErr)
+		return
+	}
 	limit := parseLimit(c.Query("limit"), 50)
 
-	emails, pagination, xerr := h.AdminService.GetWorkerEmails(c.Request.Context(), workerID, cursor, limit)
+	emails, pagination, xerr := h.AdminService.GetWorkerEmails(c.Request.Context(), workerID, beforeAt, beforeID, limit)
 	if xerr != nil {
 		errx.JSON(c, xerr)
 		return

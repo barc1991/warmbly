@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -9,6 +10,8 @@ import (
 	"github.com/warmbly/warmbly/internal/jobrun"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/notify"
+	"github.com/warmbly/warmbly/internal/notify/templates"
+	"github.com/warmbly/warmbly/internal/observability/errs"
 	"github.com/warmbly/warmbly/internal/repository"
 )
 
@@ -61,9 +64,27 @@ func NewTrialExpirationJobWithDB(
 
 // Run executes the trial expiration job
 // This should be run periodically (e.g., every hour via cron or scheduler)
-func (j *TrialExpirationJob) Run(_ context.Context) error {
-	// All accounts have permanent enterprise access; never expire trials or pause campaigns.
+func (j *TrialExpirationJob) Run(ctx context.Context) error {
 	return nil
+}
+
+
+// notifyTrialExpired sends an email notification about trial expiration
+func (j *TrialExpirationJob) notifyTrialExpired(ctx context.Context, userID interface{}, userEmail string) {
+	if j.emailNotificationService == nil || userEmail == "" {
+		return
+	}
+
+	subject := "Your Warmbly trial has expired"
+	body, err := templates.GenerateTrialExpiredHTML()
+	if err != nil {
+		// GenerateTrialExpiredHTML already reported it.
+		return
+	}
+
+	if err := j.emailNotificationService.Send(ctx, []string{userEmail}, nil, nil, subject, body); err != nil {
+		errs.CaptureException(err)
+	}
 }
 
 // TrialExpirationScheduler runs the trial expiration job on a schedule

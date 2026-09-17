@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"math"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -47,8 +49,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Sentry
-	if err := observability.InitSentry(ctx, cfg, "worker"); err != nil {
+	// Error reporting
+	if err := observability.Init(ctx, cfg, "worker"); err != nil {
 		log.Fatal(err)
 	}
 
@@ -109,8 +111,14 @@ func main() {
 		log.Fatal(err)
 	}
 	// Mailboxes managed by Warmbly Cloud send with access tokens the backend
-	// brokers; the refresh grant never reaches the worker.
-	tokenBroker, err := repository.NewHTTPBrokeredTokenClient(internalBaseURL, internalToken)
+	// brokers; the refresh grant never reaches the worker. Minting one is a
+	// broker operation, so it carries NODE_BROKER_TOKEN where the instance
+	// issues a separate one and the shared internal token otherwise.
+	brokerToken := os.Getenv("NODE_BROKER_TOKEN")
+	if brokerToken == "" {
+		brokerToken = internalToken
+	}
+	tokenBroker, err := repository.NewHTTPBrokeredTokenClient(internalBaseURL, brokerToken)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -236,17 +244,33 @@ func newNodeAgent(workerID uuid.UUID, bindIP string) *nodeagent.Agent {
 		reportedIP = bindIP
 	}
 	return nodeagent.New(nodeagent.Config{
-		NodeID:  workerID,
-		Role:    models.NodeRoleWorker,
-		Name:    os.Getenv("WARMBLY_NODE_NAME"),
-		Region:  nodeRegion(),
-		Address: reportedIP,
-		Version: buildVersion(),
-		BaseURL: os.Getenv("ENCRYPTED_KEYS_BACKEND_URL"),
-		Token:   os.Getenv("ENCRYPTED_KEYS_WORKER_TOKEN"),
+		NodeID:         workerID,
+		Role:           models.NodeRoleWorker,
+		Name:           os.Getenv("WARMBLY_NODE_NAME"),
+		Region:         nodeRegion(),
+		Address:        reportedIP,
+		CapacityTarget: workerCapacityTarget(),
+		Version:        buildVersion(),
+		BaseURL:        os.Getenv("ENCRYPTED_KEYS_BACKEND_URL"),
+		Token:          os.Getenv("ENCRYPTED_KEYS_WORKER_TOKEN"),
 		// Written for the host-side updater installed by `warmbly join`.
 		TargetVersionPath: os.Getenv("WARMBLY_TARGET_VERSION_PATH"),
 	})
+}
+
+const defaultWorkerCapacityTarget = 100.0
+
+// workerCapacityTarget reads this machine's assigned-mailbox target.
+func workerCapacityTarget() float64 {
+	raw := strings.TrimSpace(os.Getenv("WARMBLY_WORKER_CAPACITY"))
+	if raw == "" {
+		return defaultWorkerCapacityTarget
+	}
+	n, err := strconv.ParseFloat(raw, 64)
+	if err != nil || n <= 0 || math.IsNaN(n) || math.IsInf(n, 0) || n > 99_999_999.99 {
+		return defaultWorkerCapacityTarget
+	}
+	return n
 }
 
 // nodeRegion reads the sign-in geography hint. WARMBLY_NODE_REGION is what the

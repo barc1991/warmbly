@@ -28,6 +28,7 @@ import { TONE_DOT } from "@/components/ui/tones";
 import type { DitherTone } from "@/components/ui/dither";
 import AnalyticsShareButton from "@/components/app/analytics/AnalyticsShareButton";
 import useDashboard from "@/lib/api/hooks/app/analytics/useDashboard";
+import DirectMailSection from "@/components/app/analytics/DirectMailSection";
 
 const AUTO_OPENS_TIP = "פתיחות אוטומטיות: טעינת פיקסל משרתי פרוקסי של פרטיות (כגון Apple Mail) או שניות ספורות לאחר השליחה, לא קריאה אנושית";
 const AUTO_CLICKS_TIP = "לחיצות אוטומטיות: קישורים שנפתחו על ידי שער אבטחה הסורק את הדוא״ל, לא אדם; לא נספרות כלחיצות";
@@ -240,6 +241,8 @@ export default function AnalyticsPage() {
                             })}
                         </div>
                     )}
+
+                    <DirectMailSection period={range} />
 
                     <SectionBar label="פעילות אחרונה" />
                     <PageBody>

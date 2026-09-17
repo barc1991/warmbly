@@ -2,8 +2,10 @@ package wmail
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	goimap "github.com/emersion/go-imap/v2"
@@ -92,13 +94,15 @@ func (w *WMail) Sync(ctx context.Context) *errx.MailError {
 
 		changed := imapFolderChanged(befBox, box, condStore)
 		fullyProcessed := true
+		var touched map[string]struct{}
 		if changed && !stats.aborted {
 			w.setWalking(box)
-			done, err := w.imapIncremental(ctx, box, befBox, condStore, stats)
+			done, ids, err := w.imapIncremental(ctx, box, befBox, condStore, stats)
 			if err != nil {
 				return err
 			}
 			fullyProcessed = done
+			touched = ids
 		} else if changed {
 			// The pass was aborted before this folder; hold its cursor too.
 			fullyProcessed = false
@@ -120,6 +124,15 @@ func (w *WMail) Sync(ctx context.Context) *errx.MailError {
 			befBox.HighestModSeq = next.HighestModSeq
 			befBox.UIDNext = next.UIDNext
 			befBox.Attrs = next.Attrs
+		}
+
+		// Drafts are the one folder where the server dropping a UID means the
+		// row is gone, so they are reconciled every pass, changed or not: a
+		// full pass has to clean up rows older workers left behind.
+		if imapCanonicalFolder(box) == models.FolderDrafts && !stats.aborted {
+			if err := w.imapReconcileDrafts(ctx, box, touched, stats); err != nil {
+				return err
+			}
 		}
 
 		// Without CONDSTORE a message marked read elsewhere moves no cursor,
@@ -200,15 +213,16 @@ func imapFolderChanged(before, now *models.Mailbox, condStore bool) bool {
 // imapIncremental stores what changed in one folder since the held cursor.
 // Known messages relay their flags unbudgeted; new ones are admitted newest
 // first. It reports whether every change was stored, which is what lets the
-// folder's cursor advance.
-func (w *WMail) imapIncremental(ctx context.Context, box, before *models.Mailbox, condStore bool, stats *tickStats) (bool, *errx.MailError) {
+// folder's cursor advance, plus the Message-IDs it fetched so the drafts
+// reconciliation can tell a re-appended draft from an expunged one.
+func (w *WMail) imapIncremental(ctx context.Context, box, before *models.Mailbox, condStore bool, stats *tickStats) (bool, map[string]struct{}, *errx.MailError) {
 	client := w.SmtpImapData.ImapClient
 	count, err := client.SelectForSync(box.Name)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	if count == 0 {
-		return true, nil
+		return true, nil, nil
 	}
 	var uids []goimap.UID
 	if condStore {
@@ -217,33 +231,105 @@ func (w *WMail) imapIncremental(ctx context.Context, box, before *models.Mailbox
 		uids, err = client.SearchNewSince(before.UIDNext)
 	}
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	if len(uids) == 0 {
-		return true, nil
+		return true, nil, nil
 	}
 	// Newest first: when budget is short, the freshest mail lands first.
 	sort.Slice(uids, func(i, j int) bool { return uids[i] > uids[j] })
+
+	// Only the drafts folder needs the fetched ids back, so nothing else pays
+	// for the set.
+	var touched map[string]struct{}
+	if imapCanonicalFolder(box) == models.FolderDrafts {
+		touched = make(map[string]struct{}, len(uids))
+	}
 
 	for lo := 0; lo < len(uids); lo += config.ImapFetchBatchSize {
 		hi := min(lo+config.ImapFetchBatchSize, len(uids))
 		fetched, err := client.FetchEnvelopes(ctx, uids[lo:hi])
 		if err != nil {
-			return false, err
+			return false, touched, err
 		}
 		done, err := w.imapApply(ctx, fetched, false, stats)
 		if err != nil {
-			return false, err
+			return false, touched, err
+		}
+		for _, f := range fetched {
+			if touched != nil {
+				touched[f.Email.MessageID] = struct{}{}
+			}
 		}
 		// A denied lane means no later batch can be stored either, and every
 		// extra batch still counts new mail toward flood detection: a mailbox
 		// unfrozen on a long backlog would deactivate itself walking mail it
 		// cannot keep. Stop here; the held mod-sequence re-offers the rest.
 		if !done || stats.aborted || ctx.Err() != nil {
-			return false, nil
+			return false, touched, nil
 		}
 	}
-	return true, nil
+	return true, touched, nil
+}
+
+// imapReconcileDrafts removes the platform's rows for drafts the server no
+// longer reports.
+//
+// A draft is the one message where a UID going away means the row is gone:
+// Gmail replaces the previous autosave under a new UID and a new Message-ID,
+// and a draft is never filed anywhere else. Every other folder can lose a
+// message to a move the sync does not follow (Gmail's All Mail is dropped as a
+// virtual label view), so reconciling there would silently drop mail the user
+// still expects to see. The folder's complete UID set is the presence side;
+// touched is the Message-IDs the pass fetched, which keeps a draft re-appended
+// under a new UID from reading as expunged.
+func (w *WMail) imapReconcileDrafts(ctx context.Context, box *models.Mailbox, touched map[string]struct{}, stats *tickStats) *errx.MailError {
+	if w.SyncContext == nil {
+		return nil
+	}
+	stored, err := w.SyncContext.ListFolderMessages(ctx, w.UserID, w.ID, box.Name, box.UIDValidity)
+	if err != nil {
+		return w.controlPlaneError(err, stats)
+	}
+	if len(stored) == 0 {
+		return nil
+	}
+	_, gen, serr := w.SmtpImapData.ImapClient.SelectForSyncGen(box.Name)
+	if serr != nil {
+		return serr
+	}
+	// A UID only means anything inside one generation. If the folder was
+	// recreated between the listing that produced box and this SELECT, the
+	// live UIDs and the stored rows describe different folders, so diffing
+	// them would remove rows never actually compared. The next pass reads the
+	// new generation from the listing and reconciles it properly.
+	if gen != box.UIDValidity {
+		return nil
+	}
+	present, aerr := w.SmtpImapData.ImapClient.SearchAll()
+	if aerr != nil {
+		return aerr
+	}
+	live := make(map[uint32]struct{}, len(present))
+	for _, uid := range present {
+		live[uint32(uid)] = struct{}{}
+	}
+	for _, m := range stored {
+		if _, ok := live[m.UID]; ok {
+			continue
+		}
+		if _, refiled := touched[m.MessageID]; refiled {
+			continue
+		}
+		if err := w.onEvent(models.JobEventTypeRemoveEmail, &models.JobEventRemoveEmail{
+			UserID:  w.UserID,
+			EmailID: w.ID,
+			ID:      m.ID,
+		}); err != nil {
+			return w.controlPlaneError(err, stats)
+		}
+	}
+	return nil
 }
 
 // imapApply routes one fetched batch: known messages get an UPDATE_EMAIL,
@@ -255,6 +341,7 @@ func (w *WMail) imapApply(ctx context.Context, fetched []*imap.Fetched, backfill
 
 	var fresh []*imap.Fetched
 	for _, f := range fetched {
+		w.ensureMessageKey(f.Email)
 		internal, err := w.EmailMessageMapRepository.Get(ctx, w.UserID, w.ID, f.Email.MessageID)
 		if err != nil {
 			return false, w.controlPlaneError(err, stats)
@@ -326,6 +413,33 @@ func (w *WMail) imapApply(ctx context.Context, fetched []*imap.Fetched, backfill
 	return all, nil
 }
 
+// ensureMessageKey gives a message without a Message-ID header one that is
+// stable for this mailbox, because the empty string is not a key: the map
+// endpoint refuses it with 400 and the failed lookup ends the whole sync pass
+// with its cursors held, so ONE legacy or malformed sender parked every later
+// message on the account for good.
+//
+// Folder name, UIDVALIDITY and UID: RFC 9051 makes that triple the identity of
+// a message on a server, which is what is left when the sender gave it none of
+// its own. It re-derives to the same string on the next pass, so the message is
+// recognised as known rather than stored again, and it cannot collide with a
+// real Message-ID.
+//
+// The folder name is in it deliberately, even though a RENAME keeps UIDVALIDITY
+// and would therefore change the key. Dropping it would key on a pair two
+// folders can in principle share, and the failure there is a message silently
+// treated as already stored. A rename re-importing the handful of messages that
+// carried no Message-ID is the cheaper of the two.
+//
+// Threading is unaffected: a message with no Message-ID roots its own thread
+// on this key, and nothing can ever reply to an id that was never on the wire.
+func (w *WMail) ensureMessageKey(msg *models.EmailMessageData) {
+	if msg == nil || strings.TrimSpace(msg.MessageID) != "" {
+		return
+	}
+	msg.MessageID = fmt.Sprintf("no-msgid/%s/%d/%d", w.SmtpImapData.folderPath, w.SmtpImapData.mailbox, msg.UID)
+}
+
 // threadParentID is the message this one answers, and the key its thread is
 // built on. Only In-Reply-To carries that.
 //
@@ -339,11 +453,20 @@ func (w *WMail) imapApply(ctx context.Context, fetched []*imap.Fetched, backfill
 //
 // A message that answers nothing has no parent, and the caller roots its
 // thread on its own Message-ID.
+//
+// A blank entry is skipped rather than returned: an empty parent id is not a
+// key either, and the map lookup it would cause ends the pass exactly as a
+// missing Message-ID used to (see ensureMessageKey).
 func threadParentID(msg *models.EmailMessageData) string {
-	if msg == nil || len(msg.InReplyTo) == 0 {
+	if msg == nil {
 		return ""
 	}
-	return msg.InReplyTo[len(msg.InReplyTo)-1]
+	for i := len(msg.InReplyTo) - 1; i >= 0; i-- {
+		if id := strings.TrimSpace(msg.InReplyTo[i]); id != "" {
+			return id
+		}
+	}
+	return ""
 }
 
 // imapStore threads a new message and hands it to storeNew.

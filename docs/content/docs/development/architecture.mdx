@@ -99,7 +99,7 @@ A k8s `DaemonSet` was the previous shape. It was removed because k8s nodes typic
 
 A node's id is assigned at enrolment and persisted on the machine, so re-running the join command re-joins under the same identity and the node keeps its history and its mailboxes.
 
-A machine with several public addresses can instead run one node per address: with `WORKER_BIND_IP` set and no `WORKER_ID`, the worker derives `UUIDv5(URL_namespace, public_ipv4)`. Same IP, same worker, with no state at the control plane needed to recover it, which is what lets each address be its own stable sending identity.
+A machine with several public addresses can instead run one node per address: with `WORKER_BIND_IP` set and no `WORKER_ID`, the worker derives `UUIDv5(URL_namespace, public_ipv4)`. Same IP, same worker, with no state at the control plane needed to recover it, which lets each address remain a stable provider-facing login identity.
 
 ## Worker placement
 
@@ -114,7 +114,7 @@ So the levers invert: IP *stability* per mailbox beats IP diversity, and a migra
 
 ### Choosing a worker
 
-Placement scores every live worker and takes the best (`internal/app/worker/placement.go`). Hard constraints are only about whether the work can be done at all: the worker has to be heartbeating, in `healthy` or `watch`, and have capacity headroom for the mailbox's weight. Everything else is a preference:
+Placement scores every live worker and takes the best (`internal/app/worker/placement.go`). Hard constraints are only about whether the work can be done at all: the worker has to be heartbeating and in `healthy` or `watch`. Everything else is a preference:
 
 | Term | Why |
 |---|---|
@@ -123,19 +123,24 @@ Placement scores every live worker and takes the best (`internal/app/worker/plac
 | Region match | Sign-ins from where the provider expects them raise fewer challenges |
 | Tenant blast radius | Spread one customer across workers so a single failure does not stop their sending |
 | Provider crowding | Many accounts of one provider signing in from one address is what earns a per-IP throttle |
+| Node youth | A worker that enrolled minutes ago has proved nothing, so it is probed gently rather than handed every placement for being empty |
 | Foreign tenants | Only for organizations entitled to isolated egress |
 
-Capacity is one number for every worker, in cold-mailbox equivalents, because each mailbox already declares its own cost: an `smtp_imap` mailbox weighs `1.0`, a Gmail or Outlook API mailbox `0.05`, and a warmup-only assignment `0.4`.
+Capacity is a per-worker assigned-mailbox planning target because a small shared VM and a dedicated host do not have the same headroom. It defaults to a conservative `100` and can be set per machine with `WARMBLY_WORKER_CAPACITY`. Every assigned mailbox counts as one. The value guides placement; it is not a tested maximum or a mailbox-provider sending quota. Provider limits remain attached to the mailbox, tenant, or API project.
+
+**Capacity is a target, not a ceiling.** Nothing refuses a placement for being over it. Going over costs more than any bonus a candidate can earn, so stickiness alone cannot keep a mailbox on an over-target worker. Once no worker has room, the least-overloaded one wins with region, blast radius and provider crowding all applied. A new worker keeps its full displayed target while node youth slows how quickly it fills. Recipient bounces and complaints remain mailbox and campaign signals; they do not shrink machine capacity or quarantine a worker.
 
 ### Moving a mailbox
 
-Rotation (`internal/app/worker/rotation.go`) is deliberately reluctant, and a fleet where nothing moves is a healthy one. Only mailboxes whose worker is dead, degraded, over capacity, or on the wrong side of an isolated-egress reservation are considered at all:
+Rotation (`internal/app/worker/rotation.go`) is deliberately reluctant. Mailbox outcomes never mark a machine unhealthy. The loop responds to liveness, workload, isolated-egress drift, and measurable provider or workspace concentration:
 
 | Urgency | Trigger | Residency floor | Destination bar |
 |---|---|---|---|
-| Immediate | Worker inactive, not heartbeating, blocked or quarantined | none | anything eligible |
-| Elevated | Worker throttled | 6 hours | anything eligible |
-| Opportunistic | Worker over 85% utilization, or isolated-egress drift | 72 hours | must score materially better |
+| Immediate | Worker inactive, not heartbeating, or externally marked blocked or quarantined | none | anything eligible |
+| Elevated | Worker externally marked throttled, or mailbox is on another workspace's reserved worker | 6 hours | anything eligible |
+| Opportunistic | Worker over 85% utilization, isolated-egress drift, or placement concentration | 72 hours | must score materially better |
+
+The externally managed health labels describe machine or operator state. Mailbox delivery outcomes do not set them.
 
 ### Isolated egress
 
@@ -187,7 +192,7 @@ There is no single ML fraud engine. Layered controls instead:
 - CAPTCHA (Cloudflare Turnstile) on auth-sensitive flows
 - Per-user, per-category API rate limiting (Redis-backed)
 - Per-WebSocket join/message/event rate limiting (realtime service)
-- Warmup-token verification with invalid-attempt counting and auto-blocking
+- Warmup-token verification: single-use, recipient-bound tokens, so warmup mail cannot be replayed or redirected
 - Tracking event deduplication (in-memory + persistent)
 - Idempotent deliverability event processing
 - Worker-side mailbox-sync fair use: the sync governor (`internal/app/worker/wmail/governor.go`) with priority, live and backfill lanes, deferral instead of dropping, and flood or chronic-overage escalation

@@ -33,6 +33,12 @@ pub struct Config {
     /// The event topic/subject name (shared by both backends). Default
     /// "tracking-events".
     pub kafka_topic: String,
+    /// Wire format for published events: "json" (default) or "avro". It has to
+    /// match the consumer's CODEC_PROVIDER, which is one setting covering both
+    /// topics it reads, and worker envelopes cannot be Avro. So json is what a
+    /// working deployment uses; avro needs a Schema Registry.
+    #[cfg_attr(not(feature = "kafka"), allow(dead_code))]
+    pub codec_provider: String,
     /// Kafka transport settings (only read by the kafka-feature build).
     #[cfg_attr(not(feature = "kafka"), allow(dead_code))]
     pub kafka_brokers: String,
@@ -69,8 +75,35 @@ pub struct Config {
     /// header is read, so a client-supplied CF-Connecting-IP behind a generic
     /// proxy is ignored. For x-forwarded-for the proxy-appended last entry wins.
     pub client_ip_header: String,
+    /// Whether the scanner catalogue shipped with the service is loaded.
+    pub scanner_builtins: bool,
+    /// Extra scanner sources (CIDR or `asn:<n>`) that never carry a person's
+    /// own request, so both their pixel fetches and their clicks are machines.
+    pub scanner_networks: String,
+    /// Extra scanner sources judged on click tickets only, for networks that
+    /// also proxy a mail client's own image fetches.
+    pub scanner_click_networks: String,
+    /// Header a trusted proxy sets with the source ASN (Cloudflare:
+    /// ip.src.asnum). Empty, the default, leaves the database below as the
+    /// only source; where both are set the header wins.
+    pub scanner_asn_header: String,
+    /// Path to a MaxMind GeoLite2-ASN database, which resolves the source ASN
+    /// with no ASN header and no edge transform rule. It reads the client
+    /// address, so behind a proxy it still needs trusted_proxies to be set.
+    /// Empty or unreadable, the default, disables native ASN matching,
+    /// exactly as GEODB_PATH does elsewhere.
+    pub scanner_asn_db: String,
+    /// Where that database is downloaded from when no file is mounted at
+    /// `scanner_asn_db`. The result is held in memory, so this service needs
+    /// no writable path for it. MaxMind's permalink carries the account's
+    /// licence key, which is why nothing logs this value.
+    pub scanner_asn_db_url: String,
     /// Where errors and panics are reported. Empty, the default, means nowhere:
-    /// the SDK is never initialised and no host is contacted.
+    /// no backend is initialised and no host is contacted.
+    pub posthog_key: String,
+    /// The capture host for those events. Empty means PostHog Cloud US.
+    pub posthog_host: String,
+    /// The other backend, for an operator who reports to Sentry instead.
     pub sentry_dsn: String,
     /// The build events are tagged with, so a stack trace names a commit. The
     /// image sets it from the same VERSION the Go services are stamped with.
@@ -118,6 +151,11 @@ impl Config {
         let nats_subject_prefix =
             env::var("NATS_SUBJECT_PREFIX").unwrap_or_else(|_| "warmbly".to_string());
         info!("Event bus provider: {}", eventbus_provider);
+
+        let codec_provider = env::var("CODEC_PROVIDER")
+            .unwrap_or_else(|_| "json".to_string())
+            .to_lowercase();
+        info!("Event codec: {}", codec_provider);
 
         // Event topic/subject name (shared by both backends).
         let kafka_topic = Self::get_optional(
@@ -213,8 +251,47 @@ impl Config {
             .filter(|v| !v.trim().is_empty())
             .unwrap_or_else(|| internal_api_token.clone());
 
-        // Error reporting. Read from the environment only: a DSN in SSM would
-        // make a self-host that never sets one still pay an AWS lookup.
+        let scanner_builtins = parse_bool(
+            &env::var("TRACKING_SCANNER_BUILTINS").unwrap_or_default(),
+            true,
+        );
+        let scanner_networks = env::var("TRACKING_SCANNER_NETWORKS").unwrap_or_default();
+        let scanner_click_networks =
+            env::var("TRACKING_SCANNER_CLICK_NETWORKS").unwrap_or_default();
+        let scanner_asn_header = env::var("TRACKING_SCANNER_ASN_HEADER")
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase();
+        let scanner_asn_db = env::var("TRACKING_SCANNER_ASN_DB")
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        let scanner_asn_db_url = env::var("TRACKING_SCANNER_ASN_DB_URL")
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+
+        // Error reporting. Read from the environment only: a key or a DSN in
+        // SSM would make a self-host that never sets one still pay an AWS
+        // lookup.
+        //
+        // POSTHOG_KEY also carries product analytics elsewhere in the platform,
+        // so POSTHOG_ERROR_TRACKING=false keeps the key and reports nothing.
+        let posthog_key = if parse_bool(
+            &env::var("POSTHOG_ERROR_TRACKING").unwrap_or_default(),
+            true,
+        ) {
+            env::var("POSTHOG_KEY")
+                .unwrap_or_default()
+                .trim()
+                .to_string()
+        } else {
+            String::new()
+        };
+        let posthog_host = env::var("POSTHOG_HOST")
+            .unwrap_or_default()
+            .trim()
+            .to_string();
         let sentry_dsn = env::var("SENTRY_DSN")
             .unwrap_or_default()
             .trim()
@@ -230,6 +307,7 @@ impl Config {
             host,
             port,
             eventbus_provider,
+            codec_provider,
             nats_url,
             nats_subject_prefix,
             kafka_topic,
@@ -246,6 +324,14 @@ impl Config {
             pagehit_rate_limit_per_min,
             trusted_proxies,
             client_ip_header,
+            scanner_builtins,
+            scanner_networks,
+            scanner_click_networks,
+            scanner_asn_header,
+            scanner_asn_db,
+            scanner_asn_db_url,
+            posthog_key,
+            posthog_host,
             sentry_dsn,
             release,
         })
@@ -309,6 +395,7 @@ impl Config {
             host,
             port,
             eventbus_provider: "kafka".to_string(),
+            codec_provider: "json".to_string(),
             nats_url: env::var("NATS_URL").unwrap_or_else(|_| "nats://localhost:4222".to_string()),
             nats_subject_prefix: env::var("NATS_SUBJECT_PREFIX")
                 .unwrap_or_else(|_| "warmbly".to_string()),
@@ -333,6 +420,39 @@ impl Config {
             client_ip_header: env::var("TRACKING_CLIENT_IP_HEADER")
                 .unwrap_or_else(|_| "x-forwarded-for".to_string())
                 .to_ascii_lowercase(),
+            scanner_builtins: parse_bool(
+                &env::var("TRACKING_SCANNER_BUILTINS").unwrap_or_default(),
+                true,
+            ),
+            scanner_networks: env::var("TRACKING_SCANNER_NETWORKS").unwrap_or_default(),
+            scanner_click_networks: env::var("TRACKING_SCANNER_CLICK_NETWORKS").unwrap_or_default(),
+            scanner_asn_header: env::var("TRACKING_SCANNER_ASN_HEADER")
+                .unwrap_or_default()
+                .trim()
+                .to_ascii_lowercase(),
+            scanner_asn_db: env::var("TRACKING_SCANNER_ASN_DB")
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
+            scanner_asn_db_url: env::var("TRACKING_SCANNER_ASN_DB_URL")
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
+            posthog_key: if parse_bool(
+                &env::var("POSTHOG_ERROR_TRACKING").unwrap_or_default(),
+                true,
+            ) {
+                env::var("POSTHOG_KEY")
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string()
+            } else {
+                String::new()
+            },
+            posthog_host: env::var("POSTHOG_HOST")
+                .unwrap_or_default()
+                .trim()
+                .to_string(),
             sentry_dsn: env::var("SENTRY_DSN")
                 .unwrap_or_default()
                 .trim()
@@ -448,4 +568,38 @@ pub fn parse_trusted_proxies(raw: &str) -> Vec<ipnet::IpNet> {
                 .or_else(|| v.parse::<std::net::IpAddr>().ok().map(ipnet::IpNet::from))
         })
         .collect()
+}
+
+/// Reads an on/off variable the way the backend's own configuration registry
+/// does, so the value the admin panel reports and the value this service acts
+/// on can never disagree: only those words decide, anything else is the
+/// default. `off` in particular reads as false there, and used to read as true
+/// here.
+fn parse_bool(raw: &str, default: bool) -> bool {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" => true,
+        "0" | "false" | "no" | "off" => false,
+        _ => default,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_bool;
+
+    #[test]
+    fn parse_bool_agrees_with_the_backend_registry() {
+        for on in ["1", "true", "TRUE", "yes", "on", " On "] {
+            assert!(parse_bool(on, false), "{on:?} should be true");
+        }
+        for off in ["0", "false", "FALSE", "no", "off", " Off "] {
+            assert!(!parse_bool(off, true), "{off:?} should be false");
+        }
+        // Anything else, empty included, leaves the default standing rather
+        // than being read as a value.
+        for other in ["", "  ", "maybe", "2"] {
+            assert!(parse_bool(other, true), "{other:?} should keep true");
+            assert!(!parse_bool(other, false), "{other:?} should keep false");
+        }
+    }
 }

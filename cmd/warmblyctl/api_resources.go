@@ -65,6 +65,12 @@ var apiSpecs = []apiSpec{
 	{name: "campaign start", summary: "Start the campaign. This sends real mail", method: "POST", path: "/campaigns/{id}/start", sends: true},
 	{name: "campaign stop", summary: "Stop the campaign", method: "POST", path: "/campaigns/{id}/stop"},
 	{name: "campaign logs", summary: "The campaign's send log", method: "GET", path: "/campaigns/{id}/logs", query: []string{"limit", "cursor"}},
+	// Per-lead hold: park ONE contact's flow in THIS campaign without
+	// unsubscribing them or removing them from it. --data carries
+	// {"until": "<RFC 3339>", "reason": "..."}; no until holds with no end.
+	{name: "campaign lead-hold", summary: "Whether one lead's flow is held", method: "GET", path: "/campaigns/{id}/leads/{child}/hold", child: "contact"},
+	{name: "campaign pause-lead", summary: "Hold one lead's flow until a date, or until resumed", method: "POST", path: "/campaigns/{id}/leads/{child}/pause", body: bodyOptional, child: "contact"},
+	{name: "campaign resume-lead", summary: "Lift one lead's hold now", method: "POST", path: "/campaigns/{id}/leads/{child}/resume", child: "contact"},
 
 	// Contacts.
 	{name: "contact list", summary: "List or search contacts; --data carries the filter body", method: "POST", path: "/contacts/search", body: bodyOptional, query: []string{"limit", "cursor"}},
@@ -94,6 +100,8 @@ var apiSpecs = []apiSpec{
 	{name: "mailbox delete", summary: "Disconnect a mailbox", method: "DELETE", path: "/emails/{id}"},
 	{name: "mailbox auth-check", summary: "Check the mailbox's SPF, DKIM and DMARC", method: "GET", path: "/emails/{id}/auth-check"},
 	{name: "mailbox sync", summary: "The mailbox's sync state and backfill progress", method: "GET", path: "/emails/{id}/sync"},
+	{name: "mailbox identity", summary: "The addresses this mailbox may send as (Gmail only)", method: "GET", path: "/emails/{id}/identity"},
+	{name: "mailbox refresh-identity", summary: "Re-read the send-as addresses from the provider, optionally importing its signature", method: "POST", path: "/emails/{id}/identity/refresh", body: bodyOptional},
 	{name: "mailbox behavior", summary: "The mailbox's human-sending ranges", method: "GET", path: "/emails/{id}/behavior"},
 	{name: "mailbox set-behavior", summary: "Update the mailbox's sending behaviour", method: "PUT", path: "/emails/{id}/behavior", body: bodyRequired},
 	{name: "mailbox verify", summary: "Verify an email address without sending", method: "POST", path: "/emails/verify", body: bodyRequired},
@@ -146,12 +154,14 @@ var apiSpecs = []apiSpec{
 	{name: "webhook deliveries", summary: "Recent deliveries across endpoints", method: "GET", path: "/webhooks/deliveries", query: []string{"limit", "cursor"}},
 	{name: "webhook event-types", summary: "Every event type a webhook can subscribe to", method: "GET", path: "/webhooks/event-types"},
 
-	// API keys (self-service).
+	// API keys (self-service). `purge` rather than `delete` to match
+	// `warmbly key purge`, where `delete` is already an alias of `revoke`.
 	{name: "apikey list", summary: "List the organization's API keys", method: "GET", path: "/api-keys"},
 	{name: "apikey get", summary: "Get one API key", method: "GET", path: "/api-keys/{id}"},
 	{name: "apikey create", summary: "Create an API key; the secret is only ever in this response", method: "POST", path: "/api-keys", body: bodyRequired},
 	{name: "apikey update", summary: "Update an API key's name, scopes or restrictions", method: "PATCH", path: "/api-keys/{id}", body: bodyRequired},
 	{name: "apikey revoke", summary: "Revoke an API key", method: "DELETE", path: "/api-keys/{id}"},
+	{name: "apikey purge", summary: "Delete a revoked API key for good, with its usage logs; a key that can still authenticate is refused", method: "DELETE", path: "/api-keys/{id}/permanent"},
 	{name: "apikey permissions", summary: "Every grantable scope with its bit value", method: "GET", path: "/api-keys/permissions"},
 
 	// Templates.

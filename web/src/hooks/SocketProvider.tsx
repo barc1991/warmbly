@@ -712,12 +712,32 @@ export default function SocketProvider({
             };
 
             wsRef.current.onerror = (ev) => {
-                console.error('[WS] Error:', ev);
+                // A WebSocket error event carries no detail by spec, and onclose
+                // always follows it and drives the reconnect, so this is not an
+                // error: as one it reported every deploy and sleep to PostHog.
+                console.warn('[WS] Connection error - reconnecting', {
+                    readyState: wsRef.current?.readyState,
+                    attempt: reconnectAttemptRef.current,
+                });
                 onError?.(ev);
             };
         } catch (err) {
             const error = err as AppError;
-            console.error('[WS] Init failed:', error);
+            // AppError is a plain object, not an Error, so console.error rendered
+            // it as [object Object]: every report carried no message, no status
+            // and no request id, and they all grouped into one bucket.
+            const detail = [error.error, error.message, error.status, error.code, error.request_id]
+                .filter(Boolean)
+                .join(' | ');
+            // No status is offline or a timeout, and a 401 here means the session
+            // is already gone (Request refreshes and retries once before it
+            // throws). Both are expected and handled: the retry below, and the
+            // app-wide auth redirect. Only an unexpected answer is an error.
+            if (!error.status || error.status === 401) {
+                console.warn('[WS] Init failed, retrying -', detail);
+            } else {
+                console.error('[WS] Init failed -', detail);
+            }
             // Token fetch / handshake failed — retry on the same fast backoff
             // rather than a flat 15s wait.
             if (!intentionalCloseRef.current) {

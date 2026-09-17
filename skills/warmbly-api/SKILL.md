@@ -33,9 +33,9 @@ Run `warmblyctl <family> --help` for subcommands and `warmblyctl <family>
 | Family | Covers |
 |---|---|
 | `me` | Identity and granted scopes |
-| `campaign` | list, get, create, update, delete, steps, senders, preflight, start, stop, test-email, logs |
+| `campaign` | list, get, create, update, delete, steps, senders, preflight, start, stop, test-email, logs, pause-lead / resume-lead |
 | `contact` | list (search), get, lookup, create, update, delete, notes, timeline, import, export |
-| `mailbox` | list, get, update, delete, auth-check, sync, behavior, verify, send, warmup-start/pause/resume/stop/status |
+| `mailbox` | list, get, update, delete, auth-check, sync, identity, refresh-identity, behavior, verify, send, warmup-start/pause/resume/stop/status |
 | `inbox` | list, count, thread, seen, reply, compose, agent drafts, scheduled sends |
 | `analytics` | dashboard, deliverability, warmup, accounts, campaigns, usage, audit-logs |
 | `settings` | outreach and suppression settings |
@@ -86,6 +86,13 @@ These commands put real mail on the wire: `campaign start`,
   user explicitly asked for it and the mailbox has history to justify it.
 - Keep warmup running on mailboxes that campaign; do not stop warmup just
   because a campaign started.
+- To stop emailing ONE contact for a while, hold that lead:
+  `campaign pause-lead --id <campaign> --contact <contact> --data
+  '{"until":"2026-09-21T17:00:00Z"}'`. Do not unsubscribe them and do not add
+  them to the suppression list for this: both are workspace-wide and permanent.
+  `campaign resume-lead` lifts it. An out-of-office auto-reply already writes
+  the same hold by itself, across every campaign that contact is a lead of, so
+  a lead reading `paused` for that reason needs nothing from you.
 - If deliverability analytics show rising bounces or complaints, stop the
   campaign first and report; do not push volume into a degrading mailbox.
 

@@ -235,7 +235,7 @@ These are the ones that break things quietly when they drift, because each servi
 | realtime | `JWT_SECRET`, `SECRET_KEY_BASE`, `DATABASE_URL`, `REDIS_URL`, `PHX_HOST` |
 | web / admin | Only `WARMBLY_*` URLs, read at container start and written into `/config.js`. The same image runs anywhere |
 
-`APP_ENV` accepts `dev` or `prod`. No other value turns on production behavior. `prod` needs no cloud account: `SENTRY_DSN` stays optional in every environment, and `GEODB_PATH` must be *set* on the backend everywhere while the file it points at is optional (the consumer reads it too, optionally, for the location on opens and clicks).
+`APP_ENV` accepts `dev` or `prod`. No other value turns on production behavior. `prod` needs no cloud account: error tracking stays optional in every environment, and `GEODB_PATH` must be *set* on the backend everywhere while the file it points at is optional (the consumer reads it too, optionally, for the location on opens and clicks).
 
 The complete list of variables, with defaults and whether a change needs a restart, is the [configuration reference](/development/configuration/).
 
@@ -313,7 +313,13 @@ DEPLOYMENT_MODE=self_hosted
 # STRIPE_SECRET_KEY=
 # STRIPE_WEBHOOK_SECRET=
 # STRIPE_PUBLISHABLE_KEY=
-# SENTRY_DSN=
+# POSTHOG_KEY=                      # error tracking, and server-side product events
+# POSTHOG_HOST=                     # empty means PostHog Cloud US
+# POSTHOG_ERROR_TRACKING=true       # false keeps the key for analytics only
+# WARMBLY_POSTHOG_KEY=              # the browser half, used by web + admin + form pages
+# WARMBLY_POSTHOG_SESSION_REPLAY=true # false keeps the key and records no sessions
+# SENTRY_DSN=                       # the other backend, alongside PostHog or instead
+# WARMBLY_SENTRY_DSN=
 
 # ── Optional: swap infrastructure ─────────────────────────────────
 # BLOB_PROVIDER=s3
@@ -324,7 +330,7 @@ DEPLOYMENT_MODE=self_hosted
 # AWS_SECRET_ACCESS_KEY=
 # KMS_PROVIDER=aws
 # KMS_AWS_KEY_ID=alias/warmbly
-# EVENTBUS_PROVIDER=kafka           # needs images built with GO_TAGS=kafka
+# EVENTBUS_PROVIDER=kafka           # needs the -kafka images (see below)
 # KAFKA_BOOTSTRAP_SERVERS=broker:9092
 # PRIMARY_DB=postgres://user:pass@host:5432/warmbly?sslmode=require
 # REDIS=redis://host:6379
@@ -508,7 +514,7 @@ https://api.example.com/addresses/outlook/callback
 </Step>
 
 <Step>
-Under **API permissions**, add the Microsoft Graph delegated permissions the mailbox needs: `Mail.ReadWrite`, `Mail.Send`, `IMAP.AccessAsUser.All`, `SMTP.Send`, and `offline_access` so refresh tokens are issued.
+Under **API permissions**, add the Microsoft Graph **delegated** permissions the mailbox needs, and no others: `User.Read`, `Mail.Send`, `Mail.ReadWrite`, and `offline_access` so refresh tokens are issued. Graph is the transport for both send and sync, so the legacy `IMAP.AccessAsUser.All` and `SMTP.Send` permissions are not requested and should not be added: each one is admin-consent-only and adding it turns a sign-in every user could complete into one only a tenant admin can.
 </Step>
 
 <Step>
@@ -521,6 +527,10 @@ BOX_OUTLOOK_CLIENT_SECRET=your-client-secret-value
 </Step>
 
 </Steps>
+
+<Callout title="Non-admin users and tenant-wide consent">
+None of the four permissions above requires admin consent by default, so an ordinary user can connect their own mailbox. A tenant that has turned user consent off needs an admin to grant consent once, under **Enterprise applications > your app > Permissions > Grant admin consent**. Warmbly's authorize request asks for `prompt=select_account`, never `prompt=consent`, so that grant is honoured for everyone afterwards. See [approval required when connecting an Outlook mailbox](/development/troubleshooting/#the-stack-is-up-but-something-is-wrong) if a non-admin is still refused.
+</Callout>
 
 <Callout type="warn" title="Workers need these too">
 The backend starts the OAuth flow, but **each worker refreshes the token** when it expires. Compose passes the `BOX_*` values to the worker automatically, and remote workers receive them in their enrollment config. If a worker is missing them, the mailbox connects fine and then silently stops about an hour later when its first access token expires.
@@ -624,7 +634,16 @@ Pair it with `DISABLE_PASSWORD_LOGIN=true` for an SSO-only deployment.
 Three things to know:
 
 - **Bare binaries default to the cloud values** (`kafka`, `avro`, `s3`, `aws`). Compose, the Makefile, and both env templates set the local values for you. A hand-rolled environment must set them or the process exits at boot.
-- Kafka and Avro are also build-time opt-ins: `--build-arg GO_TAGS=kafka` for Go, `--build-arg CARGO_FEATURES=kafka` for tracking.
+- Kafka and Avro are build-time opt-ins, so `EVENTBUS_PROVIDER=kafka` needs a build that has them. Each release publishes those builds as a second tag on the same image, suffixed `-kafka`, for the four services that touch the bus:
+
+  ```
+  ghcr.io/warmbly/warmbly/backend:prod-kafka
+  ghcr.io/warmbly/warmbly/consumer:prod-kafka
+  ghcr.io/warmbly/warmbly/worker:prod-kafka
+  ghcr.io/warmbly/warmbly/tracking:prod-kafka
+  ```
+
+  `forms`, `updater`, `realtime`, `web`, and `admin` never read the bus and have one image each. To build your own instead, pass `--build-arg GO_TAGS=kafka` (Go) or `--build-arg CARGO_FEATURES=kafka` (tracking); cgo cannot cross-compile, so each architecture has to be built on a machine of that architecture.
 - `PUBSUB_ENABLED` must match across backend, consumer, and realtime.
 
 ## Optional subsystems
@@ -637,7 +656,7 @@ Three things to know:
 | Sign in with Apple | `APPLE_APP_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_KEY_SECRET` |
 | Mobile push (APNs) | `APNS_KEY_PATH` (or `APNS_KEY`), `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_TOPIC` on backend and consumer. Partial config disables push with a warning, never a crash |
 | Notification tuning | `NOTIFICATION_PUSH_WINDOW` (default `5h`), `NOTIFICATION_EMAIL_DAILY_CAP` (default `25`, `0` means uncapped) |
-| Error tracking | `SENTRY_DSN`. Optional in every environment, including `prod` |
+| Error tracking | `POSTHOG_KEY` (plus `POSTHOG_HOST` for a PostHog you run) or `SENTRY_DSN`, and `WARMBLY_POSTHOG_KEY` / `WARMBLY_SENTRY_DSN` for the browser apps. Either, both or neither; optional in every environment, including `prod` |
 
 ## AI provider
 
@@ -723,7 +742,13 @@ The script enrols the node, writes the config the control plane hands back to `/
 The config handed to a node is generated from the backend's own environment. On a stock local install that means `ENCRYPTED_KEYS_BACKEND_URL=http://localhost:8080`, `NATS_URL=nats://nats:4222`, and `REDIS=redis://redis:6379`, none of which resolve on another machine. Before adding a remote node, set `API_PUBLIC_URL`, `NATS_URL`, and `REDIS` on the backend to addresses the machine can actually reach, and open those ports.
 </Callout>
 
-That config carries the decryption material the node needs: the internal API token, `KMS_LOCAL_MASTER_KEY`, and `CREDENTIALS_ENCRYPTION_KEY`. Serve the API over HTTPS before adding a node across a network you do not control. It deliberately does not include `PRIMARY_DB`: a worker reaches relational data through the internal API and nothing else.
+That config carries the decryption material the node needs: the internal API token, `KMS_LOCAL_MASTER_KEY`, and `CREDENTIALS_ENCRYPTION_KEY`. Serve the API over HTTPS before adding a node across a network you do not control.
+
+`PRIMARY_DB` reaches a consumer, which opens Postgres itself, and never a worker, which reaches relational data through the internal API and nothing else.
+
+Nothing else in the config needs a credential either. An instance running `KMS_PROVIDER=aws` or `BLOB_PROVIDER=s3` hands its nodes the brokered form of each, so a machine in the fleet opens sealed keys and signs blob operations through the internal API rather than carrying a cloud credential of its own. Blob bytes still go directly between the node and the object store. [Split deployment](/development/split-deployment/) covers the whole shape.
+
+`/etc/warmbly/node.local.env`, next to the generated file, is created once and never rewritten, and the container reads it second. Anything you add there survives a re-join and wins over the generated value.
 
 `BLOB_PROVIDER=filesystem` does not survive a fleet. A worker reads the message body the backend wrote, so the two need the same storage with permissions that let both reach it, and a node on another machine has neither. The join script creates and mounts `BLOB_FS_ROOT` so the node starts, and warns you, but sends will fail when the worker cannot read the body. Use `BLOB_PROVIDER=s3` with a bucket both sides can reach before running nodes off-host.
 
@@ -755,6 +780,8 @@ warmblyctl fleet pin <node> v1.4.1  # hold or canary one machine
 ```
 
 Setting a tag also pins the channel, so a release landing later does not silently undo a deliberate rollback. `fleet channel stable` resumes following releases.
+
+The version a node is told to run also names which build of the image it runs. An instance on `EVENTBUS_PROVIDER=kafka` hands its nodes `v1.4.2-kafka`, because the default images are CGO-free and carry no librdkafka: a node running one would take `EVENTBUS_PROVIDER=kafka` from its config and fail at boot. The suffix is added to whatever the version resolved to, including a pin, so `fleet pin <node> v1.4.1` still reaches the machine as something it can run. Set `FLEET_IMAGE_VARIANT` on the backend to change or disable it if you publish your own images under a different convention; setting it empty turns it off.
 
 The backend is deliberately excluded: it is the thing that tells every node what version to be, so it is upgraded the same way as the rest of your infrastructure. Upgrade the backend, and the fleet follows.
 
@@ -788,7 +815,7 @@ One thing to know if you are running a fork: GHCR creates each package private a
 
 Every app service in `docker-compose.yml` carries both an `image:` and a `build:` key, so the same file serves both paths. `docker compose pull && docker compose up -d` runs the published images and compiles nothing; `docker compose up --build` still builds this checkout. Pin a release with `WARMBLY_TAG=v1.4.2` in `.env`, or point `WARMBLY_IMAGE_PREFIX` at your own registry.
 
-To move a worker fleet onto a new release, update `WORKER_IMAGE` and use "Pull latest and restart" on each worker. Control-plane migrations are forward-only, so prefer rolling forward over rolling back.
+To move a fleet onto a new release, set the target once with `warmblyctl fleet version vX.Y.Z`. Nothing is pushed: each node asks what it should be running on its next heartbeat and its own update timer pulls and restarts it. Control-plane migrations are forward-only, so prefer rolling forward over rolling back.
 
 ## Upgrading and backups
 

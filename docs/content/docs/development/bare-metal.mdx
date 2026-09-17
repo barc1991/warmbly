@@ -39,7 +39,7 @@ flowchart LR
 | PostgreSQL 16, Redis 7, NATS 2.10+ | The backing services. Any packaging works: distro packages, upstream repositories, or a managed instance elsewhere |
 | Go 1.25 | Builds the backend, consumer, worker, `migrate` and `warmblyctl` |
 | Rust (stable, 1.93 or newer) | Builds the tracking service |
-| Elixir 1.18 on OTP 26 | Builds the realtime service |
+| Elixir 1.18 on OTP 27 | Builds the realtime service |
 | Node 22 and pnpm | Builds the dashboard, admin panel and forms app |
 | nginx | Serves the static frontends and terminates TLS for the API, websocket, tracking and forms hosts |
 | Six DNS names | `app`, `admin`, `api`, `ws`, `t` and `forms` under your domain, all pointing at the host |
@@ -360,7 +360,7 @@ A few lines differ from the compose defaults on purpose:
 - `API_HOST`, `TRACKING_HOST` and the realtime `PORT` sit on `127.0.0.1`, so only nginx reaches them. The realtime service binds all interfaces regardless, so keep `4000` closed at the firewall
 - `TRUSTED_PROXIES` and `TRACKING_TRUSTED_PROXIES` name the proxy, so rate limits and audit records see the visitor's address instead of `127.0.0.1`
 - `CHECK_ORIGIN=true` makes the websocket refuse browsers that are not on `PHX_HOST`'s origin list
-- `GEODB_PATH` points at a file that need not exist. The backend refuses to start without the variable, but a missing database only means sessions, audit rows and email opens and clicks carry no city; drop a MaxMind `GeoLite2-City.mmdb` at that path if you have one
+- `GEODB_PATH` points at a file that need not exist. The backend refuses to start without the variable, but a missing database only means sessions, audit rows and email opens and clicks carry no city; drop a MaxMind `GeoLite2-City.mmdb` at that path if you have one, or set `GEODB_URL` and let the service fetch its own copy (see [GeoIP](/development/configuration/#geoip))
 
 Every other variable, with its default, is in the [configuration reference](/development/configuration/), and [`deploy/config/env.example`](https://github.com/warmbly/warmbly/blob/main/deploy/config/env.example) is the annotated template this file was cut down from. Mail relay, OAuth clients, single sign-on and the AI provider are configured exactly as in the [self-hosting guide](/development/deployment-guide/#platform-email); only the way values reach the process differs.
 
@@ -546,20 +546,21 @@ The point of workers is to spread sending across machine identities, so most ins
 
 **The join script**, which is what the admin panel's Add a machine flow produces, runs the node as a container on the remote host. It needs Docker and systemd only there. The backend serves it at `GET /join.sh`, and it is embedded in the binary, so there is no path to configure.
 
-**A native worker** is the same binary and env file as above, with the addresses changed. The backend renders a complete env file for an enrollment token, so nothing has to be copied by hand:
+**A native worker** is the same binary and env file as above, with the addresses changed. The backend renders a complete env file for a join token, so nothing has to be copied by hand:
 
 ```bash
 # On the remote host, with /opt/warmbly/bin/worker built for it:
-curl -fsS https://api.yourdomain.com/api/v1/workers/enroll \
+curl -fsS https://api.yourdomain.com/api/v1/fleet/join \
   -H 'Content-Type: application/json' \
-  -d '{"token":"wmenroll_..."}' | sudo tee /etc/warmbly/worker.env >/dev/null
-echo "WORKER_ID=$(uuidgen)" | sudo tee -a /etc/warmbly/worker.env >/dev/null
+  -d '{"token":"<join-token>","role":"worker","region":"eu-central"}' \
+  | sed -n 's/.*"env_b64"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+  | base64 -d | sudo tee /etc/warmbly/worker.env >/dev/null
 sudo chmod 0600 /etc/warmbly/worker.env
 sudo cp deploy/systemd/warmbly-worker.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now warmbly-worker
 ```
 
-The token is consumed on first use and the response carries the decryption material, so do this over HTTPS only. Before enrolling anything, set `API_PUBLIC_URL`, `NATS_URL` and `REDIS` on the backend to addresses the remote host can reach, and open those ports to it: the rendered file inherits the backend's own values, and `127.0.0.1` does not resolve to your control plane from another machine.
+The rendered file already carries this node's `WORKER_ID`, so its placement row and its node row are the same machine. Issue the token with `warmblyctl fleet join-token`; it is consumed on first use and the response carries the decryption material, so do this over HTTPS only. Before enrolling anything, set `API_PUBLIC_URL`, `NATS_URL` and `REDIS` on the backend to addresses the remote host can reach, and open those ports to it: the rendered file inherits the backend's own values, and `127.0.0.1` does not resolve to your control plane from another machine.
 
 Opening NATS and Redis to another machine means they stop being protected by the loopback bind, so give both a credential and TLS first. For NATS, extend `/etc/nats.conf` and restart it:
 

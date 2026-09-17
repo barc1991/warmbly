@@ -46,6 +46,7 @@ const LEAD_STATUS: { id: LeadStatus; label: string }[] = [
     { id: "replied", label: "השיב" },
     { id: "bounced", label: "נדחה" },
     { id: "failed", label: "נכשל" },
+    { id: "paused", label: "מושהה" },
     { id: "undeliverable", label: "לא ניתן למסירה" },
 ];
 

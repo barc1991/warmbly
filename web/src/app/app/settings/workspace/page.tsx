@@ -1,9 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { SparklesIcon, ChevronLeftIcon } from "lucide-react";
-import { useAppStore } from "@/stores";
+import { useAppStore, type Organization as StoreOrganization } from "@/stores";
 import { TextInput } from "@/components/ui/field";
+import { Textarea } from "@/components/ui/textarea";
 import useUpdateOrganization from "@/lib/api/hooks/app/organizations/useUpdateOrganization";
+import type Organization from "@/lib/api/models/app/organizations/Organization";
 import { AvatarUploader } from "@/components/app/avatar/AvatarUploader";
 import {
     useDeleteOrgAvatar,
@@ -15,20 +16,47 @@ import { useAutosave } from "@/hooks/useAutosave";
 import { useRegisterUnsaved } from "@/hooks/context/unsaved";
 import useCurrentOrganization from "@/lib/api/hooks/app/organizations/useCurrentOrganization";
 import { usePermission } from "@/hooks/usePermission";
+import useAiMetered from "@/hooks/useAiMetered";
+import AdvisorSettingsSection from "@/components/app/advisor/AdvisorSettingsSection";
 
+// Keyed on the workspace id, which is what makes a switch re-seed the editors
+// below. Each of them takes its initial value from the org it mounted with, and
+// nothing here re-reads that on a change: the name field kept the previous
+// workspace's name while the autosave baseline moved to the new one, so merely
+// switching workspaces (or creating one, which switches to it) saved the old
+// name over the new workspace's. That is the reported bug where renaming one
+// workspace renamed the other.
 export default function WorkspaceSettingsPage() {
     const currentOrg = useAppStore((s) => s.currentOrganization);
+    return <WorkspaceSettings key={currentOrg?.id ?? "none"} org={currentOrg} />;
+}
+
+function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null }) {
     const [name, setName] = React.useState(currentOrg?.name ?? "");
+    const orgID = currentOrg?.id;
 
     const uploadOrgAvatar = useUploadOrgAvatar();
     const removeOrgAvatar = useDeleteOrgAvatar();
     const updateOrg = useUpdateOrganization();
+
+    // Every save here renames whatever workspace the server session has
+    // selected, and a debounce or a blur armed on this page can land after a
+    // switch. orgID is the workspace this editor was opened for, so a write
+    // that would reach a different one is dropped rather than applied to it.
+    const saveToThisWorkspace = React.useCallback(
+        async (patch: Partial<Organization>) => {
+            if (!orgID || useAppStore.getState().currentOrganization?.id !== orgID) return;
+            await updateOrg.mutateAsync(patch);
+        },
+        [orgID, updateOrg],
+    );
 
     // Team presence privacy. The full org (with the flags) comes from
     // /organization/current; toggling saves immediately and the realtime
     // service re-gates everyone live. Only admins with Manage settings can edit.
     const orgQuery = useCurrentOrganization();
     const canManageSettings = usePermission("MANAGE_SETTINGS");
+    const metered = useAiMetered();
     const [showOnline, setShowOnline] = React.useState(true);
     const [showActivity, setShowActivity] = React.useState(true);
     React.useEffect(() => {
@@ -40,11 +68,49 @@ export default function WorkspaceSettingsPage() {
 
     const onToggleOnline = (next: boolean) => {
         setShowOnline(next);
-        updateOrg.mutate({ presence_show_online: next });
+        void saveToThisWorkspace({ presence_show_online: next });
     };
     const onToggleActivity = (next: boolean) => {
         setShowActivity(next);
-        updateOrg.mutate({ presence_show_activity: next });
+        void saveToThisWorkspace({ presence_show_activity: next });
+    };
+
+    // AI voice profile. Grounds every AI writing surface. Saved on blur when
+    // changed. Manage settings only.
+    const [productDesc, setProductDesc] = React.useState("");
+    const [icpNotes, setIcpNotes] = React.useState("");
+    const [voiceProfile, setVoiceProfile] = React.useState("");
+    React.useEffect(() => {
+        if (!orgQuery.data) return;
+        setProductDesc(orgQuery.data.product_description ?? "");
+        setIcpNotes(orgQuery.data.icp_notes ?? "");
+        setVoiceProfile(orgQuery.data.voice_profile ?? "");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        orgQuery.data?.product_description,
+        orgQuery.data?.icp_notes,
+        orgQuery.data?.voice_profile,
+    ]);
+    const saveVoiceField = (key: "product_description" | "icp_notes" | "voice_profile", value: string, saved: string) => {
+        if (value !== saved) void saveToThisWorkspace({ [key]: value });
+    };
+
+    // Inbox agent opt-in (paid). When on, an inbound human reply gets an
+    // AI-drafted suggested reply awaiting review in the unibox.
+    const [inboxAgent, setInboxAgent] = React.useState(false);
+    const [sharedHistory, setSharedHistory] = React.useState(false);
+    React.useEffect(() => {
+        if (orgQuery.data) setInboxAgent(orgQuery.data.inbox_agent_enabled ?? false);
+        if (orgQuery.data) setSharedHistory(orgQuery.data.assistant_shared_history ?? false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [orgQuery.data?.inbox_agent_enabled, orgQuery.data?.assistant_shared_history]);
+    const onToggleInboxAgent = (next: boolean) => {
+        setInboxAgent(next);
+        void saveToThisWorkspace({ inbox_agent_enabled: next });
+    };
+    const onToggleSharedHistory = (next: boolean) => {
+        setSharedHistory(next);
+        void saveToThisWorkspace({ assistant_shared_history: next });
     };
 
     // Auto-save the workspace name ~700ms after typing stops. An empty name is
@@ -54,7 +120,7 @@ export default function WorkspaceSettingsPage() {
         debounceMs: 700,
         save: async (v) => {
             if (!v) throw new Error("name required");
-            await updateOrg.mutateAsync({ name: v });
+            await saveToThisWorkspace({ name: v });
         },
     });
     useRegisterUnsaved(autosave, () => setName(autosave.savedValue));
@@ -66,17 +132,17 @@ export default function WorkspaceSettingsPage() {
 
     return (
         <SectionShell
-            title="סביבת עבודה"
-            description="הגדרות ברמת הארגון. גלוי רק לבעלים."
+            title="Workspace"
+            description="Org-wide settings. Visible only to the owner."
             actions={<SaveStatus status={autosave.status} onRetry={autosave.retry} />}
         >
             <Section
-                eyebrow="זהות"
-                description="כיצד סביבת עבודה זו נקראת ומזוהה."
+                eyebrow="Identity"
+                description="How this workspace is named and addressed."
             >
                 <Row
-                    label="תמונת סביבת עבודה"
-                    description="לוגו מרובע או ראשי תיבות. מוצג במחליף הארגונים ובדוחות משותפים."
+                    label="Workspace avatar"
+                    description="Square logo or initials. Shown in the org switcher and on shared report URLs."
                     align="start"
                 >
                     <AvatarUploader
@@ -91,35 +157,34 @@ export default function WorkspaceSettingsPage() {
                         }}
                     />
                 </Row>
-                <Row label="שם סביבת העבודה" description="מוצג בסרגל הצד ובמיילים של הזמנות.">
+                <Row label="Workspace name" description="Shown in the sidebar and invitation emails.">
                     <TextInput value={name} onChange={setName} className="w-full max-w-[280px]" />
                 </Row>
                 <Row
-                    label="מזהה סביבת עבודה"
-                    description="מזהה ייחודי קבוע. משמש בקריאות API ובפניות תמיכה."
+                    label="Workspace ID"
+                    description="Stable identifier. Used in API calls and support tickets."
                     align="start"
                 >
                     <input
                         type="text"
                         value={currentOrg?.id ?? ""}
                         readOnly
-                        dir="ltr"
-                        className="w-full max-w-[300px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12px] text-slate-500 font-mono text-left"
+                        className="w-full max-w-[300px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12px] text-slate-500 font-mono"
                     />
                 </Row>
             </Section>
 
             <Section
-                eyebrow="ברירות מחדל לשליחה"
-                description="משמש קמפיינים חדשים אלא אם הוגדר אחרת."
+                eyebrow="Sending defaults"
+                description="Used by new campaigns unless overridden."
             >
                 <Row
-                    label="מכסה יומית כברירת מחדל"
-                    description="הגנת בטיחות מובנית: 50 ליום לכל תיבת דואר קרה. ניתן להגדיל ברמת הקמפיין במידת הצורך."
+                    label="Default daily cap"
+                    description="Built-in safety: 50/day per cold mailbox. Raise per-campaign if needed."
                 >
                     <input
                         type="text"
-                        value="50 / יום"
+                        value="50 / day"
                         disabled
                         className="w-full max-w-[120px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12px] text-slate-500"
                     />
@@ -127,37 +192,37 @@ export default function WorkspaceSettingsPage() {
             </Section>
 
             <Section
-                eyebrow="פרטיות ותאימות"
-                description="כותרות ומזהים המצורפים לכל שליחה."
+                eyebrow="Privacy & compliance"
+                description="Headers and identifiers attached to every send."
             >
                 <Row
-                    label="הסרה מרשימה וביטול הצטרפות"
-                    description="שורת ביטול ההצטרפות בכל הודעת קמפיין, ורשימת ההשתקה, נמצאות תחת שליחה."
+                    label="Unsubscribe and opt-out"
+                    description="The opt-out line every campaign email carries, and the suppression list, live under Sending."
                 >
                     <Link to="/app/settings/sending" className="text-[12px] text-sky-700 hover:text-sky-800 font-medium">
-                        פתח הגדרות שליחה
+                        Open sending settings
                     </Link>
                 </Row>
                 <ToggleRow
-                    label="מעקב פתיחות כברירת מחדל"
-                    description="מוסיף פיקסל 1×1. בטל לעבירות מקסימלית."
+                    label="Track opens by default"
+                    description="Inserts a 1×1 pixel. Disable for highest deliverability."
                 />
             </Section>
 
             <Section
-                eyebrow="נוכחות צוות"
-                description="מה חברי הצוות יכולים לראות זה על זה בזמן אמת. חל על כולם בסביבת העבודה."
+                eyebrow="Team presence"
+                description="What members can see about each other in real time. Applies to everyone in the workspace."
             >
                 <ToggleRow
-                    label="הצג מי מחובר"
-                    description="הצג את תמונות הפרופיל של החברים שנמצאים כעת במערכת. כיבוי יסתיר את כל נתוני הנוכחות מחברי הצוות."
+                    label="Show who's online"
+                    description="Display the live avatar stack of members currently in the dashboard. Off hides all online presence from teammates."
                     checked={showOnline}
                     onChange={onToggleOnline}
                     disabled={!canManageSettings}
                 />
                 <ToggleRow
-                    label="הצג פעילות"
-                    description="אפשר לחברי הצוות לראות במה מישהו צופה, עורך או משיב. כיבוי שומר על סטטוס מחובר אך מסתיר את פרטי הפעילות."
+                    label="Show activity"
+                    description="Let teammates see what someone is viewing, editing, or replying to. Off keeps online status but hides the detail."
                     checked={showActivity && showOnline}
                     onChange={onToggleActivity}
                     disabled={!canManageSettings || !showOnline}
@@ -165,34 +230,95 @@ export default function WorkspaceSettingsPage() {
             </Section>
 
             <Section
-                eyebrow="בינה מלאכותית וקול המותג"
-                description="הגדרות קול המותג, המוצר, כלי הסוכן ותרחישי המענה מנוהלים כעת במרכז הבינה המלאכותית."
+                eyebrow="AI voice profile"
+                description="Grounds every AI writing surface (assistant, reply drafts, research openers) so drafts sound like you and know what you sell. All optional."
             >
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-md border border-slate-200/80 bg-slate-50/50">
-                    <div className="flex items-center gap-2.5">
-                        <SparklesIcon className="w-4 h-4 text-sky-600 shrink-0" />
-                        <span className="text-[12.5px] text-slate-700">
-                            עבור להגדרות בינה מלאכותית לניהול קול המותג, כלי הסוכן ותרחישי המענה
-                        </span>
-                    </div>
-                    <Link
-                        to="/app/settings/ai"
-                        className="h-7 px-3 rounded-md bg-white border border-slate-200 hover:bg-slate-50 text-[12px] font-medium text-slate-700 inline-flex items-center gap-1.5 shrink-0 transition-colors"
-                    >
-                        <span>פתח הגדרות AI</span>
-                        <ChevronLeftIcon className="w-3.5 h-3.5 rtl:rotate-0 rotate-180 text-slate-400" />
-                    </Link>
-                </div>
+                <Row
+                    label="What you sell"
+                    description="One or two sentences on your product and the outcome it delivers."
+                    align="start"
+                >
+                    <Textarea
+                        value={productDesc}
+                        onChange={(e) => setProductDesc(e.target.value)}
+                        onBlur={() => saveVoiceField("product_description", productDesc, orgQuery.data?.product_description ?? "")}
+                        disabled={!canManageSettings}
+                        rows={3}
+                        maxLength={2000}
+                        placeholder="We help RevOps teams keep their CRM clean by..."
+                        className="w-full max-w-[420px] text-[12.5px]"
+                    />
+                </Row>
+                <Row
+                    label="Who you sell to"
+                    description="Your ideal customer: role, company type, the pain they feel."
+                    align="start"
+                >
+                    <Textarea
+                        value={icpNotes}
+                        onChange={(e) => setIcpNotes(e.target.value)}
+                        onBlur={() => saveVoiceField("icp_notes", icpNotes, orgQuery.data?.icp_notes ?? "")}
+                        disabled={!canManageSettings}
+                        rows={3}
+                        maxLength={2000}
+                        placeholder="Heads of RevOps at 50-500 person B2B SaaS companies who..."
+                        className="w-full max-w-[420px] text-[12.5px]"
+                    />
+                </Row>
+                <Row
+                    label="House voice"
+                    description="How you want to sound. Casual or formal, phrases to use or avoid."
+                    align="start"
+                >
+                    <Textarea
+                        value={voiceProfile}
+                        onChange={(e) => setVoiceProfile(e.target.value)}
+                        onBlur={() => saveVoiceField("voice_profile", voiceProfile, orgQuery.data?.voice_profile ?? "")}
+                        disabled={!canManageSettings}
+                        rows={3}
+                        maxLength={2000}
+                        placeholder="Direct and warm, lowercase openers are fine, never salesy."
+                        className="w-full max-w-[420px] text-[12.5px]"
+                    />
+                </Row>
             </Section>
 
             <Section
-                eyebrow="סטטיסטיקות סביבת העבודה"
-                description="מבט חטוף על אופן השימוש בסביבת עבודה זו."
+                eyebrow="Inbox agent"
+                description={`On an inbound human reply, draft a suggested reply in your voice and hold it in the unibox for review. It never sends on its own.${metered ? " Paid feature; each handled reply costs 5 AI credits." : ""}`}
+            >
+                <ToggleRow
+                    label="Draft replies for me"
+                    description="When someone replies, the agent writes a suggested reply and attaches it to the thread under Agent drafts. You approve-and-send, edit, or discard it."
+                    checked={inboxAgent}
+                    onChange={onToggleInboxAgent}
+                    disabled={!canManageSettings}
+                />
+            </Section>
+
+            <Section
+                eyebrow="AI assistant"
+                description="How the assistant's conversation history works across the team."
+            >
+                <ToggleRow
+                    label="Shared history"
+                    description="Every member with the Use AI permission sees and can continue every assistant conversation in this workspace, instead of only their own. Turning it on exposes existing conversations to the whole team."
+                    checked={sharedHistory}
+                    onChange={onToggleSharedHistory}
+                    disabled={!canManageSettings}
+                />
+            </Section>
+
+            <AdvisorSettingsSection canManage={canManageSettings} />
+
+            <Section
+                eyebrow="Workspace stats"
+                description="Snapshot of how this workspace is being used."
             >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Stat label="חברים" value={1} />
-                    <Stat label="תיבות דואר" value={0} />
-                    <Stat label="קמפיינים" value={0} />
+                    <Stat label="Members" value={1} />
+                    <Stat label="Mailboxes" value={0} />
+                    <Stat label="Campaigns" value={0} />
                 </div>
             </Section>
         </SectionShell>

@@ -96,6 +96,40 @@ That default is deliberate. Emailing a code on every sign-in makes the mail rela
 
 Set `new_device` to require one only from a device that has not signed in before, or `always` for the hosted behavior. If the transport does not deliver, `always` is demoted to `new_device` at boot, because otherwise nobody could complete a login at all.
 
+### Excusing one account
+
+`AUTH_LOGIN_CODE` is instance-wide and read at boot, which is a problem when one person outside your team has to sign in and cannot read your mail: a vendor's reviewer during an OAuth verification, an auditor, a support engineer. Turning codes off for everyone, for as long as the review takes, is a large change to make for one account.
+
+Exempt that account instead:
+
+```bash
+warmblyctl user login-code-exempt --email reviewer@example.com \\
+  --reason "Google OAuth verification" --by you@example.com
+```
+
+A reason is required, and so is `--by`: this command talks to Postgres directly and has no signed-in operator, so the account accountable for the exemption is named explicitly. The admin panel records the acting admin and asks for nothing. The database refuses a blank reason either way. The exemption removes the emailed code and nothing else: the password, the captcha and the sign-in risk assessment all still apply, and a transport that cannot deliver still short-circuits ahead of it. A failed lookup is not read as an exemption.
+
+The admin panel has the same thing under **Testers**: create one, see the password once, and revoke an exemption when the reason no longer holds. The account survives a revoke, so anything it did stays attributable; it simply stops bypassing the code.
+
+#### Which workspace a tester lands in
+
+A tester either gets a workspace of its own or joins one that already exists, and the choice is on the create form.
+
+Its own is the default and the safer one. The reviewer connects their own mailbox and exercises the app without reaching anything of yours, which is usually all an OAuth verification needs to see.
+
+Joining an existing workspace is for a review judged on the app doing real work, where an empty workspace shows none of it. The tester becomes an ordinary member of that workspace and gets none of its own, so signing in lands straight in it: the dashboard skips its workspace picker only when someone belongs to exactly one. Two things follow from that, and both are the point rather than a side effect:
+
+- **You pick the role, and there is no default.** This is the one path that grants workspace access without anybody in that workspace asking for it, so the form will not submit until a role is named. The role decides everything the holder can reach, and it is recorded on the audit row as well as the members table, which the role can be changed out of later.
+- **The tester can see real data.** A role carrying `access_unibox` or `manage_emails` means real mail and real mailboxes, belonging to real people. Give the narrowest role the review actually needs, and revoke it when the review ends.
+
+The tester occupies a seat like any other member, so a workspace at its team member limit refuses the join rather than quietly exceeding it.
+
+`warmblyctl status` lists every exempt account on each run with its reason and the date, because the way this goes wrong is not granting one, it is forgetting it. Remove one with:
+
+```bash
+warmblyctl user login-code-exempt --email reviewer@example.com --clear
+```
+
 ### Stronger factors
 
 A user-verified passkey is already a possession factor bound to this origin, so a passkey sign-in does not additionally prompt for TOTP. Changing `APP_URL` after passkeys are enrolled invalidates all of them, because the relying party id derives from it.

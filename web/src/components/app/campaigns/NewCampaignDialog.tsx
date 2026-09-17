@@ -62,7 +62,7 @@ type SequenceDraft = {
     wait_after: number;
 };
 
-const WEEKDAYS = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"];
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const WEEKDAYS_MASK = 0b0011111;
 const EVERY_DAY_MASK = 0b1111111;
 
@@ -73,20 +73,20 @@ type StepKey = "basics" | "schedule" | "sending" | "email" | "audience" | "send"
 type StepDef = { key: StepKey; label: string; icon: typeof MegaphoneIcon };
 
 const SEQUENCE_STEPS: readonly StepDef[] = [
-    { key: "basics", label: "בסיס", icon: MegaphoneIcon },
-    { key: "schedule", label: "לוח זמנים", icon: CalendarClockIcon },
-    { key: "sending", label: "שליחה", icon: SendIcon },
-    { key: "email", label: "אימייל ראשון", icon: MailIcon },
+    { key: "basics", label: "Basics", icon: MegaphoneIcon },
+    { key: "schedule", label: "Schedule", icon: CalendarClockIcon },
+    { key: "sending", label: "Sending", icon: SendIcon },
+    { key: "email", label: "First email", icon: MailIcon },
 ];
 
 // A one-time email asks for the message before the audience, and ends on the
 // send step where the estimate can see everything it depends on.
 const ONE_TIME_STEPS: readonly StepDef[] = [
-    { key: "basics", label: "בסיס", icon: MegaphoneIcon },
-    { key: "email", label: "אימייל", icon: MailIcon },
-    { key: "audience", label: "קהל יעד", icon: UsersIcon },
-    { key: "sending", label: "שליחה", icon: SendIcon },
-    { key: "send", label: "שליחה ותזמון", icon: CalendarClockIcon },
+    { key: "basics", label: "Basics", icon: MegaphoneIcon },
+    { key: "email", label: "Email", icon: MailIcon },
+    { key: "audience", label: "Audience", icon: UsersIcon },
+    { key: "sending", label: "Sending", icon: SendIcon },
+    { key: "send", label: "Send", icon: CalendarClockIcon },
 ];
 
 function stepsFor(kind: CampaignKind): readonly StepDef[] {
@@ -161,13 +161,13 @@ function stepIssue(key: StepKey, d: Draft): string | null {
     switch (key) {
         case "basics": {
             const n = d.name.trim().length;
-            if (n < NAME_MIN) return `השם חייב להכיל לפחות ${NAME_MIN} תווים`;
-            if (n > NAME_MAX) return `השם מוגבל לעד ${NAME_MAX} תווים`;
+            if (n < NAME_MIN) return `Name needs at least ${NAME_MIN} characters`;
+            if (n > NAME_MAX) return `Name is ${NAME_MAX} characters max`;
             return null;
         }
         case "schedule":
-            if (d.days === 0) return "יש לבחור לפחות יום שליחה אחד";
-            if (d.startTime && d.endTime && d.startTime >= d.endTime) return "שעת הסיום חייבת להיות אחרי שעת ההתחלה";
+            if (d.days === 0) return "Pick at least one sending day";
+            if (d.startTime && d.endTime && d.startTime >= d.endTime) return "End time must be after the start time";
             return null;
         case "email": {
             const first = d.sequences[0];
@@ -176,26 +176,26 @@ function stepIssue(key: StepKey, d: Draft): string | null {
             const hasBody = first.body_plain.trim().length > 0;
             // A one-time email is the whole campaign, so it cannot be skipped.
             if (d.kind === "one_time") {
-                if (!hasSubject) return "הזן שורת נושא לאימייל";
-                if (!hasBody) return "כתוב את תוכן האימייל";
+                if (!hasSubject) return "Give the email a subject line";
+                if (!hasBody) return "Write the email's body";
                 return null;
             }
             // A sequence's first email may be skipped entirely (written later
             // on the Steps tab), but a half-written one must be finished.
-            if (hasBody && !hasSubject) return "הזן שורת נושא לאימייל הראשון";
-            if (hasSubject && !hasBody) return "כתוב את תוכן האימייל הראשון";
+            if (hasBody && !hasSubject) return "Give the first email a subject line";
+            if (hasSubject && !hasBody) return "Write the first email's body";
             return null;
         }
         case "audience":
-            if (d.segmentIds.length === 0) return "יש לבחור לפחות סגמנט אחד";
+            if (d.segmentIds.length === 0) return "Pick at least one segment";
             return null;
         case "send": {
-            if (d.days === 0) return "יש לבחור לפחות יום שליחה אחד";
-            if (d.startTime && d.endTime && d.startTime >= d.endTime) return "שעת הסיום חייבת להיות אחרי שעת ההתחלה";
+            if (d.days === 0) return "Pick at least one sending day";
+            if (d.startTime && d.endTime && d.startTime >= d.endTime) return "End time must be after the start time";
             if (d.sendMode === "later") {
                 const at = scheduledDate(d);
-                if (!at) return "בחר תאריך ושעה לשליחה";
-                if (at.getTime() < Date.now()) return "מועד השליחה המתוזמן כבר עבר";
+                if (!at) return "Pick a date and time to send";
+                if (at.getTime() < Date.now()) return "The scheduled time has already passed";
             }
             return null;
         }
@@ -205,24 +205,26 @@ function stepIssue(key: StepKey, d: Draft): string | null {
 }
 
 function daysLabel(mask: number): string {
-    if (mask === EVERY_DAY_MASK) return "כל יום";
-    if (mask === WEEKDAYS_MASK) return "ימי חול";
-    const on = WEEKDAYS.filter((_, i) => (mask & (1 << i)) !== 0);
-    return on.length === 0 ? "אף יום" : on.join(", ");
+    if (mask === EVERY_DAY_MASK) return "Every day";
+    if (mask === WEEKDAYS_MASK) return "Weekdays";
+    const on = WEEKDAYS.filter((_, i) => (mask & (1 << i)) !== 0).map((d) => d.slice(0, 3));
+    return on.length === 0 ? "No days" : on.join(", ");
 }
 
+// "14:30" -> "2:30 PM"
 function fmt12(hhmm: string): string {
     const [h, m] = hhmm.split(":").map(Number);
     if (Number.isNaN(h) || Number.isNaN(m)) return hhmm;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 
 function fmtDate(d: Date): string {
-    return d.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function fmtDateTime(d: Date): string {
-    return d.toLocaleString("he-IL", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 export function NewCampaignDialog({ open, onClose }: Props) {
@@ -333,7 +335,7 @@ export function NewCampaignDialog({ open, onClose }: Props) {
     const requestClose = React.useCallback(() => {
         if (isPending) return;
         if (dirty) {
-            confirm.show("האם לבטל את טיוטת הקמפיין?", async () => onClose());
+            confirm.show("Discard this campaign draft?", async () => onClose());
             return;
         }
         onClose();
@@ -352,15 +354,26 @@ export function NewCampaignDialog({ open, onClose }: Props) {
         return () => document.removeEventListener("keydown", onKey);
     }, [open, requestClose]);
 
+    // The wizard writes plain text, so it sends plain text. The backend renders
+    // the HTML part from it: it used to be built here with an escapeHtml that
+    // turned the quotes in a conditional ({{if eq .Company "Acme"}}) into
+    // entities, which makes the template fail to parse at send time and ships
+    // the literal {{if}} to the recipient. The server's version also links bare
+    // URLs, so a wizard-written step gets click tracking like any other.
     function buildSteps() {
         return draft.sequences
             .filter((s) => s.subject.trim().length > 0 || s.body_plain.trim().length > 0)
             .map((s, i) => ({
-                name: draft.kind === "one_time" ? "אימייל" : `שלב ${i + 1}`,
+                name: draft.kind === "one_time" ? "Email" : `Step ${i + 1}`,
                 subject: s.subject.trim(),
                 body_plain: s.body_plain,
-                body_html: `<div>${escapeHtml(s.body_plain).replace(/\n/g, "<br/>")}</div>`,
                 wait_after: i === 0 ? 0 : Math.max(0, s.wait_after),
+                // thread_reply is deliberately not sent: the server derives it
+                // from the subjects (blank or the conversation's own replies in
+                // the thread, a subject of its own opens a new one), which is
+                // exactly what the subject box here promises and what the API
+                // does for every other caller. Deciding it twice is how the two
+                // drift apart.
             }));
     }
 
@@ -394,7 +407,7 @@ export function NewCampaignDialog({ open, onClose }: Props) {
         if (draft.kind === "sequence") {
             try {
                 const created = await create.mutateAsync({ ...base, kind: "sequence", stop_on_reply: draft.stopOnReply });
-                toast.success("הקמפיין נוצר בהצלחה. הוסף אנשי קשר ולאחר מכן הפעל אותו.");
+                toast.success("Campaign created. Add contacts, then launch it.");
                 onClose();
                 if (created?.id) navigate(`/app/campaigns/${created.id}`);
             } catch (err) {
@@ -421,7 +434,7 @@ export function NewCampaignDialog({ open, onClose }: Props) {
             createdID = created.id;
             await linkSegments.mutateAsync({ campaignId: created.id, segmentIds: draft.segmentIds });
             await start.mutateAsync({ id: created.id });
-            toast.success(at ? `מתוזמן לתאריך ${fmtDateTime(at)}.` : "שולח כעת.");
+            toast.success(at ? `Scheduled for ${fmtDateTime(at)}.` : "Sending now.");
             onClose();
             navigate(`/app/campaigns/${created.id}`);
         } catch (err) {
@@ -430,7 +443,7 @@ export function NewCampaignDialog({ open, onClose }: Props) {
             // explain a refused start (an empty segment, a risky list).
             const message = buildError(err as AppError);
             if (createdID) {
-                toast.error(`${message} האימייל נשמר כטיוטה; ניתן להפעיל אותו מעמוד הקמפיין.`);
+                toast.error(`${message} The email was saved as a draft; start it from its page.`);
                 onClose();
                 navigate(`/app/campaigns/${createdID}`);
             } else {
@@ -457,7 +470,7 @@ export function NewCampaignDialog({ open, onClose }: Props) {
                         key="card"
                         role="dialog"
                         aria-modal="true"
-                        aria-label={draft.kind === "one_time" ? "אימייל חד-פעמי חדש" : "קמפיין חדש"}
+                        aria-label={draft.kind === "one_time" ? "New one-time email" : "New campaign"}
                         initial={{ y: 8, opacity: 0, scale: 0.985 }}
                         animate={{ y: 0, opacity: 1, scale: 1 }}
                         exit={{ y: 8, opacity: 0, scale: 0.985 }}
@@ -498,9 +511,9 @@ export function NewCampaignDialog({ open, onClose }: Props) {
                             submitLabel={
                                 draft.kind === "one_time"
                                     ? draft.sendMode === "later"
-                                        ? "תזמן שליחה"
-                                        : "שלח עכשיו"
-                                    : "צור קמפיין"
+                                        ? "Schedule"
+                                        : "Send now"
+                                    : "Create campaign"
                             }
                             submitIcon={
                                 draft.kind === "one_time"
@@ -535,16 +548,16 @@ function Header({ kind, onClose }: { kind: CampaignKind; onClose: () => void }) 
             <div className="size-5 rounded bg-slate-100 text-slate-600 flex items-center justify-center">
                 <Icon className="w-3 h-3" />
             </div>
-            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">חדש</span>
+            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">New</span>
             <div className="h-4 w-px bg-slate-200" />
             <span className="text-[12.5px] text-slate-900 font-medium">
-                {kind === "one_time" ? "אימייל חד-פעמי" : "קמפיין"}
+                {kind === "one_time" ? "One-time email" : "Campaign"}
             </span>
             <button
                 type="button"
                 onClick={onClose}
-                aria-label="סגור"
-                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                aria-label="Close"
+                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
             >
                 <XIcon className="w-3.5 h-3.5" />
             </button>
@@ -563,7 +576,6 @@ function Stepper({
     canReach: (s: number) => boolean;
     goTo: (s: number) => void;
 }) {
-    const isRtl = typeof document !== "undefined" && (document.documentElement.dir === "rtl" || document.body.dir === "rtl");
     return (
         <div className="px-4 sm:px-5 h-11 border-b border-slate-100 flex items-center shrink-0 bg-slate-50/40">
             {steps.map((s, i) => {
@@ -578,14 +590,14 @@ function Stepper({
                             disabled={!reachable}
                             aria-current={active ? "step" : undefined}
                             className={cn(
-                                "group inline-flex items-center gap-2 h-7 ps-1.5 pe-2 rounded-md shrink-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-100",
+                                "group inline-flex items-center gap-2 h-7 pl-1 pr-2 rounded-md shrink-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-100",
                                 reachable && !active ? "hover:bg-slate-100" : "",
                                 !reachable ? "cursor-default" : "",
                             )}
                         >
                             <span
                                 className={cn(
-                                    "relative size-5 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                                    "relative size-5 rounded-full inline-flex items-center justify-center text-[10.5px] font-semibold tabular-nums transition-colors",
                                     done
                                         ? "bg-sky-600 text-white"
                                         : active
@@ -601,9 +613,9 @@ function Stepper({
                                             animate={{ scale: 1, opacity: 1 }}
                                             exit={{ scale: 0.4, opacity: 0 }}
                                             transition={{ duration: 0.16 }}
-                                            className="flex size-full items-center justify-center"
+                                            className="inline-flex"
                                         >
-                                            <CheckIcon className="size-3 text-white" strokeWidth={2.75} />
+                                            <CheckIcon className="w-3 h-3" strokeWidth={3} />
                                         </motion.span>
                                     ) : (
                                         <motion.span
@@ -612,7 +624,6 @@ function Stepper({
                                             animate={{ scale: 1, opacity: 1 }}
                                             exit={{ scale: 0.4, opacity: 0 }}
                                             transition={{ duration: 0.16 }}
-                                            className="flex size-full items-center justify-center text-[10.5px] font-semibold leading-none"
                                         >
                                             {i + 1}
                                         </motion.span>
@@ -635,7 +646,7 @@ function Stepper({
                                     initial={false}
                                     animate={{ scaleX: done ? 1 : 0 }}
                                     transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                                    style={{ originX: isRtl ? 1 : 0 }}
+                                    style={{ originX: 0 }}
                                     className="absolute inset-0 bg-sky-600"
                                 />
                             </span>
@@ -678,16 +689,16 @@ function Footer({
                     disabled={isPending}
                     className="h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                 >
-                    <ChevronLeftIcon className="w-3 h-3 rtl:rotate-180" />
-                    הקודם
+                    <ChevronLeftIcon className="w-3 h-3" />
+                    Back
                 </button>
             ) : (
-                <span className="text-[11px] text-slate-400 ps-1 hidden sm:inline">
-                    ניתן לשנות את כל ההגדרות הללו מאוחר יותר.
+                <span className="text-[11px] text-slate-400 pl-1 hidden sm:inline">
+                    Everything here can be changed later.
                 </span>
             )}
 
-            <div className="ms-auto flex items-center gap-2.5 min-w-0">
+            <div className="ml-auto flex items-center gap-2.5 min-w-0">
                 <AnimatePresence initial={false}>
                     {issue && (
                         <motion.span
@@ -710,8 +721,8 @@ function Footer({
                         onClick={onNext}
                         className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors shrink-0"
                     >
-                        המשך
-                        <ChevronRightIcon className="w-3 h-3 rtl:rotate-180" />
+                        Continue
+                        <ChevronRightIcon className="w-3 h-3" />
                     </button>
                 ) : (
                     <button
@@ -758,7 +769,7 @@ function KindCard({
             aria-checked={selected}
             onClick={onSelect}
             className={cn(
-                "text-start rounded-md border px-3 py-2.5 flex items-start gap-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-100",
+                "text-left rounded-md border px-3 py-2.5 flex items-start gap-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-100",
                 selected
                     ? "border-sky-400 bg-sky-50/60 ring-1 ring-inset ring-sky-400"
                     : "border-slate-200 hover:border-slate-300 hover:bg-slate-50",
@@ -795,29 +806,29 @@ function BasicsStep({
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="מה ברצונך לשלוח?"
-                hint="רצף (Sequence) כולל אימיילים ומעקבים על פני מספר ימים; אימייל חד-פעמי נשלח פעם אחת לסגמנט. שניהם נשלחים דרך מאגר התיבות שלך בהתאם למכסות היומיות."
+                title="What are you sending?"
+                hint="A sequence follows up over days; a one-time email goes out once to a segment. Both send through your mailbox pool at its daily caps."
             />
             <div className="space-y-4">
-                <div role="radiogroup" aria-label="סוג קמפיין" className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div role="radiogroup" aria-label="Campaign type" className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <KindCard
                         selected={draft.kind === "sequence"}
                         icon={ListChecksIcon}
-                        title="רצף אימיילים (Sequence)"
-                        description="מספר אימיילים עם זמני המתנה, פיצולים ומעקבים. הוסף אנשי קשר והפעל כשמוכן."
+                        title="Sequence"
+                        description="Several emails with waits, branches and follow-ups. Add contacts and launch when ready."
                         onSelect={() => setKind("sequence")}
                     />
                     <KindCard
                         selected={draft.kind === "one_time"}
                         icon={SendIcon}
-                        title="אימייל חד-פעמי"
-                        description="הודעה אחת לסגמנט, שנשלחת כעת או בתאריך מוגדר, ללא הודעות מעקב."
+                        title="One-time email"
+                        description="One message to a segment, sent now or on a date, with no follow-ups."
                         onSelect={() => setKind("one_time")}
                     />
                 </div>
                 <div>
                     <div className="flex items-baseline justify-between">
-                        <Label>{draft.kind === "one_time" ? "שם האימייל" : "שם הקמפיין"}</Label>
+                        <Label>{draft.kind === "one_time" ? "Email name" : "Campaign name"}</Label>
                         <span
                             className={cn(
                                 "text-[10.5px] tabular-nums",
@@ -836,17 +847,17 @@ function BasicsStep({
                                 onEnter();
                             }
                         }}
-                        placeholder={draft.kind === "one_time" ? "עדכון מוצר ספטמבר" : "פנייה קרה רבעון 3, מייסדי SaaS"}
+                        placeholder={draft.kind === "one_time" ? "September product update" : "Q3 outbound, SaaS founders"}
                         autoFocus
                         className="w-full"
                     />
                 </div>
                 <div>
-                    <Label>תיאור</Label>
+                    <Label>Description</Label>
                     <TextInput
                         value={draft.description}
                         onChange={(v) => patch({ description: v })}
-                        placeholder="אופציונלי. למי מיועד הקמפיין ומדוע."
+                        placeholder="Optional. Who this targets and why."
                         className="w-full"
                     />
                 </div>
@@ -863,14 +874,14 @@ function TimezoneField({ draft, patch }: { draft: Draft; patch: (p: Partial<Draf
     );
     return (
         <div>
-            <Label>אזור זמן</Label>
+            <Label>Timezone</Label>
             <SelectMenu
                 value={draft.timezone}
                 onChange={(v) => patch({ timezone: v })}
                 options={timezoneOptions}
                 fullWidth
-                placeholder="בחר אזור זמן"
-                aria-label="אזור זמן לשליחה"
+                placeholder="Select a timezone"
+                aria-label="Sending timezone"
             />
         </div>
     );
@@ -882,7 +893,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
         <>
             <div>
                 <div className="flex items-baseline justify-between">
-                    <Label>ימי שליחה</Label>
+                    <Label>Sending days</Label>
                     <div className="flex items-center gap-1 text-[10.5px]">
                         <button
                             type="button"
@@ -894,7 +905,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
                                     : "text-slate-400 hover:text-slate-700 hover:bg-slate-100",
                             )}
                         >
-                            ימי חול
+                            Weekdays
                         </button>
                         <button
                             type="button"
@@ -906,7 +917,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
                                     : "text-slate-400 hover:text-slate-700 hover:bg-slate-100",
                             )}
                         >
-                            כל יום
+                            Every day
                         </button>
                     </div>
                 </div>
@@ -917,31 +928,31 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
 
             <div className="grid grid-cols-2 gap-3">
                 <div>
-                    <Label>משעה</Label>
+                    <Label>From</Label>
                     <TimePicker
                         value={draft.startTime}
                         onChange={(v) => patch({ startTime: v })}
                         stepMinutes={30}
                         fullWidth
-                        placeholder="התחלה"
+                        placeholder="Start"
                     />
                 </div>
                 <div>
-                    <Label>עד שעה</Label>
+                    <Label>Until</Label>
                     <TimePicker
                         value={draft.endTime}
                         onChange={(v) => patch({ endTime: v })}
                         stepMinutes={30}
                         fullWidth
-                        placeholder="סיום"
+                        placeholder="End"
                     />
                 </div>
             </div>
 
             <p className={cn("text-[11.5px] leading-relaxed", windowInvalid ? "text-amber-700" : "text-slate-500")}>
                 {windowInvalid
-                    ? "חלון הזמנים מסתיים לפני שהוא מתחיל. בחר שעת סיום מאוחרת משעת ההתחלה."
-                    : `${daysLabel(draft.days)}, ${fmt12(draft.startTime)} עד ${fmt12(draft.endTime)}.`}
+                    ? "The window ends before it starts. Pick an end time after the start time."
+                    : `${daysLabel(draft.days)}, ${fmt12(draft.startTime)} to ${fmt12(draft.endTime)}.`}
             </p>
         </>
     );
@@ -951,15 +962,15 @@ function ScheduleStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="מתי לשלוח?"
-                hint="השליחה תתבצע בתוך חלון הזמנים שנקבע לפי אזור הזמן של הקמפיין ותתפרס לאורכו."
+                title="When should it send?"
+                hint="Sends stay inside this window in the campaign timezone and spread out across it."
             />
             <div className="space-y-5">
                 <TimezoneField draft={draft} patch={patch} />
                 <SendingWindowFields draft={draft} patch={patch} />
                 <div>
                     <div className="flex items-baseline justify-between">
-                        <Label>המתנה לפני האימייל הראשון</Label>
+                        <Label>Wait before the first email</Label>
                         <span className="text-[10.5px] text-slate-400">
                             {entryDelayLabel(draft.entryDelayMinutes)}
                         </span>
@@ -967,11 +978,12 @@ function ScheduleStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
                     <div className="mt-1">
                         <EntryDelayPicker
                             value={draft.entryDelayMinutes}
-                            onChange={(v: number) => patch({ entryDelayMinutes: v })}
+                            onChange={(v) => patch({ entryDelayMinutes: v })}
                         />
                     </div>
                     <p className="mt-2 text-[11.5px] leading-relaxed text-slate-500">
-                        נספר מרגע כניסת איש הקשר לקמפיין, כך שמי שמצטרף לסגמנט מקושר מאוחר יותר ממתין את אותו משך זמן ממועד כניסתו. זמני המתנה למעקבים מוגדרים בשלבי הרצף.
+                        Counted from when a contact enters the campaign, so someone who joins a linked segment later
+                        waits the same amount from their own start. Follow-up waits are set on the steps.
                     </p>
                 </div>
             </div>
@@ -984,27 +996,27 @@ function SendingStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="מי שולח וכיצד?"
-                hint="נפח השליחה מתחלק בין כל תיבות הדואר במאגר כך שאף שולח יחיד אינו נושא בעומס הקמפיין."
+                title="Who sends it, and how?"
+                hint="Volume is split across every mailbox in the pool so no single sender carries the campaign."
             />
             <div className="space-y-5">
                 <div>
-                    <Label>מאגר שולחים</Label>
+                    <Label>Sender pool</Label>
                     <TagSelector
                         selected={draft.emailTagIds}
                         onAdd={(t) => patch({ emailTagIds: [...draft.emailTagIds, t] })}
                         onRemove={(t) => patch({ emailTagIds: draft.emailTagIds.filter((id) => id !== t) })}
                     />
                     <p className="text-[11px] text-slate-400 mt-1">
-                        תגיות תיבות דואר שקמפיין זה מחליף ביניהן. השאר ריק לשימוש בכל תיבות הדואר הפעילות.
+                        Mailbox tags this campaign rotates through. Leave empty to use every active mailbox.
                     </p>
                 </div>
 
                 <div className="flex items-start justify-between gap-5">
                     <div className="min-w-0">
-                        <p className="text-[12.5px] text-slate-900 font-medium">מכסה יומית לכל תיבה</p>
+                        <p className="text-[12.5px] text-slate-900 font-medium">Daily limit per mailbox</p>
                         <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                            3 עד 5,000. מומלץ להישאר בסביבות 50 עד שמוניטין התיבות מוכח.
+                            3 to 5,000. Stay near 50 until the mailboxes have proven their reputation.
                         </p>
                     </div>
                     <NumberInput
@@ -1019,33 +1031,33 @@ function SendingStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>
                 <div className="border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden">
                     {!oneTime && (
                         <SwitchRow
-                            label="עצור במענה"
-                            description="השהה הודעות מעקב עבור איש קשר ברגע שהוא עונה."
+                            label="Stop on reply"
+                            description="Pause follow-ups for a contact once they respond."
                             value={draft.stopOnReply}
                             onChange={(v) => patch({ stopOnReply: v })}
                         />
                     )}
                     <SwitchRow
-                        label="עקוב אחר פתיחות"
-                        description="הטמע פיקסל שקוף למדידת חשיפות בתיבת הדואר."
+                        label="Track opens"
+                        description="Insert a transparent pixel to measure inbox impressions."
                         value={draft.openTracking}
                         onChange={(v) => patch({ openTracking: v })}
                     />
                     <SwitchRow
-                        label="עקוב אחר לחיצות"
-                        description="עטוף קישורים כך שכל לחיצה, ואיזה קישור נלחץ, יופיעו בעדכון החי ובפעילות איש הקשר."
+                        label="Track clicks"
+                        description="Wrap links so each click, and which link it was, appears in your live feed and the contact's activity."
                         value={draft.linkTracking}
                         onChange={(v) => patch({ linkTracking: v })}
                     />
                     <SwitchRow
-                        label="הוסף פרמטרי UTM"
-                        description="תייג כל קישור עם utm_source, utm_medium, utm_campaign ו-utm_content ייעודי לכל קישור לצורכי אנליטיקה. ניתן לעריכה מאוחר יותר בהגדרות."
+                        label="Add UTM parameters"
+                        description="Tag every link with utm_source, utm_medium, utm_campaign and a per-link utm_content for your web analytics. Editable later in settings."
                         value={draft.utmTracking}
                         onChange={(v) => patch({ utmTracking: v })}
                     />
                     <SwitchRow
-                        label="כותרת הסרה (List-Unsubscribe)"
-                        description="הוסף כותרת List-Unsubscribe, הנדרשת על ידי רוב הספקים לשליחת תפוצה."
+                        label="Unsubscribe header"
+                        description="Add List-Unsubscribe, which most providers require for bulk mail."
                         value={draft.unsubHeader}
                         onChange={(v) => patch({ unsubHeader: v })}
                     />
@@ -1100,33 +1112,33 @@ function EmailsStep({
     return (
         <div className="max-w-[640px]">
             <StepIntro
-                title={oneTime ? "מה תוכן האימייל?" : "מה תוכן האימייל הראשון?"}
+                title={oneTime ? "What does the email say?" : "What does the first email say?"}
                 hint={
                     oneTime
-                        ? "זה כל השליחה. תוכל ללטש אותו בעורך המלא בלשונית שלבים בהמשך."
-                        : "אופציונלי. תוכל לדלג ולכתוב אותו בעורך המלא בלשונית שלבים בהמשך."
+                        ? "This is the whole send. You can polish it in the full editor on the Steps tab afterwards."
+                        : "Optional. Skip this to write it in the full editor on the Steps tab afterwards."
                 }
             />
 
             {!oneTime && (
                 <div className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-500">
                     <button type="button" onClick={() => goToKey("schedule")} className="hover:text-slate-900 hover:underline underline-offset-2">
-                        {daysLabel(draft.days)}, {fmt12(draft.startTime)} עד {fmt12(draft.endTime)}
+                        {daysLabel(draft.days)}, {fmt12(draft.startTime)} to {fmt12(draft.endTime)}
                         {draft.entryDelayMinutes > 0
-                            ? `, אימייל ראשון לאחר ${entryDelayLabel(draft.entryDelayMinutes)}`
+                            ? `, first email after ${entryDelayLabel(draft.entryDelayMinutes).toLowerCase()}`
                             : ""}
                     </button>
                     <span className="text-slate-300">·</span>
                     <button type="button" onClick={() => goToKey("sending")} className="hover:text-slate-900 hover:underline underline-offset-2">
-                        {draft.dailyLimit}/יום לכל תיבה
+                        {draft.dailyLimit}/day per mailbox
                     </button>
                     <span className="text-slate-300">·</span>
                     <button type="button" onClick={() => goToKey("sending")} className="hover:text-slate-900 hover:underline underline-offset-2">
                         {draft.emailTagIds.length === 0
-                            ? "כל התיבות"
-                            : `${draft.emailTagIds.length} ${draft.emailTagIds.length === 1 ? "תגית" : "תגיות"}`}
+                            ? "all mailboxes"
+                            : `${draft.emailTagIds.length} tag${draft.emailTagIds.length === 1 ? "" : "s"}`}
                     </button>
-                    <PencilLineIcon className="w-3 h-3 text-slate-300 ms-0.5" />
+                    <PencilLineIcon className="w-3 h-3 text-slate-300 ml-0.5" />
                 </div>
             )}
 
@@ -1143,15 +1155,15 @@ function EmailsStep({
                             className="border border-slate-200 rounded-md overflow-hidden"
                         >
                             <div className="h-9 px-3 flex items-center gap-2 bg-slate-50/60 border-b border-slate-100">
-                                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-inset ring-slate-200 text-[10.5px] font-semibold text-slate-600 leading-none">
+                                <span className="size-5 rounded-full bg-white ring-1 ring-inset ring-slate-200 text-[10.5px] font-semibold text-slate-600 inline-flex items-center justify-center tabular-nums">
                                     {i + 1}
                                 </span>
                                 <span className="text-[12px] text-slate-900 font-medium">
-                                    {oneTime ? "אימייל" : i === 0 ? "אימייל ראשון" : `אימייל המשך ${i}`}
+                                    {oneTime ? "Email" : i === 0 ? "First email" : `Follow-up ${i}`}
                                 </span>
                                 {i > 0 && (
-                                    <div className="flex items-center gap-1.5 ms-1">
-                                        <span className="text-[11px] text-slate-500">לאחר</span>
+                                    <div className="flex items-center gap-1.5 ml-1">
+                                        <span className="text-[11px] text-slate-500">after</span>
                                         <NumberInput
                                             value={seq.wait_after}
                                             min={0}
@@ -1160,7 +1172,7 @@ function EmailsStep({
                                             className="w-20"
                                         />
                                         <span className="text-[11px] text-slate-500">
-                                            {seq.wait_after === 1 ? "יום" : "ימים"}
+                                            day{seq.wait_after === 1 ? "" : "s"}
                                         </span>
                                     </div>
                                 )}
@@ -1170,8 +1182,8 @@ function EmailsStep({
                                         onClick={() =>
                                             patch({ sequences: draft.sequences.filter((_, idx) => idx !== i) })
                                         }
-                                        aria-label="הסר אימייל המשך"
-                                        className="ms-auto size-6 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center transition-colors"
+                                        aria-label="Remove follow-up"
+                                        className="ml-auto size-6 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center transition-colors"
                                     >
                                         <Trash2Icon className="w-3 h-3" />
                                     </button>
@@ -1183,8 +1195,8 @@ function EmailsStep({
                                     onChange={(v) => update(i, { subject: v })}
                                     placeholder={
                                         i === 0
-                                            ? "נושא, לדוגמה: רעיון קצר עבור {{.Company}}"
-                                            : "נושא (השאר ריק כדי להשיב באותו שרשור)"
+                                            ? "Subject, e.g. quick idea for {{.Company}}"
+                                            : "Subject (leave blank to reply in the same thread)"
                                     }
                                     className="w-full"
                                 />
@@ -1193,8 +1205,8 @@ function EmailsStep({
                                     onChange={(e) => update(i, { body_plain: e.target.value })}
                                     placeholder={
                                         i === 0
-                                            ? "היי {{.FirstName}},\n\nשמתי לב ש-{{.Company}}..."
-                                            : "רק מקפיץ את זה למקרה שפספסת."
+                                            ? "Hi {{.FirstName}},\n\nNoticed {{.Company}} is ..."
+                                            : "Just bumping this up in case it slipped past."
                                     }
                                     rows={i === 0 ? 7 : 4}
                                     className="w-full px-2.5 py-2 rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-y leading-relaxed"
@@ -1206,7 +1218,7 @@ function EmailsStep({
 
                 {oneTime ? (
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                        אין כאן אימיילי המשך מעצם ההגדרה. רוצה תזכורת מספר ימים לאחר מכן? צור רצף במקום זאת.
+                        No follow-ups here by design. Want a reminder a few days later? Create a sequence instead.
                     </p>
                 ) : (
                     <button
@@ -1215,15 +1227,15 @@ function EmailsStep({
                         className="w-full h-8 rounded-md border border-dashed border-slate-200 text-[12px] text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 inline-flex items-center justify-center gap-1.5 transition-colors"
                     >
                         <PlusIcon className="w-3 h-3" />
-                        הוסף אימייל המשך
+                        Add a follow-up
                     </button>
                 )}
 
                 <p className="text-[10.5px] text-slate-400 leading-relaxed">
-                    התאם אישית עם <code className="font-mono" dir="ltr">{"{{.FirstName}}"}</code>,{" "}
-                    <code className="font-mono" dir="ltr">{"{{.Company}}"}</code>, שדות מותאמים אישית כמו{" "}
-                    <code className="font-mono" dir="ltr">{"{{.role}}"}</code>, ותנאים כמו{" "}
-                    <code className="font-mono" dir="ltr">{"{{if .Company}}...{{end}}"}</code>. ה-HTML ייווצר אוטומטית עבורך.
+                    Personalise with <code className="font-mono">{"{{.FirstName}}"}</code>,{" "}
+                    <code className="font-mono">{"{{.Company}}"}</code>, custom fields like{" "}
+                    <code className="font-mono">{"{{.role}}"}</code>, and conditionals like{" "}
+                    <code className="font-mono">{"{{if .Company}}...{{end}}"}</code>. HTML is generated for you.
                 </p>
             </div>
         </div>
@@ -1236,15 +1248,15 @@ function AudienceStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="מי מקבל את זה?"
-                hint="כל חבר נוכחי בסגמנטים שתבחר יהפוך לליד. אנשי קשר מושתקים או כאלה שהסירו את עצמם ידולגו בזמן השליחה."
+                title="Who receives it?"
+                hint="Every current member of the segments you pick becomes a lead. Suppressed and unsubscribed contacts are skipped at send time."
             />
             <div className="space-y-4">
                 <div>
-                    <Label>סגמנטים</Label>
+                    <Label>Segments</Label>
                     <SegmentMultiPicker value={draft.segmentIds} onChange={(next) => patch({ segmentIds: next })} />
                     <p className="text-[11px] text-slate-400 mt-1">
-                        אנשי קשר ביותר מסגמנט אחד ייספרו, ויישלח אליהם אימייל, פעם אחת בלבד.
+                        Contacts in more than one segment are counted, and emailed, once.
                     </p>
                 </div>
                 <div className="rounded-md border border-slate-200 px-3 py-2.5 flex items-center gap-3">
@@ -1254,17 +1266,17 @@ function AudienceStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
                     <div className="min-w-0">
                         <p className="text-[12.5px] text-slate-900 font-medium tabular-nums">
                             {draft.segmentIds.length === 0
-                                ? "עדיין לא נבחר סגמנט"
+                                ? "No segment picked yet"
                                 : estimate.isPending
-                                  ? "סופר נמענים…"
+                                  ? "Counting…"
                                   : estimate.isError
-                                    ? "לא ניתן היה לספור נמענים"
-                                    : `${(recipients ?? 0).toLocaleString()} ${recipients === 1 ? "נמען" : "נמענים"}`}
+                                    ? "Could not count recipients"
+                                    : `${(recipients ?? 0).toLocaleString()} recipient${recipients === 1 ? "" : "s"}`}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-0.5">
                             {recipients === 0 && !estimate.isPending && draft.segmentIds.length > 0
-                                ? "בסגמנטים אלה אין אנשי קשר כרגע, לכן אין מה לשלוח."
-                                : "חברות בסגמנטים בזמן אמת, נכון לעכשיו."}
+                                ? "These segments have no contacts right now, so there is nothing to send."
+                                : "Live membership, as of now."}
                         </p>
                     </div>
                 </div>
@@ -1297,23 +1309,23 @@ function SendStep({
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="מתי זה צריך לצאת?"
-                hint="שליחה מיידית מתחילה ברגע שאתה מאשר. בכל מקרה, השליחה תואמת את חלון השליחה והמגבלה היומית של כל תיבה."
+                title="When should it go?"
+                hint="Send now starts the moment you confirm. Either way it keeps to the sending window and the daily cap of every mailbox."
             />
             <div className="space-y-5">
-                <div role="radiogroup" aria-label="תזמון שליחה" className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div role="radiogroup" aria-label="Send timing" className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <KindCard
                         selected={draft.sendMode === "now"}
                         icon={SendIcon}
-                        title="שלח עכשיו"
-                        description="התחל מיד עם היצירה."
+                        title="Send now"
+                        description="Start as soon as it is created."
                         onSelect={() => patch({ sendMode: "now" })}
                     />
                     <KindCard
                         selected={draft.sendMode === "later"}
                         icon={CalendarClockIcon}
-                        title="תזמן למועד מאוחר יותר"
-                        description="בחר את התאריך והשעה שבהם תחל השליחה."
+                        title="Schedule for later"
+                        description="Pick the date and time sending begins."
                         onSelect={() => patch({ sendMode: "later" })}
                     />
                 </div>
@@ -1328,14 +1340,14 @@ function SendStep({
                             transition={{ duration: 0.16 }}
                             className="overflow-hidden"
                         >
-                            <Label>התחל שליחה ב</Label>
+                            <Label>Start sending at</Label>
                             <DateTimePicker
                                 value={draft.scheduledAt}
                                 onChange={(v) => patch({ scheduledAt: v })}
                                 stepMinutes={15}
-                                datePlaceholder="בחר תאריך"
+                                datePlaceholder="Pick a date"
                             />
-                            <p className="text-[11px] text-slate-400 mt-1">לפי השעה המקומית שלך.</p>
+                            <p className="text-[11px] text-slate-400 mt-1">In your local time.</p>
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -1388,47 +1400,47 @@ function EstimatePanel({
     let tone: "neutral" | "warn" = "neutral";
 
     if (loading) {
-        headline = "מחשב את זמני השליחה המשוערים…";
-        detail = "סופר את קהל היעד מול מאגר תיבות הדואר.";
+        headline = "Working out the timing…";
+        detail = "Counting the audience against the mailbox pool.";
     } else if (error) {
-        headline = "לא ניתן היה להעריך את זמני השליחה";
-        detail = "השליחה עדיין תפעל כרגיל; הדבר משפיע רק על התצוגה המקדימה.";
+        headline = "Could not estimate the timing";
+        detail = "The send still works; this only affects the preview.";
     } else if (recipients === 0) {
-        headline = "אין מה לשלוח עדיין";
+        headline = "Nothing to send yet";
         detail = (
             <>
-                בסגמנטים שנבחרו אין אנשי קשר.{" "}
+                The chosen segments have no contacts.{" "}
                 <button type="button" onClick={onEditAudience} className="underline underline-offset-2 hover:text-slate-900">
-                    שנה את קהל היעד
+                    Change the audience
                 </button>
                 .
             </>
         );
         tone = "warn";
     } else if (mailboxes === 0 || dailyCapacity === 0) {
-        headline = "אין תיבת דואר שיכולה לשלוח זאת";
+        headline = "No mailbox can send this";
         detail = (
             <>
-                מאגר השולחים אינו כולל תיבת דואר פעילה.{" "}
+                The sender pool resolves to no active mailbox.{" "}
                 <button type="button" onClick={onEditPool} className="underline underline-offset-2 hover:text-slate-900">
-                    שנה את המאגר
+                    Change the pool
                 </button>{" "}
-                או חבר תיבת דואר תחילה.
+                or connect a mailbox first.
             </>
         );
         tone = "warn";
     } else if (sendingDays === null || finish === null) {
         // The backend leaves both null when the audience is not covered
         // inside its two-year horizon, which must not read as "one day".
-        headline = "ארוך מכפי שתחזית זו יכולה לחשב";
+        headline = "Longer than this estimate can project";
         detail = (
             <>
-                {recipients.toLocaleString()} נמענים בקצב של עד {dailyCapacity.toLocaleString()} ליום יימשכו
-                שנים.{" "}
+                {recipients.toLocaleString()} recipients at up to {dailyCapacity.toLocaleString()} a day would take
+                years.{" "}
                 <button type="button" onClick={onEditPool} className="underline underline-offset-2 hover:text-slate-900">
-                    הוסף תיבות דואר או הגדל את המגבלה היומית
+                    Add mailboxes or raise the daily limit
                 </button>
-                , או צמצם את קהל היעד.
+                , or narrow the audience.
             </>
         );
         tone = "warn";
@@ -1436,12 +1448,13 @@ function EstimatePanel({
         const days = sendingDays;
         headline =
             days <= 1
-                ? `יסתיים ${startsAt ? "ב-" : "היום, "}${fmtDate(finish)}`
-                : `כ-${days} ימי שליחה, יסתיים בסביבות ${fmtDate(finish)}`;
+                ? `Finishes ${startsAt ? "on" : "today,"} ${fmtDate(finish)}`
+                : `About ${days} sending days, finishing around ${fmtDate(finish)}`;
         detail = (
             <>
-                {recipients.toLocaleString()} {recipients === 1 ? "נמען" : "נמענים"} על פני {mailboxes} {mailboxes === 1 ? "תיבת דואר" : "תיבות דואר"} בקצב של עד {dailyCapacity.toLocaleString()} ליום.
-                {days > 1 && " שליחה חד-פעמית פירושה הודעה אחת לכל איש קשר, לא יום אחד: המגבלות היומיות עדיין קובעות את הקצב."}
+                {recipients.toLocaleString()} recipient{recipients === 1 ? "" : "s"} across {mailboxes} mailbox
+                {mailboxes === 1 ? "" : "es"} at up to {dailyCapacity.toLocaleString()} a day.
+                {days > 1 && " One-time means one message per contact, not one day: the daily caps still pace it."}
             </>
         );
         if (days > 7) tone = "warn";
@@ -1472,14 +1485,5 @@ function EstimatePanel({
             </div>
         </div>
     );
-}
-
-function escapeHtml(s: string): string {
-    return s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
 }
 

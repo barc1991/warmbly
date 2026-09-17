@@ -12,11 +12,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::abuse::{is_prefetch, is_scanner, RateLimiter};
+use crate::asndb::AsnDb;
 use crate::config::Config;
 use crate::events::TrackingEvent;
 use crate::hits::{ForwardedHit, HitForwarder, HitPayload, Outcome};
 use crate::links::{LinkResolver, Resolution};
 use crate::producer::Producer;
+use crate::scanners::{AsnSources, Request, ScannerNetworks};
 use crate::unsubscribe::{body_content_type, invalid_token, valid_token, UnsubscribeProxy};
 
 // 1x1 transparent GIF (43 bytes)
@@ -29,6 +31,21 @@ const TRANSPARENT_GIF: &[u8] = &[
 /// Cache key format: {event_type}:{task_id}:{ip_hash}
 /// Prevents duplicate events from the same IP within a time window
 type DedupeCache = Cache<String, ()>;
+
+/// Claims `key`, reporting whether somebody already had it.
+///
+/// One coalesced operation, not a check followed by an insert. Scanners fetch a
+/// message's pixel and every link in parallel, so several requests carrying one
+/// key are genuinely concurrent, and under check-then-insert every one of them
+/// saw a miss and every one published.
+///
+/// `or_insert_with` is what gives the guarantee, and `or_insert` is not: only
+/// the closure form runs once per key under a lock and tells the losers their
+/// value was already there. An eager value races exactly like the code this
+/// replaced.
+async fn claim(cache: &DedupeCache, key: String) -> bool {
+    !cache.entry(key).or_insert_with(async {}).await.is_fresh()
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -51,6 +68,9 @@ pub struct AppState {
     /// be turned away. Same size, separate bucket; a source loading opt-out
     /// pages this fast is probing, not opting out.
     pub unsubscribe_rate_limiter: Arc<RateLimiter>,
+    /// Known automated-scanner sources. A match labels the event and nothing
+    /// else: the pixel is still served and the click still redirected.
+    pub scanners: Arc<ScannerNetworks>,
     /// Proxies whose forwarded-IP header is believed, and which header
     pub trusted_proxies: Arc<Vec<ipnet::IpNet>>,
     pub client_ip_header: Arc<String>,
@@ -61,7 +81,9 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(producer: Producer, config: &Config) -> Self {
+    /// `asn_db` is resolved in main rather than here, because reading it may
+    /// mean a download and this is not an async function.
+    pub fn new(producer: Producer, config: &Config, asn_db: Option<AsnDb>) -> Self {
         // Create cache with:
         // - Max 100k entries
         // - TTL of 1 hour per entry
@@ -86,6 +108,20 @@ impl AppState {
             )),
             hit_rate_limiter: Arc::new(RateLimiter::new(config.pagehit_rate_limit_per_min)),
             unsubscribe_rate_limiter: Arc::new(RateLimiter::new(config.rate_limit_per_min)),
+            scanners: Arc::new(ScannerNetworks::new(
+                config.scanner_builtins,
+                &config.scanner_networks,
+                &config.scanner_click_networks,
+                AsnSources {
+                    header: Some(config.scanner_asn_header.clone()),
+                    // An unset TRACKING_TRUSTED_PROXIES means no peer is ever
+                    // trusted, so a named header is never read. The catalogue
+                    // has to know that or it reports itself as able to match
+                    // ASNs when it cannot.
+                    trusted_proxies: !config.trusted_proxies.is_empty(),
+                    db: asn_db,
+                },
+            )),
             trusted_proxies: Arc::new(config.trusted_proxies.clone()),
             client_ip_header: Arc::new(config.client_ip_header.clone()),
             ip_hash_key: Arc::new(config.ip_hash_key.clone()),
@@ -93,7 +129,7 @@ impl AppState {
         }
     }
 
-    /// Check if this event was already processed (returns true if duplicate)
+    /// Whether this event was already processed, claiming it when it was not.
     async fn is_duplicate(
         &self,
         event_type: &str,
@@ -106,15 +142,7 @@ impl AppState {
             task_id,
             ip_hash.as_deref().unwrap_or("unknown")
         );
-
-        // Check if exists, if not insert
-        if self.dedupe_cache.contains_key(&key) {
-            return true;
-        }
-
-        // Insert into cache
-        self.dedupe_cache.insert(key, ()).await;
-        false
+        claim(&self.dedupe_cache, key).await
     }
 }
 
@@ -139,6 +167,7 @@ pub async fn track_open(
         return pixel_response();
     }
 
+    let trusted = peer_is_trusted(peer, &state.trusted_proxies);
     // The address is hashed for deduplication + rate limiting; only its
     // network travels with the event, for the location lookup downstream.
     let ip = client_ip(
@@ -173,6 +202,15 @@ pub async fn track_open(
         return pixel_response();
     }
 
+    // A mail-filtering network fetching the pixel is delivery evidence, not a
+    // read. The event is published and labelled rather than dropped, so the
+    // consumer can record it as a machine open.
+    let matched = state
+        .scanners
+        .classify(&ip, &headers, trusted, Request::Open);
+    let scanner_probable = matched.as_ref().is_some_and(|m| m.probable);
+    let scanner = matched.map(|m| m.label.to_string());
+
     // Publish event asynchronously (fire and forget)
     let producer = state.producer.clone();
     tokio::spawn(async move {
@@ -186,6 +224,8 @@ pub async fn track_open(
                 user_agent,
                 ip_hash,
                 client_ip: Some(anonymize_ip(&ip)).filter(|n| !n.is_empty()),
+                scanner,
+                scanner_probable,
             })
             .await;
     });
@@ -210,6 +250,7 @@ pub async fn track_click(
         return (StatusCode::NOT_FOUND, "Unknown link").into_response();
     }
 
+    let trusted = peer_is_trusted(peer, &state.trusted_proxies);
     // Anti-flood: cap total request rate per source. Only the address's
     // network rides along, for the location lookup downstream.
     let ip = client_ip(
@@ -248,15 +289,27 @@ pub async fn track_click(
         return Redirect::temporary(&link.destination).into_response();
     }
 
-    // When the workspace registered the destination's host for website
-    // tracking, the ticket rides along so the snippet can tie the browser to
-    // the recipient. The ticket is opaque and per-recipient: it names no
-    // destination and no secret, only "the click the backend already knows".
-    let target = if link.identify {
-        with_identify_param(&link.destination, &link_id)
-    } else {
-        link.destination.clone()
-    };
+    // Safe Links and its peers redirect the browser to the destination rather
+    // than fetching it, so a person's click always reaches us from the
+    // person's own address. A ticket walked from a mail-filtering network is
+    // a scan: it is still redirected, and labelled so it never counts.
+    let matched = state
+        .scanners
+        .classify(&ip, &headers, trusted, Request::Click);
+    let scanner_probable = matched.as_ref().is_some_and(|m| m.probable);
+    let scanner = matched.map(|m| m.label.to_string());
+
+    // A probable source loses the identification ticket too. The edge does not
+    // know when the send was dispatched, so it cannot tell the delivery-time
+    // scan from the isolated human click the way the consumer can, and filing
+    // a scanner's page load against the recipient is the worse of the two
+    // mistakes available here.
+    let target = redirect_target(
+        &link.destination,
+        &link_id,
+        link.identify,
+        scanner.as_deref(),
+    );
 
     // Dedupe repeat clicks of the same ticket from the same source
     if state.is_duplicate("CLICK", &link_id, &ip_hash).await {
@@ -278,6 +331,8 @@ pub async fn track_click(
                 user_agent,
                 ip_hash,
                 client_ip: Some(anonymize_ip(&ip)).filter(|n| !n.is_empty()),
+                scanner,
+                scanner_probable,
             })
             .await;
     });
@@ -363,6 +418,30 @@ async fn spend_unsubscribe_budget(
         return None;
     }
     Some((StatusCode::TOO_MANY_REQUESTS, "Slow down").into_response())
+}
+
+/// Where a click is sent. When the workspace registered the destination's host
+/// for website tracking, the identification ticket rides along so the snippet
+/// can tie the browser to the recipient; it is opaque and per-recipient,
+/// naming no destination and no secret, only "the click the backend already
+/// knows".
+///
+/// A recognised scanner is sent to the bare destination, the same as one
+/// caught by its user agent: the ticket reaches the page's snippet, which
+/// posts it to the hit endpoint, and the backend files that page view against
+/// the recipient. A gateway walking the link would show up as the person
+/// browsing the site.
+fn redirect_target(
+    destination: &str,
+    ticket: &str,
+    identify: bool,
+    scanner: Option<&str>,
+) -> String {
+    if identify && scanner.is_none() {
+        with_identify_param(destination, ticket)
+    } else {
+        destination.to_string()
+    }
 }
 
 /// Query parameter the click redirect appends and the snippet strips.
@@ -547,7 +626,7 @@ fn client_ip(
     header: &str,
 ) -> String {
     let peer_ip = peer.ip();
-    if !trusted.iter().any(|net| net.contains(&peer_ip)) {
+    if !peer_is_trusted(peer, trusted) {
         return peer_ip.to_string();
     }
     let raw = headers
@@ -566,6 +645,14 @@ fn client_ip(
         Some(ip) => ip.to_string(),
         None => peer_ip.to_string(),
     }
+}
+
+/// Whether the socket peer is one of the proxies the operator named. Every
+/// header that can change how a request is treated, the client address and the
+/// source ASN, is read only when this is true.
+fn peer_is_trusted(peer: SocketAddr, trusted: &[ipnet::IpNet]) -> bool {
+    let peer_ip = peer.ip();
+    trusted.iter().any(|net| net.contains(&peer_ip))
 }
 
 /// The network an address belongs to, for the location lookup downstream:
@@ -602,6 +689,73 @@ fn hash_ip(key: &str, ip: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // A scanner walks a message's links in parallel, so several requests
+    // carrying one key genuinely arrive at once. Under check-then-insert every
+    // one of them saw a miss and every one published. Racing real threads on a
+    // barrier is the only way to reach that window, so this runs many keys to
+    // make hitting it reliable rather than lucky.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn exactly_one_racing_claim_wins_each_key() {
+        const KEYS: usize = 200;
+        const RACERS: usize = 8;
+        let cache: Arc<DedupeCache> = Arc::new(Cache::builder().max_capacity(10_000).build());
+
+        for key in 0..KEYS {
+            let gate = Arc::new(tokio::sync::Barrier::new(RACERS));
+            let mut racing = Vec::with_capacity(RACERS);
+            for _ in 0..RACERS {
+                let (cache, gate) = (cache.clone(), gate.clone());
+                let key = format!("CLICK:task-{key}:source");
+                racing.push(tokio::spawn(async move {
+                    gate.wait().await;
+                    claim(&cache, key).await
+                }));
+            }
+            let mut fresh = 0;
+            for task in racing {
+                if !task.await.expect("claim must not panic") {
+                    fresh += 1;
+                }
+            }
+            assert_eq!(fresh, 1, "exactly one caller may publish key {key}");
+        }
+
+        // Sequentially, the same key is a duplicate and a different one is not.
+        assert!(claim(&cache, "CLICK:task-0:source".to_string()).await);
+        assert!(!claim(&cache, "OPEN:task-0:source".to_string()).await);
+    }
+
+    // The ticket identifies the recipient to the destination's own analytics.
+    // Handing it to a security gateway files the gateway's fetch as that
+    // person's visit, which is the same reason the user-agent path above
+    // redirects scanners to the bare destination.
+    #[test]
+    fn a_scanner_is_never_handed_the_identification_ticket() {
+        assert_eq!(
+            redirect_target("https://x.com/p", "abc", true, None),
+            "https://x.com/p?wbly_t=abc"
+        );
+        assert_eq!(
+            redirect_target(
+                "https://x.com/p",
+                "abc",
+                true,
+                Some("microsoft-365-protection")
+            ),
+            "https://x.com/p"
+        );
+        // A destination the workspace never registered carries no ticket
+        // either way, and the redirect itself always happens.
+        assert_eq!(
+            redirect_target("https://x.com/p", "abc", false, None),
+            "https://x.com/p"
+        );
+        assert_eq!(
+            redirect_target("https://x.com/p", "abc", false, Some("scanner")),
+            "https://x.com/p"
+        );
+    }
 
     #[test]
     fn identify_param_keeps_query_and_fragment() {

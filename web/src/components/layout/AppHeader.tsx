@@ -23,155 +23,67 @@ import PresenceAvatars from "@/components/app/presence/PresenceAvatars";
 import OutboxIndicator from "@/components/app/unibox/compose/OutboxIndicator";
 import { NotificationBell } from "./NotificationBell";
 import { OrgSwitcher } from "./OrgSwitcher";
+import { BetaPill } from "./BetaPill";
 import { PlanPill } from "./PlanPill";
 import { VersionPill } from "./VersionPill";
 import { CreditsMeter } from "./CreditsMeter";
-import { useTranslation } from "react-i18next";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 // Pretty labels for path segments. Anything missing falls back to the
 // raw segment with its first letter capitalised.
 const labelMap: Record<string, string> = {
     app: "בית",
-    emails: "תיבות דואר",
-    unibox: "תיבת דואר מאוחדת",
+    emails: "חשבונות",
+    unibox: "תיבת דואר",
     contacts: "אנשי קשר",
-    segments: "סגמנטים",
+    segments: "פלחים",
     categories: "קטגוריות",
     campaigns: "קמפיינים",
     analytics: "אנליטיקה",
-    crm: "ניהול לקוחות",
-    pipelines: "צינורות מכירה",
+    crm: "CRM",
+    pipelines: "צינורות",
     deals: "עסקאות",
     tasks: "משימות",
     templates: "תבניות",
     "api-keys": "מפתחות API",
     settings: "הגדרות",
-    profile: "פרופיל",
-    notifications: "התראות",
-    security: "אבטחה",
-    members: "חברי צוות",
-    teams: "צוותים",
-    roles: "תפקידים והרשאות",
-    workspace: "סביבת עבודה",
-    sending: "שליחה",
-    tracking: "מעקב אתר",
-    ai: "בינה מלאכותית",
-    "ai-models": "מודלי AI ומפתחות",
-    "ai-skills": "מיומנויות AI",
-    "oauth-slots": "סלוטים לחיבורי מייל (OAuth)",
-    "oauth-apps": "יישומי OAuth",
-    webhooks: "וובהוקים",
-    connections: "חיבורים",
-    data: "נתונים",
-    danger: "אזור מסוכן",
-    referral: "הפנה והרווח",
-    limits: "מגבלות",
-    "warmbly-cloud": "ענן Warmbly",
-    forms: "טפסים",
-    meetings: "פגישות",
-    billing: "חיוב ומנוי",
+    billing: "חיוב",
     team: "צוות",
     admin: "ניהול",
     workers: "עובדים",
     credentials: "אישורים",
-    audit: "יומן פעילות",
+    audit: "ביקורת",
     leads: "לידים",
     preferences: "העדפות",
     schedule: "לוח זמנים",
     steps: "שלבים",
-    suppressions: "רשימת חסימה",
-    integrations: "אינטגרציות",
-    automations: "אוטומציות",
-    deliverability: "דיוור",
-    all: "הכל",
-    inbox: "דואר נכנס",
-    unread: "לא נקרא",
-    starred: "מסומן בכוכב",
-    sent: "נשלח",
-    drafts: "טיוטות",
-    scheduled: "מתוזמן",
-    positive: "חיובי",
-    interested: "מתעניין",
-    meeting_booked: "נקבעה פגישה",
-    not_interested: "לא מעוניין",
-    auto_reply: "מענה אוטומטי",
-    bounced: "שגיאות מסירה",
-    spam: "ספאם",
-    archive: "ארכיון",
-    mailbox: "תיבת דואר",
-    trash: "אשפה",
-    today: "היום",
-    week: "השבוע",
-    agent_drafts: "טיוטות סוכן",
-    "agent-drafts": "טיוטות סוכן",
-    agentdrafts: "טיוטות סוכן",
-    snoozed: "נודניק",
-    awaiting: "ממתין לתשובה",
-    awaiting_reply: "ממתין לתשובה",
-    awaiting_agent_draft: "טיוטות סוכן",
-    tag: "תגית",
-    category: "קטגוריה",
-    followup: "מעקב",
-};
-
-const segToI18n: Record<string, string> = {
-    emails: "nav:items.mailboxes",
-    unibox: "nav:items.unibox",
-    contacts: "nav:items.contacts",
-    segments: "nav:items.segments",
-    categories: "nav:items.categories",
-    suppressions: "nav:items.suppressions",
-    campaigns: "nav:items.campaigns",
-    analytics: "nav:items.analytics",
-    crm: "nav:items.crm",
-    pipelines: "nav:items.pipelines",
-    deals: "nav:items.deals",
-    tasks: "nav:items.tasks",
-    meetings: "nav:items.meetings",
-    templates: "nav:items.templates",
-    "api-keys": "nav:items.apiKeys",
-    settings: "nav:items.settings",
-    billing: "nav:userNav.billing",
-    audit: "nav:items.auditLog",
-    forms: "nav:items.forms",
-    integrations: "nav:items.integrations",
-    automations: "nav:items.automations",
-    deliverability: "nav:items.deliverability",
 };
 
 function pretty(segment: string): string {
-    return labelMap[segment.toLowerCase()] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
+    return labelMap[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
 }
 
 export function AppHeader({ onMenu }: { onMenu?: () => void }) {
     const { pathname } = useLocation();
     const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
-    const { t, i18n } = useTranslation();
-    const isHe = i18n.language === "he";
-
-    const getCrumbTitle = (seg: string) => {
-        const i18nKey = segToI18n[seg.toLowerCase()];
-        if (i18nKey) return t(i18nKey, isHe ? (labelMap[seg.toLowerCase()] ?? pretty(seg)) : pretty(seg));
-        return isHe ? (labelMap[seg.toLowerCase()] ?? pretty(seg)) : pretty(seg);
-    };
+    // The logo zone spans the sidebar column, so it has to collapse with it or
+    // the breadcrumb stops lining up with the content panel below.
+    const isMobile = useIsMobile();
+    const navCollapsed = useAppStore((s) => s.navCollapsed) && !isMobile;
 
     // Path under /app — first segment is the section ("emails", "admin", ...),
-    // subsequent ones are subpages. Don't show UUID-looking or hex thread segments verbatim
-    // because nobody wants "Campaigns > 47a3-..." or "Unibox > All > 1a06..." in their chrome.
+    // subsequent ones are subpages. Don't show UUID-looking segments verbatim
+    // because nobody wants "Campaigns > 47a3-..." in their chrome.
     const segments = pathname
         .split("/")
         .filter(Boolean)
         .filter((s) => s !== "app");
     // Each crumb links to its own path prefix so "Campaigns > Leads" gets you
-    // back to the list; hidden UUID/hex segments still count toward the prefix.
+    // back to the list; hidden UUID segments still count toward the prefix.
     const crumbs = segments
-        .map((seg, i) => ({ seg, to: `/app/${segments.slice(0, i + 1).join("/")}`, index: i }))
-        .filter(({ seg, index }) => {
-            if ((segments[0] === "unibox" || segments[0] === "inbox") && index >= 2) return false;
-            if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(seg)) return false;
-            if (/^[0-9a-f]{8,}$/i.test(seg)) return false;
-            return true;
-        });
+        .map((seg, i) => ({ seg, to: `/app/${segments.slice(0, i + 1).join("/")}` }))
+        .filter(({ seg }) => !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(seg));
     // A crumb whose prefix is the page itself is a label; every other one is a
     // link (so "Campaigns" stays clickable on /campaigns/<id>, where the hidden
     // id is the real last segment).
@@ -184,19 +96,35 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
             <button
                 type="button"
                 onClick={onMenu}
-                aria-label={isHe ? "פתח תפריט" : "Open menu"}
-                className="md:hidden ms-1.5 w-9 h-9 rounded-md flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors shrink-0"
+                aria-label="פתח תפריט"
+                className="md:hidden ml-1.5 w-9 h-9 rounded-md flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors shrink-0"
             >
                 <Menu className="w-5 h-5" />
             </button>
             <Link
                 to="/app/emails"
-                className="h-full flex items-center gap-2.5 shrink-0 group ps-2 pe-3 md:w-64 md:px-5"
+                className={cn(
+                    "h-full flex items-center gap-2.5 shrink-0 group pl-2 pr-3 md:transition-[width,padding] md:duration-200 md:ease-out",
+                    navCollapsed ? "md:w-14 md:px-0 md:justify-center" : "md:w-64 md:px-5",
+                )}
             >
+                {/* Cool blue-leaning gray at rest; deeper blue-gray on hover.
+                    Light enough to read as neutral chrome, but with a clear
+                    blue lean so the brand sneaks in. */}
+                {/* Logo color tuned to read as a real brand mark, not
+                    a washed-out accent. Deep slate (#0f172a) at rest +
+                    slight warm shift on hover. The earlier blue-gray
+                    was too pale and competed with the chrome rather
+                    than anchoring it. */}
                 <Logo className="w-7 text-slate-900 group-hover:text-slate-700 transition-colors duration-150" />
+                {/* Wordmark hides on mobile — the mark + the drawer's own brand
+                    header carry it there, leaving room for the workspace pill. */}
                 <span
                     style={{ fontFamily: "var(--font-display)" }}
-                    className="hidden md:inline font-extrabold text-[15.5px] tracking-tight text-slate-900"
+                    className={cn(
+                        "font-extrabold text-[15.5px] tracking-tight text-slate-900",
+                        navCollapsed ? "hidden" : "hidden md:inline",
+                    )}
                 >
                     Warmbly
                 </span>
@@ -205,23 +133,23 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
             {/* Breadcrumb: org switcher (always) > section > subpages. The
                 section crumbs are redundant with each page's own title on a
                 phone, so they only show on >=md. */}
-            <div className="flex items-center gap-1.5 min-w-0 flex-1 pe-2 md:pe-4">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2 md:pr-4">
                 <Crumb>
                     <OrgSwitcher />
                 </Crumb>
                 {crumbs.map(({ seg, to }) => (
                     <div key={to} className="hidden md:flex items-center gap-2 min-w-0">
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0 rtl:rotate-180" />
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
                         {to === currentPath ? (
                             <span className="text-[13px] font-medium text-slate-900 truncate">
-                                {getCrumbTitle(seg)}
+                                {pretty(seg)}
                             </span>
                         ) : (
                             <Link
                                 to={to}
                                 className="text-[13px] text-slate-500 hover:text-slate-900 truncate transition-colors"
                             >
-                                {getCrumbTitle(seg)}
+                                {pretty(seg)}
                             </Link>
                         )}
                     </div>
@@ -229,6 +157,10 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
             </div>
 
             <div className="flex items-center gap-2 px-2 sm:px-4 shrink-0">
+                {/* Outside the sm-only group on purpose: once the dialog is
+                    dismissed this pill is the only way back to it, and a phone
+                    is exactly where someone dismisses it fastest. */}
+                <BetaPill />
                 <div className="hidden sm:flex items-center gap-2">
                     <PlanPill />
                     <VersionPill />
@@ -245,10 +177,9 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
                     className="flex items-center gap-2 px-2 h-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-200/60 transition-colors text-[12.5px]"
                 >
                     <Search className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">חיפוש בכל המערכת...</span>
-                    <kbd className="hidden md:inline-flex h-4 items-center gap-0.5 px-1.5 rounded border border-slate-300/70 bg-white/60 font-sans text-[10px] text-slate-500 ms-0.5 select-none">
-                        <span className="text-[9px] leading-none opacity-70">⌘</span>
-                        <span className="text-[10px] font-semibold leading-none">K</span>
+                    <span className="hidden sm:inline">חיפוש</span>
+                    <kbd className="hidden md:inline-flex h-4 items-center px-1 rounded border border-slate-300/70 bg-white/60 font-mono text-[10px] text-slate-500 ml-0.5">
+                        ⌘K
                     </kbd>
                 </button>
             </div>
@@ -298,7 +229,7 @@ function AssistantButton() {
             {(running || pending || unseen) && (
                 <span
                     className={
-                        "absolute top-0.5 ltr:right-0.5 rtl:left-0.5 size-1.5 rounded-full ring-2 ring-white " +
+                        "absolute top-0.5 right-0.5 size-1.5 rounded-full ring-2 ring-white " +
                         (running
                             ? "bg-sky-500 animate-pulse"
                             : pending

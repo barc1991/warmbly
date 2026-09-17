@@ -21,13 +21,12 @@ import {
     PopoverMenuSeparator,
     PopoverMenuTrigger,
 } from "@/components/ui/popover-menu";
-import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
-export function UserNav() {
+export function UserNav({ collapsed = false }: { collapsed?: boolean }) {
     const navigate = useNavigate();
     const user = useAppStore((s) => s.user);
     const logoutMutation = useLogout();
-    const { t } = useTranslation();
 
     if (!user) return null;
 
@@ -45,7 +44,15 @@ export function UserNav() {
     return (
         <PopoverMenu side="top" align="start">
             <PopoverMenuTrigger asChild>
-                <button className="flex items-center gap-2.5 mx-3 my-2 px-1.5 py-1 rounded-md hover:bg-slate-200/40 transition-colors w-[calc(100%-1.5rem)] cursor-pointer">
+                <button
+                    aria-label={collapsed ? displayName : undefined}
+                    className={cn(
+                        "flex items-center rounded-md hover:bg-slate-200/40 transition-colors cursor-pointer",
+                        collapsed
+                            ? "mx-auto my-2 size-8 justify-center"
+                            : "gap-2.5 mx-3 my-2 px-1.5 py-1 w-[calc(100%-1.5rem)]",
+                    )}
+                >
                     <div className="w-7 h-7 rounded-full bg-slate-900 flex items-center justify-center shrink-0 overflow-hidden">
                         {user.avatar_url ? (
                             <img
@@ -59,14 +66,16 @@ export function UserNav() {
                             </span>
                         )}
                     </div>
-                    <div className="flex-1 min-w-0 text-start">
-                        <div className="text-[13px] text-slate-900 truncate">
-                            {displayName}
+                    {!collapsed && (
+                        <div className="flex-1 min-w-0 text-left">
+                            <div className="text-[13px] text-slate-900 truncate">
+                                {displayName}
+                            </div>
+                            <div className="text-[10.5px] text-slate-500 truncate">
+                                {user.email}
+                            </div>
                         </div>
-                        <div className="text-[10.5px] text-slate-500 truncate">
-                            {user.email}
-                        </div>
-                    </div>
+                    )}
                 </button>
             </PopoverMenuTrigger>
 
@@ -74,7 +83,7 @@ export function UserNav() {
                 {/* Identity block — same name/email row but inside the
                     PopoverMenu chrome so it inherits the consistent
                     hairline border + shadow. */}
-                <div className="px-3 py-2 text-start">
+                <div className="px-3 py-2">
                     <div className="text-[12.5px] font-medium text-slate-900 truncate">
                         {displayName}
                     </div>
@@ -87,7 +96,7 @@ export function UserNav() {
                     onSelect={() => navigate("/app/settings")}
                     icon={<SettingsIcon className="w-3 h-3" />}
                 >
-                    {t("nav:items.settings", "Settings")}
+                    הגדרות
                 </PopoverMenuItem>
                 <PopoverMenuSeparator />
                 <PopoverMenuItem
@@ -96,7 +105,7 @@ export function UserNav() {
                     disabled={logoutMutation.isPending}
                     danger
                 >
-                    {logoutMutation.isPending ? t("common:actions.signingOut", "Signing out…") : t("nav:userNav.logout", "Log out")}
+                    {logoutMutation.isPending ? "מתנתק…" : "התנתק"}
                 </PopoverMenuItem>
             </PopoverMenuContent>
         </PopoverMenu>

@@ -2,10 +2,12 @@ package contact
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/utils/paging"
@@ -21,8 +23,31 @@ import (
 // gate, so it never saw the self-host short-circuit: every self-hosted org
 // was capped at the seeded Free Trial plan's 100 contacts even though
 // BILLING_PROVIDER=none unlocks every other limit.
-func (s *contactService) checkContactLimit(_ context.Context, _ string, _ int) *errx.Error {
-	// Contact limits are disabled.
+func (s *contactService) checkContactLimit(ctx context.Context, userID string, adding int) *errx.Error {
+	if config.SelfHosted() || s.subRepo == nil || s.planRepo == nil || adding <= 0 {
+		return nil
+	}
+	uid, parseErr := uuid.Parse(userID)
+	if parseErr != nil {
+		return nil
+	}
+	sub, err := s.subRepo.GetByUserID(ctx, uid)
+	if err != nil || sub == nil {
+		return nil
+	}
+	plan, err := s.planRepo.GetByID(ctx, sub.EffectivePlanID())
+	if err != nil || plan == nil || plan.MaxContacts <= 0 {
+		return nil
+	}
+	currentCount, xerr := s.contactRepository.GetContactCount(ctx, userID)
+	if xerr != nil {
+		return nil
+	}
+	if currentCount+adding > int(plan.MaxContacts) {
+		return errx.New(errx.Forbidden, fmt.Sprintf(
+			"adding %d contacts would put you over your plan's limit of %d (you have %d)",
+			adding, plan.MaxContacts, currentCount))
+	}
 	return nil
 }
 
@@ -194,10 +219,6 @@ func (s *contactService) ListSentEmails(ctx context.Context, userID, contactID u
 	return s.contactRepository.ListSentEmails(ctx, userID, contactID, limit, beforeSentAt, beforeTaskID)
 }
 
-func (s *contactService) ListTimeline(ctx context.Context, userID uuid.UUID, orgID *uuid.UUID, contactID uuid.UUID, limit int, cursor *models.ContactTimelineKey) (*models.ContactTimelineResult, *errx.Error) {
-	return s.contactRepository.ListTimeline(ctx, userID, orgID, contactID, limit, cursor)
-}
-
-func (s *contactService) ResolveCategories(ctx context.Context, userID uuid.UUID, names []string) (map[string]uuid.UUID, *errx.Error) {
-	return s.contactRepository.ResolveCategoryNames(ctx, userID, names)
+func (s *contactService) ListTimeline(ctx context.Context, orgID, contactID uuid.UUID, limit int, cursor *models.ContactTimelineKey) (*models.ContactTimelineResult, *errx.Error) {
+	return s.contactRepository.ListTimeline(ctx, orgID, contactID, limit, cursor)
 }

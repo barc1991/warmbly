@@ -157,6 +157,23 @@ var (
 	ErrEmailWorkerUnreachable = NewWithIdentifier(ServiceUnavailable, "mailbox_worker_unreachable",
 		"This mailbox could not be disconnected right now because the machine syncing it could not be reached. Nothing was removed, so try again in a moment.")
 
+	// Sending identity: the provider's own send-as list is the only authority
+	// on which addresses a mailbox may use, so a choice outside it is refused
+	// here rather than at send time, where the provider's refusal names
+	// nothing the customer could act on.
+	ErrEmailSendAsUnsupported = NewWithIdentifier(BadRequest, "mailbox_send_as_unsupported",
+		"This mailbox's provider does not expose send-as addresses. Only Gmail and Google Workspace mailboxes do.")
+	ErrEmailSendAsUnknown = NewWithIdentifier(BadRequest, "mailbox_send_as_unknown",
+		"That address is not one your provider has verified this mailbox to send as. Refresh the list, or add and verify the address in your provider first.")
+	// Reading a mailbox's sending identity is an account operation and runs on
+	// the worker holding the mailbox, so it is unavailable exactly when that
+	// machine is: mid-migration, just after a restart, or while the mailbox is
+	// unplaced. Nothing was changed, and the next attempt is the fix.
+	ErrEmailIdentityUnavailable = NewWithIdentifier(ServiceUnavailable, "mailbox_identity_unavailable",
+		"Warmbly could not reach the machine running this mailbox, so its sending addresses were not refreshed. Nothing was changed; try again in a moment.")
+	ErrEmailSignatureTooLarge = NewWithIdentifier(BadRequest, "mailbox_signature_too_large",
+		fmt.Sprintf("The signature on this mailbox is larger than Warmbly stores (%d characters). Shorten it in your provider and import it again.", config.SignatureHTMLMax))
+
 	// Campaign
 	ErrCampaignName        = New(BadRequest, "Campaign name length must be between 3 and 50 characters.")
 	ErrCampaignDescription = New(BadRequest, "Campaign description length must be below 300 characters.")
@@ -178,6 +195,11 @@ var (
 	// Contact
 	ErrContactSerialize = New(BadRequest, "Failed to serialize contact.")
 	ErrContactSize      = New(BadRequest, "Contact size cannot be bigger than 10KB.")
+	// A contact's address is unique within the workspace, so an edit that
+	// collides with another contact is refused rather than merged: merging two
+	// people's campaign progress is not something an edit can undo.
+	ErrContactEmailTaken = NewWithIdentifier(Conflict, "contact_email_taken",
+		"Another contact already uses this email address.")
 
 	// Unibox
 	ErrUniboxLimit = New(BadRequest, fmt.Sprintf("Limit must be between %d and %d.", config.UniboxLimitMin, config.UniboxLimitMax))
@@ -185,6 +207,9 @@ var (
 	// Folder scoping (unibox sidebar).
 	ErrUniboxFolder     = New(BadRequest, "Folder must be one of inbox, sent, drafts, archive, spam, trash.")
 	ErrSeenFolderAndIDs = New(BadRequest, "Provide either email_ids or folder, not both.")
+	// Filing a message is narrower than scoping a list: the other three are
+	// verdicts the provider reaches, not somewhere a user puts mail.
+	ErrUniboxFilableFolder = New(BadRequest, "Folder must be one of inbox, archive, trash.")
 
 	// Servers
 	ErrIPAddr    = New(BadRequest, "Invalid IP Address.")

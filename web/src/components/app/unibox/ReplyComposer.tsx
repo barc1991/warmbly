@@ -14,7 +14,6 @@
 // with send_mode="scheduled" plus the concrete scheduled_at.
 
 import React from "react";
-import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     CheckIcon,
@@ -54,18 +53,17 @@ import {
 } from "@/components/ui/popover-menu";
 import { cn } from "@/lib/utils";
 import { plainToHtml } from "@/lib/email/body";
+import { bareEmail, nameFromAddr } from "@/lib/helper/emailAddress";
+import {
+    loadReplyDraft,
+    replyDraftKey,
+    type ReplyMode,
+    type ReplySeed,
+} from "@/lib/unibox/replyDraft";
 
-export type ReplyMode = "reply" | "forward";
+import { useReplyDraft } from "@/lib/unibox/useReplyDraft";
 
-// Restored content for a cancelled undo-send reply: the composer reopens
-// with exactly what was about to go out.
-export interface ReplySeed {
-    to: string[];
-    cc: string[];
-    bcc: string[];
-    subject: string;
-    body: string;
-}
+export type { ReplyMode, ReplySeed } from "@/lib/unibox/replyDraft";
 
 interface ReplyComposerProps {
     threadId: string;
@@ -75,12 +73,12 @@ interface ReplyComposerProps {
     onClose: () => void;
 }
 
-const SCHEDULE_PRESETS: { label: string; labelHe: string; at: () => Date }[] = [
-    { label: "In 1 hour", labelHe: "בעוד שעה", at: () => offsetHours(1) },
-    { label: "In 3 hours", labelHe: "בעוד 3 שעות", at: () => offsetHours(3) },
-    { label: "Tomorrow 9:00", labelHe: "מחר ב-09:00", at: () => atHour(1, 9) },
-    { label: "Tomorrow 17:00", labelHe: "מחר ב-17:00", at: () => atHour(1, 17) },
-    { label: "Monday 9:00", labelHe: "יום שני ב-09:00", at: () => nextMonday9() },
+const SCHEDULE_PRESETS: { label: string; at: () => Date }[] = [
+    { label: "In 1 hour", at: () => offsetHours(1) },
+    { label: "In 3 hours", at: () => offsetHours(3) },
+    { label: "Tomorrow 9:00", at: () => atHour(1, 9) },
+    { label: "Tomorrow 17:00", at: () => atHour(1, 17) },
+    { label: "Monday 9:00", at: () => nextMonday9() },
 ];
 
 // Body length cap. Generous; real replies rarely come close.
@@ -119,20 +117,19 @@ function defaultCustomScheduleValue(): string {
     return toLocalInput(offsetHours(2));
 }
 
-function formatFriendly(d: Date, isHe = false): string {
+function formatFriendly(d: Date): string {
     const now = new Date();
     const sameDay =
         d.getFullYear() === now.getFullYear() &&
         d.getMonth() === now.getMonth() &&
         d.getDate() === now.getDate();
-    const time = d.toLocaleTimeString(isHe ? "he-IL" : undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
-    if (sameDay) return isHe ? `היום, ${time}` : `today, ${time}`;
-    return d.toLocaleString(isHe ? "he-IL" : undefined, {
+    const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    if (sameDay) return `today, ${time}`;
+    return d.toLocaleString(undefined, {
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-        hour12: false,
     });
 }
 
@@ -140,29 +137,17 @@ function looksLikeEmail(s: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 }
 
-function nameFromAddr(s: string): string {
-    const m = s.match(/^"?([^"<]+)"?\s*<.+>$/);
-    if (m) return m[1].trim();
-    return s.replace(/<.+>/, "").trim() || s;
-}
-
-function bareEmail(s: string): string {
-    const m = s.match(/<([^>]+)>/);
-    if (m) return m[1].trim();
-    return s.trim();
-}
-
 // Derive composer defaults from the message the user explicitly chose
 // to reply to (or forward). Reply takes the message's "from" as the
 // new "to". Forward leaves "to" empty so the user picks the new
 // recipient.
-function deriveDefaults(replyTo: UniboxEmail, mode: ReplyMode, isHe?: boolean) {
+function deriveDefaults(replyTo: UniboxEmail, mode: ReplyMode) {
     const subjectBase = replyTo.subject?.trim() || "";
     let subject: string;
     if (mode === "forward") {
-        subject = /^fwd:/i.test(subjectBase) ? subjectBase : `Fwd: ${subjectBase || (isHe ? "(ללא נושא)" : "(no subject)")}`;
+        subject = /^fwd:/i.test(subjectBase) ? subjectBase : `Fwd: ${subjectBase || "(no subject)"}`;
     } else {
-        subject = /^re:/i.test(subjectBase) ? subjectBase : `Re: ${subjectBase || (isHe ? "(ללא נושא)" : "(no subject)")}`;
+        subject = /^re:/i.test(subjectBase) ? subjectBase : `Re: ${subjectBase || "(no subject)"}`;
     }
     const fromAddr = replyTo.from ? bareEmail(replyTo.from) : "";
     const to = mode === "reply" && fromAddr ? [fromAddr] : [];
@@ -170,22 +155,39 @@ function deriveDefaults(replyTo: UniboxEmail, mode: ReplyMode, isHe?: boolean) {
 }
 
 export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyComposerProps) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     const accounts = useAppStore((s) => s.emails);
     const { user } = useUserProfile();
+    const orgId = useAppStore((s) => s.currentOrganization?.id);
     const addOutbox = useOutboxStore((s) => s.add);
 
-    const initial = React.useMemo(() => deriveDefaults(replyTo, mode, isHe), [replyTo, mode, isHe]);
+    const initial = React.useMemo(() => deriveDefaults(replyTo, mode), [replyTo, mode]);
 
-    const [body, setBody] = React.useState(seed?.body ?? "");
-    const [subject, setSubject] = React.useState(seed?.subject ?? initial.subject);
-    const [to, setTo] = React.useState<string[]>(seed?.to ?? initial.to);
-    const [cc, setCc] = React.useState<string[]>(seed?.cc ?? []);
-    const [bcc, setBcc] = React.useState<string[]>(seed?.bcc ?? []);
-    const [showCc, setShowCc] = React.useState((seed?.cc.length ?? 0) > 0);
-    const [showBcc, setShowBcc] = React.useState((seed?.bcc.length ?? 0) > 0);
+    const draftKey = orgId ? replyDraftKey(user.id, orgId, threadId, replyTo.id, mode) : null;
+    // A cancelled undo-send seed wins over a stored draft.
+    const [restored] = React.useState<ReplySeed | null>(
+        () => seed ?? (draftKey ? loadReplyDraft(draftKey) : null),
+    );
+
+    const [body, setBody] = React.useState(restored?.body ?? "");
+    const [subject, setSubject] = React.useState(restored?.subject ?? initial.subject);
+    const [to, setTo] = React.useState<string[]>(
+        restored?.to ?? initial.to,
+    );
+    const [cc, setCc] = React.useState<string[]>(restored?.cc ?? []);
+    const [bcc, setBcc] = React.useState<string[]>(restored?.bcc ?? []);
+    const [showCc, setShowCc] = React.useState((restored?.cc.length ?? 0) > 0);
+    const [showBcc, setShowBcc] = React.useState((restored?.bcc.length ?? 0) > 0);
     const [isSending, setIsSending] = React.useState(false);
+    const draft = useReplyDraft(draftKey, { to, cc, bcc, subject, body }, {
+        to: initial.to, cc: [], bcc: [], subject: initial.subject, body: "",
+    });
+    const closeKeepingDraft = () => {
+        if (!draft.flush()) {
+            toast.error("Could not save this draft in your browser. Keep a copy before leaving.");
+            return;
+        }
+        onClose();
+    };
 
     const [scheduleOpen, setScheduleOpen] = React.useState(false);
     const [customMode, setCustomMode] = React.useState(false);
@@ -201,10 +203,9 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             draftReplyMut.mutateAsync({
                 thread_id: threadId,
                 instruction,
-                language: isHe ? "he" : undefined,
                 idempotency_key: crypto.randomUUID(),
             }),
-        [draftReplyMut, isHe, threadId],
+        [draftReplyMut, threadId],
     );
     const aiDraft = useAIDraft({
         value: body,
@@ -213,19 +214,29 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
         maxLen: MAX_BODY_LEN,
     });
 
-    // Reset whenever the user picks a different target message or
-    // switches between reply and forward. Without this the body, chips,
-    // and subject would persist across separate compose sessions. A
-    // restore seed (cancelled undo send) wins over the derived defaults.
+    // A different target message or mode is a different compose session, and
+    // the thread keys this component on both, so one arrives as a fresh mount
+    // with fresh initial state. The only thing that changes in place is `seed`:
+    // a cancelled undo-send puts the draft back while the composer stays open.
+    //
+    // Nothing derived from `replyTo` belongs in these dependencies. The thread
+    // rebuilds its message objects on every render, so `initial` is a new value
+    // each time, and the thread re-renders constantly while it is open (a
+    // teammate's presence diff, an arriving mail, a mark-seen, any realtime
+    // invalidation). Depending on it cleared the body between keystrokes, which
+    // made a reply impossible to type.
+    const resumeDraft = draft.resume;
     React.useEffect(() => {
-        setSubject(seed?.subject ?? initial.subject);
-        setTo(seed?.to ?? initial.to);
-        setCc(seed?.cc ?? []);
-        setBcc(seed?.bcc ?? []);
-        setShowCc((seed?.cc.length ?? 0) > 0);
-        setShowBcc((seed?.bcc.length ?? 0) > 0);
-        setBody(seed?.body ?? "");
-    }, [initial.subject, initial.to, replyTo.id, mode, seed]);
+        if (!seed) return;
+        resumeDraft();
+        setSubject(seed.subject);
+        setTo(seed.to);
+        setCc(seed.cc);
+        setBcc(seed.bcc);
+        setShowCc(seed.cc.length > 0);
+        setShowBcc(seed.bcc.length > 0);
+        setBody(seed.body);
+    }, [seed, resumeDraft]);
 
     // Resolve the sending mailbox from the target message's
     // account_id. We look it up in the global emails store so we have
@@ -249,23 +260,25 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const send = async (scheduledAt?: Date) => {
         if (!canSend && !isSending) {
             if (!trimmedBody) {
-                toast.error(isHe ? "גוף ההודעה ריק" : "Body is empty");
+                toast.error("Body is empty");
                 return;
             }
             if (to.length === 0) {
-                toast.error(isHe ? "הוסף לפחות נמען אחד" : "Add at least one recipient");
+                toast.error("Add at least one recipient");
                 return;
             }
             if (!to.every(looksLikeEmail)) {
-                toast.error(isHe ? "כתובת האימייל של הנמען אינה תקינה" : "Recipient email looks invalid");
+                toast.error("Recipient email looks invalid");
                 return;
             }
             if (!accountId) {
-                toast.error(isHe ? "לא ניתן לזהות את התיבה השולחת" : "Couldn't resolve the sending mailbox");
+                toast.error("Couldn't resolve the sending mailbox");
                 return;
             }
         }
 
+        const submittedDraft = { to, cc, bcc, subject, body };
+        draft.flush();
         setIsSending(true);
         const sentSubject = subject.trim() || (mode === "forward" ? "Fwd:" : "Re:");
         try {
@@ -310,21 +323,19 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             } else {
                 toast.success(
                     scheduledAt
-                        ? (isHe ? `תוזמן ל-${formatFriendly(scheduledAt, isHe)}` : `Scheduled for ${formatFriendly(scheduledAt)}`)
+                        ? `Scheduled for ${formatFriendly(scheduledAt)}`
                         : mode === "forward"
-                          ? (isHe ? "ההעברה נוספה לתור" : "Forward queued")
-                          : (isHe ? "התשובה נוספה לתור" : "Reply queued"),
+                          ? "Forward queued"
+                          : "Reply queued",
                 );
             }
             setScheduleOpen(false);
             setCustomMode(false);
-            onClose();
+            const completed = draft.complete(submittedDraft);
+            if (!completed.cleared) toast.error("Reply queued, but the saved draft could not be removed. Discard it before sending again.");
+            if (completed.close) onClose();
         } catch {
-            toast.error(
-                mode === "forward"
-                    ? (isHe ? "ההעברה נכשלה" : "Failed to forward")
-                    : (isHe ? "שליחת התשובה נכשלה" : "Failed to send reply"),
-            );
+            toast.error(mode === "forward" ? "Failed to forward" : "Failed to send reply");
         } finally {
             setIsSending(false);
         }
@@ -333,18 +344,18 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const handleInstant = () => send();
     const handleSchedule = (d: Date) => {
         if (!Number.isFinite(d.getTime()) || d.getTime() <= Date.now() + 5_000) {
-            toast.error(isHe ? "יש לבחור מועד עתידי" : "Pick a future time (a few seconds out, please)");
+            toast.error("Pick a future time (a few seconds out, please)");
             return;
         }
         if (d.getTime() - Date.now() > MAX_SCHEDULE_MS) {
-            toast.error(isHe ? "לא ניתן לתזמן שליחה ליותר מ-29 ימים מראש" : "Scheduled send can't be more than 29 days out");
+            toast.error("Scheduled send can't be more than 29 days out");
             return;
         }
         send(d);
     };
     const handleCustom = () => {
         if (!customValue) {
-            toast.error(isHe ? "יש לבחור מועד תחילה" : "Pick a time first");
+            toast.error("Pick a time first");
             return;
         }
         handleSchedule(new Date(customValue));
@@ -365,7 +376,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             setSubject(subj);
         }
         setTemplateOpen(false);
-        toast.success(isHe ? `הוכנסה תבנית "${name}"` : `Inserted "${name}"`);
+        toast.success(`Inserted "${name}"`);
     };
 
     // Three signature states the user might be in. Surfacing all
@@ -390,15 +401,13 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
         return { kind: "off", preview: plain };
     }, [mailbox?.signature_plain, mailbox?.signature_sync]);
 
-    const replyToName = replyTo.from ? nameFromAddr(replyTo.from) : (isHe ? "שולח לא ידוע" : "(unknown sender)");
+    const replyToName = replyTo.from ? nameFromAddr(replyTo.from) : "(unknown sender)";
     const replyToAddr = replyTo.from ? bareEmail(replyTo.from) : "";
-    const replyTargetSubject = replyTo.subject?.trim() || (isHe ? "(ללא נושא)" : "(no subject)");
+    const replyTargetSubject = replyTo.subject?.trim() || "(no subject)";
 
     const scheduleTooltip = scheduleAtCap
-        ? (isHe
-            ? `תור התזמון מלא (${scheduledUsed}/${scheduledCap}). בטל חלק מהתזמונים במסך התזמון.`
-            : `Schedule queue full (${scheduledUsed}/${scheduledCap}). Cancel some from the Scheduled view.`)
-        : (isHe ? "שליחה במועד מאוחר יותר, עד 29 ימים מראש" : "Send later, up to 29 days out");
+        ? `Schedule queue full (${scheduledUsed}/${scheduledCap}). Cancel some from the Scheduled view.`
+        : "Send later, up to 29 days out";
 
     return (
         <motion.div
@@ -411,12 +420,11 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             {/* Target strip: one quiet line naming what this composer is
                 doing (same visual language as the compose window's header),
                 plus the close handle. */}
-            <div className="h-8 ps-3.5 pe-1.5 flex items-center gap-2 bg-slate-100/80 border-b border-slate-200 select-none">
+            <div className="h-8 pl-4 pr-1.5 flex items-center gap-2 bg-slate-50 border-b border-slate-200 select-none">
                 <CornerUpLeftIcon
                     className={cn(
                         "w-3.5 h-3.5 shrink-0",
                         mode === "forward" ? "rotate-180 text-violet-500" : "text-slate-500",
-                        isHe && "rtl:scale-x-[-1]",
                     )}
                     aria-hidden
                 />
@@ -425,16 +433,39 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     title={replyToAddr ? `${replyToName} <${replyToAddr}>` : replyToName}
                 >
                     <span className="font-semibold text-slate-800">
-                        {mode === "forward" ? (isHe ? "העבר" : "Forward") : (isHe ? "השב" : "Reply")}
+                        {mode === "forward" ? "Forward" : "Reply"}
                     </span>{" "}
-                    {isHe ? "אל" : "to"} {replyToName}
+                    to {replyToName}
                     <span className="text-slate-400"> · {replyTargetSubject}</span>
                 </span>
+                {draft.saved && (
+                    <span className="hidden sm:inline text-[10.5px] text-slate-400 shrink-0">
+                        Draft saved
+                    </span>
+                )}
+                {draft.failed && (
+                    <span role="status" className="text-[10.5px] text-amber-700 shrink-0">
+                        Draft not saved
+                    </span>
+                )}
+                {draft.hasDraft && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (draft.discard()) onClose();
+                            else toast.error("Could not remove the saved draft. Browser storage is unavailable.");
+                        }}
+                        title="Discard this draft"
+                        className="h-6 px-1.5 rounded-md text-[10.5px] text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors shrink-0"
+                    >
+                        Discard
+                    </button>
+                )}
                 <button
                     type="button"
-                    onClick={onClose}
-                    aria-label={isHe ? "סגור חלון תגובה" : "Close composer"}
-                    title={isHe ? "סגור חלון תגובה" : "Close composer"}
+                    onClick={closeKeepingDraft}
+                    aria-label="Close composer, keeping the draft"
+                    title="Close, keeping the draft"
                     className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors shrink-0"
                 >
                     <XIcon className="w-3.5 h-3.5" />
@@ -445,17 +476,17 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 quiet inline label, hairline between rows, no label lane or
                 divider column. */}
             <div className="shrink-0 bg-white">
-                <HeaderRow label={isHe ? "אל" : "To"}>
+                <HeaderRow label="To">
                     <ContactRecipientField value={to} onChange={setTo} placeholder="name@example.com" />
                     {(!showCc || !showBcc) && (
-                        <div className="ms-auto flex items-center gap-0.5 shrink-0 self-start pt-px">
+                        <div className="ml-auto flex items-center gap-0.5 shrink-0 self-start pt-px">
                             {!showCc && (
                                 <button
                                     type="button"
                                     onClick={() => setShowCc(true)}
                                     className="h-5 px-1 rounded text-[11px] text-slate-400 hover:text-slate-700 transition-colors"
                                 >
-                                    {isHe ? "עותק" : "Cc"}
+                                    Cc
                                 </button>
                             )}
                             {!showBcc && (
@@ -464,7 +495,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                     onClick={() => setShowBcc(true)}
                                     className="h-5 px-1 rounded text-[11px] text-slate-400 hover:text-slate-700 transition-colors"
                                 >
-                                    {isHe ? "עותק מוסתר" : "Bcc"}
+                                    Bcc
                                 </button>
                             )}
                         </div>
@@ -473,28 +504,28 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
 
                 {showCc && (
                     <HeaderRow
-                        label={isHe ? "עותק" : "Cc"}
+                        label="Cc"
                         onRemove={() => {
                             setCc([]);
                             setShowCc(false);
                         }}
                     >
-                        <ContactRecipientField value={cc} onChange={setCc} placeholder={isHe ? "הוסף נמעני עותק" : "Add Cc recipients"} />
+                        <ContactRecipientField value={cc} onChange={setCc} placeholder="Add Cc recipients" />
                     </HeaderRow>
                 )}
                 {showBcc && (
                     <HeaderRow
-                        label={isHe ? "עותק מוסתר" : "Bcc"}
+                        label="Bcc"
                         onRemove={() => {
                             setBcc([]);
                             setShowBcc(false);
                         }}
                     >
-                        <ContactRecipientField value={bcc} onChange={setBcc} placeholder={isHe ? "הוסף נמעני עותק מוסתר" : "Add Bcc recipients"} />
+                        <ContactRecipientField value={bcc} onChange={setBcc} placeholder="Add Bcc recipients" />
                     </HeaderRow>
                 )}
 
-                <HeaderRow label={isHe ? "מאת" : "From"}>
+                <HeaderRow label="From">
                     {mailbox ? (
                         <div className="inline-flex items-center gap-2 min-w-0">
                             <span className="text-[12.5px] text-slate-800 truncate">
@@ -506,7 +537,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         </div>
                     ) : (
                         <span className="text-[12px] text-amber-700">
-                            {isHe ? "לא זוהתה תיבה שולחת" : "No sending mailbox resolved"}
+                            No sending mailbox resolved
                         </span>
                     )}
                 </HeaderRow>
@@ -515,10 +546,9 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <input
                         type="text"
                         value={subject}
-                        dir={isHe ? "rtl" : "auto"}
                         onChange={(e) => setSubject(e.target.value)}
-                        placeholder={isHe ? "נושא" : "Subject"}
-                        className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none text-start rtl:text-right"
+                        placeholder="Subject"
+                        className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none"
                     />
                 </div>
             </div>
@@ -532,13 +562,9 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 value={body}
                 onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY_LEN))}
                 placeholder={
-                    isHe
-                        ? mode === "forward"
-                            ? "הוסף הערה לפני ההעברה… (שליחה: ⌘Enter · בינה מלאכותית: ⌘J)"
-                            : "כתוב תשובה… (שליחה: ⌘Enter · בינה מלאכותית: ⌘J)"
-                        : mode === "forward"
-                          ? "Add a note (optional). ⌘J for AI, ⌘Enter to send."
-                          : "Write your reply. ⌘J for AI, ⌘Enter to send."
+                    mode === "forward"
+                        ? "Add a note (optional). ⌘J for AI, ⌘Enter to send."
+                        : "Write your reply. ⌘J for AI, ⌘Enter to send."
                 }
                 onKeyDown={(e) => {
                     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -546,30 +572,22 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         if (canSend) handleInstant();
                     } else if (e.key === "Escape") {
                         e.preventDefault();
-                        onClose();
+                        e.stopPropagation();
+                        closeKeepingDraft();
                     }
                 }}
-                className="w-full min-h-[120px] max-h-72 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-y focus:outline-none text-start rtl:text-right"
-                dir={isHe ? "rtl" : "auto"}
+                className="w-full min-h-[120px] max-h-72 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-y focus:outline-none"
             />
             {aiDraft.phase === "busy" && (
                 <div className="ai-sheen pointer-events-none absolute inset-0" aria-hidden />
             )}
             <AIDraftBar
                 ctrl={aiDraft}
-                busyLabels={
-                    isHe
-                        ? [
-                              "קורא את השרשור…",
-                              mode === "forward" ? "כותב את ההערה להעברה…" : "כותב את התשובה…",
-                              "מלטש ומסיים…",
-                          ]
-                        : [
-                              "Reading the thread…",
-                              mode === "forward" ? "Writing your note…" : "Writing your reply…",
-                              "Polishing…",
-                          ]
-                }
+                busyLabels={[
+                    "Reading the thread…",
+                    mode === "forward" ? "Writing your note…" : "Writing your reply…",
+                    "Polishing…",
+                ]}
             />
             </div>
 
@@ -590,13 +608,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 value={body}
                 onChange={(next) => setBody(next.slice(0, MAX_BODY_LEN))}
                 onDraftReply={() => aiDraft.start()}
-                draftLabel={isHe ? "נסח תשובה עם AI" : undefined}
-                draftCost={isHe ? "מ-2 נקודות" : undefined}
-                contextHint={
-                    isHe
-                        ? `זהו ${mode === "forward" ? "מכתב העברה" : "מענה"} עם הנושא "${subject}".`
-                        : `It is a ${mode === "forward" ? "forward note" : "reply"} with the subject "${subject}".`
-                }
+                contextHint={`It is a ${mode === "forward" ? "forward note" : "reply"} with the subject "${subject}".`}
                 maxLen={MAX_BODY_LEN}
             />
 
@@ -608,14 +620,14 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <div className="px-3 py-1.5 flex items-center gap-1.5 border-b border-emerald-200/40 bg-emerald-50/60">
                         <PenLineIcon className="w-3 h-3 text-emerald-700" />
                         <span className="text-[10px] uppercase tracking-[0.14em] text-emerald-800 font-semibold">
-                            {isHe ? "חתימה תצורף בעת השליחה" : "Signature appended on send"}
+                            Signature appended on send
                         </span>
                         <span
-                            className="ms-auto inline-flex items-center gap-1 text-[10px] text-emerald-700/80"
-                            title={isHe ? "ניהול בהגדרות התיבה" : "Manage this in mailbox settings"}
+                            className="ml-auto inline-flex items-center gap-1 text-[10px] text-emerald-700/80"
+                            title="Manage this in mailbox settings"
                         >
                             <InfoIcon className="w-2.5 h-2.5" />
-                            {isHe ? "מאת" : "from"} {mailbox?.email ?? (isHe ? "תיבה זו" : "this mailbox")}
+                            from {mailbox?.email ?? "this mailbox"}
                         </span>
                     </div>
                     <pre className="px-3 py-2 m-0 font-sans text-[11.5px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-28 overflow-y-auto md:max-h-none">
@@ -627,24 +639,18 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 <div className="mx-4 mb-2 px-3 py-2 rounded-md border border-amber-200/60 bg-amber-50/50 flex items-start gap-2 text-[11.5px] text-amber-900">
                     <InfoIcon className="w-3 h-3 mt-0.5 shrink-0 text-amber-700" />
                     <span className="leading-snug">
-                        {isHe ? (
-                            <>
-                                קיימת חתימה שמורה לתיבה זו אך סנכרון חתימות כבוי, לכן היא <strong>לא</strong> תצורף בעת השליחה. הפעל סנכרון בהגדרות התיבה כדי לכלול אותה אוטומטית.
-                            </>
-                        ) : (
-                            <>
-                                A signature is saved for this mailbox but signature sync is off, so it will <strong>not</strong> be appended on send. Turn sync on in mailbox settings to include it automatically.
-                            </>
-                        )}
+                        A signature is saved for this mailbox but signature
+                        sync is off, so it will <strong>not</strong> be
+                        appended on send. Turn sync on in mailbox settings
+                        to include it automatically.
                     </span>
                 </div>
             )}
             {signatureState.kind === "none" && (
                 <div className="mx-4 mb-2 px-3 py-1.5 rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400 flex items-center gap-1.5">
                     <PenLineIcon className="w-3 h-3" />
-                    {isHe
-                        ? "אין חתימה מוגדרת לתיבה זו. הקלד ידנית או הגדר בהגדרות התיבה."
-                        : "No signature on this mailbox. Type one inline or set one in mailbox settings."}
+                    No signature on this mailbox. Type one inline or set
+                    one in mailbox settings.
                 </div>
             )}
 
@@ -664,7 +670,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     ) : (
                         <SendIcon className="w-3 h-3" />
                     )}
-                    {isSending ? (isHe ? "שולח…" : "Sending") : (isHe ? "שלח" : "Send")}
+                    {isSending ? "Sending" : "Send"}
                 </button>
 
                 {/* Schedule picker. Direct button trigger (no Tooltip
@@ -687,7 +693,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <ClockIcon className="w-3 h-3" />
-                            {isHe ? "תזמון" : "Schedule"}
+                            Schedule
                             <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                         </button>
                     </PopoverMenuTrigger>
@@ -702,7 +708,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                     transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
                                     className="px-1 py-1 w-[260px]"
                                 >
-                                    <PopoverMenuLabel>{isHe ? "שלח ב-" : "Send at"}</PopoverMenuLabel>
+                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
                                     <div className="mt-1">
                                         <DateTimePicker value={customValue} onChange={setCustomValue} stepMinutes={15} />
                                     </div>
@@ -714,14 +720,14 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                             className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                                         >
                                             <CheckIcon className="w-3 h-3" />
-                                            {isHe ? "תזמן" : "Schedule"}
+                                            Schedule
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setCustomMode(false)}
                                             className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
                                         >
-                                            {isHe ? "חזרה" : "Back"}
+                                            Back
                                         </button>
                                     </div>
                                 </motion.div>
@@ -733,13 +739,13 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
                                 >
-                                    <PopoverMenuLabel>{isHe ? "שלח ב-" : "Send at"}</PopoverMenuLabel>
+                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
                                     {SCHEDULE_PRESETS.map((p) => (
                                         <PopoverMenuItem
                                             key={p.label}
                                             onSelect={() => handleSchedule(p.at())}
                                         >
-                                            {isHe ? p.labelHe : p.label}
+                                            {p.label}
                                         </PopoverMenuItem>
                                     ))}
                                     <PopoverMenuSeparator />
@@ -747,7 +753,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                         onSelect={() => setCustomMode(true)}
                                         closeOnSelect={false}
                                     >
-                                        {isHe ? "...בחר מועד" : "Pick a time"}
+                                        Pick a time
                                     </PopoverMenuItem>
                                 </motion.div>
                             )}
@@ -767,11 +773,11 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <PopoverMenuTrigger asChild>
                         <button
                             type="button"
-                            title={isHe ? "הכנס תשובה שמורה לגוף ההודעה" : "Drop a saved reply into the body"}
+                            title="Drop a saved reply into the body"
                             className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors"
                         >
                             <FileTextIcon className="w-3 h-3" />
-                            {isHe ? "תבנית" : "Template"}
+                            Template
                             <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                         </button>
                     </PopoverMenuTrigger>
@@ -791,19 +797,9 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     }
                 />
 
-                {body && (
-                    <button
-                        type="button"
-                        onClick={() => setBody("")}
-                        className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
-                    >
-                        {isHe ? "בטל" : "Discard"}
-                    </button>
-                )}
-
                 <span
                     className={cn(
-                        "ms-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
+                        "ml-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
                         signatureState.kind === "on" &&
                             "bg-emerald-50 text-emerald-700",
                         signatureState.kind === "off" &&
@@ -813,16 +809,16 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     )}
                     title={
                         signatureState.kind === "on"
-                            ? (isHe ? "חתימת התיבה שלך תצורף לתשובה זו בעת השליחה." : "Your mailbox signature will be appended to this reply on send.")
+                            ? "Your mailbox signature will be appended to this reply on send."
                             : signatureState.kind === "off"
-                              ? (isHe ? "קיימת חתימה אך הסנכרון כבוי, לכן היא לא תצורף." : "A signature exists but sync is off, so it will not be appended.")
-                              : (isHe ? "לא הוגדרה חתימה עבור תיבה זו." : "No signature configured for this mailbox.")
+                              ? "A signature exists but sync is off, so it will not be appended."
+                              : "No signature configured for this mailbox."
                     }
                 >
                     <PenLineIcon className="w-2.5 h-2.5" />
-                    {signatureState.kind === "on" && (isHe ? "חתימה מופעלת" : "Signature on")}
-                    {signatureState.kind === "off" && (isHe ? "חתימה כבויה" : "Signature off")}
-                    {signatureState.kind === "none" && (isHe ? "ללא חתימה" : "No signature")}
+                    {signatureState.kind === "on" && "Signature on"}
+                    {signatureState.kind === "off" && "Signature off"}
+                    {signatureState.kind === "none" && "No signature"}
                 </span>
 
                 <span className="font-mono text-[10px] text-slate-400 tabular-nums">

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "sourcemaps:posthog": "pnpm dlx --package @posthog/cli@0.18.2 posthog-cli sourcemap inject --directory dist && pnpm dlx --package @posthog/cli@0.18.2 posthog-cli sourcemap upload --directory dist --delete-after",
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -16,6 +17,7 @@
     "@tanstack/react-form": "^1.23.8",
     "@tanstack/react-query": "^5.90.5",
     "@tanstack/react-router": "^1.132.0",
+    "posthog-js": "^1.427.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

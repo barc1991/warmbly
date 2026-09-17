@@ -6,6 +6,10 @@ export default interface Inbox {
     signature_html: string;
     signature_sync: boolean;
     signature_code: boolean;
+    /** The verified provider alias this mailbox sends from. Empty, which is
+     *  the default, means the mailbox's own address. Gmail only; the list of
+     *  addresses it may be set to comes from /emails/:id/identity. */
+    send_as_email: string;
     tags: string[];
     provider: string;
     status: string;
@@ -20,12 +24,16 @@ export default interface Inbox {
     tracking_domain: string;
     tracking_domain_verified: boolean;
     tracking_domain_verified_at?: Date | null;
+    /** Opt-in: adds the open pixel and link tickets to hand-written sends. */
+    track_direct_mail?: boolean;
     /**
      * Sending-domain authentication, refreshed by a background check.
      * "unknown" means not checked yet or DNS could not answer, and never gates.
      * A "failing" domain stops cold sending and warmup once it has been failing
      * since auth_failing_since for longer than the instance grace window.
-     * auth_dkim is advisory: DKIM selectors are not discoverable from DNS.
+     * auth_dkim is positive-only: true means a key was found at a probed
+     * selector, false means none answered. Selectors are not discoverable from
+     * DNS, so false is unverified, never missing.
      */
     auth_state: "unknown" | "passing" | "failing";
     auth_spf: boolean;

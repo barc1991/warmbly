@@ -72,9 +72,9 @@ gives the arguments and flags. Ids are positional, not flags.
 | Command | Covers |
 |---|---|
 | `status` | one call for "what is happening": mailboxes needing attention, what is sending, what is unread |
-| `campaign` | list, view, create, edit, delete, steps, senders, segments, preflight, test, start, stop, logs |
+| `campaign` | list, view, create, edit, delete, steps, senders, segments, preflight, test, start, stop, logs, pause-lead / resume-lead |
 | `contact` | list, view, create, edit, delete, lookup, timeline, emails, notes, import, export, verify |
-| `mailbox` | list, view, edit, check, sync, behavior, warmup, hold, release, send |
+| `mailbox` | list, view, edit, check, sync, identity, refresh-identity, behavior, warmup, hold, release, send |
 | `inbox` | list, view, thread, read, reply, compose, drafts, scheduled, snooze |
 | `suppression` | the list of addresses and domains that get no campaign mail |
 | `segment`, `template`, `automation`, `form` | audiences, reply templates, automations, lead capture |
@@ -117,6 +117,13 @@ These put real mail on the wire and prompt before doing so:
   mailbox has the history to justify it.
 - Keep warmup running on mailboxes that campaign. Do not stop warmup because a
   campaign started.
+- To stop emailing ONE contact for a while, use `warmbly campaign pause-lead
+  CAMPAIGN_ID CONTACT_ID --until 2026-09-21T17:00:00Z`, not an unsubscribe and
+  not the suppression list: both of those are workspace-wide and permanent.
+  `resume-lead` lifts it. Warmbly already writes the same hold by itself when a
+  recipient answers with an out-of-office auto-reply, in every campaign that
+  contact is a lead of, so do not also pause a lead that reads `paused` for
+  that reason.
 - If deliverability shows rising bounces or complaints, stop the campaign and
   report. Do not push volume into a degrading mailbox.
 

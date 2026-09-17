@@ -27,10 +27,12 @@ import {
     ShieldCheckIcon,
     UsersIcon,
     LockIcon,
+    PanelLeftCloseIcon,
+    PanelLeftOpenIcon,
     XIcon,
     ZapIcon,
 } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactElement, type ReactNode, useMemo, useState } from "react";
 import { useAppStore } from "@/stores";
 import useFeatureAccess from "@/hooks/useFeatureAccess";
 import { usePermission, type PermissionKey } from "@/hooks/usePermission";
@@ -58,35 +60,10 @@ import AdvisorNavBadge from "@/components/app/advisor/AdvisorNavBadge";
 import type { AdvisorSurface } from "@/lib/api/models/app/advisor/Advisor";
 import { UserNav } from "./UserNav";
 import { Logo } from "@/components/svg";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import ShortcutTooltip from "@/components/ui/shortcut-tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { useTranslation } from "react-i18next";
-
-const navItemI18n: Record<string, string> = {
-    "/app/unibox": "nav:items.unibox",
-    "/app/emails": "nav:items.mailboxes",
-    "/app/campaigns": "nav:items.campaigns",
-    "/app/contacts": "nav:items.contacts",
-    "/app/forms": "nav:items.forms",
-    "/app/analytics": "nav:items.analytics",
-    "/app/deliverability": "nav:items.deliverability",
-    "/app/crm/pipelines": "nav:items.pipelines",
-    "/app/crm/deals": "nav:items.deals",
-    "/app/crm/tasks": "nav:items.tasks",
-    "/app/crm/meetings": "nav:items.meetings",
-    "/app/templates": "nav:items.templates",
-    "/app/integrations": "nav:items.integrations",
-    "/app/automations": "nav:items.automations",
-    "/app/api-keys": "nav:items.apiKeys",
-    "/app/audit": "nav:items.auditLog",
-    "/app/settings": "nav:items.settings",
-};
-
-const navSectionI18n: Record<string, string> = {
-    Email: "nav:groups.outreach",
-    CRM: "nav:groups.crm",
-    Resources: "nav:groups.resources",
-    Settings: "nav:groups.settings",
-};
 
 // Stable (module-level) empty contacts search so the sidebar's contact-count
 // query key never changes identity between renders (which would refetch-loop).
@@ -197,16 +174,45 @@ const sections: NavSection[] = [
     },
 ];
 
-function NavRow({ item }: { item: NavItem }) {
+// NavTip wraps a collapsed rail row in the themed tooltip, so an icon-only
+// row still says what it is. Expanded rows carry their label and need none.
+function NavTip({
+    collapsed,
+    label,
+    children,
+}: {
+    collapsed: boolean;
+    label: string;
+    children: ReactElement;
+}) {
+    if (!collapsed) return children;
+    return (
+        // The shared Tooltip mounts its own provider per instance, so there is
+        // no shared skip-delay across the rail: without a delay every row the
+        // cursor crosses on its way down pops one.
+        <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>{children}</TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+                {label}
+            </TooltipContent>
+        </Tooltip>
+    );
+}
+
+// The two row shapes. Collapsed, the rail is 56px wide, so a row is a centred
+// 32px icon target; expanded it is a full-width label row. Both are constants
+// because four call sites branch between them.
+const ICON_ROW = "group relative mx-auto flex size-8 items-center justify-center rounded-md transition-colors duration-100";
+const LABEL_ROW = "group relative mx-2 w-[calc(100%-1rem)] flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] transition-colors duration-100";
+const rowClass = (collapsed: boolean) => (collapsed ? ICON_ROW : LABEL_ROW);
+
+function NavRow({ item, collapsed = false }: { item: NavItem; collapsed?: boolean }) {
     const { pathname } = useLocation();
     const unseen = useAppStore((s) => s.unseenCount);
     const access = useFeatureAccess();
     const hasItemPermission = usePermission(item.permission ?? "VIEW_CAMPAIGNS");
     const [deniedOpen, setDeniedOpen] = useState(false);
     const upgradeDialog = useUpgradeDialog();
-    const { t, i18n } = useTranslation();
-    const isHe = i18n.language === "he";
-    const title = navItemI18n[item.url] ? t(navItemI18n[item.url], item.title) : item.title;
     const active =
         pathname === item.url || pathname.startsWith(item.url + "/");
     const badge = item.badgeStoreKey === "unseenCount" ? unseen : undefined;
@@ -223,20 +229,30 @@ function NavRow({ item }: { item: NavItem }) {
     if (accessDenied) {
         return (
             <>
+                <NavTip collapsed={collapsed} label={`${item.title} · no access`}>
                 <button
                     type="button"
                     onClick={() => setDeniedOpen(true)}
-                    title={isHe ? `${title} · אין גישה` : `${title} · no access`}
-                    className="group w-[calc(100%-1rem)] mx-2 flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] text-slate-400 hover:text-slate-600 hover:bg-slate-200/40 transition-colors duration-100"
+                    className={cn(
+                        rowClass(collapsed),
+                        "text-slate-400 hover:text-slate-600 hover:bg-slate-200/40",
+                    )}
                 >
                     <LockIcon className="w-[13px] h-[13px] shrink-0 text-slate-300 group-hover:text-slate-500" strokeWidth={1.8} />
-                    <span className="truncate flex-1 min-w-0 text-start">{title}</span>
+                    {/* Collapsed, lucide marks its svg aria-hidden, so the name
+                        comes from a visually hidden span. NOT aria-label: that
+                        would override the whole subtree, silencing the badges
+                        the collapsed rail exists to keep. */}
+                    <span className={collapsed ? "sr-only" : "truncate flex-1 min-w-0 text-left"}>
+                        {collapsed ? `${item.title} · no access` : item.title}
+                    </span>
                 </button>
+                </NavTip>
                 <AccessLockedDialog
                     open={deniedOpen}
                     onClose={() => setDeniedOpen(false)}
-                    feature={title}
-                    permissionLabel={item.permissionLabel ?? (isHe ? "הנדרשת" : "the required")}
+                    feature={item.title}
+                    permissionLabel={item.permissionLabel ?? "the required"}
                 />
             </>
         );
@@ -259,32 +275,91 @@ function NavRow({ item }: { item: NavItem }) {
     // checkout), instead of routing to a teasing empty page.
     if (locked && minPlan && planBadge) {
         return (
+            <NavTip collapsed={collapsed} label={`${item.title} · ${planBadge.label} plan`}>
             <button
                 type="button"
-                onClick={() => upgradeDialog.open({ feature: title, minPlan })}
-                title={isHe ? `${title} · תוכנית ${planBadge.label}` : `${title} · ${planBadge.label} plan`}
-                className="group w-[calc(100%-1rem)] mx-2 flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] text-slate-400 hover:text-slate-700 hover:bg-slate-200/40 transition-colors duration-100"
+                onClick={() => upgradeDialog.open({ feature: item.title, minPlan })}
+                className={cn(
+                    rowClass(collapsed),
+                    "text-slate-400 hover:text-slate-700 hover:bg-slate-200/40",
+                )}
             >
                 <LockIcon className="w-[13px] h-[13px] shrink-0 text-slate-300 group-hover:text-slate-500" strokeWidth={1.8} />
-                <span className="truncate flex-1 min-w-0 text-start">{title}</span>
-                <span
+                <span className={collapsed ? "sr-only" : "truncate flex-1 min-w-0 text-left"}>
+                    {collapsed ? `${item.title} · ${planBadge.label} plan` : item.title}
+                </span>
+                {!collapsed && (
+                    <span
+                        className={cn(
+                            "h-4 px-1.5 rounded text-[9.5px] font-semibold uppercase tracking-[0.06em] border inline-flex items-center",
+                            planBadge.classes,
+                        )}
+                    >
+                        {planBadge.label}
+                    </span>
+                )}
+            </button>
+            </NavTip>
+        );
+    }
+
+    const icon = (
+        <item.icon
+            className={cn(
+                "w-[14px] h-[14px] shrink-0 transition-colors",
+                active
+                    ? "text-slate-700"
+                    : locked
+                        ? "text-slate-300 group-hover:text-slate-500"
+                        : "text-slate-400 group-hover:text-slate-600",
+            )}
+            strokeWidth={active ? 2 : 1.6}
+        />
+    );
+
+    // Collapsed rail: the label and the ambient count clusters have nowhere to
+    // go, so the row keeps its icon plus the two signals worth interrupting
+    // for: the unread count, and an Advisor finding as a severity dot.
+    if (collapsed) {
+        return (
+            <NavTip collapsed label={item.title}>
+                <Link
+                    to={item.url}
                     className={cn(
-                        "h-4 px-1.5 rounded text-[9.5px] font-semibold uppercase tracking-[0.06em] border inline-flex items-center",
-                        planBadge.classes,
+                        ICON_ROW,
+                        active
+                            ? "bg-slate-200/70 text-slate-900"
+                            : locked
+                                ? "text-slate-400 hover:text-slate-700 hover:bg-slate-200/40"
+                                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/40",
                     )}
                 >
-                    {planBadge.label}
-                </span>
-            </button>
+                    {icon}
+                    {/* The name is a hidden span rather than an aria-label so it
+                        composes with the count below it: an aria-label on the
+                        link would replace the whole subtree and announce
+                        "Inbox" where the expanded row announces "Inbox 12". */}
+                    <span className="sr-only">{item.title}</span>
+                    {item.advisorSurface && !locked && (
+                        <AdvisorNavBadge surface={item.advisorSurface} dot />
+                    )}
+                    {badge != null && badge > 0 && (
+                        <span className="absolute -right-0.5 -top-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white text-[9px] font-medium leading-none flex items-center justify-center tabular-nums ring-2 ring-white">
+                            <span className="sr-only">{badge} unread</span>
+                            <span aria-hidden>{badge > 9 ? "9+" : badge}</span>
+                        </span>
+                    )}
+                </Link>
+            </NavTip>
         );
     }
 
     return (
         <Link
             to={item.url}
-            title={planBadge ? (isHe ? `${title} · תוכנית ${planBadge.label}` : `${title} · ${planBadge.label} plan`) : undefined}
+            title={planBadge ? `${item.title} · ${planBadge.label} plan` : undefined}
             className={cn(
-                "group mx-2 flex items-center gap-2.5 px-2.5 h-7 rounded-md text-[12.5px] transition-colors duration-100",
+                LABEL_ROW,
                 active
                     ? "bg-slate-200/70 text-slate-900 font-medium"
                     : locked
@@ -292,21 +367,11 @@ function NavRow({ item }: { item: NavItem }) {
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/40",
             )}
         >
-            <item.icon
-                className={cn(
-                    "w-[14px] h-[14px] shrink-0 transition-colors",
-                    active
-                        ? "text-slate-700"
-                        : locked
-                            ? "text-slate-300 group-hover:text-slate-500"
-                            : "text-slate-400 group-hover:text-slate-600",
-                )}
-                strokeWidth={active ? 2 : 1.6}
-            />
+            {icon}
             {/* min-w-0 lets the label shrink/truncate so the count cluster (and its
                 separator) is never pushed off the row — longer labels like
                 "Campaigns"/"Accounts" used to clip it at narrower widths. */}
-            <span className="truncate flex-1 min-w-0 text-start">{title}</span>
+            <span className="truncate flex-1 min-w-0">{item.title}</span>
             {item.advisorSurface && !locked && <AdvisorNavBadge surface={item.advisorSurface} />}
             {item.indicator === "campaigns" && !locked && <CampaignActivity />}
             {item.indicator === "accounts" && !locked && <MailboxActivity />}
@@ -373,7 +438,7 @@ function TabStat({
     // count instead of going blank — it just tweens up as the query resolves.
     return (
         <span
-            className="ms-auto inline-flex items-center gap-1.5 shrink-0"
+            className="ml-auto inline-flex items-center gap-1.5 shrink-0"
             title={title}
         >
             {glyph}
@@ -402,7 +467,7 @@ function TabDualStat({
 }) {
     return (
         <span
-            className="ms-auto inline-flex items-center gap-2.5 shrink-0"
+            className="ml-auto inline-flex items-center gap-2.5 shrink-0"
             title={title}
         >
             <AnimatedNumber value={total} format={compactN} className={COUNT_LIGHT} />
@@ -438,18 +503,13 @@ function CampaignActivity() {
         () => campaigns.filter((c) => c.status === "active").length,
         [campaigns],
     );
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
-    const title = isHe
-        ? `${campaigns.length} קמפיינים${active > 0 ? `, ${active} שולחים כעת` : ""}`
-        : `${campaigns.length} campaign${campaigns.length === 1 ? "" : "s"}${active > 0 ? `, ${active} sending now` : ""}`;
     return (
         <TabDualStat
             total={campaigns.length}
             active={active}
             activeClass="text-sky-600"
             activeGlyph={<span className="campaign-grid" aria-hidden />}
-            title={title}
+            title={`${campaigns.length} campaign${campaigns.length === 1 ? "" : "s"}${active > 0 ? `, ${active} sending now` : ""}`}
         />
     );
 }
@@ -465,11 +525,6 @@ function MailboxActivity() {
         () => emails.filter((e) => !!e.warmup && !e.warmup_paused_at).length,
         [emails],
     );
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
-    const title = isHe
-        ? `${emails.length} תיבות דואר${warming > 0 ? `, ${warming} בחימום` : ""}`
-        : `${emails.length} mailbox${emails.length === 1 ? "" : "es"}${warming > 0 ? `, ${warming} warming up` : ""}`;
     return (
         <TabDualStat
             total={emails.length}
@@ -478,7 +533,7 @@ function MailboxActivity() {
             activeGlyph={
                 <FlameIcon className="w-3.5 h-3.5 flame-flicker" strokeWidth={2.2} />
             }
-            title={title}
+            title={`${emails.length} mailbox${emails.length === 1 ? "" : "es"}${warming > 0 ? `, ${warming} warming up` : ""}`}
         />
     );
 }
@@ -494,11 +549,6 @@ function TasksActivity() {
     const { data } = useTasksSummary(EMPTY_TASK_SEARCH);
     const overdue = data?.overdue_count ?? 0;
     const todo = (data?.pending_count ?? 0) + (data?.in_progress_count ?? 0);
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
-    const title = isHe
-        ? `${todo} משימות פתוחות${overdue > 0 ? `, ${overdue} באיחור` : ""}`
-        : `${todo} open task${todo === 1 ? "" : "s"}${overdue > 0 ? `, ${overdue} overdue` : ""}`;
     return (
         <TabDualStat
             total={todo}
@@ -510,7 +560,7 @@ function TasksActivity() {
                     <span className="absolute inset-0 rounded-full bg-red-500/40 animate-ping" />
                 </span>
             }
-            title={title}
+            title={`${todo} open task${todo === 1 ? "" : "s"}${overdue > 0 ? `, ${overdue} overdue` : ""}`}
         />
     );
 }
@@ -521,11 +571,6 @@ function MeetingsActivity() {
     const { data } = useMeetingsSummary();
     const upcoming = data?.upcoming ?? 0;
     const today = data?.today ?? 0;
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
-    const title = isHe
-        ? `${upcoming} פגישות קרובות${today > 0 ? `, ${today} היום` : ""}`
-        : `${upcoming} upcoming meeting${upcoming === 1 ? "" : "s"}${today > 0 ? `, ${today} today` : ""}`;
     return (
         <TabDualStat
             total={upcoming}
@@ -537,7 +582,7 @@ function MeetingsActivity() {
                     <span className="absolute inset-0 rounded-full bg-sky-500/40 animate-ping" />
                 </span>
             }
-            title={title}
+            title={`${upcoming} upcoming meeting${upcoming === 1 ? "" : "s"}${today > 0 ? `, ${today} today` : ""}`}
         />
     );
 }
@@ -548,19 +593,15 @@ function MeetingsActivity() {
 function ContactsActivity() {
     const { data } = useSearchContacts({ options: CONTACTS_COUNT_SEARCH, limit: 10 });
     const total = data?.pages?.[0]?.pagination?.total ?? 0;
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
-    return <TabStat total={total} title={isHe ? `${total.toLocaleString()} אנשי קשר` : `${total.toLocaleString()} contacts`} />;
+    return <TabStat total={total} title={`${total.toLocaleString()} contacts`} />;
 }
 
 // Deals row: open (not won/lost) deals.
 function DealsActivity() {
     const { data } = useDealsSummary(EMPTY_DEAL_SEARCH);
     const open = data?.open_count ?? 0;
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     return (
-        <TabStat total={open} title={isHe ? `${open} עסקאות פתוחות` : `${open} open deal${open === 1 ? "" : "s"}`} />
+        <TabStat total={open} title={`${open} open deal${open === 1 ? "" : "s"}`} />
     );
 }
 
@@ -568,10 +609,8 @@ function DealsActivity() {
 function PipelinesActivity() {
     const { data } = usePipelines();
     const n = data?.length ?? 0;
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     return (
-        <TabStat total={n} title={isHe ? `${n} צינורות מכירה` : `${n} pipeline${n === 1 ? "" : "s"}`} />
+        <TabStat total={n} title={`${n} pipeline${n === 1 ? "" : "s"}`} />
     );
 }
 
@@ -579,25 +618,21 @@ function PipelinesActivity() {
 function TemplatesActivity() {
     const { data } = useTemplates();
     const n = data?.length ?? 0;
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     return (
-        <TabStat total={n} title={isHe ? `${n} תבניות` : `${n} template${n === 1 ? "" : "s"}`} />
+        <TabStat total={n} title={`${n} template${n === 1 ? "" : "s"}`} />
     );
 }
 
 // Analytics row: a live, compact tally of emails sent this period — the headline
 // throughput metric, surfaced right in the nav. From the org-wide usage overview.
 function AnalyticsActivity() {
-    const { data } = useUsageOverview();
+    const { data } = useUsageOverview("day");
     const sent = data?.campaigns?.emails_sent ?? 0;
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     return (
         <TabStat
             total={sent}
             format={compactN}
-            title={isHe ? `${sent.toLocaleString()} אימיילים נשלחו בתקופה זו` : `${sent.toLocaleString()} emails sent this period`}
+            title={`${sent.toLocaleString()} emails sent today`}
         />
     );
 }
@@ -606,13 +641,11 @@ function AnalyticsActivity() {
 function ApiKeysActivity() {
     const { data } = useAPIKeys();
     const active = (data?.data ?? []).filter((k) => k.status === "active").length;
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     return (
         <TabStat
             total={active}
             format={(v) => String(Math.round(v))}
-            title={isHe ? `${active} מפתחות API פעילים` : `${active} active API key${active === 1 ? "" : "s"}`}
+            title={`${active} active API key${active === 1 ? "" : "s"}`}
         />
     );
 }
@@ -626,11 +659,6 @@ function IntegrationsActivity() {
     const attention = conns.filter(
         (c) => c.status === "degraded" || c.status === "reauth_required" || c.health === "down",
     ).length;
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
-    const title = isHe
-        ? `${conns.length} מחוברים${attention > 0 ? `, ${attention} דורשים טיפול` : ""}`
-        : `${conns.length} connected${attention > 0 ? `, ${attention} need attention` : ""}`;
     return (
         <TabDualStat
             total={conns.length}
@@ -642,24 +670,34 @@ function IntegrationsActivity() {
                     <span className="absolute inset-0 rounded-full bg-amber-500/40 animate-ping" />
                 </span>
             }
-            title={title}
+            title={`${conns.length} connected${attention > 0 ? `, ${attention} need attention` : ""}`}
         />
     );
 }
 
-function Section({ section, first = false }: { section: NavSection; first?: boolean }) {
-    const { t } = useTranslation();
-    const sectionLabel = navSectionI18n[section.label] ? t(navSectionI18n[section.label], section.label) : section.label;
+function Section({
+    section,
+    first = false,
+    collapsed = false,
+}: {
+    section: NavSection;
+    first?: boolean;
+    collapsed?: boolean;
+}) {
     return (
         <div className={first ? "" : "mt-4 pt-4 border-t border-slate-200/50"}>
-            <div className="px-4 mb-1.5 text-start">
-                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    {sectionLabel}
-                </span>
-            </div>
+            {/* Collapsed, the hairline above the group carries the grouping on
+                its own — a tracked-uppercase label does not fit in 56px. */}
+            {!collapsed && (
+                <div className="px-4 mb-1.5">
+                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
+                        {section.label}
+                    </span>
+                </div>
+            )}
             <div className="space-y-px">
                 {section.items.map((it) => (
-                    <NavRow key={it.url} item={it} />
+                    <NavRow key={it.url} item={it} collapsed={collapsed} />
                 ))}
             </div>
         </div>
@@ -693,9 +731,7 @@ function Section({ section, first = false }: { section: NavSection; first?: bool
  * The capacity denominator sums each mailbox's configured campaign_limit
  * (default 50/day, from internal/config/constants.go).
  */
-function LivePanel() {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
+function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
     const emails = useAppStore((s) => s.emails);
     const unseenCount = useAppStore((s) => s.unseenCount);
     const dash = useDashboard("30d");
@@ -736,6 +772,40 @@ function LivePanel() {
     const scrub = hovered != null ? trend[hovered] : undefined;
     const pct = capacity > 0 ? Math.min(100, (sentToday / capacity) * 100) : 0;
 
+    // Collapsed rail: the panel keeps the two things it is actually for —
+    // today's volume and how much of the day's capacity it used — and drops
+    // the sparkline and the chips, which need the label column to be readable.
+    if (collapsed) {
+        const summary =
+            capacity > 0
+                ? `${sentToday.toLocaleString()} of ${capacity.toLocaleString()} sent today`
+                : `${sentToday.toLocaleString()} sent today`;
+        return (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Link
+                        to="/app/analytics"
+                        className="group mx-auto mt-2 mb-3 flex w-8 flex-col items-center gap-1 rounded-md border border-slate-200/70 bg-white/80 px-1 py-1.5 transition-colors hover:border-slate-300 hover:bg-white"
+                    >
+                        <span className="sr-only">Analytics · {summary}</span>
+                        <span aria-hidden className="text-[10px] font-semibold leading-none tabular-nums text-slate-900">
+                            {compactN(sentToday)}
+                        </span>
+                        <span aria-hidden className="h-1 w-full overflow-hidden rounded-full bg-sky-100">
+                            <span
+                                className="block h-full rounded-full bg-sky-500 transition-[width] duration-700 ease-out"
+                                style={{ width: `${pct}%` }}
+                            />
+                        </span>
+                    </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                    {summary}
+                </TooltipContent>
+            </Tooltip>
+        );
+    }
+
     return (
         <Link
             to="/app/analytics"
@@ -750,7 +820,7 @@ function LivePanel() {
                             {scrub.sent.toLocaleString()}
                         </span>
                         <span className="text-[10.5px] text-slate-500">
-                            נשלחו ב-{formatTrendDay(scrub.date, isHe)}
+                            sent {formatTrendDay(scrub.date)}
                         </span>
                     </>
                 ) : (
@@ -761,8 +831,8 @@ function LivePanel() {
                         />
                         <span className="text-[10.5px] text-slate-500">
                             {capacity > 0
-                                ? `מתוך ${capacity.toLocaleString()} נשלחו היום`
-                                : "נשלחו היום"}
+                                ? `of ${capacity.toLocaleString()} sent today`
+                                : "sent today"}
                         </span>
                     </>
                 )}
@@ -774,8 +844,8 @@ function LivePanel() {
                 className="mt-1.5 px-2.5"
                 title={
                     capacity > 0
-                        ? `${sentToday} מתוך ${capacity} קיבולת יומית בשימוש`
-                        : "חבר תיבת דואר כדי להתחיל לשלוח"
+                        ? `${sentToday} of ${capacity} daily capacity used`
+                        : "Connect a mailbox to start sending"
                 }
             >
                 <div className="h-1 rounded-full bg-sky-100 overflow-hidden">
@@ -794,7 +864,7 @@ function LivePanel() {
             <div className="border-t border-slate-100 px-2.5 py-1.5 flex items-center gap-3 text-[10.5px]">
                 <span
                     className="inline-flex items-center gap-1 text-slate-500"
-                    title={`${mailboxes} תיבות דואר מחוברות`}
+                    title={`${mailboxes} ${mailboxes === 1 ? "mailbox" : "mailboxes"} connected`}
                 >
                     <MailIcon className="w-3 h-3 text-slate-400" />
                     <span className="font-mono tabular-nums">{mailboxes}</span>
@@ -802,7 +872,7 @@ function LivePanel() {
                 {active > 0 && (
                     <span
                         className="inline-flex items-center gap-1 text-emerald-600"
-                        title={`${active} בחימום או שליחה פעילה`}
+                        title={`${active} warming or sending`}
                     >
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         <span className="font-mono tabular-nums">{active}</span>
@@ -810,10 +880,10 @@ function LivePanel() {
                 )}
                 <span
                     className={cn(
-                        "ms-auto inline-flex items-center gap-1",
+                        "ml-auto inline-flex items-center gap-1",
                         unseenCount > 0 ? "text-sky-600" : "text-slate-400",
                     )}
-                    title={`${unseenCount} הודעות שלא נקראו בתיבה`}
+                    title={`${unseenCount} unread in inbox`}
                 >
                     <InboxIcon className="w-3 h-3" />
                     <span className="font-mono tabular-nums">
@@ -825,12 +895,12 @@ function LivePanel() {
     );
 }
 
-/** "2026-08-30" → "Aug 30" or "30 באוג׳" for the sparkline scrub readout. */
-function formatTrendDay(iso: string, isHe?: boolean): string {
+/** "2026-08-30" → "Aug 30" for the sparkline scrub readout. */
+function formatTrendDay(iso: string): string {
     const d = new Date(iso);
     return Number.isNaN(d.getTime())
         ? iso
-        : d.toLocaleDateString(isHe ? "he-IL" : undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+        : d.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 // Sparkline geometry. Width matches the card's inner width (sidebar w-64
@@ -988,8 +1058,15 @@ function Sparkline({
 }
 
 export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: () => void }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
+    // Persisted across sessions (warmbly-storage) and toggled either from the
+    // rail's own button or the `b` shortcut. Below md the sidebar is an
+    // off-canvas drawer with the whole viewport to itself, so collapsing it
+    // there would only take away the labels for nothing.
+    const isMobile = useIsMobile();
+    const collapsed = useAppStore((s) => s.navCollapsed);
+    const toggleSidebar = useAppStore((s) => s.toggleSidebar);
+    const iconOnly = collapsed && !isMobile;
+
     return (
         <>
             {/* Mobile-only scrim. Tapping it closes the drawer. */}
@@ -1004,11 +1081,15 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
 
             <aside
                 className={cn(
-                    // Mobile: off-canvas drawer that slides in from the start (left in LTR, right in RTL).
-                    "fixed inset-y-0 start-0 z-50 w-64 flex flex-col text-slate-900 bg-white shadow-2xl transition-transform duration-300 ease-out",
-                    open ? "translate-x-0" : "-translate-x-full rtl:translate-x-full",
+                    // Mobile: off-canvas drawer that slides in from the left.
+                    "fixed inset-y-0 left-0 z-50 w-64 flex flex-col text-slate-900 bg-white shadow-2xl transition-transform duration-300 ease-out",
+                    open ? "translate-x-0" : "-translate-x-full",
                     // >=md: static sidebar column over the chrome, no transform/shadow.
-                    "md:static md:z-auto md:translate-x-0 rtl:md:translate-x-0 md:transform-none md:bg-transparent md:shadow-none md:transition-none shrink-0",
+                    "md:static md:z-auto md:translate-x-0 md:bg-transparent md:shadow-none shrink-0",
+                    // Width is the only thing that animates on >=md; the drawer's
+                    // transform transition would otherwise slide the static column.
+                    "md:transition-[width] md:duration-200 md:ease-out",
+                    iconOnly ? "md:w-14" : "md:w-64",
                 )}
             >
                 {/* Mobile drawer header: brand + close. (The desktop sidebar
@@ -1026,36 +1107,91 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
                     <button
                         type="button"
                         onClick={onClose}
-                        aria-label={isHe ? "סגור תפריט" : "Close menu"}
-                        className="w-8 h-8 -me-1 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                        aria-label="Close menu"
+                        className="w-8 h-8 -mr-1 rounded-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
                         <XIcon className="w-4 h-4" />
                     </button>
                 </div>
 
-            <LivePanel />
+            <LivePanel collapsed={iconOnly} />
 
-            <nav className="flex-1 overflow-y-auto pb-3">
+            {/* overflow-x-hidden: mid-animation the rail is narrower than the
+                expanded rows still laid out inside it, and without this the
+                column grows a horizontal scrollbar for those 200ms. */}
+            <nav className="flex-1 overflow-y-auto overflow-x-hidden pb-3">
                 <div className="space-y-px">
                     {topItems.map((it) => (
-                        <NavRow key={it.url + it.title} item={it} />
+                        <NavRow key={it.url + it.title} item={it} collapsed={iconOnly} />
                     ))}
                 </div>
                 {sections.map((s, i) => (
-                    <Section key={s.label} section={s} first={i === 0 && topItems.length === 0} />
+                    <Section
+                        key={s.label}
+                        section={s}
+                        first={i === 0 && topItems.length === 0}
+                        collapsed={iconOnly}
+                    />
                 ))}
             </nav>
 
             <div className="border-t border-slate-200/60 py-1 shrink-0">
                 <NavRow
                     item={{ title: "Settings", url: "/app/settings", icon: SettingsIcon }}
+                    collapsed={iconOnly}
                 />
+                <CollapseToggle collapsed={iconOnly} onToggle={toggleSidebar} />
             </div>
 
             <div className="border-t border-slate-200/60 shrink-0">
-                <UserNav />
+                <UserNav collapsed={iconOnly} />
             </div>
             </aside>
         </>
+    );
+}
+
+// The rail's own collapse control. `b` does the same thing from anywhere, and
+// the tooltip says so. Hidden below md, where the sidebar is a full-width
+// drawer and there is nothing to reclaim.
+//
+// No aria-pressed: the accessible name already flips, and the APG is explicit
+// that a toggle must do one or the other. Carrying both announces
+// "Expand sidebar, pressed" at the moment the sidebar is collapsed.
+function CollapseToggle({
+    collapsed,
+    onToggle,
+}: {
+    collapsed: boolean;
+    onToggle: () => void;
+}) {
+    const label = collapsed ? "Expand sidebar" : "Collapse sidebar";
+    return (
+        <ShortcutTooltip label={label} combo="b" side="right">
+            <button
+                type="button"
+                onClick={onToggle}
+                // Safe here where it is not on a nav row: this control has no
+                // badge to swallow, and the visible "Collapse" is a prefix of
+                // the name, so the label-in-name rule holds.
+                aria-label={label}
+                className={cn(
+                    rowClass(collapsed),
+                    // After the branch, so tailwind-merge drops ICON_ROW's
+                    // `flex` for `hidden` at the base breakpoint: collapsing
+                    // is meaningless in the mobile drawer.
+                    "hidden md:flex text-slate-500 hover:text-slate-900 hover:bg-slate-200/40",
+                )}
+            >
+                {collapsed ? (
+                    <PanelLeftOpenIcon className="w-[14px] h-[14px] shrink-0 text-slate-400 group-hover:text-slate-600" strokeWidth={1.6} />
+                ) : (
+                    <PanelLeftCloseIcon className="w-[14px] h-[14px] shrink-0 text-slate-400 group-hover:text-slate-600" strokeWidth={1.6} />
+                )}
+                {!collapsed && (
+                    <span className="truncate flex-1 min-w-0 text-left">Collapse</span>
+                )}
+            </button>
+        </ShortcutTooltip>
     );
 }

@@ -52,6 +52,16 @@ func (s *JobsService) HandleEmailSent(ctx context.Context, result models.SendEma
 			log.Warn().Err(err).Str("task_id", task.ID.String()).Msg("could not record worker message id")
 		}
 	}
+	// The provider-side conversation handle (Gmail only). Without it a
+	// follow-up can carry perfect In-Reply-To/References headers and Gmail
+	// still files it as a new thread in the sender's own mailbox, which is
+	// what made every campaign follow-up look like a second cold email
+	// (issue #472).
+	if result.ThreadID != "" {
+		if err := s.TaskRepo.UpdateTaskThreadID(ctx, task.ID, result.ThreadID); err != nil {
+			log.Warn().Err(err).Str("task_id", task.ID.String()).Msg("could not record worker thread id")
+		}
+	}
 	switch task.TaskType {
 	case "campaign":
 		s.repairCampaignSendStamp(ctx, task)
@@ -201,7 +211,7 @@ func (s *JobsService) failCampaignSend(ctx context.Context, task *repository.Tas
 	// delivery route; a rejection of the sender, the session or the content
 	// says nothing about the address.
 	if s.Evidence != nil && ct.ContactID != nil && ct.SequenceID != nil && emailverify.NamesRecipient(reason) {
-		s.Evidence.RecordEvidence(ctx, *ct.ContactID, "bounced_recipient", "send:"+ct.SequenceID.String(), reason)
+		s.Evidence.RecordEvidence(ctx, *ct.ContactID, models.Step(&campaignID, ct.SequenceID), "bounced_recipient", "send:"+ct.SequenceID.String(), reason)
 	}
 
 	attempts, exhausted, rolledBack := 0, false, false

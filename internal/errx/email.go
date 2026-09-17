@@ -110,6 +110,10 @@ type MailError struct {
 
 	Message string `json:"message"`
 
+	// RetryAfter is provider guidance for transient throttles. It stays local
+	// to the worker; persisted error records should not depend on a stale delay.
+	RetryAfter time.Duration `json:"-"`
+
 	CreatedAt time.Time `json:"created_at"`
 }
 

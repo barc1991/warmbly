@@ -7,15 +7,35 @@
 //    forwarding them — same-domain dashboard users could otherwise
 //    land here by mistake.
 
+import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useMe } from "@/hooks/useMe";
 import { getToken } from "@/lib/auth/storage";
+import { noteStep, setErrorIdentity } from "@/lib/observability";
 import { AdminBadge } from "./AdminBadge";
 
 export function RequireAdmin() {
     const loc = useLocation();
     const hasToken = !!getToken();
     const { data: me, isLoading, isError } = useMe();
+
+    // Every admin route is behind this guard, so it is the one place that
+    // knows both who is signed in and where they are. Every reported event and
+    // exception carries them, which is the difference between an issue
+    // somebody can act on and a stack trace with no owner. See
+    // lib/observability.
+    const userId = me?.id ?? null;
+    const email = me?.email ?? null;
+    const name = [me?.first_name, me?.last_name].filter(Boolean).join(" ") || null;
+    useEffect(() => {
+        setErrorIdentity(userId ? { userId, email, name } : null);
+        return () => setErrorIdentity(null);
+    }, [userId, email, name]);
+
+    const path = loc.pathname;
+    useEffect(() => {
+        noteStep(`Opened ${path}`, { path });
+    }, [path]);
 
     if (!hasToken) {
         return <Navigate to="/auth/login" state={{ from: loc.pathname }} replace />;

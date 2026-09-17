@@ -27,6 +27,7 @@ const (
 	docsSSO        = "/development/accounts-and-access/#single-sign-on"
 	docsFirstOwner = "/development/accounts-and-access/#first-owner"
 	docsUpdates    = "/development/updates/"
+	docsAI         = "/development/configuration/#ai-and-search"
 	// The database-backed settings document, which is the one tier the
 	// environment does not own.
 	docsSettingsDoc = "/development/configuration/#settings-stored-in-the-database"
@@ -129,6 +130,18 @@ var table = []Entry{
 		DocsAnchor: docsDeployment,
 		Resolve:    envValue("AI_API_KEY"),
 	},
+	{
+		Key: "TYPESAFE_API_KEY", Group: GroupDeployment, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Credential for optional automatic inbox tagging. The feature remains off until INBOX_TAGGING_ENABLED is also true.",
+		DocsAnchor: docsAI,
+		Resolve:    envValue("TYPESAFE_API_KEY"),
+	},
+	{
+		Key: "INBOX_TAGGING_ENABLED", Group: GroupDeployment, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Enables TypeSafe classification of inbound message content when its API key is configured.",
+		DocsAnchor: docsAI,
+		Resolve:    boolOr("INBOX_TAGGING_ENABLED", false),
+	},
 
 	// Addresses.
 	{
@@ -196,6 +209,12 @@ var table = []Entry{
 		Effect:     "Path to a GeoLite2 database. It must be set on the backend in every environment; a missing file at that path is tolerated and only costs city labels.",
 		DocsAnchor: docsGeoIP,
 		Resolve:    envValue("GEODB_PATH"),
+	},
+	{
+		Key: "GEODB_URL", Group: GroupDatabase, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Where to download the database at GEODB_PATH from when that path holds no file. A file already there is never replaced.",
+		DocsAnchor: docsGeoIP,
+		Resolve:    envValue("GEODB_URL"),
 	},
 	{
 		Key: "REDIS", Group: GroupCache, RuntimeChangeable: ChangeBootOnly,
@@ -547,7 +566,7 @@ var table = []Entry{
 	// Encryption.
 	{
 		Key: "KMS_PROVIDER", Group: GroupEncryption, RuntimeChangeable: ChangeBootOnly,
-		Effect:     "local wraps organization keys with the master key below; aws wraps them with AWS KMS.",
+		Effect:     "local wraps organization keys with the master key below; aws wraps them with AWS KMS; brokered holds no key material and asks this instance to unwrap, which is what a node off this machine should run.",
 		DocsAnchor: docsEncryption,
 		Resolve:    func(*Runtime) string { return config.KMSProvider() },
 	},
@@ -585,7 +604,7 @@ var table = []Entry{
 	// Storage.
 	{
 		Key: "BLOB_PROVIDER", Group: GroupStorage, RuntimeChangeable: ChangeBootOnly,
-		Effect:     "filesystem stores email bodies, attachments and avatars on disk; s3 stores them in any S3-compatible bucket.",
+		Effect:     "filesystem stores email bodies, attachments and avatars on disk; s3 stores them in any S3-compatible bucket; brokered holds no bucket credential and asks this instance to sign each operation, which is what a node off this machine should run.",
 		DocsAnchor: docsStorage,
 		Resolve:    func(*Runtime) string { return config.BlobProvider() },
 	},
@@ -635,7 +654,7 @@ var table = []Entry{
 	},
 	{
 		Key: "CODEC_PROVIDER", Group: GroupEventBus, RuntimeChangeable: ChangeBootOnly,
-		Effect:     "json is required wherever workers run: worker command and result envelopes carry untyped bodies Avro cannot serialize.",
+		Effect:     "json needs nothing; avro resolves every event against SCHEMA_REGISTRY_URL and is only compiled into the -kafka images. Producers and consumers have to agree, so it is changed by draining the bus, not in place.",
 		DocsAnchor: docsEventBus,
 		Resolve:    func(*Runtime) string { return config.CodecProvider() },
 	},
@@ -775,11 +794,65 @@ var table = []Entry{
 		DocsAnchor: docsAddresses,
 		Resolve:    envOr("TRACKING_RATE_LIMIT_PER_MIN", "300"),
 	},
+	{
+		Key: "TRACKING_SCANNER_BUILTINS", Group: GroupTracking, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Loads the known-scanner network catalogue shipped with Warmbly. Off leaves only the networks you name.",
+		DocsAnchor: docsAddresses,
+		Resolve:    boolOr("TRACKING_SCANNER_BUILTINS", true),
+	},
+	{
+		Key: "TRACKING_SCANNER_NETWORKS", Group: GroupTracking, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Extra scanner sources whose opens and clicks are both recorded as automated.",
+		DocsAnchor: docsAddresses,
+		Resolve:    envValue("TRACKING_SCANNER_NETWORKS"),
+	},
+	{
+		Key: "TRACKING_SCANNER_CLICK_NETWORKS", Group: GroupTracking, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Extra scanner sources judged on clicks only, for networks that also proxy a mail client's image fetches.",
+		DocsAnchor: docsAddresses,
+		Resolve:    envValue("TRACKING_SCANNER_CLICK_NETWORKS"),
+	},
+	{
+		Key: "TRACKING_SCANNER_ASN_HEADER", Group: GroupTracking, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Header a trusted proxy sets with the source ASN. Where it is set it wins over the database below.",
+		DocsAnchor: docsAddresses,
+		Resolve:    envValue("TRACKING_SCANNER_ASN_HEADER"),
+	},
+	{
+		Key: "TRACKING_SCANNER_ASN_DB", Group: GroupTracking, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Path to a GeoLite2-ASN database on the tracking service, which makes asn: entries match with no ASN header and no edge transform rule. It reads the client address, so behind a reverse proxy it still needs TRACKING_TRUSTED_PROXIES. A separate file from GEODB_PATH; missing is tolerated and only costs ASN matching.",
+		DocsAnchor: docsGeoIP,
+		Resolve:    envValue("TRACKING_SCANNER_ASN_DB"),
+	},
+	{
+		Key: "TRACKING_SCANNER_ASN_DB_URL", Group: GroupTracking, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Where the tracking service downloads its GeoLite2-ASN database from. It holds the result in memory, so it needs no writable path and TRACKING_SCANNER_ASN_DB can stay unset.",
+		DocsAnchor: docsGeoIP,
+		Resolve:    envValue("TRACKING_SCANNER_ASN_DB_URL"),
+	},
 
 	// Observability.
 	{
+		Key: "POSTHOG_KEY", Group: GroupObservability, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "PostHog project key. Carries error tracking and product analytics; unset means neither is sent and no host is contacted.",
+		DocsAnchor: docsDeployment,
+		Resolve:    envValue("POSTHOG_KEY"),
+	},
+	{
+		Key: "POSTHOG_HOST", Group: GroupObservability, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "Where those events go. Empty means PostHog Cloud US; set it to your own PostHog.",
+		DocsAnchor: docsDeployment,
+		Resolve:    envValue("POSTHOG_HOST"),
+	},
+	{
+		Key: "POSTHOG_ERROR_TRACKING", Group: GroupObservability, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "false keeps the key for product analytics and reports no exceptions to PostHog.",
+		DocsAnchor: docsDeployment,
+		Resolve:    boolOr("POSTHOG_ERROR_TRACKING", true),
+	},
+	{
 		Key: "SENTRY_DSN", Group: GroupObservability, RuntimeChangeable: ChangeBootOnly,
-		Effect:     "Error reporting. Optional in every environment; unset simply logs instead.",
+		Effect:     "Error reporting to Sentry, alongside or instead of PostHog. Optional in every environment; unset simply logs instead.",
 		DocsAnchor: docsDeployment,
 		Resolve:    envValue("SENTRY_DSN"),
 	},

@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -89,12 +91,21 @@ type EmailRepository interface {
 	GetOAuthCredentials(ctx context.Context, emailAccountID uuid.UUID) (*OAuthCredentials, *errx.Error)
 	GetWorkerID(ctx context.Context, emailAccountID uuid.UUID) (*uuid.UUID, *errx.Error)
 	SetWorkerID(ctx context.Context, emailAccountID, workerID uuid.UUID) *errx.Error
-	Update(ctx context.Context, userID, emailAccountID string, udata *models.UpdateEmail) (*models.Email, *errx.Error)
-	// BulkUpdateTags adds/removes tag links across many of the user's
+	Update(ctx context.Context, orgID, emailAccountID string, udata *models.UpdateEmail) (*models.Email, *errx.Error)
+	// GetSendIdentity reads the mailbox's stored sending identity: the
+	// provider's send-as list as last reported, which of them is in use, and
+	// where the stored signature came from. Organization-scoped like Get.
+	GetSendIdentity(ctx context.Context, orgID, emailAccountID string) (*models.SendIdentity, *errx.Error)
+	// SetSendIdentity records a fresh send-as list, and the imported signature
+	// when one was asked for. A chosen alias the provider no longer verifies
+	// is cleared in the same statement, so a revoked alias stops being used
+	// rather than failing every send.
+	SetSendIdentity(ctx context.Context, emailAccountID uuid.UUID, identities []models.SendAsIdentity, sig *models.ImportedSignature) *errx.Error
+	// BulkUpdateTags adds/removes tag links across many of the workspace's
 	// mailboxes in one transaction; ownership of both mailboxes and tags is
 	// enforced in SQL, unknown ids are skipped. Returns how many of the
-	// requested mailboxes the caller owns.
-	BulkUpdateTags(ctx context.Context, userID string, emailIDs, addTags, removeTags []uuid.UUID) (int, *errx.Error)
+	// requested mailboxes the workspace owns.
+	BulkUpdateTags(ctx context.Context, orgID string, emailIDs, addTags, removeTags []uuid.UUID) (int, *errx.Error)
 	// SetWarmupLifecycle starts, pauses, resumes, or disables warmup for a
 	// mailbox. "start"/"resume" preserve ramp progress (a paused mailbox
 	// resumes where it left off); "pause" keeps progress; "disable" turns
@@ -102,6 +113,10 @@ type EmailRepository interface {
 	// is atomic and idempotent.
 	SetWarmupLifecycle(ctx context.Context, userID, emailAccountID, action string) (*models.Email, *errx.Error)
 	UpdateTrackingDomain(ctx context.Context, orgID, emailAccountID, domain string, verified bool, verifiedAt *time.Time) *errx.Error
+	UpdateTrackDirectMail(ctx context.Context, orgID, emailAccountID string, enabled bool) *errx.Error
+	// ListOrganizationIDs names every workspace with a mailbox, for sweeps that
+	// run per workspace rather than per event.
+	ListOrganizationIDs(ctx context.Context) ([]uuid.UUID, error)
 	// ListTrackingDomainCheckDue returns active mailboxes with a custom
 	// tracking domain that has not been resolved since staleBefore (or never),
 	// oldest-first. Drives the background re-verification sweep.
@@ -113,8 +128,6 @@ type EmailRepository interface {
 	// has not been evaluated since staleBefore (or never), oldest-first, capped
 	// at limit. Drives the background SPF/DKIM/DMARC sweep.
 	ListAuthCheckDue(ctx context.Context, staleBefore time.Time, limit int) ([]models.EmailAuthTarget, *errx.Error)
-	// IsWarmupOnlyMailbox reports whether a mailbox is tagged with 'חימום' or 'warmup'.
-	IsWarmupOnlyMailbox(ctx context.Context, emailAccountID uuid.UUID) bool
 	// MarkDomainAuthRecheck clears the sweep checkpoint for a sending domain so
 	// the next pass re-checks it first. Used when a receiving server refuses
 	// mail on authentication grounds: that is strong evidence, but DNS is the
@@ -370,8 +383,8 @@ func (r *emailRepository) NewOauthAccount(ctx context.Context, userID string, da
 	// be seeded with a random RID, which silently broke segment-aware content
 	// selection because a random tag never matches a real segment.
 	query := `
-		INSERT INTO email_accounts (id, user_id, organization_id, email, name, provider, signature_plain, signature_html, tracking_domain, last_synced_at, created_at, updated_at, warmup_tag, oauth_slot_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11, $12)
+		INSERT INTO email_accounts (id, user_id, organization_id, email, name, provider, signature_plain, signature_html, tracking_domain, last_synced_at, created_at, updated_at, warmup_tag)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $10, $11)
 	`
 
 	params := []any{
@@ -386,7 +399,6 @@ func (r *emailRepository) NewOauthAccount(ctx context.Context, userID string, da
 		"",
 		t,
 		"",
-		data.OAuthSlotID,
 	}
 
 	_, err = tx.Exec(
@@ -641,13 +653,13 @@ func (r *emailRepository) Search(ctx context.Context, orgID, search string, curs
 
 	query := `
 		SELECT
-		 ea.id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code,
+		 ea.id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code, ea.send_as_email,
 	 	 ea.provider, ea.status, COALESCE(ea.last_synced_at, ea.created_at) AS last_synced_at, ea.last_id, ea.campaign_limit,
-		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at,
+		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail,
 		 ea.auth_state, ea.auth_spf, ea.auth_dkim, ea.auth_dmarc, ea.auth_dmarc_policy, ea.auth_reason, ea.auth_checked_at, ea.auth_failing_since,
 		 ea.warmup, ea.warmup_paused_at, ea.warmup_base,
-		 ea.warmup_max, ea.warmup_increase, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.save_to_sent,
-		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
+		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone, ea.save_to_sent,
+		 ea.created_at, ea.updated_at,
 		 COALESCE(
 			array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}'
 		 ) AS tags
@@ -693,12 +705,12 @@ func (r *emailRepository) Search(ctx context.Context, orgID, search string, curs
 	for rows.Next() {
 		var i models.Email
 		err := rows.Scan(
-			&i.ID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.Provider, &i.Status,
-			&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt,
+			&i.ID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.SendAsEmail, &i.Provider, &i.Status,
+			&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail,
 			&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
-			&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease,
-			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.SaveToSent,
-			&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
+			&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
+			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone, &i.SaveToSent,
+			&i.CreatedAt, &i.UpdatedAt, &i.Tags,
 		)
 		if err != nil {
 			db.CaptureError(err, "", nil, "scan")
@@ -763,13 +775,13 @@ func (r *emailRepository) Search(ctx context.Context, orgID, search string, curs
 func (r *emailRepository) Get(ctx context.Context, orgID, emailAccountID string) (*models.Email, *errx.Error) {
 	query := `
 		SELECT
-		ea.id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code,
+		ea.id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code, ea.send_as_email,
 		 ea.provider, ea.status, COALESCE(ea.last_synced_at, ea.created_at) AS last_synced_at, ea.last_id, ea.campaign_limit,
-		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at,
+		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail,
 		 ea.auth_state, ea.auth_spf, ea.auth_dkim, ea.auth_dmarc, ea.auth_dmarc_policy, ea.auth_reason, ea.auth_checked_at, ea.auth_failing_since,
 		 ea.warmup, ea.warmup_paused_at, ea.warmup_base,
-		 ea.warmup_max, ea.warmup_increase, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.save_to_sent,
-		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
+		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone, ea.save_to_sent,
+		 ea.created_at, ea.updated_at,
 		 COALESCE(array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}') AS tags
 		FROM email_accounts ea
 		LEFT JOIN email_tags eat ON eat.email_id = ea.id
@@ -788,12 +800,12 @@ func (r *emailRepository) Get(ctx context.Context, orgID, emailAccountID string)
 		query,
 		params...,
 	).Scan(
-		&i.ID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.Provider, &i.Status,
-		&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt,
+		&i.ID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.SendAsEmail, &i.Provider, &i.Status,
+		&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail,
 		&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
-		&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease,
-		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.SaveToSent,
-		&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
+		&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
+		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone, &i.SaveToSent,
+		&i.CreatedAt, &i.UpdatedAt, &i.Tags,
 	)
 	if err != nil {
 		// A mailbox that does not exist, or belongs to another organization, is
@@ -810,9 +822,13 @@ func (r *emailRepository) Get(ctx context.Context, orgID, emailAccountID string)
 	return &i, nil
 }
 
-func (r *emailRepository) Update(ctx context.Context, userID, emailAccountID string, udata *models.UpdateEmail) (*models.Email, *errx.Error) {
+// Update writes a mailbox's settings. Scoped by organization, like Get, Search
+// and UpdateTrackingDomain: a mailbox is a workspace asset and the route admits
+// any member holding manage_emails, so keying on the user who happened to
+// connect it turned that permission into a 404 for everyone else.
+func (r *emailRepository) Update(ctx context.Context, orgID, emailAccountID string, udata *models.UpdateEmail) (*models.Email, *errx.Error) {
 	setClauses := []string{}
-	args := []any{userID, emailAccountID}
+	args := []any{orgID, emailAccountID}
 	argPos := 3
 
 	if udata.Name != nil {
@@ -824,8 +840,11 @@ func (r *emailRepository) Update(ctx context.Context, userID, emailAccountID str
 		argPos++
 	}
 	if udata.SignaturePlain != nil {
-		l := len(*udata.SignaturePlain)
-		if l > 1000 {
+		// Characters, not bytes: the documented limit is in characters, and
+		// len() turned a perfectly ordinary Cyrillic or CJK signature into one
+		// that is "too long" at a third of it.
+		l := utf8.RuneCountInString(*udata.SignaturePlain)
+		if l > config.SignaturePlainMax {
 			return nil, errx.ErrEmailSignaturePlain
 		}
 		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", "signature_plain", argPos))
@@ -833,8 +852,8 @@ func (r *emailRepository) Update(ctx context.Context, userID, emailAccountID str
 		argPos++
 	}
 	if udata.SignatureHTML != nil {
-		l := len(*udata.SignatureHTML)
-		if l > 1000 {
+		l := utf8.RuneCountInString(*udata.SignatureHTML)
+		if l > config.SignatureHTMLMax {
 			return nil, errx.ErrEmailSignatureHTML
 		}
 		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", "signature_html", argPos))
@@ -863,6 +882,26 @@ func (r *emailRepository) Update(ctx context.Context, userID, emailAccountID str
 	if udata.SignatureCode != nil {
 		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", "signature_code", argPos))
 		args = append(args, *udata.SignatureCode)
+		argPos++
+	}
+	// The alias is checked against the provider's list before it gets here
+	// (emailService.Update), which is what produces a real error message. That
+	// read and this write are two statements, so the predicate is repeated in
+	// SQL against the row's own list: a refresh landing in between would
+	// otherwise have its clearing of a revoked alias written straight back,
+	// and every later send would go out as an address Gmail refuses. Failing
+	// the predicate keeps the stored value rather than erroring, because by
+	// then the caller's request was valid when it was made.
+	if udata.SendAsEmail != nil {
+		setClauses = append(setClauses, fmt.Sprintf(`send_as_email = CASE
+			WHEN $%[1]d = '' OR lower($%[1]d) = lower(email) THEN $%[1]d
+			WHEN EXISTS (
+				SELECT 1 FROM jsonb_array_elements(send_as) AS sa
+				WHERE (sa->>'verified')::boolean AND lower(sa->>'email') = lower($%[1]d)
+			) THEN $%[1]d
+			ELSE send_as_email
+		END`, argPos))
+		args = append(args, strings.TrimSpace(*udata.SendAsEmail))
 		argPos++
 	}
 	if udata.Status != nil {
@@ -1002,7 +1041,11 @@ func (r *emailRepository) Update(ctx context.Context, userID, emailAccountID str
 		argPos++
 	}
 
-	if argPos == 3 {
+	// Tags are not a column on the row, so a patch that only moves them still
+	// leaves setClauses empty. Refusing it made the mailbox drawer's tag
+	// picker unable to save on its own, which is how the dashboard sends it:
+	// only the fields that actually changed.
+	if argPos == 3 && udata.Tags == nil {
 		return nil, errx.ErrNotEnough
 	}
 
@@ -1018,9 +1061,9 @@ func (r *emailRepository) Update(ctx context.Context, userID, emailAccountID str
 	query := fmt.Sprintf(`
 		UPDATE email_accounts
 		SET %s
-		WHERE user_id = $1 AND id = $2
-		RETURNING id, organization_id, email, name, signature_plain, signature_html, signature_sync, signature_code, provider, status,
-		          COALESCE(last_synced_at, created_at) AS last_synced_at, last_id, campaign_limit, min_wait_time, reply_to, tracking_domain, tracking_domain_verified, tracking_domain_verified_at,
+		WHERE organization_id = $1 AND id = $2
+		RETURNING id, organization_id, email, name, signature_plain, signature_html, signature_sync, signature_code, send_as_email, provider, status,
+		          COALESCE(last_synced_at, created_at) AS last_synced_at, last_id, campaign_limit, min_wait_time, reply_to, tracking_domain, tracking_domain_verified, tracking_domain_verified_at, track_direct_mail,
 		          auth_state, auth_spf, auth_dkim, auth_dmarc, auth_dmarc_policy, auth_reason, auth_checked_at, auth_failing_since,
 		          warmup, warmup_paused_at, warmup_base, warmup_max, warmup_increase, warmup_reply_rate, warmup_tag, warmup_pool_type,
 		          warmup_start_time, warmup_end_time, warmup_days, save_to_sent, created_at, updated_at
@@ -1028,8 +1071,8 @@ func (r *emailRepository) Update(ctx context.Context, userID, emailAccountID str
 
 	var i models.Email
 	err = tx.QueryRow(ctx, query, args...).Scan(
-		&i.ID, &i.OrganizationID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.Provider, &i.Status,
-		&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt,
+		&i.ID, &i.OrganizationID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.SendAsEmail, &i.Provider, &i.Status,
+		&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail,
 		// The client replaces its whole cached mailbox with this row, so an
 		// incomplete object here silently blanks the domain-auth state in the
 		// dashboard on every unrelated edit.
@@ -1048,7 +1091,7 @@ func (r *emailRepository) Update(ctx context.Context, userID, emailAccountID str
 	i.Tags = make([]string, 0)
 	if udata.Tags != nil {
 		var err *errx.Error
-		i.Tags, err = SyncEmailTags(ctx, tx, emailAccountID, udata.Tags)
+		i.Tags, err = SyncEmailTags(ctx, tx, orgID, emailAccountID, udata.Tags)
 		if err != nil {
 			return nil, err
 		}
@@ -1062,7 +1105,10 @@ func (r *emailRepository) Update(ctx context.Context, userID, emailAccountID str
 	return &i, nil
 }
 
-func (r *emailRepository) BulkUpdateTags(ctx context.Context, userID string, emailIDs, addTags, removeTags []uuid.UUID) (int, *errx.Error) {
+// BulkUpdateTags rewrites tag links across many mailboxes at once. Both sides
+// are scoped by organization: the mailboxes because they belong to the
+// workspace, and the tag definitions because the registry does too.
+func (r *emailRepository) BulkUpdateTags(ctx context.Context, orgID string, emailIDs, addTags, removeTags []uuid.UUID) (int, *errx.Error) {
 	tx, err := r.DB.Begin(ctx)
 	if err != nil {
 		db.CaptureError(err, "", nil, "begin")
@@ -1071,25 +1117,25 @@ func (r *emailRepository) BulkUpdateTags(ctx context.Context, userID string, ema
 	defer tx.Rollback(ctx)
 
 	var owned int
-	countQuery := `SELECT count(*) FROM email_accounts WHERE user_id = $1 AND id = ANY($2)`
-	if err := tx.QueryRow(ctx, countQuery, userID, emailIDs).Scan(&owned); err != nil {
-		db.CaptureError(err, countQuery, []any{userID}, "queryrow")
+	countQuery := `SELECT count(*) FROM email_accounts WHERE organization_id = $1 AND id = ANY($2)`
+	if err := tx.QueryRow(ctx, countQuery, orgID, emailIDs).Scan(&owned); err != nil {
+		db.CaptureError(err, countQuery, []any{orgID}, "queryrow")
 		return 0, errx.InternalError()
 	}
 
 	if len(addTags) > 0 {
-		// Cross join owned mailboxes with the caller's own tag definitions;
+		// Cross join the workspace's mailboxes with its tag definitions;
 		// the composite PK makes re-adding an existing link a no-op.
 		insertQuery := `
 			INSERT INTO email_tags (email_id, tag_id)
 			SELECT a.id, t.id
 			FROM email_accounts a
 			CROSS JOIN tags t
-			WHERE a.user_id = $1 AND a.id = ANY($2)
-			  AND t.user_id = $1 AND t.id = ANY($3)
+			WHERE a.organization_id = $1 AND a.id = ANY($2)
+			  AND t.organization_id = $1 AND t.id = ANY($3)
 			ON CONFLICT (email_id, tag_id) DO NOTHING`
-		if _, err := tx.Exec(ctx, insertQuery, userID, emailIDs, addTags); err != nil {
-			db.CaptureError(err, insertQuery, []any{userID}, "exec")
+		if _, err := tx.Exec(ctx, insertQuery, orgID, emailIDs, addTags); err != nil {
+			db.CaptureError(err, insertQuery, []any{orgID}, "exec")
 			return 0, errx.InternalError()
 		}
 	}
@@ -1098,9 +1144,9 @@ func (r *emailRepository) BulkUpdateTags(ctx context.Context, userID string, ema
 		deleteQuery := `
 			DELETE FROM email_tags
 			WHERE tag_id = ANY($3)
-			  AND email_id IN (SELECT id FROM email_accounts WHERE user_id = $1 AND id = ANY($2))`
-		if _, err := tx.Exec(ctx, deleteQuery, userID, emailIDs, removeTags); err != nil {
-			db.CaptureError(err, deleteQuery, []any{userID}, "exec")
+			  AND email_id IN (SELECT id FROM email_accounts WHERE organization_id = $1 AND id = ANY($2))`
+		if _, err := tx.Exec(ctx, deleteQuery, orgID, emailIDs, removeTags); err != nil {
+			db.CaptureError(err, deleteQuery, []any{orgID}, "exec")
 			return 0, errx.InternalError()
 		}
 	}
@@ -1314,6 +1360,39 @@ func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID str
 	}
 	defer tx.Rollback(ctx)
 
+	// The mailbox's standing is already mirrored by address (see migration
+	// 000152); removing the row only restarts the retention window on it, so
+	// the standing is kept for the full window after the removal rather than
+	// after the last time it changed. Same predicate as the delete below.
+	bump := `
+		UPDATE warmup_reputation_ledger l
+		   SET recorded_at = now()
+		  FROM email_accounts a
+		 WHERE a.user_id = $1 AND a.id = $2
+		   AND l.organization_id = a.organization_id
+		   AND l.email = lower(btrim(a.email))
+	`
+	bumpParams := []any{userID, emailAccountID}
+	if _, err := tx.Exec(ctx, bump, bumpParams...); err != nil {
+		db.CaptureError(err, bump, bumpParams, "exec")
+		return errx.InternalError()
+	}
+
+	// Before the row goes: what the mailbox leaves outside Postgres. The
+	// sealed refresh token lives in email_accounts_oauth, which cascades away
+	// with the mailbox, so reading it afterwards is impossible and the grant
+	// would stay live at the provider forever.
+	const scope = `a.user_id = $1 AND a.id = $2`
+	if _, err := EnqueueMailboxErasures(ctx, tx, scope, userID, emailAccountID); err != nil {
+		return errx.InternalError()
+	}
+
+	// The threads this mailbox holds messages in, read while they still exist.
+	threads, err := CollectMailboxThreadState(ctx, tx, scope, userID, emailAccountID)
+	if err != nil {
+		return errx.InternalError()
+	}
+
 	query := `
 		DELETE FROM email_accounts
 		WHERE user_id = $1 AND id = $2
@@ -1330,6 +1409,13 @@ func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID str
 		return errx.InternalError()
 	}
 
+	// After the row goes: the labels and snoozes whose threads the cascade just
+	// emptied. Nothing references the mailbox from those rows, so without this
+	// the workspace keeps labels on threads with no messages left in them.
+	if err := DeleteOrphanedThreadState(ctx, tx, threads); err != nil {
+		return errx.InternalError()
+	}
+
 	if workerID != nil {
 		refund := `
 			UPDATE workers
@@ -1343,8 +1429,6 @@ func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID str
 			return errx.InternalError()
 		}
 	}
-
-	_, _ = tx.Exec(ctx, "DELETE FROM advisor_findings WHERE entity_id = $1", emailAccountID)
 
 	if err := tx.Commit(ctx); err != nil {
 		db.CaptureError(err, "", nil, "commit")
@@ -1409,13 +1493,13 @@ func (r *emailRepository) SetWarmupLifecycle(ctx context.Context, userID, emailA
 func (r *emailRepository) GetByID(ctx context.Context, emailAccountID uuid.UUID) (*models.Email, *errx.Error) {
 	query := `
 		SELECT
-		 ea.id, ea.user_id, ea.organization_id, ea.worker_id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code,
+		 ea.id, ea.user_id, ea.organization_id, ea.worker_id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code, ea.send_as_email,
 		 ea.provider, ea.status, COALESCE(ea.last_synced_at, ea.created_at) AS last_synced_at, ea.last_id, ea.campaign_limit,
-		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
+		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
 		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, ea.warmup_pool_type,
 		 ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone, ea.save_to_sent,
 		 ea.auth_state, ea.auth_failing_since,
-		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
+		 ea.created_at, ea.updated_at,
 		 COALESCE(array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}') AS tags
 		FROM email_accounts ea
 		LEFT JOIN email_tags eat ON eat.email_id = ea.id
@@ -1425,13 +1509,13 @@ func (r *emailRepository) GetByID(ctx context.Context, emailAccountID uuid.UUID)
 
 	var i models.Email
 	err := r.DB.QueryRow(ctx, query, emailAccountID).Scan(
-		&i.ID, &i.UserID, &i.OrganizationID, &i.WorkerID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode,
+		&i.ID, &i.UserID, &i.OrganizationID, &i.WorkerID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.SendAsEmail,
 		&i.Provider, &i.Status, &i.LastSyncedAt, &i.LastID, &i.CampaignLimit,
-		&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
+		&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
 		&i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
 		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone, &i.SaveToSent,
 		&i.AuthState, &i.AuthFailingSince,
-		&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
+		&i.CreatedAt, &i.UpdatedAt, &i.Tags,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -1442,6 +1526,96 @@ func (r *emailRepository) GetByID(ctx context.Context, emailAccountID uuid.UUID)
 	}
 
 	return &i, nil
+}
+
+// GetSendIdentity reads one mailbox's stored sending identity. Scoped by
+// organization like Get: a mailbox is a workspace asset.
+func (r *emailRepository) GetSendIdentity(ctx context.Context, orgID, emailAccountID string) (*models.SendIdentity, *errx.Error) {
+	query := `
+		SELECT provider, email, send_as_email, send_as, send_as_synced_at, signature_source, signature_imported_at
+		FROM email_accounts
+		WHERE organization_id = $1 AND id = $2
+	`
+
+	var out models.SendIdentity
+	var raw []byte
+	err := r.DB.QueryRow(ctx, query, orgID, emailAccountID).Scan(
+		&out.Provider, &out.MailboxEmail, &out.SendAsEmail, &raw, &out.SyncedAt, &out.SignatureSource, &out.SignatureImportedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errx.ErrNotFound
+		}
+		db.CaptureError(err, query, []any{orgID, emailAccountID}, "queryrow")
+		return nil, errx.InternalError()
+	}
+
+	out.Identities = []models.SendAsIdentity{}
+	if len(raw) > 0 {
+		// A blob we cannot read is reported as no identities rather than as an
+		// error: the list is a cache of what the provider said, and a refresh
+		// rewrites it.
+		if err := json.Unmarshal(raw, &out.Identities); err != nil {
+			db.CaptureError(err, "", nil, "unmarshal-send-as")
+			out.Identities = []models.SendAsIdentity{}
+		}
+	}
+	out.Supported = models.InboxProvider(out.Provider) == models.InboxProviderGoogle
+	return &out, nil
+}
+
+// SetSendIdentity stores a freshly read send-as list, and the signature when
+// the caller imported one.
+//
+// The chosen alias is re-checked against the new list in the same statement.
+// An alias the customer removed at the provider would otherwise stay on the
+// From header of every message until a send failed, and the provider's refusal
+// names nothing a customer could act on.
+func (r *emailRepository) SetSendIdentity(ctx context.Context, emailAccountID uuid.UUID, identities []models.SendAsIdentity, sig *models.ImportedSignature) *errx.Error {
+	if identities == nil {
+		identities = []models.SendAsIdentity{}
+	}
+	raw, err := json.Marshal(identities)
+	if err != nil {
+		db.CaptureError(err, "", nil, "marshal-send-as")
+		return errx.InternalError()
+	}
+
+	verified := make([]string, 0, len(identities))
+	for _, id := range identities {
+		if id.Verified {
+			verified = append(verified, strings.ToLower(strings.TrimSpace(id.Email)))
+		}
+	}
+
+	query := `
+		UPDATE email_accounts SET
+			send_as = $2,
+			send_as_synced_at = now(),
+			send_as_email = CASE WHEN lower(send_as_email) = ANY($3::text[]) THEN send_as_email ELSE '' END,
+			signature_html = CASE WHEN $4::boolean THEN $5 ELSE signature_html END,
+			signature_plain = CASE WHEN $4::boolean THEN $6 ELSE signature_plain END,
+			signature_source = CASE WHEN $4::boolean THEN $7 ELSE signature_source END,
+			signature_imported_at = CASE WHEN $4::boolean THEN now() ELSE signature_imported_at END,
+			updated_at = now()
+		WHERE id = $1
+	`
+
+	var sigHTML, sigPlain string
+	if sig != nil {
+		sigHTML, sigPlain = sig.HTML, sig.Plain
+	}
+	params := []any{emailAccountID, raw, verified, sig != nil, sigHTML, sigPlain, models.SignatureSourceProvider}
+
+	tag, err := r.DB.Exec(ctx, query, params...)
+	if err != nil {
+		db.CaptureError(err, query, nil, "exec")
+		return errx.InternalError()
+	}
+	if tag.RowsAffected() == 0 {
+		return errx.ErrNotFound
+	}
+	return nil
 }
 
 // GetByTags retrieves the scope's active mailboxes matching any of the tags.
@@ -1456,9 +1630,9 @@ func (r *emailRepository) GetByTags(ctx context.Context, scope AccountScope, tag
 
 	query := `
 		SELECT DISTINCT ON (ea.id)
-		 ea.id, ea.user_id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code,
+		 ea.id, ea.user_id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code, ea.send_as_email,
 		 ea.provider, ea.status, COALESCE(ea.last_synced_at, ea.created_at) AS last_synced_at, ea.last_id, ea.campaign_limit,
-		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
+		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
 		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag,
 		 ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone,
 		 ea.auth_state, ea.auth_failing_since,
@@ -1482,9 +1656,9 @@ func (r *emailRepository) GetByTags(ctx context.Context, scope AccountScope, tag
 	for rows.Next() {
 		var i models.Email
 		err := rows.Scan(
-			&i.ID, &i.UserID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode,
+			&i.ID, &i.UserID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.SendAsEmail,
 			&i.Provider, &i.Status, &i.LastSyncedAt, &i.LastID, &i.CampaignLimit,
-			&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
+			&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
 			&i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag,
 			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone,
 			&i.AuthState, &i.AuthFailingSince,
@@ -1511,9 +1685,9 @@ func (r *emailRepository) GetAllActiveInScope(ctx context.Context, scope Account
 
 	query := `
 		SELECT
-		 ea.id, ea.user_id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code,
+		 ea.id, ea.user_id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code, ea.send_as_email,
 		 ea.provider, ea.status, COALESCE(ea.last_synced_at, ea.created_at) AS last_synced_at, ea.last_id, ea.campaign_limit,
-		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
+		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
 		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag,
 		 ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone,
 		 ea.auth_state, ea.auth_failing_since,
@@ -1521,12 +1695,6 @@ func (r *emailRepository) GetAllActiveInScope(ctx context.Context, scope Account
 		FROM email_accounts ea
 		WHERE ea.organization_id = $1
 		  AND ea.status = 'active'
-		  AND NOT EXISTS (
-			SELECT 1 FROM email_tags et
-			JOIN tags t ON t.id = et.tag_id
-			WHERE et.email_id = ea.id
-			  AND LOWER(TRIM(t.title)) IN ('חימום', 'warmup')
-		  )
 		ORDER BY ea.id
 	`
 
@@ -1541,9 +1709,9 @@ func (r *emailRepository) GetAllActiveInScope(ctx context.Context, scope Account
 	for rows.Next() {
 		var i models.Email
 		err := rows.Scan(
-			&i.ID, &i.UserID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode,
+			&i.ID, &i.UserID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.SendAsEmail,
 			&i.Provider, &i.Status, &i.LastSyncedAt, &i.LastID, &i.CampaignLimit,
-			&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
+			&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
 			&i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag,
 			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone,
 			&i.AuthState, &i.AuthFailingSince,
@@ -1582,9 +1750,9 @@ func (r *emailRepository) GetByCampaignSenders(ctx context.Context, scope Accoun
 
 	query := `
 		SELECT
-		 ea.id, ea.user_id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code,
+		 ea.id, ea.user_id, ea.email, ea.name, ea.signature_plain, ea.signature_html, ea.signature_sync, ea.signature_code, ea.send_as_email,
 		 ea.provider, ea.status, COALESCE(ea.last_synced_at, ea.created_at) AS last_synced_at, ea.last_id, ea.campaign_limit,
-		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
+		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
 		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag,
 		 ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone,
 		 ea.auth_state, ea.auth_failing_since,
@@ -1611,9 +1779,9 @@ func (r *emailRepository) GetByCampaignSenders(ctx context.Context, scope Accoun
 		var i models.Email
 		var sender CampaignSenderAccount
 		err := rows.Scan(
-			&i.ID, &i.UserID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode,
+			&i.ID, &i.UserID, &i.Email, &i.Name, &i.SignaturePlain, &i.SignatureHTML, &i.SignatureSync, &i.SignatureCode, &i.SendAsEmail,
 			&i.Provider, &i.Status, &i.LastSyncedAt, &i.LastID, &i.CampaignLimit,
-			&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
+			&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
 			&i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag,
 			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone,
 			&i.AuthState, &i.AuthFailingSince,
@@ -1820,15 +1988,44 @@ func (r *emailRepository) MarkDomainAuthRecheck(ctx context.Context, domain stri
 	return err
 }
 
-func (r *emailRepository) IsWarmupOnlyMailbox(ctx context.Context, emailAccountID uuid.UUID) bool {
-	var exists bool
-	err := r.DB.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM email_tags et
-			JOIN tags t ON t.id = et.tag_id
-			WHERE et.email_id = $1
-			  AND LOWER(TRIM(t.title)) IN ('חימום', 'warmup')
-		)
-	`, emailAccountID).Scan(&exists)
-	return err == nil && exists
+// UpdateTrackDirectMail flips this mailbox's opt-in for open/click tracking on
+// hand-written sends. Scoped by organization for the same reason as the
+// tracking-domain write: a workspace admin who did not connect the mailbox must
+// still be able to manage it.
+func (r *emailRepository) UpdateTrackDirectMail(ctx context.Context, orgID, emailAccountID string, enabled bool) *errx.Error {
+	query := `
+		UPDATE email_accounts
+		SET track_direct_mail = $1
+		WHERE organization_id = $2 AND id = $3
+	`
+	params := []any{enabled, orgID, emailAccountID}
+
+	cmd, err := r.DB.Exec(ctx, query, params...)
+	if err != nil {
+		db.CaptureError(err, query, params, "exec")
+		return errx.InternalError()
+	}
+	if cmd.RowsAffected() == 0 {
+		return errx.ErrNotFound
+	}
+	return nil
+}
+
+// ListOrganizationIDs returns every workspace that has at least one mailbox.
+func (r *emailRepository) ListOrganizationIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := r.DB.Query(ctx, `SELECT DISTINCT organization_id FROM email_accounts WHERE organization_id IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }

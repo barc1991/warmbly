@@ -28,6 +28,12 @@ type ImapConn interface {
 	SelectForSync(mailbox string) (uint32, *errx.MailError)
 	SearchChangedSince(modSeq uint64) ([]goimap.UID, *errx.MailError)
 	SearchNewSince(uidNext uint32) ([]goimap.UID, *errx.MailError)
+	// SearchAll is the folder's complete UID set, the presence side of the
+	// drafts expunge reconciliation.
+	SearchAll() ([]goimap.UID, *errx.MailError)
+	// SelectForSyncGen selects like SelectForSync and reports the selected
+	// UIDVALIDITY, so the reconciliation can refuse to diff across a change.
+	SelectForSyncGen(mailbox string) (uint32, uint32, *errx.MailError)
 	FetchFlags(ctx context.Context, uidFrom uint32) (map[uint32]imap.FlagState, *errx.MailError)
 	SearchSince(since time.Time) ([]goimap.UID, *errx.MailError)
 	FetchEnvelopes(ctx context.Context, uids []goimap.UID) ([]*imap.Fetched, *errx.MailError)
@@ -38,6 +44,9 @@ type ImapConn interface {
 
 	// Warmup actions.
 	MarkAsRead(ctx context.Context, mailboxName string, uid uint32) error
+	// SetSeen is the unibox's read/unread relay: many UIDs in one folder, in
+	// one STORE, in either direction.
+	SetSeen(ctx context.Context, mailboxName string, uids []uint32, seen bool) error
 	MarkImportant(ctx context.Context, mailboxName string, uid uint32) error
 	MoveToFolder(ctx context.Context, sourceMailbox, dstFolder string, uid uint32) error
 	RemoveFromSpam(ctx context.Context, sourceMailbox, inboxName string, uid uint32) error

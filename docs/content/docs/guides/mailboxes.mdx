@@ -15,7 +15,7 @@ Open **Accounts** and choose **Add account**.
 | Outlook / Microsoft 365 | OAuth (`outlook`) | Recommended. No password stored. Runs on Microsoft Graph |
 | Any other server | IMAP + SMTP (`smtp_imap`) | Custom domains, self-hosted, or providers without OAuth. Any IMAP server works, including Outlook.com, Microsoft 365 over IMAP, Yahoo, Fastmail, Zoho, cPanel and self-hosted Dovecot |
 
-**OAuth** sends you to your provider's consent screen and returns a token instead of a password. Both OAuth providers use the provider's native API, never IMAP or SMTP, so consent asks to send mail and to read and organize your mailbox. It needs no app passwords or server settings. Note that Google revokes Gmail tokens when the account's password changes, so a password change there means [re-authorizing the mailbox](#reconnecting-an-account) once.
+**OAuth** sends you to your provider's consent screen and returns a token instead of a password. Both OAuth providers use the provider's native API, never IMAP or SMTP, so consent asks to send mail and to read and organize your mailbox. Google additionally asks to read your mail settings, which is what lets Warmbly offer the addresses Google has verified you to send as and import the signature you already wrote there. It needs no app passwords or server settings. Note that Google revokes Gmail tokens when the account's password changes, so a password change there means [re-authorizing the mailbox](#reconnecting-an-account) once.
 
 ### Multiple OAuth connection slots (Google Cloud & Microsoft)
 
@@ -85,6 +85,8 @@ Mailboxes are unlimited on every paid plan. What keeps that honest is a fair-use
 | Enterprise | custom | as many as the volume needs |
 
 That is deliberately far more than safe sending ever needs: at the recommended `30` to `50` sends a day per mailbox, a Business workspace fills its volume with a few hundred mailboxes and still has room for tens of thousands. The allowance exists so that it is never the reason to run a mailbox hotter. A plan whose daily sends are uncapped holds unlimited mailboxes, and a self-hosted instance without billing never counts.
+
+**A free workspace.** Two ways past the `10`: subscribe to any plan and keep every mailbox here, or [self-host Warmbly for free](/guides/warmbly-cloud/) and link that instance so its mailboxes warm in the same pool. Both are offered on the Accounts page while the workspace is free, and neither is required over the other.
 
 The connect dialog shows the allowance up front: a quiet count while there is room, a warning near the cap, and a clear full state that leads to the request flow instead of letting you type credentials that would be refused. When a connect is refused the answer is the same dialog, not an error toast.
 
@@ -179,13 +181,30 @@ SMTP mailboxes get a **Keep a copy of sent mail** toggle, on by default. SMTP su
 
 Turn it off when your provider already saves its own copy of anything submitted over SMTP, which Gmail, Fastmail and Zoho do, or the folder ends up with two of every message. Gmail and Outlook mailboxes connected with OAuth never show the toggle: their APIs file the copy themselves. Warmup mail is never filed, since it would bury your real sent mail.
 
-The same tab sets the **display name**, **reply-to** (empty uses the mailbox address), **signature** in plain text and HTML, and **tags** for grouping. A new display name is on the From header of the next message the mailbox sends, campaign, reply or warmup alike; nothing needs to be reconnected.
+The same tab sets the **display name**, **reply-to** (empty uses the mailbox address), **signature** in plain text and HTML, and **tags** for grouping. Tags belong to the workspace: one anybody creates is there for every teammate, on every mailbox. A new display name is on the From header of the next message the mailbox sends, campaign, reply or warmup alike; nothing needs to be reconnected.
 
-The HTML signature is placed in a block of its own one line below the body, so it arrives without the stack of blank lines above it that Apple Mail and Outlook used to show. Put any extra spacing you want inside the signature itself. The plain-text signature follows the body after a single blank line.
+The HTML signature is placed in a block of its own one line below the body, so it arrives without the stack of blank lines above it that Apple Mail and Outlook used to show. Put any extra spacing you want inside the signature itself. On a body laid out in HTML it goes inside the container the email was built in, so it lines up with the copy it signs off rather than sitting under it at the left edge of the window (the same placement as the [opt-out line](/guides/unsubscribe/#where-it-appears)). The plain-text signature follows the body after a single blank line.
 
 The signature editor has four views. **HTML** is the visual surface with bold, italic, underline, links and images. The `</>` button next to it swaps that for the raw markup, which is sent exactly as written, so a table-based signature from another tool can be pasted in whole. **Preview** renders it the way a mail client will, in its own frame. **Plain** holds the plain-text version, generated from the HTML while **Sync** is on.
 
 A signature carrying a `<style>` block, a whole HTML document, or an event handler is always edited as markup and the visual toggle is greyed out. The visual surface works by putting the markup into the page, and a signature is workspace data your teammates also see, so that markup is never given a live element to run in. Preview is how you look at it. Any `<style>` block in a signature is inlined onto the elements it matches when the email sends, the same as a campaign body.
+
+### Sending identity
+
+A Gmail mailbox can send as more than one address. Anything you have added under "Send mail as" in Gmail and finished verifying, a role address like hello@ or an address on a second domain you own, is an address Warmbly can put on the From header.
+
+Pick it under **Sending identity** on the mailbox's Settings tab. The list is read from Google, so it holds exactly what Google will accept: an alias still waiting on its verification email is shown but cannot be chosen, because Google would refuse the send. Press **Refresh addresses** after adding one in Gmail. Leaving the selection on the mailbox address, which is where every mailbox starts, changes nothing.
+
+The choice applies to campaign mail and to replies you send from the unibox. It never applies to warmup, which always uses the mailbox's own address: warmup pairs mailboxes by that address and verifies its own token against it, so an alias there would break the pairing it exists to prove.
+
+Two things worth knowing before you use one:
+
+- the alias is a From header, not a mailbox. Replies come back to the alias, which Google delivers into the same inbox, and Warmbly syncs them as usual
+- authentication follows the alias's domain, not the mailbox's. An alias on a domain with no SPF or DMARC record sends from a domain Warmbly has not checked, so set those up first and watch the mailbox's [domain authentication](/guides/deliverability/#domain-authentication) after the change
+
+**Import signature from Gmail** on the same card replaces the mailbox's signature with the one configured in Gmail, for whichever address the mailbox sends as. It writes straight away rather than waiting for the save bar, and the editor below updates to show what was stored. An empty signature in Gmail changes nothing, and one larger than Warmbly stores is refused rather than cut in half. Editing the signature here afterwards makes it yours again: nothing re-imports on its own, so a signature you have since adjusted is never overwritten behind your back.
+
+Outlook and SMTP/IMAP mailboxes have no equivalent list to read, so the card is absent for them. Their signature is written in Warmbly.
 
 ### Custom tracking domain
 
@@ -212,6 +231,24 @@ A verified domain also serves the [unsubscribe link](/guides/unsubscribe/#which-
 
 Verification proves DNS, not HTTPS, and the two are separate steps. That matters more now that the opt-out rides the same host: a certificate the recipient's browser rejects costs a spam complaint, not just a click. On Warmbly Cloud the certificate is handled for you. On a self-hosted instance installed with the bundled Caddy it is handled too: Caddy obtains one for your domain the first time a recipient loads a link on it. Behind an operator's own proxy it depends on that proxy, so a domain that verifies here but serves a certificate warning is something to raise with the operator.
 
+### Tracking direct mail
+
+Campaign mail carries an open pixel and tracked links. Mail you write by hand in the [unified inbox](/guides/unified-inbox/) does not, unless you ask for it.
+
+Turn on **Track opens and clicks on direct mail** in the mailbox's Settings tab to opt that mailbox in. From then on, HTML replies and new messages you send from that mailbox get the same open pixel and tracked links as campaign sends. Plain-text-only messages remain untracked. The results appear under [Direct mail](/guides/analytics/#direct-mail) in Analytics.
+
+It is off by default on purpose. A pixel in a one-to-one reply is a different proposition from one in a cold sequence: it costs a little deliverability, and it tracks mail to colleagues and customers who are not campaign contacts. Leave it off for a mailbox you use as a personal inbox.
+
+Two limits worth knowing before you read the numbers:
+
+- It applies to mail sent from now on. Messages already delivered carry whatever they carried when they left, so the figures start from the moment you switch it on rather than covering your history.
+- It covers mail sent through Warmbly. A reply you write in Gmail or on your phone still counts towards the sent and reply figures, because those are read from the mailbox itself, but it cannot be opened-tracked.
+- It needs an HTML part. A plain-text-only message has nowhere to place a pixel or wrapped link, so it is sent without tracking.
+
+Clicks are counted per message, not per link: Direct mail reports how many messages were clicked and when, without the per-link breakdown campaigns get.
+
+Tracking uses the same host as everything else, so a [custom tracking domain](#custom-tracking-domain) on this mailbox applies here too. On an install with no tracking host configured, direct mail goes out untracked rather than carrying a pixel that points nowhere.
+
 ## Warmup
 
 New mailboxes should warm up before carrying campaign volume. Defaults are `10`/day starting volume, `+1`/day ramp, and a `40`/day ceiling.
@@ -234,9 +271,23 @@ Leads mid-sequence on that mailbox move to another one in their campaign as they
 
 It keeps its worker assignment while off, so switching it back on puts it back on the same machine, sending from the same IP, and it resumes syncing from where it stopped instead of re-importing.
 
-**Disconnecting** removes the mailbox for good, from the Accounts selection bar. The machine syncing it is told to drop it before the record is removed, because afterwards there is nothing left to tell. If that instruction cannot be delivered, the disconnect fails with a `503` and nothing is removed, so retry it in a moment rather than assuming it worked.
+**Disconnecting** removes the mailbox for good. It is on the mailbox's own **More** menu in the list, as **Disconnect mailbox**, and at the bottom of its **Settings** tab under Danger zone. To remove several at once, tick their rows and use the selection bar. The machine syncing it is told to drop it before the record is removed, because afterwards there is nothing left to tell. If that instruction cannot be delivered, the disconnect fails with a `503` and nothing is removed, so retry it in a moment rather than assuming it worked.
 
 Everything belonging to that mailbox goes with it: its imported mail in the unibox, its warmup history and pool membership, its credentials, its sender links, and any send still scheduled for it. A campaign that was using it keeps running on its remaining senders, and the leads it had been writing to move onto them at their next step. Export the workspace first if you want a copy. Disable the mailbox instead when you only want it to stop.
+
+### What disconnecting erases
+
+Disconnecting is a deletion, not a hiding. Two parts of it finish just after the mailbox disappears from your list, because neither can be done in the instant the record goes.
+
+**The connection to your provider is handed back.** For a Gmail mailbox, Warmbly calls Google's revocation endpoint with the refresh token it held, which invalidates that token and every access token issued from it, and removes Warmbly from the third-party access list on your Google account. You do not have to go and remove it yourself. Deleting our copy of a token would not have done this; the grant would have stayed on your account.
+
+Microsoft publishes no equivalent endpoint for a single application, so an Outlook or Microsoft 365 mailbox is different: the stored tokens are destroyed here and stop being usable by Warmbly, but removing the app from your account is done by you, under [Microsoft account privacy settings](https://myaccount.microsoft.com/privacy). The only Microsoft call that ends sessions signs you out of every application you use, which is not something to do because you disconnected one mailbox.
+
+**The message bodies are deleted.** Mail Warmbly imported is stored outside the database, and those files are removed too. The rows that index them go with the mailbox immediately; the files follow within about a minute.
+
+If either step cannot finish, because a provider is down or storage is briefly unreachable, it is retried until it does rather than being given up on. Nothing else is left: the thread labels and snooze timers on conversations that existed only in that mailbox go as well, and a conversation that also ran through a mailbox you kept keeps its labels.
+
+Closing the whole workspace does the same thing for every mailbox in it, for the same reasons.
 
 ## Worker assignment
 
@@ -252,9 +303,9 @@ Every worker is the same kind of worker. There are no tiers to qualify for and n
 - how much of your workspace is already on that one machine, so a single failure never stops all of your sending
 - how many other mailboxes on the same provider already sign in from that address
 
-Each mailbox contributes a load weight, so a worker's planned volume tracks the sum of its mailboxes' budgets rather than a flat machine limit.
+Each assigned mailbox counts as one unit against the worker's configurable planning target. Provider sending budgets remain attached to each mailbox and do not reduce the worker target.
 
-**Mailboxes move only when there is a reason.** A worker going offline, getting blocked, or running out of capacity will move yours. Ordinary rebalancing will not: a settled mailbox has to have been in place for three days before it is even considered, and the alternative has to be meaningfully better. A mailbox that never moves is the ideal, not a stuck one.
+**Mailboxes move only when there is a reason.** A worker going offline or running hot (above 85% of its planning target) will move yours. Warmbly also corrects workspace or provider concentration across the live fleet. A settled mailbox has to have been in place for three days before an ordinary rebalance is considered, and the alternative has to be meaningfully better. A mailbox that never needs to move is the ideal, not a stuck one.
 
 Plans that include reserved sending give your workspace a worker no other customer sends from, so your mailboxes always sign in from an address that is yours alone. It is a preference, not a lock: if that machine goes down your mailboxes keep working on the rest of the fleet and return when a replacement is ready.
 
@@ -296,7 +347,7 @@ This is not the same as the risk band that decides which sending worker and IP h
 
 The Accounts list groups mailboxes as **Healthy** (sending normally), **Warming** (ramping through warmup), or **Needs attention** (paused, failing, or not sending), each row showing a live state and score. A drop between refreshes notifies you rather than waiting to be noticed.
 
-The detail drawer runs a live `SPF`, `DKIM`, and `DMARC` check on your sending domain. Confirm it is green before sending; major providers require alignment for bulk and cold mail. A domain that stays Failing eventually stops cold sending and warmup from every mailbox on it, so fix the records and press **Re-check** to clear it straight away. See [Deliverability](/guides/deliverability/) for the grace period and exactly what is stopped.
+The detail drawer runs a live `SPF`, `DKIM`, and `DMARC` check on your sending domain. Confirm it is green before sending; major providers require alignment for bulk and cold mail. A domain that stays Failing eventually stops cold sending and warmup from every mailbox on it, so fix the records and press **Re-check** to clear it straight away. DKIM reads **Not verified** rather than Missing when no key answers, because its selector is not something DNS can be asked for; that never gates sending. See [Deliverability](/guides/deliverability/) for the grace period and exactly what is stopped.
 
 Underneath, health moves through `healthy`, `watch`, `throttled`, `quarantined`, and `blocked`. These feed warmup pool selection, which only picks healthy mailboxes as partners, so an unhealthy one can be lowered in volume, removed from the pool, or blocked entirely. A blocked mailbox shows the reason and any appeal option on the Warmup tab, and must requalify on a fresh probation sample rather than waiting out the clock.
 

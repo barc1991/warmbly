@@ -69,13 +69,7 @@ func (s *emailService) OAuthReauth(ctx context.Context, userID string, orgID *uu
 		return nil, xerr
 	}
 
-	url := cfg.AuthCodeURL(
-		state,
-		oauth2.AccessTypeOffline,
-		oauth2.ApprovalForce, // force refresh_token issuance on reconnect
-		// Preselect the mailbox being renewed in the provider's picker.
-		oauth2.SetAuthURLParam("login_hint", account.Email),
-	)
+	url := cfg.AuthCodeURL(state, authCodeOptions(provider, account.Email)...)
 	return &models.EmailOnboardingStartResponse{URL: url, State: state}, nil
 }
 
@@ -118,6 +112,12 @@ func (s *emailService) finishReauth(ctx context.Context, sess *models.EmailOnboa
 	if err := s.emailRepository.RefreshBoxToken(ctx, account.ID, tok.AccessToken, refresh, tok.Expiry); err != nil {
 		return nil, errx.InternalError()
 	}
+
+	// The send-as list can have changed while the mailbox was disconnected,
+	// and a stale one is what would put a removed alias on the From header.
+	// The signature is deliberately not re-imported: a reconnect is a repair,
+	// not a moment to overwrite what someone has since edited here.
+	s.captureSendIdentityList(ctx, account, tok)
 
 	return s.reconnectAccount(ctx, account.ID)
 }
@@ -182,8 +182,11 @@ func (s *emailService) reconnectAccount(ctx context.Context, accountID uuid.UUID
 	if account == nil {
 		return nil, errx.ErrNotFound
 	}
+	if account.OrganizationID == nil {
+		return nil, errx.ErrNoOrganization
+	}
 	status := "active"
-	updated, xerr := s.Update(ctx, account.UserID, account.ID.String(), &models.UpdateEmail{Status: &status})
+	updated, xerr := s.Update(ctx, account.OrganizationID.String(), account.UserID, account.ID.String(), &models.UpdateEmail{Status: &status})
 	if xerr != nil {
 		return nil, xerr
 	}

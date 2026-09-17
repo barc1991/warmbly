@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/mail"
 	"slices"
@@ -11,12 +12,27 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/warmbly/warmbly/internal/app/inboxtag"
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/infrastructure/pubsub"
 	"github.com/warmbly/warmbly/internal/models"
 )
 
 func (s *JobsService) HandleNewEmail(ctx context.Context, e *models.JobEventNewEmail) error {
+	err := s.ingestNewEmail(ctx, e)
+	if errors.Is(err, errWarmupVerification) && s.UniboxRepository != nil {
+		if storeErr := s.UniboxRepository.DeferWarmupVerification(ctx, e); storeErr != nil {
+			return fmt.Errorf("defer inbox arrival: %w", storeErr)
+		}
+		log.Warn().Err(err).Str("email_id", e.Message.EmailID.String()).Msg("inbox arrival queued for warmup verification")
+		return nil
+	}
+	return err
+}
+
+var errWarmupVerification = errors.New("warmup verification unavailable")
+
+func (s *JobsService) ingestNewEmail(ctx context.Context, e *models.JobEventNewEmail) error {
 	// Drop malformed events rather than dereferencing nil: this handler runs on
 	// the shared consumer, so one bad payload would otherwise panic the process
 	// and stop every org's event processing.
@@ -24,34 +40,24 @@ func (s *JobsService) HandleNewEmail(ctx context.Context, e *models.JobEventNewE
 		log.Warn().Msg("NEW_EMAIL event without a message body, dropping")
 		return nil
 	}
-	// Check for warmup token header in message headers.
-	// Try the current header name first, then the legacy "X-Warmbly-Token"
-	// so messages in flight during the rollout continue to verify.
-	warmupToken := extractHeaderValue(e.Message, config.WarmupVerifyHeader)
-	if warmupToken == "" {
-		warmupToken = extractHeaderValue(e.Message, "X-Warmbly-Token")
-	}
-	// A mailbox Warmbly Cloud warms receives the cloud's tokens: the cloud
-	// vouches for those; anything else is ordinary mail this instance cannot score.
-	if warmupToken != "" && s.CloudLink != nil && s.CloudLink.IsEnrolled(ctx, e.Message.EmailID) {
-		if ok, err := s.CloudLink.VerifyWarmupToken(ctx, e.Message.EmailID, warmupToken); err == nil && ok {
-			return nil
-		}
-		warmupToken = ""
-	}
+	warmupToken := warmupTokenFromMessage(e.Message)
 	if warmupToken != "" {
 		handled, err := s.handleWarmupEmail(ctx, e, warmupToken)
 		if err != nil {
-			// Log but don't block normal processing
-			CaptureError(e.UserID, e.Message.EmailID, fmt.Errorf("warmup handling error: %w", err))
+			return fmt.Errorf("%w: %w", errWarmupVerification, err)
 		}
 		if handled {
-			return nil // Don't add to unibox
+			return nil
 		}
-	} else if s.handleUnmarkedWarmupEmail(ctx, e) {
-		// Warmup whose verify header did not survive delivery. Every Microsoft
-		// mailbox sends this way, so without this branch its warmup mail is
-		// filed as ordinary inbox mail at every recipient.
+	}
+	if handled, err := s.handleUnmarkedWarmupEmail(ctx, e); err != nil {
+		return fmt.Errorf("%w: %w", errWarmupVerification, err)
+	} else if handled {
+		return nil
+	}
+	if warmup, err := s.isKnownWarmupEmail(ctx, e); err != nil {
+		return fmt.Errorf("%w: %w", errWarmupVerification, err)
+	} else if warmup {
 		return nil
 	}
 
@@ -91,12 +97,24 @@ func (s *JobsService) HandleNewEmail(ctx context.Context, e *models.JobEventNewE
 		}
 	}
 
+	// Automatic tagging. Optional, off unless an operator configured it, and
+	// best-effort in exactly the same way as the reply automation below: a
+	// classification that fails must never cost the workspace the message.
+	//
+	// MayBeInbound is the direction filter, read from the folder rather than
+	// guessed from the content. Given only a body, the model called our own
+	// outbound a human reply at 0.94 confidence, so direction is decided here
+	// and the model is never asked.
+	if s.InboxTagger.Enabled() && e.Message.MayBeInbound() {
+		s.tagInboundMessage(ctx, e)
+	}
+
 	// Advanced reply-intent automation is best-effort and should not block inbox
 	// ingest. ProcessIncomingReply also runs the layered reply classifier
 	// (replyclassify) and persists reply_class/confidence/source on the contact's
 	// campaign progress, gating replied_at so automated replies (auto_reply /
 	// out_of_office) never count as a human reply for stop_on_reply / branching.
-	if s.AdvancedService != nil {
+	if s.AdvancedService != nil && e.Message.MayBeInbound() {
 		// Logged, not propagated: the ingest must survive it, but a silent
 		// failure here is indistinguishable from a reply that linked fine.
 		if xerr := s.AdvancedService.ProcessIncomingReply(ctx, e.Message.EmailID, e.Message); xerr != nil {
@@ -146,15 +164,15 @@ func extractHeaderValue(msg *models.EmailMessageStoreData, headerName string) st
 
 	// Check flags for X-Warmbly-Token (workers store custom headers in flags for detection)
 	for _, flag := range msg.Flags {
-		if strings.HasPrefix(flag, headerName+":") {
-			return strings.TrimPrefix(flag, headerName+":")
+		if name, value, ok := strings.Cut(flag, ":"); ok && strings.EqualFold(strings.TrimSpace(name), headerName) {
+			return strings.TrimSpace(value)
 		}
 	}
 
 	return ""
 }
 
-// handleWarmupEmail handles a detected warmup email
+// handleWarmupEmail hides either verified copy; only a live recipient token triggers engagement.
 func (s *JobsService) handleWarmupEmail(ctx context.Context, e *models.JobEventNewEmail, tokenStr string) (bool, error) {
 	if s.WarmupRepo == nil {
 		return false, nil
@@ -162,25 +180,31 @@ func (s *JobsService) handleWarmupEmail(ctx context.Context, e *models.JobEventN
 
 	tokenUUID, err := uuid.Parse(tokenStr)
 	if err != nil {
-		// Invalid format → record attempt
-		s.applyInvalidWarmupAttempt(ctx, e.Message.EmailID, tokenStr, 0)
-		return false, nil // Process as normal email
-	}
-
-	token, err := s.WarmupRepo.GetWarmupToken(ctx, tokenUUID)
-	if err != nil || token == nil {
-		// Token not found/expired → suspicious
-		s.applyInvalidWarmupAttempt(ctx, e.Message.EmailID, tokenStr, 5)
 		return false, nil
 	}
 
-	// Verify recipient matches
+	token, err := s.WarmupRepo.FindWarmupToken(ctx, tokenUUID)
+	if err != nil {
+		return false, fmt.Errorf("warmup token lookup: %w", err)
+	}
+	if token == nil {
+		return false, nil
+	}
 	if token.RecipientAccountID != e.Message.EmailID {
-		s.applyInvalidWarmupAttempt(ctx, e.Message.EmailID, tokenStr, 0)
-		return false, nil
+		// A foreign token is never evidence against the receiving mailbox.
+		if token.SenderAccountID != e.Message.EmailID {
+			log.Info().
+				Str("email_account_id", e.Message.EmailID.String()).
+				Str("token_sender", token.SenderAccountID.String()).
+				Str("token_recipient", token.RecipientAccountID.String()).
+				Msg("warmup token for another mailbox arrived; filed as ordinary mail")
+		}
+		return token.SenderAccountID == e.Message.EmailID, nil
 	}
 
-	s.acceptWarmupEmail(ctx, e, token)
+	if token.ConsumedAt == nil && token.ExpiresAt.After(time.Now()) {
+		s.acceptWarmupEmail(ctx, e, token)
+	}
 	return true, nil
 }
 
@@ -189,13 +213,9 @@ func (s *JobsService) handleWarmupEmail(ctx context.Context, e *models.JobEventN
 // re-stamps the Message-ID), so mail sent from an Outlook or Microsoft 365
 // mailbox reaches every recipient carrying no marker at all; matched only on
 // the header it would count for nobody and be filed as ordinary inbox mail.
-//
-// Unlike the header path a miss here is not suspicious — almost every message
-// that reaches this point is simply ordinary mail — so nothing is recorded as
-// an invalid attempt.
-func (s *JobsService) handleUnmarkedWarmupEmail(ctx context.Context, e *models.JobEventNewEmail) bool {
+func (s *JobsService) handleUnmarkedWarmupEmail(ctx context.Context, e *models.JobEventNewEmail) (bool, error) {
 	if s.WarmupRepo == nil || e.Message == nil {
-		return false
+		return false, nil
 	}
 	token, err := s.WarmupRepo.FindDeliveredWarmupToken(
 		ctx,
@@ -205,18 +225,73 @@ func (s *JobsService) handleUnmarkedWarmupEmail(ctx context.Context, e *models.J
 		e.Message.Subject,
 	)
 	if err != nil {
-		CaptureError(e.UserID, e.Message.EmailID, fmt.Errorf("unmarked warmup lookup: %w", err))
-		return false
+		return false, fmt.Errorf("unmarked warmup lookup: %w", err)
 	}
 	if token == nil {
-		return false
+		return false, nil
 	}
 	log.Debug().
 		Str("token", token.Token.String()).
 		Str("email_account_id", e.Message.EmailID.String()).
 		Msg("verified warmup mail that arrived without its verify header")
 	s.acceptWarmupEmail(ctx, e, token)
-	return true
+	return true, nil
+}
+
+const cloudWarmupCheckTimeout = 5 * time.Second
+
+func warmupTokenFromMessage(message *models.EmailMessageStoreData) string {
+	if token := extractHeaderValue(message, config.WarmupVerifyHeader); token != "" {
+		return token
+	}
+	return extractHeaderValue(message, "X-Warmbly-Token")
+}
+
+// isKnownWarmupEmail separates inbox visibility from single-use recipient engagement.
+func (s *JobsService) isKnownWarmupEmail(ctx context.Context, e *models.JobEventNewEmail) (bool, error) {
+	token, tokenErr := uuid.Parse(warmupTokenFromMessage(e.Message))
+	sender := firstSenderAddress(e.Message.FromAddr)
+	if s.WarmupRepo != nil {
+		if tokenErr == nil {
+			known, err := s.WarmupRepo.FindWarmupToken(ctx, token)
+			if err != nil {
+				return false, fmt.Errorf("warmup visibility token lookup: %w", err)
+			}
+			if known != nil && (known.SenderAccountID == e.Message.EmailID || known.RecipientAccountID == e.Message.EmailID) {
+				return true, nil
+			}
+		}
+		known, err := s.WarmupRepo.IsWarmupDelivery(ctx, e.Message.EmailID, sender, e.Message.MessageID, e.Message.Subject)
+		if err != nil || known {
+			return known, err
+		}
+	}
+	if s.CloudLink == nil {
+		return false, nil
+	}
+	enrolled, err := s.CloudLink.CheckEnrollment(ctx, e.Message.EmailID)
+	if err != nil {
+		return false, fmt.Errorf("cloud warmup enrollment lookup: %w", err)
+	}
+	if !enrolled {
+		return false, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, cloudWarmupCheckTimeout)
+	defer cancel()
+	if tokenErr == nil {
+		known, err := s.CloudLink.VerifyWarmupToken(ctx, e.Message.EmailID, token.String())
+		if err != nil {
+			return false, fmt.Errorf("cloud warmup token verification: %w", err)
+		}
+		if known {
+			return true, nil
+		}
+	}
+	known, err := s.CloudLink.IsCloudWarmupDelivery(ctx, e.Message.EmailID, sender, e.Message.MessageID, e.Message.Subject)
+	if err != nil {
+		return false, fmt.Errorf("cloud warmup delivery verification: %w", err)
+	}
+	return known, nil
 }
 
 // firstSenderAddress pulls the bare address out of the first From value
@@ -380,31 +455,6 @@ func (s *JobsService) recipientProviderDomain(ctx context.Context, accountID uui
 	return acc.Provider, domain
 }
 
-func (s *JobsService) applyInvalidWarmupAttempt(ctx context.Context, accountID uuid.UUID, attemptedToken string, scoreDelta int) {
-	if s.WarmupService != nil {
-		if health, err := s.WarmupService.ApplyInvalidTokenAttempt(ctx, accountID, attemptedToken, scoreDelta); err == nil {
-			s.markRiskBandFromWarmupHealth(ctx, accountID, health)
-			return
-		}
-	}
-
-	if s.WarmupRepo == nil {
-		return
-	}
-
-	// Degraded mode (no warmup service): record the raw signal only. All
-	// blocking is owned by the banded health model (evaluateMetrics), which
-	// already enforces the invalid-token threshold with a blocked_until and an
-	// appeal path. The old checkAndAutoBlock issued permanent blocks
-	// (blocked_until = NULL) that UpdateParticipantHealth then refused to ever
-	// re-evaluate — a divergent dead-end that is now removed.
-	_ = s.WarmupRepo.RecordInvalidTokenAttempt(ctx, accountID, attemptedToken)
-	if scoreDelta > 0 {
-		_, _ = s.WarmupRepo.IncrementSpamScore(ctx, accountID, scoreDelta)
-	}
-	s.markRiskBandFromWarmupHealth(ctx, accountID, nil)
-}
-
 // containsSpamFlag checks if any flag is a spam flag
 func containsSpamFlag(flags []string) bool {
 	spamFlags := []string{"\\Junk", "\\Spam", "SPAM", "Junk"}
@@ -414,4 +464,60 @@ func containsSpamFlag(flags []string) bool {
 		}
 	}
 	return false
+}
+
+// tagInboundMessage runs the optional automatic tagger for one arrival.
+//
+// Everything here is best-effort: the message is already stored and visible by
+// the time this runs, so a tagging failure costs a label, never the mail. The
+// campaign name and our previous message in the thread are looked up in code,
+// because they are facts and a question about a fact is a question that can be
+// answered confidently and wrongly.
+func (s *JobsService) tagInboundMessage(ctx context.Context, e *models.JobEventNewEmail) {
+	orgID, err := s.orgForMailbox(ctx, e.Message.EmailID)
+	if err != nil || orgID == uuid.Nil {
+		return
+	}
+
+	// Our previous message in the thread, read from the database rather than
+	// asked. A reply is an answer, and the question it answers is not in it:
+	// without this, "yes" and "that works" carry no meaning for the model.
+	previous, campaign := s.InboxTagger.PreviousContext(ctx, e.Message.EmailID, e.Message.ThreadID, e.Message.InternalDate)
+
+	msg := inboxtag.MessageFrom(orgID, e.UserID, e.Message, nil, previous, campaign)
+	d, err := s.InboxTagger.Classify(ctx, msg)
+	if err != nil {
+		log.Warn().Err(err).
+			Str("email_account_id", e.Message.EmailID.String()).
+			Str("message_id", e.Message.MessageID).
+			Msg("Inbox tagging failed; ingest kept")
+		return
+	}
+
+	// Tell the dashboard the message changed.
+	//
+	// The arrival event above this already fired, and it fired BEFORE the
+	// labels existed: classifying makes a network call, so putting it ahead of
+	// the arrival would hold every message back by the length of that call for
+	// the sake of a chip. The mail therefore lands instantly and untagged, and
+	// this second event is what makes the label appear a moment later without
+	// anybody reloading. Without it the tag showed up on the next refetch,
+	// which is a refresh, a scope change, or whenever the 30s cache went stale.
+	if d.KindSource != "" {
+		s.publishEmailUpdated(ctx, e.UserID, e.Message)
+	}
+}
+
+// orgForMailbox resolves the workspace that owns a mailbox. Tagging is scoped
+// per workspace (labels, storage, idempotency), so a mailbox with no org is not
+// taggable rather than taggable into nowhere.
+func (s *JobsService) orgForMailbox(ctx context.Context, accountID uuid.UUID) (uuid.UUID, error) {
+	if s.EmailRepository == nil {
+		return uuid.Nil, nil
+	}
+	account, xerr := s.EmailRepository.GetByID(ctx, accountID)
+	if xerr != nil || account == nil || account.OrganizationID == nil {
+		return uuid.Nil, nil
+	}
+	return *account.OrganizationID, nil
 }

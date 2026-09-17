@@ -31,10 +31,22 @@ func (s *JobsService) HandleFlagsAdd(ctx context.Context, e *models.JobEventFlag
 		}
 	}
 
-	email, err := s.UniboxRepository.GetByID(ctx, e.UserID, e.ID)
+	email, err := s.emailForSyncUpdate(ctx, e.UserID, e.ID, func(message *models.EmailMessageStoreData) {
+		for _, flag := range e.Flags {
+			if !slices.Contains(message.Flags, flag) {
+				message.Flags = append(message.Flags, flag)
+			}
+		}
+		if containsSpamFlag(e.Flags) && message.Folder != models.FolderTrash {
+			message.Folder = models.FolderSpam
+		}
+	})
 	if err != nil {
 		CaptureError(e.UserID, e.EmailID, fmt.Errorf("Email (%s): %w", e.ID.String(), err))
 		return err
+	}
+	if email == nil {
+		return nil
 	}
 
 	// Check if a warmup email is being flagged as spam
@@ -49,10 +61,16 @@ func (s *JobsService) HandleFlagsAdd(ctx context.Context, e *models.JobEventFlag
 						s.markRiskBandFromWarmupHealth(ctx, token.SenderAccountID, health)
 					} else {
 						// Degraded mode (no warmup service): record the raw signal
-						// only. Blocking is owned solely by the banded health model
-						// (evaluateMetrics) so all blocks carry a blocked_until +
-						// appeal path; the old permanent auto-block diverged from it.
-						_, _ = s.WarmupRepo.IncrementSpamScore(ctx, token.SenderAccountID, 10)
+						// so the bands count it whenever they next run. Blocking is
+						// owned solely by the banded health model (evaluateMetrics)
+						// so every block carries a blocked_until and an appeal path.
+						_, _ = s.WarmupRepo.RecordSpamReport(ctx, &repository.SpamReport{
+							ID:                uuid.New(),
+							ReporterAccountID: e.EmailID,
+							ReportedAccountID: token.SenderAccountID,
+							MessageID:         email.MessageID,
+							ReportType:        "user_complaint",
+						})
 						s.markRiskBandFromWarmupHealth(ctx, token.SenderAccountID, nil)
 					}
 				}
@@ -111,10 +129,18 @@ func warmupTokenFromFlags(flags []string) string {
 }
 
 func (s *JobsService) HandleFlagsRemove(ctx context.Context, e *models.JobEventFlags) error {
-	email, err := s.UniboxRepository.GetByID(ctx, e.UserID, e.ID)
+	email, err := s.emailForSyncUpdate(ctx, e.UserID, e.ID, func(message *models.EmailMessageStoreData) {
+		message.Flags = slices.DeleteFunc(message.Flags, func(flag string) bool { return slices.Contains(e.Flags, flag) })
+		if message.Folder == models.FolderSpam && !containsSpamFlag(message.Flags) {
+			message.Folder = models.FolderInbox
+		}
+	})
 	if err != nil {
 		CaptureError(e.UserID, e.EmailID, fmt.Errorf("Email (%s): %w", e.ID.String(), err))
 		return err
+	}
+	if email == nil {
+		return nil
 	}
 
 	if len(email.Flags) == 0 {

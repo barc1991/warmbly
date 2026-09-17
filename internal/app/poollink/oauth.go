@@ -14,6 +14,7 @@ import (
 	"github.com/warmbly/warmbly/internal/infrastructure/cache"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/crypt"
+	"github.com/warmbly/warmbly/internal/repository"
 )
 
 // Cloud-managed mailboxes: the consent runs on this deployment's OAuth app,
@@ -302,5 +303,28 @@ func (s *service) VerifyWarmupToken(ctx context.Context, inst *models.PoolLinkIn
 	if err != nil {
 		return false, errx.InternalError()
 	}
-	return t != nil && t.RecipientAccountID == m.EmailAccountID, nil
+	return t != nil && (t.RecipientAccountID == m.EmailAccountID || t.SenderAccountID == m.EmailAccountID), nil
+}
+
+// VerifyWarmupDelivery answers for warmup mail whose verify header did not
+// survive delivery, which is every send from a Microsoft mailbox.
+func (s *service) VerifyWarmupDelivery(ctx context.Context, inst *models.PoolLinkInstance, remoteID uuid.UUID, q models.PoolLinkWarmupDeliveryQuery) (bool, *errx.Error) {
+	m, err := s.repo.GetMailboxByRemote(ctx, inst.ID, remoteID)
+	if err != nil {
+		return false, errx.InternalError()
+	}
+	if m == nil {
+		return false, ErrMailboxNotFound
+	}
+	if s.warmup == nil {
+		return false, nil
+	}
+	ok, err := s.warmup.IsWarmupDelivery(ctx, m.EmailAccountID, q.Sender, q.MessageID, q.Subject)
+	if errors.Is(err, repository.ErrWarmupDeliveryPending) {
+		return false, errx.ErrServiceDown
+	}
+	if err != nil {
+		return false, errx.InternalError()
+	}
+	return ok, nil
 }

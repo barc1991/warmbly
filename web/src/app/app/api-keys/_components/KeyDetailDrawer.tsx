@@ -6,7 +6,7 @@
 //   - usage graph (24h request volume, status-code split)
 //   - top endpoints
 //   - recent request log
-//   - actions (revoke, edit name/description)
+//   - actions (revoke, delete once revoked, edit name/description)
 //
 // Slides in from the right; closes on backdrop click or Escape.
 
@@ -23,20 +23,24 @@ import {
     NetworkIcon,
     RefreshCwIcon,
     ShieldCheckIcon,
+    Trash2Icon,
     TrashIcon,
     XIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
 import type APIKey from "@/lib/api/models/app/apikeys/APIKey";
+import { keyCanAuthenticate, keyStatus } from "@/lib/api/models/app/apikeys/APIKey";
 import useAPIKeyAnalytics from "@/lib/api/hooks/app/api-keys/useAPIKeyAnalytics";
 import useAPIKeyUsageLogs from "@/lib/api/hooks/app/api-keys/useAPIKeyUsageLogs";
 import useAPIPermissions from "@/lib/api/hooks/app/api-keys/useAPIPermissions";
-import { getPermissionDescription } from "@/lib/api/models/app/apikeys/APIPermission";
 import useRevokeAPIKey from "@/lib/api/hooks/app/api-keys/useRevokeAPIKey";
+import useDeleteAPIKey from "@/lib/api/hooks/app/api-keys/useDeleteAPIKey";
 import useUpdateAPIKey from "@/lib/api/hooks/app/api-keys/useUpdateAPIKey";
 import { StackedBars } from "./Sparkline";
 import { useConfirm } from "@/hooks/context/confirm";
+import type { AppError } from "@/lib/api/client/normalizeError";
+import buildError from "@/lib/helper/buildError";
 
 export default function KeyDetailDrawer({
     apiKey,
@@ -70,7 +74,7 @@ export default function KeyDetailDrawer({
                         animate={{ x: 0 }}
                         exit={{ x: "100%" }}
                         transition={{ type: "tween", ease: "easeOut", duration: 0.2 }}
-                        className="fixed right-0 rtl:right-auto rtl:left-0 top-0 bottom-0 z-50 w-[640px] max-w-full bg-white border-l rtl:border-l-0 rtl:border-r border-slate-200 shadow-[-20px_0_40px_-12px_rgba(15,23,42,0.16)] flex flex-col"
+                        className="fixed right-0 top-0 bottom-0 z-50 w-[640px] max-w-full bg-white border-l border-slate-200 shadow-[-20px_0_40px_-12px_rgba(15,23,42,0.16)] flex flex-col"
                     >
                         <Inner apiKey={apiKey} onClose={onClose} />
                     </motion.aside>
@@ -85,6 +89,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
     const logs = useAPIKeyUsageLogs(apiKey.id, { limit: 50 });
     const perms = useAPIPermissions();
     const revoke = useRevokeAPIKey();
+    const remove = useDeleteAPIKey();
     const update = useUpdateAPIKey();
     const confirm = useConfirm();
 
@@ -99,7 +104,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
 
     function saveEdit() {
         if (!name.trim()) {
-            toast.error("שם המפתח הוא שדה חובה");
+            toast.error("Name is required");
             return;
         }
         update.mutate(
@@ -110,23 +115,40 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
             {
                 onSuccess: () => {
                     setEditing(false);
-                    toast.success("נשמר בהצלחה");
+                    toast.success("Saved");
                 },
-                onError: () => toast.error("השמירה נכשלה"),
+                onError: () => toast.error("Failed to save"),
             },
         );
     }
 
     function confirmRevoke() {
         confirm.show(
-            `לבטל את המפתח "${apiKey.name}"? בקשות שישתמשו במפתח זה ייכשלו באופן מיידי.`,
+            `Revoke "${apiKey.name}"? Requests authenticating with this key will start failing immediately.`,
             async () => {
                 try {
-                    await revoke.mutateAsync({ id: apiKey.id, reason: "בוטל על ידי המשתמש" });
-                    toast.success("המפתח בוטל בהצלחה");
+                    await revoke.mutateAsync({ id: apiKey.id, reason: "Revoked by user" });
+                    toast.success("Key revoked");
                     onClose();
                 } catch {
-                    toast.error("ביטול המפתח נכשל");
+                    toast.error("Failed to revoke");
+                }
+            },
+        );
+    }
+
+    // Deleting is the second step after revoking, never a shortcut past it:
+    // the backend refuses a key that can still authenticate.
+    function confirmDelete() {
+        confirm.show(
+            `Delete "${apiKey.name}" for good? The key and its request history are removed, and that cannot be undone.`,
+            async () => {
+                try {
+                    await remove.mutateAsync(apiKey.id);
+                    toast.success("Key deleted");
+                    onClose();
+                } catch (err) {
+                    toast.error(buildError(err as AppError));
                 }
             },
         );
@@ -142,18 +164,18 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
             {/* Header */}
             <div className="h-12 px-5 border-b border-slate-200 flex items-center gap-2 shrink-0">
                 <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    מפתח API
+                    API key
                 </span>
                 <div className="h-4 w-px bg-slate-200" />
                 <span className="font-mono text-[11.5px] text-slate-900 truncate">
                     {apiKey.key_prefix}…{apiKey.key_suffix}
                 </span>
-                <StatusBadge status={apiKey.status} />
+                <StatusBadge status={keyStatus(apiKey)} />
                 <button
                     type="button"
                     onClick={onClose}
-                    className="ms-auto w-7 h-7 rounded-md hover:bg-slate-100 inline-flex items-center justify-center text-slate-500 hover:text-slate-900"
-                    aria-label="סגירה"
+                    className="ml-auto w-7 h-7 rounded-md hover:bg-slate-100 inline-flex items-center justify-center text-slate-500 hover:text-slate-900"
+                    aria-label="Close"
                 >
                     <XIcon className="w-3.5 h-3.5" />
                 </button>
@@ -175,7 +197,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 rows={2}
-                                placeholder="תיאור המפתח"
+                                placeholder="Description"
                                 className="w-full px-2.5 py-1.5 rounded-md border border-slate-200 focus:border-sky-400 focus:ring-1 focus:ring-sky-200 outline-none text-[12px] resize-none"
                             />
                             <div className="flex items-center gap-1.5">
@@ -186,14 +208,14 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                                     className="h-7 px-3 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] inline-flex items-center gap-1.5 disabled:opacity-60"
                                 >
                                     {update.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                                    שמירה
+                                    Save
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setEditing(false)}
                                     className="h-7 px-3 rounded-md border border-slate-200 text-[12px] text-slate-700 hover:border-slate-300"
                                 >
-                                    ביטול
+                                    Cancel
                                 </button>
                             </div>
                         </div>
@@ -201,13 +223,13 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                         <div>
                             <div className="flex items-center gap-2">
                                 <h2 className="text-[15px] font-medium text-slate-900 truncate">{apiKey.name}</h2>
-                                {apiKey.status === "active" && (
+                                {keyCanAuthenticate(apiKey) && (
                                     <button
                                         type="button"
                                         onClick={() => setEditing(true)}
                                         className="text-[11px] text-sky-700 hover:text-sky-900 underline-offset-2 hover:underline"
                                     >
-                                        עריכה
+                                        Edit
                                     </button>
                                 )}
                             </div>
@@ -215,9 +237,9 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                                 <p className="text-[12px] text-slate-500 mt-0.5 leading-relaxed">{apiKey.description}</p>
                             )}
                             <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 text-[10.5px]">
-                                <MiniField label="נוצר" value={fmtRelative(apiKey.created_at)} />
-                                <MiniField label="שימוש אחרון" value={apiKey.last_used_at ? fmtRelative(apiKey.last_used_at) : "מעולם לא"} />
-                                <MiniField label="כתובת IP אחרונה" value={apiKey.last_request_ip || "-"} mono />
+                                <MiniField label="Created" value={fmtRelative(apiKey.created_at)} />
+                                <MiniField label="Last used" value={apiKey.last_used_at ? fmtRelative(apiKey.last_used_at) : "never"} />
+                                <MiniField label="Last IP" value={apiKey.last_request_ip || "—"} mono />
                             </div>
                         </div>
                     )}
@@ -226,19 +248,19 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                 {/* Quick stats */}
                 <section className="grid grid-cols-3 border-b border-slate-200/60 bg-slate-50/40">
                     <QuickStat
-                        label="בקשות · 24 שעות"
+                        label="Requests · 24h"
                         value={analytics.data?.total ?? 0}
                         icon={<ActivityIcon className="w-3 h-3" />}
                     />
                     <QuickStat
-                        label="שגיאות · 24 שעות"
+                        label="Errors · 24h"
                         value={analytics.data?.errors ?? 0}
                         icon={<AlertCircleIcon className="w-3 h-3" />}
                         accent={(analytics.data?.errors ?? 0) > 0 ? "rose" : "slate"}
                     />
                     <QuickStat
-                        label="מגבלת קצב"
-                        value={`${apiKey.rate_limit_per_minute}/דקה`}
+                        label="Rate limit"
+                        value={`${apiKey.rate_limit_per_minute}/m`}
                         icon={<GaugeIcon className="w-3 h-3" />}
                         last
                     />
@@ -247,7 +269,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                 {/* Usage graph */}
                 <section className="px-5 py-4 border-b border-slate-200/60">
                     <SectionLabel
-                        title="תעבורה · 24 שעות אחרונות"
+                        title="Traffic · last 24 hours"
                         action={
                             <button
                                 type="button"
@@ -255,7 +277,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                                 className="text-slate-400 hover:text-slate-900 inline-flex items-center gap-1 text-[10.5px]"
                             >
                                 {analytics.isFetching ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <RefreshCwIcon className="w-3 h-3" />}
-                                רענון
+                                Refresh
                             </button>
                         }
                     />
@@ -265,15 +287,15 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                         <StackedBars buckets={analytics.data?.buckets ?? []} height={140} />
                     )}
                     <div className="mt-2 flex items-center gap-3 text-[10.5px] text-slate-500">
-                        <Legend color="bg-emerald-500/80" label="2xx הצלחה" />
-                        <Legend color="bg-amber-400/80" label="4xx שגיאת לקוח" />
-                        <Legend color="bg-rose-500/80" label="5xx שגיאת שרת" />
+                        <Legend color="bg-emerald-500/80" label="2xx success" />
+                        <Legend color="bg-amber-400/80" label="4xx client" />
+                        <Legend color="bg-rose-500/80" label="5xx server" />
                     </div>
                 </section>
 
                 {/* Top endpoints */}
                 <section className="px-5 py-4 border-b border-slate-200/60">
-                    <SectionLabel title="נקודות קצה מובילות" />
+                    <SectionLabel title="Top endpoints" />
                     {analytics.isPending ? (
                         <div className="h-16 rounded bg-slate-50 animate-pulse" />
                     ) : analytics.data?.endpoints && analytics.data.endpoints.length > 0 ? (
@@ -282,23 +304,23 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                                 <div key={`${e.method}-${e.endpoint}-${i}`} className="px-1.5 py-1.5 flex items-center gap-2">
                                     <span className="text-[10px] uppercase font-mono text-slate-400 w-12 shrink-0">{e.method}</span>
                                     <span className="font-mono text-[11px] text-slate-900 truncate">{e.endpoint}</span>
-                                    <span className="ms-auto tabular-nums font-mono text-[11px] text-slate-700">{e.count}</span>
+                                    <span className="ml-auto tabular-nums font-mono text-[11px] text-slate-700">{e.count}</span>
                                     {e.error_count > 0 && (
-                                        <span className="text-[10px] text-rose-600 tabular-nums">{e.error_count} שגיאות</span>
+                                        <span className="text-[10px] text-rose-600 tabular-nums">{e.error_count} err</span>
                                     )}
-                                    <span className="hidden sm:inline text-[10px] text-slate-400 tabular-nums w-12 text-end">{Math.round(e.avg_latency_ms)}ms</span>
+                                    <span className="hidden sm:inline text-[10px] text-slate-400 tabular-nums w-12 text-right">{Math.round(e.avg_latency_ms)}ms</span>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <p className="text-[11.5px] text-slate-400">אין תעבורת נקודות קצה בחלון זה.</p>
+                        <p className="text-[11.5px] text-slate-400">No endpoint traffic in this window.</p>
                     )}
                 </section>
 
                 {/* Permissions */}
                 <section className="px-5 py-4 border-b border-slate-200/60">
                     <SectionLabel
-                        title={`הרשאות · ${grantedPermissions.length}`}
+                        title={`Permissions · ${grantedPermissions.length}`}
                         icon={<ShieldCheckIcon className="w-3 h-3" />}
                     />
                     {perms.isPending ? (
@@ -309,7 +331,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                                 <span
                                     key={p.name}
                                     className="inline-flex items-center gap-1 h-6 px-1.5 rounded text-[10.5px] font-mono border border-slate-200 text-slate-700 bg-white"
-                                    title={getPermissionDescription(p.name, p.description)}
+                                    title={p.description}
                                 >
                                     <span
                                         className={`size-1.5 rounded-full ${
@@ -326,7 +348,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                                 </span>
                             ))}
                             {grantedPermissions.length === 0 && (
-                                <span className="text-[11.5px] text-slate-400">לא הוענקו הרשאות</span>
+                                <span className="text-[11.5px] text-slate-400">no scopes granted</span>
                             )}
                         </div>
                     )}
@@ -335,7 +357,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                 {/* IP allowlist */}
                 {apiKey.allowed_ips && apiKey.allowed_ips.length > 0 && (
                     <section className="px-5 py-4 border-b border-slate-200/60">
-                        <SectionLabel title="רשימת כתובות IP מורשות" icon={<NetworkIcon className="w-3 h-3" />} />
+                        <SectionLabel title="IP allowlist" icon={<NetworkIcon className="w-3 h-3" />} />
                         <div className="flex flex-wrap gap-1">
                             {apiKey.allowed_ips.map((ip) => (
                                 <span
@@ -352,7 +374,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                 {/* Activity log */}
                 <section className="px-5 py-4">
                     <SectionLabel
-                        title={`פעילות אחרונה${logs.data ? ` · ${logs.data.data.length}` : ""}`}
+                        title={`Recent activity${logs.data ? ` · ${logs.data.data.length}` : ""}`}
                         icon={<ClockIcon className="w-3 h-3" />}
                     />
                     {logs.isPending ? (
@@ -374,20 +396,20 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                                     </span>
                                     <span className="text-[10px] uppercase font-mono text-slate-400 w-10 shrink-0">{l.method}</span>
                                     <span className="font-mono text-[11px] text-slate-900 truncate flex-1">{l.endpoint}</span>
-                                    <span className="font-mono text-[10px] text-slate-500 tabular-nums w-10 text-end">{l.response_code}</span>
-                                    <span className="hidden sm:inline font-mono text-[10px] text-slate-400 tabular-nums w-12 text-end">{l.response_time_ms}ms</span>
+                                    <span className="font-mono text-[10px] text-slate-500 tabular-nums w-10 text-right">{l.response_code}</span>
+                                    <span className="hidden sm:inline font-mono text-[10px] text-slate-400 tabular-nums w-12 text-right">{l.response_time_ms}ms</span>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <p className="text-[11.5px] text-slate-400">לא נרשמו בקשות עדיין.</p>
+                        <p className="text-[11.5px] text-slate-400">No requests recorded yet.</p>
                     )}
                 </section>
             </div>
 
             {/* Footer */}
-            <div className="h-12 px-4 border-t border-slate-200 flex items-center bg-white shrink-0">
-                {apiKey.status === "active" ? (
+            <div className="h-12 px-4 border-t border-slate-200 flex items-center gap-2 bg-white shrink-0">
+                {keyCanAuthenticate(apiKey) ? (
                     <button
                         type="button"
                         onClick={confirmRevoke}
@@ -395,32 +417,59 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                         className="h-7 px-3 rounded-md border border-rose-200 text-rose-700 hover:bg-rose-50 hover:border-rose-300 text-[12px] inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                     >
                         {revoke.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <TrashIcon className="w-3 h-3" />}
-                        ביטול מפתח
+                        Revoke key
                     </button>
                 ) : (
-                    <span className="text-[11.5px] text-slate-500 inline-flex items-center gap-1.5">
-                        <span className="size-1.5 rounded-full bg-rose-500" />
-                        בוטל {apiKey.revoked_at ? fmtRelative(apiKey.revoked_at) : ""}
-                        {apiKey.revoked_reason ? ` · ${apiKey.revoked_reason}` : ""}
-                    </span>
+                    <>
+                        {/* flex-1 rather than a second ml-auto: two auto margins
+                            in one row split the free space and park the button
+                            in the middle of the footer. */}
+                        <span className="flex-1 min-w-0 text-[11.5px] text-slate-500 inline-flex items-center gap-1.5">
+                            <span
+                                className={`size-1.5 rounded-full shrink-0 ${
+                                    keyStatus(apiKey) === "expired" ? "bg-slate-400" : "bg-rose-500"
+                                }`}
+                            />
+                            <span className="truncate">{endedNote(apiKey)}</span>
+                        </span>
+                        <button
+                            type="button"
+                            onClick={confirmDelete}
+                            disabled={remove.isPending}
+                            className="shrink-0 h-7 px-3 rounded-md border border-rose-200 text-rose-700 hover:bg-rose-50 hover:border-rose-300 text-[12px] inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                        >
+                            {remove.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <Trash2Icon className="w-3 h-3" />}
+                            Delete key
+                        </button>
+                    </>
                 )}
-                <ChevronRightIcon className="w-3 h-3 text-slate-300 ms-auto rtl:rotate-180" />
+                <ChevronRightIcon className="w-3 h-3 text-slate-300 ml-auto shrink-0" />
             </div>
         </>
     );
 }
 
+// What ended the key, for the footer of a key that can no longer authenticate.
+function endedNote(key: APIKey): string {
+    if (keyStatus(key) === "expired") {
+        return `Expired ${key.expires_at ? fmtRelative(key.expires_at) : ""}`.trim();
+    }
+    const when = key.revoked_at ? ` ${fmtRelative(key.revoked_at)}` : "";
+    const why = key.revoked_reason ? ` · ${key.revoked_reason}` : "";
+    return `Revoked${when}${why}`;
+}
+
 function StatusBadge({ status }: { status: "active" | "revoked" | "expired" }) {
     const tone =
         status === "active"
-            ? { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", label: "פעיל" }
+            ? { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" }
             : status === "revoked"
-              ? { bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-500", label: "בוטל" }
-              : { bg: "bg-slate-100", text: "text-slate-600", dot: "bg-slate-400", label: "פג תוקף" };
+              ? { bg: "bg-rose-50", text: "text-rose-700", dot: "bg-rose-500" }
+              : { bg: "bg-slate-100", text: "text-slate-600", dot: "bg-slate-400" };
     return (
         <span className={`inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] uppercase tracking-[0.08em] font-medium ${tone.bg} ${tone.text}`}>
             <span className={`size-1.5 rounded-full ${tone.dot}`} />
-            {tone.label}
+            {status}
         </span>
     );
 }
@@ -453,7 +502,7 @@ function QuickStat({
     last?: boolean;
 }) {
     return (
-        <div className={`px-3 md:px-5 py-3 ${!last ? "border-r rtl:border-r-0 rtl:border-l border-slate-200/60" : ""}`}>
+        <div className={`px-3 md:px-5 py-3 ${!last ? "border-r border-slate-200/60" : ""}`}>
             <div className="flex items-center gap-1.5">
                 <span className={`text-[10px] uppercase tracking-[0.14em] font-medium ${accent === "rose" ? "text-rose-500" : "text-slate-400"}`}>
                     {label}
@@ -482,7 +531,7 @@ function SectionLabel({
                 {icon}
                 {title}
             </span>
-            {action && <span className="ms-auto">{action}</span>}
+            {action && <span className="ml-auto">{action}</span>}
         </div>
     );
 }
@@ -501,25 +550,25 @@ function fmtRelative(iso: string): string {
         const d = new Date(iso);
         const diff = Date.now() - d.getTime();
         const s = Math.floor(diff / 1000);
-        if (s < 60) return `לפני ${s} שניות`;
+        if (s < 60) return `${s}s ago`;
         const m = Math.floor(s / 60);
-        if (m < 60) return `לפני ${m} דקות`;
+        if (m < 60) return `${m}m ago`;
         const h = Math.floor(m / 60);
-        if (h < 24) return `לפני ${h} שעות`;
+        if (h < 24) return `${h}h ago`;
         const days = Math.floor(h / 24);
-        if (days < 30) return `לפני ${days} ימים`;
-        return d.toLocaleDateString("he-IL");
+        if (days < 30) return `${days}d ago`;
+        return d.toLocaleDateString();
     } catch {
-        return "-";
+        return "—";
     }
 }
 
 function fmtFull(iso: string): string {
     try {
         const d = new Date(iso);
-        return d.toLocaleString("he-IL", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
     } catch {
-        return "-";
+        return "—";
     }
 }
 
@@ -528,8 +577,8 @@ function fmtFull(iso: string): string {
 function fmtTime(iso: string): string {
     try {
         const d = new Date(iso);
-        return d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", hour12: false });
+        return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
     } catch {
-        return "-";
+        return "—";
     }
 }

@@ -22,8 +22,10 @@ import toast from "react-hot-toast";
 import { useUserProfile } from "@/hooks/context/user";
 import useClickOutside from "@/hooks/useClickOutside";
 import useFlipPlacement from "@/hooks/useFlipPlacement";
+import clippedTitle from "@/lib/helper/clippedTitle";
 import useCreateCategory from "@/lib/api/hooks/app/categories/useCreateCategory";
 import type Category from "@/lib/api/models/app/Category";
+import { TagMeaningTooltip } from "@/components/ui/tag-meaning-tooltip";
 
 interface Props {
     // Selected ids — kept as ids so the consumer can store them in the
@@ -41,7 +43,7 @@ interface Props {
 export default function CategoryPicker({
     value,
     onChange,
-    placeholder = "לחץ להוספת קטגוריות…",
+    placeholder = "Click to add categories…",
     className,
     allowCreate = true,
 }: Props) {
@@ -98,7 +100,7 @@ export default function CategoryPicker({
             onChange([...value, c.id]);
             setQuery("");
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "יצירת הקטגוריה נכשלה");
+            toast.error(err instanceof Error ? err.message : "Failed to create category");
         }
     }
 
@@ -108,7 +110,7 @@ export default function CategoryPicker({
                 {selectedChips.length === 0 ? (
                     <div
                         onClick={() => setOpen((o) => !o)}
-                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600 text-start"
+                        className="px-3 py-2 text-[11.5px] text-slate-400 cursor-pointer hover:text-slate-600"
                     >
                         {placeholder}
                     </div>
@@ -127,7 +129,7 @@ export default function CategoryPicker({
                             className="inline-flex items-center gap-1 h-5 px-1.5 rounded text-[11px] font-medium border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
                         >
                             <PlusIcon className="w-2.5 h-2.5" />
-                            הוסף
+                            Add
                         </button>
                     </div>
                 )}
@@ -141,7 +143,7 @@ export default function CategoryPicker({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: placement === "top" ? 4 : -4 }}
                         transition={{ duration: 0.12 }}
-                        className={`absolute inset-x-0 z-30 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] overflow-hidden ${
+                        className={`absolute left-0 right-0 z-30 rounded-md border border-slate-200 bg-white shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)] overflow-hidden ${
                             placement === "top" ? "bottom-full mb-1" : "top-full mt-1"
                         }`}
                     >
@@ -149,15 +151,15 @@ export default function CategoryPicker({
                             <input
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                placeholder={allowCreate ? "חיפוש או יצירה…" : "חיפוש…"}
+                                placeholder={allowCreate ? "Search or create…" : "Search…"}
                                 autoFocus
-                                className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
+                                className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
                             />
                         </div>
                         <div className="max-h-56 overflow-y-auto py-1">
                             {filtered.length === 0 && !allowCreate && (
                                 <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                                    אין קטגוריות.
+                                    No categories.
                                 </div>
                             )}
                             {filtered.map((c) => {
@@ -167,24 +169,22 @@ export default function CategoryPicker({
                                         key={c.id}
                                         type="button"
                                         onClick={() => toggle(c.id)}
-                                        className="w-full px-2.5 h-7 flex items-center justify-between text-[12px] text-slate-700 hover:bg-slate-100 transition-colors"
+                                        className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-100 transition-colors"
                                     >
-                                        <div className="flex items-center gap-2 min-w-0">
-                                            <span
-                                                className={`size-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                                                    checked
-                                                        ? "border-slate-900 bg-slate-900"
-                                                        : "border-slate-300 bg-white"
-                                                }`}
-                                            >
-                                                {checked && <CheckIcon className="w-2 h-2 text-white" />}
-                                            </span>
-                                            <span
-                                                className="size-2.5 rounded-full shrink-0"
-                                                style={{ backgroundColor: c.color }}
-                                            />
-                                            <span className="truncate">{c.title}</span>
-                                        </div>
+                                        <span
+                                            className={`size-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                                                checked
+                                                    ? "border-slate-900 bg-slate-900"
+                                                    : "border-slate-300 bg-white"
+                                            }`}
+                                        >
+                                            {checked && <CheckIcon className="w-2 h-2 text-white" />}
+                                        </span>
+                                        <span
+                                            className="size-2.5 rounded-full shrink-0"
+                                            style={{ backgroundColor: c.color }}
+                                        />
+                                        <span className="truncate">{c.title}</span>
                                     </button>
                                 );
                             })}
@@ -200,7 +200,7 @@ export default function CategoryPicker({
                                     ) : (
                                         <PlusIcon className="w-3 h-3 text-sky-600" />
                                     )}
-                                    צור את "{query.trim()}"
+                                    Create "{query.trim()}"
                                 </button>
                             )}
                         </div>
@@ -226,33 +226,40 @@ export function CategoryChip({
     compact?: boolean;
 }) {
     return (
-        <span
-            className={`inline-flex items-center gap-1 ${compact ? "h-4 px-1 text-[10px]" : "h-5 ps-1.5 pe-1 text-[11px]"} rounded font-medium`}
-            style={{
-                backgroundColor: hexToRgba(category.color, 0.12),
-                color: category.color,
-                border: `1px solid ${hexToRgba(category.color, 0.25)}`,
-            }}
-        >
+        <TagMeaningTooltip title={category.title}>
             <span
-                className={`${compact ? "size-1.5" : "size-2"} rounded-full shrink-0`}
-                style={{ backgroundColor: category.color }}
-            />
-            <span className="truncate max-w-[72px] md:max-w-none">{category.title}</span>
-            {onRemove && (
-                <button
-                    type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onRemove();
-                    }}
-                    className="opacity-70 hover:opacity-100"
-                    aria-label={`הסר את ${category.title}`}
+                className={`inline-flex items-center gap-1 min-w-0 ${compact ? "h-4 pl-1 pr-1 text-[10px]" : "h-5 pl-1.5 pr-1 text-[11px]"} rounded font-medium`}
+                style={{
+                    backgroundColor: hexToRgba(category.color, 0.12),
+                    color: category.color,
+                    border: `1px solid ${hexToRgba(category.color, 0.25)}`,
+                }}
+            >
+                <span
+                    className={`${compact ? "size-1.5" : "size-2"} rounded-full shrink-0`}
+                    style={{ backgroundColor: category.color }}
+                />
+                <span
+                    className="truncate min-w-0 max-w-[72px] md:max-w-none"
+                    {...clippedTitle}
                 >
-                    <XIcon className="w-2.5 h-2.5" />
-                </button>
-            )}
-        </span>
+                    {category.title}
+                </span>
+                {onRemove && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onRemove();
+                        }}
+                        className="opacity-70 hover:opacity-100"
+                        aria-label={`Remove ${category.title}`}
+                    >
+                        <XIcon className="w-2.5 h-2.5" />
+                    </button>
+                )}
+            </span>
+        </TagMeaningTooltip>
     );
 }
 

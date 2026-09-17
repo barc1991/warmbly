@@ -1,4 +1,5 @@
 mod abuse;
+mod asndb;
 mod aws;
 mod config;
 mod events;
@@ -9,7 +10,9 @@ mod kafka;
 mod links;
 mod nats;
 mod observability;
+mod posthog;
 mod producer;
+mod scanners;
 mod unsubscribe;
 
 use axum::{
@@ -75,6 +78,13 @@ async fn connect_producer(config: &Config) -> Producer {
 
 #[tokio::main]
 async fn main() {
+    // Before any TLS connection. rustls 0.23 cannot choose between aws-lc-rs
+    // and ring when both are in the tree, and panics at the first handshake:
+    // a tls:// bus or a rediss:// cache takes the whole service down at
+    // startup, which plaintext local development never reveals.
+    // Ignored rather than unwrapped: a second install is not a failure.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     // Initialize tracing
     tracing_subscriber::registry()
         .with(
@@ -94,14 +104,25 @@ async fn main() {
         }
     };
     // Held until main returns so queued events are flushed on shutdown.
-    let _sentry = observability::init(&config.env, Some(&config.sentry_dsn), &config.release);
+    let _reporting = observability::init(observability::Settings {
+        env: &config.env,
+        release: &config.release,
+        sentry_dsn: &config.sentry_dsn,
+        posthog_key: &config.posthog_key,
+        posthog_host: &config.posthog_host,
+    });
     info!("Starting tracking service on {}", config.addr());
 
     // Event-bus producer (NATS by default; Kafka when EVENTBUS_PROVIDER=kafka
     // and the `kafka` feature is compiled in).
     let producer = connect_producer(&config).await;
 
-    let state = AppState::new(producer, &config);
+    // The scanner ASN database: a mounted file, or a download held in memory.
+    // Resolved here because it may go to the network, and never fatal: without
+    // it the catalogue's asn: entries match nothing and everything else works.
+    let asn_db = asndb::AsnDb::resolve(&config.scanner_asn_db, &config.scanner_asn_db_url).await;
+
+    let state = AppState::new(producer, &config, asn_db);
 
     // Build router
     let app = Router::new()

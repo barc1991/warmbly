@@ -9,9 +9,7 @@ import (
 	"fmt"
 	emailverifyapp "github.com/warmbly/warmbly/internal/app/emailverify"
 	"github.com/warmbly/warmbly/internal/pkg/emailverify"
-	"io"
-	"net/http"
-	"strconv"
+	"slices"
 	"strings"
 	"time"
 
@@ -152,12 +150,6 @@ type Service interface {
 	// (refreshed) Google token.
 	SpreadsheetValues(ctx context.Context, orgID, connID uuid.UUID, sheetID, a1Range string) ([][]string, error)
 
-	// Frappe CRM operations for autonomous BDR and lead enrichment.
-	SyncFrappeLead(ctx context.Context, orgID uuid.UUID, email string, props map[string]any, task map[string]any, event map[string]any) (string, error)
-	MarkFrappeLeadDNC(ctx context.Context, orgID uuid.UUID, email string) error
-	GetFrappeLead(ctx context.Context, orgID uuid.UUID, email string) (map[string]any, error)
-	SyncMeetingToFrappeEvent(ctx context.Context, orgID uuid.UUID, booking *models.MeetingBooking) error
-
 	// Dispatch fans a platform event out to every matching event subscription,
 	// executing each provider action. Best-effort: action failures are recorded
 	// on the connection's health but never block the caller.
@@ -171,10 +163,6 @@ type Service interface {
 	// NotifySlack posts a plain message to the org's connected Slack on its
 	// configured default channel. No-op (nil) when no Slack is connected.
 	NotifySlack(ctx context.Context, orgID uuid.UUID, title, body string) error
-
-	// NotifyTelegram posts a message to the org's connected Telegram chat.
-	// No-op (nil) when no Telegram is connected.
-	NotifyTelegram(ctx context.Context, orgID uuid.UUID, title, body string) error
 
 	// VerificationProviderFor and ReportVerificationProviderError implement
 	// emailverify.ProviderSource: the org's paid verification backend, if any.
@@ -285,57 +273,22 @@ func (s *service) Connect(ctx context.Context, orgID, userID uuid.UUID, provider
 
 	displayFields := buildDisplayFields(provider, config)
 
-	// A verification key is checked before it is stored: a mistyped key would
-	// otherwise quietly leave every contact on the built-in check.
-	if provider == models.IntegrationMillionVerifier {
-		credits, err := checkMillionVerifierKey(ctx, config)
+	verifier := slices.Contains(models.VerificationProviders, provider)
+	if verifier {
+		// One verifier at a time. Which connection wins would otherwise be
+		// decided by creation order alone, so connecting a second service
+		// would silently move every check onto a different bill.
+		if err := s.refuseSecondVerifier(ctx, orgID); err != nil {
+			return nil, err
+		}
+		// A verification key is checked before it is stored: a mistyped key
+		// would otherwise quietly leave every contact on the built-in check.
+		credits, err := checkVerificationKey(ctx, provider, config)
 		if err != nil {
 			return nil, err
 		}
-		displayFields["credits"] = credits
-	}
-
-	var defaultTelegramEvents []string
-	if provider == models.IntegrationTelegram {
-		botToken := stringFromMap(config, "bot_token", "token")
-		chatID := stringFromMap(config, "chat_id")
-		if botToken == "" {
-			return nil, errors.New("יש להזין Bot Token שהונפק מ-@BotFather")
-		}
-		if chatID == "" {
-			return nil, errors.New("יש להזין Chat ID עבור טלגרם")
-		}
-		botInfo, err := checkTelegramBot(ctx, botToken)
-		if err != nil {
-			return nil, err
-		}
-		displayFields["bot_username"] = botInfo.Username
-		displayFields["bot_name"] = botInfo.FirstName
-		displayFields["chat_id"] = chatID
-		displayFields["account"] = "@" + botInfo.Username
-		if topicID := stringFromMap(config, "topic_id"); topicID != "" {
-			displayFields["topic_id"] = topicID
-		}
-		defaultTelegramEvents = []string{
-			string(models.WebhookEventCampaignReplyReceived),
-			string(models.WebhookEventCampaignEmailBounced),
-			string(models.WebhookEventCampaignStarted),
-			string(models.WebhookEventCampaignCompleted),
-			string(models.WebhookEventCampaignDeliverabilityWarning),
-			string(models.WebhookEventMeetingBooked),
-			string(models.WebhookEventMeetingRescheduled),
-			string(models.WebhookEventMeetingCanceled),
-			string(models.WebhookEventWarmupHealthChanged),
-			string(models.WebhookEventWarmupPlacementInSpam),
-			string(models.WebhookEventWarmupQuarantined),
-			string(models.WebhookEventEmailAccountError),
-			string(models.WebhookEventContactCreated),
-			string(models.WebhookEventCRMDealCreated),
-			string(models.WebhookEventAIQuotaExhausted),
-			string(models.WebhookEventAIFallbackEngaged),
-			string(models.WebhookEventAIKeyError),
-			string(models.WebhookEventAIBDRDraftFailed),
-			string(models.WebhookEventFrappeCRMLeadSynced),
+		if credits != nil {
+			displayFields["credits"] = *credits
 		}
 	}
 
@@ -353,6 +306,16 @@ func (s *service) Connect(ctx context.Context, orgID, userID uuid.UUID, provider
 		return nil, err
 	}
 
+	// Asked again next to the write: validating the key above is a round trip
+	// to the provider, which is long enough for a second connect to pass the
+	// first check. Two that still cross leave an inert connection on the
+	// Integrations page, never a lost one.
+	if verifier {
+		if err := s.refuseSecondVerifier(ctx, orgID); err != nil {
+			return nil, err
+		}
+	}
+
 	status := models.IntegrationStatusPending
 	switch {
 	case provider == models.IntegrationCalendly || provider == models.IntegrationCalCom:
@@ -368,24 +331,16 @@ func (s *service) Connect(ctx context.Context, orgID, userID uuid.UUID, provider
 		status = models.IntegrationStatusConnected
 	}
 
-	var cfgCapRaw json.RawMessage
-	if provider == models.IntegrationTelegram && len(defaultTelegramEvents) > 0 {
-		cfgCapRaw, _ = json.Marshal(map[string]any{
-			"selected_events": defaultTelegramEvents,
-		})
-	}
-
 	df, _ := json.Marshal(displayFields)
 	conn := &models.IntegrationConnection{
-		OrganizationID:     orgID,
-		Provider:           provider,
-		Label:              label,
-		Status:             status,
-		AuthMethod:         authMethod,
-		DisplayFields:      df,
-		ConfigCapabilities: cfgCapRaw,
-		ConnectedByUserID:  &userID,
-		Health:             string(models.IntegrationHealthUnknown),
+		OrganizationID:    orgID,
+		Provider:          provider,
+		Label:             label,
+		Status:            status,
+		AuthMethod:        authMethod,
+		DisplayFields:     df,
+		ConnectedByUserID: &userID,
+		Health:            string(models.IntegrationHealthUnknown),
 	}
 	if status == models.IntegrationStatusConnected {
 		conn.Health = string(models.IntegrationHealthHealthy)
@@ -404,38 +359,6 @@ func (s *service) Connect(ctx context.Context, orgID, userID uuid.UUID, provider
 	if inboundSecret != "" {
 		conn.InboundWebhookURL = BuildInboundURL(provider, inboundSecret)
 	}
-
-	if provider == models.IntegrationTelegram && len(defaultTelegramEvents) > 0 {
-		for _, ev := range defaultTelegramEvents {
-			sub := &models.IntegrationEventSubscription{
-				ConnectionID:   conn.ID,
-				OrganizationID: orgID,
-				EventType:      ev,
-				Action:         models.IntegrationActionTelegramNotify,
-				Enabled:        true,
-				UseCase:        "notify",
-			}
-			_ = s.repo.CreateEventSubscription(ctx, sub)
-		}
-
-		go func() {
-			bg, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			botToken := stringFromMap(config, "bot_token", "token")
-			chatID := stringFromMap(config, "chat_id")
-			var topicID int64
-			if tStr := stringFromMap(config, "topic_id"); tStr != "" {
-				topicID, _ = strconv.ParseInt(tStr, 10, 64)
-			}
-			_ = telegramNotify(bg, botToken, chatID, topicID, "connection.welcome", map[string]any{
-				"account": displayFields["account"],
-			}, eventMessage{
-				Title:  "Warmbly חובר בהצלחה לטלגרם!",
-				Detail: "הבוט פעיל וישלח התראות שוטפות על פי ההגדרות שלך במערכת.",
-			})
-		}()
-	}
-
 	return conn, nil
 }
 
@@ -843,13 +766,12 @@ func (s *service) validateAutomationGraph(ctx context.Context, orgID uuid.UUID, 
 			if !models.ValidAutomationConditionField(n.Condition.Field) {
 				return fmt.Errorf("unknown condition field: %s", n.Condition.Field)
 			}
-			switch n.Condition.Field {
-			case models.AutoCondExpression:
+			if n.Condition.Field == models.AutoCondExpression {
 				// Free-form predicate: no operator; just validate it compiles.
 				if err := ValidExpression(n.Condition.Expression); err != nil {
 					return fmt.Errorf("invalid condition expression: %w", err)
 				}
-			case models.AutoCondAI:
+			} else if n.Condition.Field == models.AutoCondAI {
 				// Ask-AI branch: no operator; just a bounded yes/no question.
 				p := strings.TrimSpace(n.Condition.Prompt)
 				if p == "" {
@@ -858,7 +780,7 @@ func (s *service) validateAutomationGraph(ctx context.Context, orgID uuid.UUID, 
 				if len(p) > maxAIConditionPrompt {
 					return fmt.Errorf("an Ask AI question is limited to %d characters", maxAIConditionPrompt)
 				}
-			default:
+			} else {
 				if !models.ValidAutomationConditionOperator(n.Condition.Operator) {
 					return fmt.Errorf("unknown condition operator: %s", n.Condition.Operator)
 				}
@@ -1155,7 +1077,7 @@ func validateOutboundConfigURLs(config map[string]any) error {
 }
 
 func hasAnyCredential(config map[string]any) bool {
-	for _, k := range []string{"api_token", "access_token", "webhook_url", "api_key", "bot_token"} {
+	for _, k := range []string{"api_token", "access_token", "webhook_url", "api_key"} {
 		if v, ok := config[k]; ok {
 			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
 				return true
@@ -1263,26 +1185,12 @@ func (s *service) SendTestEvent(ctx context.Context, orgID, connID uuid.UUID) (i
 		"intent":        "positive",
 		"content":       "This is a test event from Warmbly.",
 	}
-	if conn.Provider == models.IntegrationTelegram {
-		sample = map[string]any{
-			"test":          true,
-			"event_name":    "התראת בדיקה מ-Warmbly",
-			"contact_email": "prospect@example.com",
-			"contact_name":  "ישראל ישראלי",
-			"company":       "הייטק בע״מ",
-			"invitee_email": "prospect@example.com",
-			"subject":       "מענה מתעניין לקמפיין דיוור קר",
-			"intent":        "positive",
-			"content":       "שלום, נשמע מעניין מאוד! אשמח שנקבע שיחה קצרה ביום שלישי הקרוב.",
-		}
-	}
 
 	count := 0
 	for _, sub := range subs {
 		switch sub.Action {
 		case models.IntegrationActionSlackNotify,
 			models.IntegrationActionDiscordNotify,
-			models.IntegrationActionTelegramNotify,
 			models.IntegrationActionGenericWebhookPing:
 			target := repository.DispatchTarget{Subscription: sub, Secrets: *sec}
 			if err := s.execAction(ctx, target, sample); err != nil {
@@ -1290,22 +1198,6 @@ func (s *service) SendTestEvent(ctx context.Context, orgID, connID uuid.UUID) (i
 			}
 			count++
 		}
-	}
-
-	if conn.Provider == models.IntegrationTelegram && count == 0 {
-		target := repository.DispatchTarget{
-			Subscription: models.IntegrationEventSubscription{
-				ConnectionID:   connID,
-				OrganizationID: orgID,
-				EventType:      "test.event",
-				Action:         models.IntegrationActionTelegramNotify,
-			},
-			Secrets: *sec,
-		}
-		if err := s.execAction(ctx, target, sample); err != nil {
-			return 0, err
-		}
-		return 1, nil
 	}
 
 	// The visual automation builder never writes legacy event-subscription rows,
@@ -1471,79 +1363,119 @@ func buildDisplayFields(provider models.IntegrationProvider, config map[string]a
 		pick("organization_uri", "scheduling_url")
 	case models.IntegrationGoogleSheets:
 		pick("sheet_id", "sheet_title")
-	case models.IntegrationHubSpot, models.IntegrationSalesforce, models.IntegrationPipedrive, models.IntegrationClose, models.IntegrationFrappeCRM:
-		pick("workspace", "account_email", "server_url")
+	case models.IntegrationHubSpot, models.IntegrationSalesforce, models.IntegrationPipedrive, models.IntegrationClose:
+		pick("workspace", "account_email")
 	case models.IntegrationSlack:
 		pick("workspace", "channel")
 	case models.IntegrationDiscord:
 		pick("server")
-	case models.IntegrationTelegram:
-		pick("bot_username", "bot_name", "chat_id", "topic_id", "account")
 	case models.IntegrationZapier, models.IntegrationMake, models.IntegrationN8N:
 		// Outbound-via-Warmbly-API providers: minimal display fields.
-	case models.IntegrationMillionVerifier:
+	case models.IntegrationMillionVerifier, models.IntegrationCleanMyList:
 		// Credits are filled in at connect time from the provider.
 	}
 	return df
 }
 
-// checkMillionVerifierKey validates a pasted key against the provider and
-// returns the account's credit balance.
-func checkMillionVerifierKey(ctx context.Context, config map[string]any) (int, error) {
-	key, _ := config["api_key"].(string)
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return 0, errors.New("paste your MillionVerifier API key")
+func verificationClient(provider models.IntegrationProvider, key string) (emailverify.ProviderClient, error) {
+	switch provider {
+	case models.IntegrationMillionVerifier:
+		return emailverify.NewMillionVerifier(key, ""), nil
+	case models.IntegrationCleanMyList:
+		return emailverify.NewCleanMyList(key, ""), nil
+	default:
+		return nil, fmt.Errorf("%s does not verify addresses", provider)
 	}
-	credits, err := emailverify.NewMillionVerifier(key, "").Credits(ctx)
-	switch {
-	case errors.Is(err, emailverify.ErrMillionVerifierKey):
-		return 0, errors.New("MillionVerifier rejected this API key")
-	case errors.Is(err, emailverify.ErrMillionVerifierCredits):
-		// A valid key with an empty balance still connects; the built-in
-		// check covers until it is topped up.
-		return 0, nil
-	case err != nil:
-		return 0, fmt.Errorf("could not reach MillionVerifier: %w", err)
-	}
-	return credits, nil
 }
 
-// VerificationProviderFor returns the org's connected MillionVerifier client,
-// or nil when none is connected. A disconnected or reauth-required connection
-// does not count.
-func (s *service) VerificationProviderFor(ctx context.Context, orgID uuid.UUID) (*emailverifyapp.Provider, error) {
+// checkVerificationKey validates a pasted key without spending credits.
+func checkVerificationKey(ctx context.Context, provider models.IntegrationProvider, config map[string]any) (*int, error) {
+	name := ProviderLabel(provider)
+	key, _ := config["api_key"].(string)
+	if strings.TrimSpace(key) == "" {
+		return nil, fmt.Errorf("paste your %s API key", name)
+	}
+	client, err := verificationClient(provider, key)
+	if err != nil {
+		return nil, err
+	}
+	balance, err := client.Account(ctx)
+	switch {
+	case errors.Is(err, emailverify.ErrProviderCredits):
+		// A valid empty account can connect; the built-in check covers it.
+		zero := 0
+		return &zero, nil
+	case errors.Is(err, emailverify.ErrProviderUnconfirmed):
+		return nil, fmt.Errorf("confirm your %s account email address, then connect", name)
+	case errors.Is(err, emailverify.ErrProviderKey):
+		return nil, fmt.Errorf("%s rejected this API key", name)
+	case err != nil:
+		return nil, fmt.Errorf("could not reach %s: %w", name, err)
+	}
+	return balance, nil
+}
+
+// refuseSecondVerifier reports the verifier already connected to the workspace,
+// so connecting another one is refused rather than silently taking over.
+func (s *service) refuseSecondVerifier(ctx context.Context, orgID uuid.UUID) error {
+	active, err := s.activeVerificationConnection(ctx, orgID)
+	if err != nil || active == nil {
+		return err
+	}
+	return fmt.Errorf("%s already verifies this workspace's addresses. Disconnect it first", ProviderLabel(active.Provider))
+}
+
+// activeVerificationConnection returns the connection that verifies this
+// workspace's addresses, or nil when none does. Connect keeps there being at
+// most one, so the first match is the answer. A disconnected or
+// reauth-required connection does not count.
+func (s *service) activeVerificationConnection(ctx context.Context, orgID uuid.UUID) (*models.IntegrationConnection, error) {
 	conns, err := s.repo.ListConnections(ctx, orgID)
 	if err != nil {
 		return nil, err
 	}
 	for _, c := range conns {
-		if c.Provider != models.IntegrationMillionVerifier {
+		if !slices.Contains(models.VerificationProviders, c.Provider) {
 			continue
 		}
 		if c.Status != models.IntegrationStatusConnected && c.Status != models.IntegrationStatusDegraded {
 			continue
 		}
-		sec, err := s.repo.GetConnectionSecrets(ctx, c.ID)
-		if err != nil {
-			return nil, err
-		}
-		cfg, err := s.openConfig(ctx, sec)
-		if err != nil {
-			return nil, err
-		}
-		key, _ := cfg["api_key"].(string)
-		if strings.TrimSpace(key) == "" {
-			continue
-		}
-		id := c.ID
-		return &emailverifyapp.Provider{
-			Name:         emailverify.ProviderMillionVerifier,
-			ConnectionID: &id,
-			Client:       emailverify.NewMillionVerifier(key, ""),
-		}, nil
+		return &c, nil
 	}
 	return nil, nil
+}
+
+// VerificationProviderFor returns the org's connected verification client, or
+// nil when none is connected.
+func (s *service) VerificationProviderFor(ctx context.Context, orgID uuid.UUID) (*emailverifyapp.Provider, error) {
+	c, err := s.activeVerificationConnection(ctx, orgID)
+	if err != nil || c == nil {
+		return nil, err
+	}
+	sec, err := s.repo.GetConnectionSecrets(ctx, c.ID)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := s.openConfig(ctx, sec)
+	if err != nil {
+		return nil, err
+	}
+	key, _ := cfg["api_key"].(string)
+	if strings.TrimSpace(key) == "" {
+		return nil, nil
+	}
+	client, err := verificationClient(c.Provider, key)
+	if err != nil {
+		return nil, err
+	}
+	id := c.ID
+	return &emailverifyapp.Provider{
+		Name:         string(c.Provider),
+		Label:        ProviderLabel(c.Provider),
+		ConnectionID: &id,
+		Client:       client,
+	}, nil
 }
 
 // ReportVerificationProviderError records why the provider stopped being
@@ -1555,11 +1487,14 @@ func (s *service) ReportVerificationProviderError(ctx context.Context, connectio
 	status, health := models.IntegrationStatusDegraded, models.IntegrationHealthDegraded
 	detail := err.Error()
 	switch {
-	case errors.Is(err, emailverify.ErrMillionVerifierKey):
+	case errors.Is(err, emailverify.ErrProviderUnconfirmed):
 		status, health = models.IntegrationStatusReauthRequired, models.IntegrationHealthDown
-		detail = "MillionVerifier rejected the API key; reconnect with a current key"
-	case errors.Is(err, emailverify.ErrMillionVerifierCredits):
-		detail = "MillionVerifier account is out of credits; the built-in check is used until it is topped up"
+		detail = "The account email address is not confirmed yet; confirm it, then reconnect"
+	case errors.Is(err, emailverify.ErrProviderKey):
+		status, health = models.IntegrationStatusReauthRequired, models.IntegrationHealthDown
+		detail = "The API key was rejected; reconnect with a current key"
+	case errors.Is(err, emailverify.ErrProviderCredits):
+		detail = "No allowance or credits left; the built-in check is used until the account is topped up"
 	}
 	_ = s.repo.SetConnectionStatus(ctx, connectionID, status, health, detail)
 }
@@ -1621,80 +1556,6 @@ func (s *service) NotifySlack(ctx context.Context, orgID uuid.UUID, title, body 
 			continue
 		}
 		return slackPostMessage(ctx, token, channel, eventMessage{Title: title, Detail: body})
-	}
-	return nil
-}
-
-type telegramBotInfo struct {
-	ID        int64  `json:"id"`
-	IsBot     bool   `json:"is_bot"`
-	FirstName string `json:"first_name"`
-	Username  string `json:"username"`
-}
-
-func checkTelegramBot(ctx context.Context, token string) (*telegramBotInfo, error) {
-	token = strings.TrimSpace(token)
-	if token == "" {
-		return nil, errors.New("יש להזין Bot Token מ-@BotFather")
-	}
-	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/getMe", token)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := actionHTTP.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("שגיאת תקשורת עם Telegram API: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var out struct {
-		OK          bool             `json:"ok"`
-		Result      *telegramBotInfo `json:"result"`
-		Description string           `json:"description"`
-	}
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<18))
-	_ = json.Unmarshal(raw, &out)
-
-	if !out.OK || out.Result == nil {
-		if out.Description != "" {
-			return nil, fmt.Errorf("שגיאת אימות בוט טלגרם: %s", out.Description)
-		}
-		return nil, fmt.Errorf("מפתח הבוט של טלגרם אינו תקין (HTTP %d)", resp.StatusCode)
-	}
-	return out.Result, nil
-}
-
-// NotifyTelegram posts a message to the org's connected Telegram.
-func (s *service) NotifyTelegram(ctx context.Context, orgID uuid.UUID, title, body string) error {
-	conns, err := s.repo.ListConnections(ctx, orgID)
-	if err != nil {
-		return err
-	}
-	for _, c := range conns {
-		if c.Provider != models.IntegrationTelegram || c.Status != models.IntegrationStatusConnected {
-			continue
-		}
-		sec, serr := s.repo.GetConnectionSecrets(ctx, c.ID)
-		if serr != nil {
-			continue
-		}
-		cfg, err := s.openConfig(ctx, sec)
-		if err != nil {
-			continue
-		}
-		token := stringFromMap(cfg, "bot_token", "token")
-		chatID := stringFromMap(cfg, "chat_id")
-		if chatID == "" {
-			chatID = configString(c.DisplayFields, "chat_id")
-		}
-		var topicID int64
-		if tStr := stringFromMap(cfg, "topic_id"); tStr != "" {
-			topicID, _ = strconv.ParseInt(tStr, 10, 64)
-		} else if tStr := configString(c.DisplayFields, "topic_id"); tStr != "" {
-			topicID, _ = strconv.ParseInt(tStr, 10, 64)
-		}
-		return telegramNotify(ctx, token, chatID, topicID, "system.notification", map[string]any{}, eventMessage{Title: title, Detail: body})
 	}
 	return nil
 }

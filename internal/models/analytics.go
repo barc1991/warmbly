@@ -22,11 +22,12 @@ type WarmupAnalytics struct {
 }
 
 type WarmupSummary struct {
-	TotalSent      int     `json:"total_sent"`
-	TotalReplied   int     `json:"total_replied"`
-	AverageDaily   float64 `json:"average_daily"`
-	ReplyRate      float64 `json:"reply_rate"`      // percentage
-	TargetProgress float64 `json:"target_progress"` // percentage to max
+	TotalSent    int     `json:"total_sent"`
+	TotalReplied int     `json:"total_replied"`
+	AverageDaily float64 `json:"average_daily"`
+	ReplyRate    float64 `json:"reply_rate"` // percentage
+	// TargetProgress is actual sends divided by planned target volume for active days.
+	TargetProgress float64 `json:"target_progress"`
 	DaysActive     int     `json:"days_active"`
 }
 
@@ -79,9 +80,9 @@ type CampaignSummary struct {
 	// (Apple MPP prefetch, UA-less clients). Human opens = unique - machine.
 	MachineOpens int `json:"machine_opens"`
 	UniqueClicks int `json:"unique_clicks"`
-	// MachineClicks counts steps whose only clicks came from automated
-	// fetchers (security gateways walking the links). They are not part of
-	// UniqueClicks, which only ever counts a person's click.
+	// MachineClicks counts the contacts whose only clicks on a step came from
+	// automated fetchers (security gateways walking the links). They are not
+	// part of UniqueClicks, which only ever counts a person's click.
 	MachineClicks int `json:"machine_clicks"`
 	Replies       int `json:"replies"`
 	Bounces       int `json:"bounces"`
@@ -99,9 +100,22 @@ type SequenceStats struct {
 	Position   int       `json:"position"`
 	EmailsSent int       `json:"emails_sent"`
 	Opens      int       `json:"opens"`
-	Clicks     int       `json:"clicks"`
-	Replies    int       `json:"replies"`
-	Bounces    int       `json:"bounces"`
+	// MachineOpens is the subset of Opens from automated fetchers, by the
+	// same rule the summary uses. Human opens = Opens - MachineOpens.
+	MachineOpens int `json:"machine_opens"`
+	Clicks       int `json:"clicks"`
+	// MachineClicks counts this step's contacts whose only clicks were
+	// automated; they are not part of Clicks.
+	MachineClicks int `json:"machine_clicks"`
+	Replies       int `json:"replies"`
+	Bounces       int `json:"bounces"`
+
+	// Rates are percentages of this step's own EmailsSent, so steps that
+	// reached different numbers of contacts still compare.
+	OpenRate   float64 `json:"open_rate"`
+	ClickRate  float64 `json:"click_rate"`
+	ReplyRate  float64 `json:"reply_rate"`
+	BounceRate float64 `json:"bounce_rate"`
 }
 
 type CampaignDailyStats struct {
@@ -154,9 +168,13 @@ type ColdRampInfo struct {
 }
 
 type WarmupHealthInfo struct {
-	State        string     `json:"state"` // healthy/watch/throttled/quarantined/blocked
-	Score        float64    `json:"score"`
-	Reason       string     `json:"reason,omitempty"`
+	State  string  `json:"state"` // healthy/watch/throttled/quarantined/blocked
+	Score  float64 `json:"score"`
+	Reason string  `json:"reason,omitempty"`
+	// SpamScore is always 0. The accumulating score it reported was retired in
+	// #491 because it tracked volume rather than misbehaviour; the key stays so
+	// a published v1 client does not break, and goes at the next API version.
+	// Read Score and Reason instead. Do not wire anything back into it.
 	SpamScore    int        `json:"spam_score"`
 	BlockedUntil *time.Time `json:"blocked_until,omitempty"`
 	EvaluatedAt  *time.Time `json:"evaluated_at,omitempty"`
@@ -194,8 +212,9 @@ type WarmupStatusInfo struct {
 	CurrentVolume int        `json:"current_volume"`
 	TargetVolume  int        `json:"target_volume"`
 	MaxVolume     int        `json:"max_volume"`
-	ReplyRate     int        `json:"reply_rate"`
-	DaysActive    int        `json:"days_active"`
+	// ReplyRate is the configured share of warmup sends that receive synthetic replies.
+	ReplyRate  int `json:"reply_rate"`
+	DaysActive int `json:"days_active"`
 	// RampHold explains a ramp that is not climbing, so a target below the
 	// plain ramp is never an unexplained drop.
 	RampHold *WarmupRampHold `json:"ramp_hold,omitempty"`
@@ -233,10 +252,11 @@ type AccountsUsage struct {
 }
 
 type CampaignsUsage struct {
-	Total      int `json:"total"`
-	Active     int `json:"active"`
-	Paused     int `json:"paused"`
-	Draft      int `json:"draft"`
+	Total  int `json:"total"`
+	Active int `json:"active"`
+	Paused int `json:"paused"`
+	Draft  int `json:"draft"`
+	// EmailsSent counts sent email steps inside UsageOverview.Period.
 	EmailsSent int `json:"emails_sent"`
 }
 
@@ -276,8 +296,8 @@ type DashboardOverallStats struct {
 	// MachineOpens is the subset of TotalOpens from automated fetchers.
 	MachineOpens int `json:"machine_opens"`
 	TotalClicks  int `json:"total_clicks"`
-	// MachineClicks counts steps clicked only by automated fetchers; they are
-	// not part of TotalClicks.
+	// MachineClicks counts the contacts whose only clicks on a step came from
+	// automated fetchers; they are not part of TotalClicks.
 	MachineClicks   int     `json:"machine_clicks"`
 	TotalReplies    int     `json:"total_replies"`
 	TotalBounces    int     `json:"total_bounces"`
@@ -353,4 +373,82 @@ type CampaignComparisonItem struct {
 	ClickRate  float64   `json:"click_rate"`
 	ReplyRate  float64   `json:"reply_rate"`
 	BounceRate float64   `json:"bounce_rate"`
+}
+
+// DirectMailAnalytics reports on mail written by hand rather than sent by a
+// campaign. Two sources, deliberately, because they answer different questions
+// and cover different sets of messages:
+//
+//   - Volume and replies come from the synced mailbox (unibox_emails), so they
+//     cover everything the mailbox sent, including mail written in Gmail or on
+//     a phone, and they cover history from before any of this shipped.
+//   - Opens and clicks come from the send records (email_tasks), so they cover
+//     only mail sent through Warmbly by a mailbox with tracking switched on,
+//     and only from the moment it was switched on.
+//
+// Reporting them as one blended rate would be a lie, so they stay apart and the
+// UI labels each for what it is.
+type DirectMailAnalytics struct {
+	Period      string                   `json:"period"`
+	Volume      DirectMailVolume         `json:"volume"`
+	Tracking    DirectMailTracking       `json:"tracking"`
+	DailyTrend  []DirectMailDailyStats   `json:"daily_trend"`
+	Mailboxes   []DirectMailMailboxStats `json:"mailboxes"`
+	TopContacts []DirectMailContact      `json:"top_contacts"`
+}
+
+// DirectMailVolume is the "how much did we actually send and hear back" half,
+// measured from the synced mailbox.
+type DirectMailVolume struct {
+	Sent     int `json:"sent"`
+	Received int `json:"received"`
+	// ThreadsStarted counts outbound threads whose first message was ours.
+	ThreadsStarted int `json:"threads_started"`
+	// Replied counts those that got an inbound message back.
+	Replied   int     `json:"replied"`
+	ReplyRate float64 `json:"reply_rate"`
+	// Bounced counts the delivery failures that came back. Excluded from
+	// Replied, and reported here because it is the most actionable number on
+	// the page.
+	Bounced int `json:"bounced"`
+	// MedianReplyMinutes is how long the contact took to answer, across the
+	// threads that were answered. Zero when nothing has been.
+	MedianReplyMinutes int `json:"median_reply_minutes"`
+}
+
+// DirectMailTracking is the opt-in half. TrackedSent is the denominator for
+// both rates: untracked sends are not failures to open, they are messages that
+// were never asked.
+type DirectMailTracking struct {
+	// MailboxesOptedIn says how much of the picture this covers.
+	MailboxesOptedIn int     `json:"mailboxes_opted_in"`
+	MailboxesTotal   int     `json:"mailboxes_total"`
+	TrackedSent      int     `json:"tracked_sent"`
+	Opened           int     `json:"opened"`
+	MachineOpened    int     `json:"machine_opened"`
+	Clicked          int     `json:"clicked"`
+	OpenRate         float64 `json:"open_rate"`
+	ClickRate        float64 `json:"click_rate"`
+}
+
+type DirectMailDailyStats struct {
+	Date     time.Time `json:"date"`
+	Sent     int       `json:"sent"`
+	Received int       `json:"received"`
+}
+
+type DirectMailMailboxStats struct {
+	EmailAccountID  uuid.UUID `json:"email_account_id"`
+	Email           string    `json:"email"`
+	TrackDirectMail bool      `json:"track_direct_mail"`
+	Sent            int       `json:"sent"`
+	Received        int       `json:"received"`
+}
+
+// DirectMailContact is one correspondent, ranked by how much was sent to them.
+type DirectMailContact struct {
+	Email    string    `json:"email"`
+	Sent     int       `json:"sent"`
+	Received int       `json:"received"`
+	LastAt   time.Time `json:"last_at"`
 }

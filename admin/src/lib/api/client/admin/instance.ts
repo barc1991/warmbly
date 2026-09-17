@@ -121,6 +121,24 @@ export interface InstanceSettings {
         form_event_days: number;
         audit_log_days: number;
     };
+    // How soon after a send an open or click is recorded as automated. The
+    // clock starts at dispatch to the worker, so the window also covers the
+    // provider's queue and transit to the recipient, not just reading time.
+    // Nothing is discarded: an automated event stays as delivery evidence but
+    // does not count as engagement or fire anything.
+    tracking: {
+        machine_window_open_seconds: number;
+        machine_window_click_seconds: number;
+        // The window used instead of those two when the tracking edge
+        // recognised a scanner network that also carries people's own
+        // requests, which browser isolation makes true of Proofpoint and
+        // Mimecast. Such a match cannot settle the verdict, so it widens the
+        // window rather than deciding: inside it the event is classified as
+        // the delivery-time scan, outside it as the person who read the mail
+        // later. A genuine click inside the window is classified automated
+        // too, which is the cost of the widening.
+        machine_window_probable_seconds: number;
+    };
     // The sending-domain authentication gate. A mailbox whose domain has been
     // failing SPF or DMARC for longer than the grace window stops sending cold
     // mail and warmup mail until the records are fixed.

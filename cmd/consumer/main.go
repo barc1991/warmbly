@@ -24,6 +24,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/creditwatch"
 	"github.com/warmbly/warmbly/internal/app/feature"
 	"github.com/warmbly/warmbly/internal/app/inboxagent"
+	"github.com/warmbly/warmbly/internal/app/inboxtag"
 	"github.com/warmbly/warmbly/internal/app/instancesettings"
 	"github.com/warmbly/warmbly/internal/app/integration"
 	"github.com/warmbly/warmbly/internal/app/nativeactions"
@@ -67,8 +68,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Sentry
-	if err := observability.InitSentry(ctx, cfg, "consumer"); err != nil {
+	// Error reporting
+	if err := observability.Init(ctx, cfg, "consumer"); err != nil {
 		log.Fatal(err)
 	}
 
@@ -410,6 +411,25 @@ func main() {
 	jobrun.Configure(repository.NewJobRunRepository(primaryDB), "consumer")
 
 	// JobsService
+	// Follow-up labels use stored mailbox facts and run without TypeSafe.
+	// Message classification still requires both the key and opt-in switch.
+	tagCategories := repository.NewTagCategoryStore(primaryDB.Pool)
+	var tagAsker inboxtag.Asker
+	classify := config.InboxTaggingEnabled()
+	if classify {
+		tagAsker = inboxtag.NewClient(config.TypeSafeAPIKey())
+		log.Printf("automatic inbox tagging enabled (model %s)", inboxtag.Model)
+	} else {
+		log.Printf("automatic inbox classification off; timestamp-based follow-up labels still run locally")
+	}
+	inboxTagger := inboxtag.NewService(
+		tagAsker,
+		repository.NewInboxTagRepository(primaryDB.Pool),
+		tagCategories,
+		tagCategories,
+		classify,
+	)
+
 	jobsService := &jobs.JobsService{
 		Bus:                         consumerBus,
 		Codec:                       consumerCodec,
@@ -432,6 +452,7 @@ func main() {
 		Publisher:                   eventsPublisher,
 		StreamingPublisher:          streamingPublisher,
 		AdvancedService:             advancedService,
+		InboxTagger:                 inboxTagger,
 		Cache:                       redisCache,
 		AdminRepo:                   repository.NewAdminRepository(primaryDB.Pool),
 		AssignmentService:           workerAssignmentSvc,
@@ -471,6 +492,8 @@ func main() {
 	// recipient-side dwell survives worker restarts. Short interval keeps the
 	// effective dwell close to the requested value.
 	go jobsService.StartWarmupEngagementPoller(ctx, 30*time.Second)
+	go jobsService.StartWarmupInboxCleanup(ctx)
+	go jobsService.StartPendingWarmupVerification(ctx)
 
 	// Start dead worker detection (every 5 minutes)
 	go jobsService.StartDeadWorkerDetection(ctx, 5*time.Minute)
@@ -510,6 +533,11 @@ func main() {
 	// GeoIP is optional here as on the backend: it only turns an open or
 	// click's source network into a country and city on the logs.
 	geoPath, _ := cfg.LoadGeoDBPath(ctx)
+	if fetched, ferr := geo.Ensure(ctx, geoPath, cfg.LoadGeoDBURL(ctx)); ferr != nil {
+		log.Printf("GeoIP download failed: %v", ferr)
+	} else if fetched {
+		log.Printf("GeoIP database downloaded to %s.", geoPath)
+	}
 	geoloc, gerr := geo.New(geoPath)
 	if gerr != nil {
 		log.Printf("GeoIP database not found at %s; engagement locations are disabled.", geoPath)
@@ -538,8 +566,14 @@ func main() {
 		log.Println("tracking consumer unavailable; opens/clicks not consumed:", terr)
 	} else {
 		// The engagement prune reads its window from the instance settings on
-		// every pass, so shortening it in the admin panel needs no restart.
-		trackingConsumer.WireRetention(instancesettings.NewService(instancesettings.NewStore(primaryDB.Pool)))
+		// every pass, and the machine-window rule reads its windows per event,
+		// so editing either in the admin panel needs no restart. Both go
+		// through this process's own read cache, so an edit lands within its
+		// TTL rather than instantly.
+		trackingSettings := instancesettings.NewService(instancesettings.NewStore(primaryDB.Pool))
+		trackingConsumer.WireRetention(trackingSettings)
+		trackingConsumer.WireTrackingPolicy(trackingSettings)
+		trackingConsumer.WireDirectMail(emailRepo)
 		defer trackingConsumer.Close()
 		go func() {
 			if err := trackingConsumer.Start(ctx); err != nil {

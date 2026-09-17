@@ -84,8 +84,13 @@ Returned when the request cannot be processed due to invalid syntax.
 | `no_contacts` | `POST /contacts/verification` selected no contacts: neither `contacts` nor a `campaign_id` with refused leads |
 | `list_bounce_risk` | `POST /campaigns/:id/start` refused the launch on the list's projected bounce rate. Clean or verify the list, or repeat the request with `acknowledge_list_risk: true` |
 | `leads_undeliverable` | `POST /campaigns/:id/start` found nothing to send because address verification refused every remaining lead; the campaign is parked at `paused_undeliverable` until they are re-verified or marked deliverable |
+| `empty_step_body` | `POST /campaigns/:id/start` found an email step with nothing in either body, so it would send a blank message to every lead it reached. Write the step's body and start again |
 | `no_leads` | `POST /campaigns/:id/start` on a campaign that has never had a lead, with `continuous` off. Add contacts, or set `continuous` so it starts empty and waits for them. A campaign whose leads have all finished is a different case: it starts and waits |
 | `no_remaining_leads` | A platform-initiated restart of a campaign with nothing left to send and `continuous` off found nothing to do; the campaign is `completed` again. A start you request never answers this: it turns `continuous` on and waits |
+| `too_many_tasks` | `PATCH /crm/tasks` or `DELETE /crm/tasks` was given more than `1000` ids in one request, or more than `50,000` exclusions. Split it into batches |
+| `selection_too_large` | A `"all": true` bulk selection resolved to more than `50,000` rows. Narrow the filter and run it in parts; nothing was changed |
+| `invalid_filter` | A task filter carried an id that is not one: `assigned_to`, `contact_id` and `deal_id` name records, and are matched against id columns. Sent by `POST /crm/tasks/search`, `POST /crm/tasks/summary`, and the `filters` of a `"all": true` bulk selection |
+| `invalid_setting` | `PATCH /outreach/settings` (or a campaign's advanced settings) carried a value outside the documented vocabulary, for example a `reply_intent.crm_task_intents` entry that is not a reply intent |
 | `no_organization` | The request needs a workspace and the caller has none selected. Every entitlement, limit and suppression rule is scoped to a workspace, so a write that would run unscoped is refused rather than run without those checks. API keys always carry their workspace; a dashboard session picks one at sign-in, so this normally means the session predates the workspace being chosen. Select a workspace and retry |
 
 ### 401 Unauthorized
@@ -217,6 +222,7 @@ Returned when the request conflicts with existing data.
 **Common causes:**
 - Trying to create a resource that already exists
 - Duplicate unique values
+- Deleting something whose state does not allow it yet, such as an API key that can still authenticate
 
 **Example:**
 
@@ -228,6 +234,12 @@ Returned when the request conflicts with existing data.
   "request_id": "4bbbd1b2-8f86-47dd-8a7f-9476501ad20e"
 }
 ```
+
+One conflict carries its own `code`. A contact's email address has to be free, so changing one to an address another contact already holds is refused rather than merging the two:
+
+| `code` | Status | Meaning |
+|--------|--------|---------|
+| `contact_email_taken` | 409 | The address given to [update a contact](/api/reference/contacts/#update-a-contact) already belongs to another contact |
 
 ### 422 Unprocessable
 
@@ -319,6 +331,23 @@ A `503` whose `code` is `mailbox_provider_not_configured` is not transient and r
 - Or connect the mailbox over SMTP and IMAP instead, which needs no configuration
 - Full walkthrough: [connect mailboxes](/development/deployment-guide/#connect-mailboxes)
 
+#### `ai_not_configured`
+
+A `503` whose `code` is `ai_not_configured` is not transient and retrying will not help. It comes from `POST /templates/analyze` and means the deployment has no AI provider set up at all. It is how a client tells "there is no AI here" apart from "the provider is having a bad minute", which returns the generic `service_unavailable` and is worth retrying.
+
+```json
+{
+  "error": "Service Unavailable",
+  "message": "AI analysis is not configured on this deployment.",
+  "code": "ai_not_configured",
+  "request_id": "4bbbd1b2-8f86-47dd-8a7f-9476501ad20e"
+}
+```
+
+**How to fix:**
+- Set `AI_PROVIDER` and `AI_API_KEY` in the `.env` at your install root, then restart. See the [configuration reference](/development/configuration/)
+- Hide the AI affordance in your client rather than retrying: nothing about the request will make it succeed
+
 #### `mailbox_allowance_reached`
 
 A `403` whose `code` is `mailbox_allowance_reached` comes from every path that connects a mailbox: `POST /emails/onboarding/oauth/start`, `POST /emails/onboarding/oauth/finish`, `POST /emails/onboarding/smtp-imap`, and per row inside `POST /emails/onboarding/smtp-imap/bulk`. It is not a permission problem: the workspace holds its whole [mailbox allowance](/guides/mailboxes/#mailbox-allowance), which on a paid plan is one mailbox for every send a day the plan includes, and `10` on a free workspace. Nothing was connected.
@@ -369,6 +398,74 @@ A `503` whose `code` is `mailbox_worker_unreachable` comes from `DELETE /emails/
 
 **How to fix:**
 - Retry the delete. It is safe to repeat: a mailbox that is already gone returns `404`, and one that is still there is untouched
+
+#### `mailbox_send_as_unsupported`
+
+A `400` whose `code` is `mailbox_send_as_unsupported` comes from `POST /emails/{id}/identity/refresh` and from a `PATCH /emails/{id}` that sets `send_as_email`. Only Gmail and Google Workspace mailboxes publish the addresses they are allowed to send as; an Outlook or SMTP/IMAP mailbox has no such list, so there is nothing to refresh and nothing to choose from.
+
+```json
+{
+  "error": "Bad Request",
+  "message": "This mailbox's provider does not expose send-as addresses. Only Gmail and Google Workspace mailboxes do.",
+  "code": "mailbox_send_as_unsupported",
+  "request_id": "9f0a6f21-2c7e-4f2d-9d0e-1f7b9a2c4e55"
+}
+```
+
+**How to fix:**
+- Read `GET /emails/{id}/identity` first. Its `supported` field is `false` for these mailboxes, and `identities` is empty
+- Send from the mailbox's own address, which is what an empty `send_as_email` means
+
+#### `mailbox_send_as_unknown`
+
+A `400` whose `code` is `mailbox_send_as_unknown` comes from a `PATCH /emails/{id}` that sets `send_as_email` to an address the provider has not verified for that mailbox. The choice is refused here rather than at send time, where the provider's own refusal arrives days later against a campaign step and names nothing you could act on.
+
+```json
+{
+  "error": "Bad Request",
+  "message": "That address is not one your provider has verified this mailbox to send as. Refresh the list, or add and verify the address in your provider first.",
+  "code": "mailbox_send_as_unknown",
+  "request_id": "b71c3f88-0b3e-4a41-9a52-2f4f1fd0c0aa"
+}
+```
+
+**How to fix:**
+- Add the alias in Gmail (Settings, Accounts, "Send mail as") and finish its verification
+- Call `POST /emails/{id}/identity/refresh` so Warmbly re-reads the list, then set `send_as_email` to an address whose `verified` is `true`
+
+#### `mailbox_signature_too_large`
+
+A `400` whose `code` is `mailbox_signature_too_large` comes from `POST /emails/{id}/identity/refresh` with `import_signature` set. The provider's signature is larger than Warmbly stores (`20000` characters of HTML), and it is refused rather than truncated: half a signature is worse than none. The send-as list is not stored either, so the call changes nothing.
+
+```json
+{
+  "error": "Bad Request",
+  "message": "The signature on this mailbox is larger than Warmbly stores (20000 characters). Shorten it in your provider and import it again.",
+  "code": "mailbox_signature_too_large",
+  "request_id": "2d5e9a13-7c41-4f9b-bb17-a0f1d9c6e332"
+}
+```
+
+**How to fix:**
+- Shorten the signature in Gmail, usually by linking an image rather than embedding it, and import again
+- Or write the signature in Warmbly directly with `PATCH /emails/{id}`
+
+#### `mailbox_identity_unavailable`
+
+A `503` whose `code` is `mailbox_identity_unavailable` comes from `POST /emails/{id}/identity/refresh`. Reading a mailbox's sending addresses is an account operation, so it runs on the worker holding that mailbox, never from the API itself. It is unavailable exactly when that machine is: while the mailbox is being moved between workers, just after a worker restart, or before a newly connected mailbox has been placed. Nothing was changed.
+
+```json
+{
+  "error": "Service Unavailable",
+  "message": "Warmbly could not reach the machine running this mailbox, so its sending addresses were not refreshed. Nothing was changed; try again in a moment.",
+  "code": "mailbox_identity_unavailable",
+  "request_id": "6e2f1a90-5d13-4a77-9c0b-73f0b5a2e118"
+}
+```
+
+**How to fix:**
+- Retry. Placement happens within moments, so a second attempt usually succeeds
+- `GET /emails/{id}` reports the mailbox's `status`; an `inactive` mailbox is not placed on a worker at all and will keep refusing until it is reactivated
 
 ## Error handling best practices
 

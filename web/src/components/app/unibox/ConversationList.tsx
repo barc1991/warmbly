@@ -1,38 +1,40 @@
 // Middle pane of the unibox.
 //
-// Three upgrades over the flat list:
-//   1. Time-bucket grouping (Today / Yesterday / This week / Earlier)
-//      with sticky group headers so scanning across days reads as a
-//      timeline, not a uniform wall.
-//   2. Keyboard navigation: j/k step through rows, Enter opens, Esc
-//      deselects, e archives (placeholder), r focuses reply.
-//   3. A compact footer with the keyboard cheat-sheet so the
-//      shortcuts are discoverable without a help menu.
+// A title row (the scope, its count, the filter button; on phones also the
+// view switcher and Compose, since the rail is hidden there), a search row,
+// then the rows grouped under quiet Today / Yesterday / This week / Earlier
+// headers. Keyboard: j/k step through rows, Enter opens, Esc deselects, and
+// `/` focuses search; the `?` modal is where they are listed.
 //
-// All scope/filter state still lives in the parent page — this
-// component owns only its own search box + focused row.
+// All scope/filter state still lives in the parent page; this component owns
+// only its own search box and focused row.
 
 import React from "react";
-import { Loader2Icon, SearchIcon, Settings2Icon } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { AnimatePresence, motion } from "framer-motion";
+import { PanelLeftIcon, PenLineIcon, SearchIcon } from "lucide-react";
 import { ConversationItem } from "./ConversationItem";
 import useUniboxSearch from "@/lib/api/hooks/app/unibox/useUniboxSearch";
+import { useShortcutActions } from "@/hooks/useShortcutActions";
 import useDebouncedValue from "@/hooks/useDebouncedValue";
 import { useScrollMemory } from "@/hooks/useScrollMemory";
 import { useAppStore } from "@/stores";
-import { UniboxFilterSheet } from "./UniboxFilterSheet";
+import { useComposeStore } from "@/hooks/useComposeStore";
+import {
+  countUserFilters,
+  UniboxFilterButton,
+  UniboxFilterChips,
+} from "./UniboxFilterPopover";
+import { cn } from "@/lib/utils";
 import type { UniboxSearchParams } from "@/lib/api/models/app/unibox/UniboxSearch";
 
 type Bucket = "today" | "yesterday" | "week" | "earlier";
 
-function getBucketLabel(b: Bucket, isHe: boolean): string {
-  switch (b) {
-    case "today": return isHe ? "היום" : "Today";
-    case "yesterday": return isHe ? "אתמול" : "Yesterday";
-    case "week": return isHe ? "השבוע" : "This week";
-    case "earlier": return isHe ? "מוקדם יותר" : "Earlier";
-  }
-}
+const BUCKET_LABELS: Record<Bucket, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  week: "This week",
+  earlier: "Earlier",
+};
 
 function bucketFor(d: Date): Bucket {
   const now = new Date();
@@ -51,38 +53,46 @@ function bucketFor(d: Date): Bucket {
 }
 
 interface ConversationListProps {
-  /** Identity of the current scope; a change clears the local search. */
+  /** Identity of the current scope. */
   scopeKey: string;
   scopeLabel: string;
   params: UniboxSearchParams;
+  /** What the scope alone queries; anything beyond it is a user filter. */
+  baseParams: UniboxSearchParams;
   setParams: React.Dispatch<React.SetStateAction<UniboxSearchParams>>;
+  /**
+   * The search box. Owned by the page rather than here, so widening a search
+   * to every folder can switch scope without throwing away what was typed.
+   */
+  search: string;
+  setSearch: (value: string) => void;
+  /** Widen to every folder, keeping the query. Absent when already there. */
+  onSearchAllMail?: () => void;
+  /** Opens the mobile view switcher; the rail is hidden below lg. */
+  onOpenScopeSheet?: () => void;
 }
 
 export function ConversationList({
   scopeKey,
   scopeLabel,
   params,
+  baseParams,
   setParams,
+  search,
+  setSearch,
+  onSearchAllMail,
+  onOpenScopeSheet,
 }: ConversationListProps) {
-  const { i18n } = useTranslation();
-  const isHe = i18n.language === "he";
-  const [search, setSearch] = React.useState("");
-  const [sheetOpen, setSheetOpen] = React.useState(false);
-
-  // The page keeps this component mounted across a scope switch (that is what
-  // holds the scroll offset when a thread opens), so the search box has to be
-  // cleared here or a query typed for one scope would silently filter the next.
-  // Set during render, like the page's own param reset, so the stale query
-  // never reaches the request.
-  const [searchScope, setSearchScope] = React.useState(scopeKey);
-  if (searchScope !== scopeKey) {
-    setSearchScope(scopeKey);
-    setSearch("");
-  }
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
 
   const searchRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
-  const sentinelRef = React.useRef<HTMLDivElement>(null);
+  // State, not a ref: the rows sit in a keyed fragment that remounts when a
+  // new result set replaces the previous one, and the sentinel remounts with
+  // it. A ref would leave the observer below watching the detached node and
+  // auto-pagination would quietly stop, since none of its other dependencies
+  // change when both result sets have a next page.
+  const [sentinel, setSentinel] = React.useState<HTMLDivElement | null>(null);
   const selectedThreadId = useAppStore((s) => s.selectedThreadId);
   const setSelectedThreadId = useAppStore((s) => s.setSelectedThreadId);
   const setSelectedAccountId = useAppStore((s) => s.setSelectedAccountId);
@@ -97,9 +107,19 @@ export function ConversationList({
     return next;
   }, [params, debouncedSearch]);
 
-  const q = useUniboxSearch(merged);
+  const q = useUniboxSearch(merged, scopeKey);
   const emails = q.emails;
   const totalShown = emails.length;
+  const activeFilters = countUserFilters(params, baseParams);
+
+  // A search or filter change keeps the previous rows on screen while
+  // the new ones load (placeholderData). That is the moment to show progress:
+  // a bar along the top and the stale rows dimmed. Background refetches from
+  // realtime events do not qualify, so nothing flickers while reading. The
+  // bar waits 150ms so a fast response never shows it at all.
+  const stale = q.isPlaceholderData && q.isFetching;
+  const showProgress = useDelayed(stale, 150);
+  const firstLoad = (q.isPending || q.isPlaceholderData) && emails.length === 0;
 
   // Where this exact list was left. Opening a thread keeps the page mounted
   // (see the route's stableParams in main.tsx), so this covers what that
@@ -108,13 +128,20 @@ export function ConversationList({
   const listKey = React.useMemo(() => JSON.stringify(merged), [merged]);
   useScrollMemory(listRef, listKey);
 
+  // Rows fold and fade only for changes within one result set (a filed
+  // conversation, a new arrival). A whole new set, after a scope or filter
+  // change, lands in one go: the row container is keyed on the query whose
+  // data is on screen, which lags the request key for as long as the previous
+  // rows are standing in, so the swap remounts rather than animates.
+  const shownKey = React.useRef(listKey);
+  if (!q.isPlaceholderData) shownKey.current = listKey;
+
   // Infinite scroll: reaching the end of the list loads the next page instead
   // of asking for a click. The button below stays as the manual fallback, and
   // isFetchingNextPage is a dependency so a page landing re-arms the observer:
   // a sentinel still on screen keeps pulling instead of stalling one page in.
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = q;
   React.useEffect(() => {
-    const sentinel = sentinelRef.current;
     const root = listRef.current;
     // A page that failed stays failed until the user asks again; re-arming on
     // an on-screen sentinel would retry it on a loop.
@@ -128,11 +155,16 @@ export function ConversationList({
     );
     io.observe(sentinel);
     return () => io.disconnect();
-  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage]);
+  }, [
+    sentinel,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+  ]);
 
-  // Group rows by time bucket. The server already orders newest →
-  // oldest so a single pass preserves both global order and group
-  // adjacency.
+  // Group rows by time bucket. The server already orders newest to oldest so a
+  // single pass preserves both global order and group adjacency.
   const grouped = React.useMemo(() => {
     const groups: { bucket: Bucket; rows: typeof emails }[] = [];
     for (const e of emails) {
@@ -144,165 +176,235 @@ export function ConversationList({
     return groups;
   }, [emails]);
 
-  // Keyboard navigation. We work off `emails` (flat order) so j/k
-  // moves across bucket boundaries naturally. Ignoring shortcuts
-  // while typing into any input/textarea, and while the filter
-  // sheet is open, keeps the bindings out of the user's way.
-  React.useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (sheetOpen) return;
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
-          // Allow Escape from search to deselect.
-          if (e.key === "Escape" && target === searchRef.current) {
-            searchRef.current?.blur();
-          }
+  // Keyboard navigation. We work off `emails` (flat order) so j/k moves across
+  // bucket boundaries naturally. The keys themselves live in the global
+  // registry (useKeyboardShortcuts); this only says what they mean here, so the
+  // `?` modal and the dispatcher cannot disagree about whether they work.
+  const selectRow = React.useCallback(
+    (row: (typeof emails)[number] | undefined) => {
+      if (!row) return;
+      const id = row.thread_id || row.id;
+      setSelectedThreadId(id);
+      setSelectedAccountId(row.email_id ?? null);
+      // Bring the newly selected row into view if the list scrolled.
+      requestAnimationFrame(() => {
+        const el = listRef.current?.querySelector<HTMLElement>(
+          `[data-thread-id="${id}"]`,
+        );
+        el?.scrollIntoView({ block: "nearest" });
+      });
+    },
+    [setSelectedThreadId, setSelectedAccountId],
+  );
+
+  const currentIndex = React.useCallback(
+    () =>
+      selectedThreadId
+        ? emails.findIndex((row) => (row.thread_id || row.id) === selectedThreadId)
+        : -1,
+    [emails, selectedThreadId],
+  );
+
+  useShortcutActions(
+    {
+      listMove: (delta) => {
+        if (emails.length === 0) return;
+        const from = currentIndex();
+        // Nothing selected yet: j takes the top of the list and k the bottom.
+        // Treating "no selection" as index 0 made the first j skip the row the
+        // user was already looking at.
+        if (from < 0) {
+          selectRow(delta > 0 ? emails[0] : emails[emails.length - 1]);
           return;
         }
-      }
-
-      const currentIdx = selectedThreadId
-        ? emails.findIndex(
-            (row) => (row.thread_id || row.id) === selectedThreadId,
-          )
-        : -1;
-
-      const move = (delta: number) => {
-        if (emails.length === 0) return;
-        const next = Math.max(
-          0,
-          Math.min(
-            emails.length - 1,
-            (currentIdx < 0 ? 0 : currentIdx) + delta,
-          ),
+        selectRow(
+          emails[Math.max(0, Math.min(emails.length - 1, from + delta))],
         );
-        const row = emails[next];
-        if (!row) return;
-        setSelectedThreadId(row.thread_id || row.id);
-        setSelectedAccountId(row.email_id ?? null);
-        // Bring the focused row into view if the list scrolled.
-        requestAnimationFrame(() => {
-          const el = listRef.current?.querySelector<HTMLElement>(
-            `[data-thread-id="${row.thread_id || row.id}"]`,
-          );
-          el?.scrollIntoView({ block: "nearest" });
-        });
-        e.preventDefault();
-      };
+      },
+      listEdge: (edge) =>
+        selectRow(edge === "first" ? emails[0] : emails[emails.length - 1]),
+      listOpen: () => {
+        // A row is opened by selecting it; Enter is only meaningful before
+        // anything is selected, where it takes the top of the list.
+        if (currentIndex() < 0) selectRow(emails[0]);
+      },
+      listDeselect: () => {
+        if (!selectedThreadId) return;
+        setSelectedThreadId(null);
+        setSelectedAccountId(null);
+      },
+      focusSearch: () => searchRef.current?.focus(),
+    },
+    // The filter popover owns the keyboard while it is open.
+    { suspended: filtersOpen },
+  );
 
-      switch (e.key) {
-        case "j":
-          move(1);
-          return;
-        case "k":
-          move(-1);
-          return;
-        case "Enter":
-          if (currentIdx < 0 && emails[0]) {
-            const row = emails[0];
-            setSelectedThreadId(row.thread_id || row.id);
-            setSelectedAccountId(row.email_id ?? null);
-            e.preventDefault();
-          }
-          return;
-        case "Escape":
-          if (selectedThreadId) {
-            setSelectedThreadId(null);
-            setSelectedAccountId(null);
-            e.preventDefault();
-          }
-          return;
-        case "/":
-          searchRef.current?.focus();
-          e.preventDefault();
-          return;
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [
-    emails,
-    selectedThreadId,
-    sheetOpen,
-    setSelectedThreadId,
-    setSelectedAccountId,
-  ]);
+  const filtering = activeFilters > 0 || !!search.trim();
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <div className="h-9 px-2 shrink-0 border-b border-slate-200 flex items-center gap-1.5">
-        <SearchIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        <input
-          ref={searchRef}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={isHe ? `חיפוש ב${scopeLabel}… (/)` : `Search ${scopeLabel.toLowerCase()}… (/)`}
-          className="flex-1 min-w-0 h-7 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none text-start rtl:text-right"
-        />
+    <div className="relative flex flex-col h-full bg-white">
+      <ProgressBar active={showProgress} />
+      <div className="h-11 pl-3 pr-2 shrink-0 flex items-center gap-1.5">
+        {onOpenScopeSheet && (
+          <button
+            type="button"
+            onClick={onOpenScopeSheet}
+            aria-label="Switch view"
+            className="lg:hidden size-7 -ml-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
+          >
+            <PanelLeftIcon className="w-4 h-4" />
+          </button>
+        )}
+        <h1 className="text-[13.5px] font-semibold text-slate-900 truncate min-w-0">
+          {scopeLabel}
+        </h1>
         {totalShown > 0 && (
-          <span className="font-mono tabular-nums text-[10.5px] text-slate-400 shrink-0">
+          <span
+            className={cn(
+              "tabular-nums text-[11.5px] shrink-0 transition-opacity",
+              stale ? "text-slate-300" : "text-slate-400",
+            )}
+          >
             {totalShown}
+            {hasNextPage ? "+" : ""}
           </span>
         )}
+        <span className="flex-1" />
+        <UniboxFilterButton
+          params={params}
+          base={baseParams}
+          setParams={setParams}
+          open={filtersOpen}
+          onOpenChange={setFiltersOpen}
+        />
+        {/* Desktop has the rail's Compose button; this is the phone and tablet
+            entry, where the rail is hidden. */}
         <button
           type="button"
-          onClick={() => setSheetOpen(true)}
-          className="size-7 rounded text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
-          aria-label={isHe ? "מסננים מתקדמים" : "Advanced filters"}
+          onClick={() => useComposeStore.getState().openCompose()}
+          aria-label="New email"
+          className="lg:hidden size-7 rounded-md bg-sky-600 hover:bg-sky-700 text-white inline-flex items-center justify-center transition-colors shrink-0"
         >
-          <Settings2Icon className="w-3.5 h-3.5" />
+          <PenLineIcon className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      <div ref={listRef} className="flex-1 overflow-y-auto">
-        {q.isPending && emails.length === 0 ? (
+      <div className="px-3 pb-2 shrink-0 border-b border-slate-200">
+        <div className="h-8 px-2.5 rounded-md bg-slate-100/80 flex items-center gap-2 focus-within:bg-white focus-within:ring-1 focus-within:ring-sky-300 transition-[background-color,box-shadow]">
+          <SearchIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            // Escape gives the keyboard back to the list instead of bubbling up
+            // to the global dispatcher, which ignores keys typed into an input.
+            onKeyDown={(e) => {
+              if (e.key === "Escape") e.currentTarget.blur();
+            }}
+            // The box searches people, subject and message body, and naming
+            // that is the difference between it looking broken and looking
+            // useful: nobody tries an address in a box labelled "Search inbox".
+            placeholder={`Search ${scopeLabel.toLowerCase()}: name, address, or any word`}
+            title={'Searches the sender, recipients, subject and message body. "quoted phrases", OR and -exclude work.'}
+            className="flex-1 min-w-0 h-full bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
+          />
+          {search ? (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="text-[11px] text-slate-400 hover:text-slate-700 shrink-0"
+            >
+              Clear
+            </button>
+          ) : (
+            <kbd className="hidden md:inline-flex h-4 px-1 items-center rounded border border-slate-200 bg-white text-[10px] text-slate-400 font-mono shrink-0">
+              /
+            </kbd>
+          )}
+        </div>
+        <UniboxFilterChips
+          params={params}
+          base={baseParams}
+          setParams={setParams}
+          onOpen={() => setFiltersOpen(true)}
+        />
+      </div>
+
+      <div
+        ref={listRef}
+        className={cn(
+          "flex-1 overflow-y-auto transition-opacity duration-200",
+          stale && emails.length > 0 && "opacity-50",
+        )}
+        aria-busy={stale || undefined}
+      >
+        {firstLoad ? (
           <SkeletonRows />
         ) : q.isError && emails.length === 0 ? (
           <div className="px-5 py-12 text-center">
             <p className="text-[12.5px] text-slate-900 font-medium mb-1">
-              {isHe ? "לא ניתן לטעון את תיבת הדואר" : "Couldn't load inbox"}
+              Couldn't load inbox
             </p>
             <p className="text-[11.5px] text-slate-500 mb-3">
-              {q.error?.message ?? (isHe ? "הבקשה נכשלה" : "Request failed")}
+              {q.error?.message ?? "Request failed"}
             </p>
             <button
               type="button"
               onClick={() => q.refetch()}
               className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
             >
-              {isHe ? "נסה שוב" : "Try again"}
+              Try again
             </button>
           </div>
         ) : emails.length === 0 ? (
           <div className="px-5 py-16 text-center">
             <p className="text-[12.5px] text-slate-700 font-medium mb-1">
-              {hasActiveFilters(merged) || search.trim()
-                ? (isHe ? "אין תוצאות מתאימות" : "No matches")
-                : (isHe ? "אין כאן הודעות עדיין" : "Nothing here yet")}
+              {filtering ? "No matches" : "Nothing here"}
             </p>
-            <p className="text-[11.5px] text-slate-400 max-w-[28ch] mx-auto leading-relaxed">
-              {hasActiveFilters(merged) || search.trim()
-                ? (isHe ? "נסה תחום אחר או נקה את המסננים." : "Try a different scope or clear the filters.")
-                : (isHe ? "בחר תצוגה אחרת בסרגל הצד, או המתן לקבלת דואר חדש." : "Pick a different scope from the rail, or wait for new mail.")}
+            <p className="text-[11.5px] text-slate-400 max-w-[32ch] mx-auto leading-relaxed">
+              {filtering
+                ? search.trim()
+                  ? `Nothing in ${scopeLabel.toLowerCase()} matches "${search.trim()}". The search covers names, addresses, subjects and message bodies.`
+                  : "Try a different search or clear the filters."
+                : "New mail shows up here as it arrives."}
             </p>
+            {/* The commonest reason a search finds nothing is that the thing
+                is filed somewhere else. Offer the wider search rather than
+                quietly overriding the scope the reader chose. */}
+            {filtering && search.trim() && onSearchAllMail && (
+              <button
+                type="button"
+                onClick={onSearchAllMail}
+                className="mt-3 h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
+              >
+                <SearchIcon className="w-3 h-3" />
+                Search all mail
+              </button>
+            )}
           </div>
         ) : (
-          <>
+          <React.Fragment key={shownKey.current}>
             {grouped.map((g) => (
               <section key={g.bucket}>
-                <div className="sticky top-0 z-10 px-3 py-1 bg-slate-50/95 backdrop-blur-sm border-b border-slate-200/60 flex items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-normal text-slate-500 font-semibold">
-                    {getBucketLabel(g.bucket, isHe)}
-                  </span>
-                  <span className="font-mono text-[10px] text-slate-400 tabular-nums">
-                    {g.rows.length}
+                <div className="sticky top-0 z-10 px-4 h-7 bg-white/95 backdrop-blur-sm flex items-center">
+                  <span className="text-[10.5px] uppercase tracking-[0.12em] text-slate-400 font-medium">
+                    {BUCKET_LABELS[g.bucket]}
                   </span>
                 </div>
-                <div className="divide-y divide-slate-200/60">
+                <div className="divide-y divide-slate-100">
+                  <AnimatePresence initial={false}>
                   {g.rows.map((e) => (
-                    <div key={e.id} data-thread-id={e.thread_id || e.id}>
+                    <motion.div
+                      key={e.thread_id || e.id}
+                      data-thread-id={e.thread_id || e.id}
+                      // A row that arrives fades in; one that is filed,
+                      // snoozed or deleted folds away instead of vanishing.
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      style={{ overflow: "hidden" }}
+                    >
                       <ConversationItem
                         email={{
                           id: e.id,
@@ -311,8 +413,8 @@ export function ConversationList({
                           subject: e.subject,
                           snippet: e.snippet,
                           date: new Date(e.internal_date),
-                          // Bold the whole conversation when any
-                          // message in the thread is unread.
+                          // Bold the whole conversation when any message in
+                          // the thread is unread.
                           is_seen: !e.has_unread,
                           thread_id: e.thread_id,
                           account_id: e.email_id,
@@ -320,106 +422,112 @@ export function ConversationList({
                           labels: e.labels,
                         }}
                       />
-                    </div>
+                    </motion.div>
                   ))}
+                  </AnimatePresence>
                 </div>
               </section>
             ))}
             {hasNextPage && (
-              <div
-                ref={sentinelRef}
-                className="px-3 py-3 flex flex-col items-center gap-1.5 border-t border-slate-200/60"
-              >
+              <div ref={setSentinel}>
                 {isFetchingNextPage ? (
-                  <span className="h-7 text-[12px] text-slate-400 inline-flex items-center gap-1.5">
-                    <Loader2Icon className="w-3 h-3 animate-spin" />
-                    {isHe ? "טוען עוד…" : "Loading more…"}
-                  </span>
+                  // The next page looks like rows before it is rows.
+                  <SkeletonRows count={3} />
                 ) : (
-                  <>
+                  <div className="px-3 py-3 flex flex-col items-center gap-1.5">
                     {isFetchNextPageError && (
                       <span className="text-[11.5px] text-rose-600">
-                        {isHe ? "לא ניתן לטעון שיחות נוספות" : "Couldn't load more conversations"}
+                        Couldn't load more conversations
                       </span>
                     )}
                     <button
                       onClick={() => fetchNextPage()}
                       className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
                     >
-                      {isFetchNextPageError
-                        ? (isHe ? "נסה שוב" : "Try again")
-                        : (isHe ? `טען עוד · ${totalShown} מוצגים` : `Load more · ${totalShown} shown`)}
+                      {isFetchNextPageError ? "Try again" : "Load more"}
                     </button>
-                  </>
+                  </div>
                 )}
               </div>
             )}
-          </>
+          </React.Fragment>
         )}
       </div>
 
-      {/* Keyboard cheat-sheet footer. Slim and unobtrusive but
-                makes the shortcuts discoverable without a help menu. */}
-      <div className="h-6 px-2 shrink-0 border-t border-slate-200/80 bg-slate-50/60 hidden md:flex items-center gap-2 text-[10px] text-slate-500 overflow-x-auto">
-        <Kbd>j</Kbd>/<Kbd>k</Kbd>
-        <span className="text-slate-400">{isHe ? "תנועה" : "move"}</span>
-        <Kbd>↵</Kbd>
-        <span className="text-slate-400">{isHe ? "פתיחה" : "open"}</span>
-        <Kbd>esc</Kbd>
-        <span className="text-slate-400">{isHe ? "סגירה" : "close"}</span>
-        <Kbd>/</Kbd>
-        <span className="text-slate-400">{isHe ? "חיפוש" : "search"}</span>
-      </div>
-
-      <UniboxFilterSheet
-        open={sheetOpen}
-        setOpen={setSheetOpen}
-        filters={params}
-        setFilters={setParams}
-        loading={q.isFetching}
-      />
     </div>
   );
 }
 
-function Kbd({ children }: { children: React.ReactNode }) {
+// True once `active` has held for `ms`, false again the moment it drops, so
+// a state that resolves quickly never shows its indicator.
+function useDelayed(active: boolean, ms: number): boolean {
+  const [shown, setShown] = React.useState(false);
+  React.useEffect(() => {
+    if (!active) {
+      setShown(false);
+      return;
+    }
+    const t = window.setTimeout(() => setShown(true), ms);
+    return () => window.clearTimeout(t);
+  }, [active, ms]);
+  return shown;
+}
+
+// A 2px indeterminate bar along the top edge of the column.
+function ProgressBar({ active }: { active: boolean }) {
   return (
-    <kbd className="px-1 h-3.5 rounded-sm bg-white border border-slate-200 text-slate-600 font-mono text-[9px] inline-flex items-center shrink-0">
-      {children}
-    </kbd>
+    <AnimatePresence>
+      {active && (
+        <motion.div
+          key="progress"
+          role="progressbar"
+          aria-label="Loading conversations"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className="pointer-events-none absolute inset-x-0 top-0 z-20 h-0.5 overflow-hidden bg-sky-100"
+        >
+          <motion.div
+            className="h-full w-1/3 rounded-full bg-sky-500"
+            animate={{ x: ["-100%", "300%"] }}
+            transition={{ duration: 1.1, ease: "easeInOut", repeat: Infinity }}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
-function hasActiveFilters(p: UniboxSearchParams): boolean {
-  return Boolean(
-    p.from ||
-    (p.accountIds && p.accountIds.length > 0) ||
-    p.tagId ||
-    (p.categoryIds && p.categoryIds.length > 0) ||
-    p.unseen !== undefined ||
-    p.since ||
-    p.until ||
-    p.snoozed ||
-    p.awaitingReply,
-  );
-}
-
-function SkeletonRows() {
+function SkeletonRows({ count = 8 }: { count?: number }) {
+  // Same anatomy as a real row (gutter, three lines, time at the right) so
+  // nothing shifts when the rows land. Widths vary per row so it reads as a
+  // list rather than a pattern.
+  const widths = [
+    [30, 52, 64],
+    [24, 44, 58],
+    [34, 40, 66],
+    [28, 56, 60],
+    [22, 48, 62],
+    [32, 42, 56],
+    [26, 50, 64],
+    [30, 46, 60],
+  ];
   return (
-    <div className="divide-y divide-slate-200/60">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="px-3 py-2.5 flex items-center gap-2.5">
-          <div className="size-7 rounded-full bg-slate-100 shrink-0" />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="flex items-center gap-2">
-              <div className="h-2.5 w-32 bg-slate-100 rounded animate-pulse" />
-              <div className="ms-auto h-2.5 w-8 bg-slate-100 rounded animate-pulse" />
+    <div className="divide-y divide-slate-100" aria-hidden>
+      {Array.from({ length: count }).map((_, i) => {
+        const [a, b, c] = widths[i % widths.length];
+        return (
+          <div key={i} className="pl-5 pr-4 py-2.5 space-y-[7px]">
+            <div className="flex items-center gap-2 h-[18px]">
+              <div className="h-2.5 rounded bg-slate-100 animate-pulse" style={{ width: `${a}%` }} />
+              <div className="ml-auto h-2.5 w-6 rounded bg-slate-100 animate-pulse" />
             </div>
-            <div className="h-2.5 w-44 bg-slate-100 rounded animate-pulse" />
-            <div className="h-2.5 w-56 bg-slate-100 rounded animate-pulse" />
+            <div className="h-2.5 rounded bg-slate-100 animate-pulse" style={{ width: `${b}%` }} />
+            <div className="h-2.5 rounded bg-slate-100/80 animate-pulse" style={{ width: `${c}%` }} />
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

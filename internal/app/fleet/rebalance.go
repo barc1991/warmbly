@@ -37,6 +37,12 @@ type Rotator struct {
 	// event (a bad deploy, a provider outage) degrades gracefully instead of
 	// re-placing everything at once.
 	MaxMovesPerTick int
+	// MaxMovesPerDestination bounds how much of one pass can land on the same
+	// worker. worker_capacity_view is materialized and refreshed on its own
+	// minute cadence, so every mailbox in a tick is scored against the same
+	// frozen load_score: without this, the emptiest worker looks equally empty
+	// to all of them and a single pass can fill it past its target.
+	MaxMovesPerDestination int
 	// ScanLimit bounds how many candidate mailboxes one pass examines.
 	ScanLimit int
 	Interval  time.Duration
@@ -45,6 +51,9 @@ type Rotator struct {
 func (r *Rotator) defaults() {
 	if r.MaxMovesPerTick == 0 {
 		r.MaxMovesPerTick = 50
+	}
+	if r.MaxMovesPerDestination == 0 {
+		r.MaxMovesPerDestination = 5
 	}
 	if r.ScanLimit == 0 {
 		r.ScanLimit = 500
@@ -71,6 +80,7 @@ func (r *Rotator) tick(ctx context.Context) error {
 
 	now := time.Now()
 	moved := 0
+	landed := make(map[uuid.UUID]int, r.MaxMovesPerTick)
 	for _, state := range candidates {
 		if moved >= r.MaxMovesPerTick {
 			break
@@ -80,6 +90,9 @@ func (r *Rotator) tick(ctx context.Context) error {
 		}
 
 		awayFromOwn := state.ReservedWorkerID != nil && *state.ReservedWorkerID != *state.WorkerID
+		orgImbalanced := state.OrganizationPlacementImbalanced()
+		providerImbalanced := state.ProviderPlacementImbalanced()
+		imbalanced := orgImbalanced || providerImbalanced
 		urgency, reason := workerapp.EvaluateRotation(workerapp.RotationInput{
 			WorkerActive:                 state.WorkerActive,
 			WorkerLive:                   state.WorkerLive,
@@ -88,6 +101,7 @@ func (r *Rotator) tick(ctx context.Context) error {
 			Residency:                    state.Residency(now),
 			OnSomeoneElsesReservedWorker: state.WorkerReservedForOtherOrg,
 			AwayFromOwnReservedWorker:    awayFromOwn,
+			PlacementImbalanced:          imbalanced,
 		})
 		if urgency == workerapp.RotationStay {
 			continue
@@ -97,10 +111,11 @@ func (r *Rotator) tick(ctx context.Context) error {
 		}
 
 		lookup := workerapp.PlacementLookup{
-			EmailAccountID:  state.EmailAccountID,
-			OrgID:           *state.OrganizationID,
-			CurrentWorkerID: state.WorkerID,
-			Region:          state.WorkerRegion,
+			EmailAccountID:   state.EmailAccountID,
+			OrgID:            *state.OrganizationID,
+			CurrentWorkerID:  state.WorkerID,
+			IgnoreIncumbency: imbalanced,
+			Region:           state.WorkerRegion,
 		}
 		// When the mailbox has to LEAVE where it is, the current worker must be
 		// off the table: it is still the incumbent, still carries the
@@ -123,6 +138,14 @@ func (r *Rotator) tick(ctx context.Context) error {
 		if res.Worker.ID == *state.WorkerID {
 			continue
 		}
+		concentrationMove := imbalanced && !awayFromOwn &&
+			state.WorkerUtilization <= workerapp.RotationHotUtilization && !leaving
+		if concentrationMove && !res.RelievesConcentration(orgImbalanced, providerImbalanced) {
+			continue
+		}
+		if landed[res.Worker.ID] >= r.MaxMovesPerDestination {
+			continue
+		}
 		if !workerapp.WorthMoving(urgency, res.IncumbentScore, res.Score, res.Mandated) {
 			continue
 		}
@@ -132,6 +155,7 @@ func (r *Rotator) tick(ctx context.Context) error {
 			log.Warn().Err(err).Str("mailbox", state.EmailAccountID.String()).Msg("rotation move failed")
 			continue
 		}
+		landed[res.Worker.ID]++
 		moved++
 
 		mailboxID := state.EmailAccountID

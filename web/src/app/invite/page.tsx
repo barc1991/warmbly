@@ -14,6 +14,8 @@ import useAcceptInvitation from "@/lib/api/hooks/app/organizations/useAcceptInvi
 import useOrganizations from "@/lib/api/hooks/app/organizations/useOrganizations";
 import useSwitchOrganization from "@/lib/api/hooks/app/organizations/useSwitchOrganization";
 import useAuthConfig from "@/lib/api/hooks/auth/useAuthConfig";
+import useUser from "@/lib/api/hooks/auth/useUser";
+import useLogout from "@/lib/api/hooks/auth/useLogout";
 import { useAppStore } from "@/stores";
 import { Logo } from "@/components/svg";
 import type { AppError } from "@/lib/api/client/normalizeError";
@@ -32,6 +34,11 @@ export default function InviteAcceptPage() {
     const setOrganizations = useAppStore((s) => s.setOrganizations);
     const setCurrentOrganization = useAppStore((s) => s.setCurrentOrganization);
     const { config: authConfig } = useAuthConfig();
+    // Who this browser is signed in as. The backend only lets the invited
+    // address accept, so a session for anyone else must switch first —
+    // otherwise Accept is a guaranteed 403.
+    const me = useUser(loggedIn);
+    const logout = useLogout();
 
     const nextPath = `/invite?token=${encodeURIComponent(token ?? "")}`;
     // The invited address has to travel too: the backend only accepts a signup
@@ -44,13 +51,25 @@ export default function InviteAcceptPage() {
         (invitedEmail ? `&email=${encodeURIComponent(invitedEmail)}` : "") +
         `&next=${encodeURIComponent(nextPath)}`;
     const signupClosed = authConfig.registration === "true";
+    const signedInEmail = me.data?.email ?? "";
+    const wrongAccount =
+        loggedIn && !!signedInEmail && !!invitedEmail && signedInEmail.toLowerCase() !== invitedEmail.toLowerCase();
+    // Accept is a guaranteed 403 for the wrong session, so it must not be
+    // clickable before we know which session this is. `me` never resolves when
+    // it was never asked (no token), hence the loggedIn half.
+    const identityPending = loggedIn && (me.isPending || me.isFetching);
+
+    async function onSwitchAccount() {
+        await logout.mutateAsync();
+        navigate(`/auth/login?next=${encodeURIComponent(nextPath)}`, { replace: true });
+    }
 
     async function onAccept() {
         if (!token) return;
         try {
             await toast.promise(accept.mutateAsync({ token }), {
-                loading: "מצטרף לסביבת העבודה…",
-                success: "הצטרפת בהצלחה",
+                loading: "מצטרף לסביבת עבודה…",
+                success: "הצטרפת",
                 error: (e: AppError) => buildError(e),
             });
             const fresh = await orgs.refetch();
@@ -77,17 +96,17 @@ export default function InviteAcceptPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                     {!token ? (
                         <Centered icon={<AlertCircleIcon className="w-5 h-5 text-rose-500" />} title="קישור לא תקין">
-                            קישור הזמנה זה חסר אסימון. בקש ממי שהזמין אותך קישור חדש.
+                            קישור ההזמנה הזה חסר את הטוקן שלו. בקש ממי שהזמין אותך קישור חדש.
                         </Centered>
                     ) : preview.isPending ? (
                         <Centered icon={<Loader2Icon className="w-5 h-5 text-slate-400 animate-spin" />} title="טוען הזמנה…" />
                     ) : preview.isError || !preview.data ? (
-                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-rose-500" />} title="ההזמנה לא נמצאה">
-                            הזמנה זו אינה תקפה או שבוטלה.
+                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-rose-500" />} title="הזמנה לא נמצאה">
+                            הזמנה זו אינה תקינה או בוטלה.
                         </Centered>
                     ) : preview.data.expired ? (
-                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-amber-500" />} title="תוקף ההזמנה פג">
-                            תוקף הזמנה זו פג. בקש הזמנה חדשה.
+                        <Centered icon={<AlertCircleIcon className="w-5 h-5 text-amber-500" />} title="הזמנה פגה תוקף">
+                            הזמנה זו פגה תוקף. בקש הזמנה חדשה.
                         </Centered>
                     ) : (
                         <div>
@@ -106,13 +125,13 @@ export default function InviteAcceptPage() {
                                     <div className="text-[12px] text-slate-500 truncate">
                                         {preview.data.inviter_name
                                             ? `${preview.data.inviter_name} הזמין אותך`
-                                            : "הוזמנת להצטרף"}
+                                            : "הוזמנת"}
                                     </div>
                                 </div>
                             </div>
 
                             <div className="rounded-md bg-slate-50 border border-slate-200/70 px-3 py-2.5 mb-4 space-y-1.5">
-                                <Row label="אימייל מוזמן" value={preview.data.email} />
+                                <Row label="דוא״ל מוזמן" value={preview.data.email} />
                                 {preview.data.roles.length > 0 && (
                                     <div className="flex items-start gap-2 text-[12px]">
                                         <span className="text-slate-400 w-20 shrink-0">תפקיד{preview.data.roles.length > 1 ? "ים" : ""}</span>
@@ -132,38 +151,58 @@ export default function InviteAcceptPage() {
                                 )}
                             </div>
 
-                            {loggedIn ? (
+                            {wrongAccount ? (
+                                <div className="space-y-2">
+                                    <p className="text-[12px] text-slate-500 leading-relaxed">
+                                        אתה מחובר כ- <span className="font-medium text-slate-700">{signedInEmail}</span>, אבל ההזמנה
+                                        מיועדת ל- <span className="font-medium text-slate-700">{invitedEmail}</span>. התנתק, ואז התחבר
+                                        או צור חשבון עם הכתובת המוזמנת.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={onSwitchAccount}
+                                        disabled={logout.isPending}
+                                        className="w-full h-9 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[13px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
+                                    >
+                                        {logout.isPending && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
+                                        החלף חשבון
+                                    </button>
+                                </div>
+                            ) : loggedIn ? (
                                 <button
                                     type="button"
                                     onClick={onAccept}
-                                    disabled={accept.isPending}
+                                    disabled={accept.isPending || identityPending}
                                     className="w-full h-9 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[13px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
                                 >
-                                    {accept.isPending && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
-                                    קבלת הזמנה
+                                    {(accept.isPending || identityPending) && (
+                                        <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+                                    )}
+                                    {identityPending ? "בודק את החשבון שלך…" : "קבל הזמנה"}
                                 </button>
                             ) : (
                                 <div className="space-y-2">
                                     <p className="text-[12px] text-slate-500 flex items-center gap-1.5">
                                         <MailIcon className="w-3.5 h-3.5 shrink-0" />
-                                        התחבר או צור חשבון באמצעות <span className="font-medium text-slate-700">{preview.data.email}</span> כדי להצטרף.
+                                        התחבר או צור חשבון עם <span className="font-medium text-slate-700">{preview.data.email}</span> כדי להצטרף.
                                     </p>
                                     <Link
                                         to={`/auth/login?next=${encodeURIComponent(nextPath)}`}
                                         className="w-full h-9 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[13px] font-medium inline-flex items-center justify-center transition-colors"
                                     >
-                                        התחבר כדי לקבל את ההזמנה
+                                        התחבר לקבלת ההזמנה
                                     </Link>
                                     {signupClosed ? (
                                         <p className="text-[12px] text-slate-500 leading-relaxed">
-                                            השרת אינו מאפשר הרשמת חשבונות חדשים כעת. פנה למנהל שהזמין אותך.
+                                            שרת זה אינו מקבל חשבונות חדשים. פנה למנהל שהזמין
+                                            אותך.
                                         </p>
                                     ) : (
                                         <Link
                                             to={registerPath}
                                             className="w-full h-9 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[13px] font-medium inline-flex items-center justify-center transition-colors"
                                         >
-                                            יצירת חשבון חדש
+                                            צור חשבון
                                         </Link>
                                     )}
                                 </div>

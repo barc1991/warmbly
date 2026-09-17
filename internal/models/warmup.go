@@ -6,6 +6,16 @@ import (
 	"github.com/google/uuid"
 )
 
+// WarmupPoolType separates free and paid warmup participation.
+type WarmupPoolType string
+
+const (
+	// WarmupPoolFree is the default pool for unpaid workspaces.
+	WarmupPoolFree WarmupPoolType = "free"
+	// WarmupPoolPremium is the pool for paid workspaces.
+	WarmupPoolPremium WarmupPoolType = "premium"
+)
+
 type WarmupToken struct {
 	Token              uuid.UUID `json:"token"`
 	TaskID             uuid.UUID `json:"task_id"`
@@ -40,20 +50,20 @@ type WarmupToken struct {
 // UID belongs to, so an action is skipped rather than aimed at whatever
 // message inherited the number after a UIDVALIDITY change.
 type WarmupEmailAction struct {
-	UserID             uuid.UUID `json:"user_id"`
-	EmailID            uuid.UUID `json:"email_id"`
-	GmailID            string    `json:"gmail_id"`
-	UID                uint32    `json:"uid"`
-	MailboxUIDValidity uint32    `json:"mailbox_uid_validity"`
+	UserID             uuid.UUID `json:"user_id" avro:"user_id"`
+	EmailID            uuid.UUID `json:"email_id" avro:"email_id"`
+	GmailID            string    `json:"gmail_id" avro:"gmail_id"`
+	UID                uint32    `json:"uid" avro:"uid"`
+	MailboxUIDValidity uint32    `json:"mailbox_uid_validity" avro:"mailbox_uid_validity"`
 	// MailboxFolder is the source folder's name. Empty on events from
 	// consumers predating it, where the worker falls back to matching on
 	// MailboxUIDValidity alone.
-	MailboxFolder string `json:"mailbox_folder,omitempty"`
+	MailboxFolder string `json:"mailbox_folder,omitempty" avro:"mailbox_folder"`
 	// RFCMessageID is the immutable RFC 5322 Message-ID. Graph provider ids
 	// change when a message is moved (copy+delete), so the worker re-resolves
 	// the live Graph id from this stable key at action time.
-	RFCMessageID string   `json:"rfc_message_id,omitempty"`
-	Actions      []string `json:"actions"` // "move_to_warmbly", "mark_read", "remove_from_spam", "mark_important"
+	RFCMessageID string   `json:"rfc_message_id,omitempty" avro:"rfc_message_id"`
+	Actions      []string `json:"actions" avro:"actions"` // "move_to_warmbly", "mark_read", "remove_from_spam", "mark_important"
 
 	// DelaySeconds is retained for wire compatibility but is now always 0: the
 	// recipient-side "dwell" is owned by the consumer's durable schedule
@@ -62,7 +72,43 @@ type WarmupEmailAction struct {
 	// important / star) when due. The worker runs whatever it receives
 	// immediately. This survives a worker restart, which the old in-process
 	// timer did not.
-	DelaySeconds int `json:"delay_seconds,omitempty"`
+	DelaySeconds int `json:"delay_seconds,omitempty" avro:"delay_seconds"`
+}
+
+// The two warmup pools migration 000156 seeds on every instance, one per type.
+var (
+	WarmupPoolFreeID    = uuid.MustParse("77777777-aaaa-0000-0000-000000000001")
+	WarmupPoolPremiumID = uuid.MustParse("77777777-aaaa-0000-0000-000000000002")
+)
+
+// WarmupPoolID resolves a pool type to its seeded pool; false for anything
+// that is not a pool type.
+func WarmupPoolID(poolType string) (uuid.UUID, bool) {
+	switch poolType {
+	case "free":
+		return WarmupPoolFreeID, true
+	case "premium":
+		return WarmupPoolPremiumID, true
+	}
+	return uuid.Nil, false
+}
+
+// WarmupPoolBorrowsFrom is the tier a thin pool may borrow proven recipients
+// from. Only premium borrows, and only free, so free traffic never reaches a
+// paying inbox on the draw.
+func WarmupPoolBorrowsFrom(poolType string) (string, bool) {
+	if poolType == "premium" {
+		return "free", true
+	}
+	return "", false
+}
+
+// WarmupPartnerCandidate is a recipient the partner selector may draw: a
+// member of the sender's tier, or one borrowed from the tier it may draw on.
+type WarmupPartnerCandidate struct {
+	ID       uuid.UUID
+	Email    string
+	Borrowed bool
 }
 
 type WarmupHealthState string
@@ -83,7 +129,6 @@ type WarmupParticipantHealth struct {
 	BlockedAt             *time.Time        `json:"blocked_at,omitempty"`
 	BlockedUntil          *time.Time        `json:"blocked_until,omitempty"`
 	BlockedReason         *string           `json:"blocked_reason,omitempty"`
-	SpamScore             int               `json:"spam_score"`
 	HealthState           WarmupHealthState `json:"health_state"`
 	LastHealthScore       float64           `json:"last_health_score"`
 	LastHealthReason      *string           `json:"last_health_reason,omitempty"`
@@ -112,20 +157,27 @@ type WarmupBanStatus struct {
 type WarmupPoolHealthSummary struct {
 	TotalParticipants int            `json:"total_participants"`
 	ByState           map[string]int `json:"by_state"`
-	AvgSpamScore      float64        `json:"avg_spam_score"`
-	AvgSpamPlacement  float64        `json:"avg_spam_placement_rate"`
+	// AvgHealthScore averages last_health_score: the severity the bands decided.
+	AvgHealthScore   float64 `json:"avg_health_score"`
+	AvgSpamPlacement float64 `json:"avg_spam_placement_rate"`
 	// Keyed by who runs the recipient's mail, the vocabulary routing reads.
 	SpamPlacementByProvider map[string]int `json:"spam_placement_by_provider"`
 	BlockedCount            int            `json:"blocked_count"`
 	AtRiskCount             int            `json:"at_risk_count"`
 }
 
+// WarmupHealthCounts is the raw count behind each health rate, read in one trip.
+type WarmupHealthCounts struct {
+	SentLast7d           int
+	SpamPlacementsLast7d int
+	UserComplaintsLast7d int
+	ComplaintsLast30d    int
+	BouncesLast30d       int
+	DeliveredLast30d     int
+}
+
 type WarmupHealthMetrics struct {
 	SentLast7d int `json:"sent_last_7d"`
-
-	// SpamReportsLast7d is the combined warmup-pool spam signal (placement +
-	// user complaints). Retained for callers that want a single number.
-	SpamReportsLast7d int `json:"spam_reports_last_7d"`
 
 	// SpamPlacementsLast7d counts warmup messages that landed in the
 	// recipient's Junk/Spam folder on delivery. SpamPlacementRate is the
@@ -140,11 +192,9 @@ type WarmupHealthMetrics struct {
 	UserComplaintsLast7d int     `json:"user_complaints_last_7d"`
 	WarmupComplaintRate  float64 `json:"warmup_complaint_rate"`
 
-	InvalidAttemptsLast24 int     `json:"invalid_attempts_last_24h"`
-	SpamScore             int     `json:"spam_score"`
-	ComplaintsLast30d     int     `json:"complaints_last_30d"`
-	DeliveredLast30d      int     `json:"delivered_last_30d"`
-	ComplaintRate         float64 `json:"complaint_rate"`
-	BouncesLast30d        int     `json:"bounces_last_30d"`
-	BounceRate            float64 `json:"bounce_rate"`
+	ComplaintsLast30d int     `json:"complaints_last_30d"`
+	DeliveredLast30d  int     `json:"delivered_last_30d"`
+	ComplaintRate     float64 `json:"complaint_rate"`
+	BouncesLast30d    int     `json:"bounces_last_30d"`
+	BounceRate        float64 `json:"bounce_rate"`
 }

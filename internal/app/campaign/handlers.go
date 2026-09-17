@@ -21,6 +21,7 @@ import (
 	"github.com/warmbly/warmbly/internal/infrastructure/pubsub"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/observability/errs"
+	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
 	"github.com/warmbly/warmbly/internal/pkg/trackdns"
 	"github.com/warmbly/warmbly/internal/repository"
 	"github.com/warmbly/warmbly/internal/scheduler"
@@ -126,8 +127,8 @@ func (s *campaignService) Overview(ctx context.Context, orgID string) (*models.C
 	return resp, nil
 }
 
-func (s *campaignService) Update(ctx context.Context, userID, query string, data *models.UpdateCampaign) (*models.Campaign, *errx.Error) {
-	resp, err := s.campaignRepository.Update(ctx, userID, query, data)
+func (s *campaignService) Update(ctx context.Context, orgID, query string, data *models.UpdateCampaign) (*models.Campaign, *errx.Error) {
+	resp, err := s.campaignRepository.Update(ctx, orgID, query, data)
 	if err != nil {
 		return nil, err
 	}
@@ -464,18 +465,36 @@ func (s *campaignService) StartCampaign(ctx context.Context, orgID uuid.UUID, ca
 	// conditional (e.g. an {{if}} with no {{end}}) silently degrades to literal
 	// template text in the sent email — better to catch it here with a clear,
 	// step-scoped error than to ship {{if ...}} to recipients.
-	if seqs, serr := s.campaignRepository.GetSequencesByCampaignID(ctx, cID); serr == nil {
-		for i, seq := range seqs {
-			for _, f := range []struct {
-				name, val string
-			}{{"subject", seq.Subject}, {"body", seq.BodyHTML}, {"plain-text body", seq.BodyPlain}} {
-				if terr := tasks.TemplateError(f.val); terr != nil {
-					return errx.New(errx.BadRequest, fmt.Sprintf(
-						"Step %d's %s has a template error — fix the {{if}}/{{end}} or {{eq}} syntax before starting.",
-						i+1, f.name,
-					))
-				}
+	// Fail closed. This read backs two refusals (a malformed template, and a
+	// step with no body at all), so skipping it on a query error would start a
+	// campaign that sends {{if}} literals or blank mail to every lead.
+	seqs, serr := s.campaignRepository.GetSequencesByCampaignID(ctx, cID)
+	if serr != nil {
+		errs.CaptureException(serr)
+		return errx.InternalError()
+	}
+	for i, seq := range seqs {
+		for _, f := range []struct {
+			name, val string
+		}{{"subject", seq.Subject}, {"body", seq.BodyHTML}, {"plain-text body", seq.BodyPlain}} {
+			if terr := tasks.TemplateError(f.val); terr != nil {
+				return errx.New(errx.BadRequest, fmt.Sprintf(
+					"Step %d's %s has a template error — fix the {{if}}/{{end}} or {{eq}} syntax before starting.",
+					i+1, f.name,
+				))
 			}
+		}
+		// An email step with nothing in either body sends a blank message
+		// to every lead it reaches. A step created through the API carries
+		// the composer's empty placeholder, which is not an empty string,
+		// so this asks whether the body would RENDER anything.
+		if seq.Kind == "email" &&
+			!mailhtml.HasContent(seq.BodyHTML) &&
+			strings.TrimSpace(seq.BodyPlain) == "" {
+			return errx.NewWithIdentifier(errx.BadRequest, "empty_step_body", fmt.Sprintf(
+				"Step %d has no email body, so it would send a blank message. Write the body before starting.",
+				i+1,
+			))
 		}
 	}
 
@@ -903,14 +922,14 @@ func (s *campaignService) StopCampaign(ctx context.Context, orgID uuid.UUID, cam
 	return nil
 }
 
-func (s *campaignService) GetLogs(ctx context.Context, userID, campaignID string, limit int, cursor *string) (*models.CampaignLogsResult, *errx.Error) {
+func (s *campaignService) GetLogs(ctx context.Context, orgID, campaignID string, limit int, cursor *string) (*models.CampaignLogsResult, *errx.Error) {
 	cID, parseErr := uuid.Parse(campaignID)
 	if parseErr != nil {
 		return nil, errx.ErrUuid
 	}
 
-	// Verify user owns this campaign
-	_, err := s.campaignRepository.Get(ctx, userID, campaignID)
+	// Verify the campaign belongs to the selected workspace
+	_, err := s.campaignRepository.Get(ctx, orgID, campaignID)
 	if err != nil {
 		if errors.Is(err, errx.ErrResourceNotFound) {
 			return nil, errx.ErrNotFound
@@ -1133,4 +1152,88 @@ func (s *campaignService) Estimate(ctx context.Context, orgID uuid.UUID, in *mod
 		}
 	}
 	return out, nil
+}
+
+// PauseLead parks one lead's flow. The campaign must be the organization's and
+// the contact must already be a lead of it, so a pause can never be used to
+// probe another workspace's ids.
+func (s *campaignService) PauseLead(ctx context.Context, orgID, campaignID, contactID uuid.UUID, until *time.Time, reason string) (*models.LeadHold, *errx.Error) {
+	if s.campaignProgressRepo == nil {
+		return nil, errx.InternalError()
+	}
+	if xerr := s.ownedCampaign(ctx, orgID, campaignID); xerr != nil {
+		return nil, xerr
+	}
+	if until != nil {
+		now := time.Now()
+		if !until.After(now) {
+			return nil, errx.New(errx.BadRequest, "until must be in the future")
+		}
+		if until.After(now.AddDate(0, 0, leadHoldMaxDays)) {
+			return nil, errx.New(errx.BadRequest, "until must be within a year; remove the lead from the campaign instead")
+		}
+	}
+	hold, err := s.campaignProgressRepo.HoldLead(ctx, campaignID, contactID,
+		until, models.ClampLine(reason, leadHoldReasonMaxLen), models.LeadHoldSourceManual)
+	if err != nil {
+		return nil, errx.InternalError()
+	}
+	if hold == nil {
+		// A manual pause is never refused by the guard, so no row means the
+		// contact is not a lead of this campaign.
+		return nil, errx.New(errx.NotFound, "contact is not a lead of this campaign")
+	}
+	return hold, nil
+}
+
+// ResumeLead lifts the hold and, only when there was one to lift, pulls the
+// campaign's wakeup forward so the lead does not sit until the chain's next
+// parked slot. Waking unconditionally would restart a campaign that had
+// legitimately finished, for a call that changed nothing.
+func (s *campaignService) ResumeLead(ctx context.Context, orgID, campaignID, contactID uuid.UUID) *errx.Error {
+	if s.campaignProgressRepo == nil {
+		return errx.InternalError()
+	}
+	if xerr := s.ownedCampaign(ctx, orgID, campaignID); xerr != nil {
+		return xerr
+	}
+	lifted, err := s.campaignProgressRepo.ResumeLead(ctx, campaignID, contactID)
+	if errors.Is(err, repository.ErrLeadNotInCampaign) {
+		return errx.New(errx.NotFound, "contact is not a lead of this campaign")
+	}
+	if err != nil {
+		return errx.InternalError()
+	}
+	// Resuming a lead that was not held is a success that changed nothing: the
+	// caller asked for "not held" and that is the state either way.
+	if lifted {
+		s.WakeCampaigns(ctx, orgID, []string{campaignID.String()})
+	}
+	return nil
+}
+
+// GetLeadHold reads the live hold on one lead.
+func (s *campaignService) GetLeadHold(ctx context.Context, orgID, campaignID, contactID uuid.UUID) (*models.LeadHold, *errx.Error) {
+	if s.campaignProgressRepo == nil {
+		return nil, errx.InternalError()
+	}
+	if xerr := s.ownedCampaign(ctx, orgID, campaignID); xerr != nil {
+		return nil, xerr
+	}
+	hold, err := s.campaignProgressRepo.GetLeadHold(ctx, campaignID, contactID)
+	if errors.Is(err, repository.ErrLeadNotInCampaign) {
+		return nil, errx.New(errx.NotFound, "contact is not a lead of this campaign")
+	}
+	if err != nil {
+		return nil, errx.InternalError()
+	}
+	return hold, nil
+}
+
+// ownedCampaign refuses a campaign that is not this organization's, through the
+// same load-and-check every other campaign endpoint uses, so a repository
+// failure reads as a failure rather than as "the campaign does not exist".
+func (s *campaignService) ownedCampaign(ctx context.Context, orgID, campaignID uuid.UUID) *errx.Error {
+	_, _, xerr := s.campaignForOrg(ctx, orgID, campaignID.String())
+	return xerr
 }

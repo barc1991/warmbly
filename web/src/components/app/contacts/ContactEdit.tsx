@@ -37,6 +37,17 @@ import NotesTab from "./contact-edit/NotesTab";
 import ResearchTab from "./contact-edit/ResearchTab";
 import DetailsTab, { type CustomField } from "./contact-edit/DetailsTab";
 import {
+    fieldsOf,
+    hasUnnamedValue,
+    idsOf,
+    rebase,
+    recordFromCF,
+    sameCampaigns,
+    sameFields,
+    sameIDs,
+    sameRows,
+} from "./contact-edit/rebase";
+import {
     CONTACT_SLIDE_TABS,
     type ContactSlideTab,
 } from "./contact-edit/tabs";
@@ -95,16 +106,11 @@ function ContactEditPanel({
     const [email, setEmail] = React.useState(contact.email);
     const [company, setCompany] = React.useState(contact.company);
     const [phone, setPhone] = React.useState(contact.phone);
-    const [website, setWebsite] = React.useState(contact.custom_fields?.website ?? "");
     const [subscribed, setSubscribed] = React.useState(contact.subscribed);
     const [campaigns, setCampaigns] = React.useState<MiniCampaign[]>(contact.campaigns ?? []);
-    const [categoryIds, setCategoryIds] = React.useState<string[]>(
-        () => (contact.categories ?? []).map((c) => c.id),
-    );
+    const [categoryIds, setCategoryIds] = React.useState<string[]>(() => idsOf(contact.categories ?? []));
     const [customFields, setCustomFields] = React.useState<CustomField[]>(() =>
-        Object.entries(contact.custom_fields ?? {})
-            .filter(([n]) => n !== "website")
-            .map(([n, v]) => ({ name: n, value: v })),
+        fieldsOf(contact.custom_fields),
     );
 
     function reset() {
@@ -113,51 +119,64 @@ function ContactEditPanel({
         setEmail(contact.email);
         setCompany(contact.company);
         setPhone(contact.phone);
-        setWebsite(contact.custom_fields?.website ?? "");
         setSubscribed(contact.subscribed);
         setCampaigns(contact.campaigns ?? []);
-        setCategoryIds((contact.categories ?? []).map((c) => c.id));
-        setCustomFields(
-            Object.entries(contact.custom_fields ?? {})
-                .filter(([n]) => n !== "website")
-                .map(([n, v]) => ({ name: n, value: v }))
-        );
+        setCategoryIds(idsOf(contact.categories ?? []));
+        setCustomFields(fieldsOf(contact.custom_fields));
     }
 
-    const recordFromCF = React.useCallback((fields: CustomField[], web: string) => {
-        const out: Record<string, string> = {};
-        for (const f of fields) {
-            if (!f.name.trim() || f.name.trim() === "website") continue;
-            out[f.name.trim()] = f.value;
-        }
-        if (web.trim()) {
-            out.website = web.trim();
-        }
-        return out;
-    }, []);
+    // The panel outlives the record it edits: lifting a suppression on the
+    // Overview tab re-subscribes the contact, and a teammate's edit arrives
+    // through the audit spine. Rebase every field the user has not touched
+    // onto the new server value, so a change the user made elsewhere in this
+    // panel does not read back as an unsaved edit and pop "Discard unsaved
+    // changes?" on the way out (issue #415).
+    const serverRef = React.useRef(contact);
+    React.useEffect(() => {
+        const prev = serverRef.current;
+        if (prev === contact) return;
+        serverRef.current = contact;
+        setFirstName((v) => rebase(v, prev.first_name, contact.first_name));
+        setLastName((v) => rebase(v, prev.last_name, contact.last_name));
+        setEmail((v) => rebase(v, prev.email, contact.email));
+        setCompany((v) => rebase(v, prev.company, contact.company));
+        setPhone((v) => rebase(v, prev.phone, contact.phone));
+        setSubscribed((v) => rebase(v, prev.subscribed, contact.subscribed));
+        setCampaigns((v) => rebase(v, prev.campaigns ?? [], contact.campaigns ?? [], sameCampaigns));
+        setCategoryIds((v) =>
+            rebase(v, idsOf(prev.categories ?? []), idsOf(contact.categories ?? []), sameIDs),
+        );
+        // sameRows, not sameFields: a row the user has typed a value into but
+        // not yet named saves as nothing, so the save-shaped comparison would
+        // call the draft untouched and throw that row away.
+        setCustomFields((v) =>
+            rebase(v, fieldsOf(prev.custom_fields), fieldsOf(contact.custom_fields), sameRows),
+        );
+    }, [contact]);
 
-    const dirty = React.useMemo(() => {
+    // What the save would send. The panel also treats a half-typed custom
+    // field as unsaved work (see `dirty`), which this deliberately does not:
+    // there is nothing to send for a row with no name.
+    const changed = React.useMemo(() => {
         if (firstName !== contact.first_name) return true;
         if (lastName !== contact.last_name) return true;
         if (email !== contact.email) return true;
         if (company !== contact.company) return true;
         if (phone !== contact.phone) return true;
-        if (website !== (contact.custom_fields?.website ?? "")) return true;
         if (subscribed !== contact.subscribed) return true;
-        if (JSON.stringify(recordFromCF(customFields, website)) !== JSON.stringify(contact.custom_fields ?? {})) return true;
-        const curC = new Set(contact.campaigns.map((c) => c.id));
-        const nextC = new Set(campaigns.map((c) => c.id));
-        if (curC.size !== nextC.size) return true;
-        for (const id of curC) if (!nextC.has(id)) return true;
-        const curCat = new Set((contact.categories ?? []).map((c) => c.id));
-        const nextCat = new Set(categoryIds);
-        if (curCat.size !== nextCat.size) return true;
-        for (const id of curCat) if (!nextCat.has(id)) return true;
+        if (!sameFields(customFields, fieldsOf(contact.custom_fields))) return true;
+        if (!sameCampaigns(campaigns, contact.campaigns ?? [])) return true;
+        if (!sameIDs(categoryIds, idsOf(contact.categories ?? []))) return true;
         return false;
-    }, [contact, firstName, lastName, email, company, phone, website, subscribed, customFields, campaigns, categoryIds, recordFromCF]);
+    }, [contact, firstName, lastName, email, company, phone, subscribed, customFields, campaigns, categoryIds]);
+
+    // What the user would lose on the way out, which is more than what would
+    // be sent: a custom-field row they have typed a value into but not named
+    // yet is not savable and not, on its own, a reason to enable Save.
+    const dirty = changed || hasUnnamedValue(customFields);
 
     async function save() {
-        if (!dirty) return;
+        if (!changed) return;
         const data: Record<string, unknown> = {};
         if (firstName !== contact.first_name) data.first_name = firstName;
         if (lastName !== contact.last_name) data.last_name = lastName;
@@ -165,24 +184,18 @@ function ContactEditPanel({
         if (company !== contact.company) data.company = company;
         if (phone !== contact.phone) data.phone = phone;
         if (subscribed !== contact.subscribed) data.subscribed = subscribed;
-        const cf = recordFromCF(customFields, website);
-        if (JSON.stringify(cf) !== JSON.stringify(contact.custom_fields ?? {})) data.custom_fields = cf;
-        const cur = new Set(contact.campaigns.map((c) => c.id));
-        const next = new Set(campaigns.map((c) => c.id));
-        let campaignsChanged = cur.size !== next.size;
-        if (!campaignsChanged) for (const id of cur) if (!next.has(id)) { campaignsChanged = true; break; }
-        if (campaignsChanged) data.campaigns = campaigns.map((c) => c.id);
-
-        const curCat = new Set((contact.categories ?? []).map((c) => c.id));
-        const nextCat = new Set(categoryIds);
-        let categoriesChanged = curCat.size !== nextCat.size;
-        if (!categoriesChanged) for (const id of curCat) if (!nextCat.has(id)) { categoriesChanged = true; break; }
-        if (categoriesChanged) data.categories = categoryIds;
+        // Same comparisons `dirty` and the rebase use, so what counts as
+        // changed is decided in exactly one place.
+        if (!sameFields(customFields, fieldsOf(contact.custom_fields))) {
+            data.custom_fields = recordFromCF(customFields);
+        }
+        if (!sameCampaigns(campaigns, contact.campaigns ?? [])) data.campaigns = idsOf(campaigns);
+        if (!sameIDs(categoryIds, idsOf(contact.categories ?? []))) data.categories = categoryIds;
 
         try {
             await toast.promise(update.mutateAsync(data), {
-                loading: "מעדכן איש קשר…",
-                success: "איש הקשר עודכן",
+                loading: "Updating contact…",
+                success: "Contact updated",
                 error: (err: AppError) => buildError(err),
             });
             onClose();
@@ -193,7 +206,7 @@ function ContactEditPanel({
 
     // Close, guarding unsaved edits behind the in-app confirm (never window.confirm).
     const requestClose = React.useCallback(() => {
-        if (dirty) confirm.show("האם לבטל את השינויים שלא נשמרו?", onClose);
+        if (dirty) confirm.show("Discard unsaved changes?", onClose);
         else onClose();
     }, [dirty, onClose, confirm]);
 
@@ -206,7 +219,7 @@ function ContactEditPanel({
     }, [requestClose]);
 
     const displayName =
-        firstName || lastName ? `${firstName} ${lastName}`.trim() : "איש קשר ללא שם";
+        firstName || lastName ? `${firstName} ${lastName}`.trim() : "Unnamed contact";
     const suppressed = !!detail.data?.suppression;
 
     return (
@@ -226,7 +239,7 @@ function ContactEditPanel({
                 exit={{ x: 32, opacity: 0 }}
                 transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
                 onMouseDown={(e) => e.stopPropagation()}
-                className="flex flex-col w-full max-w-full md:w-[32rem] md:max-w-[95%] h-full bg-white border-s border-slate-200 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.08)]"
+                className="flex flex-col w-full max-w-full md:w-[32rem] md:max-w-[95%] h-full bg-white border-l border-slate-200 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.08)]"
             >
                 <ContactHeader
                     contact={contact}
@@ -263,8 +276,6 @@ function ContactEditPanel({
                             setCompany={setCompany}
                             phone={phone}
                             setPhone={setPhone}
-                            website={website}
-                            setWebsite={setWebsite}
                             subscribed={subscribed}
                             setSubscribed={setSubscribed}
                             campaigns={campaigns}
@@ -285,20 +296,20 @@ function ContactEditPanel({
                             disabled={!dirty}
                             className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
                         >
-                            ביטול
+                            Discard
                         </button>
                         <button
                             type="button"
                             onClick={save}
-                            disabled={!dirty || update.isPending}
-                            className="me-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                            disabled={!changed || update.isPending}
+                            className="ml-auto h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                         >
                             {update.isPending ? (
                                 <Loader2Icon className="w-3 h-3 animate-spin" />
                             ) : (
                                 <CheckIcon className="w-3 h-3" />
                             )}
-                            שמור שינויים
+                            Save changes
                         </button>
                     </footer>
                 )}
@@ -338,13 +349,13 @@ function ContactHeader({
     if (suppressed) {
         statusPill = (
             <span className="inline-flex h-5 items-center px-1.5 rounded text-[10px] font-medium text-red-700 bg-red-50 border border-red-200">
-                מושתק
+                Suppressed
             </span>
         );
     } else if (!subscribed) {
         statusPill = (
             <span className="inline-flex h-5 items-center px-1.5 rounded text-[10px] font-medium text-slate-600 bg-slate-100 border border-slate-200">
-                הסיר הרשמה
+                Unsubscribed
             </span>
         );
     }
@@ -364,7 +375,7 @@ function ContactHeader({
                     <ResourceViewers resource={`contact:${contact.id}`} className="shrink-0" />
                     {dirty && (
                         <span className="inline-flex h-5 items-center px-1.5 rounded text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200">
-                            לא נשמר
+                            Unsaved
                         </span>
                     )}
                 </div>
@@ -375,7 +386,7 @@ function ContactHeader({
                     <button
                         type="button"
                         onClick={copy}
-                        aria-label="העתק כתובת דוא״ל"
+                        aria-label="Copy email"
                         className="shrink-0 size-5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                     >
                         {copied ? (
@@ -390,21 +401,21 @@ function ContactHeader({
                 type="button"
                 onClick={() => useComposeStore.getState().openCompose(contact.email)}
                 className="shrink-0 h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1.5 transition-colors text-[12px]"
-                title="חיבור דוא״ל לאיש קשר זה"
-                aria-label="שלח דוא״ל"
+                title="Compose an email to this contact"
+                aria-label="Compose email"
             >
                 <MailIcon className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">דוא״ל</span>
+                <span className="hidden md:inline">Email</span>
             </button>
             <button
                 type="button"
                 onClick={() => setMeetingOpen(true)}
                 className="shrink-0 h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1.5 transition-colors text-[12px]"
-                title="קביעת שיחה עם איש קשר זה"
-                aria-label="קבע שיחה"
+                title="Schedule a call with this contact"
+                aria-label="Schedule call"
             >
                 <CalendarPlusIcon className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">קבע שיחה</span>
+                <span className="hidden md:inline">Schedule call</span>
             </button>
             <BookACallButton
                 email={contact.email}
@@ -415,7 +426,7 @@ function ContactHeader({
             <button
                 type="button"
                 onClick={onClose}
-                aria-label="סגור"
+                aria-label="Close"
                 className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
             >
                 <XIcon className="w-3.5 h-3.5" />
@@ -425,7 +436,7 @@ function ContactHeader({
                 open={meetingOpen}
                 onClose={() => setMeetingOpen(false)}
                 prefill={{
-                    title: displayName ? `שיחה עם ${displayName}` : "שיחה",
+                    title: displayName ? `Call with ${displayName}` : "Call",
                     name: displayName,
                     email: contact.email,
                     contactId: contact.id,
@@ -479,7 +490,7 @@ function initialsFrom(contact: Contact, displayName: string): string {
     if (first || last) {
         return `${first.charAt(0) || ""}${last.charAt(0) || ""}`.toUpperCase() || "?";
     }
-    if (displayName && displayName !== "Unnamed contact" && displayName !== "איש קשר ללא שם") {
+    if (displayName && displayName !== "Unnamed contact") {
         const parts = displayName.split(/\s+/).filter(Boolean);
         return ((parts[0]?.charAt(0) || "") + (parts[1]?.charAt(0) || "")).toUpperCase() || "?";
     }

@@ -46,9 +46,16 @@ type Config struct {
 	// endpoints, the service's only dependency.
 	BackendURL    string
 	InternalToken string
-	// BrowserSentryDSN is stamped into the page shell so the form app can
-	// report browser errors. Empty, which is the default, means the app never
-	// loads the SDK.
+	// BrowserPostHogKey and BrowserPostHogHost are stamped into the page shell
+	// so the form app can report pageviews, web vitals and browser errors to
+	// PostHog. An empty key, which is the default, means the app never loads
+	// the SDK. BrowserPostHogErrorTracking false keeps the analytics and
+	// reports no exceptions.
+	BrowserPostHogKey           string
+	BrowserPostHogHost          string
+	BrowserPostHogErrorTracking bool
+	// BrowserSentryDSN is the same for an operator who reports to Sentry
+	// instead. Either backend, both, or neither.
 	BrowserSentryDSN string
 	// Release tags those browser events with the build serving them.
 	Release string
@@ -87,9 +94,14 @@ func New(cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("formserver: cannot read %s/index.html (run `pnpm build` in forms/): %w", cfg.StaticDir, err)
 	}
-	// The browser DSN and the release are the same for every request, so they
-	// are stamped once here rather than per shell serve. An empty DSN leaves
-	// the placeholder empty and the page loads no reporting SDK at all.
+	// The browser credentials and the release are the same for every request,
+	// so they are stamped once here rather than per shell serve. Left empty the
+	// placeholders stay empty and the page loads no reporting SDK at all.
+	shell = stampMeta(shell, "wf-posthog-key", cfg.BrowserPostHogKey)
+	shell = stampMeta(shell, "wf-posthog-host", cfg.BrowserPostHogHost)
+	if !cfg.BrowserPostHogErrorTracking {
+		shell = stampMeta(shell, "wf-posthog-errors", "false")
+	}
 	shell = stampMeta(shell, "wf-sentry-dsn", cfg.BrowserSentryDSN)
 	shell = stampMeta(shell, "wf-release", cfg.Release)
 	shell = stampMeta(shell, "wf-environment", cfg.Environment)
@@ -120,8 +132,19 @@ func (s *Server) Router(trustedProxies []string) (*gin.Engine, error) {
 		return nil, err
 	}
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
+	r.GET("/", rootPage)
 	r.GET("/forms.js", s.ServeFormsEmbedJS)
 	r.GET("/f/:publicID", s.ServeFormShell)
+
+	// A scripted caller under /api expects JSON; a human anywhere else gets the
+	// page.
+	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not_found"})
+			return
+		}
+		notFoundPage(c)
+	})
 
 	// Hashed filenames, so the bundles are immutable by construction.
 	assets := r.Group("/assets", func(c *gin.Context) {

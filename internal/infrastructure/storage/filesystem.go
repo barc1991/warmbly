@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -149,4 +150,50 @@ func (s *FilesystemStore) Has(_ context.Context, key string) (bool, error) {
 // object through the application.
 func (s *FilesystemStore) PresignedGetURL(_ context.Context, _ string, _ time.Duration) (string, error) {
 	return "", ErrUnsupported
+}
+
+// PresignedURL is unsupported for the same reason, for every verb. A node on
+// another machine therefore cannot reach filesystem blobs at all, which is the
+// honest answer: they are on a disk it does not have.
+func (s *FilesystemStore) PresignedURL(_ context.Context, _ PresignOp, _, _ string, _ time.Duration) (string, error) {
+	return "", ErrUnsupported
+}
+
+// DeletePrefix removes the directory a prefix maps to and everything under it,
+// reporting how many files went. Keys are paths here, so a prefix is a
+// directory and one RemoveAll finishes it.
+func (s *FilesystemStore) DeletePrefix(_ context.Context, prefix string) (int, error) {
+	if err := CheckPrefix(prefix); err != nil {
+		return 0, err
+	}
+	dir, err := s.resolve(strings.TrimSuffix(prefix, "/"))
+	if err != nil {
+		return 0, err
+	}
+	// Never let a resolve bug turn into "erase the store". resolve already
+	// rejects "..", so this can only fire if root itself was handed in.
+	if dir == s.root || !strings.HasPrefix(dir, s.root+string(os.PathSeparator)) {
+		return 0, ErrUnsafePrefix
+	}
+
+	count := 0
+	err = filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			count++
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return 0, err
+	}
+	return count, nil
 }

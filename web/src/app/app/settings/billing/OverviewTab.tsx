@@ -32,6 +32,8 @@ import useTrialStatus from "@/lib/api/hooks/app/subscription/useTrialStatus";
 import useCancelSubscription from "@/lib/api/hooks/app/subscription/useCancelSubscription";
 import useOrganizationLimits from "@/lib/api/hooks/app/organizations/useOrganizationLimits";
 import useUsageOverview from "@/lib/api/hooks/app/analytics/useUsageOverview";
+import useAPIKeyUsageSummary from "@/lib/api/hooks/app/api-keys/useAPIKeyUsageSummary";
+import { usePermission } from "@/hooks/usePermission";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
 import { AnimatedNumber, DitherMeter, type DitherTone } from "@/components/ui/dither";
@@ -48,7 +50,9 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
     const counts = orgLimits.data?.counts;
     const mailboxes = orgLimits.data?.mailboxes;
     const storage = orgLimits.data?.storage;
-    const usage = useUsageOverview().data;
+    const usage = useUsageOverview("month").data;
+    const canManageAPIKeys = usePermission("MANAGE_API_KEYS");
+    const apiUsage = useAPIKeyUsageSummary(canManageAPIKeys).data;
     const cancel = useCancelSubscription();
     const flow = useUpgradeFlow();
     const confirm = useConfirm();
@@ -64,11 +68,11 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
 
     async function scheduleCancel() {
         confirm.show(
-            `לבטל את תוכנית ${plan.label}? היא תישאר פעילה עד ${fmtDate(periodEnd) || "סוף התקופה הנוכחית"}, ולאחר מכן סביבת העבודה תחזור לתוכנית החינמית. תיבות דואר, חימום והגדרות יישמרו.`,
+            `Cancel the ${plan.label} plan? It stays active until ${fmtDate(periodEnd) || "the end of the current period"}, then the workspace returns to the free tier. Mailboxes, warmup and settings are kept.`,
             async () => {
                 await toast.promise(cancel.mutateAsync({ cancel_at_period_end: true }), {
-                    loading: "מתזמן ביטול…",
-                    success: "הביטול תוזמן לסוף התקופה",
+                    loading: "Scheduling cancellation…",
+                    success: "Cancellation scheduled for the end of the period",
                     error: (e: AppError) => buildError(e),
                 });
             },
@@ -78,8 +82,8 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
     async function resume() {
         try {
             await toast.promise(cancel.mutateAsync({ cancel_at_period_end: false }), {
-                loading: "מחדש מנוי…",
-                success: "המנוי חודש בהצלחה",
+                loading: "Resuming subscription…",
+                success: "Subscription resumed",
                 error: (e: AppError) => buildError(e),
             });
         } catch {
@@ -96,9 +100,9 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                         key="past_due"
                         tone="red"
                         icon={AlertTriangleIcon}
-                        title="התשלום נכשל"
-                        body="Stripe לא הצליחה לחייב את אמצעי התשלום הרשום. השליחה בסיכון עד להסדרת החשבונית."
-                        action={{ label: "עדכן אמצעי תשלום", onClick: flow.openPortal }}
+                        title="Payment failed"
+                        body="Stripe could not charge the card on file. Sending is at risk until the invoice clears."
+                        action={{ label: "Update payment method", onClick: flow.openPortal }}
                     />
                 )}
                 {cancelAtEnd && status !== "canceled" && (
@@ -106,9 +110,9 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                         key="cancel_at_end"
                         tone="amber"
                         icon={AlertTriangleIcon}
-                        title={`מבוטל ב-${fmtDate(periodEnd) || "סוף התקופה"}`}
-                        body="התוכנית נשארת פעילה במלואה עד אז. ניתן לחדש בכל עת לפני תאריך זה ושום דבר לא ישתנה."
-                        action={{ label: cancel.isPending ? "מחדש…" : "חדש מנוי", onClick: resume }}
+                        title={`Cancels on ${fmtDate(periodEnd) || "the end of the period"}`}
+                        body="The plan stays fully active until then. Resume any time before that date and nothing changes."
+                        action={{ label: cancel.isPending ? "Resuming…" : "Resume subscription", onClick: resume }}
                     />
                 )}
                 {trial.data?.is_trial && (trial.data.days_remaining ?? 0) >= 0 && (
@@ -116,17 +120,17 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                         key="trial"
                         tone="sky"
                         icon={SparklesIcon}
-                        title={`${trial.data.days_remaining ?? 0} ${(trial.data.days_remaining ?? 0) === 1 ? "יום נותר" : "ימים נותרו"} לתקופת הניסיון`}
-                        body={`תקופת הניסיון שלך מסתיימת ב-${fmtDate(toDate(trial.data.trial_end)) || "תאריך סיומה"}. בחר תוכנית לפני כן כדי להמשיך לשלוח ללא הפרעה.`}
-                        action={{ label: "בחר תוכנית", onClick: onChangePlan }}
+                        title={`${trial.data.days_remaining ?? 0} ${(trial.data.days_remaining ?? 0) === 1 ? "day" : "days"} left in your trial`}
+                        body={`Your trial ends on ${fmtDate(toDate(trial.data.trial_end)) || "its end date"}. Pick a plan before then to keep sending without interruption.`}
+                        action={{ label: "Choose a plan", onClick: onChangePlan }}
                     />
                 )}
             </AnimatePresence>
 
             {/* ── Subscription ─────────────────────────────────────────── */}
             <Section
-                eyebrow="מנוי"
-                description="התוכנית הנוכחית של סביבת עבודה זו, וכל הפעולות שניתן לבצע בה."
+                eyebrow="Subscription"
+                description="What this workspace is on right now, and everything you can do to it."
             >
                 {sub.isPending ? (
                     <div className="h-24 rounded bg-slate-100 animate-pulse" />
@@ -149,25 +153,25 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                             </div>
                             <div className="flex flex-wrap gap-x-6 gap-y-2 shrink-0">
                                 <Stat
-                                    label="מחיר"
-                                    value={plan.priceMonthly == null ? "מותאם אישית" : `$${plan.priceMonthly}`}
-                                    sub={plan.priceMonthly == null ? "פנה למכירות" : "לחודש"}
+                                    label="Price"
+                                    value={plan.priceMonthly == null ? "Custom" : `$${plan.priceMonthly}`}
+                                    sub={plan.priceMonthly == null ? "contact sales" : "per month"}
                                 />
                                 <Stat
-                                    label={cancelAtEnd ? "מסתיים" : "מתחדש"}
+                                    label={cancelAtEnd ? "Ends" : "Renews"}
                                     value={fmtDate(periodEnd) || "—"}
-                                    sub={periodEnd ? relativeDays(periodEnd) : onFreeTier ? "ללא מנוי" : ""}
+                                    sub={periodEnd ? relativeDays(periodEnd) : onFreeTier ? "no subscription" : ""}
                                 />
                                 <Stat
-                                    label="שליחות יומיות"
+                                    label="Daily sends"
                                     value={
                                         limits?.daily_campaign_limit != null
                                             ? limits.daily_campaign_limit.toLocaleString()
                                             : plan.sendsPerDay === Number.POSITIVE_INFINITY
-                                               ? "מותאם אישית"
-                                               : plan.sendsPerDay.toLocaleString()
+                                              ? "Custom"
+                                              : plan.sendsPerDay.toLocaleString()
                                     }
-                                    sub="בכל סביבת העבודה"
+                                    sub="across the workspace"
                                 />
                             </div>
                         </div>
@@ -180,9 +184,9 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                                 className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                             >
                                 <SparklesIcon className="w-3 h-3" />
-                                {onFreeTier ? "בחר תוכנית" : "שנה תוכנית"}
+                                {onFreeTier ? "Choose a plan" : "Change plan"}
                             </button>
-                            <button
+                            {flow.hasBillingCustomer && <button
                                 type="button"
                                 onClick={flow.openPortal}
                                 disabled={flow.portalPending}
@@ -193,26 +197,26 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                                 ) : (
                                     <CreditCardIcon className="w-3 h-3" />
                                 )}
-                                אמצעי תשלום
-                            </button>
-                            <button
+                                Payment method
+                            </button>}
+                            {flow.hasBillingCustomer && <button
                                 type="button"
                                 onClick={flow.openPortal}
                                 disabled={flow.portalPending}
                                 className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 <FileTextIcon className="w-3 h-3" />
-                                חשבוניות
-                            </button>
+                                Invoices
+                            </button>}
                             <Link
                                 to="/app/settings/limits"
                                 className="h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
                             >
                                 <SlidersHorizontalIcon className="w-3 h-3" />
-                                בקש הגדלת מכסה
+                                Request a limit increase
                             </Link>
-                            {!onFreeTier && (
-                                <div className="ms-auto">
+                            {flow.hasStripeSubscription && (
+                                <div className="ml-auto">
                                     {cancelAtEnd ? (
                                         <button
                                             type="button"
@@ -225,7 +229,7 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                                             ) : (
                                                 <PlayIcon className="w-3 h-3" />
                                             )}
-                                            חדש מנוי
+                                            Resume
                                         </button>
                                     ) : (
                                         <button
@@ -235,7 +239,7 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                                             className="h-7 px-2.5 rounded-md text-[12px] text-slate-500 hover:text-red-700 hover:bg-red-50 inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                                         >
                                             <XIcon className="w-3 h-3" />
-                                            בטל תוכנית
+                                            Cancel plan
                                         </button>
                                     )}
                                 </div>
@@ -247,15 +251,15 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
 
             {/* ── Usage against real limits ────────────────────────────── */}
             <Section
-                eyebrow="שימוש ומכסות"
-                description="ספירות חיות מול המכסות שהשרת אוכף בפועל, ולא מספרי השיווק."
+                eyebrow="Usage and limits"
+                description="Live counts against the limits the server is actually enforcing, not the marketing numbers."
                 actions={
                     <Link
                         to="/app/settings/limits"
                         className="text-[11.5px] font-medium text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 transition-colors"
                     >
-                        בקש הגדלה
-                        <ArrowRightIcon className="w-3 h-3 rtl:rotate-180" />
+                        Request an increase
+                        <ArrowRightIcon className="w-3 h-3" />
                     </Link>
                 }
             >
@@ -264,64 +268,65 @@ export default function OverviewTab({ onChangePlan }: { onChangePlan: () => void
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                         <UsageMeter
-                            label="תיבות דואר"
+                            label="Mailboxes"
                             hint={mailboxHint(mailboxes)}
                             current={mailboxes?.used ?? counts?.email_accounts ?? 0}
                             max={mailboxes?.allowance}
-                            unmetered="ללא הגבלה"
+                            unmetered="unlimited"
                         />
                         <UsageMeter
-                            label="שליחות היום"
-                            hint="הודעות קמפיין שנשלחו היום מתוך המכסה היומית של סביבת העבודה"
+                            label="Sends today"
+                            hint="Campaign emails sent today against the workspace's daily allowance"
                             current={counts?.emails_sent_today ?? 0}
                             max={limits?.daily_campaign_limit}
                         />
                         <UsageMeter
-                            label="אנשי קשר"
-                            hint="רשומות נמענים השמורות בסביבת עבודה זו"
+                            label="Contacts"
+                            hint="Recipient records stored in this workspace"
                             current={counts?.total_contacts ?? usage?.contacts.total ?? 0}
                             max={limits?.max_contacts}
                         />
                         <UsageMeter
-                            label="קמפיינים"
-                            hint="קמפיינים שנוצרו בסביבת עבודה זו"
+                            label="Campaigns"
+                            hint="Campaigns created in this workspace"
                             current={counts?.total_campaigns ?? usage?.campaigns.total ?? 0}
                             max={limits?.max_campaigns}
                         />
                         <UsageMeter
-                            label="חברי צוות"
-                            hint="מושבים בשימוש בסביבת עבודה זו"
+                            label="Team members"
+                            hint="Seats used on this workspace"
                             current={counts?.total_members ?? 0}
                             max={limits?.max_team_members}
                         />
                         <UsageMeter
-                            label="אחסון קבצים מצורפים"
+                            label="Attachment storage"
                             hint={
                                 storage?.over_quota
-                                    ? "חריגה מהמכסה לאחר שינוי תוכנית: קבצים קיימים ממשיכים להישלח, העלאות חדשות ימתינו עד לחזרה למכסה"
-                                    : "קבצים המצורפים לשלבי קמפיין, בכל הקמפיינים"
+                                    ? "Over the quota after a plan change: existing files keep sending, new uploads wait until you are back under"
+                                    : "Files attached to campaign steps, across every campaign"
                             }
                             current={storage?.used_bytes ?? 0}
                             max={storage?.limit_bytes}
                             format={formatBytes}
                         />
                         <UsageMeter
-                            label="שליחות בתקופה זו"
-                            hint="הודעות קמפיין שנמסרו בתקופת החיוב הנוכחית"
-                            current={usage?.campaigns.emails_sent ?? 0}
+                            label="Sends in the last month"
+                            hint="Campaign emails sent during the rolling one-month window"
+                            current={usage?.campaigns.emails_sent}
                             max={undefined}
                         />
                         <UsageMeter
-                            label="קריאות API היום"
-                            hint="בקשות שבוצעו באמצעות מפתחות API מתוך המכסה היומית"
-                            current={usage?.api.total_calls ?? 0}
-                            max={usage?.api.daily_limit}
+                            label="API calls, last 24h"
+                            hint={canManageAPIKeys ? "Requests made with API keys during the rolling 24-hour window" : "Requires permission to manage API keys"}
+                            current={apiUsage?.requests_24h}
+                            max={undefined}
                         />
                     </div>
                 )}
                 <p className="text-[11px] text-slate-400 leading-relaxed pt-1 inline-flex items-start gap-1.5">
                     <InfoIcon className="w-3 h-3 mt-0.5 shrink-0" />
-                    מד ללא תקרה מציין שהמגבלה אינה מוגבלת בתוכנית זו. נפח החימום מנוהל לכל תיבת דואר ואינו מוגבל כאן.
+                    A meter with no cap means the limit is unmetered on this plan. Warmup volume is
+                    governed per mailbox and is not capped here.
                 </p>
             </Section>
 
@@ -397,20 +402,20 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 // mailboxHint explains the number rather than only stating it, because the
 // allowance is fair use and the reader should know what raises it.
 function mailboxHint(a: OrganizationLimits["mailboxes"] | undefined): string {
-    if (!a) return "תיבות דואר מחוברות לשליחה ולחימום";
+    if (!a) return "Connected sending and warmup mailboxes";
     switch (a.basis) {
         case "fair_use":
             return a.sends_per_mailbox <= 1
-                ? "שימוש הוגן: תיבת דואר אחת לכל שליחה יומית הכלולה בתוכנית שלך"
-                : `שימוש הוגן: תיבת דואר אחת לכל ${a.sends_per_mailbox} שליחות יומיות הכלולות בתוכנית שלך`;
+                ? "Fair use: one mailbox for every send a day your plan includes"
+                : `Fair use: one mailbox for every ${a.sends_per_mailbox} sends a day your plan includes`;
         case "override":
-            return "הוגדל עבור סביבת עבודה זו בעקבות בקשה שאושרה";
+            return "Raised for this workspace by an approved request";
         case "free":
-            return "מכסה של סביבת עבודה חינמית; תוכנית בתשלום כוללת תיבת דואר אחת לכל שליחה יומית";
+            return "Free workspace allowance; a paid plan holds one mailbox for every send a day it includes";
         case "plan":
-            return "נקבע לפי התוכנית שלך";
+            return "Set by your plan";
         default:
-            return "ללא תקרה על תיבות דואר מחוברות";
+            return "No cap on connected mailboxes";
     }
 }
 
@@ -426,27 +431,29 @@ function UsageMeter({
     hint,
     current,
     max,
-    unmetered = "ללא הגבלה",
+    unmetered = "unmetered",
     format,
 }: {
     label: string;
     hint: string;
-    current: number;
+    current?: number;
     max?: number | null;
     /** The word shown instead of a cap when there is none. */
     unmetered?: string;
     /** Renders both numbers; defaults to a plain count. */
     format?: (n: number) => string;
 }) {
-    const capped = typeof max === "number" && max > 0 && Number.isFinite(max);
-    const pct = capped ? Math.min(100, Math.round((current / (max as number)) * 100)) : 0;
+    const value = current ?? 0;
+    const known = typeof current === "number" && Number.isFinite(current);
+    const capped = known && typeof max === "number" && max > 0 && Number.isFinite(max);
+    const pct = capped ? Math.min(100, Math.round((value / (max as number)) * 100)) : 0;
     const tone: DitherTone = pct >= 90 ? "rose" : pct >= 70 ? "amber" : "sky";
     return (
         <div>
             <div className="flex items-baseline justify-between gap-2 mb-1">
                 <span className="text-[12px] text-slate-700 font-medium">{label}</span>
                 <span className="text-[11.5px] font-mono tabular-nums text-slate-700">
-                    {format ? format(current) : <AnimatedNumber value={current} />}
+                    {!known ? "—" : format ? format(value) : <AnimatedNumber value={value} />}
                     <span className="text-slate-400">
                         {capped ? ` / ${format ? format(max as number) : (max as number).toLocaleString()}` : ` / ${unmetered}`}
                     </span>
@@ -459,7 +466,7 @@ function UsageMeter({
                     <span
                         className={`text-[10px] font-semibold shrink-0 ${pct >= 90 ? "text-red-600" : "text-amber-600"}`}
                     >
-                        {pct}% בשימוש
+                        {pct}% used
                     </span>
                 )}
             </div>
@@ -476,24 +483,24 @@ function StatusPill({
 }) {
     const base = "inline-flex items-center gap-1 text-[10px] rounded px-1.5 h-4 uppercase tracking-[0.1em] font-medium border";
     if (!status) {
-        return <span className={`${base} bg-slate-100 text-slate-500 border-slate-200`}>חינם</span>;
+        return <span className={`${base} bg-slate-100 text-slate-500 border-slate-200`}>Free</span>;
     }
     if (status === "trialing") {
-        return <span className={`${base} bg-emerald-50 text-emerald-700 border-emerald-100`}>ניסיון</span>;
+        return <span className={`${base} bg-emerald-50 text-emerald-700 border-emerald-100`}>Trialing</span>;
     }
     if (status === "past_due") {
-        return <span className={`${base} bg-red-50 text-red-700 border-red-100`}>בפיגור</span>;
+        return <span className={`${base} bg-red-50 text-red-700 border-red-100`}>Past due</span>;
     }
     if (status === "canceled") {
-        return <span className={`${base} bg-slate-100 text-slate-500 border-slate-200`}>בוטל</span>;
+        return <span className={`${base} bg-slate-100 text-slate-500 border-slate-200`}>Canceled</span>;
     }
     if (cancelAtEnd) {
-        return <span className={`${base} bg-amber-50 text-amber-700 border-amber-100`}>מסתיים בקרוב</span>;
+        return <span className={`${base} bg-amber-50 text-amber-700 border-amber-100`}>Ending soon</span>;
     }
     return (
         <span className={`${base} bg-emerald-50 text-emerald-700 border-emerald-100`}>
             <CheckIcon className="w-2 h-2" />
-            פעיל
+            Active
         </span>
     );
 }
@@ -508,13 +515,13 @@ function toDate(v: Date | string | undefined): Date | null {
 
 function fmtDate(d: Date | null): string {
     if (!d || Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("he-IL", { month: "long", day: "numeric", year: "numeric" });
+    return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
 function relativeDays(d: Date): string {
     const days = Math.round((d.getTime() - Date.now()) / 86_400_000);
-    if (days < 0) return "עבר";
-    if (days === 0) return "היום";
-    if (days === 1) return "מחר";
-    return `בעוד ${days} ימים`;
+    if (days < 0) return "past";
+    if (days === 0) return "today";
+    if (days === 1) return "tomorrow";
+    return `in ${days} days`;
 }

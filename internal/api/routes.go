@@ -35,7 +35,12 @@ func Run(
 ) *gin.Engine {
 	gin.SetMode(ginMode)
 
-	r := gin.Default()
+	// gin.Default() is Logger plus gin's own Recovery; the recovery here is
+	// ours, which reports the panic with its request context before returning
+	// the same 500. Everything else about the pair is unchanged.
+	r := gin.New()
+	r.Use(gin.Logger())
+	r.Use(middleware.Recovery())
 
 	// Gin trusts every proxy by default, which makes X-Forwarded-For (and so
 	// c.ClientIP()) attacker-controlled: forged values reach the captcha
@@ -118,9 +123,36 @@ func Run(
 	// hostname interesting points here in public DNS.
 	r.GET("/tls/authorize", h.AuthorizeTLSDomain)
 
+	// PostHog reverse proxy. Content blockers drop requests to posthog.com, so
+	// the frontends are pointed here and this forwards them. Public by
+	// necessity: it serves the browser before anyone has signed in.
+	r.Any("/ingest/*path", h.PostHogProxy)
+
 	// Internal backend-to-backend endpoints. Workers call these instead of
 	// touching Postgres directly, per the no-direct-data-services rule in
 	// CLAUDE.md. Auth: shared bearer token (INTERNAL_API_TOKEN).
+	// The broker endpoints sit in their own group. They perform a privileged
+	// operation for the caller rather than moving a record, so they take
+	// NODE_BROKER_TOKEN, which falls back to INTERNAL_API_TOKEN but lets a
+	// split deployment keep the edge services off this credential.
+	broker := r.Group("/api/v1/internal")
+	broker.Use(m.NodeBrokerAuthMiddleware())
+	{
+		// Opens a sealed data key for a node running KMS_PROVIDER=brokered, so
+		// a machine you own needs no cloud credential of its own.
+		broker.POST("/dek/decrypt", h.InternalDecryptDEK)
+
+		// Signs one blob operation for a node running BLOB_PROVIDER=brokered.
+		// The node then transfers directly against the object store, so bodies
+		// and attachments never pass through here.
+		broker.POST("/blobs/presign", h.InternalPresignBlob)
+
+		// Mints a live provider access token for a mailbox Warmbly Cloud
+		// manages, which is worth more than any record the rest of the
+		// internal API moves.
+		broker.GET("/cloud-link/token/:id", h.InternalCloudLinkToken)
+	}
+
 	internal := r.Group("/api/v1/internal")
 	internal.Use(m.InternalAuthMiddleware())
 	{
@@ -147,8 +179,9 @@ func Run(
 		// something the mailbox sent?" (tasks, message map, unibox threads).
 		internal.GET("/sync/own-conversation", h.InternalSyncOwnConversation)
 
-		// Brokered credential for a mailbox managed by Warmbly Cloud.
-		internal.GET("/cloud-link/token/:id", h.InternalCloudLinkToken)
+		// Expunge reconciliation: what the platform still holds for one IMAP
+		// folder, so the worker can drop the rows the server no longer reports.
+		internal.GET("/sync/folder-messages", h.InternalSyncFolderMessages)
 
 		// Worker bootstrap config + heartbeat. Workers POST their identity
 		// on boot (worker_id + bind_ip + tag) and pull their runtime config
@@ -425,6 +458,7 @@ func Run(
 				emails.GET("/allowance", m.RequireOrganization(), m.RequireAccess(models.PermManageEmails, models.APIPermReadEmails), h.GetMailboxAllowance)
 				emails.GET("/:id/track", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.GetEmailTrackingDomain)
 				emails.PATCH("/:id/track", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.UpdateEmailTrackingDomain)
+				emails.PATCH("/:id/direct-tracking", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.UpdateEmailDirectTracking)
 				// Write-scoped like the auth-check refresh: persisting the
 				// verdict is what routes real links through the custom host.
 				emails.POST("/:id/track/verify", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.VerifyEmailTrackingDomain)
@@ -440,6 +474,12 @@ func Run(
 				// and warmup gate, so a read-only key must not reach it.
 				emails.POST("/:id/auth-check", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.RefreshEmailAuthCheck)
 				emails.GET("/:id/sync", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.GetEmailSync)
+				// Which addresses the provider will let this mailbox send as,
+				// and where its signature came from. The refresh is the only
+				// half that calls the provider, and storing its answer is what
+				// a send-as choice is validated against, so it is write-scoped.
+				emails.GET("/:id/identity", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.GetEmailSendIdentity)
+				emails.POST("/:id/identity/refresh", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.RefreshEmailSendIdentity)
 				// Human sending behaviour: the ranges the mailbox rolls its
 				// workday from, and the workday it rolled for today.
 				emails.GET("/:id/behavior", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.GetEmailBehavior)
@@ -550,6 +590,15 @@ func Run(
 
 				// Campaign-scoped tracking-domain verification.
 				campaigns.POST("/:id/tracking-domain/verify", m.RequireOrganization(), m.RequireAccess(models.PermManageCampaigns, models.APIPermWriteCampaigns), h.VerifyCampaignTrackingDomain)
+
+				// Per-lead hold: park ONE contact's flow in THIS campaign
+				// until a date (or until someone lifts it) without
+				// unsubscribing them or removing them from the campaign. Both
+				// writes state an absolute hold rather than a delta, so a
+				// retry lands on the same state and needs no Idempotency-Key.
+				campaigns.GET("/:id/leads/:contactId/hold", m.RequireOrganization(), m.RequireAccess(models.PermViewCampaigns, models.APIPermReadCampaigns), h.GetCampaignLeadHold)
+				campaigns.POST("/:id/leads/:contactId/pause", m.RequireOrganization(), m.RequireAccess(models.PermManageCampaigns, models.APIPermWriteCampaigns), h.PauseCampaignLead)
+				campaigns.POST("/:id/leads/:contactId/resume", m.RequireOrganization(), m.RequireAccess(models.PermManageCampaigns, models.APIPermWriteCampaigns), h.ResumeCampaignLead)
 
 				sequences := campaigns.Group("/:id/steps")
 				{
@@ -741,6 +790,7 @@ func Run(
 				unibox.PUT("/thread/labels", m.RequireAccess(models.PermAccessUnibox, models.APIPermWriteUnibox), h.SetUniboxThreadLabels)
 
 				unibox.PATCH("/seen", m.RequireAccess(models.PermAccessUnibox, models.APIPermWriteUnibox), h.UniboxMarkSeen)
+				unibox.PATCH("/folder", m.RequireAccess(models.PermAccessUnibox, models.APIPermWriteUnibox), h.UniboxMoveFolder)
 				unibox.POST("/reply", m.RequireOrganization(), m.RequireAccess(models.PermAccessUnibox, models.APIPermWriteUnibox), h.UniboxReply)
 				// Compose: send a brand-new outbound email. The candidates
 				// endpoint scores mailboxes for a recipient (affinity, budget,
@@ -803,6 +853,9 @@ func Run(
 				apiKeys.GET("/:id", h.GetAPIKey)
 				apiKeys.PATCH("/:id", h.UpdateAPIKey)
 				apiKeys.DELETE("/:id", h.RevokeAPIKey)
+				// Revoking ends a key; deleting removes the row and its usage
+				// logs. Separate paths so neither can be reached by accident.
+				apiKeys.DELETE("/:id/permanent", h.DeleteAPIKey)
 				apiKeys.GET("/:id/analytics", h.GetAPIKeyAnalytics)
 				apiKeys.GET("/:id/logs", h.ListAPIKeyUsageLogs)
 			}
@@ -812,6 +865,9 @@ func Run(
 			analytics.Use(m.RateLimitMiddleware(models.RateLimitAnalytics), m.RequireAccess(models.PermViewAnalytics, models.APIPermReadAnalytics))
 			{
 				analytics.GET("/dashboard", h.GetDashboardAnalytics)
+				analytics.GET("/direct", h.GetDirectMailAnalytics)
+				// Automatic inbox tagging: the phase-1 review surface (read-only).
+				analytics.GET("/inbox-tagging", h.GetInboxTaggingReview)
 				analytics.GET("/deliverability", m.RequireOrganization(), h.GetDeliverabilityDashboard)
 				analytics.GET("/warmup", h.GetWarmupAnalytics)
 				analytics.GET("/campaigns/compare", h.CompareCampaigns)
@@ -1041,6 +1097,12 @@ func Run(
 				templates.POST("/:id/duplicate", m.RequireAccess(models.PermManageCampaigns, models.APIPermWriteTemplates), h.DuplicateTemplate)
 				templates.POST("/:id/render", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadTemplates), h.RenderTemplate)
 				templates.POST("/score", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadTemplates), h.ScoreTemplateContent)
+				// The AI half of the same check. It spends the workspace's AI
+				// credits, so it takes the WRITE scope even though it writes no
+				// template: a read-only key must not be able to spend money.
+				// JWT members still need only view_campaigns, plus use_ai,
+				// which the second gate layers on as /generation does.
+				templates.POST("/analyze", m.RequireAccess(models.PermViewCampaigns, models.APIPermWriteTemplates), m.RequireAccess(models.PermUseAI, models.APIPermWriteTemplates), h.AnalyzeTemplateContent)
 			}
 
 			// Workspace image library for email bodies. The bytes are public
@@ -1093,6 +1155,11 @@ func Run(
 				{
 					crmTasks.GET("", m.RequireAccess(models.PermViewContacts, models.APIPermReadCRM), h.ListCRMTasks)
 					crmTasks.POST("", m.RequireAccess(models.PermManageContacts, models.APIPermWriteCRM), h.CreateCRMTask)
+					// Bulk status/priority and bulk delete over a selection: the
+					// ids ticked, or the whole current filter. Same scope as
+					// the single-task routes they stand in for.
+					crmTasks.PATCH("", m.RequireAccess(models.PermManageContacts, models.APIPermWriteCRM), h.BulkUpdateCRMTasks)
+					crmTasks.DELETE("", m.RequireAccess(models.PermManageContacts, models.APIPermWriteCRM), h.BulkDeleteCRMTasks)
 					crmTasks.POST("/search", m.RequireAccess(models.PermViewContacts, models.APIPermReadCRM), h.SearchCRMTasks)
 					crmTasks.POST("/summary", m.RequireAccess(models.PermViewContacts, models.APIPermReadCRM), h.TasksSummary)
 					crmTasks.GET("/:id", m.RequireAccess(models.PermViewContacts, models.APIPermReadCRM), h.GetCRMTask)
@@ -1295,6 +1362,11 @@ func Run(
 				poolLink.GET("/codes/:code", h.PoolLinkDescribeCode)
 				poolLink.POST("/codes/:code/approve", h.PoolLinkApproveCode)
 				poolLink.POST("/codes/:code/deny", h.PoolLinkDenyCode)
+				// The pool plan is not in the public plan list, so the
+				// dashboard has no other way to learn its price or reach a
+				// checkout for it.
+				poolLink.GET("/offer", h.PoolLinkOffer)
+				poolLink.POST("/checkout", m.RequireOrganization(), m.RequirePermission(models.PermManageBilling), h.PoolLinkCheckout)
 				poolLink.GET("/instances", m.RequireOrganization(), m.RequirePermission(models.PermManageSettings), h.PoolLinkListInstances)
 				poolLink.DELETE("/instances/:id", m.RequireOrganization(), m.RequirePermission(models.PermManageSettings), h.PoolLinkRevokeInstance)
 			}
@@ -1326,6 +1398,7 @@ func Run(
 				poolLinkInstance.POST("/oauth/finish", h.PoolLinkOAuthFinish)
 				poolLinkInstance.GET("/mailboxes/:remoteId/token", h.PoolLinkAccessToken)
 				poolLinkInstance.GET("/mailboxes/:remoteId/warmup-tokens/:token", h.PoolLinkVerifyWarmupToken)
+				poolLinkInstance.POST("/mailboxes/:remoteId/warmup-deliveries", h.PoolLinkVerifyWarmupDelivery)
 				poolLinkInstance.GET("/workspace-mailboxes", h.PoolLinkWorkspaceMailboxes)
 				poolLinkInstance.POST("/mailboxes/adopt", h.PoolLinkAdopt)
 			}
@@ -1418,6 +1491,14 @@ func Run(
 		adminRoutes.GET("/users", middleware.RequireAdminPermission(models.AdminPermViewUsers), h.AdminSearchUsers)
 		adminRoutes.GET("/users/:id", middleware.RequireAdminPermission(models.AdminPermViewUsers), h.AdminGetUser)
 		adminRoutes.GET("/users/:id/preview", middleware.RequireAdminPermission(models.AdminPermViewUsers), h.AdminGetUserPreview)
+		// Tester accounts: an account handed to somebody outside the team, with
+		// the emailed login code excused because they cannot read this
+		// instance's mail. Creating one has its own permission: it mints an
+		// account and hands back its password, which is more than any of the
+		// other user routes can do.
+		adminRoutes.GET("/testers", middleware.RequireAdminPermission(models.AdminPermViewUsers), h.AdminListTesters)
+		adminRoutes.POST("/testers", middleware.RequireAdminPermission(models.AdminPermManageTesters), h.AdminCreateTester)
+		adminRoutes.DELETE("/testers/:id", middleware.RequireAdminPermission(models.AdminPermManageTesters), h.AdminRevokeTester)
 		adminRoutes.POST("/users/:id/ban", middleware.RequireAdminPermission(models.AdminPermBanUsers), h.AdminBanUser)
 		adminRoutes.POST("/users/:id/unban", middleware.RequireAdminPermission(models.AdminPermBanUsers), h.AdminUnbanUser)
 		adminRoutes.GET("/users/:id/bans", middleware.RequireAdminPermission(models.AdminPermViewUsers), h.AdminGetUserBans)
@@ -1430,8 +1511,27 @@ func Run(
 		adminRoutes.GET("/organizations", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminListOrganizations)
 		adminRoutes.GET("/organizations/:id", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetOrganization)
 		adminRoutes.GET("/organizations/:id/members", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetOrganizationMembers)
+		adminRoutes.GET("/organizations/:id/roles", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetOrganizationRoles)
 		adminRoutes.GET("/organizations/:id/overrides", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetOrgOverrides)
 		adminRoutes.PUT("/organizations/:id/overrides", middleware.RequireAdminPermission(models.AdminPermManageOrganizations), h.AdminUpdateOrgOverrides)
+		// A plan granted by an operator rather than Stripe. Same permission as
+		// the overrides above: it changes what a workspace is entitled to.
+		adminRoutes.GET("/plans", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminListPlans)
+		adminRoutes.GET("/organizations/:id/managed-plan", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetOrgManagedPlan)
+		adminRoutes.PUT("/organizations/:id/managed-plan", middleware.RequireAdminPermission(models.AdminPermManageOrganizations), h.AdminGrantOrgManagedPlan)
+		adminRoutes.DELETE("/organizations/:id/managed-plan", middleware.RequireAdminPermission(models.AdminPermManageOrganizations), h.AdminRevokeOrgManagedPlan)
+
+		// Promo codes. The customer-facing half (validate + redeem at
+		// checkout) has always existed; this is the operator half that
+		// creates one, so a launch offer no longer means an INSERT against
+		// production. Codes decide what a workspace is charged, which is the
+		// same entitlement story as a managed plan, so they reuse its bits.
+		adminRoutes.GET("/discounts", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminListDiscounts)
+		adminRoutes.POST("/discounts", middleware.RequireAdminPermission(models.AdminPermManageOrganizations), h.AdminCreateDiscount)
+		adminRoutes.GET("/discounts/:id", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminGetDiscount)
+		adminRoutes.PATCH("/discounts/:id", middleware.RequireAdminPermission(models.AdminPermManageOrganizations), h.AdminUpdateDiscount)
+		adminRoutes.DELETE("/discounts/:id", middleware.RequireAdminPermission(models.AdminPermManageOrganizations), h.AdminDeleteDiscount)
+		adminRoutes.GET("/discounts/:id/redemptions", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminListDiscountRedemptions)
 
 		// Workspace abuse posture. The customer route withholds the evidence;
 		// this is where an operator reads it, pins a decision over it, and
@@ -1601,8 +1701,7 @@ func Run(
 		adminRoutes.DELETE("/organizations/:id/api-keys/:keyId", middleware.RequireAdminPermission(models.AdminPermManageOrganizations), h.AdminRevokeOrgAPIKey)
 		adminRoutes.GET("/organizations/:id/webhooks", middleware.RequireAdminPermission(models.AdminPermViewOrganizations), h.AdminListOrgWebhooks)
 
-		// Warmup abuse signals and the block/unblock history.
-		adminRoutes.GET("/warmup/abuse", middleware.RequireAdminPermission(models.AdminPermViewWarmupPool), h.AdminWarmupAbuse)
+		// Warmup block/unblock history.
 		adminRoutes.GET("/warmup/actions", middleware.RequireAdminPermission(models.AdminPermViewWarmupPool), h.AdminWarmupActions)
 
 		// Admin Management

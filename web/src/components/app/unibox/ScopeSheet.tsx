@@ -48,12 +48,8 @@ export function ScopeSheet({ open, setOpen, scope, onChange }: ScopeSheetProps) 
                             isRtl ? "border-l border-slate-200" : "border-r border-slate-200"
                         }`}
                     >
-                        <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
-                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                תצוגה
-                            </span>
-                            <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-700">החלפת תצוגה</span>
+                        <div className="h-11 px-4 border-b border-slate-200 flex items-center gap-3 shrink-0">
+                            <span className="text-[13.5px] font-semibold text-slate-900">תצוגות</span>
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}

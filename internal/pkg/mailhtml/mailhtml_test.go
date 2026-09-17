@@ -19,10 +19,11 @@ func TestSanitizeDropsScriptAndStyleContent(t *testing.T) {
 }
 
 func TestSanitizeKeepsLayoutMarkup(t *testing.T) {
-	in := `<table width="600" cellpadding="0" bgcolor="#ffffff"><tr><td align="center" style="font-size:14px;color:#111">` +
+	in := `<table width="600" cellpadding="0" bgcolor="#ffffff" style="border-collapse:separate"><tr>` +
+		`<td align="center" style="font-size:14px;color:#111">` +
 		`<a href="https://example.com">Link</a><img src="https://example.com/a.png" width="20"></td></tr></table>`
 	out := Sanitize(in)
-	for _, want := range []string{`width="600"`, `bgcolor="#ffffff"`, `align="center"`, "font-size", `href="https://example.com"`, `target="_blank"`, "<img"} {
+	for _, want := range []string{`width="600"`, `bgcolor="#ffffff"`, `align="center"`, "font-size", "border-collapse", `href="https://example.com"`, `target="_blank"`, "<img"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expected %q in output: %s", want, out)
 		}
@@ -116,5 +117,26 @@ func TestSearchTextPrefersPlainAndRespectsLimit(t *testing.T) {
 	got := SearchText(strings.Repeat("é", 100), "", 10)
 	if len([]rune(got)) != 10 {
 		t.Fatalf("limit not applied on rune boundaries: %q", got)
+	}
+}
+
+func TestSanitizePreservesOnlyKnownQuoteMarkers(t *testing.T) {
+	for _, marker := range []string{"gmail_quote", "gmail_quote_container", "yahoo_quoted", "moz-cite-prefix", "gmail_extra gmail_quote"} {
+		t.Run(marker, func(t *testing.T) {
+			out := Sanitize(`<p>New reply</p><div class="` + marker + `" onclick="steal()">History</div>`)
+			if !strings.Contains(out, `class="`+marker+`"`) || strings.Contains(out, "onclick") {
+				t.Fatalf("quote marker lost or active markup retained: %s", out)
+			}
+		})
+	}
+	out := Sanitize(`<blockquote type=cite>History</blockquote><div id="divRplyFwdMsg">From: Ada</div>`)
+	if !strings.Contains(out, `type="cite"`) || !strings.Contains(out, `id="divRplyFwdMsg"`) {
+		t.Fatalf("quote attribution lost: %s", out)
+	}
+	out = Sanitize(`<div class="gmail_quote attacker">x</div><blockquote type="other">y</blockquote><script>steal()</script>`)
+	for _, forbidden := range []string{"class=", "type=", "steal", "<script"} {
+		if strings.Contains(out, forbidden) {
+			t.Fatalf("unexpected attribute or script survived: %s", out)
+		}
 	}
 }

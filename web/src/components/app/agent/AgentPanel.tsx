@@ -35,13 +35,12 @@ import {
     PictureInPicture2Icon,
     SearchIcon,
     Trash2Icon,
-    GlobeIcon,
-    SparklesIcon,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
 import { useConfirm } from "@/hooks/context/confirm";
 import { usePermission } from "@/hooks/usePermission";
+import { capturePointerDrag, useResizablePane } from "@/hooks/useResizablePane";
+import { dispatchPanelShortcut } from "@/hooks/useKeyboardShortcuts";
 import useAiMetered from "@/hooks/useAiMetered";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores";
@@ -49,6 +48,9 @@ import {
     AGENT_FLOAT_MIN_W,
     AGENT_FLOAT_MAX_W,
     AGENT_FLOAT_MIN_H,
+    AGENT_MIN_WIDTH,
+    AGENT_DEFAULT_WIDTH,
+    agentDockedMaxWidth,
     type AgentFloatRect,
     type AgentTab,
     type AgentTurn,
@@ -63,7 +65,6 @@ import streamAgentRun from "@/lib/api/client/app/agent/streamAgentRun";
 import useAgentSessions from "@/lib/api/hooks/app/agent/useAgentSessions";
 import Markdown from "./Markdown";
 import AgentMark from "./AgentMark";
-import AgentModelPicker from "./AgentModelPicker";
 import { Kbd } from "@/components/ui/shortcut-tooltip";
 import type {
     AgentStreamEvent,
@@ -78,36 +79,9 @@ const aborts = new Map<string, AbortController>();
 let mid = 0;
 const nextId = () => `m${++mid}`;
 
-const BDR_QUICK_ACTIONS = [
-    {
-        label: "חקור ליד והעשר נתונים",
-        cmd: "/enrich",
-        prompt: "חקור והעשר נתונים על הליד (חיפוש Google וסריקת אתר): ",
-        icon: SearchIcon,
-    },
-    {
-        label: "סנכרן ל-Frappe CRM",
-        cmd: "/crm",
-        prompt: "סנכרן את הליד הנוכחי ל-Frappe CRM עם כל הפרטים שהועשרו: ",
-        icon: GlobeIcon,
-    },
-    {
-        label: "תאם פגישה ביומן",
-        cmd: "/book",
-        prompt: "תאם פגישה ביומן וצור משימת מעקב לליד: ",
-        icon: ClockIcon,
-    },
-    {
-        label: "נסח תגובה להתנגדות",
-        cmd: "/reply",
-        prompt: "נסח מענה משכנע להתנגדות שהעלה הליד: ",
-        icon: SparklesIcon,
-    },
-];
-
 function deriveTitle(text: string): string {
     const t = text.trim().replace(/\s+/g, " ");
-    return t.length > 40 ? t.slice(0, 40).trimEnd() + "…" : t || "שיחה חדשה";
+    return t.length > 40 ? t.slice(0, 40).trimEnd() + "…" : t || "New chat";
 }
 
 // Keep the floating window fully on screen and inside its size bounds.
@@ -135,8 +109,6 @@ function defaultFloatRect(): AgentFloatRect {
 type ResizeDir = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 export default function AgentPanel() {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language?.startsWith("he");
     const open = useAppStore((s) => s.aiAssistantOpen);
     const setOpen = useAppStore((s) => s.setAIAssistantOpen);
     const expanded = useAppStore((s) => s.agentExpanded);
@@ -163,6 +135,15 @@ export default function AgentPanel() {
         m.addEventListener("change", fn);
         return () => m.removeEventListener("change", fn);
     }, []);
+    // The docked width is capped by the viewport as well as by its own bounds,
+    // so the cap has to follow a window resize.
+    const [viewportW, setViewportW] = React.useState(() => window.innerWidth);
+    React.useEffect(() => {
+        const fn = () => setViewportW(window.innerWidth);
+        window.addEventListener("resize", fn);
+        return () => window.removeEventListener("resize", fn);
+    }, []);
+
     const isFloat = floating && !expanded && smUp;
     const rect = React.useMemo(
         () => (isFloat ? clampFloatRect(floatRect ?? defaultFloatRect()) : null),
@@ -171,6 +152,7 @@ export default function AgentPanel() {
 
     const navigate = useNavigate();
     const location = useLocation();
+    const panelRef = React.useRef<HTMLElement>(null);
     const scrollRef = React.useRef<HTMLDivElement>(null);
     const inputRef = React.useRef<HTMLTextAreaElement>(null);
     const hydrating = React.useRef<Set<string>>(new Set());
@@ -273,7 +255,7 @@ export default function AgentPanel() {
                     hydrated: true,
                     turns: foldEvent(t.turns, {
                         type: "error",
-                        message: isHe ? "לא ניתן לטעון שיחה זו." : "Could not load this conversation.",
+                        message: "Could not load this conversation.",
                     }),
                 }));
             })
@@ -365,27 +347,11 @@ export default function AgentPanel() {
         }
     }
 
-    async function send(overrideText?: string) {
+    async function send() {
         const tab = activeTab;
         if (!tab || tab.running || tab.pending || !tab.hydrated) return;
-        let text = (overrideText ?? draft).trim();
+        const text = draft.trim();
         if (!text) return;
-
-        // Expand BDR slash commands if present
-        if (text.startsWith("/enrich")) {
-            const arg = text.slice(7).trim();
-            text = `חקור והעשר נתונים על הליד (חיפוש Google וסריקת אתר): ${arg || "הליד הנוכחי"}`;
-        } else if (text.startsWith("/crm")) {
-            const arg = text.slice(4).trim();
-            text = `סנכרן את הליד הנוכחי ל-Frappe CRM כולל יצירת משימה/אירוע: ${arg || "הליד הנוכחי"}`;
-        } else if (text.startsWith("/book")) {
-            const arg = text.slice(5).trim();
-            text = `תאם פגישה ביומן וצור משימת מעקב לליד: ${arg || "הליד הנוכחי"}`;
-        } else if (text.startsWith("/reply")) {
-            const arg = text.slice(6).trim();
-            text = `נסח מענה משכנע ומנצח להתנגדות שהעלה הליד: ${arg || "ההתנגדות האחרונה בשיחה"}`;
-        }
-
         const store = useAppStore.getState();
         // running flips on synchronously so a double Enter can't double-send.
         store.agentUpdateTab(tab.key, (t) => ({
@@ -393,7 +359,7 @@ export default function AgentPanel() {
             running: true,
             draft: "",
             title:
-                t.sessionId || (t.title !== "New chat" && t.title !== "שיחה חדשה") ? t.title : deriveTitle(text),
+                t.sessionId || t.title !== "New chat" ? t.title : deriveTitle(text),
             turns: [
                 ...t.turns,
                 { id: nextId(), role: "user", blocks: [{ kind: "text", text }] },
@@ -406,7 +372,6 @@ export default function AgentPanel() {
                 const sess = await createAgentSession({
                     page: location.pathname,
                     resource,
-                    model: tab.model || "gemini-3.8-flash",
                 });
                 sid = sess.id;
                 store.agentPatchTab(tab.key, { sessionId: sid });
@@ -427,7 +392,6 @@ export default function AgentPanel() {
             text,
             page: location.pathname,
             resource,
-            model: tab.model || "gemini-3.8-flash",
         });
     }
 
@@ -476,59 +440,45 @@ export default function AgentPanel() {
         useAppStore.getState().agentSetActive(next.key);
     }
 
-    // Panel-scoped shortcuts (fire only while focus is inside the panel).
-    // Alt combos match on e.code because macOS Option remaps e.key to symbols.
+    // Panel-scoped shortcuts: they fire only while focus is inside the panel,
+    // but they are declared alongside every other shortcut in the product
+    // (useKeyboardShortcuts) so the `?` modal cannot drift from what runs.
     function onPanelKeyDown(e: React.KeyboardEvent) {
-        if (e.key === "Escape") {
-            e.stopPropagation();
-            closePanel();
-            return;
-        }
-        const mod = e.metaKey || e.ctrlKey;
-        if (mod && !e.altKey && (e.key === "]" || e.key === "[")) {
-            e.preventDefault();
-            e.stopPropagation();
-            cycleTab(e.key === "]" ? 1 : -1);
-            return;
-        }
-        if (e.altKey && !mod) {
-            switch (e.code) {
-                case "KeyN":
-                    e.preventDefault();
-                    useAppStore.getState().agentNewTab();
-                    return;
-                case "KeyW":
-                    e.preventDefault();
-                    if (activeTab) closeTab(activeTab.key);
-                    return;
-                case "KeyM":
-                    e.preventDefault();
-                    setMinimized(true);
-                    return;
-                case "KeyP":
-                    e.preventDefault();
-                    if (smUp && !expanded) setFloating(!floating);
-                    return;
-            }
-        }
+        dispatchPanelShortcut(e, {
+            close: closePanel,
+            cycleTab,
+            newTab: () => useAppStore.getState().agentNewTab(),
+            closeTab: () => {
+                if (activeTab) closeTab(activeTab.key);
+            },
+            minimize: () => setMinimized(true),
+            togglePopOut: () => setFloating(!floating),
+            canPopOut: smUp && !expanded,
+        });
     }
 
-    // Drag the panel's inner edge to resize (persisted via the store clamp).
-    function startResize(e: React.PointerEvent) {
-        if (expanded || isFloat) return;
-        e.preventDefault();
-        const onMove = (ev: PointerEvent) => {
-            const w =
-                side === "right" ? window.innerWidth - ev.clientX : ev.clientX;
-            useAppStore.getState().setAgentWidth(w);
-        };
-        const onUp = () => {
-            window.removeEventListener("pointermove", onMove);
-            window.removeEventListener("pointerup", onUp);
-        };
-        window.addEventListener("pointermove", onMove);
-        window.addEventListener("pointerup", onUp);
-    }
+    // Drag the panel's inner edge to resize. Shared with the unibox splitter:
+    // pointer capture (the drag crosses page content, which on the inbox route
+    // is one iframe per message), one store write per gesture rather than per
+    // frame, and the keyboard map a separator owes assistive tech.
+    const setAgentWidth = useAppStore((s) => s.setAgentWidth);
+    const dockedMax = agentDockedMaxWidth(viewportW);
+    const { width: dockedWidth, separatorProps } = useResizablePane({
+        value: width,
+        onChange: setAgentWidth,
+        min: AGENT_MIN_WIDTH,
+        max: dockedMax,
+        defaultValue: AGENT_DEFAULT_WIDTH,
+        measureMax: () => agentDockedMaxWidth(window.innerWidth),
+        paneRef: panelRef,
+        cssVar: "--agent-w",
+        // The handle sits on the panel's inner edge, so on the right it widens
+        // as the pointer moves left.
+        direction: side === "right" ? -1 : 1,
+        label: "Resize the assistant panel",
+        controls: "agent-panel",
+        valueText: (w) => `Assistant panel ${w} pixels`,
+    });
 
     // Keep the floating window inside the viewport when the browser resizes.
     React.useEffect(() => {
@@ -556,61 +506,57 @@ export default function AgentPanel() {
         let offY = r ? startY - r.y : 0;
         let torn = isFloat;
 
-        const onMove = (ev: PointerEvent) => {
-            if (!torn) {
-                if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 16) return;
-                const base = defaultFloatRect();
-                r = { ...base, w: Math.min(base.w, useAppStore.getState().agentWidth) };
-                offX = Math.min(r.w / 2, 200);
-                offY = 24;
-                torn = true;
-                useAppStore.getState().setAgentFloating(true);
-            }
-            if (!r) return;
-            ev.preventDefault();
-            useAppStore
-                .getState()
-                .setAgentFloatRect(clampFloatRect({ ...r, x: ev.clientX - offX, y: ev.clientY - offY }));
-        };
-        const onUp = () => {
-            window.removeEventListener("pointermove", onMove);
-            window.removeEventListener("pointerup", onUp);
-        };
-        window.addEventListener("pointermove", onMove);
-        window.addEventListener("pointerup", onUp);
+        capturePointerDrag(e, {
+            onMove: (ev) => {
+                if (!torn) {
+                    if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 16) return;
+                    const base = defaultFloatRect();
+                    r = { ...base, w: Math.min(base.w, useAppStore.getState().agentWidth) };
+                    offX = Math.min(r.w / 2, 200);
+                    offY = 24;
+                    torn = true;
+                    useAppStore.getState().setAgentFloating(true);
+                }
+                if (!r) return;
+                ev.preventDefault();
+                useAppStore
+                    .getState()
+                    .setAgentFloatRect(clampFloatRect({ ...r, x: ev.clientX - offX, y: ev.clientY - offY }));
+            },
+            cursor: "grabbing",
+        });
     }
 
     // Resize the floating window from any edge or corner.
     function startFloatResize(e: React.PointerEvent, dir: ResizeDir) {
-        if (!isFloat || !rect) return;
-        e.preventDefault();
+        if (!isFloat || !rect || e.button !== 0) return;
+        // stopPropagation keeps the corner from also starting a header drag; no
+        // preventDefault, which would suppress the mousedown that closes
+        // popovers. The body lock below is what stops the drag selecting text.
         e.stopPropagation();
         const start = { ...rect };
         const sx = e.clientX;
         const sy = e.clientY;
-        const onMove = (ev: PointerEvent) => {
-            ev.preventDefault();
-            const dx = ev.clientX - sx;
-            const dy = ev.clientY - sy;
-            let { x, y, w, h } = start;
-            if (dir.includes("e")) w = start.w + dx;
-            if (dir.includes("s")) h = start.h + dy;
-            if (dir.includes("w")) {
-                w = start.w - dx;
-                x = start.x + Math.min(dx, start.w - AGENT_FLOAT_MIN_W);
-            }
-            if (dir.includes("n")) {
-                h = start.h - dy;
-                y = start.y + Math.min(dy, start.h - AGENT_FLOAT_MIN_H);
-            }
-            useAppStore.getState().setAgentFloatRect(clampFloatRect({ x, y, w, h }));
-        };
-        const onUp = () => {
-            window.removeEventListener("pointermove", onMove);
-            window.removeEventListener("pointerup", onUp);
-        };
-        window.addEventListener("pointermove", onMove);
-        window.addEventListener("pointerup", onUp);
+        capturePointerDrag(e, {
+            onMove: (ev) => {
+                ev.preventDefault();
+                const dx = ev.clientX - sx;
+                const dy = ev.clientY - sy;
+                let { x, y, w, h } = start;
+                if (dir.includes("e")) w = start.w + dx;
+                if (dir.includes("s")) h = start.h + dy;
+                if (dir.includes("w")) {
+                    w = start.w - dx;
+                    x = start.x + Math.min(dx, start.w - AGENT_FLOAT_MIN_W);
+                }
+                if (dir.includes("n")) {
+                    h = start.h - dy;
+                    y = start.y + Math.min(dy, start.h - AGENT_FLOAT_MIN_H);
+                }
+                useAppStore.getState().setAgentFloatRect(clampFloatRect({ x, y, w, h }));
+            },
+            cursor: window.getComputedStyle(e.currentTarget).cursor,
+        });
     }
 
     if (!canAI) return null;
@@ -638,6 +584,8 @@ export default function AgentPanel() {
                 />
             )}
             <motion.aside
+                ref={panelRef}
+                id="agent-panel"
                 initial={false}
                 animate={
                     isFloat
@@ -655,13 +603,13 @@ export default function AgentPanel() {
                 style={
                     isFloat && rect
                         ? ({
-                              "--agent-w": `${width}px`,
+                              "--agent-w": `${dockedWidth}px`,
                               left: rect.x,
                               top: rect.y,
                               width: rect.w,
                               height: rect.h,
                           } as React.CSSProperties)
-                        : ({ "--agent-w": `${width}px` } as React.CSSProperties)
+                        : ({ "--agent-w": `${dockedWidth}px` } as React.CSSProperties)
                 }
                 className={cn(
                     "fixed z-50 bg-white flex",
@@ -705,10 +653,10 @@ export default function AgentPanel() {
                 {/* Drag handle on the inner edge (desktop, docked mode). */}
                 {!expanded && !isFloat && (
                     <div
-                        onPointerDown={startResize}
-                        title="גרור לשינוי גודל"
+                        {...separatorProps}
                         className={cn(
-                            "hidden sm:block absolute top-0 h-full w-1.5 cursor-col-resize touch-none z-10 hover:bg-sky-400/40 active:bg-sky-500/50 transition-colors",
+                            "hidden sm:block absolute top-0 h-full w-1.5 cursor-col-resize z-10 outline-none",
+                            "hover:bg-sky-400/40 active:bg-sky-500/50 focus-visible:bg-sky-500/50 transition-colors",
                             side === "right" ? "left-0" : "right-0",
                         )}
                     />
@@ -738,10 +686,9 @@ export default function AgentPanel() {
                     >
                         <AgentMark className="w-4 h-4 text-sky-600" />
                         <div className="text-[13px] font-semibold text-slate-900">
-                            עוזר AI
+                            Assistant
                         </div>
-                        <AgentModelPicker />
-                        <div className="ms-auto flex items-center gap-1">
+                        <div className="ml-auto flex items-center gap-1">
                             {!isFloat && (
                                 <button
                                     onClick={() =>
@@ -749,10 +696,10 @@ export default function AgentPanel() {
                                     }
                                     title={
                                         side === "right"
-                                            ? "העבר לצד שמאל"
-                                            : "העבר לצד ימין"
+                                            ? "Move to the left edge"
+                                            : "Move to the right edge"
                                     }
-                                    aria-label="החלף צד חלון"
+                                    aria-label="Switch panel side"
                                     className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 hidden sm:inline-flex items-center justify-center transition-colors"
                                 >
                                     {side === "right" ? (
@@ -767,11 +714,11 @@ export default function AgentPanel() {
                                     onClick={() => setFloating(!floating)}
                                     title={
                                         isFloat
-                                            ? `עגן לצד ${side === "right" ? "ימין" : "שמאל"} (⌥P)`
-                                            : "פתח כחלון צף (⌥P)"
+                                            ? `Dock to the ${side} edge (⌥P)`
+                                            : "Pop out into a window (⌥P)"
                                     }
                                     aria-label={
-                                        isFloat ? "עגן חלון" : "פתח כחלון צף"
+                                        isFloat ? "Dock panel" : "Pop out into a floating window"
                                     }
                                     className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 hidden sm:inline-flex items-center justify-center transition-colors"
                                 >
@@ -788,17 +735,17 @@ export default function AgentPanel() {
                             )}
                             <button
                                 onClick={() => setMinimized(true)}
-                                title="מזער (⌥M)"
-                                aria-label="מזער"
+                                title="Minimize to dock (⌥M)"
+                                aria-label="Minimize to dock"
                                 className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <MinusIcon className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setExpanded(!expanded)}
-                                title={expanded ? "צמצם" : "הרחב לסביבת עבודה"}
+                                title={expanded ? "Collapse" : "Expand to workspace"}
                                 aria-label={
-                                    expanded ? "צמצם" : "הרחב לסביבת עבודה"
+                                    expanded ? "Collapse" : "Expand to workspace"
                                 }
                                 className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 hidden sm:inline-flex items-center justify-center transition-colors"
                             >
@@ -810,8 +757,8 @@ export default function AgentPanel() {
                             </button>
                             <button
                                 onClick={closePanel}
-                                title="סגור (Esc)"
-                                aria-label="סגור עוזר AI"
+                                title="Close"
+                                aria-label="Close assistant"
                                 className="size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-4 h-4" />
@@ -906,7 +853,7 @@ export default function AgentPanel() {
                                 className="absolute bottom-3 left-1/2 -translate-x-1/2 h-7 px-3 rounded-full bg-white border border-slate-200 shadow-sm text-[11.5px] text-slate-600 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
                             >
                                 <ArrowDownIcon className="w-3 h-3" />
-                                {isHe ? "להודעה האחרונה" : "Latest"}
+                                Latest
                             </button>
                         )}
                     </div>
@@ -914,54 +861,6 @@ export default function AgentPanel() {
                     {/* Composer */}
                     <div className="shrink-0 border-t border-slate-200 p-3">
                         <div className={cn(expanded && "mx-auto w-full max-w-[760px]")}>
-                            {/* BDR Quick Action Pills */}
-                            <div className="mb-2 flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-[11px]">
-                                {BDR_QUICK_ACTIONS.map((act) => {
-                                    const Icon = act.icon;
-                                    return (
-                                        <button
-                                            key={act.cmd}
-                                            type="button"
-                                            disabled={composerLocked}
-                                            onClick={() => {
-                                                setDraft(act.prompt);
-                                                inputRef.current?.focus();
-                                            }}
-                                            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/60 text-slate-700 hover:text-sky-800 transition-colors shadow-2xs font-medium disabled:opacity-50"
-                                        >
-                                            <Icon className="w-3 h-3 text-sky-600" />
-                                            <span>{act.label}</span>
-                                            <span className="font-mono text-[9.5px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded">
-                                                {act.cmd}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Slash Command Autocomplete Menu */}
-                            {draft.startsWith("/") && !draft.includes(" ") && (
-                                <div className="mb-1.5 p-1.5 bg-white rounded-lg border border-slate-200 shadow-md text-[12px] space-y-0.5">
-                                    <div className="px-2 py-0.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                                        פקודות BDR זמינות
-                                    </div>
-                                    {BDR_QUICK_ACTIONS.filter((act) => act.cmd.startsWith(draft.toLowerCase())).map((act) => (
-                                        <button
-                                            key={act.cmd}
-                                            type="button"
-                                            onClick={() => {
-                                                setDraft(act.prompt);
-                                                inputRef.current?.focus();
-                                            }}
-                                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-sky-50 text-start transition-colors"
-                                        >
-                                            <span className="font-medium text-slate-800">{act.label}</span>
-                                            <span className="font-mono text-[11px] text-sky-600 font-semibold">{act.cmd}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
                             {/* py-1 + leading-5 make a single line exactly the
                                 size-7 button height, so text centers against it;
                                 items-end keeps the button pinned when it grows. */}
@@ -983,8 +882,8 @@ export default function AgentPanel() {
                                     rows={1}
                                     placeholder={
                                         activeTab?.pending
-                                            ? "הגב לבקשת האישור למעלה תחילה"
-                                            : "שאל על אנשי קשר, קמפיינים, תיבת הדואר..."
+                                            ? "Respond to the approval above first"
+                                            : "Ask about contacts, campaigns, your inbox…"
                                     }
                                     disabled={composerLocked}
                                     className="flex-1 resize-none bg-transparent py-1 text-[13px] leading-5 text-slate-900 placeholder:text-slate-400 outline-none max-h-32 disabled:opacity-60"
@@ -992,8 +891,8 @@ export default function AgentPanel() {
                                 {activeTab?.running ? (
                                     <button
                                         onClick={() => stop(activeTab.key)}
-                                        title="עצור"
-                                        aria-label="עצור יצירה"
+                                        title="Stop"
+                                        aria-label="Stop run"
                                         className="size-7 rounded-md bg-slate-900 hover:bg-slate-700 text-white inline-flex items-center justify-center transition-colors"
                                     >
                                         <SquareIcon
@@ -1003,10 +902,10 @@ export default function AgentPanel() {
                                     </button>
                                 ) : (
                                     <button
-                                        onClick={() => void send()}
+                                        onClick={send}
                                         disabled={!draft.trim() || composerLocked}
-                                        title="שליחה"
-                                        aria-label="שלח הודעה"
+                                        title="Send"
+                                        aria-label="Send message"
                                         className="size-7 rounded-md bg-sky-600 hover:bg-sky-700 text-white inline-flex items-center justify-center transition-colors disabled:opacity-40"
                                     >
                                         <ArrowUpIcon className="w-4 h-4" />
@@ -1017,19 +916,20 @@ export default function AgentPanel() {
                                 <div className="mt-2 flex items-center gap-1.5 text-[10.5px] text-amber-600">
                                     <AlertTriangleIcon className="w-3 h-3 shrink-0" />
                                     <span>
-                                        מודל מקומי חינמי. איכות התשובות עשויה להיות בסיסית, ללא חיוב נקודות.
+                                        Free local model. Responses may be lower quality,
+                                        and nothing is charged.
                                     </span>
                                 </div>
                             )}
                             <div className="mt-2 flex items-center justify-between text-[10.5px] text-slate-400">
                                 <span>
-                                    פעולות קריאה מתבצעות אוטומטית. פעולות כתיבה ושליחה מבקשות אישור תחילה.
+                                    Read actions run automatically. Writes ask first.
                                 </span>
                                 {!activeTab?.freeModel &&
                                     metered &&
                                     activeTab?.credits != null && (
                                         <span className="font-mono tabular-nums">
-                                            {activeTab.credits.toLocaleString()} נקודות
+                                            {activeTab.credits.toLocaleString()} credits
                                         </span>
                                     )}
                             </div>
@@ -1069,7 +969,7 @@ function TabBar({
         <div
             ref={ref}
             role="tablist"
-            aria-label="שיחות"
+            aria-label="Conversations"
             className="shrink-0 flex items-stretch gap-1 px-2 h-9 border-b border-slate-200 overflow-x-auto no-scrollbar"
         >
             {tabs.map((t) => {
@@ -1097,7 +997,7 @@ function TabBar({
                             if (e.button === 1) onClose(t.key);
                         }}
                         className={cn(
-                            "group shrink-0 max-w-[160px] h-7 my-1 ps-2.5 pe-1.5 rounded-md inline-flex items-center gap-1.5 cursor-pointer text-[12px] transition-colors",
+                            "group shrink-0 max-w-[160px] h-7 my-1 pl-2.5 pr-1.5 rounded-md inline-flex items-center gap-1.5 cursor-pointer text-[12px] transition-colors",
                             active
                                 ? "bg-slate-100 text-slate-900"
                                 : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
@@ -1125,7 +1025,7 @@ function TabBar({
                             }}
                             tabIndex={-1}
                             className="size-4 shrink-0 rounded inline-flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-200 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity"
-                            aria-label={`סגור את ${t.title}`}
+                            aria-label={`Close ${t.title}`}
                         >
                             <XIcon className="w-3 h-3" />
                         </button>
@@ -1134,8 +1034,8 @@ function TabBar({
             })}
             <button
                 onClick={onNew}
-                title="צ'אט חדש"
-                aria-label="צ'אט חדש"
+                title="New chat"
+                aria-label="New chat"
                 className="shrink-0 size-7 my-1 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
             >
                 <PlusIcon className="w-4 h-4" />
@@ -1174,7 +1074,7 @@ function DockBar({
         status = (
             <span className="inline-flex items-center gap-1.5 text-slate-500">
                 <Loader2Icon className="w-3 h-3 animate-spin text-sky-500" />
-                מעבד...
+                Working
                 {focus.iteration > 0 && (
                     <span className="font-mono tabular-nums text-slate-400">
                         {focus.iteration}/{focus.budget}
@@ -1186,7 +1086,7 @@ function DockBar({
         status = (
             <span className="inline-flex items-center gap-1.5 text-amber-700">
                 <span className="size-1.5 rounded-full bg-amber-500" />
-                נדרש אישור
+                Needs approval
             </span>
         );
     } else if (focus?.unseen) {
@@ -1196,14 +1096,14 @@ function DockBar({
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
                     <span className="relative inline-flex size-1.5 rounded-full bg-sky-500" />
                 </span>
-                תשובה מוכנה
+                Response ready
             </span>
         );
     } else {
         status = (
             <span className="inline-flex items-center gap-1.5 text-slate-400">
                 <span className="size-1.5 rounded-full bg-slate-300" />
-                ממתין
+                Idle
             </span>
         );
     }
@@ -1228,11 +1128,11 @@ function DockBar({
                         onRestore(focus?.key ?? null);
                     }
                 }}
-                className="h-10 ps-2.5 pe-1 rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/10 flex items-center gap-2 cursor-pointer hover:border-slate-300 transition-colors"
+                className="h-10 pl-2.5 pr-1 rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-900/10 flex items-center gap-2 cursor-pointer hover:border-slate-300 transition-colors"
             >
                 <AgentMark className="w-4 h-4 text-sky-600 shrink-0" />
                 <span className="max-w-[160px] truncate text-[12.5px] font-medium text-slate-800">
-                    {focus?.title ?? "עוזר AI"}
+                    {focus?.title ?? "Assistant"}
                 </span>
                 <span className="text-[11.5px]">{status}</span>
                 <span className="flex items-center gap-0.5 pl-1">
@@ -1241,8 +1141,8 @@ function DockBar({
                             e.stopPropagation();
                             onRestore(focus?.key ?? null);
                         }}
-                        title="שחזר"
-                        aria-label="שחזר עוזר"
+                        title="Restore"
+                        aria-label="Restore assistant"
                         className="size-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
                         <ChevronUpIcon className="w-3.5 h-3.5" />
@@ -1252,8 +1152,8 @@ function DockBar({
                             e.stopPropagation();
                             onClose();
                         }}
-                        title="סגור"
-                        aria-label="סגור עוזר"
+                        title="Close"
+                        aria-label="Close assistant"
                         className="size-6 rounded inline-flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                     >
                         <XIcon className="w-3.5 h-3.5" />
@@ -1270,10 +1170,10 @@ function historyBucket(iso: string): string {
     const t = new Date(iso).getTime();
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    if (t >= today) return "היום";
-    if (t >= today - 24 * 60 * 60 * 1000) return "אתמול";
-    if (t >= today - 6 * 24 * 60 * 60 * 1000) return "השבוע";
-    return "מוקדם יותר";
+    if (t >= today) return "Today";
+    if (t >= today - 24 * 60 * 60 * 1000) return "Yesterday";
+    if (t >= today - 6 * 24 * 60 * 60 * 1000) return "This week";
+    return "Earlier";
 }
 
 function SessionSidebar({
@@ -1317,7 +1217,7 @@ function SessionSidebar({
 
     const remove = (s: AgentSession) => {
         confirm.show(
-            `למחוק את "${s.title || "השיחה הזו"}"? התמליל יימחק לצמיתות.`,
+            `Delete "${s.title || "this conversation"}"? Its transcript is removed for good.`,
             async () => {
                 await deleteAgentSession(s.id);
                 // If the conversation is open as a tab, close it too.
@@ -1331,14 +1231,14 @@ function SessionSidebar({
     };
 
     return (
-        <div className="hidden sm:flex w-64 shrink-0 flex-col ltr:border-r rtl:border-l border-slate-200 bg-slate-50/50">
+        <div className="hidden sm:flex w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-50/50">
             <div className="shrink-0 px-3 pt-3 pb-2 space-y-2 border-b border-slate-200">
                 <button
                     onClick={onNew}
                     className="w-full h-8 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12.5px] font-medium inline-flex items-center justify-center gap-1.5 transition-colors"
                 >
                     <PlusIcon className="w-3.5 h-3.5" />
-                    שיחה חדשה
+                    New chat
                     <Kbd combo="alt+n" variant="dark" />
                 </button>
                 <div className="flex items-center gap-1.5 px-2 h-7 rounded-md border border-slate-200 bg-white focus-within:border-sky-300 focus-within:ring-1 focus-within:ring-sky-100 transition-colors">
@@ -1346,13 +1246,13 @@ function SessionSidebar({
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="חיפוש בהיסטוריית שיחות..."
+                        placeholder="Search history…"
                         className="flex-1 min-w-0 bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none"
                     />
                     {search && (
                         <button
                             onClick={() => setSearch("")}
-                            aria-label="נקה חיפוש"
+                            aria-label="Clear search"
                             className="size-4 shrink-0 inline-flex items-center justify-center rounded text-slate-400 hover:text-slate-600"
                         >
                             <XIcon className="w-3 h-3" />
@@ -1364,8 +1264,8 @@ function SessionSidebar({
                 {filtered.length === 0 && !q.isLoading && (
                     <p className="px-1.5 py-3 text-[11.5px] text-slate-400 leading-relaxed">
                         {search
-                            ? "לא נמצאו שיחות תואמות."
-                            : "שיחות העבר שלך יופיעו כאן."}
+                            ? "No conversations match."
+                            : "Your past conversations show up here."}
                     </p>
                 )}
                 {grouped.map((g) => (
@@ -1384,7 +1284,7 @@ function SessionSidebar({
                                         if (e.key === "Enter") onOpen(s);
                                     }}
                                     className={cn(
-                                        "group w-full text-left rtl:text-right px-2 py-1.5 rounded-md flex items-start gap-2 cursor-pointer transition-colors",
+                                        "group w-full text-left px-2 py-1.5 rounded-md flex items-start gap-2 cursor-pointer transition-colors",
                                         s.id === activeSessionId
                                             ? "bg-white ring-1 ring-slate-200"
                                             : "hover:bg-white",
@@ -1393,7 +1293,7 @@ function SessionSidebar({
                                     <ClockIcon className="w-3 h-3 mt-0.5 shrink-0 text-slate-400" />
                                     <span className="min-w-0 flex-1">
                                         <span className="block truncate text-[12px] text-slate-700">
-                                            {s.title || "שיחה"}
+                                            {s.title || "Conversation"}
                                         </span>
                                         <span className="block truncate text-[10.5px] text-slate-400">
                                             {relativeTime(s.updated_at || s.created_at)}
@@ -1407,8 +1307,8 @@ function SessionSidebar({
                                             e.stopPropagation();
                                             remove(s);
                                         }}
-                                        title="מחיקת שיחה"
-                                        aria-label={`מחק את ${s.title || "השיחה"}`}
+                                        title="Delete conversation"
+                                        aria-label={`Delete ${s.title || "conversation"}`}
                                         className="size-5 mt-0.5 shrink-0 inline-flex items-center justify-center rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                     >
                                         <Trash2Icon className="w-3 h-3" />
@@ -1424,7 +1324,7 @@ function SessionSidebar({
                         disabled={q.isFetchingNextPage}
                         className="mt-1 w-full h-7 rounded-md text-[11.5px] text-slate-500 hover:text-slate-800 hover:bg-white transition-colors"
                     >
-                        {q.isFetchingNextPage ? "טוען..." : "טען עוד"}
+                        {q.isFetchingNextPage ? "Loading…" : "Load more"}
                     </button>
                 )}
             </div>
@@ -1433,7 +1333,7 @@ function SessionSidebar({
                     <button
                         onClick={() =>
                             confirm.show(
-                                "האם לנקות את כל היסטוריית השיחות שלך בסביבת עבודה זו? כל השיחות והתמלילים יימחקו לצמיתות.",
+                                "Clear your entire assistant history in this workspace? Every conversation and transcript is removed for good.",
                                 async () => {
                                     await clearAgentSessions();
                                     // Close every tab tied to a stored session;
@@ -1449,7 +1349,7 @@ function SessionSidebar({
                         className="w-full h-7 rounded-md inline-flex items-center justify-center gap-1.5 text-[11.5px] text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                     >
                         <Trash2Icon className="w-3 h-3" />
-                        ניקוי היסטוריה
+                        Clear history
                     </button>
                 </div>
             )}
@@ -1730,12 +1630,12 @@ function ApprovalCard({
         <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
             <div className="flex items-center gap-1.5 text-[12px] font-medium text-amber-800">
                 <ShieldQuestionIcon className="w-3.5 h-3.5" />
-                {isSend ? "האם לשלוח הודעה זו?" : "האם לאשר פעולה זו?"}
+                {isSend ? "Send this?" : "Approve this action?"}
             </div>
             <div className="mt-1 text-[12px] text-slate-700">
                 <span className="font-medium">{toolLabel(pending.tool)}</span>
                 {pending.argsSummary && (
-                    <span className="text-slate-500"> : {pending.argsSummary}</span>
+                    <span className="text-slate-500"> — {pending.argsSummary}</span>
                 )}
             </div>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
@@ -1744,20 +1644,20 @@ function ApprovalCard({
                     className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                 >
                     <CheckIcon className="w-3 h-3" />
-                    {isSend ? "שלח" : "אשר"}
+                    {isSend ? "Send" : "Approve"}
                 </button>
                 <button
                     onClick={() => onDecide("deny")}
                     className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 transition-colors"
                 >
-                    דלג
+                    Skip
                 </button>
                 {!isSend && (
                     <button
                         onClick={() => onDecide("always_allow")}
                         className="h-7 px-2.5 rounded-md text-[12px] text-slate-500 hover:text-slate-800 transition-colors"
                     >
-                        אפשר תמיד
+                        Always allow
                     </button>
                 )}
             </div>
@@ -1766,10 +1666,10 @@ function ApprovalCard({
 }
 
 const STARTERS = [
-    "חקור את הליד והעשר את פרטיו (טלפון, תפקיד ואתר)",
-    "סנכרן לידים בעלי עניין גבוה ל-Frappe CRM",
-    "נסח מענה משכנע להתנגדות שהעלה הליד",
-    "אילו לידים התקררו ודורשים פולואו-אפ?",
+    "Which leads went cold and need a follow-up?",
+    "Summarize replies in my inbox from this week",
+    "Draft a reply to my latest positive reply",
+    "How are my campaigns performing?",
 ];
 
 function EmptyState({ onPick }: { onPick: (q: string) => void }) {
@@ -1777,17 +1677,18 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
         <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
             <AgentMark className="w-6 h-6 text-sky-600 mb-3" />
             <div className="text-[13px] font-semibold text-slate-900">
-                איך אפשר לעזור לך היום?
+                How can I help?
             </div>
             <p className="text-[12px] text-slate-500 mt-1 leading-relaxed max-w-[280px]">
-                אפשר לבקש ממני למצוא אנשי קשר, לחקור לידים ולהעשיר מידע מ-Google, לסנכרן ל-Frappe CRM, או לנסח מענה מקצועי.
+                Ask me to find contacts, check a campaign, draft a reply, or set up a
+                draft campaign. I ask before changing anything.
             </p>
             <div className="mt-4 w-full max-w-[320px] space-y-1.5">
                 {STARTERS.map((q) => (
                     <button
                         key={q}
                         onClick={() => onPick(q)}
-                        className="w-full text-left rtl:text-right px-3 py-2 rounded-md border border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 text-[12px] text-slate-600 hover:text-slate-900 transition-colors"
+                        className="w-full text-left px-3 py-2 rounded-md border border-slate-200 hover:border-sky-300 hover:bg-sky-50/50 text-[12px] text-slate-600 hover:text-slate-900 transition-colors"
                     >
                         {q}
                     </button>
@@ -1795,22 +1696,22 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
             </div>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[10.5px] text-slate-400">
                 <span className="inline-flex items-center gap-1">
-                    <Kbd combo="mod+i" variant="light" /> פתיחה/סגירה
+                    <Kbd combo="mod+i" variant="light" /> toggle
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1">
-                    <Kbd combo="alt+n" variant="light" /> שיחה חדשה
+                    <Kbd combo="alt+n" variant="light" /> new chat
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1">
-                    <Kbd combo="alt+p" variant="light" /> חלון צף
+                    <Kbd combo="alt+p" variant="light" /> pop out
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1">
-                    <Kbd combo="alt+m" variant="light" /> מזעור
+                    <Kbd combo="alt+m" variant="light" /> minimize
                 </span>
                 <button
                     onClick={() => useAppStore.getState().setShortcutsModalOpen(true)}
                     className="underline decoration-dotted underline-offset-2 hover:text-slate-600 transition-colors"
                 >
-                    כל הקיצורים
+                    all shortcuts
                 </button>
             </div>
         </div>
@@ -1820,27 +1721,22 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
 // toolLabel renders a friendly label for a tool name.
 function toolLabel(tool: string): string {
     const map: Record<string, string> = {
-        search_contacts: "חיפוש אנשי קשר",
-        get_contact: "קריאת איש קשר",
-        update_contact_fields: "עדכון איש קשר",
-        add_tag: "הוספת תגית",
-        remove_tag: "הסרת תגית",
-        list_campaigns: "הצגת קמפיינים",
-        get_campaign_stats: "נתוני קמפיין",
-        create_campaign_draft: "יצירת טיוטת קמפיין",
-        create_automation_draft: "יצירת טיוטת אוטומציה",
-        create_task: "יצירת משימה",
-        create_deal: "יצירת עסקה",
-        list_threads: "הצגת שרשורים",
-        get_thread: "קריאת שרשור",
-        draft_reply: "ניסוח מענה",
-        search_web: "חיפוש באינטרנט",
-        fetch_url: "טעינת דף אינטרנט",
-        serper_google_search: "חיפוש Serper Google",
-        fetch_url_content: "סריקת אתר ומיצוי תוכן",
-        update_lead_fields: "עדכון והעשרת נתוני ליד",
-        frappe_crm_sync: "סנכרון ליד ל-Frappe CRM",
-        mark_do_not_contact: "הגדרת Do Not Contact",
+        search_contacts: "Searched contacts",
+        get_contact: "Read contact",
+        update_contact_fields: "Update contact",
+        add_tag: "Add tag",
+        remove_tag: "Remove tag",
+        list_campaigns: "Listed campaigns",
+        get_campaign_stats: "Campaign stats",
+        create_campaign_draft: "Create campaign draft",
+        create_automation_draft: "Create automation draft",
+        create_task: "Create task",
+        create_deal: "Create deal",
+        list_threads: "Listed threads",
+        get_thread: "Read thread",
+        draft_reply: "Drafted reply",
+        search_web: "Searched the web",
+        fetch_url: "Fetched a page",
     };
     return map[tool] || tool.replace(/_/g, " ");
 }
@@ -1873,12 +1769,12 @@ function relativeTime(value: string | Date): string {
     const date = typeof value === "string" ? new Date(value) : value;
     const diff = Date.now() - date.getTime();
     const sec = Math.round(diff / 1000);
-    if (sec < 60) return "הרגע";
+    if (sec < 60) return "just now";
     const min = Math.floor(sec / 60);
-    if (min < 60) return `לפני ${min} דק'`;
+    if (min < 60) return `${min}m ago`;
     const hr = Math.floor(min / 60);
-    if (hr < 24) return `לפני ${hr} שע'`;
+    if (hr < 24) return `${hr}h ago`;
     const day = Math.floor(hr / 24);
-    if (day < 7) return `לפני ${day} ימים`;
-    return date.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
+    if (day < 7) return `${day}d ago`;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

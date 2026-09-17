@@ -4,9 +4,9 @@
 export interface WarmupSummary {
     total_sent: number;
     total_replied: number;
-    average_daily: number;
+    average_daily: number; // per active day in the selected range
     reply_rate: number; // percentage
-    target_progress: number; // percentage to max
+    target_progress: number; // actual sends / planned target volume
     days_active: number;
 }
 

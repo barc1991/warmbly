@@ -24,7 +24,9 @@ import {
     AlertTriangleIcon,
     ArrowUpDownIcon,
     CalendarClockIcon,
+    CheckIcon,
     CheckSquareIcon,
+    FlagIcon,
     LayoutListIcon,
     ListTreeIcon,
     Loader2Icon,
@@ -59,6 +61,7 @@ import {
     PopoverMenu,
     PopoverMenuContent,
     PopoverMenuItem,
+    PopoverMenuLabel,
     PopoverMenuTrigger,
 } from "@/components/ui/popover-menu";
 import useSearchTasks from "@/lib/api/hooks/app/crm/tasks/useSearchTasks";
@@ -66,6 +69,8 @@ import useTasksSummary from "@/lib/api/hooks/app/crm/tasks/useTasksSummary";
 import useCreateCRMTask from "@/lib/api/hooks/app/crm/tasks/useCreateCRMTask";
 import useUpdateCRMTask from "@/lib/api/hooks/app/crm/tasks/useUpdateCRMTask";
 import useDeleteCRMTask from "@/lib/api/hooks/app/crm/tasks/useDeleteCRMTask";
+import useBulkDeleteTasks from "@/lib/api/hooks/app/crm/tasks/useBulkDeleteTasks";
+import useBulkUpdateTasks from "@/lib/api/hooks/app/crm/tasks/useBulkUpdateTasks";
 import useTaskTypes from "@/lib/api/hooks/app/crm/taskTypes/useTaskTypes";
 import useMembers from "@/lib/api/hooks/app/organizations/useMembers";
 import { useQueryClient } from "@tanstack/react-query";
@@ -79,6 +84,9 @@ import type { CRMTaskPriority, CRMTaskStatus } from "@/lib/api/models/app/crm/CR
 import type SearchTasks from "@/lib/api/models/app/crm/SearchTasks";
 import type { TaskSortBy } from "@/lib/api/models/app/crm/SearchTasks";
 import { EMPTY_TASK_SEARCH } from "@/lib/api/models/app/crm/SearchTasks";
+import type TaskSelection from "@/lib/api/models/app/crm/TaskSelection";
+import * as rowSelection from "@/lib/helper/rowSelection";
+import type { RowSelection } from "@/lib/helper/rowSelection";
 import type OrganizationMember from "@/lib/api/models/app/organizations/OrganizationMember";
 import type Team from "@/lib/api/models/app/teams/Team";
 import type { AppError } from "@/lib/api/client/normalizeError";
@@ -87,38 +95,47 @@ import TaskTypePicker from "@/components/app/crm/TaskTypePicker";
 import { taskTypeColor } from "@/components/app/crm/taskTypes";
 
 const PRIORITIES: { id: CRMTaskPriority; label: string; dot: string; text: string }[] = [
-    { id: "urgent", label: "דחוף", dot: "bg-red-500", text: "text-red-700" },
-    { id: "high", label: "גבוה", dot: "bg-amber-500", text: "text-amber-700" },
-    { id: "medium", label: "בינוני", dot: "bg-sky-500", text: "text-sky-700" },
-    { id: "low", label: "נמוך", dot: "bg-slate-400", text: "text-slate-600" },
+    { id: "urgent", label: "Urgent", dot: "bg-red-500", text: "text-red-700" },
+    { id: "high", label: "High", dot: "bg-amber-500", text: "text-amber-700" },
+    { id: "medium", label: "Medium", dot: "bg-sky-500", text: "text-sky-700" },
+    { id: "low", label: "Low", dot: "bg-slate-400", text: "text-slate-600" },
 ];
 
+// Status names as this page says them ("Active", not "in progress"), for the
+// bulk-action toasts.
+const STATUS_LABELS: Record<CRMTaskStatus, string> = {
+    pending: "Pending",
+    in_progress: "Active",
+    completed: "Done",
+    cancelled: "Cancelled",
+};
+
 const STATUS_TABS: { id: "all" | CRMTaskStatus; label: string }[] = [
-    { id: "all", label: "הכל" },
-    { id: "pending", label: "ממתין" },
-    { id: "in_progress", label: "פעיל" },
-    { id: "completed", label: "הושלם" },
-    { id: "cancelled", label: "בוטל" },
+    { id: "all", label: "All" },
+    { id: "pending", label: "Pending" },
+    { id: "in_progress", label: "Active" },
+    { id: "completed", label: "Done" },
+    { id: "cancelled", label: "Cancelled" },
 ];
 
 const SORTS: { id: string; label: string; sort_by: TaskSortBy; reverse: boolean }[] = [
-    { id: "newest", label: "החדש ביותר", sort_by: "created_at", reverse: false },
-    { id: "oldest", label: "הישן ביותר", sort_by: "created_at", reverse: true },
-    { id: "due_soon", label: "יעד קרוב ביותר", sort_by: "due_date", reverse: true },
-    { id: "due_late", label: "יעד רחוק ביותר", sort_by: "due_date", reverse: false },
-    { id: "priority", label: "עדיפות · מגבוה לנמוך", sort_by: "priority", reverse: false },
-    { id: "title", label: "כותרת · א' עד ת'", sort_by: "title", reverse: true },
+    { id: "newest", label: "Newest", sort_by: "created_at", reverse: false },
+    { id: "oldest", label: "Oldest", sort_by: "created_at", reverse: true },
+    { id: "due_soon", label: "Due soonest", sort_by: "due_date", reverse: true },
+    { id: "due_late", label: "Due latest", sort_by: "due_date", reverse: false },
+    { id: "priority", label: "Priority · high → low", sort_by: "priority", reverse: false },
+    { id: "title", label: "Title · A → Z", sort_by: "title", reverse: true },
 ];
 
 type Bucket = "overdue" | "today" | "tomorrow" | "this_week" | "later" | "no_due";
 
 const BUCKETS: { id: Bucket; label: string; tone: "red" | "sky" | "slate" | "muted" }[] = [
-    { id: "overdue", label: "באיחור", tone: "red" },
-    { id: "today", label: "היום", tone: "sky" },
-    { id: "tomorrow", label: "מחר", tone: "slate" },
-    { id: "this_week", label: "השבוע", tone: "slate" },
-    { id: "later", label: "מאוחר יותר", tone: "muted" },
-    { id: "no_due", label: "ללא תאריך יעד", tone: "muted" },
+    { id: "overdue", label: "Overdue", tone: "red" },
+    { id: "today", label: "Today", tone: "sky" },
+    { id: "tomorrow", label: "Tomorrow", tone: "slate" },
+    { id: "this_week", label: "This week", tone: "slate" },
+    { id: "later", label: "Later", tone: "muted" },
+    { id: "no_due", label: "No due date", tone: "muted" },
 ];
 
 const TONE = {
@@ -165,7 +182,9 @@ export default function TasksPage() {
 
     const search = useSearchTasks({ filters, limit: 50 });
     const summary = useTasksSummary(filters);
-    const tasks = search.tasks ?? [];
+    // Memoised: the loaded-id list and the grouped buckets both derive from it,
+    // and a fresh [] on every render would rebuild them every render.
+    const tasks = React.useMemo(() => search.tasks ?? [], [search.tasks]);
     const total = search.total;
     const sum = summary.data;
 
@@ -192,6 +211,90 @@ export default function TasksPage() {
 
     const { data: types = [] } = useTaskTypes();
 
+    // ── Multi-select ───────────────────────────────────────────────────────
+    // Either the rows ticked, or every task the current filter matches minus
+    // the ones unticked afterwards. Only the second reaches past the pages
+    // loaded so far, and only the server can resolve it, so it travels as the
+    // filter itself.
+    const [rowSel, setRowSel] = React.useState<RowSelection>(rowSelection.emptySelection);
+    const bulkDelete = useBulkDeleteTasks();
+    const bulkUpdate = useBulkUpdateTasks();
+    const confirm = useConfirm();
+
+    const loadedIDs = React.useMemo(() => tasks.map((t) => t.id), [tasks]);
+    const clearSelection = React.useCallback(() => setRowSel(rowSelection.emptySelection), []);
+    const isRowSelected = React.useCallback((id: string) => rowSelection.isRowSelected(rowSel, id), [rowSel]);
+    const selectionCount = rowSelection.selectionCount(rowSel, total);
+    const loadedAllSelected = rowSelection.allLoadedSelected(rowSel, loadedIDs);
+    const canSelectAllMatching = rowSelection.canSelectAllMatching(rowSel, loadedIDs, total);
+
+    // A teammate deleting a row the user had unticked would otherwise leave its
+    // id in `excluded` for good, counting a task that no longer exists against
+    // the selection and eventually emptying it on screen while rows stay
+    // selected. Only sound once every matching row is loaded.
+    React.useEffect(() => {
+        if (search.hasNextPage) return;
+        setRowSel((sel) => rowSelection.pruneExcluded(sel, loadedIDs));
+    }, [search.hasNextPage, loadedIDs]);
+
+    // A selection means what the filter meant when it was made, so changing
+    // the filter drops it rather than silently applying to a different set.
+    const filterKey = JSON.stringify(filters);
+    React.useEffect(() => {
+        clearSelection();
+    }, [filterKey, clearSelection]);
+
+    const selection = React.useMemo<TaskSelection>(
+        () => (rowSel.all ? { tasks: [], all: true, filters, exclude: rowSel.excluded } : { tasks: rowSel.ids }),
+        [rowSel, filters],
+    );
+
+    const busy = bulkDelete.isPending || bulkUpdate.isPending;
+
+    // The server reports what it wrote, which is not always what was selected:
+    // a teammate can have deleted or already completed a row in between. Say
+    // the real number rather than the one on the button.
+    function report(affected: number, verb: string) {
+        if (affected === 0) {
+            toast("Nothing changed: those tasks are gone, or already in that state.");
+            return;
+        }
+        toast.success(`${affected.toLocaleString()} ${affected === 1 ? "task" : "tasks"} ${verb}`);
+    }
+
+    // The rows stay tickable while the request is in flight, so clear only the
+    // selection that was actually sent. Clearing unconditionally threw away a
+    // selection the user had started building while waiting.
+    function clearIfUnchanged(submitted: RowSelection) {
+        setRowSel((current) => (current === submitted ? rowSelection.emptySelection : current));
+    }
+
+    async function applyBulk(patch: { status?: CRMTaskStatus; priority?: CRMTaskPriority }, verb: string) {
+        if (selectionCount === 0) return;
+        const submitted = rowSel;
+        try {
+            const res = await bulkUpdate.mutateAsync({ ...selection, ...patch });
+            clearIfUnchanged(submitted);
+            report(res.affected, verb);
+        } catch (err) {
+            toast.error(buildError(err as AppError));
+        }
+    }
+
+    function deleteSelected() {
+        if (selectionCount === 0) return;
+        const submitted = rowSel;
+        confirm?.show(deletePrompt(selectionCount), async () => {
+            try {
+                const res = await bulkDelete.mutateAsync(selection);
+                clearIfUnchanged(submitted);
+                report(res.affected, "deleted");
+            } catch (err) {
+                toast.error(buildError(err as AppError));
+            }
+        });
+    }
+
     const statusTab: "all" | CRMTaskStatus =
         filters.statuses.length === 1 ? filters.statuses[0] : "all";
 
@@ -211,35 +314,35 @@ export default function TasksPage() {
 
     return (
         <Page>
-            <PageTopbar eyebrow="משימות" subtitle="מעקבים ותזכורות ברחבי הארגון">
+            <PageTopbar eyebrow="Tasks" subtitle="Follow-ups + reminders across the org">
                 <ViewToggle view={view} onChange={setView} />
                 <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={() => setNewOpen(true)}>
-                    משימה חדשה
+                    New task
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={5}>
                 <Stat
-                    label="באיחור"
+                    label="Overdue"
                     value={sum ? sum.overdue_count : "—"}
-                    sub="דורש טיפול"
+                    sub="needs attention"
                     accent={!!sum && sum.overdue_count > 0}
                 />
                 <Stat
-                    label="עדיפות גבוהה"
+                    label="High priority"
                     value={sum ? sum.high_priority_count : "—"}
-                    sub="דחוף + גבוה"
+                    sub="urgent + high"
                 />
-                <Stat label="ממתין" value={sum ? sum.pending_count : "—"} sub="טרם התחיל" />
-                <Stat label="פעיל" value={sum ? sum.in_progress_count : "—"} sub="בתהליך" />
-                <Stat label="הושלם" value={sum ? sum.completed_count : "—"} sub="בוצע" last />
+                <Stat label="Pending" value={sum ? sum.pending_count : "—"} sub="not started" />
+                <Stat label="Active" value={sum ? sum.in_progress_count : "—"} sub="in progress" />
+                <Stat label="Completed" value={sum ? sum.completed_count : "—"} sub="done" last />
             </StatStrip>
 
-            <SectionBar label={search.isPending ? "טוען…" : `${total} ${total === 1 ? "משימה" : "משימות"}`}>
+            <SectionBar label={search.isPending ? "Loading…" : `${total} ${total === 1 ? "task" : "tasks"}`}>
                 <SearchInput
                     value={filters.query}
                     onChange={(v) => setFilters((f) => ({ ...f, query: v }))}
-                    placeholder="חיפוש משימות…"
+                    placeholder="Search tasks…"
                     className="w-full sm:w-[180px]"
                 />
                 <div className="inline-flex rounded-md bg-slate-100 p-0.5 gap-0.5">
@@ -283,7 +386,7 @@ export default function TasksPage() {
             <PageBody className={view === "grouped" ? "px-5 py-5" : ""}>
                 {search.isError ? (
                     <div className="px-5 py-16 text-center text-[12.5px] text-red-600">
-                        לא ניתן לטעון משימות. נסה שוב.
+                        Couldn't load tasks. Try again.
                     </div>
                 ) : search.isPending ? (
                     view === "grouped" ? (
@@ -297,22 +400,44 @@ export default function TasksPage() {
                         onCreate={() => setNewOpen(true)}
                         onClear={() => setFilters(EMPTY_TASK_SEARCH)}
                     />
-                ) : view === "grouped" ? (
-                    <GroupedView
-                        tasks={tasks}
-                        memberByUser={memberByUser}
-                        teamById={teamById}
-                        types={types}
-                        onOpen={setEditing}
-                    />
                 ) : (
-                    <FlatView
-                        tasks={tasks}
-                        memberByUser={memberByUser}
-                        teamById={teamById}
-                        types={types}
-                        onOpen={setEditing}
-                    />
+                    <>
+                        <SelectAllBanner
+                            selectAll={rowSel.all}
+                            count={selectionCount}
+                            loadedCount={tasks.length}
+                            total={total}
+                            canSelectAllMatching={canSelectAllMatching}
+                            onSelectAllMatching={() => setRowSel(rowSelection.selectAllMatching())}
+                            onClear={clearSelection}
+                            grouped={view === "grouped"}
+                        />
+                        {view === "grouped" ? (
+                            <GroupedView
+                                tasks={tasks}
+                                memberByUser={memberByUser}
+                                teamById={teamById}
+                                types={types}
+                                onOpen={setEditing}
+                                isRowSelected={isRowSelected}
+                                onToggle={(id, on) => setRowSel((sel) => rowSelection.toggleRow(sel, id, on))}
+                                onToggleMany={(ids) => setRowSel((sel) => rowSelection.toggleGroup(sel, ids))}
+                                allSelected={(ids) => rowSelection.allLoadedSelected(rowSel, ids)}
+                            />
+                        ) : (
+                            <FlatView
+                                tasks={tasks}
+                                memberByUser={memberByUser}
+                                teamById={teamById}
+                                types={types}
+                                onOpen={setEditing}
+                                isRowSelected={isRowSelected}
+                                onToggle={(id, on) => setRowSel((sel) => rowSelection.toggleRow(sel, id, on))}
+                                allLoadedSelected={loadedAllSelected}
+                                onToggleAll={() => setRowSel((sel) => rowSelection.toggleLoaded(sel, loadedIDs))}
+                            />
+                        )}
+                    </>
                 )}
 
                 {!search.isPending && tasks.length > 0 && (
@@ -325,6 +450,15 @@ export default function TasksPage() {
                     />
                 )}
             </PageBody>
+
+            <TaskSelectionBar
+                count={selectionCount}
+                busy={busy}
+                onStatus={(status) => applyBulk({ status }, status === "completed" ? "marked done" : `set to ${STATUS_LABELS[status]}`)}
+                onPriority={(priority) => applyBulk({ priority }, `set to ${priority} priority`)}
+                onDelete={deleteSelected}
+                onClear={clearSelection}
+            />
 
             <TaskDialog
                 open={newOpen}
@@ -343,6 +477,177 @@ export default function TasksPage() {
     );
 }
 
+// ── Selection ───────────────────────────────────────────────
+
+// deletePrompt words the confirm so a 4,000-row select-all does not read the
+// same as three ticked rows.
+function deletePrompt(count: number): string {
+    if (count === 1) return "Delete this task?";
+    return `Delete ${count.toLocaleString()} tasks? This cannot be undone.`;
+}
+
+// The bridge between "every row on screen" and "every row that matches". The
+// list only ever holds the pages it has loaded, so ticking the header can never
+// mean the whole filtered set on its own; this says what is selected and offers
+// the rest in one click.
+function SelectAllBanner({
+    selectAll,
+    count,
+    loadedCount,
+    total,
+    canSelectAllMatching,
+    onSelectAllMatching,
+    onClear,
+    grouped,
+}: {
+    selectAll: boolean;
+    count: number;
+    loadedCount: number;
+    total: number;
+    canSelectAllMatching: boolean;
+    onSelectAllMatching: () => void;
+    onClear: () => void;
+    grouped: boolean;
+}) {
+    if (!selectAll && !canSelectAllMatching) return null;
+    const plural = (n: number) => (n === 1 ? "task" : "tasks");
+    return (
+        <div
+            className={`px-5 py-2 bg-sky-50/70 border border-sky-100 text-[12px] text-sky-900 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-center ${
+                grouped ? "rounded-md mb-3" : "border-x-0 border-t-0"
+            }`}
+        >
+            {selectAll ? (
+                <>
+                    <span>
+                        All <span className="font-medium">{count.toLocaleString()}</span> {plural(count)} matching this
+                        view are selected.
+                    </span>
+                    <button
+                        type="button"
+                        onClick={onClear}
+                        className="font-medium underline underline-offset-2 hover:text-sky-700"
+                    >
+                        Clear selection
+                    </button>
+                </>
+            ) : (
+                <>
+                    <span>
+                        The <span className="font-medium">{loadedCount.toLocaleString()}</span> {plural(loadedCount)}{" "}
+                        loaded here are selected.
+                    </span>
+                    <button
+                        type="button"
+                        onClick={onSelectAllMatching}
+                        className="font-medium underline underline-offset-2 hover:text-sky-700"
+                    >
+                        Select all {total.toLocaleString()} matching
+                    </button>
+                </>
+            )}
+        </div>
+    );
+}
+
+// Floating bulk-action bar, same shape as the contacts one: it appears with the
+// first ticked row and names the count before any action reads it.
+function TaskSelectionBar({
+    count,
+    busy,
+    onStatus,
+    onPriority,
+    onDelete,
+    onClear,
+}: {
+    count: number;
+    busy: boolean;
+    onStatus: (status: CRMTaskStatus) => void;
+    onPriority: (priority: CRMTaskPriority) => void;
+    onDelete: () => void;
+    onClear: () => void;
+}) {
+    if (count === 0) return null;
+    return (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center max-w-[calc(100vw-16px)] flex-wrap justify-center md:max-w-none md:flex-nowrap gap-1.5 rounded-md border border-slate-200 bg-white shadow-[0_6px_20px_-4px_rgba(15,23,42,0.12),0_2px_4px_rgba(15,23,42,0.04)] px-2 py-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2 h-7 rounded bg-sky-50 text-sky-700 text-[12px] font-medium">
+                <CheckIcon className="w-3 h-3" />
+                <span>{count.toLocaleString()} selected</span>
+            </div>
+            <button
+                type="button"
+                onClick={() => onStatus("completed")}
+                disabled={busy}
+                className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+            >
+                {busy ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckSquareIcon className="w-3 h-3" />}
+                <span>Mark done</span>
+            </button>
+            <PopoverMenu side="top" align="center">
+                <PopoverMenuTrigger asChild>
+                    <button
+                        type="button"
+                        disabled={busy}
+                        className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                    >
+                        <SquareIcon className="w-3 h-3" />
+                        <span className="hidden sm:inline">Status</span>
+                    </button>
+                </PopoverMenuTrigger>
+                <PopoverMenuContent minWidth={170}>
+                    <PopoverMenuLabel>Set {count.toLocaleString()} to</PopoverMenuLabel>
+                    {STATUS_TABS.filter((t) => t.id !== "all").map((t) => (
+                        <PopoverMenuItem key={t.id} onSelect={() => onStatus(t.id as CRMTaskStatus)}>
+                            {t.label}
+                        </PopoverMenuItem>
+                    ))}
+                </PopoverMenuContent>
+            </PopoverMenu>
+            <PopoverMenu side="top" align="center">
+                <PopoverMenuTrigger asChild>
+                    <button
+                        type="button"
+                        disabled={busy}
+                        className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                    >
+                        <FlagIcon className="w-3 h-3" />
+                        <span className="hidden sm:inline">Priority</span>
+                    </button>
+                </PopoverMenuTrigger>
+                <PopoverMenuContent minWidth={170}>
+                    <PopoverMenuLabel>Set {count.toLocaleString()} to</PopoverMenuLabel>
+                    {PRIORITIES.map((p) => (
+                        <PopoverMenuItem
+                            key={p.id}
+                            onSelect={() => onPriority(p.id)}
+                            icon={<span className={`size-1.5 rounded-full ${p.dot}`} />}
+                        >
+                            {p.label}
+                        </PopoverMenuItem>
+                    ))}
+                </PopoverMenuContent>
+            </PopoverMenu>
+            <button
+                type="button"
+                onClick={onDelete}
+                disabled={busy}
+                className="h-7 px-2.5 rounded text-[12px] text-red-600 hover:text-white hover:bg-red-600 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+            >
+                <TrashIcon className="w-3 h-3" />
+                <span className="hidden sm:inline">Delete</span>
+            </button>
+            <div className="h-4 w-px bg-slate-200" />
+            <button
+                type="button"
+                onClick={onClear}
+                className="h-7 px-2.5 rounded text-[12px] text-slate-500 hover:text-slate-900 transition-colors"
+            >
+                Clear
+            </button>
+        </div>
+    );
+}
+
 // ── Views ────────────────────────────────────────────────────────────────
 
 function FlatView({
@@ -351,24 +656,41 @@ function FlatView({
     teamById,
     types,
     onOpen,
+    isRowSelected,
+    onToggle,
+    allLoadedSelected,
+    onToggleAll,
 }: {
     tasks: CRMTask[];
     memberByUser: Map<string, OrganizationMember>;
     teamById: Map<string, Team>;
     types: { name: string; color: string }[];
     onOpen: (t: CRMTask) => void;
+    isRowSelected: (id: string) => boolean;
+    onToggle: (id: string, on: boolean) => void;
+    allLoadedSelected: boolean;
+    onToggleAll: () => void;
 }) {
     return (
         <table className="w-full border-collapse">
             <thead className="sticky top-0 bg-white z-[1]">
                 <tr className="border-b border-slate-200">
-                    <Th className="text-start">משימה</Th>
-                    <Th className="text-start hidden md:table-cell">סוג</Th>
-                    <Th className="text-start hidden md:table-cell">אחראי</Th>
-                    <Th className="text-start">עדיפות</Th>
-                    <Th className="text-start hidden md:table-cell">סטטוס</Th>
-                    <Th className="text-start">יעד</Th>
-                    <Th className="text-end"> </Th>
+                    <th className="pl-3 pr-2 py-2 w-9">
+                        <input
+                            type="checkbox"
+                            aria-label="Select every task loaded"
+                            className="w-3.5 h-3.5 rounded accent-sky-600"
+                            checked={allLoadedSelected}
+                            onChange={onToggleAll}
+                        />
+                    </th>
+                    <Th className="text-left">Task</Th>
+                    <Th className="text-left hidden md:table-cell">Type</Th>
+                    <Th className="text-left hidden md:table-cell">Assignee</Th>
+                    <Th className="text-left">Priority</Th>
+                    <Th className="text-left hidden md:table-cell">Status</Th>
+                    <Th className="text-left">Due</Th>
+                    <Th className="text-right"> </Th>
                 </tr>
             </thead>
             <tbody>
@@ -380,6 +702,8 @@ function FlatView({
                         team={t.assigned_team_id ? teamById.get(t.assigned_team_id) : undefined}
                         types={types}
                         onOpen={() => onOpen(t)}
+                        selected={isRowSelected(t.id)}
+                        onToggle={(on) => onToggle(t.id, on)}
                     />
                 ))}
             </tbody>
@@ -393,12 +717,16 @@ function FlatRow({
     team,
     types,
     onOpen,
+    selected,
+    onToggle,
 }: {
     task: CRMTask;
     member?: OrganizationMember;
     team?: Team;
     types: { name: string; color: string }[];
     onOpen: () => void;
+    selected: boolean;
+    onToggle: (on: boolean) => void;
 }) {
     const update = useUpdateCRMTask();
     const del = useDeleteCRMTask();
@@ -420,7 +748,7 @@ function FlatRow({
     }
 
     function doDelete() {
-        confirm?.show(`למחוק את המשימה "${task.title}"?`, async () => {
+        confirm?.show(`Delete task "${task.title}"?`, async () => {
             try {
                 await del.mutateAsync(task.id);
             } catch (err) {
@@ -432,8 +760,19 @@ function FlatRow({
     return (
         <tr
             onClick={onOpen}
-            className="group h-11 border-b border-slate-200/60 hover:bg-slate-50/80 cursor-pointer transition-colors"
+            className={`group h-11 border-b border-slate-200/60 cursor-pointer transition-colors ${
+                selected ? "bg-sky-50/60" : "hover:bg-slate-50/80"
+            }`}
         >
+            <td className="pl-3 pr-2" onClick={(e) => e.stopPropagation()}>
+                <input
+                    type="checkbox"
+                    aria-label={`Select ${task.title}`}
+                    className="w-3.5 h-3.5 rounded accent-sky-600"
+                    checked={selected}
+                    onChange={() => onToggle(!selected)}
+                />
+            </td>
             <td className="px-3 max-w-0">
                 <div className="flex items-center gap-2.5 min-w-0">
                     <button
@@ -442,7 +781,7 @@ function FlatRow({
                             e.stopPropagation();
                             setDone(!isDone);
                         }}
-                        aria-label={isDone ? "סמן כממתין" : "סמן כהושלם"}
+                        aria-label={isDone ? "Mark pending" : "Mark complete"}
                         className="size-4 rounded text-slate-400 hover:text-slate-900 inline-flex items-center justify-center shrink-0"
                     >
                         {isDone ? (
@@ -485,12 +824,12 @@ function FlatRow({
             <td className="px-3 whitespace-nowrap">
                 <DueCell due={task.due_date} overdue={overdue} />
             </td>
-            <td className="px-2 w-9 text-end" onClick={(e) => e.stopPropagation()}>
+            <td className="px-2 w-9 text-right" onClick={(e) => e.stopPropagation()}>
                 <PopoverMenu open={menuOpen} onOpenChange={setMenuOpen} align="end">
                     <PopoverMenuTrigger asChild>
                         <button
                             type="button"
-                            aria-label="פעולות משימה"
+                            aria-label="Task actions"
                             className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100"
                         >
                             <MoreHorizontalIcon className="w-4 h-4" />
@@ -498,16 +837,16 @@ function FlatRow({
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={170}>
                         <PopoverMenuItem onSelect={onOpen} icon={<PencilIcon className="w-3 h-3" />}>
-                            עריכה
+                            Edit
                         </PopoverMenuItem>
                         <PopoverMenuItem
                             onSelect={() => setDone(!isDone)}
                             icon={isDone ? <SquareIcon className="w-3 h-3" /> : <CheckSquareIcon className="w-3 h-3" />}
                         >
-                            {isDone ? "סמן כממתין" : "סמן כהושלם"}
+                            {isDone ? "Mark pending" : "Mark complete"}
                         </PopoverMenuItem>
                         <PopoverMenuItem onSelect={doDelete} danger icon={<TrashIcon className="w-3 h-3" />}>
-                            מחיקה
+                            Delete
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -522,12 +861,20 @@ function GroupedView({
     teamById,
     types,
     onOpen,
+    isRowSelected,
+    onToggle,
+    onToggleMany,
+    allSelected,
 }: {
     tasks: CRMTask[];
     memberByUser: Map<string, OrganizationMember>;
     teamById: Map<string, Team>;
     types: { name: string; color: string }[];
     onOpen: (t: CRMTask) => void;
+    isRowSelected: (id: string) => boolean;
+    onToggle: (id: string, on: boolean) => void;
+    onToggleMany: (ids: string[]) => void;
+    allSelected: (ids: string[]) => boolean;
 }) {
     // Bucket only the rows already paged in. "Load more" pulls the next server
     // page, so this is never an in-memory slice of a larger set: it is exactly
@@ -571,6 +918,10 @@ function GroupedView({
                         teamById={teamById}
                         types={types}
                         onOpen={onOpen}
+                        isRowSelected={isRowSelected}
+                        onToggle={onToggle}
+                        onToggleMany={onToggleMany}
+                        allSelected={allSelected}
                     />
                 );
             })}
@@ -585,6 +936,10 @@ function BucketGroup({
     teamById,
     types,
     onOpen,
+    isRowSelected,
+    onToggle,
+    onToggleMany,
+    allSelected,
 }: {
     bucket: { id: Bucket; label: string; tone: keyof typeof TONE };
     tasks: CRMTask[];
@@ -592,17 +947,29 @@ function BucketGroup({
     teamById: Map<string, Team>;
     types: { name: string; color: string }[];
     onOpen: (t: CRMTask) => void;
+    isRowSelected: (id: string) => boolean;
+    onToggle: (id: string, on: boolean) => void;
+    onToggleMany: (ids: string[]) => void;
+    allSelected: (ids: string[]) => boolean;
 }) {
+    const ids = tasks.map((t) => t.id);
     return (
         <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
-            <div className="h-8 px-3 border-b border-slate-200 flex items-center gap-1.5">
+            <div className="h-8 px-3 border-b border-slate-200 flex items-center gap-2">
+                <input
+                    type="checkbox"
+                    aria-label={`Select the ${bucket.label} tasks`}
+                    className="w-3.5 h-3.5 rounded accent-sky-600"
+                    checked={allSelected(ids)}
+                    onChange={() => onToggleMany(ids)}
+                />
                 <span className={`size-1.5 rounded-full ${TONE[bucket.tone].dot}`} />
                 <span
                     className={`text-[11px] uppercase tracking-[0.1em] font-semibold ${TONE[bucket.tone].label}`}
                 >
                     {bucket.label}
                 </span>
-                <span className="ms-auto font-mono text-[10.5px] text-slate-400 tabular-nums">
+                <span className="ml-auto font-mono text-[10.5px] text-slate-400 tabular-nums">
                     {tasks.length}
                 </span>
             </div>
@@ -615,6 +982,8 @@ function BucketGroup({
                         team={t.assigned_team_id ? teamById.get(t.assigned_team_id) : undefined}
                         types={types}
                         onOpen={onOpen}
+                        selected={isRowSelected(t.id)}
+                        onToggle={(on) => onToggle(t.id, on)}
                     />
                 ))}
             </div>
@@ -628,12 +997,16 @@ function GroupedRow({
     team,
     types,
     onOpen,
+    selected,
+    onToggle,
 }: {
     task: CRMTask;
     member?: OrganizationMember;
     team?: Team;
     types: { name: string; color: string }[];
     onOpen: (t: CRMTask) => void;
+    selected: boolean;
+    onToggle: (on: boolean) => void;
 }) {
     const update = useUpdateCRMTask();
     const isDone = task.status === "completed";
@@ -653,8 +1026,18 @@ function GroupedRow({
     return (
         <div
             onClick={() => onOpen(task)}
-            className="h-10 px-3 flex items-center gap-2.5 hover:bg-slate-50 cursor-pointer transition-colors"
+            className={`h-10 px-3 flex items-center gap-2.5 cursor-pointer transition-colors ${
+                selected ? "bg-sky-50/60" : "hover:bg-slate-50"
+            }`}
         >
+            <input
+                type="checkbox"
+                aria-label={`Select ${task.title}`}
+                className="w-3.5 h-3.5 rounded accent-sky-600 shrink-0"
+                checked={selected}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => onToggle(!selected)}
+            />
             <button
                 type="button"
                 onClick={toggle}
@@ -738,7 +1121,7 @@ function AssigneeCell({
     // A task may carry a person, a team, both, or neither. Render whichever are
     // present; only fall back to "Unassigned" when nothing is set.
     if (!assignedTo && !assignedTeamId) {
-        return <span className="text-slate-300 text-[11.5px]">{compact ? "" : "לא מוקצה"}</span>;
+        return <span className="text-slate-300 text-[11.5px]">{compact ? "" : "Unassigned"}</span>;
     }
     const label = memberLabel(member, assignedTo);
     const initials = memberInitials(member, assignedTo);
@@ -763,7 +1146,7 @@ function AssigneeCell({
 function teamLabel(team?: Team, teamId?: string): string {
     const name = team?.name?.trim();
     if (name) return name;
-    return teamId ? `צוות ${teamId.slice(0, 6)}` : "";
+    return teamId ? `Team ${teamId.slice(0, 6)}` : "";
 }
 
 function TeamChip({ team, teamId, compact = false }: { team?: Team; teamId?: string; compact?: boolean }) {
@@ -784,10 +1167,10 @@ function TeamChip({ team, teamId, compact = false }: { team?: Team; teamId?: str
 
 function StatusTag({ status }: { status: CRMTaskStatus }) {
     const map: Record<CRMTaskStatus, { label: string; cls: string; dot: string }> = {
-        pending: { label: "ממתין", cls: "text-slate-600", dot: "bg-slate-400" },
-        in_progress: { label: "פעיל", cls: "text-sky-700", dot: "bg-sky-500" },
-        completed: { label: "הושלם", cls: "text-emerald-700", dot: "bg-emerald-500" },
-        cancelled: { label: "בוטל", cls: "text-slate-400", dot: "bg-slate-300" },
+        pending: { label: "Pending", cls: "text-slate-600", dot: "bg-slate-400" },
+        in_progress: { label: "Active", cls: "text-sky-700", dot: "bg-sky-500" },
+        completed: { label: "Done", cls: "text-emerald-700", dot: "bg-emerald-500" },
+        cancelled: { label: "Cancelled", cls: "text-slate-400", dot: "bg-slate-300" },
     };
     const s = map[status];
     return (
@@ -865,24 +1248,24 @@ function ViewToggle({
             <button
                 type="button"
                 onClick={() => onChange("grouped")}
-                aria-label="מקובץ לפי תאריך יעד"
+                aria-label="Grouped by due date"
                 className={`h-6 px-2 rounded text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors ${
                     view === "grouped" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"
                 }`}
             >
                 <ListTreeIcon className="w-3 h-3" />
-                מקובץ
+                Grouped
             </button>
             <button
                 type="button"
                 onClick={() => onChange("flat")}
-                aria-label="רשימת טבלה"
+                aria-label="Flat list"
                 className={`h-6 px-2 rounded text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors ${
                     view === "flat" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"
                 }`}
             >
                 <LayoutListIcon className="w-3 h-3" />
-                טבלה
+                Table
             </button>
         </div>
     );
@@ -900,10 +1283,10 @@ function AssigneeFacet({
     const [open, setOpen] = React.useState(false);
     const label =
         selected.length === 0
-            ? "כל אחד"
+            ? "Anyone"
             : selected.length === 1
               ? memberLabel(members.find((m) => m.user_id === selected[0]), selected[0])
-              : `${selected.length} מוקצים`;
+              : `${selected.length} assignees`;
 
     function toggle(id: string) {
         onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
@@ -927,7 +1310,7 @@ function AssigneeFacet({
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={220} className="max-h-64 overflow-y-auto">
                 {members.length === 0 ? (
-                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">אין חברי צוות</div>
+                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">No members</div>
                 ) : (
                     members.map((m) => (
                         <PopoverMenuItem
@@ -962,10 +1345,10 @@ function TeamFacet({
     const [open, setOpen] = React.useState(false);
     const label =
         selected.length === 0
-            ? "כל צוות"
+            ? "Any team"
             : selected.length === 1
               ? teamLabel(teams.find((t) => t.id === selected[0]), selected[0])
-              : `${selected.length} צוותים`;
+              : `${selected.length} teams`;
 
     function toggle(id: string) {
         onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
@@ -995,7 +1378,7 @@ function TeamFacet({
                         className="flex items-center gap-2 px-3 h-8 text-[11.5px] text-slate-500 hover:text-sky-700 hover:bg-slate-50 transition-colors"
                     >
                         <UsersRoundIcon className="w-3.5 h-3.5 shrink-0" />
-                        אין צוותים עדיין, צור צוות בהגדרות
+                        No teams yet, create one in Settings
                     </Link>
                 ) : (
                     teams.map((t) => (
@@ -1030,7 +1413,7 @@ function TypeFacet({
     onChange: (names: string[]) => void;
 }) {
     const [open, setOpen] = React.useState(false);
-    const label = selected.length === 0 ? "כל הסוגים" : `${selected.length} סוגים`;
+    const label = selected.length === 0 ? "All types" : `${selected.length} type${selected.length === 1 ? "" : "s"}`;
 
     function toggle(name: string) {
         onChange(selected.includes(name) ? selected.filter((x) => x !== name) : [...selected, name]);
@@ -1054,7 +1437,7 @@ function TypeFacet({
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={200} className="max-h-64 overflow-y-auto">
                 {types.length === 0 ? (
-                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">אין סוגים עדיין</div>
+                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">No types yet</div>
                 ) : (
                     types.map((t) => (
                         <PopoverMenuItem
@@ -1147,7 +1530,7 @@ function FilterPopover({
                     }`}
                 >
                     <AlertTriangleIcon className="w-3 h-3" />
-                    מסננים
+                    Filters
                     {activeCount > 0 && (
                         <span className="size-4 rounded-full bg-sky-600 text-white text-[9.5px] inline-flex items-center justify-center tabular-nums">
                             {activeCount}
@@ -1158,7 +1541,7 @@ function FilterPopover({
             <PopoverMenuContent minWidth={260} className="p-3">
                 <div className="space-y-3">
                     <div>
-                        <Label>עדיפות</Label>
+                        <Label>Priority</Label>
                         <div className="flex flex-wrap gap-1.5">
                             {PRIORITIES.map((p) => {
                                 const on = filters.priorities.includes(p.id);
@@ -1181,19 +1564,19 @@ function FilterPopover({
                         </div>
                     </div>
                     <div>
-                        <Label>תאריך יעד</Label>
+                        <Label>Due date</Label>
                         <div className="flex items-center gap-1.5">
                             <DatePicker
                                 value={filters.due_after ? String(filters.due_after).split("T")[0] : ""}
                                 onChange={(v) => setDate("due_after", v)}
-                                placeholder="מתאריך"
+                                placeholder="From"
                                 className="flex-1"
                             />
                             <span className="text-slate-300">–</span>
                             <DatePicker
                                 value={filters.due_before ? String(filters.due_before).split("T")[0] : ""}
                                 onChange={(v) => setDate("due_before", v)}
-                                placeholder="עד תאריך"
+                                placeholder="To"
                                 className="flex-1"
                             />
                         </div>
@@ -1210,7 +1593,7 @@ function FilterPopover({
                         >
                             {filters.overdue && <CheckSquareIcon className="w-3 h-3" />}
                         </button>
-                        <span className="text-[12px] text-slate-700">רק באיחור ובר ביצוע</span>
+                        <span className="text-[12px] text-slate-700">Only overdue + actionable</span>
                     </label>
                     <div className="flex items-center justify-between pt-1 border-t border-slate-100">
                         <button
@@ -1227,14 +1610,14 @@ function FilterPopover({
                             className="text-[11.5px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1"
                         >
                             <XIcon className="w-3 h-3" />
-                            נקה
+                            Clear
                         </button>
                         <button
                             type="button"
                             onClick={() => setOpen(false)}
                             className="h-6 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium transition-colors"
                         >
-                            סיום
+                            Done
                         </button>
                     </div>
                 </div>
@@ -1268,18 +1651,18 @@ function LoadMore({
                     {isFetchingNextPage ? (
                         <>
                             <Loader2Icon className="w-3 h-3 animate-spin" />
-                            טוען…
+                            Loading…
                         </>
                     ) : (
                         <>
                             <PlusIcon className="w-3 h-3" />
-                            טען עוד
+                            Load more
                         </>
                     )}
                 </button>
             ) : null}
             <span className="font-mono text-[10.5px] text-slate-400 tabular-nums">
-                {hasNextPage ? `נטענו ${loaded} מתוך ${total}` : `${total} ${total === 1 ? "משימה" : "משימות"}`}
+                {hasNextPage ? `${loaded} of ${total} loaded` : `${total} ${total === 1 ? "task" : "tasks"}`}
             </span>
         </div>
     );
@@ -1302,12 +1685,12 @@ function EmptyState({
                 <CheckSquareIcon className="w-4 h-4 text-slate-400" />
             </div>
             <p className="text-[12.5px] text-slate-700 font-medium mb-1">
-                {hasFilters ? "אין משימות התואמות למסננים אלה" : "אין משימות עדיין"}
+                {hasFilters ? "No tasks match these filters" : "No tasks yet"}
             </p>
             <p className="text-[11.5px] text-slate-400 mb-4 max-w-[42ch] mx-auto leading-relaxed">
                 {hasFilters
-                    ? "נסה להרחיב או לנקות את המסננים כדי לראות עוד משימות."
-                    : "משימות מקושרות לאיש קשר או עסקה. צור משימה והיא תופיע כאן: ניתנת לחיפוש, סינון וקיבוץ לפי תאריך יעד."}
+                    ? "Try widening or clearing the filters to see more."
+                    : "Tasks attach to a contact or a deal. Create one and it shows up here: searchable, filterable, and grouped by due-date."}
             </p>
             {hasFilters ? (
                 <button
@@ -1316,7 +1699,7 @@ function EmptyState({
                     className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
                 >
                     <XIcon className="w-3 h-3" />
-                    נקה מסננים
+                    Clear filters
                 </button>
             ) : (
                 <button
@@ -1325,7 +1708,7 @@ function EmptyState({
                     className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                 >
                     <PlusIcon className="w-3 h-3" />
-                    צור משימה
+                    Create task
                 </button>
             )}
         </div>
@@ -1378,7 +1761,7 @@ function FlatSkeleton() {
 function Th({ children, className }: { children: React.ReactNode; className?: string }) {
     return (
         <th
-            className={`px-3 py-2 text-start text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] ${className ?? ""}`}
+            className={`px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] ${className ?? ""}`}
         >
             {children}
         </th>
@@ -1443,7 +1826,7 @@ function TaskDialog({
 
     async function submit() {
         if (!title.trim()) {
-            toast.error("יש להזין כותרת");
+            toast.error("Title required");
             return;
         }
         const data: Partial<CRMTask> = {
@@ -1460,14 +1843,14 @@ function TaskDialog({
         try {
             if (editing) {
                 await toast.promise(update.mutateAsync({ id: editing.id, data }), {
-                    loading: "שומר…",
-                    success: "המשימה עודכנה",
+                    loading: "Saving…",
+                    success: "Task updated",
                     error: (e: AppError) => buildError(e),
                 });
             } else {
                 await toast.promise(create.mutateAsync(data), {
-                    loading: "יוצר משימה…",
-                    success: "המשימה נוצרה",
+                    loading: "Creating task…",
+                    success: "Task created",
                     error: (e: AppError) => buildError(e),
                 });
             }
@@ -1479,11 +1862,11 @@ function TaskDialog({
 
     function doDelete() {
         if (!editing) return;
-        confirm?.show(`למחוק את המשימה "${editing.title}"?`, async () => {
+        confirm?.show(`Delete task "${editing.title}"?`, async () => {
             try {
                 await toast.promise(del.mutateAsync(editing.id), {
-                    loading: "מוחק…",
-                    success: "המשימה נמחקה",
+                    loading: "Deleting…",
+                    success: "Task deleted",
                     error: (e: AppError) => buildError(e),
                 });
                 onClose();
@@ -1512,17 +1895,17 @@ function TaskDialog({
                         exit={{ y: 8, opacity: 0 }}
                         transition={{ duration: 0.16 }}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full max-w-[480px] max-h-[calc(100dvh-2rem)] flex flex-col rounded-lg bg-white border border-slate-200 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden text-start"
+                        className="w-full max-w-[480px] max-h-[calc(100dvh-2rem)] flex flex-col rounded-lg bg-white border border-slate-200 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.18)] overflow-hidden"
                     >
                         <div className="h-12 shrink-0 px-4 border-b border-slate-200 flex items-center gap-2.5">
                             <div className="size-5 rounded bg-slate-100 text-slate-600 flex items-center justify-center">
                                 <CheckSquareIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                {editing ? "עריכה" : "חדש"}
+                                {editing ? "Edit" : "New"}
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-900 font-medium">משימה</span>
+                            <span className="text-[12.5px] text-slate-900 font-medium">Task</span>
                             <ResourceViewers
                                 resource={editing?.id ? `task:${editing.id}` : null}
                                 className="shrink-0"
@@ -1531,8 +1914,8 @@ function TaskDialog({
                                 <button
                                     type="button"
                                     onClick={doDelete}
-                                    className="ms-2 size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors"
-                                    aria-label="מחק משימה"
+                                    className="ml-2 size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors"
+                                    aria-label="Delete task"
                                 >
                                     <TrashIcon className="w-3 h-3" />
                                 </button>
@@ -1540,8 +1923,8 @@ function TaskDialog({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="סגור"
-                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="Close"
+                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -1549,32 +1932,32 @@ function TaskDialog({
 
                         <div className="px-4 py-4 space-y-3 overflow-y-auto min-h-0 flex-1">
                             <div>
-                                <Label>כותרת</Label>
+                                <Label>Title</Label>
                                 <TextInput
                                     value={title}
                                     onChange={setTitle}
-                                    placeholder="לדוגמה: מעקב אחר מענה לפניה"
+                                    placeholder="e.g. Follow up on Acme cold reply"
                                     autoFocus
                                     className="w-full"
                                 />
                             </div>
                             <div>
-                                <Label>תיאור</Label>
+                                <Label>Description</Label>
                                 <textarea
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="הערות אופציונליות…"
+                                    placeholder="Optional notes…"
                                     rows={3}
                                     className="w-full px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-y"
                                 />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
-                                    <Label>סוג משימה</Label>
+                                    <Label>Task type</Label>
                                     <TaskTypePicker value={type} onChange={setType} />
                                 </div>
                                 <div>
-                                    <Label>אחראי</Label>
+                                    <Label>Assignee</Label>
                                     <AssigneePicker
                                         value={assignedTo}
                                         members={members}
@@ -1587,24 +1970,24 @@ function TaskDialog({
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
-                                    <Label>תאריך יעד</Label>
+                                    <Label>Due date</Label>
                                     <DueInDays value={dueDays} onChange={setDueDays} />
                                 </div>
                                 <div>
-                                    <Label>עדיפות</Label>
+                                    <Label>Priority</Label>
                                     <PriorityPill value={priority} onChange={setPriority} />
                                 </div>
                             </div>
                             {editing && (
                                 <div>
-                                    <Label>סטטוס</Label>
+                                    <Label>Status</Label>
                                     <div className="inline-flex rounded-md bg-slate-100 p-0.5 w-full gap-0.5">
                                         {(
                                             [
-                                                ["pending", "ממתין"],
-                                                ["in_progress", "בתהליך"],
-                                                ["completed", "הושלם"],
-                                                ["cancelled", "בוטל"],
+                                                ["pending", "Pending"],
+                                                ["in_progress", "In progress"],
+                                                ["completed", "Done"],
+                                                ["cancelled", "Cancelled"],
                                             ] as const
                                         ).map(([id, label]) => (
                                             <button
@@ -1629,9 +2012,9 @@ function TaskDialog({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
-                                ביטול
+                                Cancel
                             </button>
                             <button
                                 type="button"
@@ -1642,7 +2025,7 @@ function TaskDialog({
                                 {(create.isPending || update.isPending) && (
                                     <Loader2Icon className="w-3 h-3 animate-spin" />
                                 )}
-                                {editing ? "שמור משימה" : "צור משימה"}
+                                {editing ? "Save task" : "Create task"}
                             </button>
                         </div>
                     </motion.div>
@@ -1679,7 +2062,7 @@ function AssigneePicker({
             : memberLabel(cur)
         : curTeam
           ? curTeam.name
-          : "לא מוקצה";
+          : "Unassigned";
 
     return (
         <PopoverMenu open={open} onOpenChange={setOpen} align="start">
@@ -1700,13 +2083,13 @@ function AssigneePicker({
                     ) : (
                         <span className="size-2 rounded-full bg-slate-300 shrink-0" />
                     )}
-                    <span className="truncate flex-1 text-start">{triggerLabel}</span>
-                    <span className="ms-auto text-slate-400">▾</span>
+                    <span className="truncate flex-1 text-left">{triggerLabel}</span>
+                    <span className="ml-auto text-slate-400">▾</span>
                 </button>
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={240} className="max-h-72 overflow-y-auto">
                 <div className="px-3 pt-1.5 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    חבר צוות
+                    Person
                 </div>
                 <PopoverMenuItem
                     onSelect={() => onChange("")}
@@ -1714,7 +2097,7 @@ function AssigneePicker({
                     closeOnSelect={false}
                     icon={<span className="size-2 rounded-full bg-slate-300 block" />}
                 >
-                    ללא שיוך
+                    No person
                 </PopoverMenuItem>
                 {members.map((m) => (
                     <PopoverMenuItem
@@ -1733,7 +2116,7 @@ function AssigneePicker({
                 ))}
                 <div className="my-1 h-px bg-slate-200" />
                 <div className="px-3 pt-0.5 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    צוות
+                    Team
                 </div>
                 {teams.length === 0 ? (
                     <Link
@@ -1742,7 +2125,7 @@ function AssigneePicker({
                         className="flex items-center gap-2 px-3 h-8 text-[12px] text-slate-500 hover:text-sky-700 hover:bg-slate-50 transition-colors"
                     >
                         <UsersRoundIcon className="w-3.5 h-3.5 shrink-0" />
-                        אין צוותים עדיין, צור צוות בהגדרות
+                        No teams yet, create one in Settings
                     </Link>
                 ) : (
                     <>
@@ -1752,7 +2135,7 @@ function AssigneePicker({
                             closeOnSelect={false}
                             icon={<span className="size-2 rounded-full bg-slate-300 block" />}
                         >
-                            ללא צוות
+                            No team
                         </PopoverMenuItem>
                         {teams.map((t) => (
                             <PopoverMenuItem
@@ -1796,7 +2179,7 @@ function PriorityPill({
                 >
                     <span className={`size-1.5 rounded-full ${cur.dot}`} />
                     <span className="truncate">{cur.label}</span>
-                    <span className="ms-auto text-slate-400">▾</span>
+                    <span className="ml-auto text-slate-400">▾</span>
                 </button>
             </PopoverMenuTrigger>
             <PopoverMenuContent>
@@ -1842,9 +2225,9 @@ function fmtDue(d: string) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         const dueDay = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
 
-        if (dueDay.getTime() === today.getTime()) return "היום";
-        if (dueDay.getTime() === tomorrow.getTime()) return "מחר";
-        return dt.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
+        if (dueDay.getTime() === today.getTime()) return "Today";
+        if (dueDay.getTime() === tomorrow.getTime()) return "Tomorrow";
+        return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     } catch {
         return "—";
     }

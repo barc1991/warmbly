@@ -25,10 +25,13 @@ import (
 type EmailService interface {
 	Search(ctx context.Context, userID, search, cursor, tag, limit string, allowedAccountIDs []uuid.UUID) (*models.EmailsResult, *errx.Error)
 	Get(ctx context.Context, userID, emailAccountID string) (*models.Email, *errx.Error)
-	Update(ctx context.Context, userID, emailAccountID string, udata *models.UpdateEmail) (*models.Email, *errx.Error)
-	// BulkUpdateTags adds/removes tags across many of the user's mailboxes
-	// in one call; returns how many of the requested mailboxes were owned.
-	BulkUpdateTags(ctx context.Context, userID string, emailIDs, addTags, removeTags []uuid.UUID) (int, *errx.Error)
+	// Update writes a mailbox's settings. orgID scopes the write (the mailbox
+	// is a workspace asset); userID only names who to tell the worker about.
+	Update(ctx context.Context, orgID, userID, emailAccountID string, udata *models.UpdateEmail) (*models.Email, *errx.Error)
+	// BulkUpdateTags adds/removes tags across many of the workspace's
+	// mailboxes in one call; returns how many of the requested mailboxes the
+	// workspace owns.
+	BulkUpdateTags(ctx context.Context, orgID string, emailIDs, addTags, removeTags []uuid.UUID) (int, *errx.Error)
 	// SetWarmupLifecycle starts, pauses, resumes, or disables warmup for a
 	// mailbox. start/resume preserve ramp progress; disable turns warmup off.
 	SetWarmupLifecycle(ctx context.Context, userID, emailAccountID, action string) (*models.Email, *errx.Error)
@@ -38,6 +41,7 @@ type EmailService interface {
 	// UpdateTrackingDomain sets or clears the custom open/click tracking
 	// domain and resolves it once, persisting the verdict.
 	UpdateTrackingDomain(ctx context.Context, orgID, emailAccountID, domain string) (*models.TrackingDomainStatus, *errx.Error)
+	UpdateTrackDirectMail(ctx context.Context, orgID, emailAccountID string, enabled bool) *errx.Error
 	// GetTrackingDomain reports the stored state plus the CNAME target this
 	// install expects. Read-only: it does no DNS work.
 	GetTrackingDomain(ctx context.Context, orgID, emailAccountID string) (*models.TrackingDomainStatus, *errx.Error)
@@ -57,6 +61,15 @@ type EmailService interface {
 	// permission while CheckDomainAuth stays readable.
 	RefreshDomainAuth(ctx context.Context, orgID, emailAccountID string) (*dnsauth.Result, *errx.Error)
 	Delete(ctx context.Context, userID, emailAccountID string) *errx.Error
+
+	// GetSendIdentity reports which addresses the mailbox's provider will let
+	// it send as, which one is in use, and where the stored signature came
+	// from. Read-only: it never calls the provider.
+	GetSendIdentity(ctx context.Context, orgID, emailAccountID string) (*models.SendIdentity, *errx.Error)
+	// RefreshSendIdentity re-reads that list from the provider and stores it,
+	// importing the provider's signature too when asked. Gmail only; every
+	// other provider is refused with mailbox_send_as_unsupported.
+	RefreshSendIdentity(ctx context.Context, orgID, emailAccountID string, importSignature bool) (*models.SendIdentity, *errx.Error)
 
 	// Onboarding flow. OAuthFinish's second return is true when the round
 	// trip renewed an existing mailbox (OAuthReauth) rather than connecting
@@ -109,6 +122,9 @@ type EmailService interface {
 	// LoadAccountOntoWorker assigns a worker if needed and ships the mailbox
 	// to it (idempotent; the reconciler calls it too).
 	LoadAccountOntoWorker(ctx context.Context, accountID uuid.UUID) error
+	// SyncWarmupPool re-evaluates one mailbox's local warmup pool membership,
+	// for a change outside the mailbox row (Warmbly Cloud enrollment).
+	SyncWarmupPool(ctx context.Context, accountID uuid.UUID)
 	// GetSyncState is the dashboard's view of a mailbox's sync: nil state when
 	// the worker has not reported yet.
 	GetSyncState(ctx context.Context, orgID, emailID string) (*models.SyncState, models.SyncPolicy, *errx.Error)

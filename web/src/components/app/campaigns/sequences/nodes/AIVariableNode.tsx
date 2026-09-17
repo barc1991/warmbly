@@ -289,7 +289,10 @@ function AIVariableConfigBody({
                         <RichTextEditor
                             minimal
                             html={initialHtml}
-                            onChange={(html) => patch({ prompt: htmlToPlain(html) })}
+                            // Without links: the prompt is read back into this
+                            // same editor next time, and an autolinked address
+                            // would gain a copy of itself on every round trip.
+                            onChange={(html) => patch({ prompt: htmlToPlain(html, { links: false }) })}
                             variables={VARIABLES}
                             placeholder={
                                 isHe

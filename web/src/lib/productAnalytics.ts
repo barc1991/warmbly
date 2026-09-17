@@ -1,30 +1,32 @@
-// Cookieless product analytics.
+// Named product events.
 //
-// Two rules decide everything in this file.
-//
-// It is hosted-only. The dashboard image is the same for the hosted service and
-// for a self-host, so the key comes from the container-injected runtime config
-// and an unset key means the SDK chunk is never fetched and no PostHog host is
-// ever contacted. A self-host therefore ships this code path and never runs it.
-//
-// It is cookieless, so there is no banner. `cookieless_mode: 'always'` stores
-// nothing in the browser: no cookie, no localStorage, no sessionStorage. The
-// visitor is derived server-side from a daily-rotated salt plus IP, root domain
-// and user agent, and the salt is deleted at the end of the day, so there is no
-// identifier to consent to. That only holds if we never call identify, which is
-// why `person_profiles: 'never'` is set and why no event property below ever
-// carries a user id, an organization id or an email.
-//
-// Session replay stays off deliberately: it would record mailbox and contact
-// screens.
+// The client itself lives in lib/posthog, which product analytics, session
+// replay and error tracking share. Autocapture already records every click and
+// pageview; this file is the closed list of the moments worth a name of their
+// own, so a funnel can be built on them without guessing at element text.
+import { loadPostHog, postHogClient } from "./posthog";
+import { POSTHOG_KEY } from "./information";
+
+// initProductAnalytics loads and configures the SDK, once, and only when a key
+// is configured. Loaded as its own chunk so an install with no key pays neither
+// the bytes nor a request.
+export function initProductAnalytics(): void {
+    void loadPostHog();
+}
+
+// Event is the closed set of product events the dashboard reports. Keeping it a
+// union rather than a string means a typo is a build error and the list stays
+// readable as the answer to "what do we actually measure".
 export type Event =
     | "mailbox_connected"
     | "campaign_launched";
 
-export function initProductAnalytics(): void {
-    return;
-}
-
-export function capture(_event: Event, _properties?: Record<string, string | number | boolean>): void {
-    return;
+// capture reports one product event. A no-op when analytics is off. The
+// signed-in person and workspace are already on the event through identify,
+// so properties are for what happened: a provider name, a step count.
+export function capture(event: Event, properties?: Record<string, string | number | boolean>): void {
+    if (!POSTHOG_KEY) return;
+    // The SDK may still be in flight on a fast first action; dropping the event
+    // is better than queueing one that arrives without its session.
+    postHogClient()?.capture(event, properties);
 }

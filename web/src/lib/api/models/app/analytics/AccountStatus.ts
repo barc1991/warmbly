@@ -34,6 +34,7 @@ export interface WarmupStatusInfo {
     current_volume: number;
     target_volume: number;
     max_volume: number;
+    /** Configured percent of warmup sends that should receive a synthetic reply. */
     reply_rate: number;
     days_active: number;
     /** Present while a recent junk placement is holding the ramp. */
@@ -54,8 +55,9 @@ export interface WarmupRampHold {
 export interface WarmupHealthInfo {
     state: "healthy" | "watch" | "throttled" | "quarantined" | "blocked";
     score: number;
-    reason?: string;
+    /** @deprecated Always 0 since the warmup spam score was retired; read score and reason. */
     spam_score: number;
+    reason?: string;
     blocked_until?: string | null;
     evaluated_at?: string | null;
 }

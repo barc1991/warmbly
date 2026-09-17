@@ -52,8 +52,9 @@ export default function EmailContentEditor({
     onBodyChange,
     bodyCode = false,
     onBodyCodeChange,
-    subjectPlaceholder = "שאלה קצרה, {{.FirstName}}",
-    bodyPlaceholder = "שלום {{.FirstName}}, ...",
+    subjectPlaceholder = "Quick question, {{.FirstName}}",
+    subjectLocked,
+    bodyPlaceholder = "Hi {{.FirstName}}, …",
     campaignId,
     stepId,
     canSendTest = false,
@@ -69,6 +70,10 @@ export default function EmailContentEditor({
     bodyCode?: boolean;
     onBodyCodeChange?: (code: boolean) => void;
     subjectPlaceholder?: string;
+    // A step that replies in the contact's thread has no subject of its own:
+    // a reply carries the conversation's. Pass the conversation's subject to
+    // show it read-only in place of the field.
+    subjectLocked?: { subject: string; note: string };
     bodyPlaceholder?: string;
     // When set, the preview renders for a chosen lead and mailbox and shows the
     // campaign's opt-out footer, signature and attachments.
@@ -123,6 +128,11 @@ export default function EmailContentEditor({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [campaignId, senders.inboxes.map((i) => i.id).join(",")]);
 
+    // A threading step's subject belongs to the conversation, not to the step,
+    // so that is the one the preview, the content score and the template check
+    // must read. The step's own stored subject is not what gets sent.
+    const shownSubject = subjectLocked ? subjectLocked.subject : subject;
+
     const previewMut = useTemplatePreview();
     const runPreview = previewMut.mutateAsync;
     React.useEffect(() => {
@@ -138,7 +148,7 @@ export default function EmailContentEditor({
         let active = true;
         const t = setTimeout(() => {
             runPreview({
-                subject,
+                subject: shownSubject,
                 body_html: bodyHtml,
                 // Matches what the step stores, so the preview shows the text
                 // part the recipient gets rather than a second derivation.
@@ -160,17 +170,17 @@ export default function EmailContentEditor({
             clearTimeout(t);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tab, code, subject, bodyHtml, previewContact?.id, campaignId, previewMailbox?.id, stepId]);
+    }, [tab, code, shownSubject, bodyHtml, previewContact?.id, campaignId, previewMailbox?.id, stepId]);
 
-    const tplIssue = templateIssue(subject) || templateIssue(bodyHtml) || templateIssue(htmlToPlain(bodyHtml));
+    const tplIssue = templateIssue(shownSubject) || templateIssue(bodyHtml) || templateIssue(htmlToPlain(bodyHtml));
 
     // A plain-text campaign ships no HTML, so the send path cannot give the
-    // unsubscribe variable an anchor: the recipient reads the whole signed
-    // address. Preflight says the same at launch; say it here, while it is
-    // still one keystroke to fix.
+    // unsubscribe variable an anchor: the recipient reads the whole address.
+    // Preflight says the same at launch; say it here, while it is still one
+    // keystroke to fix.
     const { data: previewCampaign } = useCampaign(campaignId ?? "");
     const plainTextUnsubLink =
-        !!previewCampaign?.text_only && (bodyHtml.includes(UNSUBSCRIBE_TOKEN) || subject.includes(UNSUBSCRIBE_TOKEN));
+        !!previewCampaign?.text_only && (bodyHtml.includes(UNSUBSCRIBE_TOKEN) || shownSubject.includes(UNSUBSCRIBE_TOKEN));
 
     // Toolbar: template library, save as template, write with AI.
     const { data: templates } = useTemplates("");
@@ -184,12 +194,14 @@ export default function EmailContentEditor({
             // promptToHtml escapes as it paragraph-wraps: a template body with
             // "&" or "<" in it must not reach the editor as raw markup.
             const html = t.body_html || promptToHtml(t.body_plain ?? "");
-            onSubjectChange(t.subject || subject);
+            // A threading step sends the conversation's subject, so a template
+            // must not quietly rewrite one nobody will see.
+            if (!subjectLocked) onSubjectChange(t.subject || subject);
             onBodyChange(html, t.body_plain || htmlToPlain(html));
-            toast.success(`התבנית "${t.name}" הוחלה`);
+            toast.success(`Applied "${t.name}"`);
         };
-        if (subject.trim() || htmlToPlain(bodyHtml).trim()) {
-            confirm.show(`להחליף תוכן זה בתבנית "${t.name}"?`, apply);
+        if (shownSubject.trim() || htmlToPlain(bodyHtml).trim()) {
+            confirm.show(`Replace this content with the "${t.name}" template?`, apply);
         } else {
             apply();
         }
@@ -199,8 +211,8 @@ export default function EmailContentEditor({
         const name = tplName.trim();
         if (!name) return;
         await toast.promise(
-            createTemplate.mutateAsync({ name, subject, body_html: bodyHtml, body_plain: htmlToPlain(bodyHtml) }),
-            { loading: "שומר תבנית...", success: "נשמר בספריית התבניות.", error: (e: AppError) => buildError(e) },
+            createTemplate.mutateAsync({ name, subject: shownSubject, body_html: bodyHtml, body_plain: htmlToPlain(bodyHtml) }),
+            { loading: "Saving template…", success: "Saved to template library.", error: (e: AppError) => buildError(e) },
         );
         setSaveTplOpen(false);
         setTplName("");
@@ -211,12 +223,12 @@ export default function EmailContentEditor({
             <div className="flex flex-wrap items-center gap-2">
                 <PopoverMenu>
                     <PopoverMenuTrigger asChild>
-                        <SelectButton icon={<SparklesIcon className="w-3.5 h-3.5" />} label="תבניות" />
+                        <SelectButton icon={<SparklesIcon className="w-3.5 h-3.5" />} label="Templates" />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={260} className="max-h-72 overflow-y-auto p-1">
                         {(templates ?? []).length === 0 ? (
                             <div className="px-2.5 py-3 text-center text-[11.5px] text-slate-400">
-                                אין תבניות עדיין. שמור תבנית למטה.
+                                No templates yet. Save one below.
                             </div>
                         ) : (
                             (templates ?? []).map((t) => (
@@ -224,10 +236,10 @@ export default function EmailContentEditor({
                                     key={t.id}
                                     type="button"
                                     onClick={() => applyTemplate(t)}
-                                    className="block w-full rounded px-2.5 py-1.5 text-start hover:bg-slate-100"
+                                    className="block w-full rounded px-2.5 py-1.5 text-left hover:bg-slate-100"
                                 >
                                     <div className="truncate text-[12.5px] font-medium text-slate-800">{t.name}</div>
-                                    <div className="truncate text-[11px] text-slate-400">{t.subject || "ללא נושא"}</div>
+                                    <div className="truncate text-[11px] text-slate-400">{t.subject || "No subject"}</div>
                                 </button>
                             ))
                         )}
@@ -238,24 +250,24 @@ export default function EmailContentEditor({
                     <PopoverMenuTrigger asChild>
                         <button
                             type="button"
-                            title="שמור תוכן זה כתבנית לשימוש חוזר"
+                            title="Save this content as a reusable template"
                             className="h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white text-[12px] font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900"
                         >
                             <BookmarkPlusIcon className="w-3.5 h-3.5" />
-                            שמור כתבנית
+                            Save as template
                         </button>
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={240} className="p-2">
-                        <Label>שם התבנית</Label>
+                        <Label>Template name</Label>
                         <div className="flex items-center gap-1.5">
-                            <TextInput value={tplName} onChange={setTplName} placeholder="למשל: פנייה ראשונית גרסה 1" className="flex-1" />
+                            <TextInput value={tplName} onChange={setTplName} placeholder="e.g. Cold intro v1" className="flex-1" />
                             <button
                                 type="button"
                                 onClick={saveAsTemplate}
                                 disabled={!tplName.trim() || createTemplate.isPending}
                                 className="h-7 px-2.5 rounded-md bg-sky-600 text-[12px] font-medium text-white hover:bg-sky-700 disabled:opacity-50"
                             >
-                                {createTemplate.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : "שמור"}
+                                {createTemplate.isPending ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : "Save"}
                             </button>
                         </div>
                     </PopoverMenuContent>
@@ -264,21 +276,32 @@ export default function EmailContentEditor({
 
             <div>
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <Label className="mb-0">נושא</Label>
-                    <VariableMenu variables={VARIABLES} onPick={(v) => onSubjectChange(subject + v)} />
+                    <Label className="mb-0">Subject</Label>
+                    {!subjectLocked && (
+                        <VariableMenu variables={VARIABLES} onPick={(v) => onSubjectChange(subject + v)} />
+                    )}
                 </div>
-                <TextInput value={subject} onChange={onSubjectChange} placeholder={subjectPlaceholder} />
+                {subjectLocked ? (
+                    <>
+                        <div className="h-7 px-2.5 flex items-center rounded-md border border-slate-200 bg-slate-50 text-[12.5px] text-slate-500">
+                            <span className="truncate">{subjectLocked.subject || "No subject"}</span>
+                        </div>
+                        <p className="mt-1.5 text-[10.5px] text-slate-400">{subjectLocked.note}</p>
+                    </>
+                ) : (
+                    <TextInput value={subject} onChange={onSubjectChange} placeholder={subjectPlaceholder} />
+                )}
             </div>
 
             <div>
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <Label className="mb-0">תוכן ההודעה</Label>
+                    <Label className="mb-0">Body</Label>
                     <div className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5">
                         <TabBtn active={tab === "edit"} onClick={() => setTab("edit")} icon={<PencilLineIcon className="w-3 h-3" />}>
-                            עריכה
+                            Edit
                         </TabBtn>
                         <TabBtn active={tab === "preview"} onClick={() => setTab("preview")} icon={<EyeIcon className="w-3 h-3" />}>
-                            תצוגה מקדימה
+                            Preview
                         </TabBtn>
                     </div>
                 </div>
@@ -306,11 +329,11 @@ export default function EmailContentEditor({
                     <div className="rounded-md border border-slate-200 bg-white">
                         {campaignId && (
                             <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200/70 px-2 py-1.5">
-                                <span className="px-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">תצוגה מקדימה כ:</span>
+                                <span className="px-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Preview as</span>
                                 <PreviewContactPicker campaignId={campaignId} value={previewContact} onChange={setPreviewContact} />
                                 <PreviewMailboxPicker inboxes={senders.inboxes} value={previewMailbox} onChange={setPreviewMailbox} />
                                 {stepId && canSendTest && (
-                                    <div className="ms-auto">
+                                    <div className="ml-auto">
                                         <SendTestButton
                                             campaignId={campaignId}
                                             stepId={stepId}
@@ -324,15 +347,15 @@ export default function EmailContentEditor({
                         )}
                         {serverPreview?.from && (
                             <div className="border-b border-slate-200/70 px-3 py-2 text-[12.5px]">
-                                <span className="text-slate-400">מאת: </span>
+                                <span className="text-slate-400">From: </span>
                                 <span className="text-slate-800">
                                     {serverPreview.from.name ? `${serverPreview.from.name} <${serverPreview.from.email}>` : serverPreview.from.email}
                                 </span>
                             </div>
                         )}
                         <div className="border-b border-slate-200/70 px-3 py-2 text-[12.5px]">
-                            <span className="text-slate-400">נושא: </span>
-                            <span className="text-slate-800">{(serverPreview?.subject ?? renderPreview(subject)) || "—"}</span>
+                            <span className="text-slate-400">Subject: </span>
+                            <span className="text-slate-800">{(serverPreview?.subject ?? renderPreview(shownSubject)) || "—"}</span>
                         </div>
                         {/* The body renders in the same sandboxed frame the
                             inbox uses. The HTML source view lets an author put
@@ -365,10 +388,10 @@ export default function EmailContentEditor({
                         )}
                         <p className="border-t border-slate-200/70 px-3 py-1.5 text-[10.5px] text-slate-400">
                             {campaignId
-                                ? `מוצג באמצעות מנוע השליחה האמיתי עבור ${previewContact ? contactLabel(previewContact) : SAMPLE_CONTACT_LABEL}${
-                                      previewMailbox ? `, עם חתימת ${previewMailbox.email}` : ""
-                                  } והערת שוליים להסרה של הקמפיין. קישורי מעקב אינם משוכתבים כאן.`
-                                : `מוצג באמצעות מנוע השליחה האמיתי עבור ${SAMPLE_CONTACT_LABEL}. תנאים, פונקציות ו-spintax פועלים כולם.`}
+                                ? `Rendered with the real send engine for ${previewContact ? contactLabel(previewContact) : SAMPLE_CONTACT_LABEL}${
+                                      previewMailbox ? `, with ${previewMailbox.email}'s signature` : ""
+                                  } and the campaign's opt-out footer. Tracking links are not rewritten here.`
+                                : `Rendered with the real send engine for ${SAMPLE_CONTACT_LABEL}. Conditionals, functions and spintax all run.`}
                         </p>
                     </div>
                 )}
@@ -376,20 +399,21 @@ export default function EmailContentEditor({
                 {(serverPreview?.errors?.length ?? 0) > 0 ? (
                     <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-rose-600">
                         <AlertCircleIcon className="mt-px w-3.5 h-3.5 shrink-0" />
-                        <span>{serverPreview!.errors!.join(" · ")} (יש לתקן לפני השליחה).</span>
+                        <span>{serverPreview!.errors!.join(" · ")} — fix before sending.</span>
                     </p>
                 ) : tplIssue ? (
                     <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-600">
                         <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
-                        {tplIssue} תהיה חזרה לטקסט רגיל (יש לתקן לפני השליחה).
+                        {tplIssue} It&apos;ll fall back to plain text — fix it before sending.
                     </p>
                 ) : null}
                 {plainTextUnsubLink && (
                     <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-600">
                         <AlertCircleIcon className="mt-px w-3.5 h-3.5 shrink-0" />
                         <span>
-                            קמפיין זה נשלח בטקסט רגיל בלבד, ולכן קישור ההסרה אינו יכול להופיע כמילה והנמען קורא את כתובתו המלאה.
-                            השאר את כותרת ההסרה פעילה והזמן מענה במקום זאת, או כבה שליחת טקסט רגיל בהעדפות הקמפיין.
+                            This campaign sends plain text only, so the unsubscribe link cannot render as a word and the
+                            recipient reads its whole address. Leave the unsubscribe header on and invite a reply
+                            instead, or turn plain text off in Preferences.
                         </span>
                     </p>
                 )}
@@ -397,14 +421,19 @@ export default function EmailContentEditor({
                     <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-600">
                         <AlertCircleIcon className="mt-px w-3.5 h-3.5 shrink-0" />
                         <span>
-                            משתנים אלה לא יפוענחו ויישלחו כטקסט מילולי:{" "}
+                            These won&apos;t resolve and would send literally:{" "}
                             <span className="font-mono">{serverPreview!.unresolved!.join(", ")}</span>
                         </span>
                     </p>
                 )}
             </div>
 
-            <ContentScore subject={subject} bodyHtml={bodyHtml} bodyPlain={htmlToPlain(bodyHtml)} />
+            <ContentScore
+                subject={shownSubject}
+                bodyHtml={bodyHtml}
+                bodyPlain={htmlToPlain(bodyHtml)}
+                onApplySubject={subjectLocked ? undefined : onSubjectChange}
+            />
         </div>
     );
 }

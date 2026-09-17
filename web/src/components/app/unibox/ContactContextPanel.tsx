@@ -8,7 +8,6 @@
 // leaving the inbox.
 
 import React from "react";
-import { useTranslation } from "react-i18next";
 import toast from "react-hot-toast";
 import {
     BanIcon,
@@ -20,10 +19,8 @@ import {
     Loader2Icon,
     MailWarningIcon,
     MegaphoneIcon,
-    PhoneIcon,
     PlusIcon,
     StickyNoteIcon,
-    TagIcon,
     UserIcon,
     UserXIcon,
     CheckSquareIcon,
@@ -47,6 +44,8 @@ import useContact from "@/lib/api/hooks/app/contacts/useContact";
 import useContactDeals from "@/lib/api/hooks/app/contacts/useContactDeals";
 import useContactNotes from "@/lib/api/hooks/app/contacts/useContactNotes";
 import useCreateContactNote from "@/lib/api/hooks/app/contacts/useCreateContactNote";
+import useAddContacts from "@/lib/api/hooks/app/contacts/useAddContacts";
+import { useQueryClient } from "@tanstack/react-query";
 import useCRMTasks from "@/lib/api/hooks/app/crm/tasks/useCRMTasks";
 import useCreateCRMTask from "@/lib/api/hooks/app/crm/tasks/useCreateCRMTask";
 import useCreateDeal from "@/lib/api/hooks/app/crm/deals/useCreateDeal";
@@ -58,10 +57,10 @@ import type CRMTask from "@/lib/api/models/app/crm/CRMTask";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
 
-const DEAL_STATUS: Record<Deal["status"], { label: string; labelHe: string; cls: string; dot: string }> = {
-    open: { label: "Open", labelHe: "פתוחה", cls: "text-slate-600", dot: "bg-slate-400" },
-    won: { label: "Won", labelHe: "נסגרה בהצלחה", cls: "text-emerald-700", dot: "bg-emerald-500" },
-    lost: { label: "Lost", labelHe: "הפסד", cls: "text-red-700", dot: "bg-red-500" },
+const DEAL_STATUS: Record<Deal["status"], { label: string; cls: string; dot: string }> = {
+    open: { label: "Open", cls: "text-slate-600", dot: "bg-slate-400" },
+    won: { label: "Won", cls: "text-emerald-700", dot: "bg-emerald-500" },
+    lost: { label: "Lost", cls: "text-red-700", dot: "bg-red-500" },
 };
 
 const PRIORITY_DOT: Record<CRMTask["priority"], string> = {
@@ -71,24 +70,26 @@ const PRIORITY_DOT: Record<CRMTask["priority"], string> = {
     low: "bg-slate-400",
 };
 
-const PRIORITY_OPTS: { id: CRMTask["priority"]; label: string; labelHe: string }[] = [
-    { id: "low", label: "Low", labelHe: "נמוכה" },
-    { id: "medium", label: "Med", labelHe: "בינונית" },
-    { id: "high", label: "High", labelHe: "גבוהה" },
-    { id: "urgent", label: "Urgent", labelHe: "דחופה" },
+const PRIORITY_OPTS: { id: CRMTask["priority"]; label: string }[] = [
+    { id: "low", label: "Low" },
+    { id: "medium", label: "Med" },
+    { id: "high", label: "High" },
+    { id: "urgent", label: "Urgent" },
 ];
 
 export default function ContactContextPanel({
     email,
+    name: fromName,
     mailboxId,
     onClose,
 }: {
     email?: string;
+    // Display name from the message's From header, used when adding the
+    // sender as a contact.
+    name?: string;
     mailboxId?: string;
     onClose?: () => void;
 }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     const lookup = useContactByEmail(email);
     const contact = lookup.data ?? null;
     const contactId = contact?.id;
@@ -102,20 +103,6 @@ export default function ContactContextPanel({
     const dealDefault = usePipelinesDefault();
 
     const campaigns = detail?.campaigns ?? contact?.campaigns ?? [];
-    const categories = detail?.categories ?? contact?.categories ?? [];
-    const phone = contact?.phone || (contact?.custom_fields?.phone) || (detail?.custom_fields?.phone) || "";
-    const jobTitle =
-        contact?.custom_fields?.job_title ||
-        contact?.custom_fields?.title ||
-        detail?.custom_fields?.job_title ||
-        detail?.custom_fields?.title ||
-        "";
-    const rawStatus =
-        contact?.campaign_lead?.status ||
-        contact?.custom_fields?.status ||
-        detail?.custom_fields?.status ||
-        "";
-    const statusMeta = getStatusBadge(rawStatus, isHe);
     const eng = detail?.engagement;
     const supp = detail?.suppression;
 
@@ -134,18 +121,15 @@ export default function ContactContextPanel({
                 onClick={onClose}
                 aria-hidden
             />
-            <aside className="fixed inset-y-0 ltr:right-0 rtl:left-0 z-[60] flex w-[min(20rem,90vw)] shrink-0 flex-col border-s border-slate-200 bg-white min-h-0 shadow-xl lg:static lg:z-auto lg:w-80 lg:bg-slate-50/40 lg:shadow-none">
-            <div className="h-12 px-3 border-b border-slate-200 flex items-center gap-2 shrink-0 bg-white">
-                <UserIcon className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    {isHe ? "איש קשר" : "Contact"}
-                </span>
+            <aside className="fixed inset-y-0 right-0 z-[60] flex w-[min(20rem,90vw)] shrink-0 flex-col border-l border-slate-200 bg-white min-h-0 shadow-xl lg:static lg:z-auto lg:w-80 lg:shadow-none">
+            <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-2 shrink-0 bg-white">
+                <span className="text-[12.5px] font-semibold text-slate-900">Contact</span>
                 {onClose && (
                     <button
                         type="button"
                         onClick={onClose}
-                        aria-label={isHe ? "הסתר חלונית איש קשר" : "Hide contact panel"}
-                        className="ms-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                        aria-label="Close contact panel"
+                        className="ml-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                     >
                         <XIcon className="w-3.5 h-3.5" />
                     </button>
@@ -156,14 +140,14 @@ export default function ContactContextPanel({
                 {lookup.isPending ? (
                     <div className="flex items-center justify-center gap-2 py-10 text-[12px] text-slate-400">
                         <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-                        {isHe ? "מאתר איש קשר…" : "Resolving contact…"}
+                        Resolving contact…
                     </div>
                 ) : !contact ? (
-                    <NotAContact email={email} />
+                    <NotAContact email={email} name={fromName} />
                 ) : (
                     <div className="divide-y divide-slate-200/70">
                         {/* Identity */}
-                        <div className="px-3 py-3">
+                        <div className="px-4 py-3">
                             <div className="flex items-start gap-2.5">
                                 <div className="size-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[12px] font-semibold shrink-0">
                                     {initials(name)}
@@ -171,53 +155,30 @@ export default function ContactContextPanel({
                                 <div className="min-w-0 flex-1">
                                     <div className="text-[13px] font-semibold text-slate-900 truncate">{name}</div>
                                     <div className="text-[11.5px] text-slate-500 truncate">{contact.email}</div>
-                                    {(contact.company || jobTitle) && (
-                                        <div className="text-[11px] text-slate-500 truncate mt-0.5 flex items-center gap-1">
-                                            {jobTitle && <span>{jobTitle}</span>}
-                                            {jobTitle && contact.company && <span>·</span>}
-                                            {contact.company && <span>{contact.company}</span>}
-                                        </div>
-                                    )}
-                                    {phone && (
-                                        <div className="text-[11px] text-slate-400 font-mono truncate mt-0.5 flex items-center gap-1">
-                                            <PhoneIcon className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                            <a href={`tel:${phone}`} className="hover:text-sky-600 transition-colors">{phone}</a>
-                                        </div>
+                                    {contact.company && (
+                                        <div className="text-[11px] text-slate-400 truncate mt-0.5">{contact.company}</div>
                                     )}
                                 </div>
                             </div>
                             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                                 {contact.subscribed ? (
-                                    <Badge tone="emerald" icon={<CheckIcon className="w-2.5 h-2.5" />}>{isHe ? "רשום לתפוצה" : "Subscribed"}</Badge>
+                                    <Badge tone="emerald" icon={<CheckIcon className="w-2.5 h-2.5" />}>Subscribed</Badge>
                                 ) : (
-                                    <Badge tone="slate" icon={<UserXIcon className="w-2.5 h-2.5" />}>{isHe ? "הסיר הרשמה" : "Unsubscribed"}</Badge>
-                                )}
-                                {statusMeta && (
-                                    <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
+                                    <Badge tone="slate" icon={<UserXIcon className="w-2.5 h-2.5" />}>Unsubscribed</Badge>
                                 )}
                                 {supp && (
                                     <Badge tone="red" icon={<BanIcon className="w-2.5 h-2.5" />}>
-                                        {isHe ? "חסום לשליחה" : "Suppressed"}
+                                        Suppressed
                                     </Badge>
                                 )}
                                 <Link
                                     to="/app/contacts"
-                                    className="ms-auto inline-flex items-center gap-1 text-[10.5px] text-slate-400 hover:text-sky-700 transition-colors"
+                                    className="ml-auto inline-flex items-center gap-1 text-[10.5px] text-slate-400 hover:text-sky-700 transition-colors"
                                 >
-                                    {isHe ? "אנשי קשר" : "Contacts"}
+                                    Contacts
                                     <ExternalLinkIcon className="w-2.5 h-2.5" />
                                 </Link>
                             </div>
-
-                            {/* Contact categories / tags */}
-                            {categories.length > 0 && (
-                                <div className="mt-2.5 flex flex-wrap items-center gap-1 pt-2 border-t border-slate-100">
-                                    <TagIcon className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                    {categories.map((cat) => (
-                                        <ContactTagChip key={cat.id} title={cat.title} color={cat.color} />
-                                    ))}
-                                </div>
-                            )}
                             {/* Meeting actions: schedule a call right here (native,
                                 no calendar needed), plus a self-serve booking link
                                 when a Calendly / Cal.com calendar is connected. */}
@@ -228,7 +189,7 @@ export default function ContactContextPanel({
                                     className="h-7 px-2 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[11.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
                                 >
                                     <CalendarPlusIcon className="w-3 h-3" />
-                                    {isHe ? "קבע שיחה" : "Schedule call"}
+                                    Schedule call
                                 </button>
                                 <BookACallButton email={contact.email} name={name} contactId={contact.id} />
                             </div>
@@ -236,14 +197,14 @@ export default function ContactContextPanel({
                                 <div className="mt-2 rounded-md border border-red-200 bg-red-50/60 px-2 py-1.5 flex items-start gap-1.5">
                                     <MailWarningIcon className="w-3 h-3 text-red-600 mt-px shrink-0" />
                                     <span className="text-[10.5px] text-red-700/90 leading-snug">
-                                        {supp.reason || (isHe ? "חסום לשליחה" : "Suppressed")} ({supp.source})
+                                        {supp.reason || "Suppressed"} ({supp.source})
                                     </span>
                                 </div>
                             )}
                         </div>
 
                         {/* Lead source : campaigns */}
-                        <Section label={isHe ? "קמפיינים" : "Campaigns"} hint={campaigns.length ? undefined : (isHe ? "לא באף קמפיין" : "Not in any campaign")}>
+                        <Section label="Campaigns" hint={campaigns.length ? undefined : "Not in any campaign"}>
                             {campaigns.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5">
                                     {campaigns.map((c) => (
@@ -262,12 +223,12 @@ export default function ContactContextPanel({
 
                         {/* Engagement */}
                         {eng && (
-                            <Section label={isHe ? "מעורבות" : "Engagement"}>
+                            <Section label="Engagement">
                                 <div className="grid grid-cols-4 gap-1.5">
-                                    <Metric label={isHe ? "נשלחו" : "Sent"} value={eng.total_sent} />
-                                    <Metric label={isHe ? "נפתחו" : "Open"} value={eng.total_opened} />
-                                    <Metric label={isHe ? "לחיצות" : "Click"} value={eng.total_clicked} />
-                                    <Metric label={isHe ? "תשובות" : "Reply"} value={eng.total_replied} accent />
+                                    <Metric label="Sent" value={eng.total_sent} />
+                                    <Metric label="Open" value={eng.total_opened} />
+                                    <Metric label="Click" value={eng.total_clicked} />
+                                    <Metric label="Reply" value={eng.total_replied} accent />
                                 </div>
                             </Section>
                         )}
@@ -289,7 +250,7 @@ export default function ContactContextPanel({
                             contactId={contact.id}
                             tasks={(tasksQ.data?.data ?? []).filter((t) => t.status !== "completed" && t.status !== "cancelled")}
                             loading={tasksQ.isPending}
-                            defaultTitle={isHe ? `מעקב מול ${name}` : `Follow up with ${name}`}
+                            defaultTitle={`Follow up with ${name}`}
                             contactName={name}
                             company={contact.company}
                             dealId={(dealsQ.data ?? []).find((d) => d.status === "open")?.id}
@@ -305,7 +266,7 @@ export default function ContactContextPanel({
                     open={meetingOpen}
                     onClose={() => setMeetingOpen(false)}
                     prefill={{
-                        title: name ? (isHe ? `שיחה עם ${name}` : `Call with ${name}`) : (isHe ? "שיחה" : "Call"),
+                        title: name ? `Call with ${name}` : "Call",
                         name,
                         email: contact.email,
                         contactId: contact.id,
@@ -346,8 +307,6 @@ function DealsSection({
     pipelineId?: string;
     stages: Stage[];
 }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     const create = useCreateDeal();
     const updateDeal = useUpdateDeal();
     const [open, setOpen] = React.useState(false);
@@ -362,7 +321,7 @@ function DealsSection({
 
     async function submit() {
         if (!name.trim()) {
-            toast.error(isHe ? "נדרש שם עסקה" : "Deal name required");
+            toast.error("Deal name required");
             return;
         }
         const data: Partial<Deal> = {
@@ -380,8 +339,8 @@ function DealsSection({
         if (mailboxId) data.source_mailbox_id = mailboxId;
         try {
             await toast.promise(create.mutateAsync(data), {
-                loading: isHe ? "יוצר עסקה…" : "Creating deal…",
-                success: isHe ? "העסקה נוצרה" : "Deal created",
+                loading: "Creating deal…",
+                success: "Deal created",
                 error: (e: AppError) => buildError(e),
             });
             setOpen(false);
@@ -395,7 +354,7 @@ function DealsSection({
         try {
             await toast.promise(
                 updateDeal.mutateAsync({ id: dealId, data: { stage_id: newStageId } as Partial<Deal> }),
-                { loading: isHe ? "מעביר…" : "Moving…", success: isHe ? "הועבר" : "Moved", error: (e: AppError) => buildError(e) },
+                { loading: "Moving…", success: "Moved", error: (e: AppError) => buildError(e) },
             );
         } catch {
             /* surfaced */
@@ -404,29 +363,29 @@ function DealsSection({
 
     return (
         <Section
-            label={isHe ? "עסקאות" : "Deals"}
+            label="Deals"
             action={
                 canAdd ? (
-                    <AddButton open={open} onClick={() => setOpen((o) => !o)} isHe={isHe} />
+                    <AddButton open={open} onClick={() => setOpen((o) => !o)} />
                 ) : (
                     <Link to="/app/crm/pipelines" className="text-[10.5px] text-slate-400 hover:text-sky-700">
-                        {isHe ? "הוסף צינור מכירות" : "Add a pipeline"}
+                        Add a pipeline
                     </Link>
                 )
             }
         >
             {open && canAdd && (
                 <div className="mb-2 rounded-md border border-slate-200 bg-white p-2 space-y-1.5">
-                    <TextInput value={name} onChange={setName} placeholder={isHe ? "שם עסקה" : "Deal name"} className="w-full" autoFocus />
+                    <TextInput value={name} onChange={setName} placeholder="Deal name" className="w-full" autoFocus />
                     <div className="flex items-center gap-1.5">
-                        <StagePicker stages={stages} value={stageId} onChange={setStageId} className="flex-1" isHe={isHe} />
-                        <TextInput value={value} onChange={setValue} placeholder={isHe ? "שווי" : "Value"} className="w-[88px]" />
+                        <StagePicker stages={stages} value={stageId} onChange={setStageId} className="flex-1" />
+                        <TextInput value={value} onChange={setValue} placeholder="Value" className="w-[88px]" />
                     </div>
                     {(campaignId || mailboxId) && (
                         <p className="text-[10px] text-slate-400 leading-snug">
-                            {isHe
-                                ? `מיוחס אל ${campaignId ? "קמפיין זה" : ""}${campaignId && mailboxId ? " + " : ""}${mailboxId ? "תיבה זו" : ""}.`
-                                : `Attributed to this ${campaignId ? "campaign" : ""}${campaignId && mailboxId ? " + " : ""}${mailboxId ? "mailbox" : ""}.`}
+                            Attributed to this {campaignId ? "campaign" : ""}
+                            {campaignId && mailboxId ? " + " : ""}
+                            {mailboxId ? "mailbox" : ""}.
                         </p>
                     )}
                     <button
@@ -436,14 +395,14 @@ function DealsSection({
                         className="w-full h-7 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium inline-flex items-center justify-center gap-1 transition-colors disabled:opacity-60"
                     >
                         {create.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                        {isHe ? "צור עסקה" : "Create deal"}
+                        Create deal
                     </button>
                 </div>
             )}
             {loading ? (
                 <RowSkeleton />
             ) : deals.length === 0 ? (
-                <Empty icon={<CircleDollarSignIcon className="w-3.5 h-3.5" />} text={isHe ? "אין עסקאות עדיין" : "No deals yet"} />
+                <Empty icon={<CircleDollarSignIcon className="w-3.5 h-3.5" />} text="No deals yet" />
             ) : (
                 <div className="space-y-1">
                     {deals.map((d) => {
@@ -459,7 +418,7 @@ function DealsSection({
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                         <span className={`inline-flex items-center gap-1 text-[10px] ${st.cls}`}>
                                             <span className={`size-1.5 rounded-full ${st.dot}`} />
-                                            {isHe ? st.labelHe : st.label}
+                                            {st.label}
                                         </span>
                                         {canMove ? (
                                             <StagePicker
@@ -467,7 +426,6 @@ function DealsSection({
                                                 value={d.stage_id}
                                                 onChange={(s) => moveDeal(d.id, s)}
                                                 compact
-                                                isHe={isHe}
                                             />
                                         ) : d.stage?.name ? (
                                             <span className="text-[10px] text-slate-400 truncate">· {d.stage.name}</span>
@@ -497,14 +455,12 @@ function StagePicker({
     onChange,
     className,
     compact,
-    isHe = false,
 }: {
     stages: Stage[];
     value?: string;
     onChange: (stageId: string) => void;
     className?: string;
     compact?: boolean;
-    isHe?: boolean;
 }) {
     const [open, setOpen] = React.useState(false);
     const cur = stages.find((s) => s.id === value);
@@ -524,8 +480,8 @@ function StagePicker({
                         className="size-1.5 rounded-full shrink-0"
                         style={{ backgroundColor: cur?.color || "#94a3b8" }}
                     />
-                    <span className={compact ? "truncate" : "truncate flex-1 text-start"}>
-                        {cur?.name ?? (isHe ? "שלב" : "Stage")}
+                    <span className={compact ? "truncate" : "truncate flex-1 text-left"}>
+                        {cur?.name ?? "Stage"}
                     </span>
                     <ChevronDownIcon className="w-3 h-3 text-slate-400 shrink-0" />
                 </button>
@@ -568,8 +524,6 @@ function TasksSection({
     company?: string;
     dealId?: string;
 }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     const create = useCreateCRMTask();
     const [open, setOpen] = React.useState(false);
     const [title, setTitle] = React.useState(defaultTitle);
@@ -582,7 +536,7 @@ function TasksSection({
 
     async function submit() {
         if (!title.trim()) {
-            toast.error(isHe ? "נדרשת כותרת משימה" : "Task title required");
+            toast.error("Task title required");
             return;
         }
         const data: Partial<CRMTask> = {
@@ -596,8 +550,8 @@ function TasksSection({
         if (dealId) data.deal_id = dealId;
         try {
             await toast.promise(create.mutateAsync(data), {
-                loading: isHe ? "מוסיף משימה…" : "Adding task…",
-                success: isHe ? "המשימה נוספה" : "Task added",
+                loading: "Adding task…",
+                success: "Task added",
                 error: (e: AppError) => buildError(e),
             });
             setOpen(false);
@@ -611,13 +565,13 @@ function TasksSection({
     }
 
     return (
-        <Section label={isHe ? "משימות" : "Tasks"} action={<AddButton open={open} onClick={() => setOpen((o) => !o)} isHe={isHe} />}>
+        <Section label="Tasks" action={<AddButton open={open} onClick={() => setOpen((o) => !o)} />}>
             {open && (
                 <div className="mb-2 rounded-md border border-slate-200 bg-white p-2 space-y-1.5">
                     <TextInput
                         value={title}
                         onChange={setTitle}
-                        placeholder={isHe ? `מעקב מול ${contactName}…` : `Follow up with ${contactName}…`}
+                        placeholder={`Follow up with ${contactName}…`}
                         className="w-full"
                         autoFocus
                     />
@@ -636,21 +590,21 @@ function TasksSection({
                                 }`}
                             >
                                 <span className={`size-1.5 rounded-full ${PRIORITY_DOT[p.id]}`} />
-                                {isHe ? p.labelHe : p.label}
+                                {p.label}
                             </button>
                         ))}
                     </div>
                     <textarea
                         value={desc}
                         onChange={(e) => setDesc(e.target.value)}
-                        placeholder={isHe ? "פרטים (אופציונלי)" : "Details (optional)"}
+                        placeholder="Details (optional)"
                         rows={2}
                         className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-[12px] text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-none"
                     />
                     <p className="text-[10px] text-slate-400 leading-snug">
-                        {isHe
-                            ? `מקושר אל ${contactName}${company ? ` · ${company}` : ""}${dealId ? " · עסקה פתוחה" : ""}.`
-                            : `Linked to ${contactName}${company ? ` · ${company}` : ""}${dealId ? " · open deal" : ""}.`}
+                        Linked to {contactName}
+                        {company ? ` · ${company}` : ""}
+                        {dealId ? " · open deal" : ""}.
                     </p>
                     <button
                         type="button"
@@ -659,14 +613,14 @@ function TasksSection({
                         className="w-full h-7 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium inline-flex items-center justify-center gap-1 transition-colors disabled:opacity-60"
                     >
                         {create.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                        {isHe ? "צור משימה" : "Create task"}
+                        Create task
                     </button>
                 </div>
             )}
             {loading ? (
                 <RowSkeleton />
             ) : tasks.length === 0 ? (
-                <Empty icon={<CheckSquareIcon className="w-3.5 h-3.5" />} text={isHe ? "אין משימות פתוחות" : "No open tasks"} />
+                <Empty icon={<CheckSquareIcon className="w-3.5 h-3.5" />} text="No open tasks" />
             ) : (
                 <div className="space-y-1">
                     {tasks.map((t) => (
@@ -675,7 +629,7 @@ function TasksSection({
                             <span className="text-[11.5px] text-slate-800 truncate flex-1">{t.title}</span>
                             {t.due_date && (
                                 <span className="font-mono text-[10px] text-slate-400 tabular-nums shrink-0">
-                                    {fmtDate(t.due_date, isHe)}
+                                    {fmtDate(t.due_date)}
                                 </span>
                             )}
                         </div>
@@ -695,8 +649,6 @@ function NotesSection({
     notes: { id: string; content: string; created_at: Date | string }[];
     loading: boolean;
 }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
     const create = useCreateContactNote();
     const [draft, setDraft] = React.useState("");
 
@@ -711,12 +663,12 @@ function NotesSection({
     }
 
     return (
-        <Section label={isHe ? "הערות" : "Notes"}>
+        <Section label="Notes">
             <div className="mb-2 rounded-md border border-slate-200 bg-white p-2">
                 <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    placeholder={isHe ? "הוסף הערה…" : "Add a note…"}
+                    placeholder="Add a note…"
                     rows={2}
                     className="w-full bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none resize-none"
                 />
@@ -728,20 +680,20 @@ function NotesSection({
                         className="h-6 px-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                     >
                         {create.isPending ? <Loader2Icon className="w-2.5 h-2.5 animate-spin" /> : <PlusIcon className="w-2.5 h-2.5" />}
-                        {isHe ? "הערה" : "Note"}
+                        Note
                     </button>
                 </div>
             </div>
             {loading ? (
                 <RowSkeleton />
             ) : notes.length === 0 ? (
-                <Empty icon={<StickyNoteIcon className="w-3.5 h-3.5" />} text={isHe ? "אין הערות עדיין" : "No notes yet"} />
+                <Empty icon={<StickyNoteIcon className="w-3.5 h-3.5" />} text="No notes yet" />
             ) : (
                 <div className="space-y-1.5">
                     {notes.slice(0, 5).map((n) => (
                         <div key={n.id} className="rounded-md border border-slate-200 bg-white px-2 py-1.5">
                             <p className="text-[11.5px] text-slate-700 leading-snug whitespace-pre-wrap break-words">{n.content}</p>
-                            <p className="text-[10px] text-slate-400 mt-1 font-mono">{fmtDate(n.created_at, isHe)}</p>
+                            <p className="text-[10px] text-slate-400 mt-1 font-mono">{fmtDate(n.created_at)}</p>
                         </div>
                     ))}
                 </div>
@@ -764,17 +716,17 @@ function Section({
     children?: React.ReactNode;
 }) {
     return (
-        <div className="px-3 py-3">
+        <div className="px-4 py-3">
             <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">{label}</span>
-                {action && <span className="ms-auto">{action}</span>}
+                <span className="text-[10.5px] uppercase tracking-[0.12em] text-slate-400 font-medium">{label}</span>
+                {action && <span className="ml-auto">{action}</span>}
             </div>
             {hint ? <p className="text-[11px] text-slate-400">{hint}</p> : children}
         </div>
     );
 }
 
-function AddButton({ open, onClick, isHe = false }: { open: boolean; onClick: () => void; isHe?: boolean }) {
+function AddButton({ open, onClick }: { open: boolean; onClick: () => void }) {
     return (
         <button
             type="button"
@@ -782,7 +734,7 @@ function AddButton({ open, onClick, isHe = false }: { open: boolean; onClick: ()
             className="h-6 px-1.5 rounded-md border border-slate-200 hover:border-slate-300 text-[10.5px] text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 transition-colors"
         >
             {open ? <XIcon className="w-2.5 h-2.5" /> : <PlusIcon className="w-2.5 h-2.5" />}
-            {open ? (isHe ? "ביטול" : "Cancel") : (isHe ? "הוספה" : "Add")}
+            {open ? "Cancel" : "Add"}
         </button>
     );
 }
@@ -792,7 +744,7 @@ function Badge({
     icon,
     children,
 }: {
-    tone: "emerald" | "slate" | "red" | "sky" | "amber" | "purple";
+    tone: "emerald" | "slate" | "red";
     icon?: React.ReactNode;
     children: React.ReactNode;
 }) {
@@ -800,9 +752,6 @@ function Badge({
         emerald: "bg-emerald-50 text-emerald-700 border-emerald-100",
         slate: "bg-slate-100 text-slate-600 border-slate-200",
         red: "bg-red-50 text-red-700 border-red-100",
-        sky: "bg-sky-50 text-sky-700 border-sky-100",
-        amber: "bg-amber-50 text-amber-700 border-amber-100",
-        purple: "bg-purple-50 text-purple-700 border-purple-100",
     }[tone];
     return (
         <span className={`inline-flex items-center gap-1 h-5 px-1.5 rounded border text-[10px] font-medium ${cls}`}>
@@ -810,54 +759,6 @@ function Badge({
             {children}
         </span>
     );
-}
-
-function ContactTagChip({ title, color }: { title: string; color: string }) {
-    return (
-        <span
-            className="inline-flex items-center gap-1 h-4.5 px-1.5 rounded border text-[10px] font-medium max-w-[140px] overflow-hidden"
-            style={{
-                borderColor: color ? `${color}60` : "rgb(226 232 240)",
-                backgroundColor: color ? `${color}14` : "rgb(248 250 252)",
-                color: "rgb(51 65 85)",
-            }}
-            title={title}
-        >
-            <span
-                aria-hidden
-                className="size-1.5 rounded-full shrink-0"
-                style={{ backgroundColor: color || "#94a3b8" }}
-            />
-            <span className="truncate">{title}</span>
-        </span>
-    );
-}
-
-function getStatusBadge(
-    status: string,
-    isHe: boolean,
-): { label: string; tone: "emerald" | "slate" | "red" | "sky" | "amber" | "purple" } | null {
-    if (!status) return null;
-    const s = status.toLowerCase();
-    switch (s) {
-        case "replied":
-        case "interested":
-            return { label: isHe ? "נענה / מתעניין" : "Replied / Interested", tone: "emerald" };
-        case "active":
-            return { label: isHe ? "פעיל בקמפיין" : "Active", tone: "sky" };
-        case "pending":
-            return { label: isHe ? "ממתין" : "Pending", tone: "amber" };
-        case "completed":
-            return { label: isHe ? "הושלם" : "Completed", tone: "slate" };
-        case "unsubscribed":
-            return { label: isHe ? "הסיר הרשמה" : "Unsubscribed", tone: "slate" };
-        case "bounced":
-        case "failed":
-        case "undeliverable":
-            return { label: isHe ? "שגיאת מסירה" : "Delivery Issue", tone: "red" };
-        default:
-            return { label: status, tone: "sky" };
-    }
 }
 
 function Metric({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
@@ -890,25 +791,53 @@ function RowSkeleton() {
     );
 }
 
-function NotAContact({ email }: { email?: string }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
+// A reply from someone outside the CRM. One click creates the contact from
+// the From header; the by-email lookup is invalidated so this panel flips to
+// the full contact view where the rest can be edited.
+function NotAContact({ email, name }: { email?: string; name?: string }) {
+    const add = useAddContacts();
+    const queryClient = useQueryClient();
+
+    async function onAdd() {
+        if (!email) return;
+        const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+        const first_name = parts[0] ?? "";
+        const last_name = parts.slice(1).join(" ");
+        try {
+            await toast.promise(
+                add.mutateAsync([{ first_name, last_name, email, company: "", phone: "", campaigns: [], custom_fields: {}, source: "manual" }]),
+                { loading: "Adding contact…", success: "Contact added", error: "Couldn't add contact" },
+            );
+            await queryClient.invalidateQueries({ queryKey: ["contacts", "by-email", email] });
+        } catch {
+            /* surfaced */
+        }
+    }
+
     return (
-        <div className="px-3 py-8 text-center">
-            <div className="mx-auto size-9 rounded-md bg-white border border-slate-200 flex items-center justify-center mb-2.5">
-                <UserIcon className="w-4 h-4 text-slate-400" />
-            </div>
-            <p className="text-[12px] font-medium text-slate-700 mb-0.5">
-                {isHe ? "איש קשר לא מוכר" : "Not a known contact"}
-            </p>
+        <div className="px-4 py-8 text-center">
+            <UserIcon className="w-5 h-5 text-slate-300 mx-auto mb-2.5" strokeWidth={1.5} />
+            <p className="text-[12px] font-medium text-slate-700 mb-0.5">Not a known contact</p>
             {email && <p className="text-[11px] text-slate-400 break-all mb-3">{email}</p>}
-            <Link
-                to="/app/contacts"
-                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[11.5px] text-slate-700 hover:text-slate-900 transition-colors"
-            >
-                <PlusIcon className="w-3 h-3" />
-                {isHe ? "ניהול אנשי קשר" : "Manage contacts"}
-            </Link>
+            <div className="flex items-center justify-center gap-1.5">
+                {email && (
+                    <button
+                        type="button"
+                        onClick={onAdd}
+                        disabled={add.isPending}
+                        className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[11.5px] font-medium transition-colors disabled:opacity-60"
+                    >
+                        {add.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <PlusIcon className="w-3 h-3" />}
+                        Add as contact
+                    </button>
+                )}
+                <Link
+                    to="/app/contacts"
+                    className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[11.5px] text-slate-700 hover:text-slate-900 transition-colors"
+                >
+                    Manage contacts
+                </Link>
+            </div>
         </div>
     );
 }
@@ -936,9 +865,9 @@ function money(n: number, currency = "USD") {
     }
 }
 
-function fmtDate(d: string | Date, isHe = false) {
+function fmtDate(d: string | Date) {
     try {
-        return new Date(d).toLocaleDateString(isHe ? "he-IL" : "en-US", { month: "short", day: "numeric" });
+        return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     } catch {
         return "";
     }

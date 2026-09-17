@@ -23,10 +23,12 @@ Unlimited mailboxes means exactly that, under a fair-use allowance of one mailbo
 When you open something your plan does not include, the dashboard opens a full-screen plan chooser instead of sending you to settings. It names the feature, highlights the plan that unlocks it, and lets you pick monthly or annual billing.
 
 - **No subscription yet.** Choosing a plan opens Stripe Checkout. When you come back, you land on the page you left with the feature unlocked.
-- **Already on a paid plan.** Choosing a higher plan switches you in place. The change is prorated and takes effect immediately.
-- **Enterprise.** Opens the billing portal so you can reach us about custom volume.
+- **Already have a Stripe subscription.** Choosing a higher plan switches you in place. The change is prorated and takes effect immediately.
+- **Enterprise.** Opens an inquiry form so you can reach us about custom volume.
 
 Promo codes can be applied in the chooser before checkout.
+
+Stripe calculates applicable sales tax, VAT, or GST from the billing address entered at checkout. Where supported, a buyer purchasing for a company can add the company's legal name and business tax ID. Stripe includes those details on invoices and applies reverse charge or another zero-tax treatment where the jurisdiction and tax ID allow it.
 
 Only the workspace owner can change the plan. Other members see the same comparison with a note to ask the owner. Which roles can do what is covered in [Team and roles](/guides/team-roles/).
 
@@ -43,11 +45,29 @@ Only the workspace owner can change the plan. Other members see the same compari
 
 Need a single limit raised without moving plan? Request an increase from **Settings > Limits**, linked from the usage section, or straight from the connect dialog when it is mailboxes you need. An operator reviews it and the approved limit takes effect on the workspace, including the daily send allowance the sender enforces.
 
-**Plans** compares the lineup as full plan cards, with the best value plan highlighted. On a paid plan each card also prices the switch before you commit, showing what is due today and when the next bill lands. Promo codes and the codes this workspace has redeemed live here too.
+**Plans** compares the lineup as full plan cards, with the best value plan highlighted. For an existing Stripe subscription, monthly plan cards preview the estimated proration and next billing date. Stripe calculates annual proration when you switch. Promo codes and the codes this workspace has redeemed live here too.
 
 **AI and credits** covers the credit balance, top-ups and usage. See [AI credits](/guides/ai-credits/).
 
 **Payment** links out to the Stripe billing portal. Cards and the billing email are held by Stripe and never touch Warmbly, so they are read and changed there. Invoices and PDF receipts live in the portal too.
+
+The portal also lets the owner update the billing address, legal billing name, and business tax ID. Update these details before the next renewal if the company moves or its tax registration changes.
+
+The portal requires a billing account created through checkout. If your workspace has never completed checkout, including a free workspace or one with only an operator-granted plan, the payment tab explains that checkout is required first and links to the plan chooser. Portal and cancellation controls only appear when the corresponding billing account or Stripe subscription exists.
+
+## Plans granted by an operator
+
+A workspace can be put on a plan without paying for it. Warmbly calls this a **managed plan**, and it exists for internal workspaces, design partners and support gestures.
+
+A managed plan entitles exactly what the plan entitles. Nothing about the product behaves differently, and nothing is charged: no Stripe subscription is created, no invoice is raised, and the billing page still shows what the workspace would pay. The grant carries the reason it was made and who made it, and it can be open-ended or given an expiry date, in which case it lapses on its own.
+
+Upgrading a workspace with only a managed plan opens Checkout to create a Stripe subscription. Proration previews and cancellation apply only to an existing Stripe subscription. If the selected billing interval has no configured price, the dashboard explains that the plan is unavailable instead of redirecting to the portal.
+
+Operators grant one from the admin panel on the workspace, under **Plan**. The organization list marks granted workspaces with a `managed` badge and can filter to them, so "who is paid because we said so" is answerable without checking Stripe. A grant that has lapsed keeps its reason on file and is shown as `grant lapsed` rather than disappearing.
+
+A grant is held beside the plan a workspace pays for, never on top of it, so a paying workspace that is granted a different plan goes back to the one it pays for when the grant ends. Revoking returns the workspace to whatever it actually pays for, which for most is the free plan.
+
+One thing a grant does not do: monthly AI credits are granted when an invoice is paid, and a granted plan raises no invoice, so a managed workspace does not receive a recurring credit allowance. Top up its balance directly if it needs credits.
 
 ## Self-hosted deployments
 

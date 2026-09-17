@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
 import useEmails from "@/lib/api/hooks/app/emails/useEmails";
 import { NoAccess } from "@/components/layout/NoAccess";
 import { usePermission } from "@/hooks/usePermission";
@@ -12,11 +11,20 @@ import useAccountStatuses from "@/lib/api/hooks/app/analytics/useAccountStatuses
 import useFeatureStatus from "@/lib/api/hooks/app/subscription/useFeatureStatus";
 import warmupLifecycle from "@/lib/api/client/app/emails/warmupLifecycle";
 import removeEmail from "@/lib/api/client/app/emails/removeEmail";
+import useRemoveEmail from "@/lib/api/hooks/app/emails/useRemoveEmail";
 import { useUserProfile } from "@/hooks/context/user";
 import { useConfirm } from "@/hooks/context/confirm";
 import InboxDetails from "@/components/app/emails/InboxDetails";
 import WarmupCoverageNotice from "@/components/app/emails/WarmupCoverageNotice";
+import CloudPoolBanner from "@/components/app/emails/CloudPoolBanner";
+import CloudPathsPanel from "@/components/app/emails/CloudPathsPanel";
+import CloudConnectDialog from "@/components/app/cloud/CloudConnectDialog";
+import useCloudPool from "@/hooks/useCloudPool";
 import useAuthConfig from "@/lib/api/hooks/auth/useAuthConfig";
+import { useEnrollCloudLinkMailbox, useUnenrollCloudLinkMailbox, useCloudLinkMailboxLifecycle } from "@/lib/api/hooks/app/cloudlink/useCloudLink";
+import { providerSupported } from "@/app/app/settings/warmbly-cloud/providers";
+import { CloudIcon } from "lucide-react";
+import type { CloudLinkMailboxRow } from "@/lib/api/models/app/cloudlink/CloudLink";
 import buildError from "@/lib/helper/buildError";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import BulkWarmupDialog from "@/components/app/emails/BulkWarmupDialog";
@@ -61,7 +69,7 @@ import {
 } from "@/components/layout/Page";
 
 const DefaultFolder = {
-    title: "כל החשבונות",
+    title: "All accounts",
     color: "#c4c8cf",
 } as Tag;
 
@@ -71,12 +79,12 @@ const DefaultFolder = {
 // can proactively toast the user (continuous health reporting).
 const HEALTH_RANK: Record<string, number> = { healthy: 0, warning: 1, error: 2 };
 
-function healthTone(status?: AccountStatus, isHe = false): { dot: string; text: string; label: string; pulse: boolean } {
+function healthTone(status?: AccountStatus): { dot: string; text: string; label: string; pulse: boolean } {
     const h = status?.health;
     if (!h) return { dot: "bg-slate-300", text: "text-slate-500", label: "—", pulse: false };
-    if (h.status === "healthy") return { dot: "bg-emerald-500", text: "text-emerald-600", label: isHe ? `תקין ${h.score}` : `Healthy ${h.score}`, pulse: false };
-    if (h.status === "warning") return { dot: "bg-amber-500", text: "text-amber-600", label: isHe ? `בסיכון ${h.score}` : `At risk ${h.score}`, pulse: true };
-    return { dot: "bg-rose-500", text: "text-rose-600", label: isHe ? `בעיה ${h.score}` : `Issue ${h.score}`, pulse: true };
+    if (h.status === "healthy") return { dot: "bg-emerald-500", text: "text-emerald-600", label: `Healthy ${h.score}`, pulse: false };
+    if (h.status === "warning") return { dot: "bg-amber-500", text: "text-amber-600", label: `At risk ${h.score}`, pulse: true };
+    return { dot: "bg-rose-500", text: "text-rose-600", label: `Issue ${h.score}`, pulse: true };
 }
 
 import AdvisorRowFlag from "@/components/app/advisor/AdvisorRowFlag";
@@ -85,7 +93,6 @@ import { useAdvisorEntityIndex } from "@/lib/api/hooks/app/advisor/useAdvisor";
 import type { AdvisorFinding } from "@/lib/api/models/app/advisor/Advisor";
 
 export default function AddressesPage() {
-    const { t } = useTranslation(["mailboxes", "common"]);
     const p = useUserProfile();
     const confirm = useConfirm();
     const canView = usePermission("MANAGE_EMAILS");
@@ -102,9 +109,15 @@ export default function AddressesPage() {
     const queryClient = useQueryClient();
 
     // Warmup is a paid/trial feature; gate the start controls when the org
-    // Warmup is always allowed
-    const canWarmup = true;
+    // isn't entitled. Treat unknown (still loading) as allowed — the backend
+    // is the real enforcement point.
+    const featureStatus = useFeatureStatus();
+    const canWarmup = featureStatus.data?.can_use_warmup !== false;
 
+    // Self-hosted instances can hand warmup to the Warmbly pool; the banner,
+    // row badges and menu items below key off this.
+    const cloud = useCloudPool();
+    const [cloudDialog, setCloudDialog] = React.useState(false);
     const authConfigLoading = useAuthConfig().isLoading;
 
     // One query for the whole surface; each row reads its own advice out of the
@@ -138,7 +151,7 @@ export default function AddressesPage() {
             const before = prev.get(s.id);
             if (before && (HEALTH_RANK[cur] ?? 0) > (HEALTH_RANK[before] ?? 0)) {
                 const reason = s.warmup_health?.reason || s.health?.issues?.[0];
-                toast.error(`בריאות התיבה ${s.email} ירדה ל-${cur}${reason ? ` (${reason})` : ""}`);
+                toast.error(`${s.email} health dropped to ${cur}${reason ? ` — ${reason}` : ""}`);
             }
         }
         prevHealth.current = next;
@@ -147,14 +160,24 @@ export default function AddressesPage() {
     const removeSelected = () => {
         if (selected.length === 0 || removing) return;
         const n = selected.length;
+        // Say what it does, because none of it comes back. The revocation
+        // sentence is built from the providers actually selected: claiming
+        // "access is revoked at the provider" over a selection containing an
+        // Outlook mailbox would be untrue for that one, and Microsoft publishes
+        // no way for us to remove a single app.
+        const providers = new Set(
+            selected.map((id) => emailsData.emails?.find((e) => e.id === id)?.provider).filter(Boolean) as string[],
+        );
         confirm.show(
-            `האם להסיר ${n} ${n > 1 ? "תיבות דואר" : "תיבת דואר"}? פעולה זו תנתק אותן מ-Warmbly.`,
+            `Remove ${n} mailbox${n > 1 ? "es" : ""}? This deletes ${n > 1 ? "their" : "its"} imported mail and warmup history. ${bulkRevocationNote(providers)} It cannot be undone — switch ${n > 1 ? "them" : "it"} off instead to just stop sending.`,
             async () => {
                 setRemoving(true);
                 const results = await Promise.allSettled(selected.map((id) => removeEmail(id)));
                 const failed = results.filter((r) => r.status === "rejected");
+                // The ["emails"] prefix covers the lists and the allowance
+                // counter, which a disconnect gives slots back to.
                 await queryClient.invalidateQueries({ queryKey: ["emails"] });
-                await queryClient.invalidateQueries({ queryKey: ["advisor"] });
+                await queryClient.invalidateQueries({ queryKey: ["analytics", "accounts"] });
                 setSelected([]);
                 setRemoving(false);
                 if (failed.length > 0) {
@@ -163,8 +186,8 @@ export default function AddressesPage() {
                     // mailbox is worth retrying, and "couldn't be removed"
                     // alone does not say so.
                     const reason = failed.length === 1 ? removeErrorMessage(failed[0].reason) : undefined;
-                    toast.error(reason ?? `לא ניתן היה להסיר ${failed.length} ${failed.length > 1 ? "תיבות דואר" : "תיבת דואר"}`);
-                } else toast.success(`הוסרו ${n} ${n > 1 ? "תיבות דואר" : "תיבת דואר"}`);
+                    toast.error(reason ?? `${failed.length} mailbox${failed.length > 1 ? "es" : ""} couldn't be removed`);
+                } else toast.success(`Removed ${n} mailbox${n > 1 ? "es" : ""}`);
             },
         );
     };
@@ -177,9 +200,9 @@ export default function AddressesPage() {
         await queryClient.invalidateQueries({ queryKey: ["emails", "list"] });
         await queryClient.invalidateQueries({ queryKey: ["analytics", "accounts"] });
         setSelected([]);
-        const verb = action === "start" ? "הופעל" : "הושהה";
-        if (failed > 0) toast.error(`לא ניתן היה לעדכן ${failed} ${failed > 1 ? "תיבות דואר" : "תיבת דואר"}`);
-        else toast.success(`תהליך החימום ${verb} עבור ${n} ${n > 1 ? "תיבות דואר" : "תיבת דואר"}`);
+        const verb = action === "start" ? "started" : "paused";
+        if (failed > 0) toast.error(`${failed} mailbox${failed > 1 ? "es" : ""} couldn't be updated`);
+        else toast.success(`Warmup ${verb} for ${n} mailbox${n > 1 ? "es" : ""}`);
     };
 
     const openDetail = (id: string, tab: string = "overview") => {
@@ -240,55 +263,55 @@ export default function AddressesPage() {
     }
 
     if (!canView) {
-        return <NoAccess feature="תיבות דואר" permissionLabel="ניהול תיבות דואר" />;
+        return <NoAccess feature="email accounts" permissionLabel="Manage mailboxes" />;
     }
 
     return (
         <Page>
             <PageTopbar
-                eyebrow={t("mailboxes:title", "Accounts")}
+                eyebrow="Accounts"
                 subtitle={
                     emailsData.emails
-                        ? `${stats.total} ${t("mailboxes:title", "mailboxes")}`
-                        : t("common:states.loading", "Loading…")
+                        ? `${stats.total} mailboxes`
+                        : "Loading…"
                 }
             >
                 <TopbarAction
                     onClick={() => p?.setAddEmail(true)}
                     icon={<PlusIcon className="w-3 h-3" />}
                 >
-                    {t("mailboxes:addMailbox", "Add account")}
+                    Add account
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={4}>
-                <Stat label={t("mailboxes:stats.total", "Total")} value={<AnimatedNumber value={stats.total} />} sub={t("mailboxes:stats.connected", "connected")} />
-                <Stat label={t("mailboxes:stats.healthy", "Healthy")} value={<AnimatedNumber value={stats.healthy} />} sub={t("mailboxes:stats.sendingNow", "sending now")} accent={stats.healthy > 0} />
-                <Stat label={t("mailboxes:stats.warming", "Warming")} value={<AnimatedNumber value={stats.warming} />} sub={t("mailboxes:stats.rampingUp", "ramping up")} />
-                <Stat label={t("mailboxes:stats.needsAttention", "Needs attention")} value={<AnimatedNumber value={stats.issues} />} sub={t("mailboxes:stats.pausedOrFailing", "paused or failing")} last />
+                <Stat label="Total" value={<AnimatedNumber value={stats.total} />} sub="connected" />
+                <Stat label="Healthy" value={<AnimatedNumber value={stats.healthy} />} sub="sending now" accent={stats.healthy > 0} />
+                <Stat label="Warming" value={<AnimatedNumber value={stats.warming} />} sub="ramping up" />
+                <Stat label="Needs attention" value={<AnimatedNumber value={stats.issues} />} sub="paused or failing" last />
             </StatStrip>
 
-            <SectionBar label={t("mailboxes:title", "Mailboxes")} count={emailsData.emails?.length ?? 0}>
+            <SectionBar label="Mailboxes" count={emailsData.emails?.length ?? 0}>
                 <SearchInput
                     value={query}
                     onChange={setQuery}
-                    placeholder={t("mailboxes:actions.searchPlaceholder", "Search by email…")}
+                    placeholder="Search by email…"
                     className="w-full sm:w-56"
                 />
                 <PopoverMenu align="end">
                     <PopoverMenuTrigger asChild>
                         <SelectButton
                             icon={<FilterIcon className="w-3.5 h-3.5" />}
-                            label={tag ? stag.title : t("mailboxes:actions.allAccounts", "All accounts")}
+                            label={stag.title}
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={200}>
-                        <PopoverMenuLabel>{t("mailboxes:actions.tags", "Tags")}</PopoverMenuLabel>
+                        <PopoverMenuLabel>Tags</PopoverMenuLabel>
                         <PopoverMenuItem
                             onSelect={() => setTag("")}
                             selected={!tag}
                         >
-                            {t("mailboxes:actions.allAccounts", "All accounts")}
+                            All accounts
                         </PopoverMenuItem>
                         {(p?.user.tags ?? []).map((t) => (
                             <PopoverMenuItem
@@ -305,7 +328,7 @@ export default function AddressesPage() {
                             onSelect={() => p?.setTagsEdit(true)}
                             icon={<Settings2Icon className="w-3 h-3" />}
                         >
-                            {t("mailboxes:actions.manageTags", "Manage tags")}
+                            Manage tags
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -318,12 +341,20 @@ export default function AddressesPage() {
                     nounPlural="mailboxes"
                     className="mx-5 my-3"
                 />
-                <WarmupCoverageNotice
-                    warmupCount={warmupActive}
-                    totalCount={stats.total}
-                    canWarmup={canWarmup}
-                    onAdd={() => p?.setAddEmail(true)}
-                />
+                <CloudPoolBanner onConnect={() => setCloudDialog(true)} mailboxCount={stats.total} />
+                {!emailsData.isLoading && <CloudPathsPanel mailboxCount={stats.total} onAdd={() => p?.setAddEmail(true)} />}
+                {/* Hosted, the pool is thousands of mailboxes: the pool-size advice is self-host only. */}
+                {cloud.selfHosted && (
+                    <WarmupCoverageNotice
+                        warmupCount={warmupActive}
+                        totalCount={stats.total}
+                        canWarmup={canWarmup}
+                        onAdd={() => p?.setAddEmail(true)}
+                        onConnectCloud={!cloud.connected ? () => setCloudDialog(true) : undefined}
+                        cloudConnected={cloud.connected}
+                    />
+                )}
+                <CloudConnectDialog open={cloudDialog} onClose={() => setCloudDialog(false)} />
                 {emailsData.isLoading ? (
                     <div className="divide-y divide-slate-200/60">
                         {Array.from({ length: 6 }).map((_, i) => (
@@ -331,34 +362,36 @@ export default function AddressesPage() {
                                 <div className="w-3.5 h-3.5 bg-slate-100 rounded" />
                                 <div className="w-6 h-6 rounded-full bg-slate-100 shrink-0" />
                                 <div className="h-3 w-52 bg-slate-100 rounded animate-pulse" />
-                                <div className="ms-auto h-3 w-16 bg-slate-100 rounded animate-pulse" />
+                                <div className="ml-auto h-3 w-16 bg-slate-100 rounded animate-pulse" />
                             </div>
                         ))}
                     </div>
                 ) : !emailsData.emails || emailsData.emails.length === 0 ? (
+                    cloud.selfHosted || authConfigLoading ? (
                     <EmptyBlock
-                        title={t("mailboxes:empty.title", "No email accounts yet")}
-                        body={t("mailboxes:empty.description", "Connect your first mailbox to start warming up and sending campaigns.")}
+                        title="No email accounts yet"
+                        body="Connect your first mailbox to start warming up and sending campaigns."
                         cta={
                             <TopbarAction
                                 onClick={() => p?.setAddEmail(true)}
                                 icon={<PlusIcon className="w-3 h-3" />}
                             >
-                                {t("mailboxes:addMailbox", "Add account")}
+                                Add account
                             </TopbarAction>
                         }
                     />
+                    ) : null
                 ) : (
-                    <table className="w-full text-start">
+                    <table className="w-full text-left">
                         <thead className="sticky top-0 bg-white z-[1]">
                             <tr className="border-b border-slate-200">
-                                <th className="ps-5 pe-2 py-2 w-9 text-start">
+                                <th className="pl-5 pr-2 py-2 w-9">
                                     <input
                                         type="checkbox"
                                         className="w-3.5 h-3.5 rounded accent-sky-600"
                                         checked={isSelectedAll()}
                                         onChange={() => {
-                                             if (isSelectedAll()) {
+                                            if (isSelectedAll()) {
                                                 setSelected((bef) =>
                                                     bef.filter((e) => !emailsData.emails.map((em) => em.id).includes(e)),
                                                 );
@@ -373,10 +406,10 @@ export default function AddressesPage() {
                                         }}
                                     />
                                 </th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] text-start">{t("mailboxes:columns.account", "Account")}</th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-28 text-start">{t("mailboxes:columns.warmup", "Warmup")}</th>
-                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-12 md:w-36 text-start"><span className="hidden md:inline">{t("mailboxes:columns.health", "Health")}</span></th>
-                                <th className="px-3 py-2 w-16 text-end"></th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em]">Account</th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-24 text-right">Warmup</th>
+                                <th className="px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] w-10 md:w-32"><span className="hidden md:inline">Health</span></th>
+                                <th className="px-3 py-2 w-16"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -388,6 +421,8 @@ export default function AddressesPage() {
                                     status={statusById.get(box.id)}
                                     findings={advisor.get(box.id)}
                                     canWarmup={canWarmup}
+                                    cloud={cloud.connected ? cloud.rowFor(box.id) : undefined}
+                                    cloudConnected={cloud.connected}
                                     checked={selected.includes(box.id)}
                                     onToggleSelect={() =>
                                         selected.includes(box.id)
@@ -405,7 +440,7 @@ export default function AddressesPage() {
                     <div className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-30 flex flex-wrap justify-center max-w-[calc(100vw-1rem)] items-center gap-1.5 rounded-md border border-slate-200 bg-white shadow-[0_6px_20px_-4px_rgba(15,23,42,0.12),0_2px_4px_rgba(15,23,42,0.04)] px-2 py-1.5">
                         <div className="inline-flex items-center gap-1.5 px-2 h-7 rounded bg-sky-50 text-sky-700 text-[12px] font-medium">
                             <CheckIcon className="w-3 h-3" />
-                            <span>{selected.length} {t("mailboxes:actions.selected", "selected")}</span>
+                            <span>{selected.length} selected</span>
                         </div>
                         {canWarmup && (
                             <button
@@ -414,7 +449,7 @@ export default function AddressesPage() {
                                 className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-orange-600 hover:bg-orange-50 transition-colors"
                             >
                                 <PlayIcon className="w-3.5 h-3.5" />
-                                {t("mailboxes:actions.startWarmup", "Start warmup")}
+                                Start warmup
                             </button>
                         )}
                         <button
@@ -423,7 +458,7 @@ export default function AddressesPage() {
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors"
                         >
                             <PauseIcon className="w-3.5 h-3.5" />
-                            {t("mailboxes:actions.pause", "Pause")}
+                            Pause
                         </button>
                         <BulkTagPopover ids={selected} />
                         <div className="w-px h-4 bg-slate-200 mx-0.5" />
@@ -434,7 +469,7 @@ export default function AddressesPage() {
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
                         >
                             <Trash2Icon className="w-3.5 h-3.5" />
-                            {t("mailboxes:actions.remove", "Remove")}
+                            Remove
                         </button>
                         <button
                             type="button"
@@ -442,7 +477,7 @@ export default function AddressesPage() {
                             className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] text-slate-500 hover:bg-slate-100 transition-colors"
                         >
                             <XIcon className="w-3.5 h-3.5" />
-                            {t("mailboxes:actions.clear", "Clear")}
+                            Clear
                         </button>
                     </div>
                 )}
@@ -462,6 +497,33 @@ export default function AddressesPage() {
 
 /* ── one mailbox row + its warmup dropdown ───────────────────────────── */
 
+// revocationNote says what disconnecting does to the connection itself, which
+// is not the same question for every provider. Google accepts a revocation and
+// the app disappears from the customer's account; Microsoft publishes no
+// endpoint for removing a single application, so all we can truthfully claim
+// there is that our copy of the tokens is destroyed.
+function revocationNote(provider?: string): string {
+    if (provider === "gmail") return "Warmbly's access to the Google account is revoked.";
+    if (provider === "outlook")
+        return "The stored Microsoft tokens are destroyed; remove Warmbly itself from your Microsoft account privacy settings.";
+    return "The stored credentials are destroyed.";
+}
+
+// bulkRevocationNote is the same answer for a mixed selection, which must not
+// round up to the stronger claim.
+function bulkRevocationNote(providers: Set<string>): string {
+    const gmail = providers.has("gmail");
+    const outlook = providers.has("outlook");
+    if (providers.size === 1 && (gmail || outlook)) return revocationNote(gmail ? "gmail" : "outlook");
+    if (gmail && outlook)
+        return "Google access is revoked; the Microsoft tokens are destroyed here, and Warmbly is removed from a Microsoft account by you.";
+    if (outlook)
+        return "The stored credentials are destroyed; remove Warmbly itself from your Microsoft account privacy settings.";
+    if (gmail) return "The stored credentials are destroyed, and Google access is revoked.";
+    // No OAuth mailbox in the selection, so there is no grant to mention.
+    return "The stored credentials are destroyed.";
+}
+
 // removeErrorMessage pulls the API's own explanation out of a failed request.
 function removeErrorMessage(err: unknown): string | undefined {
     const e = err as { response?: { data?: { message?: string } } };
@@ -474,6 +536,8 @@ function MailboxRow({
     status,
     findings,
     canWarmup,
+    cloud,
+    cloudConnected,
     checked,
     onToggleSelect,
     onOpen,
@@ -483,14 +547,33 @@ function MailboxRow({
     status?: AccountStatus;
     findings: AdvisorFinding[];
     canWarmup: boolean;
+    cloud?: CloudLinkMailboxRow;
+    cloudConnected: boolean;
     checked: boolean;
     onToggleSelect: () => void;
     onOpen: (id: string, tab?: string) => void;
 }) {
     const life = useWarmupLifecycle(box.id);
     const confirm = useConfirm();
-    const { t, i18n } = useTranslation(["mailboxes", "common"]);
-    const isHe = i18n.language === "he";
+    const remove = useRemoveEmail(box.id);
+
+    // Disconnecting is unrecoverable and takes the mailbox's stored mail with
+    // it, so the prompt says that rather than "are you sure". What happens to
+    // the connection differs by provider and the copy has to differ with it:
+    // Google accepts a revocation, Microsoft publishes no way for us to remove
+    // one app, so promising it for Outlook would be a promise we cannot keep.
+    const askDisconnect = () =>
+        confirm.show(
+            `Disconnect ${box.email}? This deletes its imported mail, warmup history and credentials. ${revocationNote(box.provider)} It cannot be undone — switch the mailbox off instead to just stop sending.`,
+            async () => {
+                try {
+                    await remove.mutateAsync();
+                    toast.success(`${box.email} disconnected`);
+                } catch (e) {
+                    toast.error(removeErrorMessage(e) ?? "The mailbox couldn't be disconnected");
+                }
+            },
+        );
 
     // Resolve the row's tag ids against the user's tag registry; cap the chips
     // so long tag lists don't crowd the email out of the cell.
@@ -502,28 +585,47 @@ function MailboxRow({
         [box.tags, tags],
     );
     const shownTags = rowTags.slice(0, 3);
-    const isWarmupOnly = useMemo(
-        () => rowTags.some((t) => ["חימום", "warmup"].includes(t.title.trim().toLowerCase())),
-        [rowTags],
-    );
 
     const off = !box.warmup;
     const paused = !!box.warmup && !!box.warmup_paused_at;
     const active = !!box.warmup && !box.warmup_paused_at;
 
-    const tone = healthTone(status, isHe);
+    const tone = healthTone(status);
     const ws = status?.warmup_status;
     const inCampaign = status?.in_campaign;
 
+    const cloudEnroll = useEnrollCloudLinkMailbox();
+    const cloudUnenroll = useUnenrollCloudLinkMailbox();
+    const cloudLifecycle = useCloudLinkMailboxLifecycle();
+    const inCloud = !!cloud?.enrolled;
+    const cloudPaused = !!cloud?.cloud?.warmup?.paused;
+    const cloudSupported = providerSupported(box.provider);
+    const cloudRun = async (fn: () => Promise<unknown>, ok: string) => {
+        try {
+            await fn();
+            toast.success(ok);
+        } catch (e) {
+            toast.error(buildError(e as AppError));
+        }
+    };
+
     // Warmup column: what's flowing today and why.
-    const warmupLabel = active
+    const warmupLabel = inCloud
+        ? cloud?.cloud
+            ? `${cloud.cloud.sent_today}/${cloud.cloud.warmup?.target_volume ?? cloud.cloud.settings.base}`
+            : "Cloud"
+        : active
         ? `${ws?.current_volume ?? 0}/${ws?.target_volume ?? box.warmup_base}`
         : paused
-            ? (isHe ? "מושהה" : "Paused")
+            ? "Paused"
             : inCampaign
-                ? (isHe ? "בדיקת תקינות" : "Health-check")
-                : (isHe ? "כבוי" : "Off");
-    const warmupTone = active
+                ? "Health-check"
+                : "Off";
+    const warmupTone = inCloud
+        ? cloudPaused
+            ? "text-amber-600"
+            : "text-sky-600"
+        : active
         ? "text-orange-600"
         : paused
             ? "text-amber-600"
@@ -533,56 +635,33 @@ function MailboxRow({
 
     const run = (action: "start" | "pause" | "resume", verb: string) => {
         life.mutate(action, {
-            onSuccess: () =>
-                toast.success(
-                    isHe
-                        ? action === "start"
-                            ? `החימום הופעל עבור ${box.email}`
-                            : action === "pause"
-                              ? `החימום הושהה עבור ${box.email}`
-                              : `החימום חודש עבור ${box.email}`
-                        : `Warmup ${verb} for ${box.email}`,
-                ),
-            onError: () => toast.error(isHe ? "לא ניתן לעדכן את החימום" : "Couldn't update warmup"),
+            onSuccess: () => toast.success(`Warmup ${verb} for ${box.email}`),
+            onError: () => toast.error("Couldn't update warmup"),
         });
     };
 
     const stopReset = () => {
         confirm.show(
-            isHe
-                ? `לעצור את החימום עבור ${box.email}? פעולה זו מאפסת את קצב ההדרגה והפעלה מחדש תתחיל מנפח הבסיס. השתמש בהשהיה כדי לשמור על ההתקדמות.`
-                : `Stop warmup for ${box.email}? This resets ramp progress — restarting begins from the base volume. Use Pause to keep progress.`,
+            `Stop warmup for ${box.email}? This resets ramp progress — restarting begins from the base volume. Use Pause to keep progress.`,
             async () => {
                 try {
                     await life.mutateAsync("stop");
-                    toast.success(isHe ? `החימום נעצר עבור ${box.email}` : `Warmup stopped for ${box.email}`);
+                    toast.success(`Warmup stopped for ${box.email}`);
                 } catch {
-                    toast.error(isHe ? "לא ניתן לעדכן את החימום" : "Couldn't update warmup");
+                    toast.error("Couldn't update warmup");
                 }
             },
         );
     };
 
-    const upsell = () => toast(isHe ? "חימום זמין בתוכניות בתשלום" : "Warmup is available on paid plans", { icon: "✨" });
-
-    const warmupMenuStatus = isHe
-        ? active
-            ? "פעיל"
-            : paused
-                ? "מושהה"
-                : "כבוי"
-        : active
-            ? "Active"
-            : paused
-                ? "Paused"
-                : "Off";
+    const upsell = () => toast("Warmup is available on paid plans", { icon: "✨" });
 
     return (
         <tr
             onClick={() => onOpen(box.id)}
             className="border-b border-slate-200/60 hover:bg-slate-50/80 transition-colors group h-11 cursor-pointer"
         >
-            <td className="ps-5 pe-2 w-9 text-start">
+            <td className="pl-5 pr-2">
                 <input
                     type="checkbox"
                     className="w-3.5 h-3.5 rounded accent-sky-600"
@@ -591,26 +670,30 @@ function MailboxRow({
                     onClick={(e) => e.stopPropagation()}
                 />
             </td>
-            <td className="px-3 min-w-0 text-start">
+            <td className="px-3 max-w-0 md:max-w-none">
                 {/* The flag is a sibling of the open-row button, not a child:
                     it has its own trigger and nesting buttons is invalid. */}
                 <div className="flex w-full min-w-0 items-center gap-2">
-                <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(box.id); }} className="flex min-w-0 items-center gap-2.5 text-start shrink-0 max-w-full">
+                <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(box.id); }} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
                     <div className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center shrink-0">
                         <span className="text-[9.5px] font-semibold text-sky-700">
                             {box.email.slice(0, 2).toUpperCase()}
                         </span>
                     </div>
                     <span className="text-[12.5px] font-medium text-slate-900 truncate">{box.email}</span>
-                    {isWarmupOnly ? (
-                        <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-amber-50 text-amber-700 text-[9.5px] font-medium shrink-0">
-                            <RiFireLine className="w-2.5 h-2.5" /> {t("mailboxes:warmup.warmupOnly", isHe ? "חימום בלבד" : "Warmup only")}
+                    {inCloud && (
+                        <span
+                            title={cloud?.managed ? "Signed in through Warmbly Cloud, which warms it" : cloudPaused ? "Paused in Warmbly Cloud" : "Warmed by Warmbly Cloud"}
+                            className={`inline-flex items-center gap-1 h-4 px-1.5 rounded-full text-[9.5px] font-medium uppercase tracking-[0.08em] shrink-0 ${cloudPaused ? "bg-amber-50 text-amber-600" : "bg-sky-600 text-white"}`}
+                        >
+                            <CloudIcon className="w-2.5 h-2.5" /> Cloud
                         </span>
-                    ) : inCampaign ? (
-                        <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-sky-50 text-sky-600 text-[9.5px] font-medium uppercase tracking-[0.08em] shrink-0">
-                            <ActivityIcon className="w-2.5 h-2.5" /> {isHe ? "בקמפיין" : "In campaign"}
+                    )}
+                    {inCampaign && (
+                        <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-sky-50 text-sky-600 text-[9.5px] font-medium uppercase tracking-[0.08em]">
+                            <ActivityIcon className="w-2.5 h-2.5" /> In campaign
                         </span>
-                    ) : null}
+                    )}
                     {shownTags.map((t) => (
                         <span
                             key={t.id}
@@ -630,9 +713,14 @@ function MailboxRow({
                 <AdvisorRowFlag findings={findings} subject={box.email} />
                 </div>
             </td>
-            <td className={`px-3 text-[12px] tabular-nums text-start font-mono w-28 ${warmupTone}`}>
-                {active ? (
-                    <span className="inline-flex items-center justify-start gap-1.5">
+            <td className={`px-3 text-[12px] tabular-nums text-right font-mono ${warmupTone}`}>
+                {inCloud ? (
+                    <span className="inline-flex items-center justify-end gap-1.5">
+                        <CloudIcon className="w-3 h-3 shrink-0" />
+                        <span>{warmupLabel}</span>
+                    </span>
+                ) : active ? (
+                    <span className="inline-flex items-center justify-end gap-1.5">
                         <span className="campaign-grid shrink-0" aria-hidden />
                         <span>
                             <AnimatedNumber value={ws?.current_volume ?? 0} />/
@@ -640,15 +728,15 @@ function MailboxRow({
                         </span>
                     </span>
                 ) : (
-                    <span className="inline-flex items-center justify-start">{warmupLabel}</span>
+                    warmupLabel
                 )}
             </td>
-            <td className="px-3 w-12 md:w-36 text-start">
+            <td className="px-3">
                 <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onOpen(box.id, "overview"); }}
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-medium text-start ${tone.text}`}
-                    title={isHe ? "הצג בריאות תיבת דואר" : "View mailbox health"}
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${tone.text}`}
+                    title="View mailbox health"
                 >
                     <span className="relative flex w-1.5 h-1.5">
                         {tone.pulse && (
@@ -659,58 +747,111 @@ function MailboxRow({
                     <span className="uppercase tracking-[0.08em] hidden md:inline">{tone.label}</span>
                 </button>
             </td>
-            <td className="px-3 w-16 text-end">
-                <div className="flex items-center justify-end gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            <td className="px-3">
+                <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <PopoverMenu align="end">
                         <PopoverMenuTrigger asChild>
                             <button
                                 type="button"
-                                aria-label={isHe ? "פעולות חימום" : "Warmup actions"}
+                                aria-label="Warmup actions"
                                 disabled={life.isPending}
                                 className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-orange-600 transition-colors cursor-pointer disabled:opacity-50"
                             >
-                                <RiFireLine className={`w-3.5 h-3.5 ${active ? "text-orange-500" : paused ? "text-amber-500" : ""}`} />
+                                {inCloud ? <CloudIcon className={`w-3.5 h-3.5 ${cloudPaused ? "text-amber-500" : "text-sky-600"}`} /> : <RiFireLine className={`w-3.5 h-3.5 ${active ? "text-orange-500" : paused ? "text-amber-500" : ""}`} />}
                             </button>
                         </PopoverMenuTrigger>
                         <PopoverMenuContent minWidth={208}>
-                            <PopoverMenuLabel>{isHe ? `חימום · ${warmupMenuStatus}` : `Warmup · ${warmupMenuStatus}`}</PopoverMenuLabel>
-                            {off && (
+                            <PopoverMenuLabel>Warmup · {inCloud ? (cloudPaused ? "Paused in cloud" : "Warmbly Cloud") : active ? "Active" : paused ? "Paused" : "Off"}</PopoverMenuLabel>
+                            {inCloud && (
+                                <>
+                                    <PopoverMenuItem
+                                        onSelect={() => void cloudRun(() => cloudLifecycle.mutateAsync({ id: box.id, action: cloudPaused ? "resume" : "pause" }), cloudPaused ? "Warmup resumed" : "Warmup paused")}
+                                        icon={cloudPaused ? <PlayIcon className="w-3 h-3" /> : <PauseIcon className="w-3 h-3" />}
+                                    >
+                                        {cloudPaused ? "Resume in Warmbly Cloud" : "Pause in Warmbly Cloud"}
+                                    </PopoverMenuItem>
+                                    <PopoverMenuItem
+                                        danger
+                                        onSelect={() =>
+                                            confirm.show(
+                                                cloud?.managed
+                                                    ? `Remove ${box.email} from this instance? It stays in your Warmbly Cloud workspace, where its sign-in lives; campaigns here stop sending from it.`
+                                                    : `Stop warming ${box.email} in the Warmbly pool? The cloud deletes its credential right away.`,
+                                                async () => {
+                                                    await cloudRun(() => cloudUnenroll.mutateAsync(box.id), cloud?.managed ? `${box.email} removed from this instance` : `${box.email} removed from the pool`);
+                                                },
+                                            )
+                                        }
+                                        icon={<CloudIcon className="w-3 h-3" />}
+                                    >
+                                        {cloud?.managed ? "Remove from this instance" : "Remove from Warmbly Cloud"}
+                                    </PopoverMenuItem>
+                                    <PopoverMenuSeparator />
+                                </>
+                            )}
+                            {!inCloud && cloudConnected && cloudSupported && (
+                                <PopoverMenuItem
+                                    onSelect={() => void cloudRun(() => cloudEnroll.mutateAsync(box.id), `${box.email} is now warming in the pool`)}
+                                    icon={<CloudIcon className="w-3 h-3" />}
+                                >
+                                    Warm in Warmbly Cloud
+                                </PopoverMenuItem>
+                            )}
+                            {!inCloud && off && (
                                 <PopoverMenuItem onSelect={canWarmup ? () => run("start", "started") : upsell} icon={<PlayIcon className="w-3 h-3" />}>
-                                    {isHe ? (canWarmup ? "הפעלת חימום" : "שדרוג להפעלת חימום") : (canWarmup ? "Start warmup" : "Upgrade to start warmup")}
+                                    {canWarmup ? "Start warmup" : "Upgrade to start warmup"}
                                 </PopoverMenuItem>
                             )}
-                            {paused && (
+                            {!inCloud && paused && (
                                 <PopoverMenuItem onSelect={canWarmup ? () => run("resume", "resumed") : upsell} icon={<PlayIcon className="w-3 h-3" />}>
-                                    {isHe ? (canWarmup ? "חידוש חימום" : "שדרוג לחידוש חימום") : (canWarmup ? "Resume warmup" : "Upgrade to resume warmup")}
+                                    {canWarmup ? "Resume warmup" : "Upgrade to resume warmup"}
                                 </PopoverMenuItem>
                             )}
-                            {active && (
+                            {!inCloud && active && (
                                 <PopoverMenuItem onSelect={() => run("pause", "paused")} icon={<PauseIcon className="w-3 h-3" />}>
-                                    {isHe ? "השהיית חימום" : "Pause warmup"}
+                                    Pause warmup
                                 </PopoverMenuItem>
                             )}
-                            {(active || paused) && (
+                            {!inCloud && (active || paused) && (
                                 <PopoverMenuItem danger onSelect={stopReset} icon={<RotateCcwIcon className="w-3 h-3" />}>
-                                    {isHe ? "עצירה ואיפוס" : "Stop & reset"}
+                                    Stop &amp; reset
                                 </PopoverMenuItem>
                             )}
                             <PopoverMenuSeparator />
                             <PopoverMenuItem onSelect={() => onOpen(box.id, "warmup")} icon={<RiFireLine className="w-3 h-3" />}>
-                                {isHe ? "הגדרות חימום" : "Warmup settings"}
+                                Warmup settings
                             </PopoverMenuItem>
                             <PopoverMenuItem onSelect={() => onOpen(box.id, "overview")} icon={<GaugeIcon className="w-3 h-3" />}>
-                                {isHe ? "בריאות תיבת הדואר" : "Mailbox health"}
+                                Mailbox health
                             </PopoverMenuItem>
                         </PopoverMenuContent>
                     </PopoverMenu>
-                    <button
-                        type="button"
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); onOpen(box.id, "settings"); }}
-                        aria-label={isHe ? "הגדרות תיבת דואר" : "Mailbox settings"}
-                    >
-                        <RiMoreLine className="w-3.5 h-3.5" />
-                    </button>
+                    <PopoverMenu align="end">
+                        <PopoverMenuTrigger asChild>
+                            <button
+                                type="button"
+                                className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                                aria-label="Mailbox actions"
+                            >
+                                <RiMoreLine className="w-3.5 h-3.5" />
+                            </button>
+                        </PopoverMenuTrigger>
+                        <PopoverMenuContent minWidth={208}>
+                            {/* Health is a click on the row itself, which opens
+                                the overview, so it is not repeated here. */}
+                            <PopoverMenuItem onSelect={() => onOpen(box.id, "settings")} icon={<Settings2Icon className="w-3 h-3" />}>
+                                Mailbox settings
+                            </PopoverMenuItem>
+                            <PopoverMenuSeparator />
+                            {/* The one obvious way to remove a single mailbox. It
+                                used to exist only behind the row checkboxes and the
+                                selection bar, which nobody finds when they want to
+                                delete one thing. */}
+                            <PopoverMenuItem danger onSelect={askDisconnect} icon={<Trash2Icon className="w-3 h-3" />}>
+                                Disconnect mailbox
+                            </PopoverMenuItem>
+                        </PopoverMenuContent>
+                    </PopoverMenu>
                 </div>
             </td>
         </tr>

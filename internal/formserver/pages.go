@@ -24,6 +24,23 @@ func formUnavailablePage(c *gin.Context) {
 	c.Data(http.StatusServiceUnavailable, "text/html; charset=utf-8", []byte(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Form unavailable</title></head><body style="font-family:system-ui,-apple-system,sans-serif;max-width:26rem;margin:5rem auto;padding:0 1rem;color:#0f172a;text-align:center"><h1 style="font-size:1.1rem;margin:0 0 .5rem">This form is temporarily unavailable</h1><p style="font-size:.9rem;color:#475569">Please try again in a moment.</p></body></html>`))
 }
 
+// rootPage answers the bare host. A form is reached through its own
+// unguessable link, so there is nothing here to list; a styled 200 is still
+// better than gin's plain-text 404, which reads as a broken deployment to
+// anyone who types the domain and to any uptime check pointed at `/`.
+//
+// No vendor name and no brand: this host is the customer's, and the only
+// branded surface is the form page itself.
+func rootPage(c *gin.Context) {
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Forms</title></head><body style="font-family:system-ui,-apple-system,sans-serif;max-width:26rem;margin:5rem auto;padding:0 1rem;color:#0f172a;text-align:center"><h1 style="font-size:1.1rem;margin:0 0 .5rem">This address serves hosted forms</h1><p style="font-size:.9rem;color:#475569">Each form has its own link. Open the one you were sent to fill it in.</p></body></html>`))
+}
+
+// notFoundPage is the same page shape for any other unknown path, so a typo in
+// a form link does not land on a bare framework error.
+func notFoundPage(c *gin.Context) {
+	c.Data(http.StatusNotFound, "text/html; charset=utf-8", []byte(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Not found</title></head><body style="font-family:system-ui,-apple-system,sans-serif;max-width:26rem;margin:5rem auto;padding:0 1rem;color:#0f172a;text-align:center"><h1 style="font-size:1.1rem;margin:0 0 .5rem">There is nothing at this address</h1><p style="font-size:.9rem;color:#475569">Check the link you were sent.</p></body></html>`))
+}
+
 // setFormFrameHeaders enforces the embed allowlist in the browser: with
 // domains set, only those sites (and the form's own origin) may frame it.
 // This is why the shell must come from this process and not a dumb file

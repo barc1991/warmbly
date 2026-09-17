@@ -40,11 +40,12 @@ const (
 
 	// Verification
 	IntegrationMillionVerifier IntegrationProvider = "millionverifier"
+	IntegrationCleanMyList     IntegrationProvider = "cleanmylist"
 )
 
 // VerificationProviders are the providers that verify contact addresses. A
 // connection to one of these makes a built-in verdict worth re-checking.
-var VerificationProviders = []IntegrationProvider{IntegrationMillionVerifier}
+var VerificationProviders = []IntegrationProvider{IntegrationMillionVerifier, IntegrationCleanMyList}
 
 // AllIntegrationProviders lists every provider the dashboard exposes. The
 // order here is the catalog order users see.
@@ -64,6 +65,7 @@ var AllIntegrationProviders = []IntegrationProvider{
 	IntegrationCalCom,
 	IntegrationGoogleSheets,
 	IntegrationMillionVerifier,
+	IntegrationCleanMyList,
 }
 
 func IsValidIntegrationProvider(s string) bool {

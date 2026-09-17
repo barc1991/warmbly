@@ -21,16 +21,22 @@ import toast from "react-hot-toast";
 import {
     DndContext,
     DragOverlay,
+    KeyboardSensor,
     PointerSensor,
     closestCenter,
+    pointerWithin,
     useDraggable,
     useDroppable,
     useSensor,
     useSensors,
+    type CollisionDetection,
     type DragEndEvent,
+    type DragOverEvent,
     type DragStartEvent,
+    type UniqueIdentifier,
 } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import type { LucideIcon } from "lucide-react";
 
 import { TextInput } from "@/components/ui/field";
 import ResourceViewers from "@/components/app/presence/ResourceViewers";
@@ -50,17 +56,25 @@ import FormPreview from "./FormPreview";
 import SettingsPanel from "./SettingsPanel";
 import ShareTab from "./ShareTab";
 import SubmissionsTab from "./SubmissionsTab";
-import { PALETTE, newField, type PaletteItem } from "./fieldCatalog";
+import {
+    CANVAS_DROPPABLE_ID,
+    PALETTE_PREFIX,
+    insertionIndex,
+    isNoopMove,
+    isPaletteDrag,
+    moveField,
+} from "./dropSlot";
+import { PALETTE, newField, paletteFor, type PaletteItem } from "./fieldCatalog";
 
 type TabKey = "build" | "design" | "settings" | "share" | "analytics" | "submissions";
 
 const TABS: { key: TabKey; label: string; Icon: typeof WrenchIcon }[] = [
-    { key: "build", label: "בנייה", Icon: WrenchIcon },
-    { key: "design", label: "עיצוב", Icon: PaletteIcon },
-    { key: "settings", label: "הגדרות", Icon: SettingsIcon },
-    { key: "share", label: "שיתוף", Icon: Share2Icon },
-    { key: "analytics", label: "ניתוח נתונים", Icon: ChartNoAxesColumnIcon },
-    { key: "submissions", label: "הגשות", Icon: InboxIcon },
+    { key: "build", label: "Build", Icon: WrenchIcon },
+    { key: "design", label: "Design", Icon: PaletteIcon },
+    { key: "settings", label: "Settings", Icon: SettingsIcon },
+    { key: "share", label: "Share", Icon: Share2Icon },
+    { key: "analytics", label: "Analytics", Icon: ChartNoAxesColumnIcon },
+    { key: "submissions", label: "Submissions", Icon: InboxIcon },
 ];
 
 interface Draft {
@@ -97,15 +111,29 @@ const STATUS_PILL: Record<Form["status"], string> = {
     archived: "bg-amber-50 text-amber-700",
 };
 
-const STATUS_LABELS: Record<Form["status"], string> = {
-    draft: "טיוטה",
-    published: "מפורסם",
-    archived: "בארכיון",
+/** The chip the cursor carries; a field drag borrows its type's palette icon. */
+interface DragChip {
+    label: string;
+    Icon: LucideIcon;
+}
+
+// Fields and the end-of-form slot are the drop targets; the canvas droppable
+// is only a fence. closestCenter always names a target however far away the
+// pointer is, so without the fence a palette item released back over the
+// palette would still be added, and without excluding the canvas from the
+// ranking its pane-sized rect out-competed the field the pointer was over.
+const collisionDetection: CollisionDetection = (args) => {
+    const canvas = args.droppableContainers.find((c) => c.id === CANVAS_DROPPABLE_ID)?.rect.current;
+    const p = args.pointerCoordinates;
+    if (p && canvas && (p.x < canvas.left || p.x > canvas.right || p.y < canvas.top || p.y > canvas.bottom)) return [];
+    const droppableContainers = args.droppableContainers.filter((c) => c.id !== CANVAS_DROPPABLE_ID);
+    const over = pointerWithin({ ...args, droppableContainers });
+    return over.length > 0 ? over : closestCenter({ ...args, droppableContainers });
 };
 
 function PaletteButton({ item, onAdd, disabled }: { item: PaletteItem; onAdd: () => void; disabled: boolean }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-        id: `palette:${item.type}`,
+        id: `${PALETTE_PREFIX}${item.type}`,
         data: { type: item.type },
         disabled,
     });
@@ -115,13 +143,13 @@ function PaletteButton({ item, onAdd, disabled }: { item: PaletteItem; onAdd: ()
             type="button"
             onClick={onAdd}
             disabled={disabled}
-            className={`h-8 px-2 w-full inline-flex items-center gap-2 rounded-md text-[12px] text-slate-700 hover:bg-slate-100 transition-colors text-start disabled:opacity-50 ${
+            className={`h-8 px-2 w-full inline-flex items-center gap-2 rounded-md text-[12px] text-slate-700 hover:bg-slate-100 transition-colors text-left disabled:opacity-50 ${
                 isDragging ? "opacity-40" : ""
             }`}
             {...attributes}
             {...listeners}
         >
-            <item.icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <item.icon className="w-3.5 h-3.5 text-slate-400" />
             {item.label}
         </button>
     );
@@ -162,7 +190,14 @@ export default function FormBuilder({ form }: { form: Form }) {
     const baselineRef = React.useRef(sig(draftFrom(form)));
     const dirty = sig(draft) !== baselineRef.current;
     const [selectedId, setSelectedId] = React.useState<string | null>(null);
-    const [dragging, setDragging] = React.useState<PaletteItem | null>(null);
+    const [dragging, setDragging] = React.useState<DragChip | null>(null);
+    // The slot the drag would land in, as an index into draft.fields before
+    // the move. Nothing reflows during a drag, so this caret is the only thing
+    // telling the user where the field goes.
+    const [dropIndex, setDropIndex] = React.useState<number | null>(null);
+    // Escape cancels a keyboard drag; the listener below must not also read it
+    // as "clear the selection" and take the settings panel with it.
+    const draggingRef = React.useRef(false);
 
     usePresenceResource(`form:${form.id}`, canEdit ? "editing" : "viewing");
 
@@ -170,6 +205,7 @@ export default function FormBuilder({ form }: { form: Form }) {
     React.useEffect(() => {
         function onKey(e: KeyboardEvent) {
             if (e.key !== "Escape") return;
+            if (draggingRef.current) return;
             if (document.querySelector("[data-floating],[role='alertdialog']")) return;
             setSelectedId(null);
         }
@@ -210,37 +246,89 @@ export default function FormBuilder({ form }: { form: Form }) {
         });
     }
 
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-    const { setNodeRef: setCanvasRef } = useDroppable({ id: "canvas" });
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+        // The grip announces itself as sortable, so it has to be sortable
+        // without a pointer: space picks a field up, the arrows move it.
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    );
+    const { setNodeRef: setCanvasRef } = useDroppable({ id: CANVAS_DROPPABLE_ID });
+
+    const slotOf = (activeId: string, overId: string | null) => insertionIndex(draft.fields, activeId, overId);
+    const isNoop = (activeId: string, at: number | null) => isNoopMove(draft.fields, activeId, at);
+
+    function blockName(id: string): string {
+        if (isPaletteDrag(id)) {
+            return PALETTE.find((p) => `${PALETTE_PREFIX}${p.type}` === id)?.label ?? "Block";
+        }
+        const f = draft.fields.find((x) => x.id === id);
+        return f ? f.label.trim() || paletteFor(f.type)?.label || "Block" : "Block";
+    }
+
+    // dnd-kit announces raw field ids by default, which is no help on the
+    // keyboard path this sensor opens up: name the block and the slot instead.
+    const announcements = {
+        onDragStart: ({ active }: { active: { id: UniqueIdentifier } }) => `Picked up ${blockName(String(active.id))}.`,
+        onDragOver: ({ active, over }: DragOverEvent) => slotMessage(String(active.id), over ? String(over.id) : null, "will be"),
+        onDragEnd: ({ active, over }: DragEndEvent) => slotMessage(String(active.id), over ? String(over.id) : null, "was"),
+        onDragCancel: ({ active }: { active: { id: UniqueIdentifier } }) => `${blockName(String(active.id))} was left where it was.`,
+    };
+
+    function slotMessage(activeId: string, overId: string | null, tense: "will be" | "was"): string {
+        const name = blockName(activeId);
+        const at = slotOf(activeId, overId);
+        if (at === null || isNoop(activeId, at)) return `${name} ${tense} left where it was.`;
+        if (at >= draft.fields.length) return `${name} ${tense} placed last.`;
+        return `${name} ${tense} placed before ${blockName(draft.fields[at].id)}.`;
+    }
 
     function onDragStart(e: DragStartEvent) {
         const id = String(e.active.id);
-        if (id.startsWith("palette:")) {
-            setDragging(PALETTE.find((p) => `palette:${p.type}` === id) ?? null);
+        draggingRef.current = true;
+        setDropIndex(null);
+        if (isPaletteDrag(id)) {
+            const item = PALETTE.find((p) => `${PALETTE_PREFIX}${p.type}` === id);
+            setDragging(item ? { label: item.label, Icon: item.icon } : null);
+            return;
         }
+        const field = draft.fields.find((f) => f.id === id);
+        const item = field ? paletteFor(field.type) : undefined;
+        setDragging(item ? { label: field?.label.trim() || item.label, Icon: item.icon } : null);
+    }
+
+    function onDragOver(e: DragOverEvent) {
+        const activeId = String(e.active.id);
+        const at = slotOf(activeId, e.over ? String(e.over.id) : null);
+        setDropIndex(isNoop(activeId, at) ? null : at);
+    }
+
+    function onDragCancel() {
+        draggingRef.current = false;
+        setDragging(null);
+        setDropIndex(null);
     }
 
     function onDragEnd(e: DragEndEvent) {
+        draggingRef.current = false;
         setDragging(null);
+        setDropIndex(null);
         const activeId = String(e.active.id);
-        const overId = e.over ? String(e.over.id) : null;
-        if (activeId.startsWith("palette:")) {
-            const item = PALETTE.find((p) => `palette:${p.type}` === activeId);
-            if (!item || !overId) return;
-            const overIndex = draft.fields.findIndex((f) => f.id === overId);
-            addField(item, overIndex >= 0 ? overIndex : undefined);
+        const at = slotOf(activeId, e.over ? String(e.over.id) : null);
+        if (at === null) return;
+        if (isPaletteDrag(activeId)) {
+            const item = PALETTE.find((p) => `${PALETTE_PREFIX}${p.type}` === activeId);
+            if (item) addField(item, at);
             return;
         }
-        if (!overId || overId === "canvas" || activeId === overId) return;
-        const from = draft.fields.findIndex((f) => f.id === activeId);
-        const to = draft.fields.findIndex((f) => f.id === overId);
-        if (from < 0 || to < 0) return;
-        setDraft((d) => ({ ...d, fields: arrayMove(d.fields, from, to) }));
+        setDraft((d) => {
+            const fields = moveField(d.fields, activeId, at);
+            return fields === d.fields ? d : { ...d, fields };
+        });
     }
 
     function writeFrom(d: Draft, s?: Form["status"]): FormWrite {
         return {
-            name: d.name.trim() || "טופס ללא כותרת",
+            name: d.name.trim() || "Untitled form",
             fields: d.fields,
             design: d.design,
             success_message: d.success_message,
@@ -256,7 +344,7 @@ export default function FormBuilder({ form }: { form: Form }) {
     async function save(nextStatus?: Form["status"]): Promise<boolean> {
         for (const f of draft.fields) {
             if (isInputType(f.type) && f.type !== "hidden" && !f.label.trim()) {
-                toast.error("לכל שדה נדרשת תווית");
+                toast.error("Every field needs a label");
                 setTab("build");
                 setSelectedId(f.id);
                 return false;
@@ -264,17 +352,17 @@ export default function FormBuilder({ form }: { form: Form }) {
         }
         if (nextStatus === "published") {
             if (!draft.fields.some((f) => isInputType(f.type) && f.type !== "hidden")) {
-                toast.error("יש להוסיף לפחות שדה קלט אחד לפני הפרסום");
+                toast.error("Add at least one input field before publishing");
                 setTab("build");
                 return false;
             }
             if (!draft.fields.some((f) => f.type === "email")) {
-                toast("ללא שדה אימייל, הגשות יישמרו אך לא יהפכו לאנשי קשר", { icon: "⚠️" });
+                toast("Without an email field, submissions are stored but never become contacts", { icon: "⚠️" });
             }
             const firstInput = draft.fields.findIndex((f) => f.type !== "page_break");
             const lastInput = draft.fields.map((f) => f.type !== "page_break").lastIndexOf(true);
             if (draft.fields.some((f, i) => f.type === "page_break" && (i < firstInput || i > lastInput))) {
-                toast("מעבר עמוד לפני השדה הראשון או אחרי האחרון יוצר עמוד ריק", { icon: "⚠️" });
+                toast("A page break before the first field or after the last one makes an empty page", { icon: "⚠️" });
             }
         }
         try {
@@ -309,6 +397,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                 editable={canEdit && tab === "build"}
                 showCaptchaBadge={draft.captcha_enabled && captchaAvailable}
                 previewPaging={tab === "design"}
+                dropIndex={dropIndex}
                 onSelect={(id) => setSelectedId(id || null)}
                 onDelete={(id) => deleteField(id)}
                 onDuplicate={(id) => duplicateField(id)}
@@ -324,7 +413,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                     to="/app/forms"
                     className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-slate-900 shrink-0"
                 >
-                    <ArrowLeftIcon className="w-3.5 h-3.5 rtl:rotate-180" /> טפסים
+                    <ArrowLeftIcon className="w-3.5 h-3.5" /> Forms
                 </Link>
                 <div className="w-px h-5 bg-slate-200 shrink-0" />
                 <TextInput
@@ -332,10 +421,10 @@ export default function FormBuilder({ form }: { form: Form }) {
                     onChange={(v) => patchDraft({ name: v })}
                     disabled={!canEdit}
                     className="max-w-[260px] font-medium"
-                    placeholder="שם הטופס"
+                    placeholder="Form name"
                 />
                 <span className={`inline-flex items-center h-4 px-1.5 rounded text-[10px] font-medium shrink-0 ${STATUS_PILL[status]}`}>
-                    {STATUS_LABELS[status]}
+                    {status}
                 </span>
                 <ResourceViewers resource={`form:${form.id}`} className="shrink-0" />
                 <div className="flex-1" />
@@ -346,7 +435,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                         rel="noopener noreferrer"
                         className="hidden sm:inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:bg-slate-100 shrink-0"
                     >
-                        <EyeIcon className="w-3.5 h-3.5" /> צפה בטופס <ExternalLinkIcon className="w-3 h-3" />
+                        <EyeIcon className="w-3.5 h-3.5" /> View live <ExternalLinkIcon className="w-3 h-3" />
                     </a>
                 )}
                 {status === "published" ? (
@@ -355,7 +444,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                         onClick={guarded(() => void save("draft"))}
                         className="h-7 px-2.5 rounded-md border border-slate-200 text-[12px] text-slate-600 hover:bg-slate-50 shrink-0"
                     >
-                        בטל פרסום
+                        Unpublish
                     </button>
                 ) : (
                     <button
@@ -363,7 +452,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                         onClick={guarded(() => void save("published"))}
                         className="h-7 px-3 rounded-md bg-sky-600 text-white text-[12px] font-medium hover:bg-sky-700 inline-flex items-center gap-1.5 shrink-0"
                     >
-                        <GlobeIcon className="w-3.5 h-3.5" /> פרסם
+                        <GlobeIcon className="w-3.5 h-3.5" /> Publish
                     </button>
                 )}
             </div>
@@ -403,13 +492,19 @@ export default function FormBuilder({ form }: { form: Form }) {
             {/* Body */}
             <div className="flex-1 min-h-0 flex">
                 {tab === "build" && (
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-                        <aside className="hidden md:flex w-52 shrink-0 flex-col gap-3 border-e border-slate-200 bg-white overflow-y-auto p-3">
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={collisionDetection}
+                        onDragStart={onDragStart}
+                        onDragOver={onDragOver}
+                        onDragEnd={onDragEnd}
+                        onDragCancel={onDragCancel}
+                        accessibility={{ announcements }}
+                    >
+                        <aside className="hidden md:flex w-52 shrink-0 flex-col gap-3 border-r border-slate-200 bg-white overflow-y-auto p-3">
                             {(["Fields", "Layout"] as const).map((group) => (
                                 <div key={group}>
-                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium px-2 mb-1">
-                                        {group === "Fields" ? "שדות" : "פריסה"}
-                                    </div>
+                                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium px-2 mb-1">{group}</div>
                                     <div className="flex flex-col">
                                         {PALETTE.filter((p) => p.group === group).map((item) => (
                                             <PaletteButton
@@ -427,10 +522,10 @@ export default function FormBuilder({ form }: { form: Form }) {
                                     </div>
                                 </div>
                             ))}
-                            <p className="text-[10.5px] text-slate-400 px-2">לחץ להוספה, או גרור אל משטח העבודה.</p>
+                            <p className="text-[10.5px] text-slate-400 px-2">Click to add, or drag onto the canvas.</p>
                         </aside>
                         {canvas}
-                        <aside className="hidden lg:block w-80 shrink-0 border-s border-slate-200 bg-white overflow-y-auto">
+                        <aside className="hidden lg:block w-80 shrink-0 border-l border-slate-200 bg-white overflow-y-auto">
                             {selected ? (
                                 <FieldSettingsPanel
                                     key={selected.id}
@@ -439,14 +534,16 @@ export default function FormBuilder({ form }: { form: Form }) {
                                     onChange={(patch) => patchField(selected.id, patch)}
                                 />
                             ) : (
-                                <div className="p-6 text-[12px] text-slate-400">בחר שדה במשטח העבודה כדי לערוך אותו.</div>
+                                <div className="p-6 text-[12px] text-slate-400">Select a field on the canvas to edit it.</div>
                             )}
                         </aside>
-                        <DragOverlay>
+                        {/* A dragged field rides the cursor as a chip and its
+                            row stays put, so the canvas keeps its shape. */}
+                        <DragOverlay dropAnimation={null}>
                             {dragging && (
-                                <div className="h-8 px-2 inline-flex items-center gap-2 rounded-md border border-sky-200 bg-white shadow-md text-[12px] text-slate-700">
-                                    <dragging.icon className="w-3.5 h-3.5 text-sky-600" />
-                                    {dragging.label}
+                                <div className="h-8 px-2 inline-flex items-center gap-2 rounded-md border border-sky-200 bg-white shadow-md text-[12px] text-slate-700 max-w-[220px]">
+                                    <dragging.Icon className="w-3.5 h-3.5 shrink-0 text-sky-600" />
+                                    <span className="truncate">{dragging.label}</span>
                                 </div>
                             )}
                         </DragOverlay>
@@ -456,7 +553,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                 {tab === "design" && (
                     <>
                         {canvas}
-                        <aside className="w-full sm:w-80 shrink-0 border-s border-slate-200 bg-white overflow-y-auto">
+                        <aside className="w-full sm:w-80 shrink-0 border-l border-slate-200 bg-white overflow-y-auto">
                             <DesignPanel
                                 formId={form.id}
                                 design={draft.design}
@@ -509,7 +606,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                         transition={{ type: "spring", damping: 28, stiffness: 360 }}
                         className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-lg border border-slate-200 bg-white shadow-lg px-3 py-2"
                     >
-                        <span className="text-[12px] text-slate-600">שינויים שלא נשמרו</span>
+                        <span className="text-[12px] text-slate-600">Unsaved changes</span>
                         <button
                             type="button"
                             onClick={() => {
@@ -519,7 +616,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                             }}
                             className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:bg-slate-100"
                         >
-                            בטל שינויים
+                            Discard
                         </button>
                         <button
                             type="button"
@@ -527,7 +624,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                             onClick={() => void save()}
                             className="h-7 px-3 rounded-md bg-sky-600 text-white text-[12px] font-medium hover:bg-sky-700 disabled:opacity-60"
                         >
-                            {update.isPending ? "שומר…" : "שמור"}
+                            {update.isPending ? "Saving…" : "Save"}
                         </button>
                     </motion.div>
                 )}

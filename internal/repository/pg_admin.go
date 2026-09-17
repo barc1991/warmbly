@@ -37,7 +37,7 @@ type AdminRepository interface {
 	ListWorkers(ctx context.Context, cursor *uuid.UUID, limit int) (*models.AdminWorkersResult, error)
 	GetWorkerDetail(ctx context.Context, workerID uuid.UUID) (*models.AdminWorkerDetail, error)
 	UpdateWorker(ctx context.Context, workerID uuid.UUID, update *models.AdminUpdateWorker) error
-	GetWorkerEmails(ctx context.Context, workerID uuid.UUID, cursor *uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, error)
+	GetWorkerEmails(ctx context.Context, workerID uuid.UUID, beforeAt time.Time, beforeID uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, error)
 	GetWorkerStats(ctx context.Context, workerID uuid.UUID) (*models.WorkerStats, error)
 	ReassignEmails(ctx context.Context, emailIDs []uuid.UUID, newWorkerID uuid.UUID) error
 
@@ -256,7 +256,10 @@ func (r *adminRepository) SearchUsers(ctx context.Context, search *models.AdminU
 	}
 	defer rows.Close()
 
-	var users []models.AdminUserDetail
+	// Every list this file builds is made rather than declared: a nil slice
+	// marshals to JSON null, and the panel reads .length off these without a
+	// guard, so an empty result took the page down instead of showing "none".
+	users := make([]models.AdminUserDetail, 0)
 	for rows.Next() {
 		var u models.AdminUserDetail
 		err := rows.Scan(
@@ -335,8 +338,14 @@ func (r *adminRepository) GetUserPreview(ctx context.Context, userID uuid.UUID) 
 		return nil, nil
 	}
 
+	// Empty slices, not nil: a nil slice marshals to JSON null, and the panel
+	// reads .length off each of these without a guard.
 	preview := &models.AdminUserPreview{
-		User: *user,
+		User:          *user,
+		Organizations: []models.Organization{},
+		Subscriptions: []models.Subscription{},
+		EmailAccounts: []models.AdminWorkerEmail{},
+		RecentBans:    []models.UserBan{},
 	}
 
 	// Get organizations
@@ -558,7 +567,7 @@ func (r *adminRepository) GetUserBans(ctx context.Context, userID uuid.UUID) ([]
 	}
 	defer rows.Close()
 
-	var bans []models.UserBan
+	bans := make([]models.UserBan, 0)
 	for rows.Next() {
 		var ban models.UserBan
 		var bannedByUser models.AdminUserSummary
@@ -620,7 +629,7 @@ func (r *adminRepository) GetUserEmails(ctx context.Context, userID uuid.UUID, c
 	}
 	defer rows.Close()
 
-	var emails []models.AdminWorkerEmail
+	emails := make([]models.AdminWorkerEmail, 0)
 	for rows.Next() {
 		var e models.AdminWorkerEmail
 		err := rows.Scan(
@@ -675,7 +684,7 @@ func (r *adminRepository) ListAdmins(ctx context.Context, cursor *uuid.UUID, lim
 	}
 	defer rows.Close()
 
-	var admins []models.AdminInfo
+	admins := make([]models.AdminInfo, 0)
 	for rows.Next() {
 		var admin models.AdminInfo
 		var grantedByID *uuid.UUID
@@ -749,7 +758,7 @@ func (r *adminRepository) ListWorkers(ctx context.Context, cursor *uuid.UUID, li
 	}
 	defer rows.Close()
 
-	var workers []models.AdminWorkerDetail
+	workers := make([]models.AdminWorkerDetail, 0)
 	for rows.Next() {
 		var w models.AdminWorkerDetail
 		err := rows.Scan(
@@ -849,16 +858,16 @@ func (r *adminRepository) UpdateWorker(ctx context.Context, workerID uuid.UUID, 
 }
 
 // GetWorkerEmails gets emails connected to a worker
-func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUID, cursor *uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, error) {
+func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUID, beforeAt time.Time, beforeID uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
 
 	args := []interface{}{workerID, limit + 1}
 	whereClause := "WHERE ea.worker_id = $1"
-	if cursor != nil {
-		whereClause += " AND ea.id < $3"
-		args = append(args, *cursor)
+	if beforeID != uuid.Nil {
+		whereClause += ` AND (ea.created_at, ea.id) < ($3, $4)`
+		args = append(args, beforeAt, beforeID)
 	}
 
 	// Health lives on warmup_pool_participants, one row per mailbox. The CASE
@@ -870,11 +879,10 @@ func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUI
 			COALESCE(ea.risk_band, 'clean'::email_risk_band)::text,
 			ea.risk_evaluated_at,
 			COALESCE(wh.health_state, '')::text,
-			wh.spam_score,
-			wh.blocked_until
+			wh.blocked_until, ea.created_at
 		FROM email_accounts ea
 		LEFT JOIN LATERAL (
-			SELECT health_state, spam_score, blocked_until
+			SELECT health_state, blocked_until
 			FROM warmup_pool_participants
 			WHERE email_account_id = ea.id
 			ORDER BY CASE health_state
@@ -888,7 +896,7 @@ func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUI
 			LIMIT 1
 		) wh ON true
 		` + whereClause + `
-		ORDER BY ea.created_at DESC
+		ORDER BY ea.created_at DESC, ea.id DESC
 		LIMIT $2
 	`
 
@@ -898,13 +906,13 @@ func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUI
 	}
 	defer rows.Close()
 
-	var emails []models.AdminWorkerEmail
+	emails := make([]models.AdminWorkerEmail, 0)
 	for rows.Next() {
 		var e models.AdminWorkerEmail
 		err := rows.Scan(
 			&e.ID, &e.Email, &e.UserID, &e.OrganizationID,
 			&e.Status, &e.Provider, &e.WarmupEnabled, &e.LastSyncedAt,
-			&e.RiskBand, &e.RiskEvaluatedAt, &e.WarmupHealth, &e.SpamScore, &e.BlockedUntil,
+			&e.RiskBand, &e.RiskEvaluatedAt, &e.WarmupHealth, &e.BlockedUntil, &e.CreatedAt,
 		)
 		if err != nil {
 			return nil, nil, err
@@ -918,7 +926,7 @@ func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUI
 
 	if len(emails) > limit {
 		emails = emails[:limit]
-		pagination.NextCursor = paging.UUIDString(emails[limit-1].ID)
+		pagination.NextCursor = paging.EncodeTime(emails[limit-1].CreatedAt, emails[limit-1].ID)
 	}
 
 	return emails, pagination, nil
@@ -997,7 +1005,7 @@ func (r *adminRepository) ListWarmupPools(ctx context.Context) ([]models.WarmupP
 	}
 	defer rows.Close()
 
-	var pools []models.WarmupPoolInfo
+	pools := make([]models.WarmupPoolInfo, 0)
 	for rows.Next() {
 		var p models.WarmupPoolInfo
 		if err := rows.Scan(&p.Type, &p.TotalParticipants, &p.ActiveParticipants, &p.BlockedCount); err != nil {
@@ -1024,7 +1032,7 @@ func (r *adminRepository) GetPoolParticipants(ctx context.Context, poolType stri
 	query := `
 		SELECT
 			wpp.email_account_id, ea.email, ea.user_id::uuid,
-			wpp.joined_at, wpp.spam_score,
+			wpp.joined_at,
 			wpp.blocked_at IS NOT NULL OR wpp.health_state IN ('quarantined', 'blocked'),
 			wpp.blocked_at,
 			COALESCE((SELECT SUM(ws.emails_sent) FROM warmup_statistics ws WHERE ws.email_account_id = wpp.email_account_id), 0),
@@ -1043,12 +1051,12 @@ func (r *adminRepository) GetPoolParticipants(ctx context.Context, poolType stri
 	}
 	defer rows.Close()
 
-	var participants []models.WarmupPoolParticipant
+	participants := make([]models.WarmupPoolParticipant, 0)
 	for rows.Next() {
 		var p models.WarmupPoolParticipant
 		if err := rows.Scan(
 			&p.ID, &p.Email, &p.UserID,
-			&p.JoinedAt, &p.ReputationScore,
+			&p.JoinedAt,
 			&p.IsBlocked, &p.BlockedAt,
 			&p.EmailsSent, &p.EmailsReceived,
 		); err != nil {
@@ -1106,7 +1114,7 @@ func (r *adminRepository) ListBlockedAccounts(ctx context.Context, cursor *uuid.
 	}
 	defer rows.Close()
 
-	var accounts []models.AdminBlockedAccount
+	accounts := make([]models.AdminBlockedAccount, 0)
 	for rows.Next() {
 		var a models.AdminBlockedAccount
 		var user models.AdminUserSummary
@@ -1187,8 +1195,7 @@ func (r *adminRepository) UnblockAccount(ctx context.Context, accountID uuid.UUI
 		    blocked_until = NULL,
 		    last_health_reason = 'unblocked by admin',
 		    last_health_evaluated_at = NOW(),
-		    last_health_score = 0,
-		    spam_score = 0
+		    last_health_score = 0
 		WHERE email_account_id = $1
 	`, accountID)
 	return err
@@ -1232,7 +1239,7 @@ func (r *adminRepository) ListAppeals(ctx context.Context, status string, cursor
 	}
 	defer rows.Close()
 
-	var appeals []models.WarmupAppeal
+	appeals := make([]models.WarmupAppeal, 0)
 	for rows.Next() {
 		var a models.WarmupAppeal
 		var user models.AdminUserSummary
@@ -1332,8 +1339,7 @@ func (r *adminRepository) ReviewAppeal(ctx context.Context, appealID uuid.UUID, 
 				    blocked_until = NULL,
 				    last_health_reason = 'appeal approved',
 				    last_health_evaluated_at = NOW(),
-				    last_health_score = 0,
-				    spam_score = 0
+				    last_health_score = 0
 				WHERE email_account_id = $1
 			`, accountID)
 			if err != nil {
@@ -1506,7 +1512,7 @@ func (r *adminRepository) SearchCampaigns(ctx context.Context, search *models.Ad
 	}
 	defer rows.Close()
 
-	var campaigns []models.AdminCampaignDetail
+	campaigns := make([]models.AdminCampaignDetail, 0)
 	for rows.Next() {
 		var c models.AdminCampaignDetail
 		var user models.AdminUserSummary
@@ -1692,7 +1698,7 @@ func (r *adminRepository) SearchAuditLogs(ctx context.Context, search *models.Ad
 	}
 	defer rows.Close()
 
-	var logs []models.AdminAuditLog
+	logs := make([]models.AdminAuditLog, 0)
 	for rows.Next() {
 		var log models.AdminAuditLog
 		var user models.AdminUserSummary
@@ -1801,7 +1807,7 @@ func (r *adminRepository) GetUserGrowthStats(ctx context.Context, startDate, end
 	}
 	defer rows.Close()
 
-	var stats []models.UserGrowthStats
+	stats := make([]models.UserGrowthStats, 0)
 	for rows.Next() {
 		var s models.UserGrowthStats
 		err := rows.Scan(&s.Date, &s.NewUsers)

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -22,6 +23,9 @@ type UpdateUniboxEntry struct {
 	// FolderPath is the source folder's name, the folder's identity.
 	FolderPath *string `json:"folder_path"`
 	Folder     *string `json:"folder"`
+	// ProviderFolder is the provider's own placement. It moves on every real
+	// provider move; Folder only follows when the message was not filed here.
+	ProviderFolder *string `json:"provider_folder"`
 }
 
 type UniboxRepository interface {
@@ -37,14 +41,28 @@ type UniboxRepository interface {
 	GetByIDForOrg(ctx context.Context, orgID, id uuid.UUID) (*models.EmailMessageStoreData, uuid.UUID, error)
 	GetByThread(ctx context.Context, orgID, emailID uuid.UUID, threadID string, limit int, cursor string) (*models.MailSearchResult, error)
 	GetBySender(ctx context.Context, userID uuid.UUID, sender string, limit int, cursor string) (*models.MailSearchResult, error)
-	Search(ctx context.Context, orgID, userID uuid.UUID, params *models.MailSearchParams) (*models.MailSearchResult, error)
+	Search(ctx context.Context, orgID uuid.UUID, params *models.MailSearchParams) (*models.MailSearchResult, error)
 	GetUnseenCount(ctx context.Context, orgID uuid.UUID, emailAccountID *uuid.UUID) (int64, error)
 	MarkSeen(ctx context.Context, userID, id uuid.UUID, seen bool) error
-	MarkSeenBulk(ctx context.Context, orgID uuid.UUID, ids []uuid.UUID, seen bool) error
+	// MarkSeenBulk flips the read state of the given messages and returns the
+	// ids that actually changed, which is what gets relayed to the provider.
+	MarkSeenBulk(ctx context.Context, orgID uuid.UUID, ids []uuid.UUID, seen bool) ([]uuid.UUID, error)
 	// MarkSeenByFolder flips the read state of every message in one canonical
 	// folder for the whole workspace (the sidebar's "mark all as read").
-	MarkSeenByFolder(ctx context.Context, orgID uuid.UUID, folder string, seen bool) error
+	MarkSeenByFolder(ctx context.Context, orgID uuid.UUID, folder string, seen bool) ([]uuid.UUID, error)
+	// MoveToFolderBulk re-files the given messages into one canonical folder,
+	// org-scoped like MarkSeenBulk.
+	MoveToFolderBulk(ctx context.Context, orgID uuid.UUID, ids []uuid.UUID, folder string) error
+	// SeenRelayTargets names the given messages the way their provider does,
+	// with the worker holding each mailbox. Rows whose mailbox has no worker
+	// are left out: there is nothing to relay through.
+	SeenRelayTargets(ctx context.Context, orgID uuid.UUID, ids []uuid.UUID) ([]models.SeenRelayTarget, error)
 	Delete(ctx context.Context, userID, id uuid.UUID) error
+	ListWarmupReviewCandidates(ctx context.Context, afterID uuid.UUID, limit int) ([]models.JobEventNewEmail, error)
+	DeferWarmupVerification(ctx context.Context, e *models.JobEventNewEmail) error
+	ClaimPendingWarmupVerification(ctx context.Context, limit int) ([]models.JobEventNewEmail, error)
+	ProcessPendingWarmupVerification(ctx context.Context, id uuid.UUID, process func(*models.JobEventNewEmail) error) error
+	UpdatePendingEmail(ctx context.Context, userID, id uuid.UUID, update func(*models.EmailMessageStoreData)) (bool, error)
 
 	// Snooze: per (user, thread). UpsertSnooze adopts the new
 	// snoozed_until even if one already exists; DeleteSnooze removes
@@ -58,18 +76,18 @@ type UniboxRepository interface {
 	// so the client doesn't fan out N+M queries for each mailbox/tag.
 	Overview(ctx context.Context, orgID uuid.UUID) (*models.UniboxOverview, error)
 
-	// Conversation labels. SetThreadLabels replaces the full label set
-	// on a thread (idempotent PUT semantics, only the user's own
-	// categories are attached). ListThreadLabels returns the current
-	// set for one thread.
-	SetThreadLabels(ctx context.Context, userID uuid.UUID, threadID string, categoryIDs []uuid.UUID) ([]models.MiniCategory, error)
-	ListThreadLabels(ctx context.Context, userID uuid.UUID, threadID string) ([]models.MiniCategory, error)
+	// Conversation labels, workspace-scoped like the inbox they hang off.
+	// SetThreadLabels replaces the full label set on a thread (idempotent PUT
+	// semantics, only the workspace's own categories are attached);
+	// ListThreadLabels returns the current set for one thread.
+	SetThreadLabels(ctx context.Context, orgID, userID uuid.UUID, threadID string, categoryIDs []uuid.UUID) ([]models.MiniCategory, error)
+	ListThreadLabels(ctx context.Context, orgID uuid.UUID, threadID string) ([]models.MiniCategory, error)
 	// AddThreadLabels attaches labels to a thread WITHOUT removing existing ones
 	// (additive; for automation/step "label email" actions). LatestThreadIDForContact
-	// finds the user's most recent conversation with an address, so a campaign
+	// finds the workspace's most recent conversation with an address, so a campaign
 	// step that knows the contact but not the thread can still label it.
-	AddThreadLabels(ctx context.Context, userID uuid.UUID, threadID string, categoryIDs []uuid.UUID) error
-	LatestThreadIDForContact(ctx context.Context, userID uuid.UUID, email string) (string, error)
+	AddThreadLabels(ctx context.Context, orgID uuid.UUID, threadID string, categoryIDs []uuid.UUID) error
+	LatestThreadIDForContact(ctx context.Context, orgID uuid.UUID, email string) (string, error)
 	// LatestMessageIDInThread returns the newest RFC Message-ID in a thread, so
 	// a reply that arrives with only a provider thread id can still carry the
 	// In-Reply-To header the recipient's mail client threads on.
@@ -111,7 +129,7 @@ var mailFieldsFull = []string{
 	"gmail_id", "parent_id", "uid", "mod_seq",
 	"flags", "bcc", "cc", "from_addr", "in_reply_to", "reply_to",
 	"to_addr", "subject", "size", "internal_date", "sent_date",
-	"snippet", "seen", "updated_at", "created_at", "folder",
+	"snippet", "seen", "updated_at", "created_at", "folder", "provider_folder",
 }
 
 var mailFieldsPreview = []string{
@@ -126,13 +144,15 @@ func (r *uniboxRepository) CreateEntry(ctx context.Context, userID uuid.UUID, e 
 			gmail_id, parent_id, uid, mod_seq,
 			flags, bcc, cc, from_addr, in_reply_to, reply_to,
 			to_addr, subject, size, internal_date, sent_date,
-			snippet, seen, created_at, updated_at, body_text, folder
+			snippet, seen, created_at, updated_at, body_text, folder,
+			provider_folder
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7,
 			$8, $9, $10, $11,
 			$12, $13, $14, $15, $16, $17,
 			$18, $19, $20, $21, $22,
-			$23, $24, $25, $26, $27, $28
+			$23, $24, $25, $26, $27, $28,
+			$28
 		)
 		ON CONFLICT (id) DO NOTHING
 	`
@@ -146,6 +166,8 @@ func (r *uniboxRepository) CreateEntry(ctx context.Context, userID uuid.UUID, e 
 		textArray(e.InReplyTo), textArray(e.ReplyTo), textArray(e.ToAddr),
 		e.Subject, e.Size, e.InternalDate, e.SentDate,
 		e.Snippet, e.Seen, e.CreatedAt, e.UpdatedAt, e.BodyText,
+		// $28 is both columns: a message starts out where the provider put it,
+		// and only diverges once someone files it in Warmbly.
 		models.NormalizeFolder(e.Folder, e.Flags),
 	)
 	return err
@@ -195,6 +217,11 @@ func (r *uniboxRepository) UpdateEntry(ctx context.Context, userID, emailID, id 
 		args = append(args, *e.Folder)
 		argPos++
 	}
+	if e.ProviderFolder != nil {
+		setClauses = append(setClauses, fmt.Sprintf("provider_folder = $%d", argPos))
+		args = append(args, *e.ProviderFolder)
+		argPos++
+	}
 
 	if argPos == 3 {
 		return nil // nothing to update
@@ -238,6 +265,11 @@ func (r *uniboxRepository) GetIncoming(ctx context.Context, userID uuid.UUID, li
 	return r.queryPreviewList(ctx, query, args, limit)
 }
 
+// ErrEmailNotFound is returned when a message id names no row the caller can
+// see. A consumer event for a message the unibox never stored is routine, not a
+// failure, so it has to be distinguishable from a real read error.
+var ErrEmailNotFound = errors.New("email not found")
+
 func (r *uniboxRepository) GetByID(ctx context.Context, userID, id uuid.UUID) (*models.EmailMessageStoreData, error) {
 	query := fmt.Sprintf(`
 		SELECT %s
@@ -251,11 +283,11 @@ func (r *uniboxRepository) GetByID(ctx context.Context, userID, id uuid.UUID) (*
 		&e.GmailID, &e.ParentID, &e.UID, &e.ModSeq,
 		&e.Flags, &e.BCC, &e.CC, &e.FromAddr, &e.InReplyTo, &e.ReplyTo,
 		&e.ToAddr, &e.Subject, &e.Size, &e.InternalDate, &e.SentDate,
-		&e.Snippet, &e.Seen, &e.UpdatedAt, &e.CreatedAt, &e.Folder,
+		&e.Snippet, &e.Seen, &e.UpdatedAt, &e.CreatedAt, &e.Folder, &e.ProviderFolder,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("email not found")
+			return nil, ErrEmailNotFound
 		}
 		return nil, err
 	}
@@ -275,6 +307,9 @@ func (r *uniboxRepository) GetByID(ctx context.Context, userID, id uuid.UUID) (*
 // user_id: the body's object-storage key is built from the owner (and the
 // row's email_id), so the caller must fetch the body under the owner, not
 // under itself.
+//
+// It does not mark the message read: that is a write with a provider relay
+// behind it, and it belongs to the service.
 func (r *uniboxRepository) GetByIDForOrg(ctx context.Context, orgID, id uuid.UUID) (*models.EmailMessageStoreData, uuid.UUID, error) {
 	query := fmt.Sprintf(`
 		SELECT user_id, %s
@@ -290,21 +325,18 @@ func (r *uniboxRepository) GetByIDForOrg(ctx context.Context, orgID, id uuid.UUI
 		&e.GmailID, &e.ParentID, &e.UID, &e.ModSeq,
 		&e.Flags, &e.BCC, &e.CC, &e.FromAddr, &e.InReplyTo, &e.ReplyTo,
 		&e.ToAddr, &e.Subject, &e.Size, &e.InternalDate, &e.SentDate,
-		&e.Snippet, &e.Seen, &e.UpdatedAt, &e.CreatedAt, &e.Folder,
+		&e.Snippet, &e.Seen, &e.UpdatedAt, &e.CreatedAt, &e.Folder, &e.ProviderFolder,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return nil, uuid.Nil, fmt.Errorf("email not found")
+			return nil, uuid.Nil, ErrEmailNotFound
 		}
 		return nil, uuid.Nil, err
 	}
 
-	// Auto-mark as seen, org-scoped so any member clears the shared unread state.
-	if !e.Seen {
-		_ = r.MarkSeenBulk(ctx, orgID, []uuid.UUID{id}, true)
-		e.Seen = true
-	}
-
+	// Reading it is what marks it read, and that now has to reach the mailbox
+	// too, so the service owns the transition (it holds the relay). The row
+	// is returned exactly as stored.
 	return &e, ownerID, nil
 }
 
@@ -391,16 +423,16 @@ func (r *uniboxRepository) GetBySender(ctx context.Context, userID uuid.UUID, se
 //     content filter (the default inbox) that's the whole thread.
 //   - thread/representative-level filters (awaiting reply, category)
 //     and keyset pagination run on the collapsed row.
-func (r *uniboxRepository) Search(ctx context.Context, orgID, userID uuid.UUID, params *models.MailSearchParams) (*models.MailSearchResult, error) {
+func (r *uniboxRepository) Search(ctx context.Context, orgID uuid.UUID, params *models.MailSearchParams) (*models.MailSearchResult, error) {
 	previewCols := make([]string, len(mailFieldsPreview))
 	for i, c := range mailFieldsPreview {
 		previewCols[i] = "ue." + c
 	}
 
-	// $1 = orgID (scope mail to the workspace's mailboxes); $2 = userID
-	// (per-user thread labels stay personal). Dynamic filters start at $3.
-	args := []any{orgID, userID}
-	argPos := 3
+	// $1 = orgID, which scopes both the mail (through the workspace's
+	// mailboxes) and the conversation labels. Dynamic filters start at $2.
+	args := []any{orgID}
+	argPos := 2
 
 	// ── Inner windowed subquery: row-level filters + per-thread aggs ──
 	// Partition by the thread, but treat an empty thread_id (the column
@@ -465,13 +497,51 @@ func (r *uniboxRepository) Search(ctx context.Context, orgID, userID uuid.UUID, 
 	}
 
 	if params.Subject != nil && *params.Subject != "" {
-		// Two indexes, one query: search_tsv covers subject + preview, and the
-		// body expression matches idx_unibox_emails_body_search exactly (it has
-		// to be written the same way, or the index is not used).
-		inner += fmt.Sprintf(` AND (ue.search_tsv @@ plainto_tsquery('english', $%d)
-				OR to_tsvector('english'::regconfig, ue.body_text) @@ plainto_tsquery('english', $%d))`, argPos, argPos)
-		args = append(args, *params.Subject)
-		argPos++
+		// One box, everything a person searches an inbox for: the words in the
+		// subject or the body, and the people the message was with.
+		//
+		// Three matchers, because no single one covers it:
+		//
+		//   full text  — websearch_to_tsquery over search_tsv (subject +
+		//                preview) and the body. It reads "quoted phrases",
+		//                OR and -excluded the way every search box does, and
+		//                unlike to_tsquery it cannot be made to raise on
+		//                punctuation, so a user typing `re: (urgent)` gets
+		//                results rather than a 500.
+		//   prefix     — whole words only is wrong while someone is still
+		//                typing: "dyno" found 2 of the 100+ messages that say
+		//                dynoweb. The sanitized prefix query fixes that.
+		//   people     — the addresses. Searching a name or an address was
+		//                finding nothing at all unless it also appeared in the
+		//                body, which is not what anyone expects from an inbox.
+		//
+		// The body expression is written exactly as idx_unibox_emails_body_search
+		// declares it, or the index is not used.
+		q := *params.Subject
+		webPos, addrPos := argPos, argPos+1
+		args = append(args, q, escapeLikePattern(q))
+		argPos += 2
+
+		match := fmt.Sprintf(`ue.search_tsv @@ websearch_to_tsquery('english', $%d)
+				OR to_tsvector('english'::regconfig, ue.body_text) @@ websearch_to_tsquery('english', $%d)`, webPos, webPos)
+
+		if prefix := prefixTSQuery(q); prefix != "" {
+			match += fmt.Sprintf(`
+				OR ue.search_tsv @@ to_tsquery('english', $%d)
+				OR to_tsvector('english'::regconfig, ue.body_text) @@ to_tsquery('english', $%d)`, argPos, argPos)
+			args = append(args, prefix)
+			argPos++
+		}
+
+		// Participants. The stored header is "Display Name (addr)", so one
+		// substring match covers searching by either.
+		match += fmt.Sprintf(`
+				OR EXISTS (SELECT 1 FROM unnest(ue.from_addr) AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%' ESCAPE '\')
+				OR EXISTS (SELECT 1 FROM unnest(ue.to_addr)   AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%' ESCAPE '\')
+				OR EXISTS (SELECT 1 FROM unnest(ue.cc)        AS s(addr) WHERE s.addr ILIKE '%%' || $%d || '%%' ESCAPE '\')`,
+			addrPos, addrPos, addrPos)
+
+		inner += ` AND (` + match + `)`
 	}
 
 	if params.Sender != nil && *params.Sender != "" {
@@ -533,8 +603,8 @@ func (r *uniboxRepository) Search(ctx context.Context, orgID, userID uuid.UUID, 
 				(
 					SELECT json_agg(json_build_object('id', c.id, 'title', c.title, 'color', c.color) ORDER BY c.position ASC, c.title ASC)
 					FROM unibox_thread_labels utl
-					JOIN categories c ON c.id = utl.category_id
-					WHERE utl.user_id = $2 AND utl.thread_id = b.thread_id
+					JOIN categories c ON c.id = utl.category_id AND c.organization_id = utl.organization_id
+					WHERE utl.organization_id = $1 AND utl.thread_id = b.thread_id
 				), '[]'::json
 			) AS labels
 		FROM (%s) b
@@ -566,7 +636,7 @@ func (r *uniboxRepository) Search(ctx context.Context, orgID, userID uuid.UUID, 
 		query += fmt.Sprintf(`
 			AND EXISTS (
 				SELECT 1 FROM unibox_thread_labels utl
-				WHERE utl.user_id = $2
+				WHERE utl.organization_id = $1
 				  AND utl.thread_id = b.thread_id
 				  AND utl.category_id = ANY($%d)
 			)`, argPos)
@@ -578,7 +648,7 @@ func (r *uniboxRepository) Search(ctx context.Context, orgID, userID uuid.UUID, 
 		query += `
 			AND NOT EXISTS (
 				SELECT 1 FROM unibox_thread_labels utl
-				WHERE utl.user_id = $2
+				WHERE utl.organization_id = $1
 				  AND utl.thread_id = b.thread_id
 			)`
 	}
@@ -636,40 +706,127 @@ func (r *uniboxRepository) MarkSeen(ctx context.Context, userID, id uuid.UUID, s
 	return err
 }
 
-func (r *uniboxRepository) MarkSeenBulk(ctx context.Context, orgID uuid.UUID, ids []uuid.UUID, seen bool) error {
+func (r *uniboxRepository) MarkSeenBulk(ctx context.Context, orgID uuid.UUID, ids []uuid.UUID, seen bool) ([]uuid.UUID, error) {
 	if len(ids) == 0 {
-		return nil
+		return nil, nil
 	}
 	// Org-scoped so any member with unibox access can clear the shared inbox's
 	// unread state, not only the mailbox owner. The unread count is org-wide, so
 	// a user_id filter would leave the badge stuck for non-owner members. ANY($3)
 	// also covers the single-id case.
-	_, err := r.db.Exec(ctx,
+	//
+	// `seen <> $1` and the RETURNING are what keep the provider relay honest:
+	// re-reading a thread that is already read should cost nothing at Gmail.
+	rows, err := r.db.Query(ctx,
 		`UPDATE unibox_emails SET seen = $1, updated_at = NOW()
-		 WHERE id = ANY($3) AND email_id IN (SELECT id FROM email_accounts WHERE organization_id = $2)`,
+		 WHERE id = ANY($3) AND seen <> $1
+		   AND email_id IN (SELECT id FROM email_accounts WHERE organization_id = $2)
+		 RETURNING id`,
 		seen, orgID, ids,
 	)
-	return err
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	changed := make([]uuid.UUID, 0, len(ids))
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		changed = append(changed, id)
+	}
+	return changed, rows.Err()
 }
 
 // MarkSeenByFolder flips the read state of every message in one folder,
 // org-scoped like MarkSeenBulk (the sidebar's "mark all as read").
-func (r *uniboxRepository) MarkSeenByFolder(ctx context.Context, orgID uuid.UUID, folder string, seen bool) error {
-	_, err := r.db.Exec(ctx,
+func (r *uniboxRepository) MarkSeenByFolder(ctx context.Context, orgID uuid.UUID, folder string, seen bool) ([]uuid.UUID, error) {
+	rows, err := r.db.Query(ctx,
 		`UPDATE unibox_emails SET seen = $1, updated_at = NOW()
 		 WHERE folder = $3 AND seen <> $1
-		   AND email_id IN (SELECT id FROM email_accounts WHERE organization_id = $2)`,
+		   AND email_id IN (SELECT id FROM email_accounts WHERE organization_id = $2)
+		 RETURNING id`,
 		seen, orgID, folder,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var changed []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		changed = append(changed, id)
+	}
+	return changed, rows.Err()
+}
+
+// SeenRelayTargets resolves messages to what their provider calls them, plus
+// the worker holding the mailbox.
+//
+// The three providers need different halves of this row (Gmail and Graph a
+// message id, IMAP a folder and a UID), so all of it travels and the worker
+// takes what its client uses. The read state comes from the row rather than
+// from the request, so what is relayed is what Warmbly currently holds.
+func (r *uniboxRepository) SeenRelayTargets(ctx context.Context, orgID uuid.UUID, ids []uuid.UUID) ([]models.SeenRelayTarget, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := r.db.Query(ctx,
+		`SELECT ue.email_id, ea.worker_id, ue.seen, ue.gmail_id, ue.uid, ue.folder_path, ue.message_id
+		 FROM unibox_emails ue
+		 JOIN email_accounts ea ON ea.id = ue.email_id
+		 WHERE ue.id = ANY($2) AND ea.organization_id = $1 AND ea.worker_id IS NOT NULL
+		 ORDER BY ue.email_id`,
+		orgID, ids,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []models.SeenRelayTarget
+	for rows.Next() {
+		var t models.SeenRelayTarget
+		if err := rows.Scan(&t.EmailID, &t.WorkerID, &t.Seen, &t.Ref.ProviderID, &t.Ref.UID, &t.Ref.Folder, &t.Ref.RFCMessageID); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (r *uniboxRepository) MoveToFolderBulk(ctx context.Context, orgID uuid.UUID, ids []uuid.UUID, folder string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := r.db.Exec(ctx,
+		`UPDATE unibox_emails SET folder = $1, updated_at = NOW()
+		 WHERE id = ANY($3) AND email_id IN (SELECT id FROM email_accounts WHERE organization_id = $2)`,
+		folder, orgID, ids,
 	)
 	return err
 }
 
 func (r *uniboxRepository) Delete(ctx context.Context, userID, id uuid.UUID) error {
-	_, err := r.db.Exec(ctx,
-		`DELETE FROM unibox_emails WHERE user_id = $1 AND id = $2`,
-		userID, id,
-	)
-	return err
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `DELETE FROM unibox_pending_emails WHERE user_id=$1 AND id=$2`, userID, id); err != nil {
+		return err
+	}
+	// Take a fresh snapshot after waiting for any pending-to-visible transition.
+	if _, err := tx.Exec(ctx, `DELETE FROM unibox_emails WHERE user_id=$1 AND id=$2`, userID, id); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // queryPreviewList executes a query returning preview rows with limit+1 pagination.
@@ -766,10 +923,13 @@ func (r *uniboxRepository) queryThreadList(ctx context.Context, query string, ar
 // ── Conversation labels ─────────────────────────────────────────────────
 
 // SetThreadLabels replaces the full label set on a thread. Only the
-// user's own categories are attached (a SELECT-guarded insert), so a
-// bogus or someone else's category_id is silently dropped rather than
+// workspace's own categories are attached (a SELECT-guarded insert), so a
+// bogus or another workspace's category_id is silently dropped rather than
 // trusted. Idempotent: re-sending the same set is a no-op.
-func (r *uniboxRepository) SetThreadLabels(ctx context.Context, userID uuid.UUID, threadID string, categoryIDs []uuid.UUID) ([]models.MiniCategory, error) {
+//
+// The label belongs to the workspace, like the inbox it hangs off: a teammate
+// must see how a conversation was filed. userID records who filed it.
+func (r *uniboxRepository) SetThreadLabels(ctx context.Context, orgID, userID uuid.UUID, threadID string, categoryIDs []uuid.UUID) ([]models.MiniCategory, error) {
 	if threadID == "" {
 		return nil, errors.New("threadID required")
 	}
@@ -787,21 +947,25 @@ func (r *uniboxRepository) SetThreadLabels(ctx context.Context, userID uuid.UUID
 	// clears every label (category_id = ANY('{}') is false → NOT false).
 	if _, err := tx.Exec(ctx, `
 		DELETE FROM unibox_thread_labels
-		WHERE user_id = $1 AND thread_id = $2 AND NOT (category_id = ANY($3))
-	`, userID, threadID, categoryIDs); err != nil {
+		WHERE organization_id = $1 AND thread_id = $2 AND NOT (category_id = ANY($3))
+	`, orgID, threadID, categoryIDs); err != nil {
 		return nil, err
 	}
 
 	// Add the rest, but only categories that actually belong to the
-	// user. ON CONFLICT keeps the upsert idempotent.
+	// workspace. ON CONFLICT keeps the upsert idempotent.
 	if len(categoryIDs) > 0 {
+		var applier any
+		if userID != uuid.Nil {
+			applier = userID
+		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO unibox_thread_labels (user_id, thread_id, category_id)
-			SELECT $1, $2, c.id
+			INSERT INTO unibox_thread_labels (organization_id, user_id, thread_id, category_id)
+			SELECT $1, $2, $3, c.id
 			FROM categories c
-			WHERE c.user_id = $1 AND c.id = ANY($3)
-			ON CONFLICT (user_id, thread_id, category_id) DO NOTHING
-		`, userID, threadID, categoryIDs); err != nil {
+			WHERE c.organization_id = $1 AND c.id = ANY($4)
+			ON CONFLICT (organization_id, thread_id, category_id) DO NOTHING
+		`, orgID, applier, threadID, categoryIDs); err != nil {
 			return nil, err
 		}
 	}
@@ -810,19 +974,19 @@ func (r *uniboxRepository) SetThreadLabels(ctx context.Context, userID uuid.UUID
 		return nil, err
 	}
 
-	return r.ListThreadLabels(ctx, userID, threadID)
+	return r.ListThreadLabels(ctx, orgID, threadID)
 }
 
 // ListThreadLabels returns the conversation's current labels, ordered to
 // match the category palette ordering used everywhere else.
-func (r *uniboxRepository) ListThreadLabels(ctx context.Context, userID uuid.UUID, threadID string) ([]models.MiniCategory, error) {
+func (r *uniboxRepository) ListThreadLabels(ctx context.Context, orgID uuid.UUID, threadID string) ([]models.MiniCategory, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT c.id, c.title, c.color
 		FROM unibox_thread_labels utl
-		JOIN categories c ON c.id = utl.category_id
-		WHERE utl.user_id = $1 AND utl.thread_id = $2
+		JOIN categories c ON c.id = utl.category_id AND c.organization_id = utl.organization_id
+		WHERE utl.organization_id = $1 AND utl.thread_id = $2
 		ORDER BY c.position ASC, c.title ASC
-	`, userID, threadID)
+	`, orgID, threadID)
 	if err != nil {
 		return nil, err
 	}
@@ -841,24 +1005,25 @@ func (r *uniboxRepository) ListThreadLabels(ctx context.Context, userID uuid.UUI
 
 // AddThreadLabels additively attaches labels to a thread (never removes any),
 // so an automation/step action can tag a conversation without clobbering labels
-// a teammate set by hand. Only the user's own categories are attached
+// a teammate set by hand. Only the workspace's own categories are attached
 // (SELECT-guarded), mirroring SetThreadLabels; a bogus id is silently dropped.
-func (r *uniboxRepository) AddThreadLabels(ctx context.Context, userID uuid.UUID, threadID string, categoryIDs []uuid.UUID) error {
+// An automation has no human behind it, so the applier is left NULL.
+func (r *uniboxRepository) AddThreadLabels(ctx context.Context, orgID uuid.UUID, threadID string, categoryIDs []uuid.UUID) error {
 	if threadID == "" || len(categoryIDs) == 0 {
 		return nil
 	}
 	_, err := r.db.Exec(ctx, `
-		INSERT INTO unibox_thread_labels (user_id, thread_id, category_id)
+		INSERT INTO unibox_thread_labels (organization_id, thread_id, category_id)
 		SELECT $1, $2, c.id
 		FROM categories c
-		WHERE c.user_id = $1 AND c.id = ANY($3)
-		ON CONFLICT (user_id, thread_id, category_id) DO NOTHING
-	`, userID, threadID, categoryIDs)
+		WHERE c.organization_id = $1 AND c.id = ANY($3)
+		ON CONFLICT (organization_id, thread_id, category_id) DO NOTHING
+	`, orgID, threadID, categoryIDs)
 	return err
 }
 
 // LatestThreadIDForContact returns the thread id of the most recent conversation
-// where the address SENT a message into the user's unibox (an inbound reply), or
+// where the address SENT a message into the workspace's unibox (an inbound reply), or
 // "" when there is none. Matching on from_addr (not to_addr) is deliberate: the
 // "label email" action only makes sense once the contact has replied, so a
 // contact that never responded resolves to "" and the action is a clean no-op.
@@ -866,7 +1031,7 @@ func (r *uniboxRepository) AddThreadLabels(ctx context.Context, userID uuid.UUID
 // address is extracted (the text inside angle brackets, else the trimmed value)
 // and compared case-insensitively — never a substring contains, so a@b.com does
 // not match xa@b.com or a@b.com.evil.
-func (r *uniboxRepository) LatestThreadIDForContact(ctx context.Context, userID uuid.UUID, email string) (string, error) {
+func (r *uniboxRepository) LatestThreadIDForContact(ctx context.Context, orgID uuid.UUID, email string) (string, error) {
 	email = strings.TrimSpace(email)
 	if email == "" {
 		return "", nil
@@ -874,14 +1039,15 @@ func (r *uniboxRepository) LatestThreadIDForContact(ctx context.Context, userID 
 	rows, err := r.db.Query(ctx, `
 		SELECT thread_id
 		FROM unibox_emails
-		WHERE user_id = $1 AND thread_id <> ''
+		WHERE email_id IN (SELECT id FROM email_accounts WHERE organization_id = $1)
+		  AND thread_id <> ''
 		  AND EXISTS (
 			SELECT 1 FROM unnest(from_addr) a
-			WHERE lower(coalesce(substring(a from '<([^>]*)>'), btrim(a))) = lower($2)
+			WHERE lower(coalesce(substring(a from '<([^>]*)>'), substring(a from '\(([^()]*)\)\s*$'), btrim(a))) = lower($2)
 		  )
 		ORDER BY internal_date DESC
 		LIMIT 1
-	`, userID, email)
+	`, orgID, email)
 	if err != nil {
 		return "", err
 	}
@@ -1147,7 +1313,9 @@ func (r *uniboxRepository) Overview(ctx context.Context, orgID uuid.UUID) (*mode
 
 	// Per-tag counters. Mailbox tags live in `tags` + `email_tags`.
 	// Per THREAD (distinct thread key) so threads aren't over-counted by
-	// message multiplicity or the email_tags fan-out.
+	// message multiplicity or the email_tags fan-out. Every join is on the
+	// workspace: this used to compare the registry's user_id against the org
+	// id it is handed, so the rail was always empty.
 	tagRows, err := r.db.Query(ctx, `
 		SELECT
 			t.id,
@@ -1156,19 +1324,19 @@ func (r *uniboxRepository) Overview(ctx context.Context, orgID uuid.UUID) (*mode
 			COUNT(DISTINCT COALESCE(NULLIF(ue.thread_id, ''), ue.id::text)) FILTER (WHERE ue.id IS NOT NULL AND NOT ue.seen
 				AND NOT EXISTS (
 					SELECT 1 FROM unibox_snoozes s
-					WHERE s.user_id = t.user_id AND s.thread_id = ue.thread_id AND s.snoozed_until > NOW()
+					WHERE s.user_id = ue.user_id AND s.thread_id = ue.thread_id AND s.snoozed_until > NOW()
 				)) AS unread,
 			COUNT(DISTINCT COALESCE(NULLIF(ue.thread_id, ''), ue.id::text)) FILTER (WHERE ue.id IS NOT NULL
 				AND NOT EXISTS (
 					SELECT 1 FROM unibox_snoozes s
-					WHERE s.user_id = t.user_id AND s.thread_id = ue.thread_id AND s.snoozed_until > NOW()
+					WHERE s.user_id = ue.user_id AND s.thread_id = ue.thread_id AND s.snoozed_until > NOW()
 				)) AS total
 		FROM tags t
 		LEFT JOIN email_tags et ON et.tag_id = t.id
-		LEFT JOIN email_accounts ea ON ea.id = et.email_id AND ea.user_id = t.user_id
-		LEFT JOIN unibox_emails ue ON ue.email_id = ea.id AND ue.user_id = ea.user_id
+		LEFT JOIN email_accounts ea ON ea.id = et.email_id AND ea.organization_id = t.organization_id
+		LEFT JOIN unibox_emails ue ON ue.email_id = ea.id
 			AND ue.folder NOT IN ('spam', 'trash')
-		WHERE t.user_id = $1
+		WHERE t.organization_id = $1
 		GROUP BY t.id, t.title, t.color, t.position
 		ORDER BY t.position ASC, t.title ASC
 	`, orgID)
@@ -1197,24 +1365,24 @@ func (r *uniboxRepository) Overview(ctx context.Context, orgID uuid.UUID) (*mode
 	overview.Categories = make([]models.UniboxCategoryOverview, 0)
 	catRows, err := r.db.Query(ctx, `
 		WITH thread_state AS (
-			SELECT e.user_id, e.thread_id, bool_or(NOT e.seen) AS has_unread
+			SELECT e.thread_id, bool_or(NOT e.seen) AS has_unread
 			FROM unibox_emails e
-			WHERE e.user_id = $1
+			WHERE e.email_id IN (SELECT id FROM email_accounts WHERE organization_id = $1)
 			  AND e.folder NOT IN ('spam', 'trash')
 			  AND NOT EXISTS (
 				SELECT 1 FROM unibox_snoozes s
 				WHERE s.user_id = e.user_id AND s.thread_id = e.thread_id AND s.snoozed_until > NOW()
 			  )
-			GROUP BY e.user_id, e.thread_id
+			GROUP BY e.thread_id
 		)
 		SELECT
 			c.id, c.title, c.color,
 			COUNT(*) FILTER (WHERE ts.thread_id IS NOT NULL AND ts.has_unread) AS unread,
 			COUNT(*) FILTER (WHERE ts.thread_id IS NOT NULL)                   AS total
 		FROM categories c
-		LEFT JOIN unibox_thread_labels utl ON utl.category_id = c.id AND utl.user_id = c.user_id
-		LEFT JOIN thread_state ts ON ts.user_id = utl.user_id AND ts.thread_id = utl.thread_id
-		WHERE c.user_id = $1
+		LEFT JOIN unibox_thread_labels utl ON utl.category_id = c.id AND utl.organization_id = c.organization_id
+		LEFT JOIN thread_state ts ON ts.thread_id = utl.thread_id
+		WHERE c.organization_id = $1
 		GROUP BY c.id, c.title, c.color, c.position
 		ORDER BY c.position ASC, c.title ASC
 	`, orgID)
@@ -1316,4 +1484,60 @@ func (r *uniboxRepository) scanGrounding(ctx context.Context, query string, orgI
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// prefixTSQuery turns what the user has typed into a prefix tsquery, so a
+// half-typed word still matches: "dynow" finds "dynoweb".
+//
+// Built here rather than in SQL because to_tsquery is a parser, not a matcher:
+// an `&`, a `:` or an unbalanced bracket in the input makes it raise, and a
+// search box is exactly where those arrive. Everything that is not a letter, a
+// digit or a space is dropped, which leaves nothing that can change the shape
+// of the query. Returns "" when there is nothing left to search on, and the
+// caller then relies on the other matchers.
+//
+// Terms are ANDed, matching what websearch_to_tsquery does with a bare phrase,
+// so adding a word narrows rather than widens.
+func prefixTSQuery(input string) string {
+	const maxTerms = 8
+	if hasWebSearchSyntax(input) {
+		return ""
+	}
+
+	cleaned := strings.Map(func(r rune) rune {
+		switch {
+		case unicode.IsLetter(r), unicode.IsDigit(r):
+			return unicode.ToLower(r)
+		default:
+			return ' '
+		}
+	}, input)
+
+	terms := strings.Fields(cleaned)
+	if len(terms) == 0 {
+		return ""
+	}
+	if len(terms) > maxTerms {
+		return ""
+	}
+	for i, t := range terms {
+		terms[i] = t + ":*"
+	}
+	return strings.Join(terms, " & ")
+}
+
+func hasWebSearchSyntax(input string) bool {
+	if strings.Contains(input, `"`) {
+		return true
+	}
+	for _, term := range strings.Fields(input) {
+		if strings.HasPrefix(term, "-") || strings.EqualFold(term, "OR") {
+			return true
+		}
+	}
+	return false
+}
+
+func escapeLikePattern(input string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(input)
 }

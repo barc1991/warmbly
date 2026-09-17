@@ -1,9 +1,9 @@
 // Label menu for a conversation. Lives in the ThreadView header and also
 // opens via the `c` shortcut. Shares the category registry (user.categories)
-// and the CategoryPicker visual language: assigned labels render as colored
-// chips right in the trigger, the panel has a search-or-create header, an
-// assigned-chips row, and color-dotted checkbox rows. Assigns at the thread
-// level via PUT /unibox/thread/labels.
+// and the CategoryPicker visual language: the trigger is an icon (tinted once
+// something is assigned; the header's meta line shows the chips), the panel
+// has a search-or-create header, an assigned-chips row, and color-dotted
+// checkbox rows. Assigns at the thread level via PUT /unibox/thread/labels.
 
 import React from "react";
 import { CheckIcon, Loader2Icon, PlusIcon, TagIcon } from "lucide-react";
@@ -19,15 +19,13 @@ import { useUserProfile } from "@/hooks/context/user";
 import useCreateCategory from "@/lib/api/hooks/app/categories/useCreateCategory";
 import useThreadLabels from "@/lib/api/hooks/app/unibox/useThreadLabels";
 import useSetThreadLabels from "@/lib/api/hooks/app/unibox/useSetThreadLabels";
+import { TagMeaningTooltip } from "@/components/ui/tag-meaning-tooltip";
 
 interface Props {
   threadId: string;
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }
-
-// How many assigned chips render inline in the trigger before "+N".
-const TRIGGER_CHIPS = 2;
 
 export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
   const { user } = useUserProfile();
@@ -78,13 +76,10 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
       setQuery("");
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "יצירת קטגוריה נכשלה",
+        err instanceof Error ? err.message : "Failed to create category",
       );
     }
   };
-
-  const inline = current.slice(0, TRIGGER_CHIPS);
-  const overflow = current.length - inline.length;
 
   return (
     <PopoverMenu
@@ -95,32 +90,20 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
     >
       <PopoverMenuTrigger asChild>
         <button
-          aria-label="תיוג שיחה זו (לחץ c)"
-          title="תיוג שיחה זו (c)"
-          className={`h-7 px-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors text-[12px] ${
-            open
-              ? "bg-slate-100 text-slate-900"
+          aria-label="Label this conversation (press c)"
+          title="Label (c)"
+          className={`size-7 rounded-md inline-flex items-center justify-center transition-colors ${
+            open || current.length > 0
+              ? open
+                ? "bg-slate-100 text-slate-900"
+                : "text-sky-700 hover:bg-slate-100"
               : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
           }`}
         >
           {setLabels.isPending ? (
             <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
           ) : (
-            <TagIcon className="w-3.5 h-3.5" />
-          )}
-          {current.length === 0 ? (
-            <span className="hidden sm:inline">תגיות</span>
-          ) : (
-            <span className="hidden sm:inline-flex items-center gap-1">
-              {inline.map((c) => (
-                <CategoryChip key={c.id} category={c} compact />
-              ))}
-              {overflow > 0 && (
-                <span className="h-4 px-1 rounded bg-slate-100 text-[10px] font-medium text-slate-500 inline-flex items-center">
-                  +{overflow}
-                </span>
-              )}
-            </span>
+            <TagIcon className="w-[15px] h-[15px]" />
           )}
         </button>
       </PopoverMenuTrigger>
@@ -138,7 +121,7 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                   void createAndAdd();
                 }
               }}
-              placeholder="תיוג שיחה…"
+              placeholder="Label conversation…"
               autoFocus
               className="flex-1 min-w-0 h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
             />
@@ -163,15 +146,15 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
           <div className="max-h-56 overflow-y-auto py-1">
             {categories.length === 0 && !query.trim() && (
               <div className="px-3 py-4 text-center">
-                <div className="text-[12px] text-slate-500">אין תגיות עדיין</div>
+                <div className="text-[12px] text-slate-500">No labels yet</div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  הקלד שם למעלה כדי ליצור את הראשונה.
+                  Type a name above to create your first one.
                 </div>
               </div>
             )}
             {filtered.length === 0 && categories.length > 0 && queryMatchesExisting && (
               <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                לא נמצאו תוצאות.
+                No matches.
               </div>
             )}
             {filtered.map((c) => {
@@ -197,9 +180,11 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                     className="size-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: c.color }}
                   />
-                  <span className="truncate">{c.title}</span>
+                  <TagMeaningTooltip title={c.title}>
+                    <span className="truncate">{c.title}</span>
+                  </TagMeaningTooltip>
                   {checked && (
-                    <span className="ms-auto text-[10px] text-slate-300">משויך</span>
+                    <span className="ml-auto text-[10px] text-slate-300">assigned</span>
                   )}
                 </button>
               );
@@ -216,13 +201,13 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                 ) : (
                   <PlusIcon className="w-3 h-3 text-sky-600" />
                 )}
-                צור "{query.trim()}"
+                Create "{query.trim()}"
               </button>
             )}
           </div>
 
           <div className="px-2.5 h-7 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-            <span>תגיות משותפות עם קטגוריות אנשי קשר</span>
+            <span>Labels are shared with contact categories</span>
             <kbd className="h-4 px-1 rounded border border-slate-200 bg-slate-50 font-mono inline-flex items-center">
               c
             </kbd>

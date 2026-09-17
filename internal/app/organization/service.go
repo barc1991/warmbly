@@ -69,6 +69,11 @@ type OrganizationService interface {
 	GetMembers(ctx context.Context, orgID uuid.UUID) ([]models.OrganizationMember, *errx.Error)
 	GetMembership(ctx context.Context, orgID, userID uuid.UUID) (*models.OrganizationMember, *errx.Error)
 	InviteMember(ctx context.Context, orgID uuid.UUID, inviterID uuid.UUID, req *models.InviteMemberRequest) (*models.OrganizationInvitation, *errx.Error)
+	// AttachTester joins a tester account to an existing workspace without an
+	// invitation. Operator-only: the admin is not a member, so there is no
+	// actor permission to check against, and the authority is the
+	// manage_testers bit plus the admin audit row the caller writes.
+	AttachTester(ctx context.Context, orgID, userID, adminID, roleID uuid.UUID) (*models.OrganizationMember, *errx.Error)
 	AcceptInvitation(ctx context.Context, token string, userID uuid.UUID, email string) (*models.OrganizationMember, *errx.Error)
 	AcceptInvitationByID(ctx context.Context, invitationID, userID uuid.UUID, email string) (*models.OrganizationMember, *errx.Error)
 	PreviewInvitation(ctx context.Context, token string) (*models.InvitationPreview, *errx.Error)
@@ -100,6 +105,13 @@ type OrganizationService interface {
 	// MailboxAllowance resolves how many mailboxes the workspace may hold and
 	// why; every connect path checks it and GET /emails/allowance returns it.
 	MailboxAllowance(ctx context.Context, orgID uuid.UUID) (*models.MailboxAllowance, *errx.Error)
+
+	// GrantManagedPlan / RevokeManagedPlan are the operator-granted plan: paid
+	// entitlements without Stripe, for internal workspaces, design partners
+	// and support gestures.
+	GrantManagedPlan(ctx context.Context, orgID, planID, adminID uuid.UUID, reason string, until *time.Time) (*models.ManagedPlan, *errx.Error)
+	RevokeManagedPlan(ctx context.Context, orgID uuid.UUID) (*models.ManagedPlan, *errx.Error)
+	GetManagedPlan(ctx context.Context, orgID uuid.UUID) (*models.ManagedPlan, *errx.Error)
 	GetCampaignCounts(ctx context.Context, orgID uuid.UUID) (total int, active int, err *errx.Error)
 	GetOrganizationLimits(ctx context.Context, orgID uuid.UUID) (*models.OrganizationLimits, *errx.Error)
 	GetOrganizationCounts(ctx context.Context, orgID uuid.UUID) (*models.OrganizationCounts, *errx.Error)
@@ -151,6 +163,9 @@ type organizationService struct {
 	orgRepo  repository.OrganizationRepository
 	subRepo  repository.SubscriptionRepository
 	userRepo repository.UserRepository
+	// planRepo validates a granted plan id before it is written, so a typo is
+	// a 400 naming the problem rather than a foreign-key violation.
+	planRepo repository.PlanRepository
 	throttle dailythrottle.Service
 	// authPolicy is wired after construction, because the policy is loaded
 	// alongside the mail transport and not available at this call site.
@@ -213,11 +228,13 @@ func NewService(
 	orgRepo repository.OrganizationRepository,
 	subRepo repository.SubscriptionRepository,
 	userRepo repository.UserRepository,
+	planRepo repository.PlanRepository,
 	throttle dailythrottle.Service,
 ) OrganizationService {
 	return &organizationService{
 		orgRepo:  orgRepo,
 		subRepo:  subRepo,
+		planRepo: planRepo,
 		userRepo: userRepo,
 		throttle: throttle,
 	}
@@ -253,7 +270,14 @@ func (s *organizationService) Create(ctx context.Context, userID uuid.UUID, name
 		return nil, errx.New(errx.NotFound, "user not found")
 	}
 
-	// Workspaces are unlimited
+	ownedCount, countErr := s.orgRepo.GetUserOwnedOrganizationCount(ctx, userID)
+	if countErr != nil {
+		errs.CaptureException(countErr)
+		return nil, errx.New(errx.Internal, "failed to get organization count")
+	}
+	if ownedCount >= user.MaxOrganizations {
+		return nil, errx.New(errx.Forbidden, "maximum organization limit reached")
+	}
 
 	org := &models.Organization{
 		ID:          uuid.New(),
@@ -427,6 +451,78 @@ func (s *organizationService) GetUserDefaultOrganization(ctx context.Context, us
 		return nil, errx.New(errx.Internal, "failed to get default organization")
 	}
 	return org, nil
+}
+
+// AttachTester joins a user to an existing workspace directly, bypassing the
+// invitation round trip. It exists for one case: a reviewer who has to see a
+// real workspace and cannot read this instance's mail, so neither the invite
+// email nor the accept-as-the-invited-address check can be satisfied.
+//
+// It deliberately does NOT take the escalation check InviteMember applies. That
+// check asks whether the actor holds every permission they are handing out, and
+// an operator is not a member of the workspace at all, so there is nothing to
+// compare against. What stands in for it is the manage_testers permission bit
+// on the route and the admin audit row the handler writes.
+//
+// Idempotent: an existing membership is returned untouched rather than
+// re-roled, so a repeated call cannot quietly widen what a tester can reach.
+func (s *organizationService) AttachTester(ctx context.Context, orgID, userID, adminID, roleID uuid.UUID) (*models.OrganizationMember, *errx.Error) {
+	if _, xerr := s.Get(ctx, orgID); xerr != nil {
+		return nil, xerr
+	}
+
+	// Before the seat check, so a repeat call cannot be refused for a seat it
+	// already holds.
+	if existing, err := s.orgRepo.GetMember(ctx, orgID, userID); err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to read the membership")
+	} else if existing != nil {
+		return existing, nil
+	}
+
+	role, err := s.orgRepo.GetRoleByID(ctx, orgID, roleID)
+	if err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to load the role")
+	}
+	if role == nil {
+		return nil, errx.New(errx.BadRequest, "that role does not exist in this workspace")
+	}
+
+	// Last gate before the write, and the workspace's own: a tester occupies a
+	// seat like anyone else, so exceeding it silently would bill wrong and read
+	// as a bug later.
+	canAdd, xerr := s.CanAddMember(ctx, orgID)
+	if xerr != nil {
+		return nil, xerr
+	}
+	if !canAdd {
+		return nil, errx.New(errx.Forbidden, "that workspace is at its team member limit")
+	}
+
+	now := time.Now()
+	member := &models.OrganizationMember{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		UserID:         userID,
+		Role:           role.Name,
+		RoleID:         &role.ID,
+		Permissions:    role.Permissions,
+		// Recorded as invited by the operator who made the tester, so the
+		// members list names somebody rather than showing a member nobody added.
+		InvitedBy:  &adminID,
+		InvitedAt:  now,
+		AcceptedAt: &now,
+	}
+	if err := s.orgRepo.AddMemberWithRoles(ctx, member, []uuid.UUID{role.ID}); err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to add the tester to the workspace")
+	}
+
+	if updated, _ := s.orgRepo.GetMember(ctx, orgID, userID); updated != nil {
+		return updated, nil
+	}
+	return member, nil
 }
 
 // GetMembers retrieves all members of an organization
@@ -634,9 +730,10 @@ func (s *organizationService) GetInvitationToken(ctx context.Context, orgID, inv
 // acceptResolved performs the actual join given an already-loaded invitation.
 func (s *organizationService) acceptResolved(ctx context.Context, inv *models.OrganizationInvitation, userID uuid.UUID, email string) (*models.OrganizationMember, *errx.Error) {
 
-	// Verify email matches
+	// Verify email matches. Name both addresses: the usual cause is a browser
+	// already signed in as someone else, and a bare "does not match" hides it.
 	if !strings.EqualFold(email, inv.Email) {
-		return nil, errx.New(errx.Forbidden, "email does not match invitation")
+		return nil, errx.New(errx.Forbidden, "this invitation is for "+inv.Email+", but you are signed in as "+email+"; sign out and use the invited address")
 	}
 
 	// Check if invitation is expired
@@ -858,26 +955,134 @@ func (s *organizationService) RequirePermission(ctx context.Context, orgID, user
 
 // CanAddMember checks if the organization can add more members based on plan limits
 func (s *organizationService) CanAddMember(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
-	return true, nil
+	limits, err := s.GetEffectiveLimits(ctx, orgID)
+	if err != nil {
+		return false, err
+	}
+
+	// No limit set = unlimited
+	if limits == nil || limits.MaxTeamMembers == nil {
+		return true, nil
+	}
+
+	count, xerr := s.orgRepo.GetMemberCount(ctx, orgID)
+	if xerr != nil {
+		errs.CaptureException(xerr)
+		return false, errx.New(errx.Internal, "failed to get member count")
+	}
+
+	return count < *limits.MaxTeamMembers, nil
 }
 
+// CanAddCampaign checks if the organization can add more campaigns based on plan limits
 func (s *organizationService) CanAddCampaign(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error) {
+	limits, err := s.GetEffectiveLimits(ctx, orgID)
+	if err != nil {
+		return false, err
+	}
+
+	total, active, xerr := s.GetCampaignCounts(ctx, orgID)
+	if xerr != nil {
+		return false, xerr
+	}
+
+	// Check total campaign limit
+	if limits != nil && limits.MaxCampaigns != nil && total >= *limits.MaxCampaigns {
+		return false, nil
+	}
+
+	// Check active campaign limit
+	if limits != nil && limits.MaxActiveCampaigns != nil && active >= *limits.MaxActiveCampaigns {
+		return false, nil
+	}
+
 	return true, nil
 }
 
-// MailboxAllowance resolves the workspace's mailbox allowance.
+// MailboxAllowance resolves the workspace's mailbox allowance. Resolution:
+//
+//  1. no billing provider: unlimited
+//  2. an operator override: the override
+//  3. no paid subscription: FreeWorkspaceMailboxLimit
+//  4. the plan's explicit mailbox column, when it carries one
+//  5. the plan's daily sends divided by FairUseSendsPerMailbox
+//  6. a plan with no daily send cap: unlimited
+//
+// The count includes every connected mailbox, so a workspace that dropped to
+// a smaller plan simply cannot add until it is back under; nothing is removed.
 func (s *organizationService) MailboxAllowance(ctx context.Context, orgID uuid.UUID) (*models.MailboxAllowance, *errx.Error) {
 	count, err := s.orgRepo.GetEmailAccountCount(ctx, orgID)
 	if err != nil {
 		errs.CaptureException(err)
 		return nil, errx.New(errx.Internal, "failed to get email account count")
 	}
-	return &models.MailboxAllowance{
-		Used:            count,
-		SendsPerMailbox: config.FairUseSendsPerMailbox,
-		Basis:           models.MailboxAllowanceUnlimited,
-		Paid:            true,
-	}, nil
+	a := &models.MailboxAllowance{Used: count, SendsPerMailbox: config.FairUseSendsPerMailbox}
+
+	if config.BillingProvider() == "none" {
+		a.Basis = models.MailboxAllowanceUnlimited
+		a.Paid = true
+		return a, nil
+	}
+
+	sub, serr := s.subRepo.GetByOrganizationID(ctx, orgID)
+	if serr != nil {
+		errs.CaptureException(serr)
+		return nil, errx.New(errx.Internal, "failed to get subscription")
+	}
+	a.Paid = sub != nil && sub.HasPaidSubscription()
+	if sub != nil && sub.Plan != nil {
+		if sub.Plan.Name != nil {
+			a.PlanName = *sub.Plan.Name
+		}
+		if sub.Plan.DailyCampaignLimit != nil && *sub.Plan.DailyCampaignLimit > 0 {
+			v := *sub.Plan.DailyCampaignLimit
+			a.PlanDailySends = &v
+		}
+	}
+
+	override, xerr := s.GetLimitOverrides(ctx, orgID)
+	if xerr != nil {
+		return nil, xerr
+	}
+
+	set := func(v int, basis models.MailboxAllowanceBasis) {
+		a.Allowance = &v
+		rem := v - count
+		if rem < 0 {
+			rem = 0
+		}
+		a.Remaining = &rem
+		a.Basis = basis
+	}
+
+	switch {
+	case override != nil && override.MaxEmailAccounts > 0:
+		set(override.MaxEmailAccounts, models.MailboxAllowanceOverride)
+	case !a.Paid:
+		set(models.FreeWorkspaceMailboxLimit, models.MailboxAllowanceFree)
+	case sub.Plan != nil && sub.Plan.MaxEmailAccounts != nil && *sub.Plan.MaxEmailAccounts > 0:
+		set(*sub.Plan.MaxEmailAccounts, models.MailboxAllowancePlan)
+	case a.PlanDailySends != nil:
+		set((*a.PlanDailySends+config.FairUseSendsPerMailbox-1)/config.FairUseSendsPerMailbox, models.MailboxAllowanceFairUse)
+	default:
+		a.Basis = models.MailboxAllowanceUnlimited
+	}
+
+	// The open request, so the dashboard can show "asked for 5,000, pending"
+	// instead of offering a form that would be refused as a duplicate.
+	if a.Allowance != nil {
+		rows, rerr := s.orgRepo.ListLimitRequestsForOrg(ctx, orgID)
+		if rerr != nil {
+			errs.CaptureException(rerr)
+		}
+		for i := range rows {
+			if rows[i].Field == "max_email_accounts" && rows[i].Status == models.LimitRequestStatusPending {
+				a.PendingRequest = &rows[i]
+				break
+			}
+		}
+	}
+	return a, nil
 }
 
 // GetCampaignCounts returns total and active campaign counts
@@ -892,13 +1097,21 @@ func (s *organizationService) GetCampaignCounts(ctx context.Context, orgID uuid.
 
 // GetOrganizationLimits retrieves the organization's plan limits
 func (s *organizationService) GetOrganizationLimits(ctx context.Context, orgID uuid.UUID) (*models.OrganizationLimits, *errx.Error) {
+	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
+	if err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to get subscription")
+	}
+	if sub == nil || sub.Plan == nil {
+		return nil, nil
+	}
+
 	return &models.OrganizationLimits{
-		MaxCampaigns:       nil,
-		MaxActiveCampaigns: nil,
-		MaxTeamMembers:     nil,
-		MaxEmailAccounts:   nil,
-		MaxContacts:        nil,
-		DailyCampaignLimit: nil,
+		MaxCampaigns:       sub.Plan.MaxCampaigns,
+		MaxActiveCampaigns: sub.Plan.MaxActiveCampaigns,
+		MaxTeamMembers:     sub.Plan.MaxTeamMembers,
+		MaxEmailAccounts:   sub.Plan.MaxEmailAccounts,
+		DailyCampaignLimit: sub.Plan.DailyCampaignLimit,
 	}, nil
 }
 
@@ -1085,13 +1298,52 @@ func (s *organizationService) SetLimitOverrides(ctx context.Context, orgID uuid.
 // MailboxAllowance instead, where nil really means unlimited. Admins can
 // raise individual caps per-org by writing an override.
 func (s *organizationService) GetEffectiveLimits(ctx context.Context, orgID uuid.UUID) (*models.OrganizationLimits, *errx.Error) {
+	plan, err := s.GetOrganizationLimits(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	override, err := s.GetLimitOverrides(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+	mailboxes, err := s.MailboxAllowance(ctx, orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	resolve := func(overrideVal int, planVal *int, hardCap int) *int {
+		if overrideVal > 0 {
+			v := overrideVal
+			return &v
+		}
+		if planVal != nil {
+			return planVal
+		}
+		v := hardCap
+		return &v
+	}
+
+	var ovMaxCampaigns, ovMaxActive, ovMaxMembers, ovMaxContacts, ovDaily int
+	if override != nil {
+		ovMaxCampaigns = override.MaxCampaigns
+		ovMaxActive = override.MaxActiveCampaigns
+		ovMaxMembers = override.MaxTeamMembers
+		ovMaxContacts = override.MaxContacts
+		ovDaily = override.DailyCampaignLimit
+	}
+
+	var planLimits models.OrganizationLimits
+	if plan != nil {
+		planLimits = *plan
+	}
+
 	return &models.OrganizationLimits{
-		MaxCampaigns:       nil,
-		MaxActiveCampaigns: nil,
-		MaxTeamMembers:     nil,
-		MaxEmailAccounts:   nil,
-		MaxContacts:        nil,
-		DailyCampaignLimit: nil,
+		MaxCampaigns:       resolve(ovMaxCampaigns, planLimits.MaxCampaigns, config.HardCapCampaignsTotal),
+		MaxActiveCampaigns: resolve(ovMaxActive, planLimits.MaxActiveCampaigns, config.HardCapCampaignsActive),
+		MaxTeamMembers:     resolve(ovMaxMembers, planLimits.MaxTeamMembers, config.HardCapTeamMembers),
+		MaxEmailAccounts:   mailboxes.Allowance,
+		MaxContacts:        resolve(ovMaxContacts, planLimits.MaxContacts, config.HardCapContacts),
+		DailyCampaignLimit: resolve(ovDaily, planLimits.DailyCampaignLimit, config.HardCapDailyCampaignSends),
 	}, nil
 }
 
@@ -1419,7 +1671,14 @@ func (s *organizationService) CreateRole(ctx context.Context, orgID, actorID uui
 		return nil, xerr
 	}
 
-	// Custom roles are unlimited
+	count, err := s.orgRepo.CountRoles(ctx, orgID)
+	if err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to count roles")
+	}
+	if count >= MaxCustomRolesPerOrg {
+		return nil, errx.New(errx.Forbidden, "custom role limit reached")
+	}
 
 	color := strings.TrimSpace(req.Color)
 	if color != "" && !crypt.IsValidHexColor(color) {
@@ -1506,4 +1765,65 @@ func (s *organizationService) DeleteRole(ctx context.Context, orgID, actorID, ro
 		return errx.New(errx.Internal, "failed to delete role")
 	}
 	return nil
+}
+
+// GetManagedPlan reports the grant on a workspace, if any.
+func (s *organizationService) GetManagedPlan(ctx context.Context, orgID uuid.UUID) (*models.ManagedPlan, *errx.Error) {
+	sub, err := s.subRepo.GetByOrganizationID(ctx, orgID)
+	if err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to read the subscription")
+	}
+	if sub == nil {
+		return nil, errx.New(errx.NotFound, "that workspace has no subscription")
+	}
+	return managedPlanOf(sub), nil
+}
+
+// GrantManagedPlan puts a workspace on a plan without Stripe.
+func (s *organizationService) GrantManagedPlan(ctx context.Context, orgID, planID, adminID uuid.UUID, reason string, until *time.Time) (*models.ManagedPlan, *errx.Error) {
+	// A grant into the past is almost certainly a timezone or unit mistake,
+	// and it would read as "granted" in the audit trail while entitling
+	// nothing at all.
+	if until != nil && !until.After(time.Now()) {
+		return nil, errx.New(errx.BadRequest, "the grant would already have expired; leave it open-ended or pick a future date")
+	}
+	if s.planRepo != nil {
+		plan, perr := s.planRepo.GetByID(ctx, planID)
+		if perr != nil {
+			errs.CaptureException(perr)
+			return nil, errx.New(errx.Internal, "failed to look up the plan")
+		}
+		if plan == nil {
+			return nil, errx.New(errx.BadRequest, "that plan does not exist")
+		}
+	}
+	if err := s.subRepo.SetManagedPlan(ctx, orgID, planID, adminID, reason, until); err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to grant the plan")
+	}
+	return s.GetManagedPlan(ctx, orgID)
+}
+
+// RevokeManagedPlan ends a grant. The workspace keeps the plan row it was on
+// and stops counting as paid, which is where an expired grant leaves it too.
+func (s *organizationService) RevokeManagedPlan(ctx context.Context, orgID uuid.UUID) (*models.ManagedPlan, *errx.Error) {
+	if err := s.subRepo.ClearManagedPlan(ctx, orgID); err != nil {
+		errs.CaptureException(err)
+		return nil, errx.New(errx.Internal, "failed to revoke the plan")
+	}
+	return s.GetManagedPlan(ctx, orgID)
+}
+
+func managedPlanOf(sub *models.Subscription) *models.ManagedPlan {
+	out := &models.ManagedPlan{
+		Managed:   sub.IsManaged(),
+		Expired:   sub.ManagedExpired(),
+		GrantedAt: sub.ManagedAt,
+		GrantedBy: sub.ManagedBy,
+		Reason:    sub.ManagedReason,
+		Until:     sub.ManagedUntil,
+		PlanID:    sub.EffectivePlanID(),
+	}
+	return out
 }

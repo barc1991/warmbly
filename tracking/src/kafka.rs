@@ -4,7 +4,9 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::util::Timeout;
 use schema_registry_converter::async_impl::avro::AvroEncoder;
 use schema_registry_converter::async_impl::schema_registry::SrSettings;
-use schema_registry_converter::schema_registry_common::SubjectNameStrategy;
+use schema_registry_converter::schema_registry_common::{
+    SchemaType, SubjectNameStrategy, SuppliedSchema,
+};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -15,7 +17,6 @@ use crate::events::TrackingEvent;
 use crate::observability;
 
 /// Avro schema for tracking events - matches Go events.TrackingEvent
-#[allow(dead_code)]
 pub const TRACKING_EVENT_SCHEMA: &str = r#"
 {
     "type": "record",
@@ -29,16 +30,36 @@ pub const TRACKING_EVENT_SCHEMA: &str = r#"
         {"name": "timestamp", "type": "string", "avro.java.string": "String"},
         {"name": "user_agent", "type": ["null", "string"], "default": null},
         {"name": "ip_hash", "type": ["null", "string"], "default": null},
-        {"name": "client_ip", "type": ["null", "string"], "default": null}
+        {"name": "client_ip", "type": ["null", "string"], "default": null},
+        {"name": "scanner", "type": ["null", "string"], "default": null},
+        {"name": "scanner_probable", "type": "boolean", "default": false}
     ]
 }
 "#;
+
+/// The schema as the registry needs it: the document, its type, and the full
+/// record name so a subject registered from here matches one registered by any
+/// other client.
+fn tracking_event_schema() -> SuppliedSchema {
+    SuppliedSchema {
+        name: Some("com.warmbly.tracking.TrackingEvent".to_string()),
+        schema_type: SchemaType::Avro,
+        schema: TRACKING_EVENT_SCHEMA.to_string(),
+        references: vec![],
+        properties: None,
+        tags: None,
+    }
+}
 
 #[derive(Clone)]
 pub struct KafkaProducer {
     producer: Arc<FutureProducer>,
     topic: String,
-    encoder: Arc<RwLock<AvroEncoder<'static>>>,
+    /// Some only under CODEC_PROVIDER=avro. JSON is the default because the Go
+    /// consumer decodes both of its topics with one codec and worker envelopes
+    /// cannot be Avro, so a JSON consumer handed Avro drops every open and
+    /// click with nothing but a deserialize warning.
+    encoder: Option<Arc<RwLock<AvroEncoder<'static>>>>,
 }
 
 /// Avro encoding for the shared TrackingEvent (Kafka path only). The struct
@@ -89,6 +110,14 @@ impl ToAvroValue for TrackingEvent {
                     None => Value::Union(0, Box::new(Value::Null)),
                 },
             ),
+            (
+                "scanner",
+                match &self.scanner {
+                    Some(label) => Value::Union(1, Box::new(Value::String(label.clone()))),
+                    None => Value::Union(0, Box::new(Value::Null)),
+                },
+            ),
+            ("scanner_probable", Value::Boolean(self.scanner_probable)),
         ]
     }
 }
@@ -124,37 +153,45 @@ impl KafkaProducer {
         let producer: FutureProducer = client_config.create()?;
         info!("Kafka producer connected to {}", config.kafka_brokers);
 
-        // Configure Schema Registry
-        let sr_settings = if let Some((key, secret)) = config.schema_registry_auth() {
-            SrSettings::new_builder(config.schema_registry_url.clone())
-                .set_basic_authorization(&key, Some(&secret))
-                .build()?
+        // Schema Registry is only built for the Avro codec. Building it for JSON
+        // would demand a registry URL that a JSON deployment has no reason to
+        // have, and an empty one fails at the first publish rather than at boot.
+        let encoder = if config.codec_provider == "avro" {
+            if config.schema_registry_url.is_empty() {
+                return Err(
+                    "CODEC_PROVIDER=avro needs SCHEMA_REGISTRY_URL; set it, or use CODEC_PROVIDER=json"
+                        .into(),
+                );
+            }
+            let sr_settings = if let Some((key, secret)) = config.schema_registry_auth() {
+                SrSettings::new_builder(config.schema_registry_url.clone())
+                    .set_basic_authorization(&key, Some(&secret))
+                    .build()?
+            } else {
+                SrSettings::new(config.schema_registry_url.clone())
+            };
+            info!(
+                "Schema Registry connected to {}",
+                config.schema_registry_url
+            );
+            Some(Arc::new(RwLock::new(AvroEncoder::new(sr_settings))))
         } else {
-            SrSettings::new(config.schema_registry_url.clone())
+            info!("Publishing tracking events as JSON");
+            None
         };
-
-        let encoder = AvroEncoder::new(sr_settings);
-        info!(
-            "Schema Registry connected to {}",
-            config.schema_registry_url
-        );
 
         Ok(Self {
             producer: Arc::new(producer),
             topic: config.kafka_topic.clone(),
-            encoder: Arc::new(RwLock::new(encoder)),
+            encoder,
         })
     }
 
     pub async fn publish(&self, event: TrackingEvent) {
-        // Serialize event using Avro with Schema Registry
-        let payload = match self.serialize_avro(&event).await {
+        let payload = match self.serialize(&event).await {
             Ok(p) => p,
             Err(e) => {
-                observability::report_issue(
-                    "Failed to serialize tracking event with Avro",
-                    &e.to_string(),
-                );
+                observability::report_issue("Failed to serialize tracking event", &e.to_string());
                 return;
             }
         };
@@ -187,20 +224,93 @@ impl KafkaProducer {
         }
     }
 
-    async fn serialize_avro(
+    /// JSON unless an Avro encoder was built, which is the same bytes the NATS
+    /// path writes, so the Go consumer decodes Kafka and NATS identically.
+    async fn serialize(
         &self,
         event: &TrackingEvent,
     ) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        let encoder = self.encoder.read().await;
+        let Some(encoder) = &self.encoder else {
+            return Ok(serde_json::to_vec(event)?);
+        };
+        let encoder = encoder.read().await;
 
-        // Use schema registry encoder to serialize with proper schema ID prefix
+        // The schema travels with the strategy so the encoder registers it on
+        // first use. TopicNameStrategy alone only LOOKS one up, and a subject
+        // that does not exist yet has nothing to find, which a fresh registry
+        // reports as "Could not get id from response" on every single event.
+        // Nothing then reaches the bus and every open and click is dropped.
         let payload = encoder
             .encode(
                 event.to_avro_value(),
-                SubjectNameStrategy::TopicNameStrategy(self.topic.clone(), false),
+                SubjectNameStrategy::TopicNameStrategyWithSchema(
+                    self.topic.clone(),
+                    false,
+                    tracking_event_schema(),
+                ),
             )
             .await?;
 
         Ok(payload)
+    }
+}
+
+#[cfg(test)]
+mod registry_tests {
+    use super::*;
+    use crate::events::TrackingEvent;
+
+    /// Against a real Schema Registry, which is the only thing that shows
+    /// whether the encoder can register a subject rather than merely look one
+    /// up. Skipped without one:
+    ///
+    ///   SR_URL=... SR_KEY=... SR_SECRET=... cargo test --features kafka registry
+    ///
+    /// This is the gap that took tracking down during a codec cutover: every
+    /// event failed with "Could not get id from response" because the strategy
+    /// carried no schema, and nothing in CI had ever encoded against a registry.
+    #[tokio::test]
+    async fn encodes_against_a_real_registry() {
+        let Ok(url) = std::env::var("SR_URL") else {
+            return;
+        };
+        let settings = SrSettings::new_builder(url)
+            .set_basic_authorization(
+                &std::env::var("SR_KEY").unwrap_or_default(),
+                Some(&std::env::var("SR_SECRET").unwrap_or_default()),
+            )
+            .build()
+            .expect("settings");
+        let encoder = AvroEncoder::new(settings);
+
+        let event = TrackingEvent {
+            event_type: "EMAIL_OPENED".to_string(),
+            task_id: uuid::Uuid::new_v4().to_string(),
+            original_url: None,
+            link_id: None,
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            user_agent: Some("probe".to_string()),
+            ip_hash: None,
+            client_ip: None,
+            scanner: None,
+            scanner_probable: false,
+        };
+
+        let payload = encoder
+            .encode(
+                event.to_avro_value(),
+                SubjectNameStrategy::TopicNameStrategyWithSchema(
+                    "warmbly-tracking-schema-check".to_string(),
+                    false,
+                    tracking_event_schema(),
+                ),
+            )
+            .await
+            .expect("the encoder must register the subject, not only look it up");
+
+        // Confluent framing: a zero byte then the schema id.
+        assert_eq!(payload[0], 0, "payload is not schema-registry framed");
+        assert!(payload.len() > 5, "payload carries no body");
+        println!("encoded {} bytes against the live registry", payload.len());
     }
 }

@@ -60,6 +60,7 @@ import BillingSettingsPage from './app/app/settings/billing/page';
 import ReferralSettingsPage from './app/app/settings/referral/page';
 import SendingSettingsPage from './app/app/settings/sending/page';
 import WebsiteTrackingSettingsPage from './app/app/settings/tracking/page';
+import InboxTaggingSettingsPage from './app/app/settings/inbox-tagging/page';
 import RolesSettingsPage from './app/app/settings/roles/page';
 import UniboxPage from './app/app/unibox/page';
 import DashboardNotFound from './app/app/not-found';
@@ -426,6 +427,7 @@ const router = createBrowserRouter([
               { path: "limits", element: <Navigate to="/app/settings/workspace" replace /> },
               { path: "sending", element: <SendingSettingsPage /> },
               { path: "tracking", element: <WebsiteTrackingSettingsPage /> },
+              { path: "inbox-tagging", element: <InboxTaggingSettingsPage /> },
               { path: "roles", element: <RolesSettingsPage /> },
               { path: "warmbly-cloud", element: <WarmblyCloudSettingsPage /> },
               { path: "oauth-apps", element: <OAuthAppsPage /> },
@@ -443,7 +445,7 @@ const router = createBrowserRouter([
           },
           {
             // Path-based, readable inbox URLs: /app/unibox/<scope>[/<threadId>].
-            // Both segments optional, so /app/unibox is the default "all" view.
+            // Both segments optional, so /app/unibox opens the Inbox folder.
             // Both are state inside one page, not different pages, so the shell
             // keeps the page mounted across them and the conversation list holds
             // its scroll offset when a thread opens (issue #396).

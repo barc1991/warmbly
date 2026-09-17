@@ -21,8 +21,9 @@ func (s *authService) LoginStart(ctx context.Context, data *AuthData, ipaddr, us
 		return nil, errx.New(errx.Forbidden, "password sign-in is disabled on this deployment")
 	}
 
+	// A failed challenge is the caller's 400, not an incident: reporting it
+	// filed an issue for every bot and every reloaded sign-in page.
 	if xerr := s.captcha.Verify(ctx, data.Turnstile, ipaddr); xerr != nil {
-		errs.CaptureException(xerr)
 		return nil, xerr
 	}
 
@@ -78,8 +79,9 @@ func (s *authService) LoginStart(ctx context.Context, data *AuthData, ipaddr, us
 		return nil, errx.InternalError()
 	}
 
+	// The transport reports the send failure itself; capturing it again here
+	// filed the same rejection as a second issue under a second file.
 	if xerr := s.sendAuthEmail(ctx, data.Email, "Your Login Code", text); xerr != nil {
-		errs.CaptureException(xerr)
 		return nil, errx.ErrMailUndeliverable
 	}
 
@@ -115,6 +117,16 @@ func (s *authService) LoginStart(ctx context.Context, data *AuthData, ipaddr, us
 // never demands a code, because there would be no way to complete the login.
 func (s *authService) loginCodeRequired(ctx context.Context, userID uuid.UUID, userAgent string, verdict authrisk.Verdict) bool {
 	if !s.mailDelivers {
+		return false
+	}
+	// A named account an operator excused, for a reviewer or auditor who has
+	// to sign in and cannot read this instance's mail. Checked before the
+	// policy so it holds under "always" too, which is the mode that would
+	// otherwise make such a review impossible. A read failure is not an
+	// exemption: the code is still demanded.
+	if exempt, err := s.userRepository.IsLoginCodeExempt(ctx, userID); err != nil {
+		errs.CaptureExceptionContext(ctx, err, errs.Tag("area", "login_code_exempt"))
+	} else if exempt {
 		return false
 	}
 	switch s.policy.LoginCode {

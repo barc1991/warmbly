@@ -46,8 +46,17 @@ func (s *emailService) Get(ctx context.Context, orgID, emailAccountID string) (*
 	return s.emailRepository.Get(ctx, orgID, emailAccountID)
 }
 
-func (s *emailService) Update(ctx context.Context, userID, emailAccountID string, udata *models.UpdateEmail) (*models.Email, *errx.Error) {
-	account, err := s.emailRepository.Update(ctx, userID, emailAccountID, udata)
+func (s *emailService) Update(ctx context.Context, orgID, userID, emailAccountID string, udata *models.UpdateEmail) (*models.Email, *errx.Error) {
+	// A send-as address is checked against what the provider last reported
+	// before it is stored: an alias the provider will not accept produces a
+	// refusal on every send, days later, naming nothing a customer could fix.
+	if udata.SendAsEmail != nil {
+		if xerr := s.validateSendAsChoice(ctx, orgID, emailAccountID, *udata.SendAsEmail); xerr != nil {
+			return nil, xerr
+		}
+	}
+
+	account, err := s.emailRepository.Update(ctx, orgID, emailAccountID, udata)
 	if err != nil {
 		return nil, err
 	}
@@ -84,11 +93,11 @@ func (s *emailService) applyStatusToWorker(ctx context.Context, userID string, a
 // BulkUpdateTags is a pure tag-link rewrite: no warmup pool or worker state
 // depends on tags, so no per-account fanout is needed (the caller audits
 // once and the spine refreshes lists).
-func (s *emailService) BulkUpdateTags(ctx context.Context, userID string, emailIDs, addTags, removeTags []uuid.UUID) (int, *errx.Error) {
+func (s *emailService) BulkUpdateTags(ctx context.Context, orgID string, emailIDs, addTags, removeTags []uuid.UUID) (int, *errx.Error) {
 	if len(addTags) == 0 && len(removeTags) == 0 {
 		return 0, errx.ErrNotEnough
 	}
-	return s.emailRepository.BulkUpdateTags(ctx, userID, emailIDs, addTags, removeTags)
+	return s.emailRepository.BulkUpdateTags(ctx, orgID, emailIDs, addTags, removeTags)
 }
 
 // SetWarmupLifecycle applies a warmup start/pause/resume/disable transition,
@@ -371,6 +380,23 @@ func (s *emailService) syncWarmupPoolMembership(ctx context.Context, account *mo
 		return
 	}
 
+	// A mailbox Warmbly Cloud warms is no longer a partner here: warmup this
+	// instance sent it carries a token the cloud cannot vouch for, so it would
+	// be filed as ordinary mail in the owner's inbox. Only a definite answer
+	// acts; an unreadable one leaves the membership alone rather than letting a
+	// blip evict a healthy mailbox and discard its health record.
+	if s.cloudLink != nil {
+		enrolled, err := s.cloudLink.GetByAccount(ctx, account.ID)
+		if err != nil {
+			log.Warn().Err(err).Str("account_id", account.ID.String()).Msg("cloud link lookup failed; warmup pool membership left as it is")
+			return
+		}
+		if enrolled != nil {
+			s.removeFromAllWarmupPools(ctx, account)
+			return
+		}
+	}
+
 	if !s.canUseWarmupPool(ctx, account) {
 		s.removeFromAllWarmupPools(ctx, account)
 		return
@@ -397,11 +423,63 @@ func (s *emailService) canUseWarmupPool(ctx context.Context, account *models.Ema
 	if account == nil || account.Status != "active" || account.OrganizationID == nil || s.featureGate == nil {
 		return false
 	}
-
 	canWarmup, err := s.featureGate.CanUseWarmup(ctx, *account.OrganizationID)
 	return err == nil && canWarmup
 }
 
-func (s *emailService) resolveWarmupPoolType(_ context.Context, _ *models.Email) string {
+// SyncWarmupPool re-evaluates one mailbox's local warmup pool membership, for
+// callers that changed something the membership depends on but not the mailbox
+// row itself (enrolling it in, or releasing it from, Warmbly Cloud).
+func (s *emailService) SyncWarmupPool(ctx context.Context, accountID uuid.UUID) {
+	account, xerr := s.emailRepository.GetByID(ctx, accountID)
+	if xerr != nil {
+		return
+	}
+	s.syncWarmupPoolMembership(ctx, account)
+}
+
+// orgSuspendedOrRestricted reports whether the workspace's posture bars the
+// paid warmup pool. Fails open.
+func (s *emailService) orgSuspendedOrRestricted(ctx context.Context, orgID uuid.UUID) bool {
+	if s.orgRiskRepo == nil {
+		return false
+	}
+	states, err := s.orgRiskRepo.GetOrgRiskStates(ctx, []uuid.UUID{orgID})
+	if err != nil {
+		return false
+	}
+	return states[orgID].ForcesFreeWarmupPool()
+}
+
+func (s *emailService) resolveWarmupPoolType(ctx context.Context, account *models.Email) string {
+	if account == nil {
+		return "premium"
+	}
+	// No organization means no entitlement to check, so the mailbox gets the
+	// lower-trust pool rather than defaulting into the paid one.
+	if account.OrganizationID == nil {
+		return "free"
+	}
+	// A restricted organization leaves the paid pool whatever it pays. Checked
+	// before the stored tier, which is never empty and would short-circuit it.
+	if s.orgSuspendedOrRestricted(ctx, *account.OrganizationID) {
+		return "free"
+	}
+	if account.WarmupPoolType != "" {
+		return account.WarmupPoolType
+	}
+	if s.featureGate != nil {
+		isPaid, err := s.featureGate.IsPaidOrganization(ctx, *account.OrganizationID)
+		if err == nil && !isPaid {
+			return "free"
+		}
+	}
 	return "premium"
+}
+
+// UpdateTrackDirectMail switches open/click tracking on this mailbox's
+// hand-written sends. It only affects mail sent from now on: a message already
+// delivered carries whatever it carried when it left.
+func (s *emailService) UpdateTrackDirectMail(ctx context.Context, orgID, emailAccountID string, enabled bool) *errx.Error {
+	return s.emailRepository.UpdateTrackDirectMail(ctx, orgID, emailAccountID, enabled)
 }

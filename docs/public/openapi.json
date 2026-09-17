@@ -2020,7 +2020,7 @@
       "delete": {
         "operationId": "mailboxes_delete",
         "summary": "Delete a mailbox",
-        "description": "Disconnects and deletes a mailbox. It is removed from all warmup pools.",
+        "description": "Disconnects and deletes a mailbox. It is removed from all warmup pools, and everything belonging to it goes with it: imported mail, warmup history, credentials, sender links and any scheduled send.\n\nTwo parts of the erasure finish just after the response, because neither can be done in the instant the record goes. A Gmail mailbox's OAuth grant is handed back to Google, which invalidates its tokens and removes the app from the customer's third-party access list; Microsoft publishes no per-application revocation endpoint, so an Outlook mailbox's tokens are destroyed locally and the customer removes the app at their Microsoft account. The message bodies stored outside the database are deleted. Both are retried until they succeed.",
         "tags": [
           "mailboxes"
         ],
@@ -2737,6 +2737,204 @@
           },
           "429": {
             "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emails/{id}/identity": {
+      "get": {
+        "operationId": "mailboxes_send_identity",
+        "summary": "Get the sending identity",
+        "description": "Which addresses the mailbox's provider will let it send as, which one it uses, and where its stored signature came from. Stored state only: the provider is not contacted.",
+        "tags": [
+          "mailboxes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The mailbox id.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The mailbox's sending identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxSendIdentity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, permission, or mailbox not allowed for this key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Mailbox not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/emails/{id}/identity/refresh": {
+      "post": {
+        "operationId": "mailboxes_refresh_send_identity",
+        "summary": "Refresh the sending identity",
+        "description": "Re-reads the send-as addresses from the provider and stores them, optionally importing the provider's signature. The read runs on the worker holding the mailbox, never from the API itself, so the provider keeps seeing the mailbox from one address. A send-as choice the provider no longer verifies is cleared by the same call. Gmail only. Retry-safe without an Idempotency-Key: it stores exactly what the provider currently reports.",
+        "tags": [
+          "mailboxes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The mailbox id.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailboxSendIdentityRefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The refreshed sending identity.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxSendIdentity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id, a provider with no send-as list (mailbox_send_as_unsupported), or a signature larger than Warmbly stores (mailbox_signature_too_large).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, permission, or mailbox not allowed for this key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Mailbox not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The mailbox is not running on a worker right now (mailbox_identity_unavailable); nothing was changed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4804,6 +5002,287 @@
         }
       }
     },
+    "/campaigns/{id}/leads/{contactId}/hold": {
+      "get": {
+        "operationId": "campaigns_get_lead_hold",
+        "summary": "Get a lead's hold",
+        "description": "Read whether one contact's flow inside this campaign is currently held. Scope READ_CAMPAIGNS, org permission view_campaigns.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "contactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignLeadHoldResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The campaign is not the caller's organization's, or the contact is not a lead of it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/campaigns/{id}/leads/{contactId}/pause": {
+      "post": {
+        "operationId": "campaigns_pause_lead",
+        "summary": "Pause a lead",
+        "description": "Hold one contact's flow inside one campaign until a date, or with no end. The contact stays subscribed and stays a lead. The body states an absolute hold rather than a delta, so a retry lands on the same state. Scope WRITE_CAMPAIGNS, org permission manage_campaigns.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "contactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignLeadPauseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignLeadHoldResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "until is in the past, or more than a year away.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The campaign is not the caller's organization's, or the contact is not a lead of it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/campaigns/{id}/leads/{contactId}/resume": {
+      "post": {
+        "operationId": "campaigns_resume_lead",
+        "summary": "Resume a lead",
+        "description": "Lift the hold now. The held time is dropped rather than carried, and the campaign's wakeup is pulled forward. Resuming a lead that is not held succeeds and changes nothing. Scope WRITE_CAMPAIGNS, org permission manage_campaigns.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "contactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignLeadHoldResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The campaign is not the caller's organization's, or the contact is not a lead of it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/campaigns/{id}/logs": {
       "get": {
         "operationId": "campaigns_list_logs",
@@ -6497,7 +6976,7 @@
         ],
         "operationId": "contacts_update",
         "summary": "Update a contact",
-        "description": "Partially updates a single contact; only the fields present change. Category lists can be set wholesale or adjusted with diff-style add/remove. Scope `WRITE_CONTACTS`.",
+        "description": "Partially updates a single contact; only the fields present change. Category lists can be set wholesale or adjusted with diff-style add/remove. `email` replaces the contact's address and resets its verification verdict. Scope `WRITE_CONTACTS`.",
         "security": [
           {
             "bearerAuth": []
@@ -6570,6 +7049,16 @@
           },
           "404": {
             "description": "Contact not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another contact already uses the supplied email address (code contact_email_taken).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7979,7 +8468,7 @@
       "get": {
         "operationId": "unibox_get_thread_labels",
         "summary": "Get thread labels",
-        "description": "Conversation labels (your categories) attached to a thread.",
+        "description": "Conversation labels (the workspace's categories) attached to a thread.",
         "tags": [
           "unibox"
         ],
@@ -8174,6 +8663,88 @@
           },
           "400": {
             "description": "Invalid body, more than 500 ids, or no organization selected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing scope/permission, or organization lacks unified-inbox access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/unibox/folder": {
+      "patch": {
+        "operationId": "unibox_move_folder",
+        "summary": "Move messages between folders",
+        "description": "Re-files a batch of messages into Inbox, Archive or Trash, org-wide. Up to 500 ids per call.\n\nThis is a move in Warmbly only. The copy at the mail provider stays where it is, and a later sync will not undo the move: Warmbly tracks the provider's own placement separately and follows it only when the provider itself moves the message. `sent`, `drafts` and `spam` are placements the provider reaches, so they are rejected here with a `400`.",
+        "tags": [
+          "unibox"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UniboxMoveFolderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Echoes the request back.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UniboxMoveFolderRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, more than 500 ids, a folder outside inbox/archive/trash, or no organization selected.",
             "content": {
               "application/json": {
                 "schema": {
@@ -10677,6 +11248,171 @@
             }
           }
         }
+      },
+      "patch": {
+        "operationId": "crm_bulk_update_tasks",
+        "summary": "Bulk update tasks",
+        "description": "Write a status, a priority, or both onto every task in a selection: the ids given, or every task the supplied filter matches minus the ids in exclude.",
+        "tags": [
+          "crm"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkUpdateTasks"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Number of tasks updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkTasksResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, an unknown status or priority, a selection with no ids, more than 1000 ids or more than 50000 exclusions (too_many_tasks), a filter naming something that is not an id (invalid_filter), or a selection resolving to more than 50000 tasks (selection_too_large).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "crm_bulk_delete_tasks",
+        "summary": "Bulk delete tasks",
+        "description": "Delete every task in a selection. The body is the selection object, or a bare array of task ids.",
+        "tags": [
+          "crm"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/TaskSelection"
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 1000,
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "description": "A bare list of task ids, equivalent to sending {\"tasks\": [...]}."
+                  }
+                ],
+                "description": "The selection object, or a bare array of task ids."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Number of tasks deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkTasksResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, a task id that is not an id, a selection with no ids, more than 1000 ids or more than 50000 exclusions (too_many_tasks), a filter naming something that is not an id (invalid_filter), or a selection resolving to more than 50000 tasks (selection_too_large).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/crm/tasks/search": {
@@ -11779,6 +12515,107 @@
           },
           "404": {
             "description": "Invalid UUID or key not found in this organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-keys/{id}/permanent": {
+      "delete": {
+        "operationId": "api-keys_delete",
+        "summary": "Delete an API key",
+        "description": "Removes a revoked or expired key from the workspace for good, along with its usage logs. A key that could still authenticate is refused with a 409: revoke it first, so what ended the credential stays on the record. A key past its expires_at can be deleted directly, since it already authenticates nothing.",
+        "tags": [
+          "api-keys"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deletion status envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIKeyDeleteResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No organization selected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing API_KEYS scope or manage_api_keys org permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Invalid UUID or key not found in this organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The key can still authenticate. Revoke it first.",
             "content": {
               "application/json": {
                 "schema": {
@@ -17410,6 +18247,114 @@
         }
       }
     },
+    "/templates/analyze": {
+      "post": {
+        "operationId": "deliverability-ops_analyze_template",
+        "summary": "Analyze template content with AI",
+        "description": "Runs the deployment's configured AI provider over a subject and body and returns the specific words and sentences that hurt deliverability, quoted from the copy, with whether each one is in the subject or the body and what to write instead. The rules-based score runs in the same request and comes back under `rules`. Advisory only and never blocks sending. Spends AI credits; honors `Idempotency-Key`. Requires WRITE_TEMPLATES scope (it writes no template, but a read-only key must not be able to spend the workspace credits), and the view_campaigns and use_ai permissions.",
+        "tags": [
+          "deliverability-ops"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Makes a retry safe: the same key is never charged twice.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScoreTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The analysis, with the rules-based pass alongside it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateAnalysis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Nothing written to analyze, or the template is over the size cap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Out of AI credits. Nothing is charged and no provider call is made.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No AI provider configured (code `ai_not_configured`, permanent for that deployment), or the provider failed (code `service_unavailable`, and the reserved credits are refunded).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/templates/score": {
       "post": {
         "operationId": "deliverability-ops_score_template",
@@ -18420,6 +19365,1065 @@
           }
         }
       }
+    },
+    "/folders": {
+      "post": {
+        "operationId": "labels_create_folder",
+        "summary": "Create folder",
+        "description": "Campaign folders. The new entry lands at the end of the workspace's registry. A registry holds at most 100 entries.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLabel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The created folder.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Label"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid title or colour, or the registry is full.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/folders/{id}": {
+      "patch": {
+        "operationId": "labels_update_folder",
+        "summary": "Update folder",
+        "description": "Rename or recolour a folder. Any member of the workspace may, whoever created it.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Folder ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLabel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated folder.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Label"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid title or colour.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such folder in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "labels_delete_folder",
+        "summary": "Delete folder",
+        "description": "Removes the folder and unfiles everything it was attached to. The records themselves are kept.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Folder ID."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such folder in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/folders/{id}/move": {
+      "patch": {
+        "operationId": "labels_move_folder",
+        "summary": "Move folder",
+        "description": "Reorders the registry by placing this folder at `position`. Returns the full new ordering.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Folder ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveLabel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Every folder with its new position.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LabelOrder"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Position out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such folder in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tags": {
+      "post": {
+        "operationId": "labels_create_tag",
+        "summary": "Create tag",
+        "description": "Mailbox tags. The new entry lands at the end of the workspace's registry. A registry holds at most 100 entries.",
+        "tags": [
+          "mailboxes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLabel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The created tag.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Label"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid title or colour, or the registry is full.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tags/{id}": {
+      "patch": {
+        "operationId": "labels_update_tag",
+        "summary": "Update tag",
+        "description": "Rename or recolour a tag. Any member of the workspace may, whoever created it.",
+        "tags": [
+          "mailboxes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Tag ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLabel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated tag.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Label"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid title or colour.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such tag in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "labels_delete_tag",
+        "summary": "Delete tag",
+        "description": "Removes the tag and unfiles everything it was attached to. The records themselves are kept.",
+        "tags": [
+          "mailboxes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Tag ID."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such tag in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tags/{id}/move": {
+      "patch": {
+        "operationId": "labels_move_tag",
+        "summary": "Move tag",
+        "description": "Reorders the registry by placing this tag at `position`. Returns the full new ordering.",
+        "tags": [
+          "mailboxes"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Tag ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveLabel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Every tag with its new position.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LabelOrder"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Position out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such tag in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/categories": {
+      "post": {
+        "operationId": "labels_create_category",
+        "summary": "Create category",
+        "description": "Contact categories, which double as unified-inbox conversation labels. The new entry lands at the end of the workspace's registry. A registry holds at most 100 entries.",
+        "tags": [
+          "contacts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLabel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The created category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Label"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid title or colour, or the registry is full.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/categories/{id}": {
+      "patch": {
+        "operationId": "labels_update_category",
+        "summary": "Update category",
+        "description": "Rename or recolour a category. Any member of the workspace may, whoever created it.",
+        "tags": [
+          "contacts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Category ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLabel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Label"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid title or colour.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such category in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "labels_delete_category",
+        "summary": "Delete category",
+        "description": "Removes the category and unfiles everything it was attached to. The records themselves are kept.",
+        "tags": [
+          "contacts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Category ID."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such category in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/categories/{id}/move": {
+      "patch": {
+        "operationId": "labels_move_category",
+        "summary": "Move category",
+        "description": "Reorders the registry by placing this category at `position`. Returns the full new ordering.",
+        "tags": [
+          "contacts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Category ID."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveLabel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Every category with its new position.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LabelOrder"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Position out of range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing required scope or permission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such category in this workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -19127,6 +21131,10 @@
           "signature_code": {
             "type": "boolean"
           },
+          "send_as_email": {
+            "type": "string",
+            "description": "A verified provider alias this mailbox sends from. Empty, the default, means the mailbox's own address. Gmail only."
+          },
           "provider": {
             "type": "string",
             "enum": [
@@ -19298,6 +21306,10 @@
           "signature_code": {
             "type": "boolean",
             "description": "Treat the HTML signature as raw code."
+          },
+          "send_as_email": {
+            "type": "string",
+            "description": "A verified provider alias this mailbox sends from. Must be an address the provider reported as verified (see the sending identity endpoints) or the mailbox's own; anything else is refused with mailbox_send_as_unknown. Send an empty string to go back to the mailbox address. Gmail only."
           },
           "status": {
             "type": "string",
@@ -19924,6 +21936,7 @@
           },
           "sender_strategy": {
             "type": "string",
+            "description": "How the campaign resolves its sending mailboxes. \"tags\" reads email_tags and falls back to every active mailbox in the workspace when no tag and no explicit sender is set. \"explicit\" sends from the campaign_senders pool and any email_tags set alongside it, and never falls back to every active mailbox: an empty pool with no tags parks the campaign at paused_no_accounts instead of widening to the whole workspace.",
             "enum": [
               "tags",
               "explicit"
@@ -20099,6 +22112,7 @@
           },
           "sender_strategy": {
             "type": "string",
+            "description": "How the campaign resolves its sending mailboxes. \"tags\" reads email_tag_ids and falls back to every active mailbox in the workspace when no tag and no explicit sender is set. \"explicit\" sends from the campaign_senders pool and any email_tag_ids set alongside it, and never falls back to every active mailbox: an empty pool with no tags parks the campaign at paused_no_accounts instead of widening to the whole workspace.",
             "enum": [
               "tags",
               "explicit"
@@ -20265,6 +22279,7 @@
           },
           "sender_strategy": {
             "type": "string",
+            "description": "How the campaign resolves its sending mailboxes. \"tags\" reads email_tags and falls back to every active mailbox in the workspace when no tag and no explicit sender is set. \"explicit\" sends from the campaign_senders pool and any email_tags set alongside it, and never falls back to every active mailbox: an empty pool with no tags parks the campaign at paused_no_accounts instead of widening to the whole workspace.",
             "enum": [
               "tags",
               "explicit"
@@ -20417,6 +22432,10 @@
             "type": "integer",
             "description": "Days to wait before this step, counted from the contact's previous step."
           },
+          "thread_reply": {
+            "type": "boolean",
+            "description": "Send this step as a reply on the conversation the contact is already in. Default true; a threading step carries the conversation's subject."
+          },
           "position": {
             "type": "integer"
           },
@@ -20467,6 +22486,10 @@
           "wait_after": {
             "type": "integer"
           },
+          "thread_reply": {
+            "type": "boolean",
+            "description": "Reply in the contact's existing conversation rather than starting a new one. Defaults to true for a step with no subject or the conversation's own, false for a step carrying a subject of its own."
+          },
           "kind": {
             "type": "string",
             "enum": [
@@ -20502,6 +22525,10 @@
           "wait_after": {
             "type": "integer",
             "description": "Days to wait before this step, counted from the contact's previous step (0 to 60). Spacing belongs to the target step; there is no standalone wait node for email steps."
+          },
+          "thread_reply": {
+            "type": "boolean",
+            "description": "Send this step as a reply on the conversation the contact is already in, rather than as a new email. Default true. A threading step carries the conversation's subject, so its own subject is only used once this is turned off."
           },
           "conditions": {
             "type": "object",
@@ -20980,7 +23007,26 @@
                 }
               },
               "auto_create_crm_task": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "Open a CRM follow-up task when a classified reply lands."
+              },
+              "crm_task_intents": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "description": "Which intents are worth a follow-up task. Omit or send null for the default set (positive, question, neutral, negative: every human intent and no automated one). An empty array opens nothing, the same as turning the switch off.",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "positive",
+                    "negative",
+                    "question",
+                    "neutral",
+                    "out_of_office",
+                    "automated"
+                  ]
+                }
               },
               "auto_pause_on_negative": {
                 "type": "boolean"
@@ -21439,9 +23485,11 @@
               "replied",
               "bounced",
               "failed",
-              "unsubscribed"
+              "unsubscribed",
+              "paused",
+              "undeliverable"
             ],
-            "description": "Derived, highest priority first: unsubscribed, bounced, replied, failed (a step could not be sent after every retry), completed (every email step sent), active (some steps sent), pending (nothing sent yet)."
+            "description": "The lead's derived state in this campaign, highest priority first: unsubscribed, bounced, replied, failed, completed, paused (the flow is held by an out-of-office auto-reply or by hand; see the hold object), active, undeliverable (address verification refused the address, so the campaign never sends to it), pending."
           },
           "sent": {
             "type": "integer"
@@ -21472,6 +23520,15 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "hold": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CampaignLeadHold"
+              }
+            ],
+            "nullable": true,
+            "description": "The live per-lead hold: an out-of-office auto-reply parked the contact, or a member paused them. Absent when the lead is not held."
           }
         }
       },
@@ -21883,6 +23940,10 @@
           },
           "last_name": {
             "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "description": "New email address. Stored lowercased and stripped of any display name. Must be free: an address another contact holds returns 409 contact_email_taken. Changing it resets the contact's verification verdict to unknown."
           },
           "company": {
             "type": "string"
@@ -23568,6 +25629,34 @@
           }
         }
       },
+      "UniboxMoveFolderRequest": {
+        "type": "object",
+        "description": "Also the echoed response body.",
+        "required": [
+          "email_ids",
+          "folder"
+        ],
+        "properties": {
+          "email_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 500,
+            "description": "Message UUIDs to move (max 500)."
+          },
+          "folder": {
+            "type": "string",
+            "enum": [
+              "inbox",
+              "archive",
+              "trash"
+            ],
+            "description": "Destination folder. Anything else is a `400`."
+          }
+        }
+      },
       "UniboxReplyRequest": {
         "type": "object",
         "required": [
@@ -25007,6 +27096,20 @@
           }
         }
       },
+      "APIKeyDeleteResult": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "deleted"
+            ]
+          }
+        }
+      },
       "APIPermission": {
         "type": "object",
         "required": [
@@ -25893,6 +27996,10 @@
           "intent_neutral": {
             "type": "integer"
           },
+          "intent_automated": {
+            "type": "integer",
+            "description": "Machine replies that are not vacation notices: autoresponders, ticket acknowledgements, bounces, delivery reports."
+          },
           "emails_sent": {
             "type": "integer"
           },
@@ -26227,14 +28334,42 @@
           "opens": {
             "type": "integer"
           },
+          "machine_opens": {
+            "type": "integer",
+            "description": "Subset of opens from automated fetchers. Human opens are opens minus machine_opens."
+          },
           "clicks": {
             "type": "integer"
+          },
+          "machine_clicks": {
+            "type": "integer",
+            "description": "Contacts on this step whose only clicks were automated. Not part of clicks."
           },
           "replies": {
             "type": "integer"
           },
           "bounces": {
             "type": "integer"
+          },
+          "open_rate": {
+            "type": "number",
+            "format": "double",
+            "description": "Opens as a percentage of this step's own emails_sent. 0 while the step has sent nothing."
+          },
+          "click_rate": {
+            "type": "number",
+            "format": "double",
+            "description": "Clicks as a percentage of this step's own emails_sent. 0 while the step has sent nothing."
+          },
+          "reply_rate": {
+            "type": "number",
+            "format": "double",
+            "description": "Replies as a percentage of this step's own emails_sent. 0 while the step has sent nothing."
+          },
+          "bounce_rate": {
+            "type": "number",
+            "format": "double",
+            "description": "Bounces as a percentage of this step's own emails_sent. 0 while the step has sent nothing."
           }
         }
       },
@@ -26546,12 +28681,14 @@
           "score": {
             "type": "integer"
           },
-          "spam_score": {
-            "type": "integer"
-          },
           "evaluated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "spam_score": {
+            "type": "integer",
+            "deprecated": true,
+            "description": "Always 0. The accumulating warmup spam score was retired; read score and reason. Removed at the next API version."
           }
         }
       },
@@ -28521,7 +30658,7 @@
           },
           "weight": {
             "type": "number",
-            "description": "Selection weight, >= 0."
+            "description": "Selection weight, >= 0. Exactly 0 excludes the pairing outright."
           },
           "enabled": {
             "type": "boolean"
@@ -28594,7 +30731,7 @@
           "weight": {
             "type": "number",
             "minimum": 0,
-            "description": "Selection weight, must be >= 0."
+            "description": "Selection weight, must be >= 0. Above 1 prefers the pairing, below 1 avoids it, and exactly 0 excludes it even when no other partner is available."
           },
           "enabled": {
             "type": "boolean",
@@ -28789,6 +30926,35 @@
           }
         }
       },
+      "TemplateScoreSpan": {
+        "type": "object",
+        "description": "One exact fragment of the copy that triggered an issue.",
+        "required": [
+          "field",
+          "text"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": [
+              "subject",
+              "body"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "The fragment as it is written in the copy."
+          },
+          "line": {
+            "type": "integer",
+            "description": "1-based line within that field."
+          },
+          "excerpt": {
+            "type": "string",
+            "description": "The whole line, for context around the fragment."
+          }
+        }
+      },
       "TemplateScoreIssue": {
         "type": "object",
         "required": [
@@ -28810,6 +30976,136 @@
           },
           "message": {
             "type": "string"
+          },
+          "field": {
+            "type": "string",
+            "description": "Set when the issue lives in exactly one half of the template. Absent when it straddles both or describes the send as a whole.",
+            "enum": [
+              "subject",
+              "body"
+            ]
+          },
+          "spans": {
+            "type": "array",
+            "description": "The exact fragments that caused the issue, in reading order. Capped at 8; the count that drives the deduction is taken before the cap.",
+            "items": {
+              "$ref": "#/components/schemas/TemplateScoreSpan"
+            }
+          },
+          "suggestion": {
+            "type": "string",
+            "description": "The fix, in one sentence."
+          }
+        }
+      },
+      "SpamFinding": {
+        "type": "object",
+        "description": "One located problem the AI analysis found. `text` is verified against the submitted copy before it is returned, so it is never a fragment the caller did not send.",
+        "required": [
+          "severity",
+          "issue"
+        ],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "warn",
+              "info"
+            ]
+          },
+          "field": {
+            "type": "string",
+            "description": "Absent when the model labelled neither half and nothing in the finding could be anchored in the copy.",
+            "enum": [
+              "subject",
+              "body"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "description": "The fragment quoted from the copy. Absent when the finding is about the email as a whole."
+          },
+          "line": {
+            "type": "integer"
+          },
+          "excerpt": {
+            "type": "string"
+          },
+          "issue": {
+            "type": "string",
+            "description": "Why this fragment hurts deliverability or replies."
+          },
+          "suggestion": {
+            "type": "string",
+            "description": "What to write instead."
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "trigger_word",
+              "tone",
+              "formatting",
+              "links",
+              "structure",
+              "authenticity"
+            ]
+          }
+        }
+      },
+      "TemplateAnalysis": {
+        "type": "object",
+        "description": "AI spam analysis of a campaign template, with the rules-based pass alongside it.",
+        "required": [
+          "score",
+          "verdict",
+          "findings",
+          "rules",
+          "model"
+        ],
+        "properties": {
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Overall deliverability score (higher is safer), grounded on the rules pass."
+          },
+          "verdict": {
+            "type": "string",
+            "description": "One sentence on how the email will land."
+          },
+          "findings": {
+            "type": "array",
+            "description": "Located problems, most severe first.",
+            "items": {
+              "$ref": "#/components/schemas/SpamFinding"
+            }
+          },
+          "suggested_subject": {
+            "type": "string",
+            "description": "A rewritten subject, absent when the current one is fine."
+          },
+          "improvements": {
+            "type": "array",
+            "description": "Copy-level advice with no single fragment to quote.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rules": {
+            "$ref": "#/components/schemas/TemplateScoreResult"
+          },
+          "model": {
+            "type": "string"
+          },
+          "tokens_used": {
+            "type": "integer"
+          },
+          "credits_remaining": {
+            "type": "integer"
+          },
+          "credits_charged": {
+            "type": "integer"
           }
         }
       },
@@ -29152,6 +31448,377 @@
             "type": "string"
           }
         }
+      },
+      "Label": {
+        "type": "object",
+        "description": "One entry in a workspace label registry (a folder, tag or category). Registries belong to the organization, so every member sees and can edit the same set.",
+        "required": [
+          "id",
+          "title",
+          "color",
+          "position",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "description": "1 to 50 characters."
+          },
+          "color": {
+            "type": "string",
+            "description": "Hex colour, `#rrggbb`."
+          },
+          "position": {
+            "type": "integer",
+            "description": "0-based order within its own registry."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateLabel": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "1 to 50 characters."
+          },
+          "color": {
+            "type": "string",
+            "description": "Hex colour, `#rrggbb`. Omit to let the server pick from its palette."
+          }
+        }
+      },
+      "UpdateLabel": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "1 to 50 characters."
+          },
+          "color": {
+            "type": "string",
+            "description": "Hex colour, `#rrggbb`."
+          }
+        }
+      },
+      "MoveLabel": {
+        "type": "object",
+        "required": [
+          "position"
+        ],
+        "properties": {
+          "position": {
+            "type": "integer",
+            "description": "New 0-based position within the registry."
+          }
+        }
+      },
+      "LabelOrder": {
+        "type": "object",
+        "description": "One label's place in the registry after a move.",
+        "required": [
+          "id",
+          "position"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "position": {
+            "type": "integer"
+          }
+        }
+      },
+      "CampaignLeadHold": {
+        "type": "object",
+        "description": "One contact's flow parked inside one campaign.",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the hold was written."
+          },
+          "until": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When it lifts. Absent for a hold with no end, which only a resume lifts."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Free-text note shown next to the hold."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "out_of_office"
+            ],
+            "description": "What wrote it."
+          }
+        },
+        "required": [
+          "since",
+          "source"
+        ]
+      },
+      "CampaignLeadHoldResult": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "hold": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CampaignLeadHold"
+              }
+            ],
+            "nullable": true,
+            "description": "Absent when the lead is not held, including a dated hold that has expired."
+          }
+        },
+        "required": [
+          "campaign_id",
+          "contact_id"
+        ]
+      },
+      "CampaignLeadPauseRequest": {
+        "type": "object",
+        "properties": {
+          "until": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the hold lifts. Must be in the future and within a year. Omit or null for a hold with no end."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Optional note shown next to the hold."
+          }
+        }
+      },
+      "MailboxSendAsIdentity": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "description": "The mailbox's own address."
+          },
+          "is_default": {
+            "type": "boolean",
+            "description": "The identity the provider composes from by default. Reported, not followed: which alias Warmbly sends from is the workspace's own choice."
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "The provider finished verifying the address. An unverified one is listed but cannot be selected."
+          }
+        }
+      },
+      "MailboxSendIdentity": {
+        "type": "object",
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "description": "False for Outlook and SMTP/IMAP mailboxes, which publish no send-as list."
+          },
+          "provider": {
+            "type": "string"
+          },
+          "mailbox_email": {
+            "type": "string",
+            "format": "email",
+            "description": "The address the mailbox authenticates as, which is always a legal sender."
+          },
+          "send_as_email": {
+            "type": "string",
+            "description": "The alias in use. Empty means the mailbox address."
+          },
+          "identities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MailboxSendAsIdentity"
+            }
+          },
+          "synced_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the list was last read from the provider."
+          },
+          "signature_source": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "provider"
+            ],
+            "description": "Where the mailbox's stored signature came from."
+          },
+          "signature_imported_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "MailboxSendIdentityRefreshRequest": {
+        "type": "object",
+        "properties": {
+          "import_signature": {
+            "type": "boolean",
+            "default": false,
+            "description": "Also replace the mailbox's stored signature with the one configured at the provider, for whichever identity the mailbox sends as. An empty signature at the provider changes nothing."
+          }
+        }
+      },
+      "TaskSelection": {
+        "type": "object",
+        "description": "Names the tasks a bulk action applies to: either an explicit id list, or every task matching a search (all + filters) minus the ids in exclude. The filter form lets one call cover far more tasks than a page, and is refused with selection_too_large past 50000 matches.",
+        "oneOf": [
+          {
+            "required": [
+              "tasks"
+            ],
+            "properties": {
+              "all": {
+                "enum": [
+                  false
+                ]
+              }
+            }
+          },
+          {
+            "required": [
+              "all",
+              "filters"
+            ],
+            "properties": {
+              "all": {
+                "enum": [
+                  true
+                ]
+              }
+            }
+          }
+        ],
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Task ids (1 to 1000). Required unless all is set."
+          },
+          "all": {
+            "type": "boolean",
+            "description": "Resolve the selection from filters instead of tasks."
+          },
+          "filters": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SearchTasks"
+              }
+            ],
+            "description": "The search whose matches the action applies to. Required when all is true."
+          },
+          "exclude": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 50000,
+            "description": "Task ids to drop from the resolved set. Ignored unless all is set."
+          }
+        }
+      },
+      "BulkUpdateTasks": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TaskSelection"
+          }
+        ],
+        "description": "A task selection plus the fields to write on every task in it. At least one of status or priority is required.",
+        "anyOf": [
+          {
+            "required": [
+              "status"
+            ]
+          },
+          {
+            "required": [
+              "priority"
+            ]
+          }
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed",
+              "cancelled"
+            ],
+            "description": "Status to set. completed stamps completed_at and records the completion on each linked contact's timeline."
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ],
+            "description": "Priority to set."
+          }
+        }
+      },
+      "BulkTasksResponse": {
+        "type": "object",
+        "description": "How many tasks the bulk action touched. The count is returned rather than the rows: a select-all can cover tens of thousands.",
+        "properties": {
+          "affected": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Tasks written or deleted."
+          }
+        },
+        "required": [
+          "affected"
+        ]
       }
     }
   }
