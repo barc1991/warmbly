@@ -71,9 +71,13 @@ func (r incomingReplyContactRepo) GetByID(context.Context, uuid.UUID) (*models.C
 type incomingReplyProgressRepo struct {
 	repository.CampaignProgressRepository
 	replied       int
+	classified    int
+	claims        int
+	completed     int
 	latest        *repository.CampaignSequencePair
 	sourceInbound bool
-	replyClaimed  bool
+	sourceClaimed bool
+	replyAccepted bool
 	advanced      *incomingReplyAdvancedRepo
 }
 
@@ -90,12 +94,23 @@ func (r *incomingReplyProgressRepo) GetLatestReplyClass(context.Context, uuid.UU
 }
 
 func (r *incomingReplyProgressRepo) RecordReplyClassification(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string, string, float64) error {
+	r.classified++
+	return nil
+}
+
+func (r *incomingReplyProgressRepo) ClaimIncomingReply(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	r.claims++
+	return r.sourceClaimed, nil
+}
+
+func (r *incomingReplyProgressRepo) CompleteIncomingReply(context.Context, uuid.UUID, uuid.UUID) error {
+	r.completed++
 	return nil
 }
 
 func (r *incomingReplyProgressRepo) RecordEmailReplied(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (bool, error) {
 	r.replied++
-	return r.replyClaimed, nil
+	return r.replyAccepted, nil
 }
 
 type incomingReplyCampaignRepo struct{ repository.CampaignRepository }
@@ -106,7 +121,7 @@ func (incomingReplyCampaignRepo) GetSequencesRoutingByCampaignID(context.Context
 
 func newIncomingReplyService(account *models.Email, senderContact *models.Contact, taskContact uuid.UUID) (*service, *incomingReplyProgressRepo) {
 	taskID, campaignID, sequenceID := uuid.New(), uuid.New(), uuid.New()
-	progress := &incomingReplyProgressRepo{sourceInbound: true, replyClaimed: true}
+	progress := &incomingReplyProgressRepo{sourceInbound: true, sourceClaimed: true, replyAccepted: true}
 	advancedRepo := &incomingReplyAdvancedRepo{}
 	progress.advanced = advancedRepo
 	taskContactRecord := &models.Contact{ID: taskContact, Email: "task-contact@example.test"}
@@ -239,7 +254,7 @@ func TestProcessIncomingReplyStopsWhenWriteBoundaryRejectsSource(t *testing.T) {
 	service, progress := newIncomingReplyService(account, &models.Contact{
 		ID: contactID, Email: "recipient@example.test",
 	}, contactID)
-	progress.replyClaimed = false
+	progress.replyAccepted = false
 
 	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
 		ID:        uuid.New(),
@@ -261,6 +276,47 @@ func TestProcessIncomingReplyStopsWhenWriteBoundaryRejectsSource(t *testing.T) {
 	}
 	if progress.advanced.intents != 0 {
 		t.Fatalf("CreateReplyIntent calls = %d, want 0 after rejected claim", progress.advanced.intents)
+	}
+	if progress.completed != 1 {
+		t.Fatalf("CompleteIncomingReply calls = %d, want 1 after rejected write", progress.completed)
+	}
+}
+
+func TestProcessIncomingReplyClaimsBeforePersistingAutomatedState(t *testing.T) {
+	orgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New()
+	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "sender@example.test"}
+	service, progress := newIncomingReplyService(account, &models.Contact{
+		ID: contactID, Email: "recipient@example.test",
+	}, contactID)
+	progress.sourceClaimed = false
+
+	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
+		ID:        uuid.New(),
+		EmailID:   accountID,
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Recipient <recipient@example.test>"},
+		ToAddr:    []string{"sender@example.test"},
+		InReplyTo: []string{"<opener@example.test>"},
+		Subject:   "Automatic reply: out of office",
+		Snippet:   "I am out of the office.",
+	})
+	if xerr != nil {
+		t.Fatal(xerr)
+	}
+	if progress.claims != 1 {
+		t.Fatalf("ClaimIncomingReply calls = %d, want 1", progress.claims)
+	}
+	if progress.classified != 0 {
+		t.Fatalf("RecordReplyClassification calls = %d, want 0 after rejected claim", progress.classified)
+	}
+	if progress.replied != 0 {
+		t.Fatalf("RecordEmailReplied calls = %d, want 0 for rejected automated reply", progress.replied)
+	}
+	if progress.advanced.intents != 0 {
+		t.Fatalf("CreateReplyIntent calls = %d, want 0 after rejected claim", progress.advanced.intents)
+	}
+	if progress.completed != 0 {
+		t.Fatalf("CompleteIncomingReply calls = %d, want 0 without a claim", progress.completed)
 	}
 }
 
@@ -359,5 +415,8 @@ func TestProcessIncomingReplyAcceptsMatchingThreadSender(t *testing.T) {
 	}
 	if progress.replied != 1 {
 		t.Fatalf("RecordEmailReplied calls = %d, want 1 for the matching contact", progress.replied)
+	}
+	if progress.completed != 1 {
+		t.Fatalf("CompleteIncomingReply calls = %d, want 1 for the matching contact", progress.completed)
 	}
 }

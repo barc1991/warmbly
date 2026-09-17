@@ -43,12 +43,19 @@ func TestLiveReplySourceUsesStoredDirectionAtTheWriteBoundary(t *testing.T) {
 	if inbound {
 		t.Fatal("Sent-folder source was accepted as inbound")
 	}
-	claimed, err := repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.other, sentID)
+	claimed, err := repo.ClaimIncomingReply(ctx, f.other, sentID)
+	if err != nil {
+		t.Fatalf("claim sent source: %v", err)
+	}
+	if claimed {
+		t.Fatal("Sent-folder source was claimed for reply processing")
+	}
+	accepted, err := repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.other, sentID)
 	if err != nil {
 		t.Fatalf("record sent source: %v", err)
 	}
-	if claimed {
-		t.Fatal("Sent-folder source claimed reply progress")
+	if accepted {
+		t.Fatal("Sent-folder source was accepted as reply progress")
 	}
 
 	var replied bool
@@ -83,19 +90,57 @@ func TestLiveReplySourceUsesStoredDirectionAtTheWriteBoundary(t *testing.T) {
 	if !inbound {
 		t.Fatal("Inbox source was rejected as outbound")
 	}
-	claimed, err = repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.mailbox, inboxID)
+	claimed, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
 	if err != nil {
-		t.Fatalf("record inbound source: %v", err)
+		t.Fatalf("claim inbound source: %v", err)
 	}
 	if !claimed {
-		t.Fatal("Inbox source did not claim reply progress")
+		t.Fatal("Inbox source was not claimed for reply processing")
 	}
-	claimed, err = repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.mailbox, inboxID)
+	claimed, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
 	if err != nil {
 		t.Fatalf("repeat inbound claim: %v", err)
 	}
 	if claimed {
-		t.Fatal("Already-recorded reply was claimed twice")
+		t.Fatal("Inbox source was claimed concurrently twice")
+	}
+	if _, err := pool.Exec(ctx, `
+		UPDATE unibox_emails
+		SET campaign_reply_claimed_at = NOW() - INTERVAL '3 minutes'
+		WHERE id = $1
+	`, inboxID); err != nil {
+		t.Fatalf("age reply claim: %v", err)
+	}
+	claimed, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
+	if err != nil {
+		t.Fatalf("reclaim expired lease: %v", err)
+	}
+	if !claimed {
+		t.Fatal("Expired reply-processing lease was not reclaimed")
+	}
+	accepted, err = repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.mailbox, inboxID)
+	if err != nil {
+		t.Fatalf("record inbound source: %v", err)
+	}
+	if !accepted {
+		t.Fatal("Inbox source did not stamp reply progress")
+	}
+	accepted, err = repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.mailbox, inboxID)
+	if err != nil {
+		t.Fatalf("repeat inbound record: %v", err)
+	}
+	if !accepted {
+		t.Fatal("Already-recorded reply was not accepted idempotently")
+	}
+	if err := repo.CompleteIncomingReply(ctx, f.mailbox, inboxID); err != nil {
+		t.Fatalf("complete inbound reply: %v", err)
+	}
+	claimed, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
+	if err != nil {
+		t.Fatalf("claim completed reply: %v", err)
+	}
+	if claimed {
+		t.Fatal("Completed reply was claimed again")
 	}
 	if err := pool.QueryRow(ctx, `
 		SELECT replied_at IS NOT NULL

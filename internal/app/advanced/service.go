@@ -1113,6 +1113,7 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	// when an out-of-office hold lifts, for the notification to name.
 	var verdict replyclassify.Result
 	var held *time.Time
+	replyClaimed := false
 
 	var campaignID *uuid.UUID
 	var sequenceID *uuid.UUID
@@ -1200,6 +1201,14 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		// for every reply, so OOO/unsubscribe stay correct even when the gate
 		// skipped the model.
 		verdict = replyResult
+		claimed, err := s.campaignProgressRepo.ClaimIncomingReply(ctx, emailAccountID, msg.ID)
+		if err != nil {
+			return toErrx(err)
+		}
+		if !claimed {
+			return nil
+		}
+		replyClaimed = true
 		_ = s.campaignProgressRepo.RecordReplyClassification(ctx, cID, ctID, sID, replyResult.Class, replyResult.Source, replyResult.Confidence)
 
 		// Out of office: park the contact's next step until they are back
@@ -1219,11 +1228,14 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		// Any reply, human or automatic, proves the mailbox is live; only a
 		// human one counts as engagement.
 		if !replyclassify.IsAutomated(replyResult.Class) {
-			claimed, err := s.campaignProgressRepo.RecordEmailReplied(ctx, cID, ctID, sID, emailAccountID, msg.ID)
+			accepted, err := s.campaignProgressRepo.RecordEmailReplied(ctx, cID, ctID, sID, emailAccountID, msg.ID)
 			if err != nil {
 				return toErrx(err)
 			}
-			if !claimed {
+			if !accepted {
+				if err := s.campaignProgressRepo.CompleteIncomingReply(ctx, emailAccountID, msg.ID); err != nil {
+					return toErrx(err)
+				}
 				return nil
 			}
 		}
@@ -1290,6 +1302,15 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 			Subject:  msg.Subject,
 			BodyText: firstNonEmpty(msg.BodyText, msg.Snippet),
 		})
+	}
+	if !replyClaimed {
+		claimed, err := s.campaignProgressRepo.ClaimIncomingReply(ctx, emailAccountID, msg.ID)
+		if err != nil {
+			return toErrx(err)
+		}
+		if !claimed {
+			return nil
+		}
 	}
 
 	intent, confidence := classifyReply(text, settings.ReplyIntent)
@@ -1435,6 +1456,9 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		s.notify(uid, account.OrganizationID, cat, title, body, "/app/unibox", map[string]any{"intent": string(intent)})
 	}
 
+	if err := s.campaignProgressRepo.CompleteIncomingReply(ctx, emailAccountID, msg.ID); err != nil {
+		return toErrx(err)
+	}
 	return nil
 }
 

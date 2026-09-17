@@ -6,6 +6,10 @@
 -- the exact campaign task whose progress was stamped, its classifier must be
 -- inconclusive, and no reply-intent row from the contact may exist nearby.
 
+ALTER TABLE unibox_emails
+    ADD COLUMN campaign_reply_claimed_at timestamptz,
+    ADD COLUMN campaign_reply_processed_at timestamptz;
+
 WITH false_replies AS (
     SELECT DISTINCT
         p.campaign_id,
