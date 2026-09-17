@@ -45,6 +45,10 @@ type InboxTagRepository interface {
 	// ListUntagged and PreviousOutbound back the historical backfill.
 	ListUntagged(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) ([]BackfillCandidate, error)
 	PreviousOutbound(ctx context.Context, accountID uuid.UUID, threadID string, before time.Time) (string, string, error)
+
+	// ThreadStates backs the follow-up sweep: who spoke last, when, and how far
+	// the thread ever got.
+	ThreadStates(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) ([]ThreadFollowUpState, error)
 }
 
 type inboxTagRepository struct {
@@ -286,4 +290,80 @@ func (r *inboxTagRepository) PreviousOutbound(ctx context.Context, accountID uui
 		return "", "", nil
 	}
 	return body, campaign, nil
+}
+
+// ThreadFollowUpState is one thread's follow-up facts. Every field is read from
+// the database; none of it is inferred, and none of it is asked of a model.
+type ThreadFollowUpState struct {
+	ThreadID       string
+	LastInboundAt  time.Time
+	LastOutboundAt time.Time
+	// BestIntent is the furthest this thread ever got. Resolved in SQL by
+	// preferring the classified intent of the most recent inbound message that
+	// had one, because a thread that agreed and then asked a question is still
+	// a thread that agreed.
+	BestIntent string
+	// LastKind is the classified kind of the newest inbound message, which is
+	// what says whether the "reply" was a person or a mail server.
+	LastKind string
+}
+
+// ThreadStates returns follow-up facts for every thread with activity since a
+// cutoff.
+//
+// Scoped through email_accounts because unibox_emails carries no organization
+// of its own, and grouped per mailbox+thread for the same reason the analytics
+// queries are: the same provider thread id in two mailboxes is two threads.
+func (r *inboxTagRepository) ThreadStates(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) ([]ThreadFollowUpState, error) {
+	const q = `
+		WITH threads AS (
+			SELECT ue.thread_id,
+			       MAX(ue.internal_date) FILTER (WHERE ue.folder = 'inbox') AS last_in,
+			       MAX(ue.internal_date) FILTER (WHERE ue.folder = 'sent')  AS last_out
+			FROM unibox_emails ue
+			JOIN email_accounts ea ON ea.id = ue.email_id
+			WHERE ea.organization_id = $1
+			  AND ue.thread_id <> ''
+			  AND ue.internal_date >= $2
+			GROUP BY ue.thread_id
+		)
+		SELECT t.thread_id, t.last_in, t.last_out,
+		       COALESCE(best.intent, ''), COALESCE(newest.kind, '')
+		FROM threads t
+		LEFT JOIN LATERAL (
+			SELECT r.intent FROM inbox_tag_results r
+			WHERE r.organization_id = $1 AND r.thread_id = t.thread_id AND r.intent <> ''
+			ORDER BY r.created_at DESC LIMIT 1
+		) best ON TRUE
+		LEFT JOIN LATERAL (
+			SELECT r.kind FROM inbox_tag_results r
+			WHERE r.organization_id = $1 AND r.thread_id = t.thread_id
+			ORDER BY r.created_at DESC LIMIT 1
+		) newest ON TRUE
+		WHERE t.last_out IS NOT NULL
+		ORDER BY GREATEST(COALESCE(t.last_in, 'epoch'::timestamptz), t.last_out) DESC
+		LIMIT $3
+	`
+	rows, err := r.db.Query(ctx, q, orgID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []ThreadFollowUpState
+	for rows.Next() {
+		var st ThreadFollowUpState
+		var lastIn, lastOut *time.Time
+		if err := rows.Scan(&st.ThreadID, &lastIn, &lastOut, &st.BestIntent, &st.LastKind); err != nil {
+			return nil, err
+		}
+		if lastIn != nil {
+			st.LastInboundAt = *lastIn
+		}
+		if lastOut != nil {
+			st.LastOutboundAt = *lastOut
+		}
+		out = append(out, st)
+	}
+	return out, rows.Err()
 }

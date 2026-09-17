@@ -207,6 +207,7 @@ type fakeRepo struct {
 	saved    []*repository.InboxTagResult
 	untagged []repository.BackfillCandidate
 	previous string
+	states   []repository.ThreadFollowUpState
 }
 
 func (f *fakeRepo) Claim(_ context.Context, _, _ uuid.UUID, id, _ string) (bool, error) {
@@ -243,6 +244,10 @@ func (f *fakeRepo) ListUntagged(context.Context, uuid.UUID, time.Time, int) ([]r
 }
 func (f *fakeRepo) PreviousOutbound(context.Context, uuid.UUID, string, time.Time) (string, string, error) {
 	return f.previous, "", nil
+}
+
+func (f *fakeRepo) ThreadStates(context.Context, uuid.UUID, time.Time, int) ([]repository.ThreadFollowUpState, error) {
+	return f.states, nil
 }
 
 func newService(t *testing.T, asker Asker, repo repository.InboxTagRepository) *Service {

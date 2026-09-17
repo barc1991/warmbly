@@ -34,6 +34,8 @@ func runInboxTag(ctx context.Context, args []string) error {
 		return nil
 	case "backfill":
 		return runInboxTagBackfill(ctx, args[1:])
+	case "follow-ups":
+		return runInboxTagFollowUps(ctx, args[1:])
 	}
 	inboxTagUsage(os.Stderr)
 	return fmt.Errorf("unknown subcommand `inbox-tag %s`. Pick one from the list above.", args[0])
@@ -169,4 +171,59 @@ func truncateSubject(s string, n int) string {
 		return s
 	}
 	return string(r[:n]) + "…"
+}
+
+// runInboxTagFollowUps recomputes who owes whom a reply.
+//
+// No model call and no key needed: whether a message was answered and how long
+// ago are facts. A workspace that never switches the classifier on still gets
+// "they replied and you have not", which is arguably the most useful label here
+// and costs nothing.
+func runInboxTagFollowUps(ctx context.Context, args []string) error {
+	fs := newFlagSet("inbox-tag follow-ups")
+	org := fs.String("org", "", "organization id, or the owner's email address")
+	days := fs.Int("days", 90, "how far back to consider threads")
+	limit := fs.Int("limit", 2000, "most threads to sweep in this run")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if err := noExtraArgs(fs); err != nil {
+		return err
+	}
+	if strings.TrimSpace(*org) == "" {
+		return errors.New("--org is required: a sweep is scoped to one workspace")
+	}
+
+	c, err := connect(ctx)
+	if err != nil {
+		return err
+	}
+	defer c.close()
+
+	orgID, err := resolveOrgID(ctx, c, *org)
+	if err != nil {
+		return err
+	}
+
+	svc := inboxtag.NewService(
+		nil, // no asker: this sweep never calls the model
+		repository.NewInboxTagRepository(c.db.Pool),
+		repository.NewTagCategoryStore(c.db.Pool),
+		nil,
+		true,
+	)
+
+	p, err := svc.SweepFollowUps(ctx, orgID, time.Now().AddDate(0, 0, -*days), *limit)
+	if err != nil {
+		return fmt.Errorf("follow-up sweep: %w", err)
+	}
+
+	fmt.Printf("Swept %d threads.\n", p.Threads)
+	for _, label := range inboxtag.FollowUpLabels {
+		if n := p.Labelled[label]; n > 0 {
+			fmt.Printf("  %-18s %d\n", label, n)
+		}
+	}
+	fmt.Printf("  %-18s %d\n", "(none needed)", p.Cleared)
+	return nil
 }

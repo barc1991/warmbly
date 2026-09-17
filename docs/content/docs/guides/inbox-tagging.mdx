@@ -31,6 +31,31 @@ For a thread that is already a working relationship: `scheduling` (proposes or c
 
 **`needs-review`** means the classifier declined to decide. See below.
 
+## Follow-ups: who owes whom a reply
+
+Four labels answer the question a pipeline actually turns on, which is not "what is this message" but "what have I dropped".
+
+| label | means |
+|---|---|
+| `ball-in-our-court` | They replied and you have not answered for two days or more |
+| `awaiting-reply` | You sent last and it is still early |
+| `follow-up-due` | You sent last, five days ago, and heard nothing |
+| `going-cold` | They were interested, then went quiet for ten days |
+
+`going-cold` is separate from `follow-up-due` on purpose. A stalled deal and an unanswered cold email need different things from you, and someone who already said yes has earned more patience than someone who never answered. That is why its fuse is longer.
+
+**No model is involved.** Whether a message was answered, and how long ago, are facts in your mailbox. These labels are arithmetic over stored timestamps, they cost nothing, and they work on a workspace that never switches the classifier on at all.
+
+**Threads that said no are never chased.** A reply classified `not-interested`, `opt-out`, `wrong-person` or `not-now` gets no follow-up label, ever. Nagging someone who declined is rude, and nagging someone who asked to be removed is a compliance problem rather than a missed opportunity. Bounces, autoresponders and platform notices are skipped too: there is nobody on the other end to chase.
+
+These labels change as the calendar moves, so they are recomputed hourly and **replaced rather than added**. A thread is never wearing both `awaiting-reply` and `follow-up-due`; it wears its state, not its history. A reply clears the follow-up label within the hour.
+
+To recompute on demand:
+
+```bash
+warmblyctl inbox-tag follow-ups --org you@example.com
+```
+
 ## Relevance and priority
 
 Each message gets a score from 0 to 100, and a priority of `now`, `today`, `whenever` or `ignore`. Sorting the inbox by relevance puts the person who said yes above the person who is thinking about it, above a bounce.

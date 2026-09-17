@@ -341,6 +341,9 @@ func AllLabels() []string {
 		out = append(out, slugOf(s))
 	}
 	out = append(out, LabelNeedsReview)
+	// The follow-up states, which are computed rather than classified but are
+	// still labels a person filters the inbox by.
+	out = append(out, FollowUpLabels...)
 	sortStrings(out)
 	return out
 }
@@ -355,3 +358,79 @@ func slugOf(id string) string {
 }
 
 func sortStrings(s []string) { sort.Strings(s) }
+
+// ── Follow-up ──────────────────────────────────────────────────────────────
+//
+// Who owes whom a reply, and for how long. Deliberately NOT a question for the
+// model: whether a message was answered and how long ago are facts in the
+// database, and dates and arithmetic are the two things Jev is documented to
+// be worst at. Every follow-up label below is computed from stored data, costs
+// nothing, and can be recomputed as often as we like.
+//
+// These labels differ from the classification ones in an important way: they
+// change as time passes and as people reply, so they are kept in sync rather
+// than only added. A thread that was awaiting-reply yesterday and is
+// follow-up-due today must not wear both.
+const (
+	// LabelBallInOurCourt: they answered and we have not. The most actionable
+	// state on the page, and the easiest to lose: a positive reply that nobody
+	// picked up looks exactly like a quiet thread.
+	LabelBallInOurCourt = "ball-in-our-court"
+	// LabelAwaitingReply: we sent last and it is still early.
+	LabelAwaitingReply = "awaiting-reply"
+	// LabelFollowUpDue: we sent last, long enough ago to chase.
+	LabelFollowUpDue = "follow-up-due"
+	// LabelGoingCold: they were interested, then stopped answering. This is the
+	// expensive one, which is why it is its own label rather than a longer
+	// follow-up-due: a stalled deal and an unanswered cold email need different
+	// things from a person.
+	LabelGoingCold = "going-cold"
+)
+
+// FollowUpLabels is the set this feature keeps in sync on a thread. Only these
+// are ever removed, so a label a person applied by hand is never touched.
+var FollowUpLabels = []string{
+	LabelBallInOurCourt, LabelAwaitingReply, LabelFollowUpDue, LabelGoingCold,
+}
+
+// Follow-up timing. Days, because that is the unit a person chasing a deal
+// thinks in.
+const (
+	// OurCourtDays: how long we may sit on an inbound reply before it is worth
+	// flagging. Short, because this is our own delay.
+	OurCourtDays = 2
+	// FollowUpDueDays: silence after our message that is worth chasing. Three
+	// working days, allowing for a weekend.
+	FollowUpDueDays = 5
+	// GoingColdDays: silence after a POSITIVE exchange. Longer than
+	// follow-up-due on purpose: someone who said yes has earned more patience
+	// than someone who never answered, and chasing them at day five reads as
+	// pushy rather than diligent.
+	GoingColdDays = 10
+)
+
+// positiveIntents are the ones that make later silence expensive. A thread that
+// reached any of these was going somewhere.
+var positiveIntents = map[string]bool{
+	IntentAgreed:           true,
+	IntentScheduling:       true,
+	IntentWantsPricing:     true,
+	IntentWantsInfo:        true,
+	IntentQuestionAnswered: true,
+	IntentInProgress:       true,
+}
+
+// closedIntents end the conversation. A thread that reached one of these is
+// never chased: nagging somebody who declined is rude, and nagging somebody who
+// asked to be removed is a compliance problem, not a missed opportunity.
+var closedIntents = map[string]bool{
+	IntentNotInterested: true,
+	IntentOptOut:        true,
+	IntentWrongPerson:   true,
+	IntentNotNow:        true,
+}
+
+// IsPositiveIntent and IsClosedIntent are the readers, so nothing outside this
+// file decides what those words mean.
+func IsPositiveIntent(intent string) bool { return positiveIntents[intent] }
+func IsClosedIntent(intent string) bool   { return closedIntents[intent] }

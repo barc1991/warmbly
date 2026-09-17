@@ -111,6 +111,7 @@ var commands = []command{
 	{"backup", "Write the whole instance (database, blobs, keys) to one restorable bundle", composeExec + "backup --out /data/blobs/warmbly-backup.tar.gz"},
 	{"restore", "Restore a bundle onto this instance, replacing everything on it", composeExec + "restore --file /data/blobs/warmbly-backup.tar.gz"},
 	{"inbox-tag backfill", "Classify mail that arrived before automatic tagging was switched on", composeExec + "inbox-tag backfill --org you@example.com --days 30 --dry-run"},
+	{"inbox-tag follow-ups", "Recompute who owes whom a reply; no model call, no API key needed", composeExec + "inbox-tag follow-ups --org you@example.com"},
 	{"org list", "List the workspaces on this instance with their id, owner, and size", composeExec + "org list"},
 	{"org export", "Write a whole workspace to a portable archive file", composeExec + "org export --org you@example.com --out /tmp/workspace.warmbly.zip"},
 	{"org import", "Apply an archive to a workspace on this instance", composeExec + "org import --org you@example.com --file /tmp/workspace.warmbly.zip"},

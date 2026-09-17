@@ -50,6 +50,11 @@ var tagColors = map[string]string{
 	"legal-threat":          "#b91c1c",
 	"asks-for-call":         "#15803d",
 	"needs-human-judgement": "#a16207",
+	// Follow-up states, warm to cold as the silence lengthens.
+	"ball-in-our-court": "#be123c",
+	"awaiting-reply":    "#64748b",
+	"follow-up-due":     "#c2410c",
+	"going-cold":        "#a21caf",
 }
 
 const defaultTagColor = "#64748b"
@@ -164,4 +169,51 @@ func normalizeMailboxAddress(raw string) string {
 		address = address[start+1 : end]
 	}
 	return strings.ToLower(strings.TrimSpace(address))
+}
+
+// SyncExclusiveLabels makes `want` the only label from `family` on a thread.
+//
+// Follow-up labels are not like classification labels: they change as the
+// calendar moves and as people reply, so a thread that was awaiting-reply
+// yesterday and is follow-up-due today must wear one, not both. Adding without
+// removing would leave a thread wearing its whole history.
+//
+// Only labels in `family` are ever removed. A label a person applied by hand,
+// and every classification label, are untouched. An empty `want` removes the
+// family entirely, which is the right answer for a thread that has been
+// answered or closed.
+func (s *TagCategoryStore) SyncExclusiveLabels(ctx context.Context, orgID uuid.UUID, threadID string, family []string, want string) error {
+	if threadID == "" || len(family) == 0 {
+		return nil
+	}
+
+	remove := make([]uuid.UUID, 0, len(family))
+	for _, slug := range family {
+		if slug == want {
+			continue
+		}
+		id, err := s.EnsureCategory(ctx, orgID, slug)
+		if err != nil {
+			return err
+		}
+		remove = append(remove, id)
+	}
+
+	if len(remove) > 0 {
+		if _, err := s.db.Exec(ctx, `
+			DELETE FROM unibox_thread_labels
+			WHERE organization_id = $1 AND thread_id = $2 AND category_id = ANY($3)
+		`, orgID, threadID, remove); err != nil {
+			return err
+		}
+	}
+
+	if want == "" {
+		return nil
+	}
+	id, err := s.EnsureCategory(ctx, orgID, want)
+	if err != nil {
+		return err
+	}
+	return s.AddThreadLabels(ctx, orgID, threadID, []uuid.UUID{id})
 }

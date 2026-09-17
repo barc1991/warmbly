@@ -45,6 +45,10 @@ type Categories interface {
 	// remove a label a teammate applied by hand, and a "set" would do exactly
 	// that on every re-classification.
 	AddThreadLabels(ctx context.Context, orgID uuid.UUID, threadID string, categoryIDs []uuid.UUID) error
+	// SyncExclusiveLabels makes one label from a family the only one on a
+	// thread. Follow-up states change with the calendar, so they are replaced
+	// rather than accumulated; nothing outside the named family is touched.
+	SyncExclusiveLabels(ctx context.Context, orgID uuid.UUID, threadID string, family []string, want string) error
 }
 
 // MailboxAddresses answers "is this one of ours", which is a fact and must
@@ -428,4 +432,67 @@ func (s *Service) PreviousContext(ctx context.Context, accountID uuid.UUID, thre
 		return "", ""
 	}
 	return body, campaign
+}
+
+// ── Follow-up sweep ────────────────────────────────────────────────────────
+
+// FollowUpProgress reports what one sweep changed.
+type FollowUpProgress struct {
+	Threads  int
+	Labelled map[string]int
+	Cleared  int
+}
+
+// SweepFollowUps recomputes the follow-up label on every recently active thread.
+//
+// No model call, ever. Whether a message was answered and how long ago are
+// facts, so this is pure arithmetic over stored data and costs nothing to run.
+// That is what makes it safe to run on a schedule: these states change because
+// the calendar moved, not because anything happened, so there is no event to
+// hang them off and they have to be recomputed.
+//
+// Runs whether or not the classifier is enabled. A workspace that never turns
+// on tagging still gets "they replied and you have not" and "you sent this a
+// week ago", which need no model and are arguably the most useful labels here.
+func (s *Service) SweepFollowUps(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) (FollowUpProgress, error) {
+	p := FollowUpProgress{Labelled: map[string]int{}}
+	if s == nil || s.repo == nil || s.categories == nil {
+		return p, nil
+	}
+	if limit <= 0 {
+		limit = 2000
+	}
+
+	states, err := s.repo.ThreadStates(ctx, orgID, since, limit)
+	if err != nil {
+		return p, err
+	}
+	s.seedTaxonomy(ctx, orgID)
+
+	now := time.Now()
+	for _, st := range states {
+		if err := ctx.Err(); err != nil {
+			return p, err
+		}
+		want := FollowUp(ThreadState{
+			ThreadID:       st.ThreadID,
+			LastInboundAt:  st.LastInboundAt,
+			LastOutboundAt: st.LastOutboundAt,
+			BestIntent:     st.BestIntent,
+			LastKind:       st.LastKind,
+		}, now)
+
+		if err := s.categories.SyncExclusiveLabels(ctx, orgID, st.ThreadID, FollowUpLabels, want); err != nil {
+			log.Warn().Err(err).Str("thread_id", st.ThreadID).Msg("inbox tagging: follow-up label not applied")
+			continue
+		}
+
+		p.Threads++
+		if want == "" {
+			p.Cleared++
+		} else {
+			p.Labelled[want]++
+		}
+	}
+	return p, nil
 }
