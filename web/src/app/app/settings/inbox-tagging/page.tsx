@@ -25,11 +25,11 @@ import {
     StatStrip,
 } from "@/components/layout/Page";
 import { NoAccess } from "@/components/layout/NoAccess";
+import { TagMeaningTooltip } from "@/components/ui/tag-meaning-tooltip";
 import { usePermission } from "@/hooks/usePermission";
 import useInboxTagReview from "@/lib/api/hooks/app/inboxtag/useInboxTagReview";
 import type { InboxTagRow } from "@/lib/api/models/app/inboxtag/InboxTagReview";
 import { cn } from "@/lib/utils";
-import { tagMeaning } from "@/lib/unibox/tagMeanings";
 
 const PRIORITY_TONE: Record<string, string> = {
     now: "bg-rose-50 text-rose-700",
@@ -83,13 +83,11 @@ function Row({ r }: { r: InboxTagRow }) {
                         <span className="text-[11.5px] text-slate-400">no labels</span>
                     ) : (
                         r.labels.map((l) => (
-                            <span
-                                key={l}
-                                title={tagMeaning(l) || l}
-                                className="px-1.5 rounded bg-slate-100 text-slate-700 text-[11px] cursor-help"
-                            >
-                                {l}
-                            </span>
+                            <TagMeaningTooltip key={l} title={l}>
+                                <span className="px-1.5 rounded bg-slate-100 text-slate-700 text-[11px] cursor-help">
+                                    {l}
+                                </span>
+                            </TagMeaningTooltip>
                         ))
                     )}
                 </div>
