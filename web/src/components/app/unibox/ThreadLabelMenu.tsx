@@ -19,6 +19,7 @@ import { useUserProfile } from "@/hooks/context/user";
 import useCreateCategory from "@/lib/api/hooks/app/categories/useCreateCategory";
 import useThreadLabels from "@/lib/api/hooks/app/unibox/useThreadLabels";
 import useSetThreadLabels from "@/lib/api/hooks/app/unibox/useSetThreadLabels";
+import { tagMeaning } from "@/lib/unibox/tagMeanings";
 
 interface Props {
   threadId: string;
@@ -179,7 +180,9 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                     className="size-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: c.color }}
                   />
-                  <span className="truncate">{c.title}</span>
+                  <span className="truncate" title={tagMeaning(c.title) || undefined}>
+                    {c.title}
+                  </span>
                   {checked && (
                     <span className="ml-auto text-[10px] text-slate-300">assigned</span>
                   )}

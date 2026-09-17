@@ -137,3 +137,18 @@ func TestUnreadableIntentKeepsTheConfidentKind(t *testing.T) {
 		t.Error("scored 0 despite a confident kind and a call request")
 	}
 }
+
+// The dashboard keeps a hand-written explanation per label
+// (web/src/lib/unibox/tagMeanings.ts) so a chip reading "going-cold" can say
+// what it means on hover. That list cannot import this one, so this test pins
+// the count: a label added here without an explanation there ships with no
+// hover text, which is the state the feature started in.
+func TestLabelCountMatchesTheDashboardMeanings(t *testing.T) {
+	const documented = 28 // keep in step with EVERY_AUTOMATIC_LABEL in tagMeanings.test.ts
+	if got := len(AllLabels()); got != documented {
+		t.Fatalf("AllLabels has %d labels but the dashboard explains %d.\n"+
+			"Add the new label to web/src/lib/unibox/tagMeanings.ts and to\n"+
+			"EVERY_AUTOMATIC_LABEL in tagMeanings.test.ts, then update this count.",
+			got, documented)
+	}
+}

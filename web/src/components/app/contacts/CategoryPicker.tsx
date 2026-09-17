@@ -25,6 +25,7 @@ import useFlipPlacement from "@/hooks/useFlipPlacement";
 import clippedTitle from "@/lib/helper/clippedTitle";
 import useCreateCategory from "@/lib/api/hooks/app/categories/useCreateCategory";
 import type Category from "@/lib/api/models/app/Category";
+import { tagMeaning } from "@/lib/unibox/tagMeanings";
 
 interface Props {
     // Selected ids — kept as ids so the consumer can store them in the
@@ -224,8 +225,15 @@ export function CategoryChip({
     onRemove?: () => void;
     compact?: boolean;
 }) {
+    // Automatic labels carry their meaning on hover. A chip reading "going-cold"
+    // is only useful to somebody who already knows the taxonomy, and nobody
+    // does on the first day. A label the workspace made itself needs no gloss,
+    // so it gets the plain title.
+    const meaning = tagMeaning(category.title);
+
     return (
         <span
+            title={meaning || category.title}
             className={`inline-flex items-center gap-1 min-w-0 ${compact ? "h-4 pl-1 pr-1 text-[10px]" : "h-5 pl-1.5 pr-1 text-[11px]"} rounded font-medium`}
             style={{
                 backgroundColor: hexToRgba(category.color, 0.12),

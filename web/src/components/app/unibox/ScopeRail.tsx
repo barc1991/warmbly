@@ -47,6 +47,7 @@ import {
   PopoverMenuTrigger,
 } from "@/components/ui/popover-menu";
 import type { UniboxFolder } from "@/lib/api/models/app/unibox/UniboxSearch";
+import { tagMeaning } from "@/lib/unibox/tagMeanings";
 
 export type UniboxScope =
   | { kind: "all" }
@@ -249,6 +250,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
               key={c.id}
               icon={<Dot color={c.color} />}
               label={c.title}
+              title={tagMeaning(c.title) || undefined}
               count={c.unread || c.total || undefined}
               accent={c.unread > 0}
               active={active === `category:${c.id}`}
@@ -545,6 +547,7 @@ function FolderItem({
 function Item({
   icon,
   label,
+  title,
   count,
   accent,
   active,
@@ -552,6 +555,8 @@ function Item({
 }: {
   icon: React.ReactNode;
   label: string;
+  /** Hover explanation, for the automatic labels whose names are not self-evident. */
+  title?: string;
   count?: number;
   accent?: boolean;
   active?: boolean;
@@ -562,7 +567,7 @@ function Item({
       type="button"
       onClick={onClick}
       className={cn("group/item", ROW, active ? ROW_ACTIVE : ROW_IDLE)}
-      title={label}
+      title={title || label}
     >
       <span className={cn("shrink-0", active ? "text-slate-800" : "text-slate-400 group-hover/item:text-slate-600")}>
         {icon}
