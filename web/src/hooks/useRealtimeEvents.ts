@@ -168,6 +168,11 @@ export function useRealtimeEvents() {
         return
       }
 
+      if (event === 'DIRECT_EMAIL_OPENED' || event === 'DIRECT_EMAIL_CLICKED') {
+        invalidate([['analytics'], ['analytics', 'direct']])
+        return
+      }
+
       if (
         includes(
           'CAMPAIGN',

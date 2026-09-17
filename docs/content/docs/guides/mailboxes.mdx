@@ -222,6 +222,24 @@ A verified domain also serves the [unsubscribe link](/guides/unsubscribe/#which-
 
 Verification proves DNS, not HTTPS, and the two are separate steps. That matters more now that the opt-out rides the same host: a certificate the recipient's browser rejects costs a spam complaint, not just a click. On Warmbly Cloud the certificate is handled for you. On a self-hosted instance installed with the bundled Caddy it is handled too: Caddy obtains one for your domain the first time a recipient loads a link on it. Behind an operator's own proxy it depends on that proxy, so a domain that verifies here but serves a certificate warning is something to raise with the operator.
 
+### Tracking direct mail
+
+Campaign mail carries an open pixel and tracked links. Mail you write by hand in the [unified inbox](/guides/unified-inbox/) does not, unless you ask for it.
+
+Turn on **Track opens and clicks on direct mail** in the mailbox's Settings tab to opt that mailbox in. From then on, HTML replies and new messages you send from that mailbox get the same open pixel and tracked links as campaign sends. Plain-text-only messages remain untracked. The results appear under [Direct mail](/guides/analytics/#direct-mail) in Analytics.
+
+It is off by default on purpose. A pixel in a one-to-one reply is a different proposition from one in a cold sequence: it costs a little deliverability, and it tracks mail to colleagues and customers who are not campaign contacts. Leave it off for a mailbox you use as a personal inbox.
+
+Two limits worth knowing before you read the numbers:
+
+- It applies to mail sent from now on. Messages already delivered carry whatever they carried when they left, so the figures start from the moment you switch it on rather than covering your history.
+- It covers mail sent through Warmbly. A reply you write in Gmail or on your phone still counts towards the sent and reply figures, because those are read from the mailbox itself, but it cannot be opened-tracked.
+- It needs an HTML part. A plain-text-only message has nowhere to place a pixel or wrapped link, so it is sent without tracking.
+
+Clicks are counted per message, not per link: Direct mail reports how many messages were clicked and when, without the per-link breakdown campaigns get.
+
+Tracking uses the same host as everything else, so a [custom tracking domain](#custom-tracking-domain) on this mailbox applies here too. On an install with no tracking host configured, direct mail goes out untracked rather than carrying a pixel that points nowhere.
+
 ## Warmup
 
 New mailboxes should warm up before carrying campaign volume. Defaults are `10`/day starting volume, `+1`/day ramp, and a `40`/day ceiling.

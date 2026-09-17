@@ -16,6 +16,9 @@ type AnalyticsRepository interface {
 
 	// Campaign analytics
 	GetCampaignSummary(ctx context.Context, orgID, campaignID uuid.UUID) (*models.CampaignSummary, *errx.Error)
+
+	// Direct (hand-written) mail analytics.
+	GetDirectMailAnalytics(ctx context.Context, orgID uuid.UUID, from, to time.Time) (*models.DirectMailAnalytics, *errx.Error)
 	GetCampaignDailyStats(ctx context.Context, campaignID uuid.UUID, from, to time.Time) ([]models.CampaignDailyStats, *errx.Error)
 	GetSequenceStats(ctx context.Context, campaignID uuid.UUID) ([]models.SequenceStats, *errx.Error)
 	// GetCampaignEngagementBreakdown groups the campaign's human opens and
@@ -835,4 +838,248 @@ func (r *analyticsRepository) CompareCampaigns(ctx context.Context, orgID uuid.U
 			To:   to,
 		},
 	}, nil
+}
+
+// bareAddr extracts the final parenthesized address stored by mailbox sync.
+func bareAddr(col string) string {
+	return `LOWER(COALESCE(NULLIF((regexp_match(` + col + `, '\(([^()]+)\)\s*$'))[1], ''), TRIM(` + col + `)))`
+}
+
+// GetDirectMailAnalytics reports on hand-written mail for one workspace.
+//
+// Scoping note: unibox_emails carries no organization_id of its own, so every
+// query here reaches the workspace through email_accounts, which is also what
+// bounds it to mailboxes this workspace actually owns.
+func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID uuid.UUID, from, to time.Time) (*models.DirectMailAnalytics, *errx.Error) {
+	out := &models.DirectMailAnalytics{
+		DailyTrend:  make([]models.DirectMailDailyStats, 0),
+		Mailboxes:   make([]models.DirectMailMailboxStats, 0),
+		TopContacts: make([]models.DirectMailContact, 0),
+	}
+
+	// A synced Sent folder also contains campaign and warmup messages. Exclude
+	// those task-backed messages anywhere an outgoing message is counted.
+	directOutgoing := `NOT EXISTS (
+		SELECT 1
+		FROM tasks automated
+		WHERE automated.email_account_id = ue.email_id
+		  AND automated.task_type IN ('campaign', 'warmup')
+		  AND automated.message_id <> ''
+		  AND BTRIM(automated.message_id, '<> ') = BTRIM(ue.message_id, '<> ')
+	)`
+
+	volumeQuery := `
+		SELECT
+			COUNT(*) FILTER (WHERE ue.folder = 'sent' AND ` + directOutgoing + `) AS sent,
+			COUNT(*) FILTER (WHERE ue.folder = 'inbox') AS received
+		FROM unibox_emails ue
+		JOIN email_accounts ea ON ea.id = ue.email_id
+		WHERE ea.organization_id = $1
+		  AND ue.internal_date >= $2 AND ue.internal_date <= $3
+	`
+	if err := r.DB.QueryRow(ctx, volumeQuery, orgID, from, to).Scan(&out.Volume.Sent, &out.Volume.Received); err != nil {
+		db.CaptureError(err, volumeQuery, []any{orgID, from, to}, "queryrow")
+		return nil, errx.InternalError()
+	}
+
+	// A reply is the first real inbound message after a direct thread's first
+	// send. Build thread history without clipping it to the reporting window.
+	realInbound := `
+		ue.folder = 'inbox'
+		AND ue.subject !~* '^(delivery status notification|undeliverable|mail delivery|returned mail|automatic reply|auto(matic)?[ -]?response|out of office)'
+		AND COALESCE(ue.from_addr[1], '') !~* '(mailer-daemon|postmaster|no-?reply)'
+		AND ` + bareAddr("COALESCE(ue.from_addr[1], '')") + ` NOT IN (
+			SELECT LOWER(email) FROM email_accounts WHERE organization_id = $1
+		)
+	`
+	replyQuery := `
+		WITH threads AS (
+			SELECT ue.email_id, ue.thread_id,
+			       MIN(ue.internal_date) FILTER (WHERE ue.folder = 'sent' AND ` + directOutgoing + `) AS first_sent,
+			       MIN(ue.internal_date) FILTER (WHERE ` + realInbound + `) AS first_in
+			FROM unibox_emails ue
+			JOIN email_accounts ea ON ea.id = ue.email_id
+			WHERE ea.organization_id = $1
+			  AND ue.thread_id <> ''
+			GROUP BY ue.email_id, ue.thread_id
+		), ours AS (
+			SELECT first_sent, CASE WHEN first_in <= $3 THEN first_in END AS first_in
+			FROM threads
+			WHERE first_sent >= $2 AND first_sent <= $3
+			  AND (first_in IS NULL OR first_in > first_sent)
+		)
+		SELECT
+			COUNT(*),
+			COUNT(*) FILTER (WHERE first_in IS NOT NULL),
+			COALESCE(
+				PERCENTILE_CONT(0.5) WITHIN GROUP (
+					ORDER BY EXTRACT(EPOCH FROM (first_in - first_sent)) / 60
+				) FILTER (WHERE first_in IS NOT NULL),
+			0)
+		FROM ours
+	`
+	var medianMinutes float64
+	if err := r.DB.QueryRow(ctx, replyQuery, orgID, from, to).Scan(
+		&out.Volume.ThreadsStarted, &out.Volume.Replied, &medianMinutes,
+	); err != nil {
+		db.CaptureError(err, replyQuery, []any{orgID, from, to}, "queryrow")
+		return nil, errx.InternalError()
+	}
+	out.Volume.MedianReplyMinutes = int(medianMinutes)
+	if out.Volume.ThreadsStarted > 0 {
+		out.Volume.ReplyRate = float64(out.Volume.Replied) / float64(out.Volume.ThreadsStarted) * 100
+	}
+
+	const bounceQuery = `
+		SELECT COUNT(*)
+		FROM unibox_emails ue
+		JOIN email_accounts ea ON ea.id = ue.email_id
+		WHERE ea.organization_id = $1
+		  AND ue.folder = 'inbox'
+		  AND ue.internal_date >= $2 AND ue.internal_date <= $3
+		  AND (ue.subject ~* '^(delivery status notification|undeliverable|mail delivery|returned mail)'
+		       OR COALESCE(ue.from_addr[1], '') ~* '(mailer-daemon|postmaster)')
+	`
+	if err := r.DB.QueryRow(ctx, bounceQuery, orgID, from, to).Scan(&out.Volume.Bounced); err != nil {
+		db.CaptureError(err, bounceQuery, []any{orgID, from, to}, "queryrow")
+		return nil, errx.InternalError()
+	}
+
+	// ── Opt-in tracking, from the send records ─────────────────────────
+	const trackingQuery = `
+		SELECT
+			(SELECT COUNT(*) FROM email_accounts WHERE organization_id = $1) AS mailboxes_total,
+			(SELECT COUNT(*) FROM email_accounts WHERE organization_id = $1 AND track_direct_mail) AS mailboxes_opted_in,
+			COUNT(*)                                                  AS tracked_sent,
+			COUNT(*) FILTER (WHERE et.opened_at IS NOT NULL AND NOT et.opened_machine) AS opened,
+			COUNT(*) FILTER (WHERE et.opened_at IS NOT NULL AND et.opened_machine)     AS machine_opened,
+			COUNT(*) FILTER (WHERE et.clicked_at IS NOT NULL)         AS clicked
+		FROM email_tasks et
+		JOIN tasks t ON t.id = et.task_id
+		JOIN email_accounts ea ON ea.id = t.email_account_id
+		WHERE ea.organization_id = $1
+		  AND et.tracked
+		  AND t.status = 'completed'
+		  AND t.completed_at >= $2 AND t.completed_at <= $3
+	`
+	tr := &out.Tracking
+	if err := r.DB.QueryRow(ctx, trackingQuery, orgID, from, to).Scan(
+		&tr.MailboxesTotal, &tr.MailboxesOptedIn, &tr.TrackedSent, &tr.Opened, &tr.MachineOpened, &tr.Clicked,
+	); err != nil {
+		db.CaptureError(err, trackingQuery, []any{orgID, from, to}, "queryrow")
+		return nil, errx.InternalError()
+	}
+	if tr.TrackedSent > 0 {
+		tr.OpenRate = float64(tr.Opened) / float64(tr.TrackedSent) * 100
+		tr.ClickRate = float64(tr.Clicked) / float64(tr.TrackedSent) * 100
+	}
+
+	trendQuery := `
+		SELECT DATE_TRUNC('day', ue.internal_date) AS day,
+		       COUNT(*) FILTER (WHERE ue.folder = 'sent' AND ` + directOutgoing + `) AS sent,
+		       COUNT(*) FILTER (WHERE ue.folder = 'inbox') AS received
+		FROM unibox_emails ue
+		JOIN email_accounts ea ON ea.id = ue.email_id
+		WHERE ea.organization_id = $1
+		  AND ue.internal_date >= $2 AND ue.internal_date <= $3
+		GROUP BY day
+		ORDER BY day
+	`
+	rows, err := r.DB.Query(ctx, trendQuery, orgID, from, to)
+	if err != nil {
+		db.CaptureError(err, trendQuery, []any{orgID, from, to}, "query")
+		return nil, errx.InternalError()
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var d models.DirectMailDailyStats
+		if err := rows.Scan(&d.Date, &d.Sent, &d.Received); err != nil {
+			return nil, errx.InternalError()
+		}
+		out.DailyTrend = append(out.DailyTrend, d)
+	}
+	if err := rows.Err(); err != nil {
+		db.CaptureError(err, trendQuery, []any{orgID, from, to}, "rows")
+		return nil, errx.InternalError()
+	}
+	rows.Close()
+
+	mailboxQuery := `
+		SELECT ea.id, ea.email, ea.track_direct_mail,
+		       COUNT(ue.id) FILTER (WHERE ue.folder = 'sent' AND ` + directOutgoing + `) AS sent,
+		       COUNT(ue.id) FILTER (WHERE ue.folder = 'inbox') AS received
+		FROM email_accounts ea
+		LEFT JOIN unibox_emails ue
+		       ON ue.email_id = ea.id
+		      AND ue.internal_date >= $2 AND ue.internal_date <= $3
+		WHERE ea.organization_id = $1
+		GROUP BY ea.id, ea.email, ea.track_direct_mail
+		ORDER BY sent DESC, ea.email
+	`
+	mrows, err := r.DB.Query(ctx, mailboxQuery, orgID, from, to)
+	if err != nil {
+		db.CaptureError(err, mailboxQuery, []any{orgID, from, to}, "query")
+		return nil, errx.InternalError()
+	}
+	defer mrows.Close()
+	for mrows.Next() {
+		var m models.DirectMailMailboxStats
+		if err := mrows.Scan(&m.EmailAccountID, &m.Email, &m.TrackDirectMail, &m.Sent, &m.Received); err != nil {
+			return nil, errx.InternalError()
+		}
+		out.Mailboxes = append(out.Mailboxes, m)
+	}
+	if err := mrows.Err(); err != nil {
+		db.CaptureError(err, mailboxQuery, []any{orgID, from, to}, "rows")
+		return nil, errx.InternalError()
+	}
+	mrows.Close()
+
+	// ── Top correspondents ─────────────────────────────────────────────
+	// The other party is the first recipient on what we sent and the sender on
+	// what we received, lowercased so one person is one row. Our own mailboxes
+	// are excluded: a copy to yourself is not a correspondent.
+	contactQuery := `
+		WITH msg AS (
+			SELECT
+				` + bareAddr("CASE WHEN ue.folder = 'sent' THEN ue.to_addr[1] ELSE ue.from_addr[1] END") + ` AS addr,
+				ue.folder,
+				ue.internal_date
+			FROM unibox_emails ue
+			JOIN email_accounts ea ON ea.id = ue.email_id
+			WHERE ea.organization_id = $1
+			  AND ue.folder IN ('sent', 'inbox')
+			  AND (ue.folder <> 'sent' OR ` + directOutgoing + `)
+			  AND ue.internal_date >= $2 AND ue.internal_date <= $3
+		)
+		SELECT addr,
+		       COUNT(*) FILTER (WHERE folder = 'sent')  AS sent,
+		       COUNT(*) FILTER (WHERE folder = 'inbox') AS received,
+		       MAX(internal_date) AS last_at
+		FROM msg
+		WHERE addr IS NOT NULL AND addr <> ''
+		  AND addr NOT IN (SELECT LOWER(email) FROM email_accounts WHERE organization_id = $1)
+		GROUP BY addr
+		ORDER BY sent DESC, received DESC
+		LIMIT 10
+	`
+	crows, err := r.DB.Query(ctx, contactQuery, orgID, from, to)
+	if err != nil {
+		db.CaptureError(err, contactQuery, []any{orgID, from, to}, "query")
+		return nil, errx.InternalError()
+	}
+	defer crows.Close()
+	for crows.Next() {
+		var c models.DirectMailContact
+		if err := crows.Scan(&c.Email, &c.Sent, &c.Received, &c.LastAt); err != nil {
+			return nil, errx.InternalError()
+		}
+		out.TopContacts = append(out.TopContacts, c)
+	}
+	if err := crows.Err(); err != nil {
+		db.CaptureError(err, contactQuery, []any{orgID, from, to}, "rows")
+		return nil, errx.InternalError()
+	}
+
+	return out, nil
 }

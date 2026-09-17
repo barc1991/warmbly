@@ -64,7 +64,7 @@ import useEmailTrackingDomain from "@/lib/api/hooks/app/emails/useEmailTrackingD
 import useVerifyEmailTrackingDomain from "@/lib/api/hooks/app/emails/useVerifyEmailTrackingDomain";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import reauthEmailOAuth from "@/lib/api/client/app/emails/reauthEmailOAuth";
 import onboardOAuthFinish from "@/lib/api/client/app/emails/onboardOAuthFinish";
 import { openEmailOAuthPopup } from "@/lib/emails/emailOAuthPopup";
@@ -75,6 +75,7 @@ import SyncStatusCard from "./SyncStatusCard";
 import CloudWarmupCard from "./CloudWarmupCard";
 import useCloudPool from "@/hooks/useCloudPool";
 import { Toggle } from "@/components/app/campaigns/preferences/components/CampaignPreferenceBoolBox";
+import setDirectTracking from "@/lib/api/client/app/emails/setDirectTracking";
 import useSendingBehavior from "@/lib/api/hooks/app/emails/useSendingBehavior";
 import useSendingPlan from "@/lib/api/hooks/app/emails/useSendingPlan";
 import { minutesToClock, secondsToLabel } from "@/lib/api/models/app/emails/SendingBehavior";
@@ -1284,6 +1285,57 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
     );
 }
 
+/* ── Direct-mail open/click tracking (per mailbox, off by default) ────── */
+
+// Campaign mail has always carried a pixel and wrapped links. A reply written
+// by hand went out clean, which is the right default for one-to-one mail and
+// the reason this is opt-in rather than a platform-wide switch.
+function DirectMailTrackingControl({ mailbox }: { mailbox: Inbox }) {
+    const queryClient = useQueryClient();
+    // Optimistic: the switch paints immediately and the write follows, so the
+    // toggle never feels like it round-trips.
+    const [enabled, setEnabled] = useState(!!mailbox.track_direct_mail);
+
+    const save = useMutation({
+        mutationFn: (next: boolean) => setDirectTracking(mailbox.id, next),
+        onSuccess: (_res, next) => {
+            queryClient.invalidateQueries({ queryKey: ["emails"] });
+            queryClient.invalidateQueries({ queryKey: ["analytics", "direct"] });
+            toast.success(next ? "Tracking direct mail from this mailbox" : "Direct mail is no longer tracked");
+        },
+        onError: (e, next) => {
+            setEnabled(!next);
+            toast.error(buildError(e as unknown as AppError));
+        },
+    });
+
+    const toggle = (next: boolean) => {
+        setEnabled(next);
+        save.mutate(next);
+    };
+
+    return (
+        <div className="px-5 py-4 flex items-start justify-between gap-3 border-t border-slate-200">
+            <div className="min-w-0">
+                <div className="text-[12.5px] font-medium text-slate-900">Track opens and clicks on direct mail</div>
+                <div className="text-[11px] text-slate-400">
+                    Adds the same open pixel and link tracking your campaigns use to replies you write by hand in the inbox. Off by
+                    default: it costs a little deliverability and it would also track mail to people you know. Applies to mail sent
+                    from now on, and the results show up under Direct mail in Analytics.
+                </div>
+            </div>
+            <div className="shrink-0">
+                <Toggle
+                    value={enabled}
+                    onChange={toggle}
+                    disabled={save.isPending}
+                    ariaLabel="Track opens and clicks on direct mail"
+                />
+            </div>
+        </div>
+    );
+}
+
 /* ── Tracking domain (own save + DNS verify flow) ─────────────────────── */
 
 // normalizeTrackingDomain mirrors the backend: accept whatever is pasted (a
@@ -1826,6 +1878,8 @@ function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; u
             </div>
 
             <TrackingDomainCard mailbox={mailbox} />
+
+            <DirectMailTrackingControl mailbox={mailbox} />
 
             <DisconnectCard mailbox={mailbox} onDisconnected={onDisconnected} />
 

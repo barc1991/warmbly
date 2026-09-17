@@ -319,3 +319,36 @@ func (h *Handler) DeleteEmail(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+// UpdateEmailDirectTracking switches open/click tracking on this mailbox's
+// hand-written unibox sends. Off by default, and deliberately per mailbox: a
+// pixel belongs in a cold sequence more comfortably than in a one-to-one reply.
+// PATCH /emails/:id/direct-tracking
+func (h *Handler) UpdateEmailDirectTracking(c *gin.Context) {
+	orgID := middleware.GetOrganizationID(c)
+	if orgID == nil {
+		errx.Handle(c, errx.New(errx.BadRequest, "no organization selected"))
+		return
+	}
+
+	var req struct {
+		Enabled *bool `json:"enabled" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errx.Handle(c, errx.ErrInvalid)
+		return
+	}
+
+	emailAccountID := c.Param("id")
+	if err := h.EmailService.UpdateTrackDirectMail(c.Request.Context(), orgID.String(), emailAccountID, *req.Enabled); err != nil {
+		errx.Handle(c, err)
+		return
+	}
+
+	if accountID, err := uuid.Parse(emailAccountID); err == nil {
+		h.auditOrg(c, models.AuditActionUpdate, models.AuditEntityEmailAccount, &accountID,
+			map[string]string{"track_direct_mail": strconv.FormatBool(*req.Enabled)}, nil)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"track_direct_mail": *req.Enabled})
+}

@@ -57,8 +57,10 @@ const (
 	EventBulkFailed    EventType = "BULK_FAILED"
 
 	// Tracking events (from Rust tracking service)
-	EventEmailOpened  EventType = "EMAIL_OPENED"
-	EventEmailClicked EventType = "EMAIL_CLICKED"
+	EventEmailOpened        EventType = "EMAIL_OPENED"
+	EventEmailClicked       EventType = "EMAIL_CLICKED"
+	EventDirectEmailOpened  EventType = "DIRECT_EMAIL_OPENED"
+	EventDirectEmailClicked EventType = "DIRECT_EMAIL_CLICKED"
 
 	// A human reply landed for a campaign contact (org-scoped pulse).
 	EventEmailReplied EventType = "EMAIL_REPLIED"
@@ -214,13 +216,14 @@ type WarmupStatsEvent struct {
 // TrackingEventPayload for email open/click tracking events
 type TrackingEventPayload struct {
 	BaseEvent
-	OrgID        string `json:"org_id,omitempty"`
-	CampaignID   string `json:"campaign_id"`
-	ContactID    string `json:"contact_id,omitempty"`
-	ContactEmail string `json:"contact_email,omitempty"`
-	SequenceID   string `json:"step_id,omitempty"`
-	OriginalURL  string `json:"original_url,omitempty"` // For click events
-	LinkLabel    string `json:"link_label,omitempty"`   // Anchor text of the clicked link
+	OrgID          string `json:"org_id,omitempty"`
+	CampaignID     string `json:"campaign_id,omitempty"`
+	EmailAccountID string `json:"email_account_id,omitempty"`
+	ContactID      string `json:"contact_id,omitempty"`
+	ContactEmail   string `json:"contact_email,omitempty"`
+	SequenceID     string `json:"step_id,omitempty"`
+	OriginalURL    string `json:"original_url,omitempty"` // For click events
+	LinkLabel      string `json:"link_label,omitempty"`   // Anchor text of the clicked link
 	// Machine marks an automated open or click (Apple MPP prefetch, UA-less
 	// fetcher, a security gateway walking the links) so live views can badge
 	// it instead of presenting it as a person's.
@@ -431,7 +434,6 @@ func (p *StreamingPublisher) PublishCampaignEvent(ctx context.Context, event *Ca
 		"campaign_id": event.CampaignID,
 		"event_type":  string(event.EventType),
 	}
-
 	if err := p.client.Publish(ctx, TopicCampaignUpdate, event, attrs); err != nil {
 		// Log error but don't fail
 	}
@@ -882,6 +884,9 @@ func (p *StreamingPublisher) PublishTrackingEvent(ctx context.Context, event *Tr
 		"user_id":     event.UserID,
 		"campaign_id": event.CampaignID,
 		"event_type":  string(event.EventType),
+	}
+	if event.OrgID != "" {
+		attrs["org_id"] = event.OrgID
 	}
 
 	if err := p.client.Publish(ctx, TopicCampaignUpdate, event, attrs); err != nil {

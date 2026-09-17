@@ -476,3 +476,10 @@ func (s *emailService) resolveWarmupPoolType(ctx context.Context, account *model
 	}
 	return "premium"
 }
+
+// UpdateTrackDirectMail switches open/click tracking on this mailbox's
+// hand-written sends. It only affects mail sent from now on: a message already
+// delivered carries whatever it carried when it left.
+func (s *emailService) UpdateTrackDirectMail(ctx context.Context, orgID, emailAccountID string, enabled bool) *errx.Error {
+	return s.emailRepository.UpdateTrackDirectMail(ctx, orgID, emailAccountID, enabled)
+}

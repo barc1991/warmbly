@@ -397,3 +397,28 @@ func trim(s string) string {
 	}
 	return s[start:end]
 }
+
+// GetDirectMailAnalytics returns the hand-written-mail overview: volume and
+// replies from the synced mailbox, plus opens and clicks for the mailboxes that
+// opted into tracking them.
+// GET /analytics/direct?period=7d
+func (h *Handler) GetDirectMailAnalytics(c *gin.Context) {
+	orgID := middleware.GetOrganizationID(c)
+	if orgID == nil {
+		errx.Handle(c, errx.New(errx.BadRequest, "no organization selected"))
+		return
+	}
+
+	period := c.DefaultQuery("period", "7d")
+	if period != "7d" && period != "30d" && period != "90d" {
+		period = "7d"
+	}
+
+	analytics, xerr := h.AnalyticsService.GetDirectMailAnalytics(c.Request.Context(), *orgID, period)
+	if xerr != nil {
+		errx.Handle(c, xerr)
+		return
+	}
+
+	c.JSON(http.StatusOK, analytics)
+}
