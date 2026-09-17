@@ -2,6 +2,7 @@ package advanced
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -78,6 +79,7 @@ type incomingReplyProgressRepo struct {
 	sourceInbound bool
 	sourceClaimed bool
 	replyAccepted bool
+	completeErr   error
 	advanced      *incomingReplyAdvancedRepo
 }
 
@@ -98,14 +100,17 @@ func (r *incomingReplyProgressRepo) RecordReplyClassification(context.Context, u
 	return nil
 }
 
-func (r *incomingReplyProgressRepo) ClaimIncomingReply(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+func (r *incomingReplyProgressRepo) ClaimIncomingReply(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error) {
 	r.claims++
-	return r.sourceClaimed, nil
+	if !r.sourceClaimed {
+		return uuid.Nil, nil
+	}
+	return uuid.New(), nil
 }
 
-func (r *incomingReplyProgressRepo) CompleteIncomingReply(context.Context, uuid.UUID, uuid.UUID) error {
+func (r *incomingReplyProgressRepo) CompleteIncomingReply(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) error {
 	r.completed++
-	return nil
+	return r.completeErr
 }
 
 func (r *incomingReplyProgressRepo) RecordEmailReplied(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) (bool, error) {
@@ -418,5 +423,36 @@ func TestProcessIncomingReplyAcceptsMatchingThreadSender(t *testing.T) {
 	}
 	if progress.completed != 1 {
 		t.Fatalf("CompleteIncomingReply calls = %d, want 1 for the matching contact", progress.completed)
+	}
+}
+
+func TestProcessIncomingReplyFencesExpiredClaimBeforeSideEffects(t *testing.T) {
+	orgID, accountID, contactID := uuid.New(), uuid.New(), uuid.New()
+	account := &models.Email{ID: accountID, OrganizationID: &orgID, Email: "sender@example.test"}
+	service, progress := newIncomingReplyService(account, &models.Contact{
+		ID: contactID, Email: "recipient@example.test",
+	}, contactID)
+	progress.completeErr = errors.New("claim was replaced")
+
+	xerr := service.ProcessIncomingReply(context.Background(), accountID, &models.EmailMessageStoreData{
+		ID:        uuid.New(),
+		EmailID:   accountID,
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Recipient <recipient@example.test>"},
+		ToAddr:    []string{"sender@example.test"},
+		InReplyTo: []string{"<opener@example.test>"},
+		Subject:   "Re: Hello",
+	})
+	if xerr == nil {
+		t.Fatal("expected the replaced claim to stop processing")
+	}
+	if progress.completed != 1 {
+		t.Fatalf("CompleteIncomingReply calls = %d, want 1", progress.completed)
+	}
+	if progress.advanced.marked != 0 {
+		t.Fatalf("MarkVariantEvent calls = %d, want 0 after ownership was lost", progress.advanced.marked)
+	}
+	if progress.advanced.intents != 0 {
+		t.Fatalf("CreateReplyIntent calls = %d, want 0 after ownership was lost", progress.advanced.intents)
 	}
 }

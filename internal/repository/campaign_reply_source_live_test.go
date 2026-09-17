@@ -43,11 +43,11 @@ func TestLiveReplySourceUsesStoredDirectionAtTheWriteBoundary(t *testing.T) {
 	if inbound {
 		t.Fatal("Sent-folder source was accepted as inbound")
 	}
-	claimed, err := repo.ClaimIncomingReply(ctx, f.other, sentID)
+	claimToken, err := repo.ClaimIncomingReply(ctx, f.other, sentID)
 	if err != nil {
 		t.Fatalf("claim sent source: %v", err)
 	}
-	if claimed {
+	if claimToken != uuid.Nil {
 		t.Fatal("Sent-folder source was claimed for reply processing")
 	}
 	accepted, err := repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.other, sentID)
@@ -90,33 +90,37 @@ func TestLiveReplySourceUsesStoredDirectionAtTheWriteBoundary(t *testing.T) {
 	if !inbound {
 		t.Fatal("Inbox source was rejected as outbound")
 	}
-	claimed, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
+	claimToken, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
 	if err != nil {
 		t.Fatalf("claim inbound source: %v", err)
 	}
-	if !claimed {
+	if claimToken == uuid.Nil {
 		t.Fatal("Inbox source was not claimed for reply processing")
 	}
-	claimed, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
+	firstClaimToken := claimToken
+	claimToken, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
 	if err != nil {
 		t.Fatalf("repeat inbound claim: %v", err)
 	}
-	if claimed {
+	if claimToken != uuid.Nil {
 		t.Fatal("Inbox source was claimed concurrently twice")
 	}
 	if _, err := pool.Exec(ctx, `
 		UPDATE unibox_emails
-		SET campaign_reply_claimed_at = NOW() - INTERVAL '3 minutes'
+		SET campaign_reply_claimed_at = NOW() - INTERVAL '11 minutes'
 		WHERE id = $1
 	`, inboxID); err != nil {
 		t.Fatalf("age reply claim: %v", err)
 	}
-	claimed, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
+	claimToken, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
 	if err != nil {
 		t.Fatalf("reclaim expired lease: %v", err)
 	}
-	if !claimed {
+	if claimToken == uuid.Nil {
 		t.Fatal("Expired reply-processing lease was not reclaimed")
+	}
+	if err := repo.CompleteIncomingReply(ctx, f.mailbox, inboxID, firstClaimToken); err == nil {
+		t.Fatal("Expired claim completed work owned by its replacement")
 	}
 	accepted, err = repo.RecordEmailReplied(ctx, f.campaign, f.contact, step, f.mailbox, inboxID)
 	if err != nil {
@@ -132,14 +136,17 @@ func TestLiveReplySourceUsesStoredDirectionAtTheWriteBoundary(t *testing.T) {
 	if !accepted {
 		t.Fatal("Already-recorded reply was not accepted idempotently")
 	}
-	if err := repo.CompleteIncomingReply(ctx, f.mailbox, inboxID); err != nil {
+	if err := repo.CompleteIncomingReply(ctx, f.mailbox, inboxID, claimToken); err != nil {
 		t.Fatalf("complete inbound reply: %v", err)
 	}
-	claimed, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
+	if err := repo.CompleteIncomingReply(ctx, f.mailbox, inboxID, claimToken); err == nil {
+		t.Fatal("Completed claim was accepted twice")
+	}
+	claimToken, err = repo.ClaimIncomingReply(ctx, f.mailbox, inboxID)
 	if err != nil {
 		t.Fatalf("claim completed reply: %v", err)
 	}
-	if claimed {
+	if claimToken != uuid.Nil {
 		t.Fatal("Completed reply was claimed again")
 	}
 	if err := pool.QueryRow(ctx, `

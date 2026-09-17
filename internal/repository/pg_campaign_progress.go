@@ -186,9 +186,9 @@ type CampaignProgressRepository interface {
 	// IsInboundReplySource confirms the stored unibox row is not outbound.
 	IsInboundReplySource(ctx context.Context, emailAccountID, messageID uuid.UUID) (bool, error)
 	// ClaimIncomingReply leases one stored inbound message for reply processing.
-	ClaimIncomingReply(ctx context.Context, emailAccountID, messageID uuid.UUID) (bool, error)
+	ClaimIncomingReply(ctx context.Context, emailAccountID, messageID uuid.UUID) (uuid.UUID, error)
 	// CompleteIncomingReply prevents a successfully processed message from being retried.
-	CompleteIncomingReply(ctx context.Context, emailAccountID, messageID uuid.UUID) error
+	CompleteIncomingReply(ctx context.Context, emailAccountID, messageID, claimToken uuid.UUID) error
 	// RecordEmailReplied stamps a human reply while its source is still inbound.
 	RecordEmailReplied(ctx context.Context, campaignID, contactID, sequenceID, emailAccountID, messageID uuid.UUID) (bool, error)
 	RecordEmailBounced(ctx context.Context, campaignID, contactID, sequenceID uuid.UUID) error
@@ -810,13 +810,15 @@ func (r *campaignProgressRepository) IsInboundReplySource(ctx context.Context, e
 	return inbound, err
 }
 
-const incomingReplyClaimLease = "2 minutes"
+const incomingReplyClaimLease = "10 minutes"
 
 // ClaimIncomingReply leases one inbound message so duplicate events cannot repeat its effects.
-func (r *campaignProgressRepository) ClaimIncomingReply(ctx context.Context, emailAccountID, messageID uuid.UUID) (bool, error) {
+func (r *campaignProgressRepository) ClaimIncomingReply(ctx context.Context, emailAccountID, messageID uuid.UUID) (uuid.UUID, error) {
+	claimToken := uuid.New()
 	result, err := r.db.Exec(ctx, `
 		UPDATE unibox_emails
-		SET campaign_reply_claimed_at = NOW()
+		SET campaign_reply_claimed_at = NOW(),
+		    campaign_reply_claim_token = $3
 		WHERE id = $1
 		  AND email_id = $2
 		  AND folder NOT IN ('sent', 'drafts')
@@ -826,23 +828,33 @@ func (r *campaignProgressRepository) ClaimIncomingReply(ctx context.Context, ema
 			campaign_reply_claimed_at IS NULL
 			OR campaign_reply_claimed_at < NOW() - INTERVAL '`+incomingReplyClaimLease+`'
 		  )
-	`, messageID, emailAccountID)
+	`, messageID, emailAccountID, claimToken)
 	if err != nil {
-		return false, err
+		return uuid.Nil, err
 	}
-	return result.RowsAffected() == 1, nil
+	if result.RowsAffected() == 0 {
+		return uuid.Nil, nil
+	}
+	return claimToken, nil
 }
 
 // CompleteIncomingReply marks a claimed message as processed.
-func (r *campaignProgressRepository) CompleteIncomingReply(ctx context.Context, emailAccountID, messageID uuid.UUID) error {
-	_, err := r.db.Exec(ctx, `
+func (r *campaignProgressRepository) CompleteIncomingReply(ctx context.Context, emailAccountID, messageID, claimToken uuid.UUID) error {
+	result, err := r.db.Exec(ctx, `
 		UPDATE unibox_emails
 		SET campaign_reply_processed_at = NOW()
 		WHERE id = $1
 		  AND email_id = $2
-		  AND campaign_reply_claimed_at IS NOT NULL
-	`, messageID, emailAccountID)
-	return err
+		  AND campaign_reply_claim_token = $3
+		  AND campaign_reply_processed_at IS NULL
+	`, messageID, emailAccountID, claimToken)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("incoming reply claim is no longer owned")
+	}
+	return nil
 }
 
 // RecordEmailReplied records that a contact replied when its source is still inbound.
