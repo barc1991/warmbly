@@ -32,7 +32,7 @@ type AdminService interface {
 	ListWorkers(ctx context.Context, cursor *uuid.UUID, limit int) (*models.AdminWorkersResult, *errx.Error)
 	GetWorkerDetail(ctx context.Context, workerID uuid.UUID) (*models.AdminWorkerDetail, *errx.Error)
 	UpdateWorker(ctx context.Context, adminID, workerID uuid.UUID, update *models.AdminUpdateWorker, ipAddress, userAgent string) *errx.Error
-	GetWorkerEmails(ctx context.Context, workerID uuid.UUID, cursor *uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, *errx.Error)
+	GetWorkerEmails(ctx context.Context, workerID uuid.UUID, beforeAt time.Time, beforeID uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, *errx.Error)
 	GetWorkerStats(ctx context.Context, workerID uuid.UUID) (*models.WorkerStats, *errx.Error)
 	ReassignEmails(ctx context.Context, adminID uuid.UUID, emailIDs []uuid.UUID, newWorkerID uuid.UUID, ipAddress, userAgent string) *errx.Error
 
@@ -316,8 +316,8 @@ func (s *adminService) UpdateWorker(ctx context.Context, adminID, workerID uuid.
 	return nil
 }
 
-func (s *adminService) GetWorkerEmails(ctx context.Context, workerID uuid.UUID, cursor *uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, *errx.Error) {
-	emails, pagination, err := s.repo.GetWorkerEmails(ctx, workerID, cursor, limit)
+func (s *adminService) GetWorkerEmails(ctx context.Context, workerID uuid.UUID, beforeAt time.Time, beforeID uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, *errx.Error) {
+	emails, pagination, err := s.repo.GetWorkerEmails(ctx, workerID, beforeAt, beforeID, limit)
 	if err != nil {
 		errs.CaptureException(err)
 		return nil, nil, errx.New(errx.Internal, "failed to get worker emails")

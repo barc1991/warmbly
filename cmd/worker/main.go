@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"math"
 	"os"
 	"os/signal"
 	"strconv"
@@ -266,7 +267,7 @@ func workerCapacityTarget() float64 {
 		return defaultWorkerCapacityTarget
 	}
 	n, err := strconv.ParseFloat(raw, 64)
-	if err != nil || n <= 0 {
+	if err != nil || n <= 0 || math.IsNaN(n) || math.IsInf(n, 0) || n > 99_999_999.99 {
 		return defaultWorkerCapacityTarget
 	}
 	return n

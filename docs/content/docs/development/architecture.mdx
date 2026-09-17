@@ -136,9 +136,11 @@ Rotation (`internal/app/worker/rotation.go`) is deliberately reluctant. Mailbox 
 
 | Urgency | Trigger | Residency floor | Destination bar |
 |---|---|---|---|
-| Immediate | Worker inactive or not heartbeating | none | anything eligible |
-| Elevated | Mailbox is on another workspace's reserved worker | 6 hours | anything eligible |
+| Immediate | Worker inactive, not heartbeating, or externally marked blocked or quarantined | none | anything eligible |
+| Elevated | Worker externally marked throttled, or mailbox is on another workspace's reserved worker | 6 hours | anything eligible |
 | Opportunistic | Worker over 85% utilization, isolated-egress drift, or placement concentration | 72 hours | must score materially better |
+
+The externally managed health labels describe machine or operator state. Mailbox delivery outcomes do not set them.
 
 ### Isolated egress
 

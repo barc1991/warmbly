@@ -37,7 +37,7 @@ type AdminRepository interface {
 	ListWorkers(ctx context.Context, cursor *uuid.UUID, limit int) (*models.AdminWorkersResult, error)
 	GetWorkerDetail(ctx context.Context, workerID uuid.UUID) (*models.AdminWorkerDetail, error)
 	UpdateWorker(ctx context.Context, workerID uuid.UUID, update *models.AdminUpdateWorker) error
-	GetWorkerEmails(ctx context.Context, workerID uuid.UUID, cursor *uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, error)
+	GetWorkerEmails(ctx context.Context, workerID uuid.UUID, beforeAt time.Time, beforeID uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, error)
 	GetWorkerStats(ctx context.Context, workerID uuid.UUID) (*models.WorkerStats, error)
 	ReassignEmails(ctx context.Context, emailIDs []uuid.UUID, newWorkerID uuid.UUID) error
 
@@ -858,20 +858,16 @@ func (r *adminRepository) UpdateWorker(ctx context.Context, workerID uuid.UUID, 
 }
 
 // GetWorkerEmails gets emails connected to a worker
-func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUID, cursor *uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, error) {
+func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUID, beforeAt time.Time, beforeID uuid.UUID, limit int) ([]models.AdminWorkerEmail, *models.Pagination, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
 
 	args := []interface{}{workerID, limit + 1}
 	whereClause := "WHERE ea.worker_id = $1"
-	if cursor != nil {
-		whereClause += ` AND (ea.created_at, ea.id) < (
-			SELECT cursor_ea.created_at, cursor_ea.id
-			FROM email_accounts cursor_ea
-			WHERE cursor_ea.id = $3
-		)`
-		args = append(args, *cursor)
+	if beforeID != uuid.Nil {
+		whereClause += ` AND (ea.created_at, ea.id) < ($3, $4)`
+		args = append(args, beforeAt, beforeID)
 	}
 
 	// Health lives on warmup_pool_participants, one row per mailbox. The CASE
@@ -883,7 +879,7 @@ func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUI
 			COALESCE(ea.risk_band, 'clean'::email_risk_band)::text,
 			ea.risk_evaluated_at,
 			COALESCE(wh.health_state, '')::text,
-			wh.blocked_until
+			wh.blocked_until, ea.created_at
 		FROM email_accounts ea
 		LEFT JOIN LATERAL (
 			SELECT health_state, blocked_until
@@ -916,7 +912,7 @@ func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUI
 		err := rows.Scan(
 			&e.ID, &e.Email, &e.UserID, &e.OrganizationID,
 			&e.Status, &e.Provider, &e.WarmupEnabled, &e.LastSyncedAt,
-			&e.RiskBand, &e.RiskEvaluatedAt, &e.WarmupHealth, &e.BlockedUntil,
+			&e.RiskBand, &e.RiskEvaluatedAt, &e.WarmupHealth, &e.BlockedUntil, &e.CreatedAt,
 		)
 		if err != nil {
 			return nil, nil, err
@@ -930,7 +926,7 @@ func (r *adminRepository) GetWorkerEmails(ctx context.Context, workerID uuid.UUI
 
 	if len(emails) > limit {
 		emails = emails[:limit]
-		pagination.NextCursor = paging.UUIDString(emails[limit-1].ID)
+		pagination.NextCursor = paging.EncodeTime(emails[limit-1].CreatedAt, emails[limit-1].ID)
 	}
 
 	return emails, pagination, nil

@@ -171,10 +171,21 @@ func (r *workerRepository) CountOrgMailboxes(ctx context.Context, orgID uuid.UUI
 }
 
 const mailboxPlacementStateSelect = `
-	WITH assigned_mailboxes AS MATERIALIZED (
-	    SELECT worker_id, organization_id, provider
-	      FROM email_accounts
-	     WHERE worker_id IS NOT NULL
+	WITH shared_workers AS MATERIALIZED (
+	    SELECT live_worker.id
+	      FROM workers live_worker
+	      JOIN fleet_nodes live_node ON live_node.id = live_worker.id
+	      LEFT JOIN dedicated_worker_assignments live_reservation
+	             ON live_reservation.worker_id = live_worker.id AND live_reservation.released_at IS NULL
+	     WHERE live_worker.health_state IN ('healthy', 'watch')
+	       AND live_node.active
+	       AND live_node.last_seen_at > now() - $1::interval
+	       AND live_reservation.worker_id IS NULL
+	),
+	assigned_mailboxes AS MATERIALIZED (
+	    SELECT ea.worker_id, ea.organization_id, ea.provider
+	      FROM email_accounts ea
+	      JOIN shared_workers shared ON shared.id = ea.worker_id
 	),
 	worker_totals AS (
 	    SELECT worker_id, count(*) AS total_count
@@ -202,15 +213,7 @@ const mailboxPlacementStateSelect = `
 	     GROUP BY provider
 	),
 	fleet AS (
-	    SELECT count(*) AS live_count
-	      FROM workers live_worker
-	      JOIN fleet_nodes live_node ON live_node.id = live_worker.id
-	      LEFT JOIN dedicated_worker_assignments live_reservation
-	             ON live_reservation.worker_id = live_worker.id AND live_reservation.released_at IS NULL
-	     WHERE live_worker.health_state IN ('healthy', 'watch')
-	       AND live_node.active
-	       AND live_node.last_seen_at > now() - $1::interval
-	       AND live_reservation.worker_id IS NULL
+	    SELECT count(*) AS live_count FROM shared_workers
 	)
 	SELECT ea.id, ea.organization_id, ea.provider::text, (ea.warmup IS NOT NULL),
 	       ea.worker_id, ea.worker_assigned_at,

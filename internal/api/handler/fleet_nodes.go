@@ -185,11 +185,11 @@ func (h *Handler) FleetHeartbeat(c *gin.Context) {
 func heartbeatAddress(reported, observed string) string {
 	reported = strings.TrimSpace(reported)
 	observed = strings.TrimSpace(observed)
-	if publicIPv4(observed) {
-		return observed
+	if normalized, ok := normalizedPublicIPv4(observed); ok {
+		return normalized
 	}
-	if publicIPv4(reported) {
-		return reported
+	if normalized, ok := normalizedPublicIPv4(reported); ok {
+		return normalized
 	}
 	if observed != "" {
 		return observed
@@ -197,21 +197,21 @@ func heartbeatAddress(reported, observed string) string {
 	return reported
 }
 
-func publicIPv4(raw string) bool {
+func normalizedPublicIPv4(raw string) (string, bool) {
 	ip, err := netip.ParseAddr(raw)
 	if err != nil {
-		return false
+		return "", false
 	}
 	ip = ip.Unmap()
 	if !ip.Is4() || !ip.IsGlobalUnicast() || ip.IsPrivate() {
-		return false
+		return "", false
 	}
 	for _, prefix := range nonPublicIPv4Prefixes {
 		if prefix.Contains(ip) {
-			return false
+			return "", false
 		}
 	}
-	return true
+	return ip.String(), true
 }
 
 var nonPublicIPv4Prefixes = []netip.Prefix{

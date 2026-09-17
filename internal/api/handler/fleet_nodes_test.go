@@ -18,6 +18,7 @@ func TestHeartbeatAddressPrefersBackendObservedPublicIPv4(t *testing.T) {
 		{"observed public address replaces stale report", "198.51.100.8", "8.8.8.8", "8.8.8.8"},
 		{"private proxy hop keeps reported public address", "1.1.1.1", "10.0.0.4", "1.1.1.1"},
 		{"carrier grade nat is not a public address", "1.1.1.1", "100.64.2.3", "1.1.1.1"},
+		{"mapped public IPv4 is canonicalized", "1.1.1.1", "::ffff:8.8.8.8", "8.8.8.8"},
 		{"private direct address is still useful", "", "10.0.0.4", "10.0.0.4"},
 		{"public IPv6 does not replace requested IPv4", "1.1.1.1", "2001:4860:4860::8888", "1.1.1.1"},
 	}

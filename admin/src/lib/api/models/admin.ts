@@ -61,6 +61,7 @@ export interface AdminWorkerEmail {
     risk_evaluated_at?: string | null;
     warmup_health?: string; // worst warmup health_state, "" if not in a pool
     blocked_until?: string | null;
+    created_at: string;
 }
 
 export interface AdminWorkerEmailsResult {

@@ -193,6 +193,7 @@ type AdminWorkerEmail struct {
 	RiskEvaluatedAt *time.Time `json:"risk_evaluated_at,omitempty"`
 	WarmupHealth    string     `json:"warmup_health,omitempty"` // worst warmup health_state, "" if not in a pool
 	BlockedUntil    *time.Time `json:"blocked_until,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
 // ReassignEmailsRequest represents the request to reassign emails
