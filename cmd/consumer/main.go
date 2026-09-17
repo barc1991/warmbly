@@ -550,6 +550,7 @@ func main() {
 		trackingSettings := instancesettings.NewService(instancesettings.NewStore(primaryDB.Pool))
 		trackingConsumer.WireRetention(trackingSettings)
 		trackingConsumer.WireTrackingPolicy(trackingSettings)
+		trackingConsumer.WireDirectMail(emailRepo)
 		defer trackingConsumer.Close()
 		go func() {
 			if err := trackingConsumer.Start(ctx); err != nil {

@@ -1157,18 +1157,15 @@ func (r *taskRepository) CancelScheduledByUser(ctx context.Context, taskID, user
 	return cloudTaskName, true, nil
 }
 
-// MarkDirectOpened stamps the first open on a tracked direct send. Reports
-// whether this was the first one, so the caller can tell a new open from a
-// repeat without a second query.
-//
-// The guard is in the WHERE, not in Go: two pixel fetches of the same message
-// can land on different consumer instances at once, and the first-open flag has
-// to be decided by the database.
+// MarkDirectOpened records the first open and lets a later human open replace a machine open.
 func (r *taskRepository) MarkDirectOpened(ctx context.Context, taskID uuid.UUID, at time.Time, machine bool) (bool, error) {
 	const query = `
 		UPDATE email_tasks
-		SET opened_at = $2, opened_machine = $3
-		WHERE task_id = $1 AND tracked AND opened_at IS NULL
+		SET opened_at = $2,
+		    opened_machine = $3
+		WHERE task_id = $1
+		  AND tracked
+		  AND (opened_at IS NULL OR (opened_machine AND NOT $3))
 	`
 	tag, err := r.db.Exec(ctx, query, taskID, at, machine)
 	if err != nil {
@@ -1177,12 +1174,12 @@ func (r *taskRepository) MarkDirectOpened(ctx context.Context, taskID uuid.UUID,
 	return tag.RowsAffected() > 0, nil
 }
 
-// MarkDirectClicked counts a click on a tracked direct send and keeps the last
-// click time. Reports whether this was the first click on the message.
+// MarkDirectClicked counts a click and keeps the latest event time.
 func (r *taskRepository) MarkDirectClicked(ctx context.Context, taskID uuid.UUID, at time.Time) (bool, error) {
 	const query = `
 		UPDATE email_tasks
-		SET clicked_at = $2, click_count = click_count + 1
+		SET clicked_at = GREATEST(COALESCE(clicked_at, $2), $2),
+		    click_count = click_count + 1
 		WHERE task_id = $1 AND tracked
 		RETURNING click_count
 	`

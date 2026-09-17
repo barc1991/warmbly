@@ -1,5 +1,3 @@
-DROP INDEX IF EXISTS idx_email_tasks_tracked;
-
 ALTER TABLE email_tasks
     DROP COLUMN IF EXISTS click_count,
     DROP COLUMN IF EXISTS clicked_at,

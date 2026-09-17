@@ -129,7 +129,7 @@ export default function DirectMailSection({ period }: { period: string }) {
             ) : (tr?.mailboxes_opted_in ?? 0) === 0 ? (
                 <EmptyBlock
                     title="No mailbox is tracking direct mail"
-                    body="Open a mailbox and turn on 'Track opens and clicks on direct mail' to measure replies you write by hand. It is off by default, and it only applies to mail sent after you switch it on."
+                    body="Open a mailbox and turn on 'Track opens and clicks on direct mail' to measure opens and clicks on messages you send from Warmbly. It is off by default, and it only applies to mail sent after you switch it on."
                 />
             ) : (tr?.tracked_sent ?? 0) === 0 ? (
                 <EmptyBlock

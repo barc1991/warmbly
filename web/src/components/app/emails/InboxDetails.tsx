@@ -1325,7 +1325,12 @@ function DirectMailTrackingControl({ mailbox }: { mailbox: Inbox }) {
                 </div>
             </div>
             <div className="shrink-0">
-                <Toggle value={enabled} onChange={toggle} disabled={save.isPending} />
+                <Toggle
+                    value={enabled}
+                    onChange={toggle}
+                    disabled={save.isPending}
+                    ariaLabel="Track opens and clicks on direct mail"
+                />
             </div>
         </div>
     );

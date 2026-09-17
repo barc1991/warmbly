@@ -840,16 +840,7 @@ func (r *analyticsRepository) CompareCampaigns(ctx context.Context, orgID uuid.U
 	}, nil
 }
 
-// bareAddr is the SQL that pulls a plain address out of a stored header.
-//
-// unibox_emails keeps the header as the sync saw it, which is "Display Name
-// (user@host)" and, when there is no display name, " (user@host)" with the
-// leading space. Comparing that against email_accounts.email matches nothing,
-// so the "exclude our own mailboxes" guards silently passed everything through
-// and a colleague showed up as a top correspondent. The address is the content
-// of the LAST parenthesised group, which is what keeps a display name that
-// itself contains brackets from winning. A header with no parens at all is
-// already bare, so it falls through to the trimmed value.
+// bareAddr extracts the final parenthesized address stored by mailbox sync.
 func bareAddr(col string) string {
 	return `LOWER(COALESCE(NULLIF((regexp_match(` + col + `, '\(([^()]+)\)\s*$'))[1], ''), TRIM(` + col + `)))`
 }
@@ -866,10 +857,20 @@ func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID 
 		TopContacts: make([]models.DirectMailContact, 0),
 	}
 
-	// ── Volume, from the synced mailbox ────────────────────────────────
-	const volumeQuery = `
+	// A synced Sent folder also contains campaign and warmup messages. Exclude
+	// those task-backed messages anywhere an outgoing message is counted.
+	directOutgoing := `NOT EXISTS (
+		SELECT 1
+		FROM tasks automated
+		WHERE automated.email_account_id = ue.email_id
+		  AND automated.task_type IN ('campaign', 'warmup')
+		  AND automated.message_id <> ''
+		  AND BTRIM(automated.message_id, '<> ') = BTRIM(ue.message_id, '<> ')
+	)`
+
+	volumeQuery := `
 		SELECT
-			COUNT(*) FILTER (WHERE ue.folder = 'sent')  AS sent,
+			COUNT(*) FILTER (WHERE ue.folder = 'sent' AND ` + directOutgoing + `) AS sent,
 			COUNT(*) FILTER (WHERE ue.folder = 'inbox') AS received
 		FROM unibox_emails ue
 		JOIN email_accounts ea ON ea.id = ue.email_id
@@ -881,41 +882,30 @@ func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID 
 		return nil, errx.InternalError()
 	}
 
-	// ── Replies, per outbound thread ───────────────────────────────────
-	// A thread counts as ours when the first message in it was sent, and as
-	// answered when a real inbound message follows that first send. The reply
-	// delay is measured from our first send to their first message back, so a
-	// long back-and-forth is one data point, not many.
-	//
-	// What counts as "real" is the whole difficulty. On live data the naive
-	// version reported 47 replies at a 19-second median, which is not a human
-	// answering: a bounce lands in the same thread a second after the send, an
-	// out-of-office answers instantly, and a message to a colleague on a
-	// connected mailbox is our own mail coming back. Excluding those three
-	// gives 27 replies at 18 minutes on the same data. An inflated reply rate
-	// is worse than no reply rate, so the predicate below is shared by every
-	// query here rather than written out twice and allowed to drift.
+	// A reply is the first real inbound message after a direct thread's first
+	// send. Build thread history without clipping it to the reporting window.
 	realInbound := `
 		ue.folder = 'inbox'
 		AND ue.subject !~* '^(delivery status notification|undeliverable|mail delivery|returned mail|automatic reply|auto(matic)?[ -]?response|out of office)'
 		AND COALESCE(ue.from_addr[1], '') !~* '(mailer-daemon|postmaster|no-?reply)'
-		AND ` + bareAddr("COALESCE(ue.from_addr[1], '')") + ` NOT IN (SELECT LOWER(email) FROM email_accounts)
+		AND ` + bareAddr("COALESCE(ue.from_addr[1], '')") + ` NOT IN (
+			SELECT LOWER(email) FROM email_accounts WHERE organization_id = $1
+		)
 	`
 	replyQuery := `
 		WITH threads AS (
 			SELECT ue.email_id, ue.thread_id,
-			       MIN(ue.internal_date) FILTER (WHERE ue.folder = 'sent') AS first_sent,
+			       MIN(ue.internal_date) FILTER (WHERE ue.folder = 'sent' AND ` + directOutgoing + `) AS first_sent,
 			       MIN(ue.internal_date) FILTER (WHERE ` + realInbound + `) AS first_in
 			FROM unibox_emails ue
 			JOIN email_accounts ea ON ea.id = ue.email_id
 			WHERE ea.organization_id = $1
 			  AND ue.thread_id <> ''
-			  AND ue.internal_date >= $2 AND ue.internal_date <= $3
 			GROUP BY ue.email_id, ue.thread_id
 		), ours AS (
-			SELECT first_sent, first_in
+			SELECT first_sent, CASE WHEN first_in <= $3 THEN first_in END AS first_in
 			FROM threads
-			WHERE first_sent IS NOT NULL
+			WHERE first_sent >= $2 AND first_sent <= $3
 			  AND (first_in IS NULL OR first_in > first_sent)
 		)
 		SELECT
@@ -940,9 +930,6 @@ func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID 
 		out.Volume.ReplyRate = float64(out.Volume.Replied) / float64(out.Volume.ThreadsStarted) * 100
 	}
 
-	// Bounces are what the reply count had been quietly absorbing, so report
-	// them rather than only excluding them: a message that came back is the
-	// most actionable thing on this page.
 	const bounceQuery = `
 		SELECT COUNT(*)
 		FROM unibox_emails ue
@@ -972,7 +959,8 @@ func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID 
 		JOIN email_accounts ea ON ea.id = t.email_account_id
 		WHERE ea.organization_id = $1
 		  AND et.tracked
-		  AND t.scheduled_at >= $2 AND t.scheduled_at <= $3
+		  AND t.status = 'completed'
+		  AND t.completed_at >= $2 AND t.completed_at <= $3
 	`
 	tr := &out.Tracking
 	if err := r.DB.QueryRow(ctx, trackingQuery, orgID, from, to).Scan(
@@ -986,10 +974,9 @@ func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID 
 		tr.ClickRate = float64(tr.Clicked) / float64(tr.TrackedSent) * 100
 	}
 
-	// ── Daily trend ────────────────────────────────────────────────────
-	const trendQuery = `
+	trendQuery := `
 		SELECT DATE_TRUNC('day', ue.internal_date) AS day,
-		       COUNT(*) FILTER (WHERE ue.folder = 'sent')  AS sent,
+		       COUNT(*) FILTER (WHERE ue.folder = 'sent' AND ` + directOutgoing + `) AS sent,
 		       COUNT(*) FILTER (WHERE ue.folder = 'inbox') AS received
 		FROM unibox_emails ue
 		JOIN email_accounts ea ON ea.id = ue.email_id
@@ -1011,12 +998,15 @@ func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID 
 		}
 		out.DailyTrend = append(out.DailyTrend, d)
 	}
+	if err := rows.Err(); err != nil {
+		db.CaptureError(err, trendQuery, []any{orgID, from, to}, "rows")
+		return nil, errx.InternalError()
+	}
 	rows.Close()
 
-	// ── Per mailbox ────────────────────────────────────────────────────
-	const mailboxQuery = `
+	mailboxQuery := `
 		SELECT ea.id, ea.email, ea.track_direct_mail,
-		       COUNT(ue.id) FILTER (WHERE ue.folder = 'sent')  AS sent,
+		       COUNT(ue.id) FILTER (WHERE ue.folder = 'sent' AND ` + directOutgoing + `) AS sent,
 		       COUNT(ue.id) FILTER (WHERE ue.folder = 'inbox') AS received
 		FROM email_accounts ea
 		LEFT JOIN unibox_emails ue
@@ -1039,6 +1029,10 @@ func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID 
 		}
 		out.Mailboxes = append(out.Mailboxes, m)
 	}
+	if err := mrows.Err(); err != nil {
+		db.CaptureError(err, mailboxQuery, []any{orgID, from, to}, "rows")
+		return nil, errx.InternalError()
+	}
 	mrows.Close()
 
 	// ── Top correspondents ─────────────────────────────────────────────
@@ -1055,6 +1049,7 @@ func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID 
 			JOIN email_accounts ea ON ea.id = ue.email_id
 			WHERE ea.organization_id = $1
 			  AND ue.folder IN ('sent', 'inbox')
+			  AND (ue.folder <> 'sent' OR ` + directOutgoing + `)
 			  AND ue.internal_date >= $2 AND ue.internal_date <= $3
 		)
 		SELECT addr,
@@ -1080,6 +1075,10 @@ func (r *analyticsRepository) GetDirectMailAnalytics(ctx context.Context, orgID 
 			return nil, errx.InternalError()
 		}
 		out.TopContacts = append(out.TopContacts, c)
+	}
+	if err := crows.Err(); err != nil {
+		db.CaptureError(err, contactQuery, []any{orgID, from, to}, "rows")
+		return nil, errx.InternalError()
 	}
 
 	return out, nil
