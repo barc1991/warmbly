@@ -481,11 +481,26 @@ func (s *JobsService) tagInboundMessage(ctx context.Context, e *models.JobEventN
 	previous := s.InboxTagger.PreviousOutbound(ctx, e.Message.EmailID, e.Message.ThreadID, e.Message.InternalDate)
 
 	msg := inboxtag.MessageFrom(orgID, e.UserID, e.Message, nil, previous, "")
-	if _, err := s.InboxTagger.Classify(ctx, msg); err != nil {
+	d, err := s.InboxTagger.Classify(ctx, msg)
+	if err != nil {
 		log.Warn().Err(err).
 			Str("email_account_id", e.Message.EmailID.String()).
 			Str("message_id", e.Message.MessageID).
 			Msg("Inbox tagging failed; ingest kept")
+		return
+	}
+
+	// Tell the dashboard the message changed.
+	//
+	// The arrival event above this already fired, and it fired BEFORE the
+	// labels existed: classifying makes a network call, so putting it ahead of
+	// the arrival would hold every message back by the length of that call for
+	// the sake of a chip. The mail therefore lands instantly and untagged, and
+	// this second event is what makes the label appear a moment later without
+	// anybody reloading. Without it the tag showed up on the next refetch,
+	// which is a refresh, a scope change, or whenever the 30s cache went stale.
+	if len(d.Labels) > 0 {
+		s.publishEmailUpdated(ctx, e.UserID, e.Message)
 	}
 }
 
