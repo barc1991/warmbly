@@ -53,13 +53,21 @@ function bucketFor(d: Date): Bucket {
 }
 
 interface ConversationListProps {
-  /** Identity of the current scope; a change clears the local search. */
+  /** Identity of the current scope. */
   scopeKey: string;
   scopeLabel: string;
   params: UniboxSearchParams;
   /** What the scope alone queries; anything beyond it is a user filter. */
   baseParams: UniboxSearchParams;
   setParams: React.Dispatch<React.SetStateAction<UniboxSearchParams>>;
+  /**
+   * The search box. Owned by the page rather than here, so widening a search
+   * to every folder can switch scope without throwing away what was typed.
+   */
+  search: string;
+  setSearch: (value: string) => void;
+  /** Widen to every folder, keeping the query. Absent when already there. */
+  onSearchAllMail?: () => void;
   /** Opens the mobile view switcher; the rail is hidden below lg. */
   onOpenScopeSheet?: () => void;
 }
@@ -70,21 +78,12 @@ export function ConversationList({
   params,
   baseParams,
   setParams,
+  search,
+  setSearch,
+  onSearchAllMail,
   onOpenScopeSheet,
 }: ConversationListProps) {
-  const [search, setSearch] = React.useState("");
   const [filtersOpen, setFiltersOpen] = React.useState(false);
-
-  // The page keeps this component mounted across a scope switch (that is what
-  // holds the scroll offset when a thread opens), so the search box has to be
-  // cleared here or a query typed for one scope would silently filter the next.
-  // Set during render, like the page's own param reset, so the stale query
-  // never reaches the request.
-  const [searchScope, setSearchScope] = React.useState(scopeKey);
-  if (searchScope !== scopeKey) {
-    setSearchScope(scopeKey);
-    setSearch("");
-  }
 
   const searchRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
@@ -302,7 +301,11 @@ export function ConversationList({
             onKeyDown={(e) => {
               if (e.key === "Escape") e.currentTarget.blur();
             }}
-            placeholder={`Search ${scopeLabel.toLowerCase()}`}
+            // The box searches people, subject and message body, and naming
+            // that is the difference between it looking broken and looking
+            // useful: nobody tries an address in a box labelled "Search inbox".
+            placeholder={`Search ${scopeLabel.toLowerCase()} — name, address, or any word`}
+            title={'Searches the sender, recipients, subject and message body. "quoted phrases", OR and -exclude work.'}
             className="flex-1 min-w-0 h-full bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
           />
           {search ? (
@@ -358,11 +361,26 @@ export function ConversationList({
             <p className="text-[12.5px] text-slate-700 font-medium mb-1">
               {filtering ? "No matches" : "Nothing here"}
             </p>
-            <p className="text-[11.5px] text-slate-400 max-w-[28ch] mx-auto leading-relaxed">
+            <p className="text-[11.5px] text-slate-400 max-w-[32ch] mx-auto leading-relaxed">
               {filtering
-                ? "Try a different search or clear the filters."
+                ? search.trim()
+                  ? `Nothing in ${scopeLabel.toLowerCase()} matches "${search.trim()}". The search covers names, addresses, subjects and message bodies.`
+                  : "Try a different search or clear the filters."
                 : "New mail shows up here as it arrives."}
             </p>
+            {/* The commonest reason a search finds nothing is that the thing
+                is filed somewhere else. Offer the wider search rather than
+                quietly overriding the scope the reader chose. */}
+            {filtering && search.trim() && onSearchAllMail && (
+              <button
+                type="button"
+                onClick={onSearchAllMail}
+                className="mt-3 h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
+              >
+                <SearchIcon className="w-3 h-3" />
+                Search all mail
+              </button>
+            )}
           </div>
         ) : (
           <React.Fragment key={shownKey.current}>
