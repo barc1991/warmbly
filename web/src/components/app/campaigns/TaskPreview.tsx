@@ -114,8 +114,8 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
     const progress = Math.min(100, Math.max(0, taskProgress?.progress ?? 0));
     const processed = taskProgress?.processed_count ?? 0;
     // Sent steps over contacts × steps: a six-step campaign is not done when
-    // every contact has had its first email.
-    const total = taskProgress?.total_emails ?? 0;
+    // every contact has had its first email. Fallback to total_contacts if total_emails is 0.
+    const total = (taskProgress?.total_emails && taskProgress.total_emails > 0) ? taskProgress.total_emails : (taskProgress?.total_contacts ?? 0);
 
     // Conservative estimate: remaining contacts paced roughly one per minute.
     const remainingHint = useMemo(() => {
@@ -215,7 +215,7 @@ export default function TaskPreview({ campaignId, campaignStatus: initialStatus,
                     <DitherMeter frac={progress / 100} height={6} />
                     <div className="flex items-center justify-between mt-1.5">
                         <span className="font-mono text-[10.5px] text-slate-400 tabular-nums">
-                            {processed.toLocaleString()} מתוך {total.toLocaleString()} מיילים
+                            {processed.toLocaleString()} מתוך {total.toLocaleString()} {taskProgress?.total_emails ? "מיילים" : "אנשי קשר"}
                         </span>
                         {remainingHint && (
                             <span className="text-[10.5px] text-slate-400">{remainingHint}</span>

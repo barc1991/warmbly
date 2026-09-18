@@ -370,6 +370,7 @@ const EDITABLE: (keyof Inbox)[] = [
     "tags", "campaign_limit", "min_wait_time", "reply_to", "save_to_sent",
     "warmup_base", "warmup_max", "warmup_increase", "warmup_reply_rate",
     "warmup_tag", "warmup_start_time", "warmup_end_time", "warmup_days",
+    "warmup_placement", "warmup_folder",
 ];
 
 function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }: { mailbox: Inbox; onClose: () => void; initialTab?: string; canWarmup?: boolean }) {
