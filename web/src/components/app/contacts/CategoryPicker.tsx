@@ -43,7 +43,7 @@ interface Props {
 export default function CategoryPicker({
     value,
     onChange,
-    placeholder = "Click to add categories…",
+    placeholder = "לחץ להוספת קטגוריות…",
     className,
     allowCreate = true,
 }: Props) {
@@ -100,7 +100,7 @@ export default function CategoryPicker({
             onChange([...value, c.id]);
             setQuery("");
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Failed to create category");
+            toast.error(err instanceof Error ? err.message : "יצירת הקטגוריה נכשלה");
         }
     }
 
@@ -129,7 +129,7 @@ export default function CategoryPicker({
                             className="inline-flex items-center gap-1 h-5 px-1.5 rounded text-[11px] font-medium border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
                         >
                             <PlusIcon className="w-2.5 h-2.5" />
-                            Add
+                            הוסף
                         </button>
                     </div>
                 )}
@@ -151,7 +151,7 @@ export default function CategoryPicker({
                             <input
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                placeholder={allowCreate ? "Search or create…" : "Search…"}
+                                placeholder={allowCreate ? "חיפוש או יצירה…" : "חיפוש…"}
                                 autoFocus
                                 className="w-full h-5 bg-transparent text-[12px] text-slate-900 placeholder:text-slate-400 outline-none"
                             />
@@ -159,7 +159,7 @@ export default function CategoryPicker({
                         <div className="max-h-56 overflow-y-auto py-1">
                             {filtered.length === 0 && !allowCreate && (
                                 <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                                    No categories.
+                                    אין קטגוריות.
                                 </div>
                             )}
                             {filtered.map((c) => {
@@ -200,7 +200,7 @@ export default function CategoryPicker({
                                     ) : (
                                         <PlusIcon className="w-3 h-3 text-sky-600" />
                                     )}
-                                    Create "{query.trim()}"
+                                    צור "{query.trim()}"
                                 </button>
                             )}
                         </div>
@@ -253,7 +253,7 @@ export function CategoryChip({
                             onRemove();
                         }}
                         className="opacity-70 hover:opacity-100"
-                        aria-label={`Remove ${category.title}`}
+                        aria-label={`הסר את ${category.title}`}
                     >
                         <XIcon className="w-2.5 h-2.5" />
                     </button>
