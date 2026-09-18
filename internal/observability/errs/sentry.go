@@ -13,6 +13,8 @@ import (
 // default here, not a replacement forced on anybody.
 type sentrySink struct{}
 
+var _ = newSentrySink
+
 func newSentrySink(cfg Config) (sink, error) {
 	err := sentry.Init(sentry.ClientOptions{
 		Dsn:            cfg.SentryDSN,

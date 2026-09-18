@@ -38,6 +38,8 @@ type posthogSink struct {
 // depth from here, which is why one constant covers them all.
 const stackSkip = 5
 
+var _ = newPostHogSink
+
 func newPostHogSink(cfg Config) (sink, error) {
 	disableGeoIP := true
 	logger := &posthogLogger{}

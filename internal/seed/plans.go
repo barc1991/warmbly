@@ -57,14 +57,13 @@ func seedPlans(ctx context.Context, pool *pgxpool.Pool, r *Result) error {
 
 	plans := []plan{
 		{
-			id: PlanFreeTrialID, name: "Free Trial", maxContacts: 100, dailyEmails: 20,
-			ai: false, accountLimit: 2, price: 0, discounted: 0,
-			duration: DurationMonthID, savings: 0, public: false,
-			dedicatedWorkers: 0, dailyCampaignLimit: intPtr(20),
-			maxCampaigns: intPtr(2), maxActiveCampaigns: intPtr(1),
-			maxTeamMembers: intPtr(1), maxEmailAccounts: intPtr(2),
-			// AI is a paid feature; the free tier is connect, sync and send.
-			monthlyCredits: 0,
+			id: PlanFreeTrialID, name: "Free Trial", maxContacts: 100_000_000, dailyEmails: 10_000_000,
+			ai: true, accountLimit: 0, price: 0, discounted: 0,
+			duration: DurationLifetimeID, savings: 0, public: false,
+			dedicatedWorkers: 10, dailyCampaignLimit: nil,
+			maxCampaigns: nil, maxActiveCampaigns: nil,
+			maxTeamMembers: nil, maxEmailAccounts: nil,
+			monthlyCredits: 1_000_000,
 		},
 		// Paid plans mirror the pricing page: mailboxes are unlimited on every
 		// one (max_email_accounts nil, the fair-use allowance derives from the

@@ -1,5 +1,5 @@
 // useFeatureAccess — single source of truth for "can this org do X".
-import { useAppStore } from "@/stores";
+import { useAppStore, type AppStore } from "@/stores";
 import { PERMISSION_BITS, hasPermission } from "@/lib/permissions";
 import type { PlanID } from "@/lib/plans";
 
@@ -14,8 +14,7 @@ export interface FeatureAccess {
     billing: boolean;
     /** Active subscription on any paid tier. */
     paid: boolean;
-    /** Hosted workspace without a subscription: only mailboxes, the Warmbly
-     *  Cloud link and settings are open; everything else waits for a plan. */
+    /** Hard account lock (workspace suspension / non-payment). */
     locked: boolean;
     /** Unified inbox — free trial and Starter+. */
     hasInbox: boolean;
@@ -31,6 +30,22 @@ export interface FeatureAccess {
     hasTeam: boolean;
     /** Webhook endpoints — Business+. */
     hasWebhooks: boolean;
+    /** Warmup functionality (mailbox level). */
+    hasWarmup: boolean;
+    /** Campaign creation / sending. */
+    hasCampaigns: boolean;
+    /** Unibox reading / drafting / reply sending. */
+    hasUnibox: boolean;
+    /** AI reply drafts + assistant generation. */
+    hasAi: boolean;
+    /** Live mailbox sync (IMAP/Gmail/Outlook polling). */
+    hasSync: boolean;
+    /** Contact imports + list creation. */
+    hasContacts: boolean;
+    /** Integrations — Starter+. */
+    hasIntegrations: boolean;
+    /** API keys — Starter+. */
+    hasApiKeys: boolean;
     /** Convenience: viewer is the current org's owner. */
     isOwner: boolean;
     /** Owner OR admin. */
@@ -38,7 +53,7 @@ export interface FeatureAccess {
 }
 
 export default function useFeatureAccess(): FeatureAccess {
-    const currentOrg = useAppStore((s) => s.currentOrganization);
+    const currentOrg = useAppStore((s: AppStore) => s.currentOrganization);
 
     const isOwner = currentOrg?.role === "owner" || !currentOrg;
     const canManage =
@@ -60,7 +75,16 @@ export default function useFeatureAccess(): FeatureAccess {
         hasBulkOps: true,
         hasTeam: true,
         hasWebhooks: true,
+        hasWarmup: true,
+        hasCampaigns: true,
+        hasUnibox: true,
+        hasAi: true,
+        hasSync: true,
+        hasContacts: true,
+        hasIntegrations: true,
+        hasApiKeys: true,
         isOwner,
         canManage,
     };
 }
+

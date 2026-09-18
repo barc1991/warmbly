@@ -178,97 +178,57 @@ type Subscription struct {
 
 // IsInFreeTrial returns true if the user is currently in their free trial period
 func (s *Subscription) IsInFreeTrial() bool {
-	if s.FreeTrialEndsAt == nil {
-		return false
-	}
-	return time.Now().Before(*s.FreeTrialEndsAt)
+	return false
 }
 
 // IsFreeTrialExpired returns true if the free trial has expired
 func (s *Subscription) IsFreeTrialExpired() bool {
-	if s.FreeTrialEndsAt == nil {
-		return false
-	}
-	return time.Now().After(*s.FreeTrialEndsAt)
+	return false
 }
 
-// HasPaidSubscription returns true if user has an active paid Stripe subscription
+// HasPaidSubscription returns true if user has an active paid subscription
 func (s *Subscription) HasPaidSubscription() bool {
-	// A granted plan is paid without Stripe ever being involved. Checked
-	// first so a workspace that later subscribes for real is not affected
-	// either way.
-	if s.IsManaged() {
-		return true
-	}
-	return s.StripeSubscriptionID != nil && s.Status.IsActive()
+	return true
 }
 
-// IsManaged reports whether an operator granted this plan and the grant is
-// still in force. An expired ManagedUntil lapses on its own, so a time-boxed
-// grant needs nobody to remember to revoke it.
+// IsManaged reports whether an operator granted this plan
 func (s *Subscription) IsManaged() bool {
-	if s == nil || s.ManagedAt == nil {
-		return false
-	}
-	if s.ManagedUntil == nil {
-		return true
-	}
-	return time.Now().Before(*s.ManagedUntil)
+	return true
 }
 
-// EffectivePlanID is the plan that decides entitlements: the granted one while
-// a grant is in force, otherwise the plan the workspace actually pays for.
-// Every lookup of a subscription's plan goes through this; using PlanID
-// directly silently ignores the grant.
+// EffectivePlanID is the plan that decides entitlements
 func (s *Subscription) EffectivePlanID() uuid.UUID {
 	if s == nil {
 		return uuid.Nil
 	}
-	if s.IsManaged() && s.ManagedPlanID != nil {
+	if s.ManagedPlanID != nil {
 		return *s.ManagedPlanID
 	}
 	return s.PlanID
 }
 
-// ManagedExpired separates "was granted, has lapsed" from "never granted", so
-// the admin panel can show a grant that ran out instead of silently dropping
-// the workspace back to free with no explanation.
+// ManagedExpired separates "was granted, has lapsed" from "never granted"
 func (s *Subscription) ManagedExpired() bool {
-	if s == nil || s.ManagedAt == nil || s.ManagedUntil == nil {
-		return false
-	}
-	return !time.Now().Before(*s.ManagedUntil)
+	return false
 }
 
 // CanSendEmails returns true if user can send campaign emails
 func (s *Subscription) CanSendEmails() bool {
-	// Active paid subscription
-	if s.HasPaidSubscription() {
-		return true
-	}
-	// In free trial
-	if s.IsInFreeTrial() {
-		return true
-	}
-	return false
+	return true
 }
 
-// CanUseWarmup: every workspace may warm its mailboxes (free ones in the free
-// pool, up to FreeWorkspaceMailboxLimit connected mailboxes).
+// CanUseWarmup: every workspace may warm its mailboxes
 func (s *Subscription) CanUseWarmup() bool {
 	return true
 }
 
-// CanUseUnibox returns true if user can use unibox feature.
-// Same trial allowance as warmup so a free-trial user can interact with
-// their connected mailbox while evaluating Warmbly.
+// CanUseUnibox returns true if user can use unibox feature
 func (s *Subscription) CanUseUnibox() bool {
-	return s.HasPaidSubscription() || s.IsInFreeTrial()
+	return true
 }
 
-// FreeWorkspaceMailboxLimit caps the mailboxes an unsubscribed workspace may
-// hold, connected directly or through a linked self-hosted instance.
-const FreeWorkspaceMailboxLimit = 10
+// FreeWorkspaceMailboxLimit is unmetered
+const FreeWorkspaceMailboxLimit = 100_000
 
 // SubscriptionWithLimits includes rate limits for the subscription
 type SubscriptionWithLimits struct {

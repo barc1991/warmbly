@@ -78,6 +78,8 @@ func isLoopback(hostname string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
+var _ = isLoopback
+
 // Request is who the event happened to and the browser request it came from.
 type Request struct {
 	// UserID is the account the event belongs to, and becomes the distinct id.

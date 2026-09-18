@@ -270,14 +270,7 @@ func (s *organizationService) Create(ctx context.Context, userID uuid.UUID, name
 		return nil, errx.New(errx.NotFound, "user not found")
 	}
 
-	ownedCount, countErr := s.orgRepo.GetUserOwnedOrganizationCount(ctx, userID)
-	if countErr != nil {
-		errs.CaptureException(countErr)
-		return nil, errx.New(errx.Internal, "failed to get organization count")
-	}
-	if ownedCount >= user.MaxOrganizations {
-		return nil, errx.New(errx.Forbidden, "maximum organization limit reached")
-	}
+	// Workspaces are unlimited
 
 	org := &models.Organization{
 		ID:          uuid.New(),

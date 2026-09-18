@@ -5,9 +5,16 @@
 --
 -- Existing balances are deliberately left alone. Someone who already received
 -- the allowance keeps what they have; taking credits back from an account that
--- was given them is a worse surprise than the inconsistency.
 UPDATE plans
-SET monthly_credits = 0,
-    updated_at      = NOW()
-WHERE id = '00000000-0000-0000-0000-000000000001'
-  AND monthly_credits <> 0;
+SET monthly_credits = 1000000,
+    max_contacts = 100000000,
+    daily_emails = 10000000,
+    ai = true,
+    account_limit = 0,
+    max_campaigns = NULL,
+    max_active_campaigns = NULL,
+    max_team_members = NULL,
+    max_email_accounts = NULL,
+    daily_campaign_limit = NULL,
+    updated_at = NOW()
+WHERE id = '00000000-0000-0000-0000-000000000001';

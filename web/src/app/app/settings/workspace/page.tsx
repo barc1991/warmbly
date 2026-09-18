@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { useAppStore, type Organization as StoreOrganization } from "@/stores";
+import { useDirection } from "@/i18n";
+import { useAppStore, type AppStore, type Organization as StoreOrganization } from "@/stores";
 import { TextInput } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import useUpdateOrganization from "@/lib/api/hooks/app/organizations/useUpdateOrganization";
@@ -28,13 +28,13 @@ import AdvisorSettingsSection from "@/components/app/advisor/AdvisorSettingsSect
 // name over the new workspace's. That is the reported bug where renaming one
 // workspace renamed the other.
 export default function WorkspaceSettingsPage() {
-    const currentOrg = useAppStore((s) => s.currentOrganization);
+    const currentOrg = useAppStore((s: AppStore) => s.currentOrganization);
     return <WorkspaceSettings key={currentOrg?.id ?? "none"} org={currentOrg} />;
 }
 
-function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null }) {
-    const { i18n } = useTranslation();
-    const isHe = i18n.language === "he";
+function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null; key?: React.Key }) {
+    const { language } = useDirection();
+    const isHe = language === "he";
     const [name, setName] = React.useState(currentOrg?.name ?? "");
     const orgID = currentOrg?.id;
 
@@ -251,7 +251,7 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null 
                 >
                     <Textarea
                         value={productDesc}
-                        onChange={(e) => setProductDesc(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setProductDesc(e.target.value)}
                         onBlur={() => saveVoiceField("product_description", productDesc, orgQuery.data?.product_description ?? "")}
                         disabled={!canManageSettings}
                         rows={4}
@@ -274,7 +274,7 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null 
                 >
                     <Textarea
                         value={icpNotes}
-                        onChange={(e) => setIcpNotes(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setIcpNotes(e.target.value)}
                         onBlur={() => saveVoiceField("icp_notes", icpNotes, orgQuery.data?.icp_notes ?? "")}
                         disabled={!canManageSettings}
                         rows={4}
@@ -297,7 +297,7 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null 
                 >
                     <Textarea
                         value={voiceProfile}
-                        onChange={(e) => setVoiceProfile(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setVoiceProfile(e.target.value)}
                         onBlur={() => saveVoiceField("voice_profile", voiceProfile, orgQuery.data?.voice_profile ?? "")}
                         disabled={!canManageSettings}
                         rows={5}
