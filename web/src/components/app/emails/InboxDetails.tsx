@@ -486,11 +486,11 @@ function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }:
                         <span className="text-[11.5px] text-slate-500">שינויים שלא נשמרו</span>
                         <div className="ml-auto flex items-center gap-2">
                             <button onClick={() => setForm(mailbox)} className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors">
-                                Discard
+                                בטל
                             </button>
                             <button onClick={save} disabled={mutation.isPending} className="h-8 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60">
                                 {mutation.isPending && <Loading className="!w-3.5 h-3.5 text-white" />}
-                                Save changes
+                                שמור שינויים
                             </button>
                         </div>
                     </motion.div>
@@ -893,14 +893,14 @@ function WarmupBanBanner({ emailId }: { emailId: string }) {
                                             className="h-8 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                                         >
                                             {appeal.isPending && <Loading className="!w-3.5 h-3.5 text-white" />}
-                                            Submit appeal
+                                            הגש ערעור
                                         </button>
                                         <button
                                             onClick={() => { setOpen(false); setReason(""); }}
                                             disabled={appeal.isPending}
                                             className="h-8 px-3 rounded-md border border-rose-200 hover:border-rose-300 text-[12px] text-rose-700 hover:text-rose-900 transition-colors disabled:opacity-60"
                                         >
-                                            Cancel
+                                            ביטול
                                         </button>
                                     </div>
                                 </div>

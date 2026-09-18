@@ -845,7 +845,7 @@ function ComposeWindowInner({
                             onClick={() => setBody("")}
                             className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
                         >
-                            Discard
+                            מחק
                         </button>
                     )}
 

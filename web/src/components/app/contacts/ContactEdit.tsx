@@ -206,7 +206,7 @@ function ContactEditPanel({
 
     // Close, guarding unsaved edits behind the in-app confirm (never window.confirm).
     const requestClose = React.useCallback(() => {
-        if (dirty) confirm.show("Discard unsaved changes?", onClose);
+        if (dirty) confirm.show("למחוק שינויים שלא נשמרו?", onClose);
         else onClose();
     }, [dirty, onClose, confirm]);
 
@@ -296,7 +296,7 @@ function ContactEditPanel({
                             disabled={!dirty}
                             className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
                         >
-                            Discard
+                            בטל
                         </button>
                         <button
                             type="button"
@@ -309,7 +309,7 @@ function ContactEditPanel({
                             ) : (
                                 <CheckIcon className="w-3 h-3" />
                             )}
-                            Save changes
+                            שמור שינויים
                         </button>
                     </footer>
                 )}

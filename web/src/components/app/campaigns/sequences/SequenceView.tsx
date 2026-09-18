@@ -130,7 +130,7 @@ export default function SequenceView({
                         className="h-7 px-3 rounded-md bg-sky-600 text-[12px] font-medium text-white transition-colors hover:bg-sky-700 inline-flex items-center gap-1.5 disabled:opacity-40"
                     >
                         {load && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                        Save changes
+                        שמור שינויים
                     </button>
                 </div>
             </div>

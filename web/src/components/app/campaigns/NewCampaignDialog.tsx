@@ -335,7 +335,7 @@ export function NewCampaignDialog({ open, onClose }: Props) {
     const requestClose = React.useCallback(() => {
         if (isPending) return;
         if (dirty) {
-            confirm.show("Discard this campaign draft?", async () => onClose());
+            confirm.show("למחוק טיוטת קמפיין זו?", async () => onClose());
             return;
         }
         onClose();

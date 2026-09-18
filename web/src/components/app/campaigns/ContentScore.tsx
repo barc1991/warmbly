@@ -45,9 +45,9 @@ import { cn } from "@/lib/utils";
 import { DitherMeter, type DitherTone } from "@/components/ui/dither";
 
 function scoreTone(score: number) {
-    if (score >= 80) return { text: "text-emerald-600", meter: "emerald" as DitherTone, label: "Looks good" };
-    if (score >= 50) return { text: "text-amber-600", meter: "amber" as DitherTone, label: "Could improve" };
-    return { text: "text-rose-600", meter: "rose" as DitherTone, label: "Needs work" };
+    if (score >= 80) return { text: "text-emerald-600", meter: "emerald" as DitherTone, label: "נראה טוב" };
+    if (score >= 50) return { text: "text-amber-600", meter: "amber" as DitherTone, label: "אפשר לשפר" };
+    return { text: "text-rose-600", meter: "rose" as DitherTone, label: "דורש עבודה" };
 }
 
 // One value that changes whenever any part of the copy does, so an analysis
@@ -278,7 +278,7 @@ export default function ContentScore({
                 onError: (e) => {
                     const err = e as unknown as AppError;
                     if (err?.status === 402) {
-                        toast.error("You're out of AI credits. Add more to keep using AI analysis.");
+                        toast.error("נגמרו לך קרדיטי AI. הוסף עוד כדי להמשיך להשתמש בניתוח AI.");
                     } else if (err?.code === "ai_not_configured") {
                         // Permanent for this deployment, unlike a provider
                         // outage, so the button goes away rather than staying
@@ -313,7 +313,7 @@ export default function ContentScore({
         <div className="rounded-md border border-slate-200 bg-white">
             <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                 <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">Content check</div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">בדיקת תוכן</div>
                     <p className="mt-0.5 text-[11px] text-slate-400 leading-relaxed">
                         Advisory deliverability score. It never blocks sending.
                     </p>
@@ -397,7 +397,7 @@ export default function ContentScore({
                 <div className="border-t border-slate-200/60 px-3 py-3">
                     <div className="flex items-center gap-1.5">
                         <SparklesIcon className="w-3.5 h-3.5 text-sky-500" />
-                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">AI analysis</span>
+                        <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">ניתוח AI</span>
                         <span className="ml-auto truncate text-[10px] font-mono text-slate-300">{analysis.model}</span>
                     </div>
 

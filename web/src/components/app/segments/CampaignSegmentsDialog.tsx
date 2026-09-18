@@ -79,7 +79,7 @@ export default function CampaignSegmentsDialog({
     const requestClose = React.useCallback(() => {
         if (busy) return;
         if (dirty) {
-            confirm.show("Discard your segment changes?", async () => onClose());
+            confirm.show("למחוק שינויי פלחים?", async () => onClose());
             return;
         }
         onClose();

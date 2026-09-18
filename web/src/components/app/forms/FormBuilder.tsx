@@ -616,7 +616,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                             }}
                             className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:bg-slate-100"
                         >
-                            Discard
+                            בטל
                         </button>
                         <button
                             type="button"

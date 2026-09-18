@@ -2131,7 +2131,7 @@ function SelectionBar({
                     className="h-7 px-2.5 rounded text-[12px] text-red-600 hover:text-white hover:bg-red-600 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                 >
                     {deleting ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <TrashIcon className="w-3 h-3" />}
-                    <span className="hidden sm:inline">Delete</span>
+                    <span className="hidden sm:inline">מחק</span>
                 </button>
             )}
             <div className="h-4 w-px bg-slate-200" />

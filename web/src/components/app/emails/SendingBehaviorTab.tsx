@@ -498,7 +498,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                                 onClick={() => query.data && setForm(query.data)}
                                 className="h-8 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 transition-colors"
                             >
-                                Discard
+                                בטל
                             </button>
                             <button
                                 onClick={save}
@@ -506,7 +506,7 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
                                 className="h-8 px-3.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                             >
                                 {mutation.isPending && <Loading className="!w-3.5 h-3.5 text-white" />}
-                                Save behaviour
+                                שמור התנהגות
                             </button>
                         </div>
                     </motion.div>

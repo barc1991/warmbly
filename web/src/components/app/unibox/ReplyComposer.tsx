@@ -332,7 +332,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             setScheduleOpen(false);
             setCustomMode(false);
             const completed = draft.complete(submittedDraft);
-            if (!completed.cleared) toast.error("Reply queued, but the saved draft could not be removed. Discard it before sending again.");
+            if (!completed.cleared) toast.error("תשובה הוזמנה, אך הטיוטה השמורה לא הוסרה. מחק אותה לפני שליחה נוספת.");
             if (completed.close) onClose();
         } catch {
             toast.error(mode === "forward" ? "ההעברה נכשלה" : "שליחת תשובה נכשלה");
@@ -458,7 +458,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         title="מחק טיוטה זו"
                         className="h-6 px-1.5 rounded-md text-[10.5px] text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors shrink-0"
                     >
-                        Discard
+                        מחק
                     </button>
                 )}
                 <button
