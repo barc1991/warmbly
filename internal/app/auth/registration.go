@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ import (
 )
 
 func (s *authService) RegistrationStart(ctx context.Context, data *AuthData, origin SignupOrigin) (*models.AuthSession, *errx.Error) {
+	data.Email = strings.ToLower(strings.TrimSpace(data.Email))
 	ipaddr := origin.IP
 	if s.policy.DisablePasswordLogin {
 		return nil, errx.New(errx.Forbidden, "password sign-up is disabled on this deployment")

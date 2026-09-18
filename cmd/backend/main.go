@@ -1699,6 +1699,7 @@ func main() {
 			organizationRepository,
 			userRepostory,
 			emailNotificationService,
+			eventsPublisher,
 			os.Getenv("FRONTEND_BASE_URL"),
 		)
 		dangerZoneJob := jobs.NewDangerZoneJob(dangerZoneService)

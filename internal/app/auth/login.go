@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
-	"github.com/warmbly/warmbly/internal/app/authrisk"
+	"strings"
 	"time"
+
+	"github.com/warmbly/warmbly/internal/app/authrisk"
 
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/app/token"
@@ -17,6 +19,7 @@ import (
 )
 
 func (s *authService) LoginStart(ctx context.Context, data *AuthData, ipaddr, userAgent string) (*models.AuthSession, *errx.Error) {
+	data.Email = strings.ToLower(strings.TrimSpace(data.Email))
 	if s.policy.DisablePasswordLogin {
 		return nil, errx.New(errx.Forbidden, "password sign-in is disabled on this deployment")
 	}
@@ -190,10 +193,6 @@ func (s *authService) LoginConfirm(ctx context.Context, data *ConfirmData, sessi
 // sign-in as clean.
 func challengeVerdict(sess *models.LoginSession) *authrisk.Verdict {
 	return &authrisk.Verdict{Flagged: sess.AnomalyReason != "", Reason: sess.AnomalyReason}
-}
-
-func (s *authService) finishLogin(ctx context.Context, userID uuid.UUID, ipaddr, userAgent string) (*models.LoginResult, *errx.Error) {
-	return s.finishLoginWith(ctx, userID, ipaddr, userAgent, nil)
 }
 
 func (s *authService) finishLoginWith(ctx context.Context, userID uuid.UUID, ipaddr, userAgent string, verdict *authrisk.Verdict) (*models.LoginResult, *errx.Error) {

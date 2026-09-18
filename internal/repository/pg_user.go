@@ -89,8 +89,9 @@ func (r *userRepository) CreateUser(ctx context.Context, email *mail.Address, pa
 	id := uuid.New()
 
 	var firstName string
+	emailAddr := strings.ToLower(strings.TrimSpace(email.Address))
 
-	nameSplit := strings.SplitN(email.Address, "@", 2)
+	nameSplit := strings.SplitN(emailAddr, "@", 2)
 	if len(nameSplit) < 2 {
 		firstName = "Unknown"
 	} else {
@@ -114,7 +115,7 @@ func (r *userRepository) CreateUser(ctx context.Context, email *mail.Address, pa
 	`
 
 	var params = []any{
-		id, email.Address, passwordHash,
+		id, emailAddr, passwordHash,
 		firstName, lastName,
 		now,
 	}
@@ -129,11 +130,9 @@ func (r *userRepository) CreateUser(ctx context.Context, email *mail.Address, pa
 	}
 
 	return &models.User{
-		ID: id,
-
+		ID:        id,
 		FirstName: firstName,
-		LastName:  lastName,
-		Email:     email.Address,
+		Email:     emailAddr,
 		Roles:     make([]uuid.UUID, 0),
 
 		CreatedAt: now,
@@ -190,7 +189,7 @@ func (r *userRepository) GetUser(ctx context.Context, userID uuid.UUID) (*models
 }
 
 func (r *userRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	return r.getUser(ctx, "email", email)
+	return r.getUser(ctx, "email", strings.ToLower(strings.TrimSpace(email)))
 }
 
 func (r *userRepository) SetFreeTrialUsed(ctx context.Context, userID uuid.UUID) error {
@@ -356,21 +355,22 @@ func (r *userRepository) CreateExemptUser(ctx context.Context, email *mail.Addre
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	id := uuid.New()
+	emailAddr := strings.ToLower(strings.TrimSpace(email.Address))
 	firstName := "Unknown"
-	if parts := strings.SplitN(email.Address, "@", 2); len(parts) == 2 {
+	if parts := strings.SplitN(emailAddr, "@", 2); len(parts) == 2 {
 		firstName = parts[0]
 	}
 	now := time.Now()
 	if _, ierr := tx.Exec(ctx, `
 		INSERT INTO users (id, email, password_hash, first_name, last_name, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, '', $5, $5)`,
-		id, email.Address, passwordHash, firstName, now); ierr != nil {
+		id, emailAddr, passwordHash, firstName, now); ierr != nil {
 		return nil, ierr
 	}
 	created := &models.User{
 		ID:        id,
 		FirstName: firstName,
-		Email:     email.Address,
+		Email:     emailAddr,
 		Roles:     make([]uuid.UUID, 0),
 		CreatedAt: now,
 		UpdatedAt: now,

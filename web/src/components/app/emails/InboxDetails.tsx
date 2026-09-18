@@ -1105,6 +1105,12 @@ function AuthCheckPanel({ mailbox }: { mailbox: Inbox }) {
     );
 }
 
+const WARMUP_PLACEMENT_OPTIONS: SelectOption[] = [
+    { value: "folder", label: "תיקייה ייעודית" },
+    { value: "archive", label: "ארכיון (הסרה מתיבת דואר נכנס)" },
+    { value: "inbox", label: "דואר נכנס (ללא העברה)" },
+];
+
 function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: Inbox; update: (p: Partial<Inbox>) => void; status?: AccountStatusModel; mailbox: Inbox; canWarmup?: boolean }) {
     const ws = status?.warmup_status;
     const wh = status?.warmup_health;
@@ -1312,6 +1318,29 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
                         />
                     </div>
                 </FieldShell>
+            </div>
+
+            {/* Warmup Placement / Storage */}
+            <div className="px-5 py-5 space-y-5">
+                <Eyebrow>מיקום ואחסון הודעות חימום</Eyebrow>
+                <FieldShell label="מיקום הודעות חימום" hint="לאן לנתב הודעות חימום נכנסות כדי שלא יפריעו לדואר הנכנס השוטף.">
+                    <SelectMenu
+                        value={form.warmup_placement || "folder"}
+                        onChange={(v) => update({ warmup_placement: v as "folder" | "archive" | "inbox" })}
+                        options={WARMUP_PLACEMENT_OPTIONS}
+                        fullWidth
+                    />
+                </FieldShell>
+                {(form.warmup_placement || "folder") === "folder" && (
+                    <FieldShell label="שם התיקייה" hint="שם התווית או התיקייה שתיפתח בתיבת הדואר (ברירת מחדל: Warmbly).">
+                        <TextInput
+                            value={form.warmup_folder || "Warmbly"}
+                            placeholder="Warmbly"
+                            onChange={(v) => update({ warmup_folder: v })}
+                            className="w-full h-9"
+                        />
+                    </FieldShell>
+                )}
             </div>
         </div>
     );

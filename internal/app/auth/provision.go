@@ -42,10 +42,12 @@ type SignupAttribution struct {
 }
 
 func (s *authService) createAccount(ctx context.Context, address, passwordHash string, attr SignupAttribution, origin SignupOrigin) (*models.User, *errx.Error) {
+	address = strings.ToLower(strings.TrimSpace(address))
 	email, perr := mail.ParseAddress(address)
 	if perr != nil {
 		return nil, errx.ErrEmail
 	}
+	email.Address = strings.ToLower(strings.TrimSpace(email.Address))
 
 	// Whether the invitation is the only thing that permitted this signup.
 	// When it is, a failed accept cannot fall through to a personal workspace:

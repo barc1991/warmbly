@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FlameIcon, XIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Label, NumberInput } from "@/components/ui/field";
+import { Label, NumberInput, TextInput } from "@/components/ui/field";
+import { SelectMenu, type SelectOption } from "@/components/ui/select-menu";
 import TimeSelect from "@/components/ui/TimeSelect";
 import WeekdayBitmask from "@/components/app/campaigns/schedule/WeekdayBitmask";
 import { Loading } from "@/components/loader";
@@ -12,6 +13,12 @@ import warmupLifecycle from "@/lib/api/client/app/emails/warmupLifecycle";
 import type Inbox from "@/lib/api/models/app/emails/Inbox";
 
 const WEEKDAYS = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"];
+
+const WARMUP_PLACEMENT_OPTIONS: SelectOption[] = [
+    { value: "folder", label: "תיקייה ייעודית" },
+    { value: "archive", label: "ארכיון (הסרה מתיבת דואר נכנס)" },
+    { value: "inbox", label: "דואר נכנס (ללא העברה)" },
+];
 
 // Bulk warmup-start dialog. Lets the user optionally apply one set of warmup
 // settings to every selected mailbox before starting — useful when onboarding a
@@ -38,6 +45,8 @@ export default function BulkWarmupDialog({
     const [startTime, setStartTime] = useState("08:00");
     const [endTime, setEndTime] = useState("20:00");
     const [days, setDays] = useState(0);
+    const [placement, setPlacement] = useState<"folder" | "archive" | "inbox">("folder");
+    const [folder, setFolder] = useState("Warmbly");
 
     const n = ids.length;
     const baseOverMax = base > max;
@@ -57,6 +66,8 @@ export default function BulkWarmupDialog({
             warmup_start_time: startTime,
             warmup_end_time: endTime,
             warmup_days: days,
+            warmup_placement: placement,
+            warmup_folder: folder,
         };
         // Apply settings (if customizing) then start, per mailbox. allSettled so
         // one failure doesn't abort the rest.
@@ -167,6 +178,26 @@ export default function BulkWarmupDialog({
                                             השאר הכל ריק כדי לשלוח בכל ימות השבוע.
                                         </p>
                                     </div>
+                                    <div>
+                                        <Label>מיקום הודעות חימום</Label>
+                                        <SelectMenu
+                                            value={placement}
+                                            onChange={(v) => setPlacement(v as "folder" | "archive" | "inbox")}
+                                            options={WARMUP_PLACEMENT_OPTIONS}
+                                            fullWidth
+                                        />
+                                    </div>
+                                    {placement === "folder" && (
+                                        <div>
+                                            <Label>שם התיקייה</Label>
+                                            <TextInput
+                                                value={folder}
+                                                placeholder="Warmbly"
+                                                onChange={setFolder}
+                                                className="w-full h-8"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

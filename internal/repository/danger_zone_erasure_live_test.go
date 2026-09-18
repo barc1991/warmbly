@@ -101,7 +101,7 @@ func (f *dangerLiveFixture) count(t *testing.T, sql string, arg any) int {
 func TestLiveDeletingAWorkspaceSucceeds(t *testing.T) {
 	f := newDangerLiveFixture(t)
 
-	if err := f.repo.HardDeleteOrganization(context.Background(), f.org); err != nil {
+	if _, err := f.repo.HardDeleteOrganization(context.Background(), f.org); err != nil {
 		t.Fatalf("a workspace with one mailbox could not be deleted: %v", err)
 	}
 	if n := f.count(t, `SELECT count(*) FROM organizations WHERE id = $1`, f.org); n != 0 {
@@ -118,7 +118,7 @@ func TestLiveDeletingAWorkspaceSucceeds(t *testing.T) {
 func TestLiveDeletingAWorkspaceQueuesItsMailboxesForErasure(t *testing.T) {
 	f := newDangerLiveFixture(t)
 
-	if err := f.repo.HardDeleteOrganization(context.Background(), f.org); err != nil {
+	if _, err := f.repo.HardDeleteOrganization(context.Background(), f.org); err != nil {
 		t.Fatalf("delete workspace: %v", err)
 	}
 
@@ -171,7 +171,7 @@ func TestLiveDeletingAWorkspaceWithWarmupStandingSucceeds(t *testing.T) {
 		t.Fatalf("the reputation mirror wrote %d rows, want 1: this test is not exercising the trigger", mirrored)
 	}
 
-	if err := f.repo.HardDeleteOrganization(ctx, f.org); err != nil {
+	if _, err := f.repo.HardDeleteOrganization(ctx, f.org); err != nil {
 		t.Fatalf("a workspace with a penalised mailbox could not be deleted: %v", err)
 	}
 	if n := f.count(t, `SELECT count(*) FROM organizations WHERE id = $1`, f.org); n != 0 {
@@ -214,7 +214,7 @@ func TestLiveAFailedAccountDeletionQueuesNoErasure(t *testing.T) {
 		}
 	})
 
-	if err := f.repo.HardDeleteUser(ctx, f.user); err == nil {
+	if _, err := f.repo.HardDeleteUser(ctx, f.user); err == nil {
 		t.Fatal("the account deletion reported success; if it now works, this test should assert the erasure instead")
 	}
 	if n := f.count(t, `SELECT count(*) FROM users WHERE id = $1`, f.user); n != 1 {

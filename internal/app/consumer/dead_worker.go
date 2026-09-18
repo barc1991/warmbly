@@ -136,6 +136,19 @@ func (s *JobsService) notifyWorkerDown(ctx context.Context, workerID uuid.UUID, 
 	}
 }
 
+// MailboxEvacuationGrace is how long a worker must be unreachable before
+// its mailboxes are evacuated to other workers. Brief unreachability
+// (rolling deployments, network blips, host reboots) should not trigger
+// expensive mass reassignment.
+const MailboxEvacuationGrace = 10 * time.Minute
+
+func (s *JobsService) unreachableLongEnoughToEvacuate(w models.Worker) bool {
+	if w.LastSeenAt != nil && time.Since(*w.LastSeenAt) < MailboxEvacuationGrace {
+		return false
+	}
+	return true
+}
+
 // StartDeadWorkerDetection periodically checks for workers whose heartbeat has
 // expired and reassigns their email accounts to healthy workers.
 // Runs every interval until the context is cancelled.
@@ -168,6 +181,10 @@ func (s *JobsService) detectDeadWorkers(ctx context.Context) {
 
 		if exists > 0 {
 			continue // Worker is alive
+		}
+
+		if !s.unreachableLongEnoughToEvacuate(w) {
+			continue
 		}
 
 		// Worker heartbeat expired - mark as stale and reassign emails

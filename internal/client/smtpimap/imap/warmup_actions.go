@@ -73,6 +73,11 @@ func (c *Client) RemoveFromSpam(ctx context.Context, sourceMailbox, inboxName st
 	return c.moveUID(ctx, sourceMailbox, inboxName, uid)
 }
 
+// sameMailbox compares two IMAP mailbox names case-insensitively.
+func sameMailbox(a, b string) bool {
+	return strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b))
+}
+
 // MoveToFolder moves the UID from sourceMailbox into dstFolder, creating
 // dstFolder if it does not exist. Use for the "Warmbly" sorting label.
 func (c *Client) MoveToFolder(ctx context.Context, sourceMailbox, dstFolder string, uid uint32) error {
@@ -86,6 +91,9 @@ func (c *Client) MoveToFolder(ctx context.Context, sourceMailbox, dstFolder stri
 	defer c.lifecycle.RUnlock()
 	defer c.begin()()
 	dst := c.qualifyMailboxLocked(dstFolder)
+	if sameMailbox(sourceMailbox, dst) {
+		return nil
+	}
 	if err := c.ensureMailboxExists(dst); err != nil {
 		return err
 	}
@@ -116,7 +124,7 @@ func (c *Client) personalPrefixLocked() string {
 // leaving a name that already carries the prefix untouched. mu must be held.
 func (c *Client) qualifyMailboxLocked(name string) string {
 	prefix := c.personalPrefixLocked()
-	if prefix == "" || strings.HasPrefix(name, prefix) {
+	if prefix == "" || strings.HasPrefix(strings.ToLower(name), strings.ToLower(prefix)) {
 		return name
 	}
 	return prefix + name
@@ -169,7 +177,7 @@ func (c *Client) ensureMailboxExists(name string) error {
 	list := c.client.List("", name, nil)
 	found := false
 	for f := list.Next(); f != nil; f = list.Next() {
-		if f.Mailbox == name {
+		if sameMailbox(f.Mailbox, name) {
 			found = true
 		}
 	}
@@ -180,6 +188,10 @@ func (c *Client) ensureMailboxExists(name string) error {
 		return nil
 	}
 	if err := c.client.Create(name, nil).Wait(); err != nil {
+		errStr := strings.ToUpper(err.Error())
+		if strings.Contains(errStr, "ALREADYEXISTS") || strings.Contains(errStr, "ALREADY EXISTS") {
+			return nil
+		}
 		return fmt.Errorf("create mailbox %q: %w", name, err)
 	}
 	return nil

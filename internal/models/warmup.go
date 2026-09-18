@@ -64,6 +64,8 @@ type WarmupEmailAction struct {
 	// the live Graph id from this stable key at action time.
 	RFCMessageID string   `json:"rfc_message_id,omitempty" avro:"rfc_message_id"`
 	Actions      []string `json:"actions" avro:"actions"` // "move_to_warmbly", "mark_read", "remove_from_spam", "mark_important"
+	Placement    string   `json:"placement,omitempty" avro:"placement"`
+	Folder       string   `json:"folder,omitempty" avro:"folder"`
 
 	// DelaySeconds is retained for wire compatibility but is now always 0: the
 	// recipient-side "dwell" is owned by the consumer's durable schedule
@@ -106,9 +108,10 @@ func WarmupPoolBorrowsFrom(poolType string) (string, bool) {
 // WarmupPartnerCandidate is a recipient the partner selector may draw: a
 // member of the sender's tier, or one borrowed from the tier it may draw on.
 type WarmupPartnerCandidate struct {
-	ID       uuid.UUID
-	Email    string
-	Borrowed bool
+	ID             uuid.UUID
+	Email          string
+	OrganizationID uuid.UUID
+	Borrowed       bool
 }
 
 type WarmupHealthState string

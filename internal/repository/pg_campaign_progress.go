@@ -67,6 +67,9 @@ type ContactSequencePair struct {
 	// IsNewLead is true when this pair is the contact's first step (sequence
 	// position 1). Drives the per-day new-lead counter and cap.
 	IsNewLead bool
+	// Instant is true when this step was chosen by an instant conditional
+	// branch, so its own wait_after does not gate it.
+	Instant bool
 	// NotBefore is the earliest instant routing allows the step: the entry
 	// delay for a new lead, the previous step's wait for a follow-up. Nil means
 	// "due now". The placer floors its base time with it, so a wait routing
@@ -1046,36 +1049,26 @@ func (r *campaignProgressRepository) ClaimInstantFire(ctx context.Context, campa
 }
 
 // GetCampaignProgress retrieves overall campaign progress statistics
+// GetCampaignProgress retrieves overall campaign progress statistics.
+//
+// Each count comes from its own table. The earlier version joined leads,
+// steps and progress rows side by side on campaign_id, which multiplied every
+// progress count by leads x steps: one sent email on a 63-lead, 6-step
+// campaign read as 378 sent, and the dashboard showed "378 of 63 contacts" at
+// 100%.
 func (r *campaignProgressRepository) GetCampaignProgress(ctx context.Context, campaignID uuid.UUID) (*CampaignProgress, error) {
 	query := `
-		WITH campaign_stats AS (
-			SELECT
-				COUNT(DISTINCT cl.contact_id) as total_contacts,
-				COUNT(DISTINCT s.id) as total_sequences,
-				COUNT(CASE WHEN ccp.sent_at IS NOT NULL THEN 1 END) as emails_sent,
-				COUNT(CASE WHEN ccp.opened_at IS NOT NULL THEN 1 END) as emails_opened,
-				COUNT(CASE WHEN ccp.clicked_at IS NOT NULL THEN 1 END) as emails_clicked,
-				COUNT(CASE WHEN ccp.replied_at IS NOT NULL THEN 1 END) as emails_replied,
-				COUNT(CASE WHEN ccp.bounced_at IS NOT NULL THEN 1 END) as emails_bounced,
-				COUNT(CASE WHEN ccp.complained_at IS NOT NULL THEN 1 END) as emails_complained
-			FROM campaigns c
-			LEFT JOIN campaign_leads cl ON c.id = cl.campaign_id
-			LEFT JOIN sequences s ON c.id = s.campaign_id
-			LEFT JOIN campaign_contact_progress ccp ON c.id = ccp.campaign_id
-			WHERE c.id = $1
-			GROUP BY c.id
-		)
 		SELECT
-			total_contacts,
-			total_sequences,
-			emails_sent,
-			(total_contacts * total_sequences) - emails_sent as emails_pending,
-			emails_opened,
-			emails_clicked,
-			emails_replied,
-			emails_bounced,
-			emails_complained
-		FROM campaign_stats
+			(SELECT COUNT(DISTINCT contact_id) FROM campaign_leads WHERE campaign_id = $1) AS total_contacts,
+			(SELECT COUNT(*) FROM sequences WHERE campaign_id = $1) AS total_sequences,
+			COUNT(*) FILTER (WHERE ccp.sent_at IS NOT NULL) AS emails_sent,
+			COUNT(*) FILTER (WHERE ccp.opened_at IS NOT NULL) AS emails_opened,
+			COUNT(*) FILTER (WHERE ccp.clicked_at IS NOT NULL) AS emails_clicked,
+			COUNT(*) FILTER (WHERE ccp.replied_at IS NOT NULL) AS emails_replied,
+			COUNT(*) FILTER (WHERE ccp.bounced_at IS NOT NULL) AS emails_bounced,
+			COUNT(*) FILTER (WHERE ccp.complained_at IS NOT NULL) AS emails_complained
+		FROM campaign_contact_progress ccp
+		WHERE ccp.campaign_id = $1
 	`
 
 	progress := &CampaignProgress{}
@@ -1083,13 +1076,13 @@ func (r *campaignProgressRepository) GetCampaignProgress(ctx context.Context, ca
 		&progress.TotalContacts,
 		&progress.TotalSequences,
 		&progress.EmailsSent,
-		&progress.EmailsPending,
 		&progress.EmailsOpened,
 		&progress.EmailsClicked,
 		&progress.EmailsReplied,
 		&progress.EmailsBounced,
 		&progress.EmailsComplained,
 	)
+	progress.EmailsPending = max(progress.TotalContacts*progress.TotalSequences-progress.EmailsSent, 0)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return &CampaignProgress{}, nil
@@ -1454,7 +1447,7 @@ func (r *campaignProgressRepository) FindRoutedPairs(ctx context.Context, campai
 			noteDue(back, true)
 			continue
 		}
-		pairs = append(pairs, ContactSequencePair{ContactID: contactID, SequenceID: *res.Target, IsNewLead: res.IsNewLead, NotBefore: res.DueAt, AssignedSender: in.sender})
+		pairs = append(pairs, ContactSequencePair{ContactID: contactID, SequenceID: *res.Target, IsNewLead: res.IsNewLead, Instant: res.Instant, NotBefore: res.DueAt, AssignedSender: in.sender})
 		if len(pairs) >= limit {
 			break
 		}
@@ -1479,6 +1472,9 @@ type ContactRoute struct {
 	// condition window is still open (WaitUntil set).
 	Target    *uuid.UUID
 	IsNewLead bool
+	// Instant is true when the branch that chose Target is an instant one, so
+	// Target is due without applying its own wait_after.
+	Instant bool
 	// DueAt is when the target's wait elapses: the campaign's entry delay after
 	// the contact entered for a first step, otherwise the step's wait_after plus
 	// a preceding wait node. Nil means due now.
@@ -1578,7 +1574,7 @@ func (r *campaignProgressRepository) RouteContact(ctx context.Context, campaignI
 		return out, nil
 	}
 	res := router.route(campaignID, contactID, in)
-	out.Target, out.IsNewLead, out.DueAt, out.WaitUntil = res.Target, res.IsNewLead, res.DueAt, res.WaitUntil
+	out.Target, out.IsNewLead, out.Instant, out.DueAt, out.WaitUntil = res.Target, res.IsNewLead, res.Instant, res.DueAt, res.WaitUntil
 	out.Hold = res.Hold
 	return out, nil
 }
@@ -1694,6 +1690,9 @@ type routeResult struct {
 	target *uuid.UUID
 	stop   bool
 	wait   *time.Time
+	// instant is true when the branch that produced `target` is an instant
+	// one, so the target's own wait_after does not gate it.
+	instant bool
 }
 
 // loadRouter reads the steps (position + branch tree + wait) once, ordered by
@@ -1841,7 +1840,7 @@ func (cr *campaignRouter) routeNext(fromID uuid.UUID, prog *CampaignContactProgr
 			return routeResult{stop: true}
 		}
 		t := *b.TargetSequenceID
-		return routeResult{target: &t}
+		return routeResult{target: &t, instant: branchIsInstant(b)}
 	}
 	// Nothing matched -> the flow ends with STOP.
 	return routeResult{stop: true}
@@ -1873,7 +1872,7 @@ func (cr *campaignRouter) routeReplyOnly(fromID uuid.UUID, prog *CampaignContact
 			continue
 		}
 		t := *b.TargetSequenceID
-		return routeResult{target: &t}
+		return routeResult{target: &t, instant: branchIsInstant(b)}
 	}
 	return routeResult{stop: true}
 }
@@ -1938,6 +1937,7 @@ func (cr *campaignRouter) route(campaignID, contactID uuid.UUID, in routeInput) 
 		}
 	}
 	out.Target = res.target
+	out.Instant = res.instant
 	switch {
 	case out.IsNewLead:
 		// The entry delay: a contact's first email waits this long after they
@@ -1949,7 +1949,8 @@ func (cr *campaignRouter) route(campaignID, contactID uuid.UUID, in routeInput) 
 			out.DueAt = &due
 		}
 	case in.sentAt != nil:
-		due := in.sentAt.Add(24 * time.Hour * time.Duration(cr.steps[cr.idxByID[*res.target]].waitAfter))
+		wait := BranchWaitAfter(cr.steps[cr.idxByID[*res.target]].waitAfter, res.instant)
+		due := in.sentAt.Add(24 * time.Hour * time.Duration(wait))
 		if last, ok := cr.idxByID[*in.lastSeq]; ok && cr.steps[last].waitMinutes > 0 {
 			due = due.Add(time.Duration(cr.steps[last].waitMinutes) * time.Minute)
 		}

@@ -155,7 +155,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
     }
 
     const grantedPermissions = React.useMemo(() => {
-        if (!perms.data) return [];
+        if (!perms.data?.permissions) return [];
         return perms.data.permissions.filter((p) => (apiKey.permissions & p.value) !== 0);
     }, [perms.data, apiKey.permissions]);
 
@@ -374,7 +374,7 @@ function Inner({ apiKey, onClose }: { apiKey: APIKey; onClose: () => void }) {
                 {/* Activity log */}
                 <section className="px-5 py-4">
                     <SectionLabel
-                        title={`פעילות אחרונה${logs.data ? ` · ${logs.data.data.length}` : ""}`}
+                        title={`פעילות אחרונה${logs.data?.data ? ` · ${logs.data.data.length}` : ""}`}
                         icon={<ClockIcon className="w-3 h-3" />}
                     />
                     {logs.isPending ? (

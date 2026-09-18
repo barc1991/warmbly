@@ -54,6 +54,8 @@ export default interface Inbox {
     warmup_start_time?: string;
     warmup_end_time?: string;
     warmup_days?: number;
+    warmup_placement?: "folder" | "archive" | "inbox";
+    warmup_folder?: string;
     created_at: Date;
     updated_at: Date;
 }

@@ -262,7 +262,7 @@ func (w *WorkerService) failSend(ctx context.Context, sendEmail models.SendEmail
 	if d := deliveryOf(ctx); retryable && d.redelivers && d.attempt < sendNotLoadedRedeliveries {
 		return errors.New(reason)
 	}
-	w.sendEmailFailure(sendEmail.TaskID, sendEmail.EmailID, nil, reason)
+	w.sendEmailFailure(sendEmail.TaskID, reason)
 	return nil
 }
 
@@ -318,7 +318,7 @@ func (w *WorkerService) sendEmailError(taskID uuid.UUID, emailID uuid.UUID, mail
 }
 
 // sendEmailFailure sends a generic failure result (for non-MailError cases)
-func (w *WorkerService) sendEmailFailure(taskID uuid.UUID, emailID uuid.UUID, mail *wmail.WMail, errorMsg string) {
+func (w *WorkerService) sendEmailFailure(taskID uuid.UUID, errorMsg string) {
 	result := models.SendEmailResult{
 		TaskID:         taskID,
 		Success:        false,

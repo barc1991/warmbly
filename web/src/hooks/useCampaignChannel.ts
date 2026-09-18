@@ -5,7 +5,9 @@ import { useChannel, useChannelEvent } from './context/socket';
 export interface TaskProgressPayload {
     campaign_id: string;
     task_id: string;
-    status: 'pending' | 'active' | 'completed' | 'failed';
+    // scheduled: the campaign's chain woke up and may send nothing. active: a
+    // send is in flight, and the contact fields are always set.
+    status: 'scheduled' | 'pending' | 'active' | 'completed' | 'failed';
     contact_id: string;
     contact_email: string;
     contact_name: string;
@@ -14,6 +16,9 @@ export interface TaskProgressPayload {
     step_index: number;
     progress: number;
     total_contacts: number;
+    // processed_count and progress are in emails (contacts × steps), which
+    // total_emails is the size of.
+    total_emails: number;
     processed_count: number;
     timestamp: string;
 }
@@ -122,25 +127,31 @@ export function useCampaignChannel(campaignId: string): CampaignChannelState {
         const name = normalizeEvent(raw._event ?? raw.event_type ?? raw.type);
 
         switch (name) {
+            // A send's outcome arrives as EMAIL_SENT (org-scoped, so the whole
+            // team sees it), not as a TASK_PROGRESS with status completed. It
+            // has to land here too, or the "Sending…" card opened by the
+            // active event stays up until the page is reloaded.
+            case 'EMAIL_SENT':
             case 'TASK_PROGRESS': {
                 const data = payload as unknown as TaskProgressPayload;
-                setTaskProgress(data);
-                if (data.status === 'completed') {
+                const status = name === 'EMAIL_SENT' ? 'completed' : data.status;
+                setTaskProgress({ ...data, status });
+                if (status === 'completed') {
                     addActivity({
                         id: nextId('sent'),
                         type: 'sent',
                         contactEmail: data.contact_email,
                         contactName: data.contact_name,
-                        message: `Email sent to ${data.contact_email}`,
+                        message: `אימייל נשלח אל ${data.contact_email}`,
                         timestamp: new Date(data.timestamp || Date.now()),
                     });
-                } else if (data.status === 'failed') {
+                } else if (status === 'failed') {
                     addActivity({
                         id: nextId('failed'),
                         type: 'failed',
                         contactEmail: data.contact_email,
                         contactName: data.contact_name,
-                        message: `Failed to send to ${data.contact_email}`,
+                        message: `נכשלה שליחה אל ${data.contact_email}`,
                         timestamp: new Date(data.timestamp || Date.now()),
                     });
                 }

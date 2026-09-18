@@ -61,6 +61,25 @@ func (s *JobsService) ingestNewEmail(ctx context.Context, e *models.JobEventNewE
 		return nil
 	}
 
+	if s.WarmupRepo != nil && e.Message != nil {
+		inReplyTo := extractHeaderValue(e.Message, "In-Reply-To")
+		references := extractHeaderValue(e.Message, "References")
+		var parents []string
+		if inReplyTo != "" {
+			parents = append(parents, strings.Fields(inReplyTo)...)
+		}
+		if references != "" {
+			parents = append(parents, strings.Fields(references)...)
+		}
+		if len(parents) > 0 {
+			if isReply, err := s.WarmupRepo.IsWarmupThreadReply(ctx, e.Message.EmailID, parents); err == nil && isReply {
+				_ = s.WarmupRepo.RecordWarmupThreadMessage(ctx, e.Message.EmailID, e.Message.MessageID)
+				s.performWarmupActions(ctx, e)
+				return nil
+			}
+		}
+	}
+
 	// A pool-linked or warmup-tagged mailbox is warmup-only: everything else is dropped unread.
 	if s.PoolLinkRepo != nil {
 		if linked, lerr := s.PoolLinkRepo.GetMailboxByAccount(ctx, e.Message.EmailID); lerr == nil && linked != nil {
@@ -384,6 +403,8 @@ func (s *JobsService) performWarmupActions(ctx context.Context, e *models.JobEve
 		if account, xerr := s.EmailRepository.GetByID(ctx, e.Message.EmailID); xerr == nil && account != nil {
 			workerID = account.WorkerID
 			recipientTZ = account.Timezone
+			base.Placement = string(account.WarmupPlacement)
+			base.Folder = account.WarmupFolder
 		}
 	}
 	if workerID == nil {

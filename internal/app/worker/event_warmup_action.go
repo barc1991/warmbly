@@ -58,8 +58,22 @@ func (w *WorkerService) runGoogleWarmupActions(ctx context.Context, mail *wmail.
 	for _, act := range action.Actions {
 		switch act {
 		case "move_to_warmbly":
-			if err := mail.GoogleData.Client.ApplyLabel(ctx, action.GmailID, imap.WarmupFolderName); err != nil {
-				log.Error().Err(err).Str("gmail_id", action.GmailID).Msg("Failed to apply Warmbly label")
+			folder := action.Folder
+			if folder == "" {
+				folder = imap.WarmupFolderName
+			}
+			switch action.Placement {
+			case "inbox":
+				// Leave in inbox
+			case "archive":
+				if err := mail.GoogleData.Client.Archive(ctx, action.GmailID); err != nil {
+					log.Error().Err(err).Str("gmail_id", action.GmailID).Msg("Failed to archive warmup message")
+				}
+			default:
+				if err := mail.GoogleData.Client.ApplyLabel(ctx, action.GmailID, folder); err != nil {
+					log.Error().Err(err).Str("gmail_id", action.GmailID).Msg("Failed to apply Warmbly label")
+				}
+				_ = mail.GoogleData.Client.RemoveLabel(ctx, action.GmailID, "INBOX")
 			}
 		case "mark_read":
 			if err := mail.GoogleData.Client.MarkAsRead(ctx, action.GmailID); err != nil {
@@ -161,8 +175,24 @@ func (w *WorkerService) runImapWarmupActions(ctx context.Context, mail *wmail.WM
 	for _, act := range action.Actions {
 		switch act {
 		case "move_to_warmbly":
-			if err := imapClient.MoveToFolder(ctx, sourceBox.Name, imap.WarmupFolderName, uid); err != nil {
-				log.Error().Err(err).Uint32("uid", uid).Msg("Failed to move to Warmbly folder")
+			folder := action.Folder
+			if folder == "" {
+				folder = imap.WarmupFolderName
+			}
+			switch action.Placement {
+			case "inbox":
+				// Leave in inbox
+			case "archive":
+				archiveBox := lookupArchive(mail.SmtpImapData.Mailboxes)
+				if archiveBox != nil && sourceBox.Name != archiveBox.Name {
+					if err := imapClient.MoveToFolder(ctx, sourceBox.Name, archiveBox.Name, uid); err != nil {
+						log.Error().Err(err).Uint32("uid", uid).Msg("Failed to archive warmup message (IMAP)")
+					}
+				}
+			default:
+				if err := imapClient.MoveToFolder(ctx, sourceBox.Name, folder, uid); err != nil {
+					log.Error().Err(err).Uint32("uid", uid).Msg("Failed to move to Warmbly folder")
+				}
 			}
 		case "mark_read":
 			if err := imapClient.MarkAsRead(ctx, sourceBox.Name, uid); err != nil {
@@ -224,6 +254,15 @@ func lookupMailboxByUIDValidity(boxes []*models.Mailbox, uidValidity uint32) *mo
 func lookupInbox(boxes []*models.Mailbox) *models.Mailbox {
 	for _, b := range boxes {
 		if b != nil && imap.IsInboxMailbox(b.Name, b.Attrs) {
+			return b
+		}
+	}
+	return nil
+}
+
+func lookupArchive(boxes []*models.Mailbox) *models.Mailbox {
+	for _, b := range boxes {
+		if b != nil && imap.CanonicalFolder(*b) == models.FolderArchive {
 			return b
 		}
 	}

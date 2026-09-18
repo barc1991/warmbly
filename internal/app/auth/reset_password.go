@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,8 @@ import (
 )
 
 func (s *authService) ResetPasswordStart(ctx context.Context, data *ResetPasswordStart, ipaddr string) *errx.Error {
+	data.Email = strings.ToLower(strings.TrimSpace(data.Email))
+
 	// The caller's 400, not an incident. See LoginStart.
 	if err := s.captcha.Verify(ctx, data.Turnstile, ipaddr); err != nil {
 		return err
@@ -67,7 +70,7 @@ func (s *authService) ResetPasswordStart(ctx context.Context, data *ResetPasswor
 	}
 
 	// Reported by the transport; see LoginStart.
-	if err := s.sendAuthEmail(ctx, u.Email, "Password Reset Confirmation", text); err != nil {
+	if err := s.sendAuthEmail(ctx, u.Email, "איפוס הסיסמה שלך", text); err != nil {
 		return errx.ErrMailUndeliverable
 	}
 

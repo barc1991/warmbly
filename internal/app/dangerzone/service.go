@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/config"
+	"github.com/warmbly/warmbly/internal/events"
 	"github.com/warmbly/warmbly/internal/observability/errs"
 
 	"github.com/warmbly/warmbly/internal/errx"
@@ -55,7 +56,8 @@ type service struct {
 	orgRepo  repository.OrganizationRepository
 	userRepo repository.UserRepository
 
-	notifier notify.EmailNotificationService
+	notifier  notify.EmailNotificationService
+	publisher events.Publisher
 
 	// frontendBaseURL is used when building cancellation links in emails.
 	// Falls back to this deployment's own dashboard origin if empty.
@@ -68,6 +70,7 @@ func NewService(
 	orgRepo repository.OrganizationRepository,
 	userRepo repository.UserRepository,
 	notifier notify.EmailNotificationService,
+	publisher events.Publisher,
 	frontendBaseURL string,
 ) Service {
 	if frontendBaseURL == "" {
@@ -78,6 +81,7 @@ func NewService(
 		orgRepo:         orgRepo,
 		userRepo:        userRepo,
 		notifier:        notifier,
+		publisher:       publisher,
 		frontendBaseURL: frontendBaseURL,
 	}
 }
@@ -364,17 +368,42 @@ func (s *service) ExecuteDuePendingDeletions(ctx context.Context) (int, int, err
 	return executed, failed, nil
 }
 
+// evictMailboxes informs workers to drop mailboxes destroyed during hard delete.
+func (s *service) evictMailboxes(ctx context.Context, placements []repository.MailboxPlacement) {
+	if s.publisher == nil {
+		return
+	}
+	for _, p := range placements {
+		if p.WorkerID == uuid.Nil || p.EmailID == uuid.Nil {
+			continue
+		}
+		_ = s.publisher.PublishRemoveEmail(ctx, p.WorkerID, &models.RemoveWorkerEmail{
+			EmailID: p.EmailID.String(),
+			UserID:  p.UserID.String(),
+		})
+	}
+}
+
 // runHardDelete performs the actual destructive DB operation for a single
 // scheduled deletion. Errors propagate so the row can be marked failed.
 func (s *service) runHardDelete(ctx context.Context, d *models.ScheduledDeletion) error {
+	var (
+		placements []repository.MailboxPlacement
+		err        error
+	)
 	switch d.ResourceType {
 	case models.DeletionResourceOrganization:
-		return s.repo.HardDeleteOrganization(ctx, d.ResourceID)
+		placements, err = s.repo.HardDeleteOrganization(ctx, d.ResourceID)
 	case models.DeletionResourceUser:
-		return s.repo.HardDeleteUser(ctx, d.ResourceID)
+		placements, err = s.repo.HardDeleteUser(ctx, d.ResourceID)
 	default:
 		return fmt.Errorf("unsupported resource type: %s", d.ResourceType)
 	}
+	if err != nil {
+		return err
+	}
+	s.evictMailboxes(ctx, placements)
+	return nil
 }
 
 // DispatchReminders sends the 7-day and 24-hour warning emails. Each bit

@@ -661,7 +661,7 @@ func (r *emailRepository) Search(ctx context.Context, orgID, search string, curs
 		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail,
 		 ea.auth_state, ea.auth_spf, ea.auth_dkim, ea.auth_dmarc, ea.auth_dmarc_policy, ea.auth_reason, ea.auth_checked_at, ea.auth_failing_since,
 		 ea.warmup, ea.warmup_paused_at, ea.warmup_base,
-		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone, ea.save_to_sent,
+		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.warmup_placement, ea.warmup_folder, ea.timezone, ea.save_to_sent,
 		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
 		 COALESCE(
 			array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}'
@@ -712,7 +712,7 @@ func (r *emailRepository) Search(ctx context.Context, orgID, search string, curs
 			&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail,
 			&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
 			&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
-			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone, &i.SaveToSent,
+			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.Timezone, &i.SaveToSent,
 			&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
 		)
 		if err != nil {
@@ -783,7 +783,7 @@ func (r *emailRepository) Get(ctx context.Context, orgID, emailAccountID string)
 		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail,
 		 ea.auth_state, ea.auth_spf, ea.auth_dkim, ea.auth_dmarc, ea.auth_dmarc_policy, ea.auth_reason, ea.auth_checked_at, ea.auth_failing_since,
 		 ea.warmup, ea.warmup_paused_at, ea.warmup_base,
-		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone, ea.save_to_sent,
+		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.warmup_placement, ea.warmup_folder, ea.timezone, ea.save_to_sent,
 		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
 		 COALESCE(array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}') AS tags
 		FROM email_accounts ea
@@ -807,7 +807,7 @@ func (r *emailRepository) Get(ctx context.Context, orgID, emailAccountID string)
 		&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail,
 		&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
 		&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
-		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone, &i.SaveToSent,
+		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.Timezone, &i.SaveToSent,
 		&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
 	)
 	if err != nil {
@@ -1043,6 +1043,26 @@ func (r *emailRepository) Update(ctx context.Context, orgID, emailAccountID stri
 		args = append(args, *udata.WarmupDays)
 		argPos++
 	}
+	if udata.WarmupPlacement != nil {
+		placement := *udata.WarmupPlacement
+		switch placement {
+		case models.WarmupPlacementFolder, models.WarmupPlacementArchive, models.WarmupPlacementInbox:
+		default:
+			return nil, errx.ErrInvalid
+		}
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", "warmup_placement", argPos))
+		args = append(args, string(placement))
+		argPos++
+	}
+	if udata.WarmupFolder != nil {
+		folder := strings.TrimSpace(*udata.WarmupFolder)
+		if folder == "" {
+			folder = models.DefaultWarmupFolder
+		}
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", "warmup_folder", argPos))
+		args = append(args, folder)
+		argPos++
+	}
 
 	// Tags are not a column on the row, so a patch that only moves them still
 	// leaves setClauses empty. Refusing it made the mailbox drawer's tag
@@ -1069,7 +1089,7 @@ func (r *emailRepository) Update(ctx context.Context, orgID, emailAccountID stri
 		          COALESCE(last_synced_at, created_at) AS last_synced_at, last_id, campaign_limit, min_wait_time, reply_to, tracking_domain, tracking_domain_verified, tracking_domain_verified_at, track_direct_mail,
 		          auth_state, auth_spf, auth_dkim, auth_dmarc, auth_dmarc_policy, auth_reason, auth_checked_at, auth_failing_since,
 		          warmup, warmup_paused_at, warmup_base, warmup_max, warmup_increase, warmup_reply_rate, warmup_tag, warmup_pool_type,
-		          warmup_start_time, warmup_end_time, warmup_days, save_to_sent, created_at, updated_at
+		          warmup_start_time, warmup_end_time, warmup_days, warmup_placement, warmup_folder, save_to_sent, created_at, updated_at
 	`, strings.Join(setClauses, ", "))
 
 	var i models.Email
@@ -1081,7 +1101,7 @@ func (r *emailRepository) Update(ctx context.Context, orgID, emailAccountID stri
 		// dashboard on every unrelated edit.
 		&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
 		&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
-		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.SaveToSent,
+		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.SaveToSent,
 		&i.CreatedAt, &i.UpdatedAt,
 	)
 	if err != nil {
@@ -1348,6 +1368,8 @@ func (r *emailRepository) UpdateDomainAuthState(ctx context.Context, domain, sta
 	return transitions, nil
 }
 
+const deleteDeadlockAttempts = 3
+
 // Delete removes a mailbox and refunds its worker's capacity in ONE
 // transaction. Split in two, the refund can be lost for good: after the row is
 // gone nothing records which worker was charged for that mailbox, so a refund
@@ -1356,10 +1378,24 @@ func (r *emailRepository) UpdateDomainAuthState(ctx context.Context, domain, sta
 // weight, computed by the caller from the same provider and warmup flag
 // assignment charged it with.
 func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID string, workerLoadRefund float64) *errx.Error {
+	for attempt := 0; attempt < deleteDeadlockAttempts; attempt++ {
+		err, retry := r.deleteOnce(ctx, userID, emailAccountID, workerLoadRefund)
+		if !retry {
+			return err
+		}
+		time.Sleep(time.Duration(50*(attempt+1)) * time.Millisecond)
+	}
+	return errx.InternalError()
+}
+
+func (r *emailRepository) deleteOnce(ctx context.Context, userID, emailAccountID string, workerLoadRefund float64) (*errx.Error, bool) {
 	tx, err := r.DB.Begin(ctx)
 	if err != nil {
+		if isDeadlock(err) {
+			return errx.InternalError(), true
+		}
 		db.CaptureError(err, "", nil, "begin")
-		return errx.InternalError()
+		return errx.InternalError(), false
 	}
 	defer tx.Rollback(ctx)
 
@@ -1377,8 +1413,11 @@ func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID str
 	`
 	bumpParams := []any{userID, emailAccountID}
 	if _, err := tx.Exec(ctx, bump, bumpParams...); err != nil {
+		if isDeadlock(err) {
+			return errx.InternalError(), true
+		}
 		db.CaptureError(err, bump, bumpParams, "exec")
-		return errx.InternalError()
+		return errx.InternalError(), false
 	}
 
 	// Before the row goes: what the mailbox leaves outside Postgres. The
@@ -1387,13 +1426,19 @@ func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID str
 	// would stay live at the provider forever.
 	const scope = `a.user_id = $1 AND a.id = $2`
 	if _, err := EnqueueMailboxErasures(ctx, tx, scope, userID, emailAccountID); err != nil {
-		return errx.InternalError()
+		if isDeadlock(err) {
+			return errx.InternalError(), true
+		}
+		return errx.InternalError(), false
 	}
 
 	// The threads this mailbox holds messages in, read while they still exist.
 	threads, err := CollectMailboxThreadState(ctx, tx, scope, userID, emailAccountID)
 	if err != nil {
-		return errx.InternalError()
+		if isDeadlock(err) {
+			return errx.InternalError(), true
+		}
+		return errx.InternalError(), false
 	}
 
 	query := `
@@ -1405,18 +1450,24 @@ func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID str
 
 	var workerID *uuid.UUID
 	if err := tx.QueryRow(ctx, query, params...).Scan(&workerID); err != nil {
+		if isDeadlock(err) {
+			return errx.InternalError(), true
+		}
 		if errors.Is(err, pgx.ErrNoRows) {
-			return errx.ErrNotFound
+			return errx.ErrNotFound, false
 		}
 		db.CaptureError(err, query, params, "queryrow")
-		return errx.InternalError()
+		return errx.InternalError(), false
 	}
 
 	// After the row goes: the labels and snoozes whose threads the cascade just
 	// emptied. Nothing references the mailbox from those rows, so without this
 	// the workspace keeps labels on threads with no messages left in them.
 	if err := DeleteOrphanedThreadState(ctx, tx, threads); err != nil {
-		return errx.InternalError()
+		if isDeadlock(err) {
+			return errx.InternalError(), true
+		}
+		return errx.InternalError(), false
 	}
 
 	if workerID != nil {
@@ -1428,16 +1479,22 @@ func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID str
 			 WHERE id = $1
 		`
 		if _, err := tx.Exec(ctx, refund, *workerID, workerLoadRefund); err != nil {
+			if isDeadlock(err) {
+				return errx.InternalError(), true
+			}
 			db.CaptureError(err, refund, []any{*workerID, workerLoadRefund}, "exec")
-			return errx.InternalError()
+			return errx.InternalError(), false
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		if isDeadlock(err) {
+			return errx.InternalError(), true
+		}
 		db.CaptureError(err, "", nil, "commit")
-		return errx.InternalError()
+		return errx.InternalError(), false
 	}
-	return nil
+	return nil, false
 }
 
 // GetByID retrieves an email account by ID without requiring userID (for internal service use)
@@ -1500,7 +1557,7 @@ func (r *emailRepository) GetByID(ctx context.Context, emailAccountID uuid.UUID)
 		 ea.provider, ea.status, COALESCE(ea.last_synced_at, ea.created_at) AS last_synced_at, ea.last_id, ea.campaign_limit,
 		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
 		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, ea.warmup_pool_type,
-		 ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.timezone, ea.save_to_sent,
+		 ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.warmup_placement, ea.warmup_folder, ea.timezone, ea.save_to_sent,
 		 ea.auth_state, ea.auth_failing_since,
 		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
 		 COALESCE(array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}') AS tags
@@ -1516,7 +1573,7 @@ func (r *emailRepository) GetByID(ctx context.Context, emailAccountID uuid.UUID)
 		&i.Provider, &i.Status, &i.LastSyncedAt, &i.LastID, &i.CampaignLimit,
 		&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
 		&i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
-		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.Timezone, &i.SaveToSent,
+		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.Timezone, &i.SaveToSent,
 		&i.AuthState, &i.AuthFailingSince,
 		&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
 	)

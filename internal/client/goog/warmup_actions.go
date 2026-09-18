@@ -62,6 +62,34 @@ func (c *Client) RemoveFromSpam(ctx context.Context, messageID string) error {
 	return nil
 }
 
+// Archive removes a message from INBOX and SENT.
+func (c *Client) Archive(ctx context.Context, messageID string) error {
+	if c.srv == nil {
+		return fmt.Errorf("gmail service not initialized")
+	}
+
+	_, err := c.srv.Users.Messages.Modify("me", messageID, &gmail.ModifyMessageRequest{
+		RemoveLabelIds: []string{Inbox, "SENT"},
+	}).Context(ctx).Do()
+	if err != nil {
+		return fmt.Errorf("failed to archive: %w", err)
+	}
+
+	return nil
+}
+
+// RemoveLabel removes a specific label from a message.
+func (c *Client) RemoveLabel(ctx context.Context, messageID, labelID string) error {
+	if c.srv == nil {
+		return fmt.Errorf("gmail service not initialized")
+	}
+
+	_, err := c.srv.Users.Messages.Modify("me", messageID, &gmail.ModifyMessageRequest{
+		RemoveLabelIds: []string{labelID},
+	}).Context(ctx).Do()
+	return err
+}
+
 // AddStar stars a message by adding the STARRED system label. Distinct from
 // MarkImportant (the IMPORTANT label): a star is a deliberate, visible positive
 // signal, so providers weight it as genuine engagement.

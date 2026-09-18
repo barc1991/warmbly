@@ -19,6 +19,16 @@ const (
 	InboxProviderSMTPIMAP InboxProvider = "smtp_imap"
 )
 
+type WarmupPlacement string
+
+const (
+	WarmupPlacementFolder  WarmupPlacement = "folder"
+	WarmupPlacementArchive WarmupPlacement = "archive"
+	WarmupPlacementInbox   WarmupPlacement = "inbox"
+)
+
+const DefaultWarmupFolder = "Warmbly"
+
 // Sending-domain authentication states, mirroring the email_accounts.auth_state
 // CHECK constraint. "unknown" is deliberately distinct from "failing": it means
 // not checked yet or the DNS lookup could not complete, and never gates.
@@ -90,17 +100,19 @@ type Email struct {
 	// cannot stop sending immediately.
 	AuthFailingSince *time.Time `json:"auth_failing_since,omitempty"`
 
-	Warmup          *time.Time `json:"warmup"`
-	WarmupPausedAt  *time.Time `json:"warmup_paused_at"`
-	WarmupBase      int        `json:"warmup_base"`
-	WarmupMax       int        `json:"warmup_max"`
-	WarmupIncrease  int        `json:"warmup_increase"`
-	WarmupReplyRate int        `json:"warmup_reply_rate"`
-	WarmupTag       string     `json:"warmup_tag"`
-	WarmupPoolType  string     `json:"warmup_pool_type"`
-	WarmupStartTime string     `json:"warmup_start_time"`
-	WarmupEndTime   string     `json:"warmup_end_time"`
-	WarmupDays      int        `json:"warmup_days"`
+	Warmup          *time.Time      `json:"warmup"`
+	WarmupPausedAt  *time.Time      `json:"warmup_paused_at"`
+	WarmupBase      int             `json:"warmup_base"`
+	WarmupMax       int             `json:"warmup_max"`
+	WarmupIncrease  int             `json:"warmup_increase"`
+	WarmupReplyRate int             `json:"warmup_reply_rate"`
+	WarmupTag       string          `json:"warmup_tag"`
+	WarmupPoolType  string          `json:"warmup_pool_type"`
+	WarmupStartTime string          `json:"warmup_start_time"`
+	WarmupEndTime   string          `json:"warmup_end_time"`
+	WarmupDays      int             `json:"warmup_days"`
+	WarmupPlacement WarmupPlacement `json:"warmup_placement"`
+	WarmupFolder    string          `json:"warmup_folder"`
 
 	Timezone string `json:"timezone"`
 
@@ -540,15 +552,17 @@ type UpdateEmail struct {
 	MinWaitTime   *int    `json:"min_wait_time"`
 	ReplyTo       *string `json:"reply_to"`
 
-	Warmup          *bool   `json:"warmup"`
-	WarmupBase      *int    `json:"warmup_base"`
-	WarmupMax       *int    `json:"warmup_max"`
-	WarmupIncrease  *int    `json:"warmup_increase"`
-	WarmupReplyRate *int    `json:"warmup_reply_rate"`
-	WarmupTag       *string `json:"warmup_tag"`
-	WarmupStartTime *string `json:"warmup_start_time"`
-	WarmupEndTime   *string `json:"warmup_end_time"`
-	WarmupDays      *int    `json:"warmup_days"`
+	Warmup          *bool            `json:"warmup"`
+	WarmupBase      *int             `json:"warmup_base"`
+	WarmupMax       *int             `json:"warmup_max"`
+	WarmupIncrease  *int             `json:"warmup_increase"`
+	WarmupReplyRate *int             `json:"warmup_reply_rate"`
+	WarmupTag       *string          `json:"warmup_tag"`
+	WarmupStartTime *string          `json:"warmup_start_time"`
+	WarmupEndTime   *string          `json:"warmup_end_time"`
+	WarmupDays      *int             `json:"warmup_days"`
+	WarmupPlacement *WarmupPlacement `json:"warmup_placement"`
+	WarmupFolder    *string          `json:"warmup_folder"`
 
 	// Timezone is the mailbox's own IANA zone, which its sending behaviour and
 	// business-hours window are evaluated in. Empty means not configured, so

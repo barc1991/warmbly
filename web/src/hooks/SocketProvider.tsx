@@ -713,12 +713,14 @@ export default function SocketProvider({
 
             wsRef.current.onerror = (ev) => {
                 // A WebSocket error event carries no detail by spec, and onclose
-                // always follows it and drives the reconnect, so this is not an
-                // error: as one it reported every deploy and sleep to PostHog.
-                console.warn('[WS] Connection error - reconnecting', {
-                    readyState: wsRef.current?.readyState,
-                    attempt: reconnectAttemptRef.current,
-                });
+                // always follows it and drives the reconnect. Only warn on initial attempt
+                // to avoid flooding logs on repeated retries.
+                if (reconnectAttemptRef.current === 0) {
+                    console.warn('[WS] Connection error - reconnecting', {
+                        readyState: wsRef.current?.readyState,
+                        attempt: reconnectAttemptRef.current,
+                    });
+                }
                 onError?.(ev);
             };
         } catch (err) {
@@ -734,7 +736,9 @@ export default function SocketProvider({
             // throws). Both are expected and handled: the retry below, and the
             // app-wide auth redirect. Only an unexpected answer is an error.
             if (!error.status || error.status === 401) {
-                console.warn('[WS] Init failed, retrying -', detail);
+                if (reconnectAttemptRef.current === 0) {
+                    console.warn('[WS] Init failed, retrying -', detail);
+                }
             } else {
                 console.error('[WS] Init failed -', detail);
             }
