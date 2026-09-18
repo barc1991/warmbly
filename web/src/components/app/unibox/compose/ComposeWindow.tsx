@@ -281,13 +281,24 @@ function ComposeWindowInner({
 
     const sendMut = useComposeSend();
     const trimmedBody = body.trim();
+    const candidateAccounts = candidates?.accounts ?? [];
+    const noMailboxesAtAll = candidatesQ.isSuccess && candidateAccounts.length === 0;
+    const hasActiveMailbox =
+        !candidatesQ.isSuccess ||
+        (accountSel === "auto"
+            ? candidateAccounts.length > 0
+            : candidateAccounts.some((a) => a.id === accountSel));
+
     const canSend =
         to.length > 0 &&
         to.every(looksLikeEmail) &&
         !!subject.trim() &&
         !!trimmedBody &&
         !suppressed &&
-        !isSending;
+        !isSending &&
+        !candidatesQ.isLoading &&
+        hasActiveMailbox &&
+        !noMailboxesAtAll;
 
     const dirty = to.length > 0 || cc.length > 0 || bcc.length > 0 || !!subject.trim() || !!trimmedBody;
 
@@ -341,7 +352,9 @@ function ComposeWindowInner({
 
     const send = async (scheduledAt?: Date) => {
         if (!canSend) {
-            if (to.length === 0) toast.error("הוסף נמען");
+            if (noMailboxesAtAll) toast.error("אין תיבת דואר פעילה לשליחה. חבר תיבת דואר תחילה.");
+            else if (!hasActiveMailbox) toast.error("תיבת הדואר שנבחרה אינה פעילה");
+            else if (to.length === 0) toast.error("הוסף נמען");
             else if (!to.every(looksLikeEmail)) toast.error("כתובת הנמען נראית שגויה");
             else if (suppressed) toast.error("נמען זה חסום");
             else if (!subject.trim()) toast.error("הוסף נושא");
@@ -714,18 +727,30 @@ function ComposeWindowInner({
                     maxLen={MAX_BODY_LEN}
                 />
 
+                {noMailboxesAtAll && (
+                    <div className="shrink-0 mx-3.5 mb-1.5 px-2.5 py-1.5 rounded-md border border-amber-200/80 bg-amber-50/80 text-[11px] text-amber-800 flex items-center justify-between gap-2 leading-snug">
+                        <span>אין תיבת דואר פעילה לשליחה. חבר תיבת דואר לפני שליחת אימייל.</span>
+                        <Link
+                            to="/app/emails"
+                            className="font-medium underline underline-offset-2 hover:text-amber-950 shrink-0"
+                        >
+                            חבר תיבה
+                        </Link>
+                    </div>
+                )}
+
                 {/* One-time nudge: drafts came back ungrounded in any product
                     context, so point at the workspace voice profile. */}
                 {aiDraft.grounding && !aiDraft.grounding.voice_profile && (
                     <div className="shrink-0 mx-3.5 mb-1.5 px-2.5 py-1.5 rounded-md border border-amber-200/60 bg-amber-50/60 text-[10.5px] text-amber-800 leading-snug">
-                        AI doesn&apos;t know your product yet.{" "}
+                        עוזר ה-AI עדיין אינו מכיר את המוצר שלך.{" "}
                         <Link
                             to="/app/settings/workspace"
                             className="font-medium underline underline-offset-2 hover:text-amber-950"
                         >
-                            Set your voice profile
+                            הגדר את פרופיל הקול
                         </Link>{" "}
-                        (what you sell, who to, how you sound) and drafts will stop being generic.
+                        (מה אתה מוכר, למי, ואיך אתה נשמע) והטיוטות יהיו מותאמות אישית.
                     </div>
                 )}
 
@@ -735,7 +760,13 @@ function ComposeWindowInner({
                         type="button"
                         onClick={() => void send()}
                         disabled={!canSend}
-                        title="שלח עכשיו (⌘Enter)"
+                        title={
+                            noMailboxesAtAll
+                                ? "אין תיבת דואר פעילה לשליחה. חבר תיבת דואר תחילה."
+                                : !hasActiveMailbox
+                                    ? "תיבת הדואר שנבחרה אינה פעילה"
+                                    : "שלח עכשיו (⌘Enter)"
+                        }
                         className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isSending ? (

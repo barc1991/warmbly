@@ -206,9 +206,9 @@ func (s *service) Create(ctx context.Context, orgID uuid.UUID, createdBy *uuid.U
 // defaultFields seeds a new form so the builder never opens empty.
 func defaultFields() []models.FormField {
 	return []models.FormField{
-		{ID: "first_name", Type: models.FormFieldText, Label: "First name", MapTo: "first_name", Width: "half"},
-		{ID: "last_name", Type: models.FormFieldText, Label: "Last name", MapTo: "last_name", Width: "half"},
-		{ID: "email", Type: models.FormFieldEmail, Label: "Email", MapTo: "email", Required: true},
+		{ID: "first_name", Type: models.FormFieldText, Label: "שם פרטי", MapTo: "first_name", Width: "half"},
+		{ID: "last_name", Type: models.FormFieldText, Label: "שם משפחה", MapTo: "last_name", Width: "half"},
+		{ID: "email", Type: models.FormFieldEmail, Label: "אימייל", MapTo: "email", Required: true},
 	}
 }
 

@@ -251,14 +251,14 @@ const StatsShareCard = React.forwardRef<HTMLDivElement, { data: ShareCardData; a
 
 function shortDate(iso: string): string {
     try {
-        return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return new Date(iso).toLocaleDateString("he-IL", { month: "short", day: "numeric" });
     } catch {
         return iso;
     }
 }
 
 function todayLabel(): string {
-    return new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    return new Date().toLocaleDateString("he-IL", { year: "numeric", month: "short", day: "numeric" });
 }
 
 export default StatsShareCard;

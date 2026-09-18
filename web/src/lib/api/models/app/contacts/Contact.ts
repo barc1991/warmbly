@@ -33,16 +33,16 @@ export interface LeadHold {
 // the flow is parked and when it lifts. One function so the Leads row and the
 // contact drawer cannot word the same hold two different ways.
 export function holdSummary(hold: LeadHold): string {
-    const what = hold.source === "out_of_office" ? "Out of office" : "Paused";
+    const what = hold.source === "out_of_office" ? "מחוץ למשרד" : "מושהה";
     const why = hold.reason ? ` · ${hold.reason}` : "";
-    if (!hold.until) return `${what}${why} · until someone resumes it`;
-    const until = new Date(hold.until).toLocaleString(undefined, {
+    if (!hold.until) return `${what}${why} · עד להמשך ידני`;
+    const until = new Date(hold.until).toLocaleString("he-IL", {
         month: "short",
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
     });
-    return `${what}${why} · until ${until}`;
+    return `${what}${why} · עד ${until}`;
 }
 
 // LeadEngagement mirrors models.SearchContacts.Engagement. "opened" is a human

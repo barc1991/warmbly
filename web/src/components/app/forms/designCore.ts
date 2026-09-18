@@ -180,7 +180,7 @@ export function resolveDesign(d: DesignInput): ResolvedDesign {
         accent: d.accent_color || "#0284c7",
         btnBg: d.button_background || "#0284c7",
         btnText: d.button_text_color || "#ffffff",
-        btnLabel: d.button_text || "Submit",
+        btnLabel: d.button_text || "שליחה",
         btnPad,
         btnFont,
         btnFullWidth: !!d.button_full_width,

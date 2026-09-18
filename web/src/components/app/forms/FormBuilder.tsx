@@ -111,6 +111,12 @@ const STATUS_PILL: Record<Form["status"], string> = {
     archived: "bg-amber-50 text-amber-700",
 };
 
+const STATUS_LABELS: Record<Form["status"], string> = {
+    draft: "טיוטה",
+    published: "מפורסם",
+    archived: "בארכיון",
+};
+
 /** The chip the cursor carries; a field drag borrows its type's palette icon. */
 interface DragChip {
     label: string;
@@ -424,7 +430,7 @@ export default function FormBuilder({ form }: { form: Form }) {
                     placeholder="שם הטופס"
                 />
                 <span className={`inline-flex items-center h-4 px-1.5 rounded text-[10px] font-medium shrink-0 ${STATUS_PILL[status]}`}>
-                    {status}
+                    {STATUS_LABELS[status] ?? status}
                 </span>
                 <ResourceViewers resource={`form:${form.id}`} className="shrink-0" />
                 <div className="flex-1" />

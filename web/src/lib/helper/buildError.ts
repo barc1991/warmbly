@@ -34,6 +34,10 @@ const ERROR_TRANSLATIONS: Record<string, string> = {
     "token expired": "פג תוקף האסימון",
     "invalid token": "אסימון גישה לא תקין",
     "permission denied": "אין לך הרשאה לבצע פעולה זו",
+    "no active mailboxes to send from; connect a mailbox first": "אין תיבות דואר פעילות לשליחה. יש לחבר תיבת דואר תחילה",
+    "no active mailboxes to send from": "אין תיבות דואר פעילות לשליחה",
+    "connect a mailbox first": "יש לחבר תיבת דואר תחילה",
+    "mailbox not found or not active": "תיבת הדואר לא נמצאה או שאינה פעילה",
 };
 
 export function localizeErrorMessage(msg: string): string {
@@ -44,6 +48,9 @@ export function localizeErrorMessage(msg: string): string {
         if (lower === en.toLowerCase()) return he;
     }
     // Check if error contains known key phrases
+    if (lower.includes("no active mailbox") || lower.includes("connect a mailbox first")) {
+        return "אין תיבות דואר פעילות לשליחה. יש לחבר תיבת דואר תחילה.";
+    }
     if (lower.includes("network error") || lower.includes("failed to fetch")) {
         return "שגיאת תקשורת. אנא בדוק את החיבור לרשת.";
     }

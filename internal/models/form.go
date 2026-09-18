@@ -255,7 +255,7 @@ const (
 	FormMinWidth          = 320
 	FormMaxWidth          = 960
 	FormDefaultWidth      = 560
-	FormDefaultSuccessMsg = "Thanks! Your submission has been received."
+	FormDefaultSuccessMsg = "תודה רבה! טופס הפנייה שלך התקבל בהצלחה."
 )
 
 var (

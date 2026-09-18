@@ -1511,13 +1511,13 @@ function ContactsTableBody({
                                 <td className={`px-3 text-right font-mono text-[11px] text-slate-500 tabular-nums ${embedded ? "hidden 2xl:table-cell" : "hidden md:table-cell"}`}>
                                     {embedded
                                         ? lead?.last_activity_at
-                                            ? new Date(lead.last_activity_at).toLocaleDateString("en-US", {
+                                            ? new Date(lead.last_activity_at).toLocaleDateString("he-IL", {
                                                   month: "short",
                                                   day: "numeric",
                                               })
                                             : "—"
                                         : c.created_at
-                                            ? new Date(c.created_at).toLocaleDateString("en-US", {
+                                            ? new Date(c.created_at).toLocaleDateString("he-IL", {
                                                   month: "short",
                                                   day: "numeric",
                                               })
@@ -1635,12 +1635,13 @@ function EngagementCell({
     label: string;
     auto?: boolean;
 }) {
+    const heLabel = label === "opened" ? "נפתח" : label === "clicked" ? "נלחץ" : label === "replied" ? "נענה" : label;
     return (
         <td className="px-3 overflow-hidden hidden lg:table-cell">
             {n > 0 ? (
                 <span
                     className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 tabular-nums"
-                    title={`${label} ${n} ${n === 1 ? "email" : "emails"}`}
+                    title={`${heLabel} ב-${n} ${n === 1 ? "אימייל" : "אימיילים"}`}
                 >
                     <Icon className="w-3 h-3 shrink-0" />
                     {n}
@@ -1648,12 +1649,12 @@ function EngagementCell({
             ) : auto ? (
                 <span
                     className="text-[10.5px] text-slate-400"
-                    title="Opened by a mail client automatically, not by a person"
+                    title="נפתח אוטומטית על ידי תוכנת/שרת הדואר (פתיחת מכונה), לא על ידי אדם"
                 >
-                    auto
+                    אוטומטי
                 </span>
             ) : sent ? (
-                <span className="text-slate-300 text-[11px]" aria-label={`not ${label}`}>
+                <span className="text-slate-300 text-[11px]" aria-label={`לא ${heLabel}`}>
                     —
                 </span>
             ) : null}
@@ -1687,9 +1688,9 @@ function LeadStatusPill({ lead }: { lead?: ContactCampaignProgress | null }) {
     // pill itself only has room for the word.
     const title =
         status === "failed" && lead?.failure_reason
-            ? `Could not send: ${lead.failure_reason}`
+            ? `שליחה נכשלה: ${lead.failure_reason}`
             : status === "undeliverable"
-                ? "Address verification refused this recipient, so the campaign skips it"
+                ? "אימות הכתובת דחה נמען זה, ולכן הקמפיין מדלג עליו"
                 : lead?.hold
                     ? holdSummary(lead.hold)
                     : undefined;

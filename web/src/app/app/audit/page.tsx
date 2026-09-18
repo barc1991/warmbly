@@ -69,6 +69,7 @@ const ACTION_LABELS: Record<string, string> = {
 
 const ENTITY_LABELS: Record<string, string> = {
     campaign:             "קמפיין",
+    campaign_lead:        "ליד בקמפיין",
     contact:              "איש קשר",
     email_account:        "תיבת אימייל",
     step:                 "שלב",
@@ -84,14 +85,33 @@ const ENTITY_LABELS: Record<string, string> = {
     folder:               "תיקייה",
     tag:                  "תגית",
     category:             "קטגוריה",
+    segment:              "פלח אוכלוסייה",
+    form:                 "טופס",
     subscription:         "מנוי",
     settings:             "הגדרות",
+    suppression:          "רשימת השתקה",
     crm_pipeline:         "צינור CRM",
     crm_stage:            "שלב CRM",
     crm_deal:             "עסקה",
     crm_task:             "משימה",
     crm_note:             "הערה",
     unibox:               "תיבה מאוחדת",
+    team:                 "צוות",
+    automation:           "אוטומציה",
+    lead_sync_source:     "מקור סנכרון לידים",
+    meeting:              "פגישה",
+    org_archive:          "ארכיון ארגון",
+    role:                 "תפקיד",
+    referral:             "הפניה",
+    referral_credit:      "קרדיט הפניה",
+    credit_purchase:      "רכישת קרדיטים",
+    credit_grant:         "מענק קרדיטים",
+    ai_session:           "סשן AI",
+    ai_skill:             "מיומנות AI",
+    mcp_server:           "שרת MCP",
+    advisor_finding:      "המלצת יועץ",
+    pool_link:            "חיבור מאגר",
+    cloud_link:           "חיבור ענן",
     user:                 "משתמש",
 };
 
@@ -109,7 +129,7 @@ const ENTITY_TYPES: AuditEntityType[] = [
     "organization", "organization_member", "invitation",
     "folder", "tag", "category", "subscription", "settings",
     "crm_pipeline", "crm_stage", "crm_deal", "crm_task", "crm_note",
-    "unibox", "user",
+    "unibox", "automation", "form", "user",
 ];
 
 const ACTION_TONE: Record<string, { dot: string; text: string }> = {

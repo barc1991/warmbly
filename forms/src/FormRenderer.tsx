@@ -61,9 +61,9 @@ function defaultsFor(fields: FormField[], prefill?: Record<string, string>): Ans
 function validateField(f: FormField, v: AnswerValue): string | undefined {
     const empty =
         f.type === "checkboxes" ? !Array.isArray(v) || v.length === 0 : f.type === "checkbox" ? v !== true : typeof v !== "string" || v.trim() === "";
-    if (f.required && empty) return `${f.label || "This field"} is required.`;
+    if (f.required && empty) return `${f.label || "שדה זה"} הוא שדה חובה.`;
     if (f.type === "email" && typeof v === "string" && v.trim() !== "" && !/^\S+@\S+\.\S+$/.test(v.trim())) {
-        return "Enter a valid email address.";
+        return "נא להזין כתובת אימייל תקינה.";
     }
     return undefined;
 }
@@ -173,12 +173,12 @@ export function FormRenderer({
                     redirect(res.redirect_url);
                     return;
                 }
-                setDone(res.message || "Thanks!");
+                setDone(res.message || "תודה רבה! טופס הפנייה שלך התקבל בהצלחה.");
             } catch (e) {
                 if (e instanceof StalePageError) {
-                    setServerError("This page has been open for a while. Refresh it and try again.");
+                    setServerError("עמוד זה היה פתוח זמן רב. רענן ונסה שוב.");
                 } else {
-                    setServerError(e instanceof SubmitRejectedError ? e.message : "Something went wrong. Try again.");
+                    setServerError(e instanceof SubmitRejectedError ? e.message : "משהו השתבש. נסה שוב בעוד רגע.");
                 }
                 resetTurnstile();
                 setCaptchaToken("");
@@ -324,7 +324,7 @@ export function FormRenderer({
                         <div className={screen > 0 ? "wf-pagenav" : "btnrow"}>
                             {screen > 0 && (
                                 <button type="button" className="wf-back" onClick={goBack}>
-                                    Back
+                                    הקודם
                                 </button>
                             )}
                             <form.Subscribe selector={(s) => s.isSubmitting}>
@@ -343,17 +343,17 @@ export function FormRenderer({
                         <div className="wf-pagenav">
                             {screen > 0 ? (
                                 <button type="button" className="wf-back" onClick={goBack}>
-                                    Back
+                                    הקודם
                                 </button>
                             ) : (
                                 <span />
                             )}
                             <button type="button" className="submit" onClick={goNext}>
-                                Next
+                                הבא
                             </button>
                         </div>
                     )}
-                    {focusMode && <p className="wf-hint">Press Enter to continue</p>}
+                    {focusMode && <p className="wf-hint">לחץ Enter להמשך</p>}
                 </div>
             </div>
         </form>

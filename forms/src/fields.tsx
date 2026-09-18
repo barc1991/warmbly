@@ -35,7 +35,7 @@ export function FieldControl({
         case "select":
             return (
                 <select id={id} value={str} onChange={(e) => onChange(e.target.value)} onBlur={onBlur}>
-                    <option value="">{field.placeholder || "Select…"}</option>
+                    <option value="">{field.placeholder || "בחר…"}</option>
                     {(field.options ?? []).map((o) => (
                         <option key={o} value={o}>
                             {o}

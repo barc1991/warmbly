@@ -4,8 +4,8 @@
 export function NotFound() {
     return (
         <div className="plain">
-            <h1>This form is no longer available</h1>
-            <p>It may have been unpublished or removed.</p>
+            <h1>טופס זה אינו זמין עוד</h1>
+            <p>ייתכן שהטופס הוסר או שבוטל פרסומו.</p>
         </div>
     );
 }
@@ -13,8 +13,8 @@ export function NotFound() {
 export function Unavailable() {
     return (
         <div className="plain">
-            <h1>This form is temporarily unavailable</h1>
-            <p>Please try again in a moment.</p>
+            <h1>הטופס אינו זמין כעת</h1>
+            <p>אנא נסה שוב בעוד מספר רגעים.</p>
         </div>
     );
 }
@@ -24,10 +24,10 @@ export function Unavailable() {
 export function StalePage() {
     return (
         <div className="plain">
-            <h1>This page went stale</h1>
-            <p>It has been open for a while. Refresh to continue.</p>
+            <h1>תוקף העמוד פג</h1>
+            <p>העמוד היה פתוח זמן ממושך. רענן את העמוד כדי להמשיך.</p>
             <button type="button" onClick={() => window.location.reload()}>
-                Refresh
+                רענן
             </button>
         </div>
     );

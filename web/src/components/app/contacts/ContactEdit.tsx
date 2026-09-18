@@ -230,7 +230,9 @@ function ContactEditPanel({
     return (
         <div
             className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-[2px]"
-            onClick={requestClose}
+            onClick={(e) => {
+                if (e.target === e.currentTarget) requestClose();
+            }}
             role="dialog"
             aria-modal="true"
             aria-label={`עריכת איש קשר: ${displayName}`}
@@ -240,6 +242,7 @@ function ContactEditPanel({
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: 32, opacity: 0 }}
                 transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+                onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
                 className="flex flex-col w-full max-w-full md:w-[32rem] md:max-w-[95%] h-full bg-white border-s border-slate-200 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.08)]"
             >
@@ -465,7 +468,10 @@ function TabStrip({
                     <button
                         key={t.id}
                         type="button"
-                        onClick={() => setTab(t.id)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setTab(t.id);
+                        }}
                         className={`relative h-10 px-2.5 inline-flex items-center gap-1.5 text-[12.5px] outline-none transition-colors ${
                             isActive
                                 ? "text-slate-900 font-medium"

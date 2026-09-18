@@ -37,6 +37,72 @@ const EVIDENCE: Record<VerificationEvidenceKind, { label: string; Icon: typeof M
     bounced_other: { label: "נדחה מסיבה אחרת", Icon: MailWarningIcon, tone: "text-slate-500" },
 };
 
+function translateWhen(when: string): string {
+    if (!when) return "";
+    const w = when.trim().toLowerCase();
+    if (w === "today") return "היום";
+    if (w === "yesterday") return "אתמול";
+    const daysMatch = w.match(/^(\d+)\s+days?\s+ago$/);
+    if (daysMatch) return `לפני ${daysMatch[1]} ימים`;
+    const monthsMatch = w.match(/^(\d+)\s+months?\s+ago$/);
+    if (monthsMatch) return `לפני ${monthsMatch[1]} חודשים`;
+    const yearsMatch = w.match(/^(\d+)\s+years?\s+ago$/);
+    if (yearsMatch) return `לפני ${yearsMatch[1]} שנים`;
+    return when;
+}
+
+export function translateReason(reason: string): string {
+    if (!reason) return "";
+    const lower = reason.trim().toLowerCase();
+
+    // Exact backend base reasons from verdictBase()
+    if (lower === "the mail server accepted the address") return "שרת הדואר אישר את תקינות הכתובת";
+    if (lower === "the mail server rejected the address") return "שרת הדואר דחה את הכתובת";
+    if (lower === "the domain accepts any address, so the check proves nothing") return "הדומיין מקבל כל כתובת (Catch-all), הבדיקה אינה חד-משמעית";
+    if (lower === "marked by a teammate") return "סומן ידנית על ידי חבר צוות";
+    if (lower === "checked by the verification service") return "נבדק ואומת על ידי שירות האימות";
+    if (lower === "flagged by the verification service") return "סומן בסיכון על ידי שירות האימות";
+    if (lower === "the verification service could not decide") return "שירות האימות לא הצליח להכריע";
+    if (lower === "verified before it was imported") return "אומת לפני הייבוא";
+    if (lower === "flagged before it was imported") return "סומן בסיכון לפני הייבוא";
+    if (lower === "imported without a decisive result") return "יובא ללא תוצאה חד-משמעית";
+    if (lower === "the check was inconclusive") return "הבדיקה אינה חד-משמעית";
+    if (lower === "never checked") return "טרם נבדק";
+    if (lower.startsWith("real mail outranks the earlier check")) return "דוא״ל אמיתי גובר על בדיקות קודמות";
+
+    // Evidence reasons:
+    const repliedMatch = reason.match(/^replied\s+(.+)$/i);
+    if (repliedMatch) return `התקבל מענה ${translateWhen(repliedMatch[1])}`;
+
+    const autoReplyMatch = reason.match(/^sent an automatic reply\s+(.+?)\s*\(the mailbox is live\)$/i);
+    if (autoReplyMatch) return `מענה אוטומטי נשלח ${translateWhen(autoReplyMatch[1])} (תיבת הדואר פעילה)`;
+
+    const clickedMatch = reason.match(/^clicked a link\s+(.+)$/i);
+    if (clickedMatch) return `נלחץ קישור ${translateWhen(clickedMatch[1])}`;
+
+    const openedMatch = reason.match(/^opened an email\s+(.+)$/i);
+    if (openedMatch) return `נפתח אימייל ${translateWhen(openedMatch[1])}`;
+
+    const deliveredMatch = reason.match(/^delivered without a bounce\s+(.+)$/i);
+    if (deliveredMatch) return `נמסר ללא דחייה ${translateWhen(deliveredMatch[1])}`;
+
+    const deliveredMultiMatch = reason.match(/^delivered\s+(\d+)\s+times without a bounce,\s*last\s+(.+)$/i);
+    if (deliveredMultiMatch) return `נמסר ${deliveredMultiMatch[1]} פעמים ללא דחייה, לאחרונה ${translateWhen(deliveredMultiMatch[2])}`;
+
+    if (lower.includes("the server said the mailbox does not exist")) {
+        const m = reason.match(/^bounced\s+(.+?):/i);
+        const when = m ? ` ${translateWhen(m[1])}` : "";
+        return `נדחה${when}: השרת דיווח שתיבת הדואר אינה קיימת`;
+    }
+
+    const bounceDetailMatch = reason.match(/^bounced\s+(.+?):\s*(.+)$/i);
+    if (bounceDetailMatch) {
+        return `נדחה ${translateWhen(bounceDetailMatch[1])}: ${bounceDetailMatch[2]}`;
+    }
+
+    return reason.charAt(0).toUpperCase() + reason.slice(1);
+}
+
 export default function VerificationCard({
     detail,
     loading,
@@ -104,7 +170,7 @@ export default function VerificationCard({
                                     transition={{ delay: i * 0.06 }}
                                     className="text-[11.5px] text-slate-600 leading-snug"
                                 >
-                                    {reason.charAt(0).toUpperCase() + reason.slice(1)}
+                                    {translateReason(reason)}
                                 </motion.li>
                             ))}
                         </AnimatePresence>

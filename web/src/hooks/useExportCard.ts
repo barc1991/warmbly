@@ -46,6 +46,7 @@ export default function useExportCard() {
                     canvasHeight: height,
                     backgroundColor: options?.backgroundColor,
                     cacheBust: true,
+                    skipFonts: true,
                 };
                 await toPng(node, opts); // prime font/embed cache
                 return await toPng(node, opts); // real capture
