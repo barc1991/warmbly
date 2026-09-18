@@ -1083,9 +1083,9 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
                 className={cn(
                     // Mobile: off-canvas drawer that slides in from the left/right.
                     "fixed inset-y-0 start-0 z-50 w-64 flex flex-col text-slate-900 bg-white shadow-2xl transition-transform duration-300 ease-out",
-                    open ? "translate-x-0" : "-translate-x-full rtl:translate-x-full",
+                    open ? "translate-x-0" : "max-md:-translate-x-full rtl:max-md:translate-x-full",
                     // >=md: static sidebar column over the chrome, no transform/shadow.
-                    "md:static md:z-auto md:translate-x-0 md:bg-transparent md:shadow-none shrink-0",
+                    "md:static md:z-auto md:translate-x-0 rtl:md:translate-x-0 md:transform-none md:bg-transparent md:shadow-none shrink-0",
                     // Width is the only thing that animates on >=md; the drawer's
                     // transform transition would otherwise slide the static column.
                     "md:transition-[width] md:duration-200 md:ease-out",
