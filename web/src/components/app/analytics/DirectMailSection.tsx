@@ -43,7 +43,7 @@ function SkeletonRows({ rows = 3 }: { rows?: number }) {
                 <div key={i} className="h-11 px-5 flex items-center gap-3">
                     <div className="size-1.5 rounded-full bg-slate-200" />
                     <div className="h-3 w-40 bg-slate-100 rounded animate-pulse" />
-                    <div className="ml-auto h-3 w-24 bg-slate-100 rounded animate-pulse" />
+                    <div className="ms-auto h-3 w-24 bg-slate-100 rounded animate-pulse" />
                 </div>
             ))}
         </div>
@@ -57,18 +57,18 @@ export default function DirectMailSection({ period }: { period: string }) {
     const tr = d?.tracking;
 
     const series: TrendSeries[] = [
-        { key: "sent", label: "Sent", tone: "sky", values: (d?.daily_trend ?? []).map((x) => x.sent) },
-        { key: "received", label: "Received", tone: "emerald", values: (d?.daily_trend ?? []).map((x) => x.received) },
+        { key: "sent", label: "נשלחו", tone: "sky", values: (d?.daily_trend ?? []).map((x) => x.sent) },
+        { key: "received", label: "התקבלו", tone: "emerald", values: (d?.daily_trend ?? []).map((x) => x.received) },
     ];
     const labels = (d?.daily_trend ?? []).map((x) => x.date);
 
     if (q.isError) {
         return (
             <>
-                <SectionBar label="Direct mail" />
+                <SectionBar label="דוא״ל ישיר" />
                 <EmptyBlock
-                    title="Couldn't load direct mail"
-                    body="The volume and reply figures are read from your synced mailboxes. Refresh to try again."
+                    title="לא ניתן לטעון נתוני דוא״ל ישיר"
+                    body="נתוני הנפח והתשובות נקלטים מתיבות הדואר המסונכרנות שלך. רענן כדי לנסות שוב."
                 />
             </>
         );
@@ -76,12 +76,12 @@ export default function DirectMailSection({ period }: { period: string }) {
 
     return (
         <>
-            <SectionBar label="Direct mail">
+            <SectionBar label="דוא״ל ישיר">
                 <Link
                     to="/app/unibox/sent"
                     className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-900 transition-colors"
                 >
-                    Open sent mail
+                    פתח דואר יוצא
                 </Link>
             </SectionBar>
 
@@ -89,25 +89,25 @@ export default function DirectMailSection({ period }: { period: string }) {
                 and covers mail composed anywhere, not just here. */}
             <StatStrip cols={4}>
                 <Stat
-                    label="Sent by hand"
+                    label="נשלח ידנית"
                     value={q.isPending ? "—" : num(vol?.sent)}
-                    sub="across all mailboxes"
+                    sub="בכל תיבות הדואר"
                     accent={!!vol && vol.sent > 0}
                 />
                 <Stat
-                    label="Received"
+                    label="התקבל"
                     value={q.isPending ? "—" : num(vol?.received)}
-                    sub={vol && vol.bounced > 0 ? `${num(vol.bounced)} of them bounces` : "into the inbox"}
+                    sub={vol && vol.bounced > 0 ? `${num(vol.bounced)} מהם החזרות` : "לתיבת הדואר הנכנס"}
                 />
                 <Stat
-                    label="Reply rate"
+                    label="שיעור מענה"
                     value={q.isPending ? "—" : pct(vol?.reply_rate)}
-                    sub={vol ? `${num(vol.replied)} of ${num(vol.threads_started)} threads` : "threads you started"}
+                    sub={vol ? `${num(vol.replied)} מתוך ${num(vol.threads_started)} שרשורים` : "שרשורים שפתחת"}
                 />
                 <Stat
-                    label="Median reply time"
+                    label="חציון זמן מענה"
                     value={q.isPending ? "—" : duration(vol?.median_reply_minutes)}
-                    sub="how fast they answer"
+                    sub="מהירות המענה של הנמענים"
                     last
                 />
             </StatStrip>
@@ -117,39 +117,39 @@ export default function DirectMailSection({ period }: { period: string }) {
                     labels={labels}
                     series={series}
                     height={200}
-                    emptyLabel="No mail sent or received in this range"
+                    emptyLabel="לא נשלח ולא התקבל דואר בטווח זמנים זה"
                 />
             </div>
 
             {/* Opens and clicks: the opt-in half. The denominator is on the card
                 because it is not the same as "sent by hand" above. */}
-            <SectionBar label="Opens and clicks" count={tr ? `${tr.mailboxes_opted_in}/${tr.mailboxes_total} mailboxes` : undefined} />
+            <SectionBar label="פתיחות ולחיצות" count={tr ? `${tr.mailboxes_opted_in}/${tr.mailboxes_total} תיבות` : undefined} />
             {q.isPending ? (
                 <SkeletonRows rows={1} />
             ) : (tr?.mailboxes_opted_in ?? 0) === 0 ? (
                 <EmptyBlock
-                    title="No mailbox is tracking direct mail"
-                    body="Open a mailbox and turn on 'Track opens and clicks on direct mail' to measure opens and clicks on messages you send from Warmbly. It is off by default, and it only applies to mail sent after you switch it on."
+                    title="אף תיבה אינה מנטרת דואר ישיר"
+                    body="פתח את הגדרות התיבה והפעל 'עקוב אחר פתיחות ולחיצות בדוא״ל ישיר' כדי למדוד פתיחות ולחיצות בהודעות הנשלחות מ-Warmbly."
                 />
             ) : (tr?.tracked_sent ?? 0) === 0 ? (
                 <EmptyBlock
-                    title="Nothing tracked yet in this range"
-                    body="Tracking is on, but no direct mail has gone out since. The next reply you send from here will be counted."
+                    title="אין נתוני מעקב בטווח זה עדיין"
+                    body="המעקב פעיל, אך טרם נשלח דוא״ל ישיר בתקופה זו. המענה הבא שיישלח מכאן ייספר."
                 />
             ) : (
                 <StatStrip cols={4}>
-                    <Stat label="Tracked sends" value={num(tr?.tracked_sent)} sub="the denominator" accent />
-                    <Stat label="Opened" value={pct(tr?.open_rate)} sub={`${num(tr?.opened)} by a person`} />
-                    <Stat label="Auto-opens" value={num(tr?.machine_opened)} sub="not counted above" />
-                    <Stat label="Clicked" value={pct(tr?.click_rate)} sub={`${num(tr?.clicked)} messages`} last />
+                    <Stat label="שליחות מנוטרות" value={num(tr?.tracked_sent)} sub="סך הכל במעקב" accent />
+                    <Stat label="נפתחו" value={pct(tr?.open_rate)} sub={`${num(tr?.opened)} על ידי אדם`} />
+                    <Stat label="פתיחות אוטומטיות" value={num(tr?.machine_opened)} sub="לא נספרו לעיל" />
+                    <Stat label="נלחצו" value={pct(tr?.click_rate)} sub={`${num(tr?.clicked)} הודעות`} last />
                 </StatStrip>
             )}
 
-            <SectionBar label="Per mailbox" />
+            <SectionBar label="לפי תיבת דואר" />
             {q.isPending ? (
                 <SkeletonRows />
             ) : (d?.mailboxes?.length ?? 0) === 0 ? (
-                <EmptyBlock title="No mailboxes connected" body="Connect a mailbox and its sending shows up here." />
+                <EmptyBlock title="אין תיבות דואר מחוברות" body="חבר תיבת דואר והשליחות שלה יוצגו כאן." />
             ) : (
                 <div className="divide-y divide-slate-200/60">
                     {d!.mailboxes.map((m) => (
@@ -158,29 +158,29 @@ export default function DirectMailSection({ period }: { period: string }) {
                             <span className="text-[12.5px] font-medium text-slate-900 truncate max-w-[40%]">{m.email}</span>
                             {m.track_direct_mail && (
                                 <span
-                                    title="Opens and clicks are tracked on this mailbox's direct mail"
+                                    title="פתיחות ולחיצות מנוטרות בדוא״ל ישיר מתיבה זו"
                                     className="shrink-0 inline-flex items-center gap-1 px-1.5 rounded bg-sky-50 text-sky-700 text-[10px] font-medium"
                                 >
                                     <EyeIcon className="w-2.5 h-2.5" />
-                                    Tracked
+                                    מנוטר
                                 </span>
                             )}
-                            <span className="ml-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
-                                <span title="Sent by hand">{num(m.sent)} sent</span>
-                                <span title="Received" className="text-emerald-600">{num(m.received)} in</span>
+                            <span className="ms-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
+                                <span title="נשלח ידנית">{num(m.sent)} נשלחו</span>
+                                <span title="התקבלו" className="text-emerald-600">{num(m.received)} התקבלו</span>
                             </span>
                         </div>
                     ))}
                 </div>
             )}
 
-            <SectionBar label="Top correspondents" />
+            <SectionBar label="אנשי קשר מובילים בהתכתבות" />
             {q.isPending ? (
                 <SkeletonRows />
             ) : (d?.top_contacts?.length ?? 0) === 0 ? (
                 <EmptyBlock
-                    title="No conversations in this range"
-                    body="The people you exchange the most mail with appear here, ranked by how much you sent them."
+                    title="אין שיחות בטווח זה"
+                    body="אנשי הקשר שאיתם אתה מתכתב הכי הרבה יוצגו כאן, מדורגים לפי כמות ההודעות ששלחת אליהם."
                 />
             ) : (
                 <div className="divide-y divide-slate-200/60">
@@ -190,10 +190,10 @@ export default function DirectMailSection({ period }: { period: string }) {
                             <span className="text-[12.5px] text-slate-900 truncate max-w-[45%]" title={c.email}>
                                 {c.email}
                             </span>
-                            <span className="ml-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
-                                <span title="You sent">{num(c.sent)} sent</span>
-                                <span title="They sent" className="inline-flex items-center gap-1 text-emerald-600">
-                                    <ReplyIcon className="w-3 h-3" />
+                            <span className="ms-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
+                                <span title="אתה שלחת">{num(c.sent)} נשלחו</span>
+                                <span title="הם שלחו" className="inline-flex items-center gap-1 text-emerald-600">
+                                    <ReplyIcon className="w-3 h-3 rtl:scale-x-[-1]" />
                                     {num(c.received)}
                                 </span>
                             </span>

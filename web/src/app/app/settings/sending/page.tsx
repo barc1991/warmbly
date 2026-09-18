@@ -38,16 +38,16 @@ import { TextInput } from "@/components/ui/field";
 import { Link } from "react-router-dom";
 
 const UNSUB_MODES: SelectOption[] = [
-    { value: "text", label: "Reply to opt out (text line)" },
-    { value: "link", label: "Unsubscribe link" },
-    { value: "off", label: "Nothing" },
+    { value: "text", label: "השב כדי לבטל (שורת טקסט)" },
+    { value: "link", label: "קישור להסרה מרשימת תפוצה" },
+    { value: "off", label: "ללא שורת הסרה" },
 ];
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default function SendingSettingsPage() {
     const canManage = usePermission("MANAGE_SETTINGS");
-    if (!canManage) return <NoAccess feature="Sending" permissionLabel="Manage settings" />;
+    if (!canManage) return <NoAccess feature="שליחה" permissionLabel="ניהול הגדרות" />;
     return <SendingSettings />;
 }
 
@@ -146,25 +146,25 @@ function SendingSettings() {
 
     return (
         <SectionShell
-            title="Sending"
-            description="When campaign mail goes out, measured in your recipient's day."
+            title="שליחה"
+            description="מתי מיילים של קמפיינים יוצאים, לפי שעות היום של הנמען."
             actions={<SaveStatus status={autosave.status} onRetry={autosave.retry} />}
         >
             <VerificationSettings />
             <Section
-                eyebrow="Send-time optimization"
-                description="Hold each campaign email until it lands inside the hours you pick, in the recipient's own timezone. It only ever delays a send, never brings one forward, and it still obeys the campaign schedule and each mailbox's working hours."
+                eyebrow="אופטימיזציית מועד שליחה"
+                description="השהה כל מייל בקמפיין עד שהוא נוחת בטווח השעות שבחרת, באזור הזמן של הנמען. זה רק מעכב שליחה ולעולם לא מקדים אותה, וממשיך לציית ללוח הזמנים של הקמפיין ולשעות הפעילות של כל תיבת דואר."
             >
                 {isLoading || !sto ? (
                     <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
                 ) : (
                     <>
                         <Row
-                            label="Use the recipient's local hours"
+                            label="השתמש בשעות המקומיות של הנמען"
                             description={
                                 enabled
-                                    ? "On. Sends aim for the hours below."
-                                    : "Off. Sends follow the campaign schedule and the sending mailbox's hours only."
+                                    ? "פעיל. השליחות מכוונות לשעות שלמטה."
+                                    : "כבוי. השליחות פועלות רק לפי לוח הזמנים של הקמפיין ושעות התיבה השולחת."
                             }
                         >
                             <Toggle on={enabled} onChange={(on) => patch({ enabled: on })} />
@@ -173,8 +173,8 @@ function SendingSettings() {
                         {enabled && (
                             <>
                                 <Row
-                                    label="Read each contact's timezone"
-                                    description="Uses the contact's timezone field, then the country its email domain points at. Falls back to the timezone below."
+                                    label="זהה את אזור הזמן של כל איש קשר"
+                                    description="משתמש בשדה אזור הזמן של איש הקשר, ולאחר מכן במדינה של דומיין הדוא״ל שלו. כברירת מחדל משתמש באזור הזמן שלהלן."
                                 >
                                     <Toggle
                                         on={!!sto.use_contact_timezone}
@@ -183,22 +183,22 @@ function SendingSettings() {
                                 </Row>
 
                                 <Row
-                                    label="Fallback timezone"
-                                    description="Used when a contact's timezone cannot be worked out."
+                                    label="אזור זמן לברירת מחדל"
+                                    description="בשימוש כאשר לא ניתן לקבוע את אזור הזמן של איש הקשר."
                                 >
                                     <SelectMenu
                                         value={sto.default_contact_timezone || "UTC"}
                                         onChange={(v) => patch({ default_contact_timezone: v })}
                                         options={tzOptions}
-                                        aria-label="Fallback timezone"
+                                        aria-label="אזור זמן לברירת מחדל"
                                         minWidth={240}
                                         align="end"
                                     />
                                 </Row>
 
                                 <Row
-                                    label="Skip weekends"
-                                    description="Push a send that would land on Saturday or Sunday to the next weekday."
+                                    label="דלג על סופי שבוע"
+                                    description="דחה שליחה שהייתה אמורה לנחות ביום שבת או ראשון ליום העבודה הבא."
                                 >
                                     <Toggle
                                         on={(sto.weekend_weight_multiplier ?? 1) < 1}
@@ -206,7 +206,7 @@ function SendingSettings() {
                                     />
                                 </Row>
 
-                                <Row label="Delivery hours" align="start">
+                                <Row label="שעות מסירה" align="start">
                                     <div className="w-full sm:w-[320px]">
                                         <div className="grid grid-cols-4 sm:grid-cols-6 gap-1">
                                             {HOURS.map((h) => {
@@ -231,7 +231,7 @@ function SendingSettings() {
                                         <p className="mt-2 text-[11.5px] text-slate-500 leading-relaxed inline-flex items-start gap-1.5">
                                             <ClockIcon className="w-3.5 h-3.5 mt-px shrink-0 text-slate-400" />
                                             <span>
-                                                Mail arrives around {describeHours(hours)} for each recipient
+                                                הודעות יגיעו סביב {describeHours(hours)} לכל נמען
                                                 {sto.use_contact_timezone ? "" : ` (${sto.default_contact_timezone || "UTC"})`}.
                                             </span>
                                         </p>
@@ -244,8 +244,8 @@ function SendingSettings() {
             </Section>
 
             <Section
-                eyebrow="Unsubscribe"
-                description="The opt-out every campaign email carries, added after the signature. A reply that asks to stop, a click on the link, and the mail client's own unsubscribe button all put the recipient on the suppression list, and no campaign emails them again. For cold outreach the List-Unsubscribe header (per campaign, on by default) is what satisfies the bulk-sender rules, so this line can stay a plain sentence. A campaign can override this in its preferences."
+                eyebrow="הסרה מרשימת תפוצה"
+                description="אפשרות ההסרה שכל מייל בקמפיין נושא, מתווספת לאחר החתימה. תגובה המבקשת להפסיק, לחיצה על הקישור או לחצן ההסרה של תוכנת הדואר עצמה מעבירים את הנמען לרשימת החסימות (הסרה), ואף קמפיין לא ישלח אליו שוב."
             >
                 {isLoading || !draft ? (
                     <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
@@ -253,8 +253,8 @@ function SendingSettings() {
                     <>
                         <UnsubscribeRows value={draft.unsubscribe ?? DEFAULT_UNSUBSCRIBE} onChange={patchUnsubscribe} />
                         <Row
-                            label="Honour replies that ask to stop"
-                            description="A reply saying unsubscribe, remove me, stop emailing me and the like puts the sender on the suppression list at once. This is what makes the reply-to-opt-out line a real mechanism."
+                            label="כבד תגובות המבקשות להסיר"
+                            description="תגובה המכילה 'הסר אותי', 'בטל הרשמה', 'תפסיקו לשלוח לי' וכדומה מעבירה את הנמען לרשימת החסימות באופן מיידי."
                         >
                             <Toggle
                                 on={draft.reply_intent?.auto_suppress_on_unsubscribe_keyword !== false}
@@ -266,16 +266,16 @@ function SendingSettings() {
             </Section>
 
             <Section
-                eyebrow="Out of office"
-                description="When a recipient's mailbox answers with an away message, hold their next step until they are back instead of sending it to an empty desk. The hold covers every campaign that contact is in, not only the one they answered. The return date in the auto-reply is used when it can be read (English, German, French, Spanish, Portuguese, Italian and Dutch), plus a working day so the follow-up does not land in their first-morning backlog. The lead keeps its place in the sequence and the time it spent held does not count against the step's wait. You can resume or stop a held lead at any time from the campaign's Leads tab."
+                eyebrow="מחוץ למשרד"
+                description="כאשר תיבת הדואר של הנמען מגיבה בהודעת היעדרות, השהה את השלב הבא שלו עד שיחזור במקום לשלוח למשרד ריק. ההשהיה חלה על כל הקמפיינים שאיש הקשר נמצא בהם. תאריך החזרה נלקח מהתגובה האוטומטית במידה וזוהה, בתוספת יום עבודה."
             >
                 {isLoading || !draft ? (
                     <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
                 ) : (
                     <>
                         <Row
-                            label="Hold a contact who is away"
-                            description="An auto-reply is never treated as a human reply, so without this the follow-up goes out on schedule and the sequence is over before they are back."
+                            label="השהה איש קשר שנמצא בחופשה / היעדרות"
+                            description="תגובה אוטומטית לעולם אינה נחשבת לתגובה אנושית, ולכן ללא הגדרה זו המעקב הבא יישלח במועד והרצף יסתיים לפני שיחזור."
                         >
                             <Toggle
                                 on={draft.reply_intent?.hold_on_out_of_office !== false}
@@ -284,8 +284,8 @@ function SendingSettings() {
                         </Row>
                         {draft.reply_intent?.hold_on_out_of_office !== false && (
                             <Row
-                                label="Hold for"
-                                description="Used when the away message names no return date we can read. Between 1 and 90 days."
+                                label="משך השהיה"
+                                description="בשימוש כאשר הודעת ההיעדרות אינה כוללת תאריך חזרה שניתן לזהות. בין 1 ל-90 ימים."
                             >
                                 <div className="flex items-center gap-1.5">
                                     <NumberInput
@@ -301,7 +301,7 @@ function SendingSettings() {
                                         }
                                         className="w-20"
                                     />
-                                    <span className="text-[11.5px] text-slate-500">days</span>
+                                    <span className="text-[11.5px] text-slate-500">ימים</span>
                                 </div>
                             </Row>
                         )}
@@ -310,16 +310,16 @@ function SendingSettings() {
             </Section>
 
             <Section
-                eyebrow="Reply follow-ups"
-                description="Open a CRM task when a reply lands, so a prospect who answers ends up on the Tasks page instead of only in the inbox. The task is assigned to the mailbox owner and due in 24 hours."
+                eyebrow="משימות מעקב לתגובות"
+                description="פתח משימת CRM כאשר מתקבלת תשובה, כך שליד שעונה יופיע בדף המשימות בנוסף לתיבת הדואר. המשימה מוקצית לבעל תיבת הדואר עם מועד יעד של 24 שעות."
             >
                 {isLoading || !draft ? (
                     <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
                 ) : (
                     <>
                         <Row
-                            label="Open a task on a reply"
-                            description="One task per classified reply, titled with the intent and the sender."
+                            label="פתח משימה בעת קבלת תגובה"
+                            description="משימה אחת לכל תגובה מסווגת, עם כותרת לפי כוונת התגובה והשולח."
                         >
                             <Toggle
                                 on={draft.reply_intent?.auto_create_crm_task !== false}
@@ -328,8 +328,8 @@ function SendingSettings() {
                         </Row>
                         {draft.reply_intent?.auto_create_crm_task !== false && (
                             <Row
-                                label="Which replies"
-                                description="Automated replies are off by default: a vacation notice is not follow-up work, and a week of sending makes enough of them to bury the real ones."
+                                label="עבור אילו תגובות"
+                                description="תגובות אוטומטיות כבויות כברירת מחדל: הודעת חופשה אינה דורשת מעקב מכירות, ושבוע שליחות מייצר רבות כאלו שעלולות לקבור תגובות אמיתיות."
                                 align="start"
                             >
                                 <IntentPicker
@@ -343,16 +343,16 @@ function SendingSettings() {
             </Section>
 
             <Section
-                eyebrow="Content checks"
-                description="Score each step's copy for the signals spam filters weight: trigger wording, stacked punctuation, link and image counts, attachments. Checked when you launch, and again per send against the copy the recipient actually receives once merge fields and spintax have resolved."
+                eyebrow="בדיקות תוכן"
+                description="ציון תוכן כל שלב לפי אותות שמסנני ספאם בוחנים: מילים חשודות, ריבוי סימני פיסוק, כמות קישורים ותמונות וקבצים מצורפים. נבדק בעת השקת הקמפיין ופעם נוספת לפני כל שליחה בפועל."
             >
                 {isLoading || !draft ? (
                     <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
                 ) : (
                     <>
                         <Row
-                            label="Flag risky copy"
-                            description="Advisory only. It warns in the launch dialog and the campaign activity feed, and never blocks or delays a send."
+                            label="סמן תוכן בעל סיכון"
+                            description="המלצה בלבד. מציג אזהרה בחלון ההשקה ובעדכוני הקמפיין, ולעולם אינו חוסם או מעכב שליחה."
                         >
                             <Toggle
                                 on={!!draft.preflight?.check_content_score}
@@ -361,8 +361,8 @@ function SendingSettings() {
                         </Row>
                         {draft.preflight?.check_content_score && (
                             <Row
-                                label="Minimum score"
-                                description="Copy scoring below this out of 100 is flagged. Higher is stricter."
+                                label="ציון מינימלי"
+                                description="טקסט המקבל ציון נמוך מזה מתוך 100 יסומן באזהרה. ציון גבוה יותר מחמיר יותר."
                             >
                                 <NumberInput
                                     min={1}

@@ -57,6 +57,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/fleet"
 	"github.com/warmbly/warmbly/internal/app/fleetnode"
 	"github.com/warmbly/warmbly/internal/app/form"
+	"github.com/warmbly/warmbly/internal/app/geminikeys"
 	"github.com/warmbly/warmbly/internal/app/group"
 	"github.com/warmbly/warmbly/internal/app/guardrail"
 	idempotencyapp "github.com/warmbly/warmbly/internal/app/idempotency"
@@ -85,6 +86,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/research"
 	"github.com/warmbly/warmbly/internal/app/segment"
 	"github.com/warmbly/warmbly/internal/app/sequence"
+	"github.com/warmbly/warmbly/internal/app/serperkeys"
 	"github.com/warmbly/warmbly/internal/app/settings"
 	"github.com/warmbly/warmbly/internal/app/skills"
 	"github.com/warmbly/warmbly/internal/app/socialauth"
@@ -198,6 +200,9 @@ func main() {
 	var researchService research.Service
 	var skillsService skills.Service
 	var mcpService mcp.Service
+	var geminiKeysService geminikeys.Service
+	var serperKeysService serperkeys.Service
+	var oauthSlotRepository repository.OAuthSlotRepository
 	var emailVerifyService emailverifyapp.Service
 	var placementRepository repository.PlacementRepository
 	var placementService placement.Service
@@ -1164,6 +1169,8 @@ func main() {
 		emailSyncStateRepository = repository.NewEmailSyncStateRepository(primaryDB)
 		emailService.WireSyncState(emailSyncStateRepository)
 		emailService.WireMailboxes(repository.NewMailboxRepository(primaryDB))
+		oauthSlotRepository = repository.NewOAuthSlotRepository(primaryDB)
+		emailService.WireOAuthSlots(oauthSlotRepository)
 		if instanceSettings != nil {
 			emailService.WireSyncBudget(instanceSettings)
 		}
@@ -1404,6 +1411,10 @@ func main() {
 			aware.WireAttachments(attachmentRepoForHandler)
 		}
 
+		// Serper Google search & BDR enrichment service
+		serperKeysRepo := repository.NewSerperKeysRepository(primaryDB)
+		serperKeysService = serperkeys.NewService(serperKeysRepo, cipherService, cache)
+
 		// Shared AI tool registry: every tool calls a service-layer function as
 		// the invoking user, so the dashboard agent (M3) and MCP server (M8) can
 		// never exceed the caller's permissions. Built once here with the same
@@ -1418,6 +1429,7 @@ func main() {
 			Audit:        auditService,
 			Search:       aiSearch,
 			Cache:        cache,
+			Serper:       serperKeysService,
 			Emails:       emailService,
 			EmailSend:    emailSendService,
 			Compose:      composeService,
@@ -1442,22 +1454,31 @@ func main() {
 		mcpService = mcp.NewService(repository.NewMCPRepository(primaryDB), cipherService)
 		aiToolRegistry.AddDynamicSource(mcpService)
 
+		// Gemini API keys & multi-key rotation service
+		geminiKeysRepo := repository.NewGeminiKeysRepository(primaryDB)
+		geminiKeysService = geminikeys.NewService(geminiKeysRepo, cipherService)
+
 		// Dashboard AI agent: sessions + streamed, approval-gated, credit-charged
-		// runs over the tool registry. Only constructed when a provider is set.
-		if aiProvider != nil {
+		// runs over the tool registry. Constructed when a provider or Gemini keys are configured.
+		if aiProvider != nil || geminiKeysService != nil {
 			aiAgentService = aiagent.NewService(
 				repository.NewAgentRepository(primaryDB),
 				aiToolRegistry, aiProvider, creditService, featureGateService, auditService, skillsService,
 				aiagent.NewVoicePreamble(organizationService),
 				organizationService,
 			)
+			if geminiKeysService != nil {
+				aiAgentService.SetGeminiService(geminiKeysService)
+			}
 			// Contact research agent + its bounded background drain pool.
-			researchService = research.NewService(
-				repository.NewResearchRepository(primaryDB),
-				aiToolRegistry, aiProvider, creditService, featureGateService,
-				contactService, organizationService, streamingPublisher, skillsService,
-			)
-			researchService.StartDrainPool(ctx)
+			if aiProvider != nil {
+				researchService = research.NewService(
+					repository.NewResearchRepository(primaryDB),
+					aiToolRegistry, aiProvider, creditService, featureGateService,
+					contactService, organizationService, streamingPublisher, skillsService,
+				)
+				researchService.StartDrainPool(ctx)
+			}
 		}
 		// Fan reply + bounce events from the advanced-outreach brain out to
 		// customer webhooks AND third-party integration actions (Slack / CRM).
@@ -1522,11 +1543,13 @@ func main() {
 		// agent wired onto the advanced service so any reply processed here also
 		// drafts. Paid + opt-in checked inside; nil provider leaves it inert.
 		aiDraftRepo = repository.NewAIDraftRepository(primaryDB.Pool)
-		advancedService.WireInboxAgent(inboxagent.NewService(
+		inboxAgentSvc := inboxagent.NewService(
 			aiProvider, creditService, featureGateService,
 			organizationRepository, uniboxRepository, skillsService,
 			contactRepostory, aiDraftRepo, streamingPublisher,
-		))
+		)
+		inboxAgentSvc.SetBDRComponents(serperKeysRepo, emailRepostory, emailSendService)
+		advancedService.WireInboxAgent(inboxAgentSvc)
 		emailSender := tasks.NewEmailSender(emailRepostory, eventsPublisher)
 		// Never hand a send to a worker that stopped heartbeating: nothing
 		// would execute it and nothing would report it, so the step would
@@ -1992,16 +2015,20 @@ func main() {
 		WarmupContentService: warmupContentService,
 
 		// AI writing assistant + credit ledger
-		CreditService:    creditService,
-		WritingGenerator: writingGenerator,
-		AIProvider:       aiProvider,
-		AISearch:         aiSearch,
-		AITools:          aiToolRegistry,
-		AIAgentService:   aiAgentService,
-		ResearchService:  researchService,
-		SkillsService:    skillsService,
-		MCPService:       mcpService,
-		AIDraftRepo:      aiDraftRepo,
+		CreditService:       creditService,
+		WritingGenerator:    writingGenerator,
+		AIProvider:          aiProvider,
+		AISearch:            aiSearch,
+		AITools:             aiToolRegistry,
+		AIAgentService:      aiAgentService,
+		ResearchService:     researchService,
+		SkillsService:       skillsService,
+		MCPService:          mcpService,
+		AIDraftRepo:         aiDraftRepo,
+		GeminiKeysService:   geminiKeysService,
+		SerperKeysService:   serperKeysService,
+		OAuthSlotRepository: oauthSlotRepository,
+		CipherService:       cipherService,
 
 		// Pre-send email verification
 		EmailVerifyService: emailVerifyService,

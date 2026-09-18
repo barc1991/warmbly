@@ -90,8 +90,8 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
     >
       <PopoverMenuTrigger asChild>
         <button
-          aria-label="Label this conversation (press c)"
-          title="Label (c)"
+          aria-label="תייג שיחה זו (לחץ c)"
+          title="תיוג (c)"
           className={`size-7 rounded-md inline-flex items-center justify-center transition-colors ${
             open || current.length > 0
               ? open
@@ -121,9 +121,9 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                   void createAndAdd();
                 }
               }}
-              placeholder="Label conversation…"
+              placeholder="הוסף תווית לשיחה…"
               autoFocus
-              className="flex-1 min-w-0 h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
+              className="flex-1 min-w-0 h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
             />
             {setLabels.isPending && (
               <Loader2Icon className="w-3 h-3 animate-spin text-slate-300 shrink-0" />
@@ -146,15 +146,15 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
           <div className="max-h-56 overflow-y-auto py-1">
             {categories.length === 0 && !query.trim() && (
               <div className="px-3 py-4 text-center">
-                <div className="text-[12px] text-slate-500">No labels yet</div>
+                <div className="text-[12px] text-slate-500">אין תוויות עדיין</div>
                 <div className="text-[11px] text-slate-400 mt-0.5">
-                  Type a name above to create your first one.
+                  הקלד שם למעלה כדי ליצור את התווית הראשונה.
                 </div>
               </div>
             )}
             {filtered.length === 0 && categories.length > 0 && queryMatchesExisting && (
               <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                No matches.
+                אין תוצאות תואמות.
               </div>
             )}
             {filtered.map((c) => {
@@ -165,7 +165,7 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                   type="button"
                   onClick={() => toggle(c.id)}
                   disabled={setLabels.isPending}
-                  className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-60"
+                  className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-60 text-start"
                 >
                   <span
                     className={`size-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
@@ -184,7 +184,7 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                     <span className="truncate">{c.title}</span>
                   </TagMeaningTooltip>
                   {checked && (
-                    <span className="ml-auto text-[10px] text-slate-300">assigned</span>
+                    <span className="ms-auto text-[10px] text-slate-400 font-medium">משויך</span>
                   )}
                 </button>
               );
@@ -194,20 +194,20 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                 type="button"
                 onClick={createAndAdd}
                 disabled={createCategory.isPending}
-                className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-900 font-medium hover:bg-sky-50 border-t border-slate-100 transition-colors"
+                className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-900 font-medium hover:bg-sky-50 border-t border-slate-100 transition-colors text-start"
               >
                 {createCategory.isPending ? (
                   <Loader2Icon className="w-3 h-3 animate-spin text-slate-400" />
                 ) : (
                   <PlusIcon className="w-3 h-3 text-sky-600" />
                 )}
-                Create "{query.trim()}"
+                צור "{query.trim()}"
               </button>
             )}
           </div>
 
           <div className="px-2.5 h-7 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-            <span>Labels are shared with contact categories</span>
+            <span>תוויות משותפות עם קטגוריות אנשי קשר</span>
             <kbd className="h-4 px-1 rounded border border-slate-200 bg-slate-50 font-mono inline-flex items-center">
               c
             </kbd>

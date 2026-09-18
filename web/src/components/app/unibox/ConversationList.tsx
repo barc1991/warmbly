@@ -200,7 +200,7 @@ export function ConversationList({
   const currentIndex = React.useCallback(
     () =>
       selectedThreadId
-        ? emails.findIndex((row) => (row.thread_id || row.id) === selectedThreadId)
+        ? emails.findIndex((row: any) => (row.thread_id || row.id) === selectedThreadId)
         : -1,
     [emails, selectedThreadId],
   );
@@ -304,7 +304,7 @@ export function ConversationList({
             // The box searches people, subject and message body, and naming
             // that is the difference between it looking broken and looking
             // useful: nobody tries an address in a box labelled "Search inbox".
-            placeholder={`Search ${scopeLabel.toLowerCase()}: name, address, or any word`}
+            placeholder={`חיפוש ב${scopeLabel}: שם, כתובת או מילה...`}
             title={'מחפש בשולח, נמענים, נושא וגוף ההודעה. "ביטויים במרכאות", OR ו- -להוציא עובדים.'}
             className="flex-1 min-w-0 h-full bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none"
           />
@@ -314,7 +314,7 @@ export function ConversationList({
               onClick={() => setSearch("")}
               className="text-[11px] text-slate-400 hover:text-slate-700 shrink-0"
             >
-              Clear
+              נקה
             </button>
           ) : (
             <kbd className="hidden md:inline-flex h-4 px-1 items-center rounded border border-slate-200 bg-white text-[10px] text-slate-400 font-mono shrink-0">
@@ -343,7 +343,7 @@ export function ConversationList({
         ) : q.isError && emails.length === 0 ? (
           <div className="px-5 py-12 text-center">
             <p className="text-[12.5px] text-slate-900 font-medium mb-1">
-              Couldn't load inbox
+              לא ניתן לטעון את תיבת הדואר
             </p>
             <p className="text-[11.5px] text-slate-500 mb-3">
               {q.error?.message ?? "הבקשה נכשלה"}
@@ -353,7 +353,7 @@ export function ConversationList({
               onClick={() => q.refetch()}
               className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
             >
-              Try again
+              נסה שוב
             </button>
           </div>
         ) : emails.length === 0 ? (
@@ -364,9 +364,9 @@ export function ConversationList({
             <p className="text-[11.5px] text-slate-400 max-w-[32ch] mx-auto leading-relaxed">
               {filtering
                 ? search.trim()
-                  ? `Nothing in ${scopeLabel.toLowerCase()} matches "${search.trim()}". The search covers names, addresses, subjects and message bodies.`
-                  : "Try a different search or clear the filters."
-                : "New mail shows up here as it arrives."}
+                  ? `לא נמצאו תוצאות ב${scopeLabel} התואמות ל-"${search.trim()}". החיפוש כולל שמות, כתובות, נושאים וגוף ההודעות.`
+                  : "נסה חיפוש שונה או נקה את המסננים."
+                : "הודעות חדשות יופיעו כאן ברגע שיגיעו."}
             </p>
             {/* The commonest reason a search finds nothing is that the thing
                 is filed somewhere else. Offer the wider search rather than
@@ -378,7 +378,7 @@ export function ConversationList({
                 className="mt-3 h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
               >
                 <SearchIcon className="w-3 h-3" />
-                Search all mail
+                חפש בכל הדואר
               </button>
             )}
           </div>
@@ -393,7 +393,7 @@ export function ConversationList({
                 </div>
                 <div className="divide-y divide-slate-100">
                   <AnimatePresence initial={false}>
-                  {g.rows.map((e) => (
+                  {g.rows.map((e: any) => (
                     <motion.div
                       key={e.thread_id || e.id}
                       data-thread-id={e.thread_id || e.id}
@@ -403,7 +403,7 @@ export function ConversationList({
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                      style={{ overflow: "hidden" }}
+                      style={{ overflow: "hidden" as any }}
                     >
                       <ConversationItem
                         email={{

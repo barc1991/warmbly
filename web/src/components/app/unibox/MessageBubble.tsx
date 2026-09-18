@@ -102,7 +102,7 @@ export function MessageBubble({
                         </span>
                         {outbound && (
                             <span className="shrink-0 px-1 rounded bg-sky-100 text-sky-700 text-[9.5px] font-semibold uppercase tracking-wide">
-                                Outgoing
+                                יוצא
                             </span>
                         )}
                         {addr && expanded && (
@@ -113,11 +113,11 @@ export function MessageBubble({
                     </div>
                     {expanded ? (
                         <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
-                            <span className="truncate min-w-0">to {email.to}</span>
+                            <span className="truncate min-w-0">אל {email.to}</span>
                         </div>
                     ) : (
                         <div className="text-[12px] text-slate-500 truncate">
-                            {snippet || "Show this message"}
+                            {snippet || "הצג הודעה זו"}
                         </div>
                     )}
                 </div>
@@ -130,11 +130,11 @@ export function MessageBubble({
                                     e.stopPropagation();
                                     onReply();
                                 }}
-                                aria-label="Reply to this message"
-                                title="Reply to this message"
+                                aria-label="השב להודעה זו"
+                                title="השב להודעה זו"
                                 className="size-6 rounded text-slate-500 hover:text-sky-700 hover:bg-sky-50 inline-flex items-center justify-center transition-colors"
                             >
-                                <CornerUpLeftIcon className="w-3 h-3" />
+                                <CornerUpLeftIcon className="w-3 h-3 rtl:scale-x-[-1]" />
                             </button>
                         )}
                         {onForward && (
@@ -144,11 +144,11 @@ export function MessageBubble({
                                     e.stopPropagation();
                                     onForward();
                                 }}
-                                aria-label="Forward this message"
-                                title="Forward this message"
+                                aria-label="העבר הודעה זו"
+                                title="העבר הודעה זו"
                                 className="size-6 rounded text-slate-500 hover:text-violet-700 hover:bg-violet-50 inline-flex items-center justify-center transition-colors"
                             >
-                                <ForwardIcon className="w-3 h-3" />
+                                <ForwardIcon className="w-3 h-3 rtl:scale-x-[-1]" />
                             </button>
                         )}
                     </div>
@@ -159,24 +159,24 @@ export function MessageBubble({
             </header>
 
             {!expanded ? null : body.isPending ? (
-                <div className="sm:pl-10 space-y-2.5 py-0.5" aria-busy aria-label="Loading message">
+                <div className="sm:ps-10 space-y-2.5 py-0.5" aria-busy aria-label="טוען הודעה">
                     <div className="h-2.5 w-[90%] rounded bg-slate-100 animate-pulse" />
                     <div className="h-2.5 w-[78%] rounded bg-slate-100 animate-pulse" />
                     <div className="h-2.5 w-[55%] rounded bg-slate-100/80 animate-pulse" />
                 </div>
             ) : body.isError ? (
-                <div className="text-[12.5px] text-slate-600 sm:pl-10">
+                <div className="text-[12.5px] text-slate-600 sm:ps-10">
                     {/* Falling back to the preview beats an empty message pane. */}
                     <p className="whitespace-pre-wrap break-words">{snippet}</p>
                     <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-amber-700">
                         <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
-                        Couldn't load the full message.
+                        לא ניתן היה לטעון את ההודעה המלאה.
                         <button
                             type="button"
                             onClick={() => body.refetch()}
                             className="underline underline-offset-2 hover:text-amber-800"
                         >
-                            Try again
+                            נסה שוב
                         </button>
                     </p>
                 </div>
@@ -185,14 +185,13 @@ export function MessageBubble({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.16 }}
-                    className="sm:pl-10"
+                    className="sm:ps-10"
                 >
                     <EmailBody html={body.data?.body_html} plain={body.data?.body_plain} />
                     {body.data?.body_truncated && (
                         <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-amber-700">
                             <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
-                            Only a preview of this message is stored, so the rest isn't
-                            shown here. Open it in the mailbox to read it in full.
+                            רק תצוגה מקדימה נשמרה להודעה זו. פתח אותה בתיבת הדואר לקריאת התוכן המלא.
                         </p>
                     )}
                 </motion.div>

@@ -74,6 +74,8 @@ node_modules/
 
 # Local pnpm store created by dockerized frontend installs
 web/.pnpm-store/
+/.pnpm-store/
+/backend-linux
 
 # Astro generated types. site/ ignores its own; this catches an astro run
 # from the repo root, which writes them here instead.

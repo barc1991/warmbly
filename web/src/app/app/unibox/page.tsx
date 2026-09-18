@@ -336,32 +336,42 @@ export default function UniboxPage() {
   const scopeLabel = React.useMemo(() => {
     switch (scope.kind) {
       case "unread":
-        return "Unread";
+        return "לא נקראו";
       case "today":
-        return "Today";
+        return "היום";
       case "week":
-        return "This week";
+        return "השבוע";
       case "awaiting":
-        return "Awaiting reply";
+        return "ממתינים לתשובה";
       case "agent_drafts":
-        return "Agent drafts";
+        return "טיוטות סוכן";
       case "snoozed":
-        return "Snoozed";
+        return "מושהים";
       case "scheduled":
-        return "Scheduled";
-      case "folder":
-        return scope.folder.charAt(0).toUpperCase() + scope.folder.slice(1);
+        return "מתוזמנים";
+      case "folder": {
+        const folderNames: Record<string, string> = {
+          inbox: "דואר נכנס",
+          sent: "נשלחו",
+          drafts: "טיוטות",
+          archive: "ארכיון",
+          spam: "ספאם",
+          trash: "אשפה",
+          all: "כל הדואר",
+        };
+        return folderNames[scope.folder.toLowerCase()] || scope.folder;
+      }
       case "mailbox": {
-        const m = overviewData?.mailboxes.find((x) => x.id === scope.mailboxId);
-        return m ? m.email : "Mailbox";
+        const m = overviewData?.mailboxes.find((x: any) => x.id === scope.mailboxId);
+        return m ? m.email : "תיבת דואר";
       }
       case "tag": {
-        const t = overviewData?.tags.find((x) => x.id === scope.tagId);
+        const t = overviewData?.tags.find((x: any) => x.id === scope.tagId);
         return t ? t.title : "תגית";
       }
       case "category": {
         const c = overviewData?.categories?.find(
-          (x) => x.id === scope.categoryId,
+          (x: any) => x.id === scope.categoryId,
         );
         return c ? c.title : "תווית";
       }

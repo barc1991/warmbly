@@ -95,47 +95,47 @@ import TaskTypePicker from "@/components/app/crm/TaskTypePicker";
 import { taskTypeColor } from "@/components/app/crm/taskTypes";
 
 const PRIORITIES: { id: CRMTaskPriority; label: string; dot: string; text: string }[] = [
-    { id: "urgent", label: "Urgent", dot: "bg-red-500", text: "text-red-700" },
-    { id: "high", label: "High", dot: "bg-amber-500", text: "text-amber-700" },
-    { id: "medium", label: "Medium", dot: "bg-sky-500", text: "text-sky-700" },
-    { id: "low", label: "Low", dot: "bg-slate-400", text: "text-slate-600" },
+    { id: "urgent", label: "דחוף", dot: "bg-red-500", text: "text-red-700" },
+    { id: "high", label: "גבוה", dot: "bg-amber-500", text: "text-amber-700" },
+    { id: "medium", label: "בינוני", dot: "bg-sky-500", text: "text-sky-700" },
+    { id: "low", label: "נמוך", dot: "bg-slate-400", text: "text-slate-600" },
 ];
 
 // Status names as this page says them ("Active", not "in progress"), for the
 // bulk-action toasts.
 const STATUS_LABELS: Record<CRMTaskStatus, string> = {
-    pending: "Pending",
-    in_progress: "Active",
-    completed: "Done",
-    cancelled: "Cancelled",
+    pending: "ממתין",
+    in_progress: "פעיל",
+    completed: "הושלם",
+    cancelled: "בוטל",
 };
 
 const STATUS_TABS: { id: "all" | CRMTaskStatus; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "pending", label: "Pending" },
-    { id: "in_progress", label: "Active" },
-    { id: "completed", label: "Done" },
-    { id: "cancelled", label: "Cancelled" },
+    { id: "all", label: "הכל" },
+    { id: "pending", label: "ממתין" },
+    { id: "in_progress", label: "פעיל" },
+    { id: "completed", label: "הושלם" },
+    { id: "cancelled", label: "בוטל" },
 ];
 
 const SORTS: { id: string; label: string; sort_by: TaskSortBy; reverse: boolean }[] = [
-    { id: "newest", label: "Newest", sort_by: "created_at", reverse: false },
-    { id: "oldest", label: "Oldest", sort_by: "created_at", reverse: true },
-    { id: "due_soon", label: "Due soonest", sort_by: "due_date", reverse: true },
-    { id: "due_late", label: "Due latest", sort_by: "due_date", reverse: false },
-    { id: "priority", label: "Priority · high → low", sort_by: "priority", reverse: false },
-    { id: "title", label: "Title · A → Z", sort_by: "title", reverse: true },
+    { id: "newest", label: "החדש ביותר", sort_by: "created_at", reverse: false },
+    { id: "oldest", label: "הישן ביותר", sort_by: "created_at", reverse: true },
+    { id: "due_soon", label: "יעד קרוב ביותר", sort_by: "due_date", reverse: true },
+    { id: "due_late", label: "יעד רחוק ביותר", sort_by: "due_date", reverse: false },
+    { id: "priority", label: "עדיפות · גבוהה ← נמוכה", sort_by: "priority", reverse: false },
+    { id: "title", label: "כותרת · א ← ת", sort_by: "title", reverse: true },
 ];
 
 type Bucket = "overdue" | "today" | "tomorrow" | "this_week" | "later" | "no_due";
 
 const BUCKETS: { id: Bucket; label: string; tone: "red" | "sky" | "slate" | "muted" }[] = [
-    { id: "overdue", label: "Overdue", tone: "red" },
-    { id: "today", label: "Today", tone: "sky" },
-    { id: "tomorrow", label: "Tomorrow", tone: "slate" },
-    { id: "this_week", label: "This week", tone: "slate" },
-    { id: "later", label: "Later", tone: "muted" },
-    { id: "no_due", label: "No due date", tone: "muted" },
+    { id: "overdue", label: "באיחור", tone: "red" },
+    { id: "today", label: "היום", tone: "sky" },
+    { id: "tomorrow", label: "מחר", tone: "slate" },
+    { id: "this_week", label: "השבוע", tone: "slate" },
+    { id: "later", label: "בהמשך", tone: "muted" },
+    { id: "no_due", label: "ללא תאריך יעד", tone: "muted" },
 ];
 
 const TONE = {
@@ -256,10 +256,10 @@ export default function TasksPage() {
     // the real number rather than the one on the button.
     function report(affected: number, verb: string) {
         if (affected === 0) {
-            toast("Nothing changed: those tasks are gone, or already in that state.");
+            toast("לא השתנה דבר: משימות אלו נמחקו או שכבר נמצאות במצב זה.");
             return;
         }
-        toast.success(`${affected.toLocaleString()} ${affected === 1 ? "task" : "tasks"} ${verb}`);
+        toast.success(`${affected.toLocaleString()} ${affected === 1 ? "משימה" : "משימות"} ${verb}`);
     }
 
     // The rows stay tickable while the request is in flight, so clear only the
@@ -288,7 +288,7 @@ export default function TasksPage() {
             try {
                 const res = await bulkDelete.mutateAsync(selection);
                 clearIfUnchanged(submitted);
-                report(res.affected, "deleted");
+                report(res.affected, "נמחקו");
             } catch (err) {
                 toast.error(buildError(err as AppError));
             }
@@ -314,35 +314,35 @@ export default function TasksPage() {
 
     return (
         <Page>
-            <PageTopbar eyebrow="Tasks" subtitle="Follow-ups + reminders across the org">
+            <PageTopbar eyebrow="משימות" subtitle="מעקבים ותזכורות ברחבי הארגון">
                 <ViewToggle view={view} onChange={setView} />
                 <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={() => setNewOpen(true)}>
-                    New task
+                    משימה חדשה
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={5}>
                 <Stat
-                    label="Overdue"
+                    label="באיחור"
                     value={sum ? sum.overdue_count : "—"}
-                    sub="needs attention"
+                    sub="דורש טיפול"
                     accent={!!sum && sum.overdue_count > 0}
                 />
                 <Stat
-                    label="High priority"
+                    label="עדיפות גבוהה"
                     value={sum ? sum.high_priority_count : "—"}
-                    sub="urgent + high"
+                    sub="דחוף + גבוה"
                 />
-                <Stat label="Pending" value={sum ? sum.pending_count : "—"} sub="not started" />
-                <Stat label="Active" value={sum ? sum.in_progress_count : "—"} sub="in progress" />
-                <Stat label="Completed" value={sum ? sum.completed_count : "—"} sub="done" last />
+                <Stat label="ממתין" value={sum ? sum.pending_count : "—"} sub="טרם החל" />
+                <Stat label="פעיל" value={sum ? sum.in_progress_count : "—"} sub="בביצוע" />
+                <Stat label="הושלם" value={sum ? sum.completed_count : "—"} sub="בוצע" last />
             </StatStrip>
 
-            <SectionBar label={search.isPending ? "Loading…" : `${total} ${total === 1 ? "task" : "tasks"}`}>
+            <SectionBar label={search.isPending ? "טוען…" : `${total} ${total === 1 ? "משימה" : "משימות"}`}>
                 <SearchInput
                     value={filters.query}
                     onChange={(v) => setFilters((f) => ({ ...f, query: v }))}
-                    placeholder="Search tasks…"
+                    placeholder="חיפוש משימות…"
                     className="w-full sm:w-[180px]"
                 />
                 <div className="inline-flex rounded-md bg-slate-100 p-0.5 gap-0.5">
@@ -386,7 +386,7 @@ export default function TasksPage() {
             <PageBody className={view === "grouped" ? "px-5 py-5" : ""}>
                 {search.isError ? (
                     <div className="px-5 py-16 text-center text-[12.5px] text-red-600">
-                        Couldn't load tasks. Try again.
+                        לא ניתן לטעון משימות. נסה שוב.
                     </div>
                 ) : search.isPending ? (
                     view === "grouped" ? (
@@ -454,8 +454,8 @@ export default function TasksPage() {
             <TaskSelectionBar
                 count={selectionCount}
                 busy={busy}
-                onStatus={(status) => applyBulk({ status }, status === "completed" ? "marked done" : `set to ${STATUS_LABELS[status]}`)}
-                onPriority={(priority) => applyBulk({ priority }, `set to ${priority} priority`)}
+                onStatus={(status) => applyBulk({ status }, status === "completed" ? "סומנו כהושלמו" : `הוגדרו כ-${STATUS_LABELS[status]}`)}
+                onPriority={(priority) => applyBulk({ priority }, `הוגדרו בעדיפות ${priority}`)}
                 onDelete={deleteSelected}
                 onClear={clearSelection}
             />
@@ -482,8 +482,8 @@ export default function TasksPage() {
 // deletePrompt words the confirm so a 4,000-row select-all does not read the
 // same as three ticked rows.
 function deletePrompt(count: number): string {
-    if (count === 1) return "Delete this task?";
-    return `Delete ${count.toLocaleString()} tasks? This cannot be undone.`;
+    if (count === 1) return "למחוק משימה זו?";
+    return `למחוק ${count.toLocaleString()} משימות? פעולה זו היא בלתי הפיכה.`;
 }
 
 // The bridge between "every row on screen" and "every row that matches". The
@@ -510,7 +510,6 @@ function SelectAllBanner({
     grouped: boolean;
 }) {
     if (!selectAll && !canSelectAllMatching) return null;
-    const plural = (n: number) => (n === 1 ? "task" : "tasks");
     return (
         <div
             className={`px-5 py-2 bg-sky-50/70 border border-sky-100 text-[12px] text-sky-900 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-center ${
@@ -520,29 +519,27 @@ function SelectAllBanner({
             {selectAll ? (
                 <>
                     <span>
-                        All <span className="font-medium">{count.toLocaleString()}</span> {plural(count)} matching this
-                        view are selected.
+                        כל <span className="font-medium">{count.toLocaleString()}</span> המשימות התואמות לתצוגה זו נבחרו.
                     </span>
                     <button
                         type="button"
                         onClick={onClear}
                         className="font-medium underline underline-offset-2 hover:text-sky-700"
                     >
-                        Clear selection
+                        נקה בחירה
                     </button>
                 </>
             ) : (
                 <>
                     <span>
-                        The <span className="font-medium">{loadedCount.toLocaleString()}</span> {plural(loadedCount)}{" "}
-                        loaded here are selected.
+                        <span className="font-medium">{loadedCount.toLocaleString()}</span> המשימות שנטענו כאן נבחרו.
                     </span>
                     <button
                         type="button"
                         onClick={onSelectAllMatching}
                         className="font-medium underline underline-offset-2 hover:text-sky-700"
                     >
-                        Select all {total.toLocaleString()} matching
+                        בחר את כל {total.toLocaleString()} המשימות התואמות
                     </button>
                 </>
             )}
@@ -572,7 +569,7 @@ function TaskSelectionBar({
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center max-w-[calc(100vw-16px)] flex-wrap justify-center md:max-w-none md:flex-nowrap gap-1.5 rounded-md border border-slate-200 bg-white shadow-[0_6px_20px_-4px_rgba(15,23,42,0.12),0_2px_4px_rgba(15,23,42,0.04)] px-2 py-1.5">
             <div className="inline-flex items-center gap-1.5 px-2 h-7 rounded bg-sky-50 text-sky-700 text-[12px] font-medium">
                 <CheckIcon className="w-3 h-3" />
-                <span>{count.toLocaleString()} selected</span>
+                <span>{count.toLocaleString()} נבחרו</span>
             </div>
             <button
                 type="button"
@@ -581,7 +578,7 @@ function TaskSelectionBar({
                 className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
             >
                 {busy ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckSquareIcon className="w-3 h-3" />}
-                <span>Mark done</span>
+                <span>סמן כהושלם</span>
             </button>
             <PopoverMenu side="top" align="center">
                 <PopoverMenuTrigger asChild>
@@ -591,11 +588,11 @@ function TaskSelectionBar({
                         className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                     >
                         <SquareIcon className="w-3 h-3" />
-                        <span className="hidden sm:inline">Status</span>
+                        <span className="hidden sm:inline">סטטוס</span>
                     </button>
                 </PopoverMenuTrigger>
                 <PopoverMenuContent minWidth={170}>
-                    <PopoverMenuLabel>Set {count.toLocaleString()} to</PopoverMenuLabel>
+                    <PopoverMenuLabel>הגדר {count.toLocaleString()} כ-</PopoverMenuLabel>
                     {STATUS_TABS.filter((t) => t.id !== "all").map((t) => (
                         <PopoverMenuItem key={t.id} onSelect={() => onStatus(t.id as CRMTaskStatus)}>
                             {t.label}
@@ -611,11 +608,11 @@ function TaskSelectionBar({
                         className="h-7 px-2.5 rounded text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
                     >
                         <FlagIcon className="w-3 h-3" />
-                        <span className="hidden sm:inline">Priority</span>
+                        <span className="hidden sm:inline">עדיפות</span>
                     </button>
                 </PopoverMenuTrigger>
                 <PopoverMenuContent minWidth={170}>
-                    <PopoverMenuLabel>Set {count.toLocaleString()} to</PopoverMenuLabel>
+                    <PopoverMenuLabel>הגדר {count.toLocaleString()} כ-</PopoverMenuLabel>
                     {PRIORITIES.map((p) => (
                         <PopoverMenuItem
                             key={p.id}
@@ -642,7 +639,7 @@ function TaskSelectionBar({
                 onClick={onClear}
                 className="h-7 px-2.5 rounded text-[12px] text-slate-500 hover:text-slate-900 transition-colors"
             >
-                Clear
+                נקה
             </button>
         </div>
     );
@@ -684,13 +681,13 @@ function FlatView({
                             onChange={onToggleAll}
                         />
                     </th>
-                    <Th className="text-left">Task</Th>
-                    <Th className="text-left hidden md:table-cell">Type</Th>
-                    <Th className="text-left hidden md:table-cell">Assignee</Th>
-                    <Th className="text-left">Priority</Th>
-                    <Th className="text-left hidden md:table-cell">Status</Th>
-                    <Th className="text-left">Due</Th>
-                    <Th className="text-right"> </Th>
+                    <Th className="text-start">משימה</Th>
+                    <Th className="text-start hidden md:table-cell">סוג</Th>
+                    <Th className="text-start hidden md:table-cell">אחראי</Th>
+                    <Th className="text-start">עדיפות</Th>
+                    <Th className="text-start hidden md:table-cell">סטטוס</Th>
+                    <Th className="text-start">יעד</Th>
+                    <Th className="text-end"> </Th>
                 </tr>
             </thead>
             <tbody>
@@ -837,16 +834,16 @@ function FlatRow({
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={170}>
                         <PopoverMenuItem onSelect={onOpen} icon={<PencilIcon className="w-3 h-3" />}>
-                            Edit
+                            ערוך
                         </PopoverMenuItem>
                         <PopoverMenuItem
                             onSelect={() => setDone(!isDone)}
                             icon={isDone ? <SquareIcon className="w-3 h-3" /> : <CheckSquareIcon className="w-3 h-3" />}
                         >
-                            {isDone ? "Mark pending" : "Mark complete"}
+                            {isDone ? "סמן כממתין" : "סמן כהושלם"}
                         </PopoverMenuItem>
                         <PopoverMenuItem onSelect={doDelete} danger icon={<TrashIcon className="w-3 h-3" />}>
-                            Delete
+                            מחק
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -969,7 +966,7 @@ function BucketGroup({
                 >
                     {bucket.label}
                 </span>
-                <span className="ml-auto font-mono text-[10.5px] text-slate-400 tabular-nums">
+                <span className="ms-auto font-mono text-[10.5px] text-slate-400 tabular-nums">
                     {tasks.length}
                 </span>
             </div>
@@ -1121,7 +1118,7 @@ function AssigneeCell({
     // A task may carry a person, a team, both, or neither. Render whichever are
     // present; only fall back to "Unassigned" when nothing is set.
     if (!assignedTo && !assignedTeamId) {
-        return <span className="text-slate-300 text-[11.5px]">{compact ? "" : "Unassigned"}</span>;
+        return <span className="text-slate-300 text-[11.5px]">{compact ? "" : "לא מוקצה"}</span>;
     }
     const label = memberLabel(member, assignedTo);
     const initials = memberInitials(member, assignedTo);
@@ -1146,7 +1143,7 @@ function AssigneeCell({
 function teamLabel(team?: Team, teamId?: string): string {
     const name = team?.name?.trim();
     if (name) return name;
-    return teamId ? `Team ${teamId.slice(0, 6)}` : "";
+    return teamId ? `צוות ${teamId.slice(0, 6)}` : "";
 }
 
 function TeamChip({ team, teamId, compact = false }: { team?: Team; teamId?: string; compact?: boolean }) {
@@ -1167,10 +1164,10 @@ function TeamChip({ team, teamId, compact = false }: { team?: Team; teamId?: str
 
 function StatusTag({ status }: { status: CRMTaskStatus }) {
     const map: Record<CRMTaskStatus, { label: string; cls: string; dot: string }> = {
-        pending: { label: "Pending", cls: "text-slate-600", dot: "bg-slate-400" },
-        in_progress: { label: "Active", cls: "text-sky-700", dot: "bg-sky-500" },
-        completed: { label: "Done", cls: "text-emerald-700", dot: "bg-emerald-500" },
-        cancelled: { label: "Cancelled", cls: "text-slate-400", dot: "bg-slate-300" },
+        pending: { label: "ממתין", cls: "text-slate-600", dot: "bg-slate-400" },
+        in_progress: { label: "פעיל", cls: "text-sky-700", dot: "bg-sky-500" },
+        completed: { label: "הושלם", cls: "text-emerald-700", dot: "bg-emerald-500" },
+        cancelled: { label: "בוטל", cls: "text-slate-400", dot: "bg-slate-300" },
     };
     const s = map[status];
     return (
@@ -1248,24 +1245,24 @@ function ViewToggle({
             <button
                 type="button"
                 onClick={() => onChange("grouped")}
-                aria-label="Grouped by due date"
+                aria-label="קיבוץ לפי תאריך יעד"
                 className={`h-6 px-2 rounded text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors ${
                     view === "grouped" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"
                 }`}
             >
                 <ListTreeIcon className="w-3 h-3" />
-                Grouped
+                מקובץ
             </button>
             <button
                 type="button"
                 onClick={() => onChange("flat")}
-                aria-label="Flat list"
+                aria-label="טבלה"
                 className={`h-6 px-2 rounded text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors ${
                     view === "flat" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"
                 }`}
             >
                 <LayoutListIcon className="w-3 h-3" />
-                Table
+                טבלה
             </button>
         </div>
     );
@@ -1283,10 +1280,10 @@ function AssigneeFacet({
     const [open, setOpen] = React.useState(false);
     const label =
         selected.length === 0
-            ? "Anyone"
+            ? "כל האחראים"
             : selected.length === 1
               ? memberLabel(members.find((m) => m.user_id === selected[0]), selected[0])
-              : `${selected.length} assignees`;
+              : `${selected.length} אחראים`;
 
     function toggle(id: string) {
         onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
@@ -1310,7 +1307,7 @@ function AssigneeFacet({
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={220} className="max-h-64 overflow-y-auto">
                 {members.length === 0 ? (
-                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">No members</div>
+                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">אין חברי צוות</div>
                 ) : (
                     members.map((m) => (
                         <PopoverMenuItem
@@ -1345,10 +1342,10 @@ function TeamFacet({
     const [open, setOpen] = React.useState(false);
     const label =
         selected.length === 0
-            ? "Any team"
+            ? "כל הצוותים"
             : selected.length === 1
               ? teamLabel(teams.find((t) => t.id === selected[0]), selected[0])
-              : `${selected.length} teams`;
+              : `${selected.length} צוותים`;
 
     function toggle(id: string) {
         onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
@@ -1378,7 +1375,7 @@ function TeamFacet({
                         className="flex items-center gap-2 px-3 h-8 text-[11.5px] text-slate-500 hover:text-sky-700 hover:bg-slate-50 transition-colors"
                     >
                         <UsersRoundIcon className="w-3.5 h-3.5 shrink-0" />
-                        No teams yet, create one in Settings
+                        אין צוותים עדיין, צור צוות בהגדרות
                     </Link>
                 ) : (
                     teams.map((t) => (
@@ -1413,7 +1410,7 @@ function TypeFacet({
     onChange: (names: string[]) => void;
 }) {
     const [open, setOpen] = React.useState(false);
-    const label = selected.length === 0 ? "All types" : `${selected.length} type${selected.length === 1 ? "" : "s"}`;
+    const label = selected.length === 0 ? "כל הסוגים" : `${selected.length} סוגים`;
 
     function toggle(name: string) {
         onChange(selected.includes(name) ? selected.filter((x) => x !== name) : [...selected, name]);
@@ -1437,7 +1434,7 @@ function TypeFacet({
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={200} className="max-h-64 overflow-y-auto">
                 {types.length === 0 ? (
-                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">No types yet</div>
+                    <div className="px-2 py-1.5 text-[11.5px] text-slate-400">אין סוגים עדיין</div>
                 ) : (
                     types.map((t) => (
                         <PopoverMenuItem
@@ -1530,7 +1527,7 @@ function FilterPopover({
                     }`}
                 >
                     <AlertTriangleIcon className="w-3 h-3" />
-                    Filters
+                    מסננים
                     {activeCount > 0 && (
                         <span className="size-4 rounded-full bg-sky-600 text-white text-[9.5px] inline-flex items-center justify-center tabular-nums">
                             {activeCount}
@@ -1541,7 +1538,7 @@ function FilterPopover({
             <PopoverMenuContent minWidth={260} className="p-3">
                 <div className="space-y-3">
                     <div>
-                        <Label>Priority</Label>
+                        <Label>עדיפות</Label>
                         <div className="flex flex-wrap gap-1.5">
                             {PRIORITIES.map((p) => {
                                 const on = filters.priorities.includes(p.id);
@@ -1564,19 +1561,19 @@ function FilterPopover({
                         </div>
                     </div>
                     <div>
-                        <Label>Due date</Label>
+                        <Label>תאריך יעד</Label>
                         <div className="flex items-center gap-1.5">
                             <DatePicker
                                 value={filters.due_after ? String(filters.due_after).split("T")[0] : ""}
                                 onChange={(v) => setDate("due_after", v)}
-                                placeholder="From"
+                                placeholder="מתאריך"
                                 className="flex-1"
                             />
                             <span className="text-slate-300">–</span>
                             <DatePicker
                                 value={filters.due_before ? String(filters.due_before).split("T")[0] : ""}
                                 onChange={(v) => setDate("due_before", v)}
-                                placeholder="To"
+                                placeholder="עד תאריך"
                                 className="flex-1"
                             />
                         </div>
@@ -1593,7 +1590,7 @@ function FilterPopover({
                         >
                             {filters.overdue && <CheckSquareIcon className="w-3 h-3" />}
                         </button>
-                        <span className="text-[12px] text-slate-700">Only overdue + actionable</span>
+                        <span className="text-[12px] text-slate-700">באיחור ודורשות טיפול בלבד</span>
                     </label>
                     <div className="flex items-center justify-between pt-1 border-t border-slate-100">
                         <button
@@ -1610,14 +1607,14 @@ function FilterPopover({
                             className="text-[11.5px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1"
                         >
                             <XIcon className="w-3 h-3" />
-                            Clear
+                            נקה
                         </button>
                         <button
                             type="button"
                             onClick={() => setOpen(false)}
                             className="h-6 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium transition-colors"
                         >
-                            Done
+                            סיום
                         </button>
                     </div>
                 </div>
@@ -1651,18 +1648,18 @@ function LoadMore({
                     {isFetchingNextPage ? (
                         <>
                             <Loader2Icon className="w-3 h-3 animate-spin" />
-                            Loading…
+                            טוען…
                         </>
                     ) : (
                         <>
                             <PlusIcon className="w-3 h-3" />
-                            Load more
+                            טען עוד
                         </>
                     )}
                 </button>
             ) : null}
             <span className="font-mono text-[10.5px] text-slate-400 tabular-nums">
-                {hasNextPage ? `${loaded} of ${total} loaded` : `${total} ${total === 1 ? "task" : "tasks"}`}
+                {hasNextPage ? `${loaded} מתוך ${total} נטענו` : `${total} ${total === 1 ? "משימה" : "משימות"}`}
             </span>
         </div>
     );
@@ -1685,12 +1682,12 @@ function EmptyState({
                 <CheckSquareIcon className="w-4 h-4 text-slate-400" />
             </div>
             <p className="text-[12.5px] text-slate-700 font-medium mb-1">
-                {hasFilters ? "No tasks match these filters" : "No tasks yet"}
+                {hasFilters ? "אין משימות התואמות למסננים אלו" : "אין משימות עדיין"}
             </p>
             <p className="text-[11.5px] text-slate-400 mb-4 max-w-[42ch] mx-auto leading-relaxed">
                 {hasFilters
-                    ? "Try widening or clearing the filters to see more."
-                    : "Tasks attach to a contact or a deal. Create one and it shows up here: searchable, filterable, and grouped by due-date."}
+                    ? "נסה להרחיב או לנקות את המסננים כדי לראות עוד משימות."
+                    : "משימות מקושרות לאנשי קשר או לעסקאות. צור משימה והיא תופיע כאן: ניתנת לחיפוש, סינון וקיבוץ לפי תאריך יעד."}
             </p>
             {hasFilters ? (
                 <button
@@ -1699,7 +1696,7 @@ function EmptyState({
                     className="h-7 px-3 rounded-md border border-slate-200 hover:border-slate-300 text-[12px] text-slate-700 hover:text-slate-900 inline-flex items-center gap-1.5 transition-colors"
                 >
                     <XIcon className="w-3 h-3" />
-                    Clear filters
+                    נקה מסננים
                 </button>
             ) : (
                 <button
@@ -1708,7 +1705,7 @@ function EmptyState({
                     className="h-7 px-3 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                 >
                     <PlusIcon className="w-3 h-3" />
-                    Create task
+                    צור משימה
                 </button>
             )}
         </div>
@@ -1826,7 +1823,7 @@ function TaskDialog({
 
     async function submit() {
         if (!title.trim()) {
-            toast.error("Title required");
+            toast.error("נדרשת כותרת");
             return;
         }
         const data: Partial<CRMTask> = {
@@ -1843,14 +1840,14 @@ function TaskDialog({
         try {
             if (editing) {
                 await toast.promise(update.mutateAsync({ id: editing.id, data }), {
-                    loading: "Saving…",
-                    success: "Task updated",
+                    loading: "שומר…",
+                    success: "המשימה עודכנה",
                     error: (e: AppError) => buildError(e),
                 });
             } else {
                 await toast.promise(create.mutateAsync(data), {
-                    loading: "Creating task…",
-                    success: "Task created",
+                    loading: "יוצר משימה…",
+                    success: "המשימה נוצרה",
                     error: (e: AppError) => buildError(e),
                 });
             }
@@ -1862,11 +1859,11 @@ function TaskDialog({
 
     function doDelete() {
         if (!editing) return;
-        confirm?.show(`Delete task "${editing.title}"?`, async () => {
+        confirm?.show(`למחוק את המשימה "${editing.title}"?`, async () => {
             try {
                 await toast.promise(del.mutateAsync(editing.id), {
-                    loading: "Deleting…",
-                    success: "Task deleted",
+                    loading: "מוחק…",
+                    success: "המשימה נמחקה",
                     error: (e: AppError) => buildError(e),
                 });
                 onClose();
@@ -1902,10 +1899,10 @@ function TaskDialog({
                                 <CheckSquareIcon className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                {editing ? "Edit" : "New"}
+                                {editing ? "עריכת" : "חדש"}
                             </span>
                             <div className="h-4 w-px bg-slate-200" />
-                            <span className="text-[12.5px] text-slate-900 font-medium">Task</span>
+                            <span className="text-[12.5px] text-slate-900 font-medium">משימה</span>
                             <ResourceViewers
                                 resource={editing?.id ? `task:${editing.id}` : null}
                                 className="shrink-0"
@@ -1914,8 +1911,8 @@ function TaskDialog({
                                 <button
                                     type="button"
                                     onClick={doDelete}
-                                    className="ml-2 size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors"
-                                    aria-label="Delete task"
+                                    className="ms-2 size-7 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center transition-colors"
+                                    aria-label="מחק משימה"
                                 >
                                     <TrashIcon className="w-3 h-3" />
                                 </button>
@@ -1923,8 +1920,8 @@ function TaskDialog({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                aria-label="Close"
-                                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                                aria-label="סגור"
+                                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                             >
                                 <XIcon className="w-3.5 h-3.5" />
                             </button>
@@ -1932,32 +1929,32 @@ function TaskDialog({
 
                         <div className="px-4 py-4 space-y-3 overflow-y-auto min-h-0 flex-1">
                             <div>
-                                <Label>Title</Label>
+                                <Label>כותרת</Label>
                                 <TextInput
                                     value={title}
                                     onChange={setTitle}
-                                    placeholder="e.g. Follow up on Acme cold reply"
+                                    placeholder="לדוגמה: מעקב אחר תגובה מליד"
                                     autoFocus
                                     className="w-full"
                                 />
                             </div>
                             <div>
-                                <Label>Description</Label>
+                                <Label>תיאור</Label>
                                 <textarea
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
-                                    placeholder="Optional notes…"
+                                    placeholder="הערות אופציונליות…"
                                     rows={3}
                                     className="w-full px-2.5 py-1.5 rounded-md border border-slate-200 bg-white text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none transition-colors focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-y"
                                 />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
-                                    <Label>Task type</Label>
+                                    <Label>סוג משימה</Label>
                                     <TaskTypePicker value={type} onChange={setType} />
                                 </div>
                                 <div>
-                                    <Label>Assignee</Label>
+                                    <Label>אחראי</Label>
                                     <AssigneePicker
                                         value={assignedTo}
                                         members={members}
@@ -1970,24 +1967,24 @@ function TaskDialog({
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
-                                    <Label>Due date</Label>
+                                    <Label>תאריך יעד</Label>
                                     <DueInDays value={dueDays} onChange={setDueDays} />
                                 </div>
                                 <div>
-                                    <Label>Priority</Label>
+                                    <Label>עדיפות</Label>
                                     <PriorityPill value={priority} onChange={setPriority} />
                                 </div>
                             </div>
                             {editing && (
                                 <div>
-                                    <Label>Status</Label>
+                                    <Label>סטטוס</Label>
                                     <div className="inline-flex rounded-md bg-slate-100 p-0.5 w-full gap-0.5">
                                         {(
                                             [
-                                                ["pending", "Pending"],
-                                                ["in_progress", "In progress"],
-                                                ["completed", "Done"],
-                                                ["cancelled", "Cancelled"],
+                                                ["pending", "ממתין"],
+                                                ["in_progress", "בביצוע"],
+                                                ["completed", "הושלם"],
+                                                ["cancelled", "בוטל"],
                                             ] as const
                                         ).map(([id, label]) => (
                                             <button
@@ -2012,9 +2009,9 @@ function TaskDialog({
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="ml-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                                className="ms-auto h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                             >
-                                Cancel
+                                ביטול
                             </button>
                             <button
                                 type="button"
@@ -2025,7 +2022,7 @@ function TaskDialog({
                                 {(create.isPending || update.isPending) && (
                                     <Loader2Icon className="w-3 h-3 animate-spin" />
                                 )}
-                                {editing ? "Save task" : "Create task"}
+                                {editing ? "שמור משימה" : "צור משימה"}
                             </button>
                         </div>
                     </motion.div>
@@ -2062,7 +2059,7 @@ function AssigneePicker({
             : memberLabel(cur)
         : curTeam
           ? curTeam.name
-          : "Unassigned";
+          : "לא מוקצה";
 
     return (
         <PopoverMenu open={open} onOpenChange={setOpen} align="start">
@@ -2083,13 +2080,13 @@ function AssigneePicker({
                     ) : (
                         <span className="size-2 rounded-full bg-slate-300 shrink-0" />
                     )}
-                    <span className="truncate flex-1 text-left">{triggerLabel}</span>
-                    <span className="ml-auto text-slate-400">▾</span>
+                    <span className="truncate flex-1 text-start">{triggerLabel}</span>
+                    <span className="ms-auto text-slate-400">▾</span>
                 </button>
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={240} className="max-h-72 overflow-y-auto">
                 <div className="px-3 pt-1.5 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    Person
+                    איש צוות
                 </div>
                 <PopoverMenuItem
                     onSelect={() => onChange("")}
@@ -2097,7 +2094,7 @@ function AssigneePicker({
                     closeOnSelect={false}
                     icon={<span className="size-2 rounded-full bg-slate-300 block" />}
                 >
-                    No person
+                    ללא איש צוות
                 </PopoverMenuItem>
                 {members.map((m) => (
                     <PopoverMenuItem
@@ -2116,7 +2113,7 @@ function AssigneePicker({
                 ))}
                 <div className="my-1 h-px bg-slate-200" />
                 <div className="px-3 pt-0.5 pb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                    Team
+                    צוות
                 </div>
                 {teams.length === 0 ? (
                     <Link
@@ -2125,7 +2122,7 @@ function AssigneePicker({
                         className="flex items-center gap-2 px-3 h-8 text-[12px] text-slate-500 hover:text-sky-700 hover:bg-slate-50 transition-colors"
                     >
                         <UsersRoundIcon className="w-3.5 h-3.5 shrink-0" />
-                        No teams yet, create one in Settings
+                        אין צוותים עדיין, צור צוות בהגדרות
                     </Link>
                 ) : (
                     <>
@@ -2135,7 +2132,7 @@ function AssigneePicker({
                             closeOnSelect={false}
                             icon={<span className="size-2 rounded-full bg-slate-300 block" />}
                         >
-                            No team
+                            ללא צוות
                         </PopoverMenuItem>
                         {teams.map((t) => (
                             <PopoverMenuItem
@@ -2179,7 +2176,7 @@ function PriorityPill({
                 >
                     <span className={`size-1.5 rounded-full ${cur.dot}`} />
                     <span className="truncate">{cur.label}</span>
-                    <span className="ml-auto text-slate-400">▾</span>
+                    <span className="ms-auto text-slate-400">▾</span>
                 </button>
             </PopoverMenuTrigger>
             <PopoverMenuContent>
@@ -2225,9 +2222,9 @@ function fmtDue(d: string) {
         tomorrow.setDate(tomorrow.getDate() + 1);
         const dueDay = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
 
-        if (dueDay.getTime() === today.getTime()) return "Today";
-        if (dueDay.getTime() === tomorrow.getTime()) return "Tomorrow";
-        return dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        if (dueDay.getTime() === today.getTime()) return "היום";
+        if (dueDay.getTime() === tomorrow.getTime()) return "מחר";
+        return dt.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
     } catch {
         return "—";
     }

@@ -74,11 +74,11 @@ interface ReplyComposerProps {
 }
 
 const SCHEDULE_PRESETS: { label: string; at: () => Date }[] = [
-    { label: "In 1 hour", at: () => offsetHours(1) },
-    { label: "In 3 hours", at: () => offsetHours(3) },
-    { label: "Tomorrow 9:00", at: () => atHour(1, 9) },
-    { label: "Tomorrow 17:00", at: () => atHour(1, 17) },
-    { label: "Monday 9:00", at: () => nextMonday9() },
+    { label: "בעוד שעה", at: () => offsetHours(1) },
+    { label: "בעוד 3 שעות", at: () => offsetHours(3) },
+    { label: "מחר 9:00", at: () => atHour(1, 9) },
+    { label: "מחר 17:00", at: () => atHour(1, 17) },
+    { label: "יום שני 9:00", at: () => nextMonday9() },
 ];
 
 // Body length cap. Generous; real replies rarely come close.
@@ -123,9 +123,9 @@ function formatFriendly(d: Date): string {
         d.getFullYear() === now.getFullYear() &&
         d.getMonth() === now.getMonth() &&
         d.getDate() === now.getDate();
-    const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    if (sameDay) return `today, ${time}`;
-    return d.toLocaleString(undefined, {
+    const time = d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    if (sameDay) return `היום, ${time}`;
+    return d.toLocaleString("he-IL", {
         month: "short",
         day: "numeric",
         hour: "2-digit",
@@ -183,7 +183,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     });
     const closeKeepingDraft = () => {
         if (!draft.flush()) {
-            toast.error("Could not save this draft in your browser. Keep a copy before leaving.");
+            toast.error("לא ניתן היה לשמור טיוטה זו בדפדפן. העתק את התוכן לפני עזיבה.");
             return;
         }
         onClose();
@@ -218,13 +218,6 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     // the thread keys this component on both, so one arrives as a fresh mount
     // with fresh initial state. The only thing that changes in place is `seed`:
     // a cancelled undo-send puts the draft back while the composer stays open.
-    //
-    // Nothing derived from `replyTo` belongs in these dependencies. The thread
-    // rebuilds its message objects on every render, so `initial` is a new value
-    // each time, and the thread re-renders constantly while it is open (a
-    // teammate's presence diff, an arriving mail, a mark-seen, any realtime
-    // invalidation). Depending on it cleared the body between keystrokes, which
-    // made a reply impossible to type.
     const resumeDraft = draft.resume;
     React.useEffect(() => {
         if (!seed) return;
@@ -272,7 +265,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 return;
             }
             if (!accountId) {
-                toast.error("Couldn't resolve the sending mailbox");
+                toast.error("לא זוהתה תיבת דואר לשליחה");
                 return;
             }
         }
@@ -299,9 +292,6 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     : { send_mode: "instant" as const }),
             });
             if (!scheduledAt && res.send_mode === "instant") {
-                // Undo window: no "queued" toast; the header pill counts
-                // down and can cancel, reopening this composer via the
-                // reply payload.
                 addOutbox({
                     taskId: res.task_id,
                     scheduledAt: resolveSendAt(res.scheduled_at, user.undo_send_seconds || 30),
@@ -323,7 +313,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             } else {
                 toast.success(
                     scheduledAt
-                        ? `Scheduled for ${formatFriendly(scheduledAt)}`
+                        ? `מתוזמן ל-${formatFriendly(scheduledAt)}`
                         : mode === "forward"
                           ? "העברה תוזמנה"
                           : "תשובה תוזמנה",
@@ -344,11 +334,11 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const handleInstant = () => send();
     const handleSchedule = (d: Date) => {
         if (!Number.isFinite(d.getTime()) || d.getTime() <= Date.now() + 5_000) {
-            toast.error("Pick a future time (a few seconds out, please)");
+            toast.error("בחר מועד עתידי");
             return;
         }
         if (d.getTime() - Date.now() > MAX_SCHEDULE_MS) {
-            toast.error("Scheduled send can't be more than 29 days out");
+            toast.error("שליחה מתוזמנת לא יכולה לעלות על 29 ימים");
             return;
         }
         send(d);
@@ -362,34 +352,19 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     };
 
     const applyTemplate = (name: string, plain: string, subj: string) => {
-        // Replace body if empty; otherwise append under a separator so
-        // the user keeps whatever they already typed.
         if (!body.trim()) {
             setBody(plain);
         } else {
             setBody((b) => `${b.trimEnd()}\n\n${plain}`);
         }
-        // Only overwrite subject when the user hasn't customised it
-        // past the default "Re:" / "Fwd:" prefix.
         const subj0 = subject.trim();
         if (subj && (/^re:\s*$/i.test(subj0) || /^fwd:\s*$/i.test(subj0))) {
             setSubject(subj);
         }
         setTemplateOpen(false);
-        toast.success(`Inserted "${name}"`);
+        toast.success(`הוכנסה תבנית "${name}"`);
     };
 
-    // Three signature states the user might be in. Surfacing all
-    // three (not just the "on" case) so it's never a surprise when a
-    // signature shows up at send-time, AND never a surprise when it
-    // doesn't because sync is disabled in mailbox settings.
-    //
-    //   on   : signature_sync is true AND a signature is configured.
-    //          We'll append it on send, so we render the preview and
-    //          a confirming pill in the action bar.
-    //   off  : a signature exists but sync is off in settings. We
-    //          tell the user so they don't assume it'll be sent.
-    //   none : no signature configured for this mailbox.
     type SignatureState =
         | { kind: "on"; preview: string }
         | { kind: "off"; preview: string }
@@ -401,13 +376,13 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
         return { kind: "off", preview: plain };
     }, [mailbox?.signature_plain, mailbox?.signature_sync]);
 
-    const replyToName = replyTo.from ? nameFromAddr(replyTo.from) : "(unknown sender)";
+    const replyToName = replyTo.from ? nameFromAddr(replyTo.from) : "(שולח לא ידוע)";
     const replyToAddr = replyTo.from ? bareEmail(replyTo.from) : "";
-    const replyTargetSubject = replyTo.subject?.trim() || "(no subject)";
+    const replyTargetSubject = replyTo.subject?.trim() || "(ללא נושא)";
 
     const scheduleTooltip = scheduleAtCap
-        ? `Schedule queue full (${scheduledUsed}/${scheduledCap}). Cancel some from the Scheduled view.`
-        : "Send later, up to 29 days out";
+        ? `תור התזמון מלא (${scheduledUsed}/${scheduledCap}). בטל פריטים מתצוגת המתוזמנים.`
+        : "שלח מאוחר יותר, עד 29 ימים קדימה";
 
     return (
         <motion.div
@@ -423,7 +398,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             <div className="h-8 pl-4 pr-1.5 flex items-center gap-2 bg-slate-50 border-b border-slate-200 select-none">
                 <CornerUpLeftIcon
                     className={cn(
-                        "w-3.5 h-3.5 shrink-0",
+                        "w-3.5 h-3.5 shrink-0 rtl:scale-x-[-1]",
                         mode === "forward" ? "rotate-180 text-violet-500" : "text-slate-500",
                     )}
                     aria-hidden
@@ -433,19 +408,19 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     title={replyToAddr ? `${replyToName} <${replyToAddr}>` : replyToName}
                 >
                     <span className="font-semibold text-slate-800">
-                        {mode === "forward" ? "Forward" : "Reply"}
+                        {mode === "forward" ? "העבר" : "השב"}
                     </span>{" "}
-                    to {replyToName}
+                    אל {replyToName}
                     <span className="text-slate-400"> · {replyTargetSubject}</span>
                 </span>
                 {draft.saved && (
                     <span className="hidden sm:inline text-[10.5px] text-slate-400 shrink-0">
-                        Draft saved
+                        טיוטה נשמרה
                     </span>
                 )}
                 {draft.failed && (
                     <span role="status" className="text-[10.5px] text-amber-700 shrink-0">
-                        Draft not saved
+                        טיוטה לא נשמרה
                     </span>
                 )}
                 {draft.hasDraft && (
@@ -464,8 +439,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 <button
                     type="button"
                     onClick={closeKeepingDraft}
-                    aria-label="Close composer, keeping the draft"
-                    title="Close, keeping the draft"
+                    aria-label="סגור תוך שמירת הטיוטה"
+                    title="סגור תוך שמירת הטיוטה"
                     className="size-6 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors shrink-0"
                 >
                     <XIcon className="w-3.5 h-3.5" />
@@ -476,10 +451,10 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 quiet inline label, hairline between rows, no label lane or
                 divider column. */}
             <div className="shrink-0 bg-white">
-                <HeaderRow label="To">
+                <HeaderRow label="אל">
                     <ContactRecipientField value={to} onChange={setTo} placeholder="name@example.com" />
                     {(!showCc || !showBcc) && (
-                        <div className="ml-auto flex items-center gap-0.5 shrink-0 self-start pt-px">
+                        <div className="ms-auto flex items-center gap-0.5 shrink-0 self-start pt-px">
                             {!showCc && (
                                 <button
                                     type="button"
@@ -504,28 +479,28 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
 
                 {showCc && (
                     <HeaderRow
-                        label="Cc"
+                        label="עותק"
                         onRemove={() => {
                             setCc([]);
                             setShowCc(false);
                         }}
                     >
-                        <ContactRecipientField value={cc} onChange={setCc} placeholder="הוסף נמעני Cc" />
+                        <ContactRecipientField value={cc} onChange={setCc} placeholder="הוסף נמעני עותק" />
                     </HeaderRow>
                 )}
                 {showBcc && (
                     <HeaderRow
-                        label="Bcc"
+                        label="עותק מוסתר"
                         onRemove={() => {
                             setBcc([]);
                             setShowBcc(false);
                         }}
                     >
-                        <ContactRecipientField value={bcc} onChange={setBcc} placeholder="הוסף נמעני Bcc" />
+                        <ContactRecipientField value={bcc} onChange={setBcc} placeholder="הוסף נמעני עותק מוסתר" />
                     </HeaderRow>
                 )}
 
-                <HeaderRow label="From">
+                <HeaderRow label="מאת">
                     {mailbox ? (
                         <div className="inline-flex items-center gap-2 min-w-0">
                             <span className="text-[12.5px] text-slate-800 truncate">
@@ -537,7 +512,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         </div>
                     ) : (
                         <span className="text-[12px] text-amber-700">
-                            No sending mailbox resolved
+                            לא זוהתה תיבת דואר לשליחה
                         </span>
                     )}
                 </HeaderRow>
@@ -547,7 +522,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         type="text"
                         value={subject}
                         onChange={(e) => setSubject(e.target.value)}
-                        placeholder="Subject"
+                        placeholder="נושא ההודעה"
                         className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none"
                     />
                 </div>
@@ -563,8 +538,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY_LEN))}
                 placeholder={
                     mode === "forward"
-                        ? "Add a note (optional). ⌘J for AI, ⌘Enter to send."
-                        : "Write your reply. ⌘J for AI, ⌘Enter to send."
+                        ? "הוסף הערה (אופציונלי). ⌘J ל-AI, ⌘Enter לשליחה."
+                        : "כתוב את תגובתך. ⌘J ל-AI, ⌘Enter לשליחה."
                 }
                 onKeyDown={(e) => {
                     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -584,9 +559,9 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             <AIDraftBar
                 ctrl={aiDraft}
                 busyLabels={[
-                    "Reading the thread…",
-                    mode === "forward" ? "Writing your note…" : "Writing your reply…",
-                    "Polishing…",
+                    "קורא את השרשור…",
+                    mode === "forward" ? "כותב הערת העברה…" : "כותב תגובה…",
+                    "מלטש…",
                 ]}
             />
             </div>
@@ -620,14 +595,14 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <div className="px-3 py-1.5 flex items-center gap-1.5 border-b border-emerald-200/40 bg-emerald-50/60">
                         <PenLineIcon className="w-3 h-3 text-emerald-700" />
                         <span className="text-[10px] uppercase tracking-[0.14em] text-emerald-800 font-semibold">
-                            Signature appended on send
+                            חתימה תצורף בעת השליחה
                         </span>
                         <span
-                            className="ml-auto inline-flex items-center gap-1 text-[10px] text-emerald-700/80"
-                            title="Manage this in mailbox settings"
+                            className="ms-auto inline-flex items-center gap-1 text-[10px] text-emerald-700/80"
+                            title="נהל זאת בהגדרות תיבת הדואר"
                         >
                             <InfoIcon className="w-2.5 h-2.5" />
-                            from {mailbox?.email ?? "this mailbox"}
+                            מתוך {mailbox?.email ?? "תיבה זו"}
                         </span>
                     </div>
                     <pre className="px-3 py-2 m-0 font-sans text-[11.5px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-28 overflow-y-auto md:max-h-none">
@@ -639,25 +614,19 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 <div className="mx-4 mb-2 px-3 py-2 rounded-md border border-amber-200/60 bg-amber-50/50 flex items-start gap-2 text-[11.5px] text-amber-900">
                     <InfoIcon className="w-3 h-3 mt-0.5 shrink-0 text-amber-700" />
                     <span className="leading-snug">
-                        A signature is saved for this mailbox but signature
-                        sync is off, so it will <strong>not</strong> be
-                        appended on send. Turn sync on in mailbox settings
-                        to include it automatically.
+                        נשמרה חתימה לתיבת דואר זו, אך סנכרון חתימות כבוי, ולכן היא <strong>לא</strong> תצורף בשליחה. הפעל סנכרון בהגדרות התיבה לצירוף אוטומטי.
                     </span>
                 </div>
             )}
             {signatureState.kind === "none" && (
                 <div className="mx-4 mb-2 px-3 py-1.5 rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400 flex items-center gap-1.5">
                     <PenLineIcon className="w-3 h-3" />
-                    No signature on this mailbox. Type one inline or set
-                    one in mailbox settings.
+                    אין חתימה מוגדרת לתיבה זו. הקלד ידנית או הגדר חתימה בהגדרות התיבה.
                 </div>
             )}
 
             {/* Action bar. flex-wrap so the Send + Schedule + Template
-                + Discard chain doesn't overflow on a 360px-wide phone;
-                the counter (ml-auto) keeps the right edge whether it
-                wraps to a second line or stays on the first. */}
+                + Discard chain doesn't overflow on a 360px-wide phone */}
             <div className="px-3 py-2 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5">
                 <button
                     type="button"
@@ -668,9 +637,9 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     {isSending ? (
                         <Loader2Icon className="w-3 h-3 animate-spin" />
                     ) : (
-                        <SendIcon className="w-3 h-3" />
+                        <SendIcon className="w-3 h-3 rtl:scale-x-[-1]" />
                     )}
-                    {isSending ? "Sending" : "Send"}
+                    {isSending ? "שולח..." : "שלח"}
                 </button>
 
                 {/* Schedule picker. Direct button trigger (no Tooltip
@@ -693,7 +662,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <ClockIcon className="w-3 h-3" />
-                            Schedule
+                            תזמן
                             <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                         </button>
                     </PopoverMenuTrigger>
@@ -720,14 +689,14 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                             className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                                         >
                                             <CheckIcon className="w-3 h-3" />
-                                            Schedule
+                                            תזמן
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setCustomMode(false)}
                                             className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
                                         >
-                                            Back
+                                            חזרה
                                         </button>
                                     </div>
                                 </motion.div>
@@ -739,7 +708,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
                                 >
-                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
+                                    <PopoverMenuLabel>שלח ב-</PopoverMenuLabel>
                                     {SCHEDULE_PRESETS.map((p) => (
                                         <PopoverMenuItem
                                             key={p.label}
@@ -753,7 +722,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                                         onSelect={() => setCustomMode(true)}
                                         closeOnSelect={false}
                                     >
-                                        Pick a time
+                                        בחר מועד
                                     </PopoverMenuItem>
                                 </motion.div>
                             )}
@@ -761,9 +730,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     </PopoverMenuContent>
                 </PopoverMenu>
 
-                {/* Template picker. Custom rich rows (not
-                    PopoverMenuItem) so each row can run two lines
-                    without the wrapper truncating them. */}
+                {/* Template picker */}
                 <PopoverMenu
                     align="start"
                     side="top"
@@ -777,7 +744,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors"
                         >
                             <FileTextIcon className="w-3 h-3" />
-                            Template
+                            תבנית
                             <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                         </button>
                     </PopoverMenuTrigger>
@@ -799,7 +766,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
 
                 <span
                     className={cn(
-                        "ml-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
+                        "ms-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
                         signatureState.kind === "on" &&
                             "bg-emerald-50 text-emerald-700",
                         signatureState.kind === "off" &&
@@ -809,10 +776,10 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     )}
                     title={
                         signatureState.kind === "on"
-                            ? "Your mailbox signature will be appended to this reply on send."
+                            ? "חתימת תיבת הדואר שלך תצורף לתשובה זו בעת השליחה."
                             : signatureState.kind === "off"
-                              ? "A signature exists but sync is off, so it will not be appended."
-                              : "No signature configured for this mailbox."
+                              ? "קיימת חתימה אך סנכרון כבוי, ולכן היא לא תצורף."
+                              : "לא הוגדרה חתימה לתיבת דואר זו."
                     }
                 >
                     <PenLineIcon className="w-2.5 h-2.5" />
@@ -829,8 +796,6 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     );
 }
 
-// HeaderRow : one plain labelled line in the composer header, matching the
-// compose window: quiet inline label, hairline underneath, nothing else.
 function HeaderRow({
     label,
     onRemove,
@@ -848,7 +813,7 @@ function HeaderRow({
                 <button
                     type="button"
                     onClick={onRemove}
-                    aria-label={`Remove ${label}`}
+                    aria-label={`הסר ${label}`}
                     className="size-5 inline-flex items-center justify-center rounded text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors shrink-0"
                 >
                     <XIcon className="w-3 h-3" />

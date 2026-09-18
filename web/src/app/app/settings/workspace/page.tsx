@@ -135,17 +135,17 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
 
     return (
         <SectionShell
-            title="Workspace"
-            description="Org-wide settings. Visible only to the owner."
+            title="סביבת עבודה"
+            description="הגדרות כלל-ארגוניות. גלויות למנהל בלבד."
             actions={<SaveStatus status={autosave.status} onRetry={autosave.retry} />}
         >
             <Section
-                eyebrow="Identity"
-                description="How this workspace is named and addressed."
+                eyebrow="זהות"
+                description="כיצד סביבת עבודה זו נקראת ומוגדרת."
             >
                 <Row
-                    label="Workspace avatar"
-                    description="Square logo or initials. Shown in the org switcher and on shared report URLs."
+                    label="תמונת סביבת עבודה"
+                    description="לוגו מרובע או ראשי תיבות. מוצג במחליף הארגונים ובדוחות משותפים."
                     align="start"
                 >
                     <AvatarUploader
@@ -160,12 +160,12 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
                         }}
                     />
                 </Row>
-                <Row label="Workspace name" description="Shown in the sidebar and invitation emails.">
+                <Row label="שם סביבת העבודה" description="מוצג בסרגל הצד ובמיילי הזמנה לצוות.">
                     <TextInput value={name} onChange={setName} className="w-full max-w-[280px]" />
                 </Row>
                 <Row
-                    label="Workspace ID"
-                    description="Stable identifier. Used in API calls and support tickets."
+                    label="מזהה סביבת עבודה"
+                    description="מזהה יציב וקבוע. משמש בקריאות API ובפניות תמיכה."
                     align="start"
                 >
                     <input
@@ -178,16 +178,16 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
             </Section>
 
             <Section
-                eyebrow="Sending defaults"
-                description="Used by new campaigns unless overridden."
+                eyebrow="ברירות מחדל לשליחה"
+                description="בשימוש עבור קמפיינים חדשים אלא אם הוגדר אחרת."
             >
                 <Row
-                    label="Default daily cap"
-                    description="Built-in safety: 50/day per cold mailbox. Raise per-campaign if needed."
+                    label="מגבלת שליחה יומית כברירת מחדל"
+                    description="הגנת בטיחות מובנית: 50 ביום לכל תיבת שליחה קרה. ניתן להגדיל לכל קמפיין בנפרד לפי הצורך."
                 >
                     <input
                         type="text"
-                        value="50 / day"
+                        value="50 / יום"
                         disabled
                         className="w-full max-w-[120px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12px] text-slate-500"
                     />
@@ -195,37 +195,37 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
             </Section>
 
             <Section
-                eyebrow="Privacy & compliance"
-                description="Headers and identifiers attached to every send."
+                eyebrow="פרטיות ותאימות"
+                description="כותרות ומזהים המצורפים לכל שליחה."
             >
                 <Row
-                    label="Unsubscribe and opt-out"
-                    description="The opt-out line every campaign email carries, and the suppression list, live under Sending."
+                    label="הסרה ובקשות אי-שליחה"
+                    description="שורת ההסרה שכל מייל בקמפיין נושא, ורשימת החסימות, מנוהלים תחת הגדרות שליחה."
                 >
                     <Link to="/app/settings/sending" className="text-[12px] text-sky-700 hover:text-sky-800 font-medium">
-                        Open sending settings
+                        פתח הגדרות שליחה
                     </Link>
                 </Row>
                 <ToggleRow
-                    label="Track opens by default"
-                    description="Inserts a 1×1 pixel. Disable for highest deliverability."
+                    label="מעקב פתיחות כברירת מחדל"
+                    description="מכניס פיקסל שקוף 1×1. כבה לקבלת יכולת מסירה מקסימלית."
                 />
             </Section>
 
             <Section
-                eyebrow="Team presence"
-                description="What members can see about each other in real time. Applies to everyone in the workspace."
+                eyebrow="נוכחות צוות"
+                description="מה חברי הצוות יכולים לראות זה על זה בזמן אמת. חל על כולם בסביבת העבודה."
             >
                 <ToggleRow
-                    label="Show who's online"
-                    description="Display the live avatar stack of members currently in the dashboard. Off hides all online presence from teammates."
+                    label="הצג מי מחובר"
+                    description="הצג תמונות של חברים המחוברים כעת למערכת. כיבוי יסתיר נוכחות מחברי הצוות."
                     checked={showOnline}
                     onChange={onToggleOnline}
                     disabled={!canManageSettings}
                 />
                 <ToggleRow
-                    label="Show activity"
-                    description="Let teammates see what someone is viewing, editing, or replying to. Off keeps online status but hides the detail."
+                    label="הצג פעילות בזמן אמת"
+                    description="אפשר לחברי צוות לראות במה מישהו צופה, עורך או משיב. כיבוי ישמור על סטטוס מחובר אך יסתיר את הפרטים."
                     checked={showActivity && showOnline}
                     onChange={onToggleActivity}
                     disabled={!canManageSettings || !showOnline}
@@ -233,20 +233,12 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
             </Section>
 
             <Section
-                eyebrow={isHe ? "פרופיל קול AI" : "AI voice profile"}
-                description={
-                    isHe
-                        ? "הגדרת קול המותג עבור כל כלי ה-AI (עוזר כתיבה, טיוטות תשובה, מחקר) כדי שהניסוחים ישמעו אותנטיים. ללא הגבלת תווים."
-                        : "Grounds every AI writing surface (assistant, reply drafts, research openers) so drafts sound like you and know what you sell. All optional, no character limits."
-                }
+                eyebrow="פרופיל קול AI"
+                description="הגדרת קול המותג עבור כל כלי ה-AI (עוזר כתיבה, טיוטות תשובה, מחקר) כדי שהניסוחים ישמעו אותנטיים. ללא הגבלת תווים."
             >
                 <Row
-                    label={isHe ? "מה אתה מוכר" : "What you sell"}
-                    description={
-                        isHe
-                            ? "פירוט מלא על המוצר, השירותים והערך שאתה מספק (ללא הגבלת תווים)."
-                            : "Detailed description of your product, services, and value proposition (unlimited)."
-                    }
+                    label="מה אתה מוכר"
+                    description="פירוט מלא על המוצר, השירותים והערך שאתה מספק (ללא הגבלת תווים)."
                     align="start"
                 >
                     <Textarea
@@ -255,21 +247,13 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
                         onBlur={() => saveVoiceField("product_description", productDesc, orgQuery.data?.product_description ?? "")}
                         disabled={!canManageSettings}
                         rows={4}
-                        placeholder={
-                            isHe
-                                ? "אנחנו עוזרים לצוותי מכירות לשמור על CRM נקי על ידי..."
-                                : "We help RevOps teams keep their CRM clean by..."
-                        }
+                        placeholder="אנחנו עוזרים לצוותי מכירות לשמור על CRM נקי על ידי..."
                         className="w-full max-w-[640px] text-[12.5px]"
                     />
                 </Row>
                 <Row
-                    label={isHe ? "למי אתה מוכר" : "Who you sell to"}
-                    description={
-                        isHe
-                            ? "פרופיל הלקוח האידיאלי (ICP): תפקידים, ענף, גודל חברות והכאבים שהם חווים."
-                            : "Your ideal customer profile (ICP): role, industry, company size, key pain points."
-                    }
+                    label="למי אתה מוכר"
+                    description="פרופיל הלקוח האידיאלי (ICP): תפקידים, ענף, גודל חברות והכאבים שהם חווים."
                     align="start"
                 >
                     <Textarea
@@ -278,21 +262,13 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
                         onBlur={() => saveVoiceField("icp_notes", icpNotes, orgQuery.data?.icp_notes ?? "")}
                         disabled={!canManageSettings}
                         rows={4}
-                        placeholder={
-                            isHe
-                                ? "מנהלי מכירות בחברות SaaS B2B של 50-500 עובדים ש..."
-                                : "Heads of RevOps at 50-500 person B2B SaaS companies who..."
-                        }
+                        placeholder="מנהלי מכירות בחברות SaaS B2B של 50-500 עובדים ש..."
                         className="w-full max-w-[640px] text-[12.5px]"
                     />
                 </Row>
                 <Row
-                    label={isHe ? "טון דיבור וסגנון" : "House voice"}
-                    description={
-                        isHe
-                            ? "איך אתה רוצה להישמע: הנחיות סגנון, אישיות, ביטויים לשימוש או להימנעות, חוקים ספציפיים."
-                            : "How you want to sound: tone, persona, phrases to use or avoid, specific rules."
-                    }
+                    label="טון דיבור וסגנון"
+                    description="איך אתה רוצה להישמע: הנחיות סגנון, אישיות, ביטויים לשימוש או להימנעות, חוקים ספציפיים."
                     align="start"
                 >
                     <Textarea
@@ -301,23 +277,19 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
                         onBlur={() => saveVoiceField("voice_profile", voiceProfile, orgQuery.data?.voice_profile ?? "")}
                         disabled={!canManageSettings}
                         rows={5}
-                        placeholder={
-                            isHe
-                                ? "ישיר וחם, שאל שאלות קצרות, הימנע מביטויי שיווק קלישאתיים, הצע תמיד ערך מוחשי לפני קריאה לפעולה."
-                                : "Direct and warm, ask short questions, avoid marketing cliches, always offer concrete value before CTA."
-                        }
+                        placeholder="ישיר וחם, שאל שאלות קצרות, הימנע מביטויי שיווק קלישאתיים, הצע תמיד ערך מוחשי לפני קריאה לפעולה."
                         className="w-full max-w-[640px] text-[12.5px]"
                     />
                 </Row>
             </Section>
 
             <Section
-                eyebrow="Inbox agent"
-                description={`On an inbound human reply, draft a suggested reply in your voice and hold it in the unibox for review. It never sends on its own.${metered ? " Paid feature; each handled reply costs 5 AI credits." : ""}`}
+                eyebrow="סוכן תיבת דואר"
+                description={`כאשר מתקבלת תגובה מאדם, הסוכן מנסח הצעת תשובה בקול שלך וממתין לאישורך בתיבה. לעולם לא נשלח עצמאית.${metered ? " תכונה בתשלום; כל תגובה מנוסחת עולה 5 קרדיטים של AI." : ""}`}
             >
                 <ToggleRow
-                    label="Draft replies for me"
-                    description="When someone replies, the agent writes a suggested reply and attaches it to the thread under Agent drafts. You approve-and-send, edit, or discard it."
+                    label="נסח עבורי תשובות אוטומטית"
+                    description="כאשר נמען משיב, הסוכן מנסח תשובה מוצעת ומצרף אותה לשרשור תחת 'טיוטות סוכן'. תוכל לאשר ולשלוח, לערוך או למחוק."
                     checked={inboxAgent}
                     onChange={onToggleInboxAgent}
                     disabled={!canManageSettings}
@@ -325,12 +297,12 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
             </Section>
 
             <Section
-                eyebrow="AI assistant"
-                description="How the assistant's conversation history works across the team."
+                eyebrow="עוזר AI"
+                description="כיצד היסטוריית השיחות של העוזר מנוהלת בין חברי הצוות."
             >
                 <ToggleRow
-                    label="Shared history"
-                    description="Every member with the Use AI permission sees and can continue every assistant conversation in this workspace, instead of only their own. Turning it on exposes existing conversations to the whole team."
+                    label="היסטוריית שיחות משותפת"
+                    description="כל חבר צוות עם הרשאת שימוש ב-AI רואה ויכול להמשיך כל שיחת עוזר בסביבת עבודה זו, במקום רק את שלו. הפעלה תחשוף שיחות קיימות לכל הצוות."
                     checked={sharedHistory}
                     onChange={onToggleSharedHistory}
                     disabled={!canManageSettings}
@@ -340,13 +312,13 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null;
             <AdvisorSettingsSection canManage={canManageSettings} />
 
             <Section
-                eyebrow="Workspace stats"
-                description="Snapshot of how this workspace is being used."
+                eyebrow="סטטיסטיקת סביבת עבודה"
+                description="תמונת מצב של השימוש בסביבת עבודה זו."
             >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <Stat label="Members" value={1} />
-                    <Stat label="Mailboxes" value={0} />
-                    <Stat label="Campaigns" value={0} />
+                    <Stat label="חברים" value={1} />
+                    <Stat label="תיבות דואר" value={0} />
+                    <Stat label="קמפיינים" value={0} />
                 </div>
             </Section>
         </SectionShell>

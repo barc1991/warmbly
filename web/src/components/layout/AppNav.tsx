@@ -778,8 +778,8 @@ function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
     if (collapsed) {
         const summary =
             capacity > 0
-                ? `${sentToday.toLocaleString()} of ${capacity.toLocaleString()} sent today`
-                : `${sentToday.toLocaleString()} sent today`;
+                ? `${sentToday.toLocaleString()} מתוך ${capacity.toLocaleString()} נשלחו היום`
+                : `${sentToday.toLocaleString()} נשלחו היום`;
         return (
             <Tooltip>
                 <TooltipTrigger asChild>
@@ -787,7 +787,7 @@ function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
                         to="/app/analytics"
                         className="group mx-auto mt-2 mb-3 flex w-8 flex-col items-center gap-1 rounded-md border border-slate-200/70 bg-white/80 px-1 py-1.5 transition-colors hover:border-slate-300 hover:bg-white"
                     >
-                        <span className="sr-only">Analytics · {summary}</span>
+                        <span className="sr-only">אנליטיקה · {summary}</span>
                         <span aria-hidden className="text-[10px] font-semibold leading-none tabular-nums text-slate-900">
                             {compactN(sentToday)}
                         </span>
@@ -820,7 +820,7 @@ function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
                             {scrub.sent.toLocaleString()}
                         </span>
                         <span className="text-[10.5px] text-slate-500">
-                            sent {formatTrendDay(scrub.date)}
+                            נשלח ב-{formatTrendDay(scrub.date)}
                         </span>
                     </>
                 ) : (
@@ -831,8 +831,8 @@ function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
                         />
                         <span className="text-[10.5px] text-slate-500">
                             {capacity > 0
-                                ? `of ${capacity.toLocaleString()} sent today`
-                                : "sent today"}
+                                ? `מתוך ${capacity.toLocaleString()} נשלחו היום`
+                                : "נשלחו היום"}
                         </span>
                     </>
                 )}
@@ -844,8 +844,8 @@ function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
                 className="mt-1.5 px-2.5"
                 title={
                     capacity > 0
-                        ? `${sentToday} of ${capacity} daily capacity used`
-                        : "Connect a mailbox to start sending"
+                        ? `${sentToday} מתוך ${capacity} קיבולת יומית בשימוש`
+                        : "חבר תיבת דואר כדי להתחיל לשלוח"
                 }
             >
                 <div className="h-1 rounded-full bg-sky-100 overflow-hidden">
@@ -872,7 +872,7 @@ function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
                 {active > 0 && (
                     <span
                         className="inline-flex items-center gap-1 text-emerald-600"
-                        title={`${active} warming or sending`}
+                        title={`${active} פעילים בחימום או שליחה`}
                     >
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         <span className="font-mono tabular-nums">{active}</span>
@@ -880,10 +880,10 @@ function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
                 )}
                 <span
                     className={cn(
-                        "ml-auto inline-flex items-center gap-1",
+                        "ms-auto inline-flex items-center gap-1",
                         unseenCount > 0 ? "text-sky-600" : "text-slate-400",
                     )}
-                    title={`${unseenCount} unread in inbox`}
+                    title={`${unseenCount} הודעות שלא נקראו בתיבה`}
                 >
                     <InboxIcon className="w-3 h-3" />
                     <span className="font-mono tabular-nums">
@@ -900,7 +900,7 @@ function formatTrendDay(iso: string): string {
     const d = new Date(iso);
     return Number.isNaN(d.getTime())
         ? iso
-        : d.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+        : d.toLocaleDateString("he-IL", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 // Sparkline geometry. Width matches the card's inner width (sidebar w-64
@@ -1081,9 +1081,9 @@ export function AppNav({ open = false, onClose }: { open?: boolean; onClose?: ()
 
             <aside
                 className={cn(
-                    // Mobile: off-canvas drawer that slides in from the left.
-                    "fixed inset-y-0 left-0 z-50 w-64 flex flex-col text-slate-900 bg-white shadow-2xl transition-transform duration-300 ease-out",
-                    open ? "translate-x-0" : "-translate-x-full",
+                    // Mobile: off-canvas drawer that slides in from the left/right.
+                    "fixed inset-y-0 start-0 z-50 w-64 flex flex-col text-slate-900 bg-white shadow-2xl transition-transform duration-300 ease-out",
+                    open ? "translate-x-0" : "-translate-x-full rtl:translate-x-full",
                     // >=md: static sidebar column over the chrome, no transform/shadow.
                     "md:static md:z-auto md:translate-x-0 md:bg-transparent md:shadow-none shrink-0",
                     // Width is the only thing that animates on >=md; the drawer's
@@ -1184,12 +1184,12 @@ function CollapseToggle({
                 )}
             >
                 {collapsed ? (
-                    <PanelLeftOpenIcon className="w-[14px] h-[14px] shrink-0 text-slate-400 group-hover:text-slate-600" strokeWidth={1.6} />
+                    <PanelLeftOpenIcon className="w-[14px] h-[14px] shrink-0 text-slate-400 group-hover:text-slate-600 rtl:scale-x-[-1]" strokeWidth={1.6} />
                 ) : (
-                    <PanelLeftCloseIcon className="w-[14px] h-[14px] shrink-0 text-slate-400 group-hover:text-slate-600" strokeWidth={1.6} />
+                    <PanelLeftCloseIcon className="w-[14px] h-[14px] shrink-0 text-slate-400 group-hover:text-slate-600 rtl:scale-x-[-1]" strokeWidth={1.6} />
                 )}
                 {!collapsed && (
-                    <span className="truncate flex-1 min-w-0 text-left">Collapse</span>
+                    <span className="truncate flex-1 min-w-0 text-start">צמצם סרגל</span>
                 )}
             </button>
         </ShortcutTooltip>

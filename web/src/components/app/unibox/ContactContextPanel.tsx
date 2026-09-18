@@ -58,9 +58,9 @@ import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
 
 const DEAL_STATUS: Record<Deal["status"], { label: string; cls: string; dot: string }> = {
-    open: { label: "Open", cls: "text-slate-600", dot: "bg-slate-400" },
-    won: { label: "Won", cls: "text-emerald-700", dot: "bg-emerald-500" },
-    lost: { label: "Lost", cls: "text-red-700", dot: "bg-red-500" },
+    open: { label: "פתוח", cls: "text-slate-600", dot: "bg-slate-400" },
+    won: { label: "נסגר בהצלחה", cls: "text-emerald-700", dot: "bg-emerald-500" },
+    lost: { label: "אבוד", cls: "text-red-700", dot: "bg-red-500" },
 };
 
 const PRIORITY_DOT: Record<CRMTask["priority"], string> = {
@@ -71,10 +71,10 @@ const PRIORITY_DOT: Record<CRMTask["priority"], string> = {
 };
 
 const PRIORITY_OPTS: { id: CRMTask["priority"]; label: string }[] = [
-    { id: "low", label: "Low" },
-    { id: "medium", label: "Med" },
-    { id: "high", label: "High" },
-    { id: "urgent", label: "Urgent" },
+    { id: "low", label: "נמוך" },
+    { id: "medium", label: "בינוני" },
+    { id: "high", label: "גבוה" },
+    { id: "urgent", label: "דחוף" },
 ];
 
 export default function ContactContextPanel({
@@ -114,14 +114,14 @@ export default function ContactContextPanel({
 
     return (
         <>
-            {/* Below lg the panel renders as a right-side overlay drawer; this
+            {/* Below lg the panel renders as a side overlay drawer; this
                 backdrop dims the thread behind it and closes on tap. */}
             <div
                 className="lg:hidden fixed inset-0 z-[55] bg-slate-900/30"
                 onClick={onClose}
                 aria-hidden
             />
-            <aside className="fixed inset-y-0 right-0 z-[60] flex w-[min(20rem,90vw)] shrink-0 flex-col border-l border-slate-200 bg-white min-h-0 shadow-xl lg:static lg:z-auto lg:w-80 lg:shadow-none">
+            <aside className="fixed inset-y-0 end-0 z-[60] flex w-[min(20rem,90vw)] shrink-0 flex-col border-s border-slate-200 bg-white min-h-0 shadow-xl lg:static lg:z-auto lg:w-80 lg:shadow-none">
             <div className="h-12 px-4 border-b border-slate-200 flex items-center gap-2 shrink-0 bg-white">
                 <span className="text-[12.5px] font-semibold text-slate-900">איש קשר</span>
                 {onClose && (
@@ -129,7 +129,7 @@ export default function ContactContextPanel({
                         type="button"
                         onClick={onClose}
                         aria-label="סגור פאנל איש קשר"
-                        className="ml-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                        className="ms-auto size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                     >
                         <XIcon className="w-3.5 h-3.5" />
                     </button>
@@ -140,7 +140,7 @@ export default function ContactContextPanel({
                 {lookup.isPending ? (
                     <div className="flex items-center justify-center gap-2 py-10 text-[12px] text-slate-400">
                         <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-                        Resolving contact…
+                        מאתר איש קשר…
                     </div>
                 ) : !contact ? (
                     <NotAContact email={email} name={fromName} />
@@ -168,15 +168,15 @@ export default function ContactContextPanel({
                                 )}
                                 {supp && (
                                     <Badge tone="red" icon={<BanIcon className="w-2.5 h-2.5" />}>
-                                        Suppressed
+                                        מושהה
                                     </Badge>
                                 )}
                                 <Link
                                     to="/app/contacts"
-                                    className="ml-auto inline-flex items-center gap-1 text-[10.5px] text-slate-400 hover:text-sky-700 transition-colors"
+                                    className="ms-auto inline-flex items-center gap-1 text-[10.5px] text-slate-400 hover:text-sky-700 transition-colors"
                                 >
-                                    Contacts
-                                    <ExternalLinkIcon className="w-2.5 h-2.5" />
+                                    אנשי קשר
+                                    <ExternalLinkIcon className="w-2.5 h-2.5 rtl:rotate-180" />
                                 </Link>
                             </div>
                             {/* Meeting actions: schedule a call right here (native,
@@ -189,7 +189,7 @@ export default function ContactContextPanel({
                                     className="h-7 px-2 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[11.5px] font-medium inline-flex items-center gap-1.5 transition-colors"
                                 >
                                     <CalendarPlusIcon className="w-3 h-3" />
-                                    Schedule call
+                                    תיאום פגישה
                                 </button>
                                 <BookACallButton email={contact.email} name={name} contactId={contact.id} />
                             </div>
@@ -197,7 +197,7 @@ export default function ContactContextPanel({
                                 <div className="mt-2 rounded-md border border-red-200 bg-red-50/60 px-2 py-1.5 flex items-start gap-1.5">
                                     <MailWarningIcon className="w-3 h-3 text-red-600 mt-px shrink-0" />
                                     <span className="text-[10.5px] text-red-700/90 leading-snug">
-                                        {supp.reason || "Suppressed"} ({supp.source})
+                                        {supp.reason || "מושהה"} ({supp.source})
                                     </span>
                                 </div>
                             )}
@@ -321,7 +321,7 @@ function DealsSection({
 
     async function submit() {
         if (!name.trim()) {
-            toast.error("Deal name required");
+            toast.error("נדרש שם עסקה");
             return;
         }
         const data: Partial<Deal> = {
@@ -339,8 +339,8 @@ function DealsSection({
         if (mailboxId) data.source_mailbox_id = mailboxId;
         try {
             await toast.promise(create.mutateAsync(data), {
-                loading: "Creating deal…",
-                success: "Deal created",
+                loading: "יוצר עסקה…",
+                success: "העסקה נוצרה",
                 error: (e: AppError) => buildError(e),
             });
             setOpen(false);
@@ -354,7 +354,7 @@ function DealsSection({
         try {
             await toast.promise(
                 updateDeal.mutateAsync({ id: dealId, data: { stage_id: newStageId } as Partial<Deal> }),
-                { loading: "Moving…", success: "Moved", error: (e: AppError) => buildError(e) },
+                { loading: "מעביר…", success: "הועבר", error: (e: AppError) => buildError(e) },
             );
         } catch {
             /* surfaced */
@@ -369,23 +369,21 @@ function DealsSection({
                     <AddButton open={open} onClick={() => setOpen((o) => !o)} />
                 ) : (
                     <Link to="/app/crm/pipelines" className="text-[10.5px] text-slate-400 hover:text-sky-700">
-                        Add a pipeline
+                        הוסף תהליך מכירה
                     </Link>
                 )
             }
         >
             {open && canAdd && (
                 <div className="mb-2 rounded-md border border-slate-200 bg-white p-2 space-y-1.5">
-                    <TextInput value={name} onChange={setName} placeholder="Deal name" className="w-full" autoFocus />
+                    <TextInput value={name} onChange={setName} placeholder="שם העסקה" className="w-full" autoFocus />
                     <div className="flex items-center gap-1.5">
                         <StagePicker stages={stages} value={stageId} onChange={setStageId} className="flex-1" />
-                        <TextInput value={value} onChange={setValue} placeholder="Value" className="w-[88px]" />
+                        <TextInput value={value} onChange={setValue} placeholder="שווי" className="w-[88px]" />
                     </div>
                     {(campaignId || mailboxId) && (
                         <p className="text-[10px] text-slate-400 leading-snug">
-                            Attributed to this {campaignId ? "campaign" : ""}
-                            {campaignId && mailboxId ? " + " : ""}
-                            {mailboxId ? "mailbox" : ""}.
+                            משויך ל{campaignId ? "קמפיין" : ""}{campaignId && mailboxId ? " + " : ""}{mailboxId ? "תיבת דואר" : ""} זו.
                         </p>
                     )}
                     <button
@@ -395,14 +393,14 @@ function DealsSection({
                         className="w-full h-7 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium inline-flex items-center justify-center gap-1 transition-colors disabled:opacity-60"
                     >
                         {create.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                        Create deal
+                        צור עסקה
                     </button>
                 </div>
             )}
             {loading ? (
                 <RowSkeleton />
             ) : deals.length === 0 ? (
-                <Empty icon={<CircleDollarSignIcon className="w-3.5 h-3.5" />} text="No deals yet" />
+                <Empty icon={<CircleDollarSignIcon className="w-3.5 h-3.5" />} text="אין עסקאות עדיין" />
             ) : (
                 <div className="space-y-1">
                     {deals.map((d) => {
@@ -480,8 +478,8 @@ function StagePicker({
                         className="size-1.5 rounded-full shrink-0"
                         style={{ backgroundColor: cur?.color || "#94a3b8" }}
                     />
-                    <span className={compact ? "truncate" : "truncate flex-1 text-left"}>
-                        {cur?.name ?? "Stage"}
+                    <span className={compact ? "truncate" : "truncate flex-1 text-start"}>
+                        {cur?.name ?? "שלב"}
                     </span>
                     <ChevronDownIcon className="w-3 h-3 text-slate-400 shrink-0" />
                 </button>
@@ -536,7 +534,7 @@ function TasksSection({
 
     async function submit() {
         if (!title.trim()) {
-            toast.error("Task title required");
+            toast.error("נדרשת כותרת משימה");
             return;
         }
         const data: Partial<CRMTask> = {
@@ -550,8 +548,8 @@ function TasksSection({
         if (dealId) data.deal_id = dealId;
         try {
             await toast.promise(create.mutateAsync(data), {
-                loading: "Adding task…",
-                success: "Task added",
+                loading: "מוסיף משימה…",
+                success: "המשימה נוספה",
                 error: (e: AppError) => buildError(e),
             });
             setOpen(false);
@@ -571,7 +569,7 @@ function TasksSection({
                     <TextInput
                         value={title}
                         onChange={setTitle}
-                        placeholder={`Follow up with ${contactName}…`}
+                        placeholder={`מעקב מול ${contactName}…`}
                         className="w-full"
                         autoFocus
                     />
@@ -597,14 +595,14 @@ function TasksSection({
                     <textarea
                         value={desc}
                         onChange={(e) => setDesc(e.target.value)}
-                        placeholder="Details (optional)"
+                        placeholder="פרטים (אופציונלי)"
                         rows={2}
-                        className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-[12px] text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-none"
+                        className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-[12px] text-slate-700 placeholder:text-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-none text-start"
                     />
                     <p className="text-[10px] text-slate-400 leading-snug">
-                        Linked to {contactName}
+                        מקושר אל {contactName}
                         {company ? ` · ${company}` : ""}
-                        {dealId ? " · open deal" : ""}.
+                        {dealId ? " · עסקה פתוחה" : ""}.
                     </p>
                     <button
                         type="button"
@@ -613,14 +611,14 @@ function TasksSection({
                         className="w-full h-7 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11.5px] font-medium inline-flex items-center justify-center gap-1 transition-colors disabled:opacity-60"
                     >
                         {create.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <CheckIcon className="w-3 h-3" />}
-                        Create task
+                        צור משימה
                     </button>
                 </div>
             )}
             {loading ? (
                 <RowSkeleton />
             ) : tasks.length === 0 ? (
-                <Empty icon={<CheckSquareIcon className="w-3.5 h-3.5" />} text="No open tasks" />
+                <Empty icon={<CheckSquareIcon className="w-3.5 h-3.5" />} text="אין משימות פתוחות" />
             ) : (
                 <div className="space-y-1">
                     {tasks.map((t) => (
@@ -668,9 +666,9 @@ function NotesSection({
                 <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Add a note…"
+                    placeholder="הוסף הערה…"
                     rows={2}
-                    className="w-full bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none resize-none"
+                    className="w-full bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none resize-none text-start"
                 />
                 <div className="flex justify-end">
                     <button
@@ -680,14 +678,14 @@ function NotesSection({
                         className="h-6 px-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                     >
                         {create.isPending ? <Loader2Icon className="w-2.5 h-2.5 animate-spin" /> : <PlusIcon className="w-2.5 h-2.5" />}
-                        Note
+                        שמור הערה
                     </button>
                 </div>
             </div>
             {loading ? (
                 <RowSkeleton />
             ) : notes.length === 0 ? (
-                <Empty icon={<StickyNoteIcon className="w-3.5 h-3.5" />} text="No notes yet" />
+                <Empty icon={<StickyNoteIcon className="w-3.5 h-3.5" />} text="אין הערות עדיין" />
             ) : (
                 <div className="space-y-1.5">
                     {notes.slice(0, 5).map((n) => (
@@ -719,7 +717,7 @@ function Section({
         <div className="px-4 py-3">
             <div className="flex items-center gap-2 mb-2">
                 <span className="text-[10.5px] uppercase tracking-[0.12em] text-slate-400 font-medium">{label}</span>
-                {action && <span className="ml-auto">{action}</span>}
+                {action && <span className="ms-auto">{action}</span>}
             </div>
             {hint ? <p className="text-[11px] text-slate-400">{hint}</p> : children}
         </div>
@@ -734,7 +732,7 @@ function AddButton({ open, onClick }: { open: boolean; onClick: () => void }) {
             className="h-6 px-1.5 rounded-md border border-slate-200 hover:border-slate-300 text-[10.5px] text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 transition-colors"
         >
             {open ? <XIcon className="w-2.5 h-2.5" /> : <PlusIcon className="w-2.5 h-2.5" />}
-            {open ? "Cancel" : "Add"}
+            {open ? "ביטול" : "הוסף"}
         </button>
     );
 }
@@ -806,7 +804,7 @@ function NotAContact({ email, name }: { email?: string; name?: string }) {
         try {
             await toast.promise(
                 add.mutateAsync([{ first_name, last_name, email, company: "", phone: "", campaigns: [], custom_fields: {}, source: "manual" }]),
-                { loading: "Adding contact…", success: "Contact added", error: "Couldn't add contact" },
+                { loading: "מוסיף איש קשר…", success: "איש הקשר נוסף", error: "לא ניתן להוסיף איש קשר" },
             );
             await queryClient.invalidateQueries({ queryKey: ["contacts", "by-email", email] });
         } catch {
@@ -828,14 +826,14 @@ function NotAContact({ email, name }: { email?: string; name?: string }) {
                         className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[11.5px] font-medium transition-colors disabled:opacity-60"
                     >
                         {add.isPending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <PlusIcon className="w-3 h-3" />}
-                        Add as contact
+                        הוסף כאיש קשר
                     </button>
                 )}
                 <Link
                     to="/app/contacts"
                     className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-slate-200 hover:border-slate-300 text-[11.5px] text-slate-700 hover:text-slate-900 transition-colors"
                 >
-                    Manage contacts
+                    ניהול אנשי קשר
                 </Link>
             </div>
         </div>
@@ -867,7 +865,7 @@ function money(n: number, currency = "USD") {
 
 function fmtDate(d: string | Date) {
     try {
-        return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return new Date(d).toLocaleDateString("he-IL", { month: "short", day: "numeric" });
     } catch {
         return "";
     }

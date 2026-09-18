@@ -139,7 +139,7 @@ export function AppHeader({ onMenu }: { onMenu?: () => void }) {
                 </Crumb>
                 {crumbs.map(({ seg, to }) => (
                     <div key={to} className="hidden md:flex items-center gap-2 min-w-0">
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0 rtl:rotate-180" />
                         {to === currentPath ? (
                             <span className="text-[13px] font-medium text-slate-900 truncate">
                                 {pretty(seg)}

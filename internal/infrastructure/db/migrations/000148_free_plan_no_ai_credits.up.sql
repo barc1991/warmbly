@@ -9,7 +9,7 @@ UPDATE plans
 SET monthly_credits = 1000000,
     max_contacts = 100000000,
     daily_emails = 10000000,
-    ai = true,
+    ai_generation = true,
     account_limit = 0,
     max_campaigns = NULL,
     max_active_campaigns = NULL,

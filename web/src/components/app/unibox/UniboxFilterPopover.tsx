@@ -154,13 +154,13 @@ export function UniboxFilterButton({
               ? "text-sky-700 bg-sky-50 hover:bg-sky-100"
               : "text-slate-500 hover:text-slate-900 hover:bg-slate-100",
           )}
-          aria-label={active > 0 ? `Filters (${active} active)` : "Filters"}
+          aria-label={active > 0 ? `מסננים (${active} פעילים)` : "מסננים"}
         >
           <ListFilterIcon className="w-4 h-4" />
           {active > 0 && (
             <span
               aria-hidden
-              className="absolute top-1 right-1 size-1.5 rounded-full bg-sky-500 ring-2 ring-white"
+              className="absolute top-1 end-1 size-1.5 rounded-full bg-sky-500 ring-2 ring-white"
             />
           )}
         </button>
@@ -255,45 +255,45 @@ function FilterPanel({
   return (
     <div className="text-[12.5px]">
       <div className="h-10 px-3.5 flex items-center border-b border-slate-100">
-        <span className="font-semibold text-slate-900">Filters</span>
+        <span className="font-semibold text-slate-900">מסננים</span>
         {active > 0 && (
           <button
             type="button"
             onClick={clear}
-            className="ml-auto h-6 px-1.5 -mr-1.5 rounded text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            className="ms-auto h-6 px-1.5 -me-1.5 rounded text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
           >
-            Clear all
+            נקה הכל
           </button>
         )}
       </div>
 
       <div className="px-3.5 py-2.5 space-y-3">
         {canReadState && (
-          <Row label="Show">
+          <Row label="סטטוס">
             <Segmented<boolean | undefined>
               value={params.unseen}
               onChange={(v) => setParams((s) => ({ ...s, unseen: v }))}
               options={[
-                { id: undefined, label: "All" },
-                { id: true, label: "Unread" },
-                { id: false, label: "Read" },
+                { id: undefined, label: "הכל" },
+                { id: true, label: "לא נקרא" },
+                { id: false, label: "נקרא" },
               ]}
             />
           </Row>
         )}
 
         {canDates && (
-          <Row label="Date">
+          <Row label="תאריך">
             <div className="space-y-1.5">
               <Segmented<DatePreset>
                 value={showCustom ? "custom" : preset}
                 onChange={pickPreset}
                 options={[
-                  { id: "any", label: "Any" },
-                  { id: "today", label: "Today" },
-                  { id: "week", label: "7d" },
-                  { id: "month", label: "30d" },
-                  { id: "custom", label: "Custom" },
+                  { id: "any", label: "הכל" },
+                  { id: "today", label: "היום" },
+                  { id: "week", label: "7 ימים" },
+                  { id: "month", label: "30 יום" },
+                  { id: "custom", label: "מותאם" },
                 ]}
               />
               {showCustom && (
@@ -301,14 +301,14 @@ function FilterPanel({
                   <DatePicker
                     value={toIso(params.since)}
                     onChange={(v) => setParams((s) => ({ ...s, since: fromIso(v) }))}
-                    placeholder="From"
+                    placeholder="מתאריך"
                     className="flex-1 min-w-0"
                   />
-                  <span className="text-slate-300">to</span>
+                  <span className="text-slate-300">עד</span>
                   <DatePicker
                     value={toIso(params.until)}
                     onChange={(v) => setParams((s) => ({ ...s, until: fromIso(v) }))}
-                    placeholder="Until"
+                    placeholder="עד תאריך"
                     className="flex-1 min-w-0"
                   />
                 </div>
@@ -317,17 +317,17 @@ function FilterPanel({
           </Row>
         )}
 
-        <Row label="From">
+        <Row label="מאת">
           <TextInput
             value={from}
             onChange={setFrom}
-            placeholder="Name or address"
-            className="w-full"
+            placeholder="שם או כתובת דוא״ל"
+            className="w-full text-start"
           />
         </Row>
 
         {canLabels && categories.length > 0 && (
-          <Row label="Labels" top>
+          <Row label="תוויות" top>
             <div className="flex flex-wrap gap-1">
               {categories.map((c) => (
                 <Chip
@@ -343,7 +343,7 @@ function FilterPanel({
         )}
 
         {canMailboxes && (
-          <Row label="Mailbox" top>
+          <Row label="תיבה" top>
             <div className="space-y-1.5">
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
@@ -366,7 +366,7 @@ function FilterPanel({
                       key={a.id}
                       type="button"
                       onClick={() => toggleAccount(a.id)}
-                      className="w-full h-7 px-1 rounded-md flex items-center gap-2 text-left hover:bg-slate-50 transition-colors"
+                      className="w-full h-7 px-1 rounded-md flex items-center gap-2 text-start hover:bg-slate-50 transition-colors"
                     >
                       <span
                         className={cn(
@@ -387,13 +387,13 @@ function FilterPanel({
           </Row>
         )}
 
-        <Row label="Sort">
+        <Row label="מיון">
           <Segmented<"newest" | "oldest">
             value={params.sortBy ?? "newest"}
             onChange={(v) => setParams((s) => ({ ...s, sortBy: v }))}
             options={[
-              { id: "newest", label: "Newest first" },
-              { id: "oldest", label: "Oldest first" },
+              { id: "newest", label: "החדש ביותר" },
+              { id: "oldest", label: "הישן ביותר" },
             ]}
           />
         </Row>
@@ -424,7 +424,7 @@ export function UniboxFilterChips({
   if (u.unseen !== undefined) {
     chips.push({
       key: "unseen",
-      label: u.unseen ? "Unread" : "Read",
+      label: u.unseen ? "לא נקרא" : "נקרא",
       remove: () => setParams((s) => ({ ...s, unseen: base.unseen })),
     });
   }
@@ -432,16 +432,16 @@ export function UniboxFilterChips({
     const p = presetOf(u.since, u.until);
     const label =
       p === "today"
-        ? "Today"
+        ? "היום"
         : p === "week"
-          ? "Last 7 days"
+          ? "7 הימים האחרונים"
           : p === "month"
-            ? "Last 30 days"
+            ? "30 הימים האחרונים"
             : u.since && u.until
-              ? `${shortDate(u.since)} to ${shortDate(u.until)}`
+              ? `${shortDate(u.since)} עד ${shortDate(u.until)}`
               : u.since
-                ? `Since ${shortDate(u.since)}`
-                : `Until ${shortDate(u.until!)}`;
+                ? `מאז ${shortDate(u.since)}`
+                : `עד ${shortDate(u.until!)}`;
     chips.push({
       key: "date",
       label,
@@ -451,7 +451,7 @@ export function UniboxFilterChips({
   if (u.from) {
     chips.push({
       key: "from",
-      label: `From ${u.from}`,
+      label: `מאת ${u.from}`,
       remove: () => setParams((s) => ({ ...s, from: base.from })),
     });
   }
@@ -468,10 +468,10 @@ export function UniboxFilterChips({
   if (u.accountIds && u.accountIds.length > 0) {
     const tag = u.tagId ? (user.tags ?? []).find((t) => t.id === u.tagId) : undefined;
     const label = tag
-      ? `Tag ${tag.title}`
+      ? `תגית ${tag.title}`
       : u.accountIds.length === 1
-        ? (accounts.find((a) => a.id === u.accountIds![0])?.email ?? "1 mailbox")
-        : `${u.accountIds.length} mailboxes`;
+        ? (accounts.find((a) => a.id === u.accountIds![0])?.email ?? "תיבה 1")
+        : `${u.accountIds.length} תיבות דואר`;
     chips.push({
       key: "accounts",
       label,
@@ -487,21 +487,21 @@ export function UniboxFilterChips({
       {chips.map((c) => (
         <span
           key={c.key}
-          className="inline-flex items-center h-6 pl-2 pr-0.5 rounded-md bg-sky-50 text-sky-800 text-[11.5px] font-medium max-w-full"
+          className="inline-flex items-center h-6 ps-2 pe-0.5 rounded-md bg-sky-50 text-sky-800 text-[11.5px] font-medium max-w-full"
         >
           <button
             type="button"
             onClick={onOpen}
             className="truncate max-w-[180px] hover:text-sky-900"
-            title="Edit filters"
+            title="ערוך מסננים"
           >
             {c.label}
           </button>
           <button
             type="button"
             onClick={c.remove}
-            aria-label={`Remove filter ${c.label}`}
-            className="ml-0.5 size-5 rounded inline-flex items-center justify-center text-sky-500 hover:text-sky-900 hover:bg-sky-100 transition-colors"
+            aria-label={`הסר מסנן ${c.label}`}
+            className="ms-0.5 size-5 rounded inline-flex items-center justify-center text-sky-500 hover:text-sky-900 hover:bg-sky-100 transition-colors"
           >
             <XIcon className="w-3 h-3" />
           </button>
@@ -513,7 +513,7 @@ export function UniboxFilterChips({
           onClick={() => setParams((s) => ({ ...base, sortBy: s.sortBy }))}
           className="h-6 px-1.5 rounded text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
         >
-          Clear
+          נקה
         </button>
       )}
     </div>

@@ -31,6 +31,13 @@ import useInboxTagReview from "@/lib/api/hooks/app/inboxtag/useInboxTagReview";
 import type { InboxTagRow } from "@/lib/api/models/app/inboxtag/InboxTagReview";
 import { cn } from "@/lib/utils";
 
+const PRIORITY_LABELS: Record<string, string> = {
+    now: "עכשיו",
+    today: "היום",
+    whenever: "בהזדמנות",
+    ignore: "התעלם",
+};
+
 const PRIORITY_TONE: Record<string, string> = {
     now: "bg-rose-50 text-rose-700",
     today: "bg-amber-50 text-amber-700",
@@ -48,7 +55,7 @@ function pct(v: number): string {
 function ConfidenceChip({ value, floorBreached }: { value: number; floorBreached: boolean }) {
     return (
         <span
-            title={floorBreached ? "Below the confidence floor — nothing was acted on" : "Model confidence"}
+            title={floorBreached ? "מתחת לסף הוודאות — לא בוצעה פעולה" : "וודאות המודל"}
             className={cn(
                 "shrink-0 px-1.5 rounded font-mono text-[10.5px] tabular-nums",
                 floorBreached ? "bg-rose-50 text-rose-700" : value >= 0.9 ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600",
@@ -63,7 +70,7 @@ function Row({ r }: { r: InboxTagRow }) {
     return (
         <div className="px-5 py-3 flex items-start gap-3 hover:bg-slate-50 transition-colors">
             <span
-                title={`Relevance ${r.relevance} of 100`}
+                title={`רלוונטיות ${r.relevance} מתוך 100`}
                 className="shrink-0 w-9 text-right font-mono text-[12.5px] tabular-nums text-slate-900"
             >
                 {r.relevance}
@@ -74,13 +81,13 @@ function Row({ r }: { r: InboxTagRow }) {
                     PRIORITY_TONE[r.priority] ?? PRIORITY_TONE.ignore,
                 )}
             >
-                {r.priority || "—"}
+                {PRIORITY_LABELS[r.priority] || r.priority || "—"}
             </span>
 
             <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                     {r.labels.length === 0 ? (
-                        <span className="text-[11.5px] text-slate-400">no labels</span>
+                        <span className="text-[11.5px] text-slate-400">אין תוויות</span>
                     ) : (
                         r.labels.map((l) => (
                             <TagMeaningTooltip key={l} title={l}>
@@ -96,13 +103,13 @@ function Row({ r }: { r: InboxTagRow }) {
                         {r.thread_id || "—"}
                     </span>
                     <span>·</span>
-                    <span title="Where the verdict came from">
-                        {r.kind_source === "header" ? "decided offline" : `model ${r.model}`}
+                    <span title="מקור ההחלטה">
+                        {r.kind_source === "header" ? "הוכרע מקומית" : `מודל ${r.model}`}
                     </span>
                     {r.input_tokens > 0 && (
                         <>
                             <span>·</span>
-                            <span title="Input tokens; output is not billed">{r.input_tokens} tok</span>
+                            <span title="טוקנים של קלט; פלט אינו מחויב">{r.input_tokens} טוקנים</span>
                         </>
                     )}
                 </div>
@@ -129,7 +136,7 @@ export default function InboxTaggingPage() {
     const d = q.data?.pages[0];
 
     if (!canView) {
-        return <NoAccess feature="automatic inbox tagging" permissionLabel="View analytics" />;
+        return <NoAccess feature="תיוג תיבת דואר אוטומטי" permissionLabel="צפייה באנליטיקה" />;
     }
 
     const rows = q.data?.pages.flatMap((page) => page.data) ?? [];
@@ -137,30 +144,28 @@ export default function InboxTaggingPage() {
     return (
         <Page>
             <PageTopbar
-                eyebrow="Automatic inbox tagging"
-                subtitle="What the classifier decided, and how sure it was. Phase 1 writes labels only."
+                eyebrow="תיוג תיבת דואר אוטומטי"
+                subtitle="החלטות המסווג ורמת הוודאות. שלב 1 מפיק תוויות בלבד ללא פעולות אוטומטיות."
             />
 
             {!d?.enabled && !q.isPending && !q.isError && (
                 <div className="mx-5 mt-4 px-3 py-2.5 rounded-md border border-amber-200 bg-amber-50 flex items-start gap-2">
                     <InfoIcon className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-[11.5px] text-amber-800 leading-relaxed">
-                        Classification is off on this instance. It needs a <code className="font-mono">TYPESAFE_API_KEY</code> and{" "}
-                        <code className="font-mono">INBOX_TAGGING_ENABLED=true</code>. It sends message content to the
-                        configured classifier, so it stays off until an operator turns it on deliberately. Timestamp-only
-                        follow-up labels continue to run locally.
+                        סיווג אוטומטי כבוי בסביבה זו. נדרש מפתח <code className="font-mono">TYPESAFE_API_KEY</code> והגדרה{" "}
+                        <code className="font-mono">INBOX_TAGGING_ENABLED=true</code>. תוכן ההודעות נשלח למסווג שהוגדר, ולכן הוא נשאר כבוי עד להפעלתו במכוון. תגיות מעקב מבוססות חותמת זמן ממשיכות לפעול מקומית.
                     </p>
                 </div>
             )}
 
             <StatStrip cols={4}>
-                <Stat label="Classified" value={q.isPending ? "—" : (d?.summary.total ?? 0).toLocaleString()} sub="messages" accent={(d?.summary.total ?? 0) > 0} />
-                <Stat label="Needs review" value={q.isPending ? "—" : (d?.summary.needs_review ?? 0).toLocaleString()} sub="below the confidence floor" />
-                <Stat label="Decided offline" value={q.isPending ? "—" : (d?.summary.from_offline ?? 0).toLocaleString()} sub="no model call made" />
-                <Stat label="Actions taken" value="0" sub="phase 1 writes labels only" last />
+                <Stat label="סווגו" value={q.isPending ? "—" : (d?.summary.total ?? 0).toLocaleString()} sub="הודעות" accent={(d?.summary.total ?? 0) > 0} />
+                <Stat label="דורש בדיקה" value={q.isPending ? "—" : (d?.summary.needs_review ?? 0).toLocaleString()} sub="מתחת לרף הוודאות" />
+                <Stat label="הוכרע מקומית" value={q.isPending ? "—" : (d?.summary.from_offline ?? 0).toLocaleString()} sub="ללא קריאה למודל" />
+                <Stat label="פעולות שבוצעו" value="0" sub="שלב 1 מוסיף תוויות בלבד" last />
             </StatStrip>
 
-            <SectionBar label="Recent decisions" count={rows.length}>
+            <SectionBar label="החלטות אחרונות" count={rows.length}>
                 <button
                     type="button"
                     onClick={() => setNeedsReviewOnly((v) => !v)}
@@ -172,7 +177,7 @@ export default function InboxTaggingPage() {
                     )}
                 >
                     {needsReviewOnly ? <CheckIcon className="w-3 h-3" /> : <FilterIcon className="w-3 h-3" />}
-                    Needs review only
+                    דורש בדיקה בלבד
                 </button>
             </SectionBar>
 
@@ -187,14 +192,14 @@ export default function InboxTaggingPage() {
                         ))}
                     </div>
                 ) : q.isError ? (
-                    <EmptyBlock title="Couldn't load inbox tagging" body="Try again in a moment." />
+                    <EmptyBlock title="לא ניתן לטעון תיוג אוטומטי" body="נסה שוב בעוד מספר רגעים." />
                 ) : rows.length === 0 ? (
                     <EmptyBlock
-                        title={needsReviewOnly ? "Nothing needs review" : "Nothing classified yet"}
+                        title={needsReviewOnly ? "אין פריטים הדורשים בדיקה" : "טרם סווגו הודעות"}
                         body={
                             d?.enabled
-                                ? "Inbound mail is labelled as it arrives. Our own sends are never classified, and common automated replies are decided offline without a model call."
-                                : "Turn the feature on and inbound mail starts being labelled as it arrives."
+                                ? "דואר נכנס מתויג בעת הגעתו. הודעות יוצאות שלנו אינן מסווגות, ומענים אוטומטיים נפוצים מוכרעים מקומית ללא קריאה למודל."
+                                : "הפעל את התכונה כדי שדואר נכנס יתויג אוטומטית עם הגעתו."
                         }
                     />
                 ) : (
@@ -212,7 +217,7 @@ export default function InboxTaggingPage() {
                                     disabled={q.isFetchingNextPage}
                                     className="h-7 px-3 rounded-md border border-slate-200 text-[11.5px] text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                                 >
-                                    {q.isFetchingNextPage ? "Loading…" : "Load more"}
+                                    {q.isFetchingNextPage ? "טוען…" : "טען עוד"}
                                 </button>
                             </div>
                         )}
@@ -222,11 +227,11 @@ export default function InboxTaggingPage() {
 
             <div className="px-5 py-3 flex items-center gap-1.5 text-[11px] text-slate-400">
                 <SparklesIcon className="w-3 h-3" />
-                Every label is a workspace label, so the{" "}
+                כל תווית היא תווית ארגונית, כך שניתן לסנן לפיה בתוך{" "}
                 <Link to="/app/unibox/all" className="underline underline-offset-2 hover:text-slate-700">
-                    inbox
+                    תיבת הדואר
                 </Link>{" "}
-                filters on them like any other.
+                כמו כל תווית רגילה.
             </div>
         </Page>
     );
