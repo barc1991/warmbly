@@ -73,20 +73,20 @@ type StepKey = "basics" | "schedule" | "sending" | "email" | "audience" | "send"
 type StepDef = { key: StepKey; label: string; icon: typeof MegaphoneIcon };
 
 const SEQUENCE_STEPS: readonly StepDef[] = [
-    { key: "basics", label: "Basics", icon: MegaphoneIcon },
-    { key: "schedule", label: "Schedule", icon: CalendarClockIcon },
-    { key: "sending", label: "Sending", icon: SendIcon },
-    { key: "email", label: "First email", icon: MailIcon },
+    { key: "basics", label: "בסיס", icon: MegaphoneIcon },
+    { key: "schedule", label: "לוח זמנים", icon: CalendarClockIcon },
+    { key: "sending", label: "שליחה", icon: SendIcon },
+    { key: "email", label: "אימייל ראשון", icon: MailIcon },
 ];
 
 // A one-time email asks for the message before the audience, and ends on the
 // send step where the estimate can see everything it depends on.
 const ONE_TIME_STEPS: readonly StepDef[] = [
-    { key: "basics", label: "Basics", icon: MegaphoneIcon },
-    { key: "email", label: "Email", icon: MailIcon },
-    { key: "audience", label: "Audience", icon: UsersIcon },
-    { key: "sending", label: "Sending", icon: SendIcon },
-    { key: "send", label: "Send", icon: CalendarClockIcon },
+    { key: "basics", label: "בסיס", icon: MegaphoneIcon },
+    { key: "email", label: "אימייל", icon: MailIcon },
+    { key: "audience", label: "קהל", icon: UsersIcon },
+    { key: "sending", label: "שליחה", icon: SendIcon },
+    { key: "send", label: "שלח", icon: CalendarClockIcon },
 ];
 
 function stepsFor(kind: CampaignKind): readonly StepDef[] {
@@ -205,10 +205,10 @@ function stepIssue(key: StepKey, d: Draft): string | null {
 }
 
 function daysLabel(mask: number): string {
-    if (mask === EVERY_DAY_MASK) return "Every day";
-    if (mask === WEEKDAYS_MASK) return "Weekdays";
+    if (mask === EVERY_DAY_MASK) return "כל יום";
+    if (mask === WEEKDAYS_MASK) return "ימי חול";
     const on = WEEKDAYS.filter((_, i) => (mask & (1 << i)) !== 0).map((d) => d.slice(0, 3));
-    return on.length === 0 ? "No days" : on.join(", ");
+    return on.length === 0 ? "אין ימים" : on.join(", ");
 }
 
 // "14:30" -> "2:30 PM"
@@ -511,9 +511,9 @@ export function NewCampaignDialog({ open, onClose }: Props) {
                             submitLabel={
                                 draft.kind === "one_time"
                                     ? draft.sendMode === "later"
-                                        ? "Schedule"
-                                        : "Send now"
-                                    : "Create campaign"
+                                        ? "תזמן"
+                                        : "שלח כעת"
+                                    : "צור קמפיין"
                             }
                             submitIcon={
                                 draft.kind === "one_time"
@@ -548,10 +548,10 @@ function Header({ kind, onClose }: { kind: CampaignKind; onClose: () => void }) 
             <div className="size-5 rounded bg-slate-100 text-slate-600 flex items-center justify-center">
                 <Icon className="w-3 h-3" />
             </div>
-            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">New</span>
+            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">חדש</span>
             <div className="h-4 w-px bg-slate-200" />
             <span className="text-[12.5px] text-slate-900 font-medium">
-                {kind === "one_time" ? "One-time email" : "Campaign"}
+                {kind === "one_time" ? "אימייל חד-פעמי" : "קמפיין"}
             </span>
             <button
                 type="button"
@@ -690,11 +690,11 @@ function Footer({
                     className="h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                 >
                     <ChevronLeftIcon className="w-3 h-3" />
-                    Back
+                    חזרה
                 </button>
             ) : (
                 <span className="text-[11px] text-slate-400 pl-1 hidden sm:inline">
-                    Everything here can be changed later.
+                    ניתן לשנות את הכל בהמשך.
                 </span>
             )}
 
@@ -721,7 +721,7 @@ function Footer({
                         onClick={onNext}
                         className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors shrink-0"
                     >
-                        Continue
+                        המשך
                         <ChevronRightIcon className="w-3 h-3" />
                     </button>
                 ) : (
@@ -806,7 +806,7 @@ function BasicsStep({
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="What are you sending?"
+                title="מה אתה שולח?"
                 hint="A sequence follows up over days; a one-time email goes out once to a segment. Both send through your mailbox pool at its daily caps."
             />
             <div className="space-y-4">
@@ -814,21 +814,21 @@ function BasicsStep({
                     <KindCard
                         selected={draft.kind === "sequence"}
                         icon={ListChecksIcon}
-                        title="Sequence"
+                        title="סיקוונץ"
                         description="Several emails with waits, branches and follow-ups. Add contacts and launch when ready."
                         onSelect={() => setKind("sequence")}
                     />
                     <KindCard
                         selected={draft.kind === "one_time"}
                         icon={SendIcon}
-                        title="One-time email"
+                        title="אימייל חד-פעמי"
                         description="One message to a segment, sent now or on a date, with no follow-ups."
                         onSelect={() => setKind("one_time")}
                     />
                 </div>
                 <div>
                     <div className="flex items-baseline justify-between">
-                        <Label>{draft.kind === "one_time" ? "Email name" : "Campaign name"}</Label>
+                        <Label>{draft.kind === "one_time" ? "שם אימייל" : "שם קמפיין"}</Label>
                         <span
                             className={cn(
                                 "text-[10.5px] tabular-nums",
@@ -853,11 +853,11 @@ function BasicsStep({
                     />
                 </div>
                 <div>
-                    <Label>Description</Label>
+                    <Label>תיאור</Label>
                     <TextInput
                         value={draft.description}
                         onChange={(v) => patch({ description: v })}
-                        placeholder="Optional. Who this targets and why."
+                        placeholder="אופציונלי. למי זה מיועד ולמה."
                         className="w-full"
                     />
                 </div>
@@ -874,7 +874,7 @@ function TimezoneField({ draft, patch }: { draft: Draft; patch: (p: Partial<Draf
     );
     return (
         <div>
-            <Label>Timezone</Label>
+            <Label>אזור זמן</Label>
             <SelectMenu
                 value={draft.timezone}
                 onChange={(v) => patch({ timezone: v })}
@@ -893,7 +893,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
         <>
             <div>
                 <div className="flex items-baseline justify-between">
-                    <Label>Sending days</Label>
+                    <Label>ימי שליחה</Label>
                     <div className="flex items-center gap-1 text-[10.5px]">
                         <button
                             type="button"
@@ -905,7 +905,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
                                     : "text-slate-400 hover:text-slate-700 hover:bg-slate-100",
                             )}
                         >
-                            Weekdays
+                            ימי חול
                         </button>
                         <button
                             type="button"
@@ -917,7 +917,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
                                     : "text-slate-400 hover:text-slate-700 hover:bg-slate-100",
                             )}
                         >
-                            Every day
+                            כל יום
                         </button>
                     </div>
                 </div>
@@ -928,7 +928,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
 
             <div className="grid grid-cols-2 gap-3">
                 <div>
-                    <Label>From</Label>
+                    <Label>התחלה</Label>
                     <TimePicker
                         value={draft.startTime}
                         onChange={(v) => patch({ startTime: v })}
@@ -938,7 +938,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
                     />
                 </div>
                 <div>
-                    <Label>Until</Label>
+                    <Label>סיום</Label>
                     <TimePicker
                         value={draft.endTime}
                         onChange={(v) => patch({ endTime: v })}
@@ -951,8 +951,8 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
 
             <p className={cn("text-[11.5px] leading-relaxed", windowInvalid ? "text-amber-700" : "text-slate-500")}>
                 {windowInvalid
-                    ? "The window ends before it starts. Pick an end time after the start time."
-                    : `${daysLabel(draft.days)}, ${fmt12(draft.startTime)} to ${fmt12(draft.endTime)}.`}
+                    ? "החלון מסתיים לפני שהוא מתחיל. בחר שעת סיום אחרי שעת ההתחלה."
+                    : `${daysLabel(draft.days)}, ${fmt12(draft.startTime)} עד ${fmt12(draft.endTime)}.`}
             </p>
         </>
     );
@@ -962,7 +962,7 @@ function ScheduleStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="When should it send?"
+                title="מתי לשלוח?"
                 hint="Sends stay inside this window in the campaign timezone and spread out across it."
             />
             <div className="space-y-5">
@@ -970,7 +970,7 @@ function ScheduleStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
                 <SendingWindowFields draft={draft} patch={patch} />
                 <div>
                     <div className="flex items-baseline justify-between">
-                        <Label>Wait before the first email</Label>
+                        <Label>המתנה לפני האימייל הראשון</Label>
                         <span className="text-[10.5px] text-slate-400">
                             {entryDelayLabel(draft.entryDelayMinutes)}
                         </span>
@@ -982,8 +982,7 @@ function ScheduleStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
                         />
                     </div>
                     <p className="mt-2 text-[11.5px] leading-relaxed text-slate-500">
-                        Counted from when a contact enters the campaign, so someone who joins a linked segment later
-                        waits the same amount from their own start. Follow-up waits are set on the steps.
+                        נסמר מרגע שאיש קשר נכנס לקמפיין, כך שמי שמצטרף לפלח מקושר מאוחר יותר ממתין את פרק הזמן המדויק מההתחלה שלו. השהיות מעקב מוגדרות בשלבים.
                     </p>
                 </div>
             </div>
@@ -996,12 +995,12 @@ function SendingStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="Who sends it, and how?"
+                title="מי שולח, ואיך?"
                 hint="Volume is split across every mailbox in the pool so no single sender carries the campaign."
             />
             <div className="space-y-5">
                 <div>
-                    <Label>Sender pool</Label>
+                    <Label>מאגר שולחים</Label>
                     <TagSelector
                         selected={draft.emailTagIds}
                         onAdd={(t) => patch({ emailTagIds: [...draft.emailTagIds, t] })}
