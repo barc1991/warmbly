@@ -138,9 +138,12 @@ func (c *Client) Send(
 	}
 
 	var msg bytes.Buffer
-	if len(attachments) > 0 {
+	switch {
+	case len(attachments) > 0:
 		c.writeMixedBody(&msg, headers, bodyPlain, bodyHTML, attachments)
-	} else {
+	case bodyHTML == "":
+		c.writePlainBody(&msg, headers, bodyPlain)
+	default:
 		c.writeAlternativeBody(&msg, headers, bodyPlain, bodyHTML)
 	}
 
@@ -152,6 +155,22 @@ func (c *Client) Send(
 
 	raw := msg.Bytes()
 	return raw, c.sendRaw(ctx, from.Address, recipients, raw)
+}
+
+// writePlainBody writes a pure single-part text/plain message with quoted-printable
+// encoding, used for plain-text campaigns and warmup mail (no multipart wrapper).
+func (c *Client) writePlainBody(msg *bytes.Buffer, headers map[string]string, bodyPlain string) {
+	headers["Content-Type"] = "text/plain; charset=UTF-8"
+	headers["Content-Transfer-Encoding"] = "quoted-printable"
+
+	for k, v := range headers {
+		fmt.Fprintf(msg, "%s: %s\r\n", k, v)
+	}
+	fmt.Fprint(msg, "\r\n")
+
+	qp := quotedprintable.NewWriter(msg)
+	qp.Write([]byte(bodyPlain))
+	qp.Close()
 }
 
 // writeAlternativeBody writes a multipart/alternative message (text/plain +
