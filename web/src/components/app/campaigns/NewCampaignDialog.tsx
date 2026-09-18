@@ -556,7 +556,7 @@ function Header({ kind, onClose }: { kind: CampaignKind; onClose: () => void }) 
             <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label="סגור"
                 className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
             >
                 <XIcon className="w-3.5 h-3.5" />
@@ -880,8 +880,8 @@ function TimezoneField({ draft, patch }: { draft: Draft; patch: (p: Partial<Draf
                 onChange={(v) => patch({ timezone: v })}
                 options={timezoneOptions}
                 fullWidth
-                placeholder="Select a timezone"
-                aria-label="Sending timezone"
+                placeholder="בחר אזור זמן"
+                aria-label="אזור זמן שליחה"
             />
         </div>
     );
@@ -934,7 +934,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
                         onChange={(v) => patch({ startTime: v })}
                         stepMinutes={30}
                         fullWidth
-                        placeholder="Start"
+                        placeholder="התחלה"
                     />
                 </div>
                 <div>
@@ -944,7 +944,7 @@ function SendingWindowFields({ draft, patch }: { draft: Draft; patch: (p: Partia
                         onChange={(v) => patch({ endTime: v })}
                         stepMinutes={30}
                         fullWidth
-                        placeholder="End"
+                        placeholder="סיום"
                     />
                 </div>
             </div>
@@ -1013,7 +1013,7 @@ function SendingStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>
 
                 <div className="flex items-start justify-between gap-5">
                     <div className="min-w-0">
-                        <p className="text-[12.5px] text-slate-900 font-medium">Daily limit per mailbox</p>
+                        <p className="text-[12.5px] text-slate-900 font-medium">מגבלה יומית לתיבת דואר</p>
                         <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
                             3 to 5,000. Stay near 50 until the mailboxes have proven their reputation.
                         </p>
@@ -1030,32 +1030,32 @@ function SendingStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>
                 <div className="border border-slate-200 rounded-md divide-y divide-slate-100 overflow-hidden">
                     {!oneTime && (
                         <SwitchRow
-                            label="Stop on reply"
+                            label="עצור בתשובה"
                             description="Pause follow-ups for a contact once they respond."
                             value={draft.stopOnReply}
                             onChange={(v) => patch({ stopOnReply: v })}
                         />
                     )}
                     <SwitchRow
-                        label="Track opens"
+                        label="עקוב פתיחות"
                         description="Insert a transparent pixel to measure inbox impressions."
                         value={draft.openTracking}
                         onChange={(v) => patch({ openTracking: v })}
                     />
                     <SwitchRow
-                        label="Track clicks"
+                        label="עקוב לחיצות"
                         description="Wrap links so each click, and which link it was, appears in your live feed and the contact's activity."
                         value={draft.linkTracking}
                         onChange={(v) => patch({ linkTracking: v })}
                     />
                     <SwitchRow
-                        label="Add UTM parameters"
+                        label="הוסף פרמטרי UTM"
                         description="Tag every link with utm_source, utm_medium, utm_campaign and a per-link utm_content for your web analytics. Editable later in settings."
                         value={draft.utmTracking}
                         onChange={(v) => patch({ utmTracking: v })}
                     />
                     <SwitchRow
-                        label="Unsubscribe header"
+                        label="כותרת הסרת מנוי"
                         description="Add List-Unsubscribe, which most providers require for bulk mail."
                         value={draft.unsubHeader}
                         onChange={(v) => patch({ unsubHeader: v })}
@@ -1162,7 +1162,7 @@ function EmailsStep({
                                 </span>
                                 {i > 0 && (
                                     <div className="flex items-center gap-1.5 ml-1">
-                                        <span className="text-[11px] text-slate-500">after</span>
+                                        <span className="text-[11px] text-slate-500">אחרי</span>
                                         <NumberInput
                                             value={seq.wait_after}
                                             min={0}
@@ -1181,7 +1181,7 @@ function EmailsStep({
                                         onClick={() =>
                                             patch({ sequences: draft.sequences.filter((_, idx) => idx !== i) })
                                         }
-                                        aria-label="Remove follow-up"
+                                        aria-label="הסר מעקב"
                                         className="ml-auto size-6 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center transition-colors"
                                     >
                                         <Trash2Icon className="w-3 h-3" />
@@ -1247,12 +1247,12 @@ function AudienceStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="Who receives it?"
+                title="מי מקבל?"
                 hint="Every current member of the segments you pick becomes a lead. Suppressed and unsubscribed contacts are skipped at send time."
             />
             <div className="space-y-4">
                 <div>
-                    <Label>Segments</Label>
+                    <Label>פלחים</Label>
                     <SegmentMultiPicker value={draft.segmentIds} onChange={(next) => patch({ segmentIds: next })} />
                     <p className="text-[11px] text-slate-400 mt-1">
                         Contacts in more than one segment are counted, and emailed, once.
@@ -1308,7 +1308,7 @@ function SendStep({
     return (
         <div className="max-w-[560px]">
             <StepIntro
-                title="When should it go?"
+                title="מתי לשלוח?"
                 hint="Send now starts the moment you confirm. Either way it keeps to the sending window and the daily cap of every mailbox."
             />
             <div className="space-y-5">
@@ -1316,14 +1316,14 @@ function SendStep({
                     <KindCard
                         selected={draft.sendMode === "now"}
                         icon={SendIcon}
-                        title="Send now"
+                        title="שלח עכשיו"
                         description="Start as soon as it is created."
                         onSelect={() => patch({ sendMode: "now" })}
                     />
                     <KindCard
                         selected={draft.sendMode === "later"}
                         icon={CalendarClockIcon}
-                        title="Schedule for later"
+                        title="תזמן למועד מאוחר יותר"
                         description="Pick the date and time sending begins."
                         onSelect={() => patch({ sendMode: "later" })}
                     />
@@ -1339,12 +1339,12 @@ function SendStep({
                             transition={{ duration: 0.16 }}
                             className="overflow-hidden"
                         >
-                            <Label>Start sending at</Label>
+                            <Label>התחל לשלוח ב</Label>
                             <DateTimePicker
                                 value={draft.scheduledAt}
                                 onChange={(v) => patch({ scheduledAt: v })}
                                 stepMinutes={15}
-                                datePlaceholder="Pick a date"
+                                datePlaceholder="בחר תאריך"
                             />
                             <p className="text-[11px] text-slate-400 mt-1">In your local time.</p>
                         </motion.div>
