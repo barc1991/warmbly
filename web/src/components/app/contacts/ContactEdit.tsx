@@ -143,7 +143,7 @@ function ContactEditPanel({
         setEmail((v) => rebase(v, prev.email, contact.email));
         setCompany((v) => rebase(v, prev.company, contact.company));
         setPhone((v) => rebase(v, prev.phone, contact.phone));
-        setWebsite((v) => rebase(v, prev.website ?? "", contact.website ?? ""));
+        setWebsite((v: string) => rebase(v, prev.website ?? "", contact.website ?? ""));
         setSubscribed((v) => rebase(v, prev.subscribed, contact.subscribed));
         setCampaigns((v) => rebase(v, prev.campaigns ?? [], contact.campaigns ?? [], sameCampaigns));
         setCategoryIds((v) =>

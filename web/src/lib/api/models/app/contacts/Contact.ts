@@ -101,6 +101,7 @@ export default interface Contact {
     email: string;
     company: string;
     phone: string;
+    website?: string;
 
     custom_fields: Record<string, string>;
 
