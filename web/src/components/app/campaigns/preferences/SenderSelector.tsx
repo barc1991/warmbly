@@ -78,22 +78,39 @@ export default function SenderSelector({
     // Keep unknown/stale account ids around so a selection still renders + can be removed.
     const accountChips = selectedAccounts.map((id) => ({ id, inbox: mailboxById.get(id) }));
 
+    const nonWarmupTags = React.useMemo(() => {
+        return tags.filter((t) => {
+            const title = t.title.trim().toLowerCase();
+            return title !== "חימום" && title !== "warmup";
+        });
+    }, [tags]);
+
+    const nonWarmupEmails = React.useMemo(() => {
+        return emails.filter((e) => {
+            const isWarmupOnly = (e.tags ?? []).some((tagId) => {
+                const title = tagById.get(tagId)?.title?.trim()?.toLowerCase() ?? tagId.trim().toLowerCase();
+                return title === "חימום" || title === "warmup";
+            });
+            return !isWarmupOnly;
+        });
+    }, [emails, tagById]);
+
     const q = query.trim().toLowerCase();
     const filteredTags = React.useMemo(
-        () => (!q ? tags : tags.filter((t) => t.title.toLowerCase().includes(q))),
-        [tags, q],
+        () => (!q ? nonWarmupTags : nonWarmupTags.filter((t) => t.title.toLowerCase().includes(q))),
+        [nonWarmupTags, q],
     );
     const filteredMailboxes = React.useMemo(
         () =>
             !q
-                ? emails
-                : emails.filter(
+                ? nonWarmupEmails
+                : nonWarmupEmails.filter(
                       (e) =>
                           e.email.toLowerCase().includes(q) ||
                           (e.name ?? "").toLowerCase().includes(q) ||
                           (e.provider ?? "").toLowerCase().includes(q),
                   ),
-        [emails, q],
+        [nonWarmupEmails, q],
     );
 
     function toggleTag(id: string) {

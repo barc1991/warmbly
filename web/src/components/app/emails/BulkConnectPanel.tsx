@@ -22,6 +22,7 @@ import {
     CheckCircle2Icon,
     DownloadIcon,
     FileSpreadsheetIcon,
+    FlameIcon,
     Loader2Icon,
     RotateCcwIcon,
     UploadIcon,
@@ -29,6 +30,8 @@ import {
 } from "lucide-react";
 import { DitherMeter } from "@/components/ui/dither";
 import addEmailsBulk, { BULK_CONNECT_BATCH } from "@/lib/api/client/app/emails/addEmailsBulk";
+import bulkTagEmails from "@/lib/api/client/app/emails/bulkTagEmails";
+import warmupLifecycle from "@/lib/api/client/app/emails/warmupLifecycle";
 import useMailboxAllowance from "@/lib/api/hooks/app/emails/useMailboxAllowance";
 import useAuthConfig from "@/lib/api/hooks/auth/useAuthConfig";
 import type { BulkConnectRow } from "@/lib/api/models/app/emails/BulkConnect";
@@ -72,6 +75,7 @@ export default function BulkConnectPanel({
     const cancelRef = React.useRef(false);
     const [cancelling, setCancelling] = React.useState(false);
     const [startedAt, setStartedAt] = React.useState<number>(0);
+    const [warmupOnly, setWarmupOnly] = React.useState(false);
     const fileInput = React.useRef<HTMLInputElement>(null);
 
     const ready = rows.filter((r) => r.status === "ready" || r.status === "pending").length;
@@ -114,6 +118,17 @@ export default function BulkConnectPanel({
             try {
                 const res = await addEmailsBulk(batch.map(({ r }) => r.account!));
                 answers = res.data;
+                const connectedIds = answers.filter((a) => a.status === "connected" && a.id).map((a) => a.id!);
+                if (warmupOnly && connectedIds.length > 0) {
+                    try {
+                        await bulkTagEmails(connectedIds, ["חימום"], []);
+                        for (const id of connectedIds) {
+                            await warmupLifecycle(id, "start");
+                        }
+                    } catch (e) {
+                        console.error("Failed to tag/start bulk warmup:", e);
+                    }
+                }
             } catch (err) {
                 const msg = buildError(err as AppError);
                 answers = batch.map((_, j) => ({ row: j, email: batch[j].r.account!.email, status: "failed", code: "request_failed", message: msg }));
@@ -146,6 +161,7 @@ export default function BulkConnectPanel({
         setRows([]);
         setColumns([]);
         setFilename("");
+        setWarmupOnly(false);
         setStep("upload");
     }
 
@@ -294,6 +310,28 @@ export default function BulkConnectPanel({
                                 : "They are missing something the connect needs. They are left out of the run and included in the failed rows download at the end, with the reason."}
                         </Banner>
                     )}
+
+                    <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/60 space-y-1.5">
+                        <label className="flex items-center justify-between gap-2 cursor-pointer">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <FlameIcon className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span className="text-[12.5px] font-semibold text-amber-900">
+                                    {isHe ? "חבר והפעל את כל התיבות כחימום בלבד" : "Connect and start all as warmup-only"}
+                                </span>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={warmupOnly}
+                                onChange={(e) => setWarmupOnly(e.target.checked)}
+                                className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer"
+                            />
+                        </label>
+                        <p className="text-[11px] text-amber-700/90 leading-relaxed">
+                            {isHe
+                                ? "כל התיבות שיחוברו בהצלחה יתויגו כ-חימום, יבודדו מקמפיינים ויופעל בהן חימום מיידית ללא התראות DNS."
+                                : "All successfully connected mailboxes will be tagged as warmup, isolated from campaigns, and warmed up."}
+                        </p>
+                    </div>
 
                     <RowsTable rows={sample} more={rows.length - sample.length} isHe={isHe} />
                 </div>

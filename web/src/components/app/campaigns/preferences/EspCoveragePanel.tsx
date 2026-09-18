@@ -17,6 +17,7 @@
 // all active mailboxes. Only healthy (active) mailboxes count toward coverage.
 
 import React from "react";
+import { useUserProfile } from "@/hooks/context/user";
 import useEmails from "@/lib/api/hooks/app/emails/useEmails";
 import ProviderLogo from "./ProviderLogo";
 
@@ -39,19 +40,28 @@ export default function EspCoveragePanel({
     emailTags: string[];
     explicitAccounts: string[];
 }) {
+    const profile = useUserProfile();
+    const tags = profile?.user.tags ?? [];
     const { emails, isLoading } = useEmails({ query: "", tag: "", limit: 200 });
 
     const pool = React.useMemo(() => {
+        const nonWarmup = emails.filter((e) => {
+            const isWarmupOnly = (e.tags ?? []).some((tagId) => {
+                const title = tags.find((t) => t.id === tagId)?.title?.trim()?.toLowerCase() ?? tagId.trim().toLowerCase();
+                return title === "חימום" || title === "warmup";
+            });
+            return !isWarmupOnly;
+        });
         const explicit = new Set(explicitAccounts);
-        const tags = new Set(emailTags);
-        const picked = emails.filter((e) => {
+        const tagSet = new Set(emailTags);
+        const picked = nonWarmup.filter((e) => {
             if (explicit.size && explicit.has(e.id)) return true;
-            if (tags.size && (e.tags ?? []).some((t) => tags.has(t))) return true;
+            if (tagSet.size && (e.tags ?? []).some((t) => tagSet.has(t))) return true;
             return false;
         });
-        const resolved = explicit.size || tags.size ? picked : emails;
+        const resolved = explicit.size || tagSet.size ? picked : nonWarmup;
         return resolved.filter((e) => e.status === "active");
-    }, [emails, emailTags, explicitAccounts]);
+    }, [emails, emailTags, explicitAccounts, tags]);
 
     const counts = React.useMemo(() => {
         let gmail = 0;

@@ -41,6 +41,7 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useUserProfile } from "@/hooks/context/user";
 
 import type Inbox from "@/lib/api/models/app/emails/Inbox";
 import type AccountStatusModel from "@/lib/api/models/app/analytics/AccountStatus";
@@ -955,17 +956,24 @@ function AuthRecordRow({ label, state, detail }: { label: string; state: AuthRec
 // The gate is invisible otherwise, and an owner whose campaigns have stopped
 // needs to be told that here rather than inferring it from a paused campaign.
 function AuthGateNotice({ mailbox }: { mailbox: Inbox }) {
-    if (mailbox.auth_state !== "failing") return null;
+    const profile = useUserProfile();
+    const userTags = profile?.user?.tags ?? [];
+    const isGmail = mailbox.email.toLowerCase().endsWith("@gmail.com") || mailbox.email.toLowerCase().endsWith("@googlemail.com");
+    const isWarmupOnly = (mailbox.tags ?? []).some((tagIdOrTitle) => {
+        const found = userTags.find((t: { id: string; title: string }) => t.id === tagIdOrTitle);
+        const title = (found?.title ?? tagIdOrTitle).trim().toLowerCase();
+        return title === "חימום" || title === "warmup";
+    });
+    if (mailbox.auth_state !== "failing" || isGmail || isWarmupOnly) return null;
 
     const since = mailbox.auth_failing_since ? new Date(mailbox.auth_failing_since) : null;
     return (
         <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 flex gap-2.5">
             <ShieldAlertIcon className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
             <div className="min-w-0 text-[11.5px] text-rose-900/90 leading-relaxed">
-                <span className="font-medium">This domain is failing authentication.</span>{" "}
-                שליחה קרה and warmup from this mailbox stop while it stays that way
-                {since ? `, failing since ${since.toLocaleDateString()}` : ""}. Add the missing DNS
-                records at your registrar, then re-check below to clear it straight away.
+                <span className="font-medium">דומיין זה נכשל באימות DNS.</span>{" "}
+                השליחה הקרה והחימום מתיבת דואר זו מושהים עד להגדרת הרשומות
+                {since ? `, נכשל מאז ${since.toLocaleDateString()}` : ""}. הוסיפו את רשומות ה-DNS החסרות אצל רשם הדומיין, ולאחר מכן בצעו בדיקה חוזרת מטה.
             </div>
         </div>
     );
@@ -974,7 +982,16 @@ function AuthGateNotice({ mailbox }: { mailbox: Inbox }) {
 function AuthCheckPanel({ mailbox }: { mailbox: Inbox }) {
     const emailId = mailbox.id;
     const [open, setOpen] = useState(false);
-    const check = useAuthCheck(emailId, open);
+    const profile = useUserProfile();
+    const userTags = profile?.user?.tags ?? [];
+    const isGmail = mailbox.email.toLowerCase().endsWith("@gmail.com") || mailbox.email.toLowerCase().endsWith("@googlemail.com");
+    const isWarmupOnly = (mailbox.tags ?? []).some((tagId) => {
+        const found = userTags.find((t: { id: string; title: string }) => t.id === tagId);
+        const title = (found?.title ?? tagId).trim().toLowerCase();
+        return title === "חימום" || title === "warmup";
+    });
+
+    const check = useAuthCheck(emailId, open && !isGmail && !isWarmupOnly);
     // Re-checking RECORDS the verdict, which is what lifts the send gate, so
     // the button is a write and not a query refetch.
     const refresh = useRefreshAuthCheck(emailId);
@@ -985,7 +1002,9 @@ function AuthCheckPanel({ mailbox }: { mailbox: Inbox }) {
     // discoverable, so a miss there is a real miss; DKIM is not, so a domain
     // with both of those in place is aligned as far as anyone can tell, and
     // saying "needs attention" over an unverifiable DKIM is a false alarm.
-    const verdict = !data
+    const verdict = isGmail || isWarmupOnly
+        ? { ok: true, tone: "text-emerald-700", title: "אימות אוטומטי מנוהל (תיבת חימום / Gmail)" }
+        : !data
         ? null
         : data.all_aligned
           ? { ok: true, tone: "text-emerald-700", title: "אימות דומיין aligned" }
@@ -1003,7 +1022,7 @@ function AuthCheckPanel({ mailbox }: { mailbox: Inbox }) {
                 <button
                     onClick={() => {
                         setOpen(true);
-                        if (open) {
+                        if (open && !isGmail && !isWarmupOnly) {
                             refresh.mutate(undefined, {
                                 onError: (e) => toast.error(buildError(e as unknown as AppError)),
                             });
@@ -1021,7 +1040,17 @@ function AuthCheckPanel({ mailbox }: { mailbox: Inbox }) {
 
             {open && (
                 <div className="mt-3">
-                    {check.isError ? (
+                    {isGmail || isWarmupOnly ? (
+                        <div className="rounded-md border border-emerald-200 bg-emerald-50/70 p-3.5 space-y-1 text-[12px] text-emerald-900">
+                            <div className="font-semibold flex items-center gap-1.5 text-emerald-800">
+                                <CheckCircle2Icon className="w-4 h-4 text-emerald-600" />
+                                אימות DNS מנוהל במלואו על ידי ספק הדואר
+                            </div>
+                            <p className="text-[11.5px] text-emerald-700 leading-relaxed">
+                                תיבה זו מוגדרת כתיבת חימום בלבד או מבוססת Gmail. תשתית הספק מאמתת את הודעות החימום באופן טבעי ללא צורך בהגדרת רשומות SPF / DKIM / DMARC חיצוניות, והיא אינה משמשת לשליחת קמפיינים.
+                            </p>
+                        </div>
+                    ) : check.isError ? (
                         <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-[11.5px] text-rose-700 leading-relaxed">
                             {buildError(check.error as unknown as AppError)}
                         </div>

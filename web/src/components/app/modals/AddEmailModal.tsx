@@ -41,6 +41,7 @@ import {
     SendIcon,
     SettingsIcon,
     ShieldCheckIcon,
+    FlameIcon,
     XIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -57,6 +58,8 @@ import { API_URL, APP_URL } from "@/lib/information";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
 import addEmail from "@/lib/api/client/app/emails/addEmail";
+import bulkTagEmails from "@/lib/api/client/app/emails/bulkTagEmails";
+import warmupLifecycle from "@/lib/api/client/app/emails/warmupLifecycle";
 import {
     allowsNoEncryption,
     defaultImapSecurity,
@@ -158,6 +161,7 @@ export default function AddEmailModal() {
     // picked. Rendered inline rather than as a toast: it is a setup instruction
     // with a link, not a transient failure.
     const [notConfigured, setNotConfigured] = React.useState<OAuthProvider | null>(null);
+    const [warmupOnly, setWarmupOnly] = React.useState(false);
     const pendingState = React.useRef<{ provider: OAuthProvider; state: string } | null>(null);
     const viaCloud = false;
 
@@ -188,6 +192,7 @@ export default function AddEmailModal() {
             setSelectedSlotId(null);
             setNotConfigured(null);
             setAllowanceOpen(false);
+            setWarmupOnly(false);
             pendingState.current = null;
         }
     }, [user.addEmail]);
@@ -226,7 +231,15 @@ export default function AddEmailModal() {
             }
 
             void toast.promise(
-                onboardOAuthFinish(data.code, data.state).then((inbox) => {
+                onboardOAuthFinish(data.code, data.state).then(async (inbox) => {
+                    if (warmupOnly && inbox?.id) {
+                        try {
+                            await bulkTagEmails([inbox.id], ["חימום"], []);
+                            await warmupLifecycle(inbox.id, "start");
+                        } catch (err) {
+                            console.error("Failed to tag/start warmup:", err);
+                        }
+                    }
                     qc.invalidateQueries({ queryKey: ["emails", "list"] });
                     qc.invalidateQueries({ queryKey: ["oauth-slots"] });
                     capture("mailbox_connected", { provider: expected.provider, method: "oauth" });
@@ -235,7 +248,7 @@ export default function AddEmailModal() {
                 }),
                 {
                     loading: isHe ? "מתחבר…" : "Connecting…",
-                    success: isHe ? "תיבת הדואר חוברה בהצלחה" : "Mailbox connected",
+                    success: isHe ? (warmupOnly ? "תיבת חימום חוברה והופעלה בהצלחה" : "תיבת הדואר חוברה בהצלחה") : "Mailbox connected",
                     error: (e: AppError) => buildError(e),
                 },
             )
@@ -244,7 +257,7 @@ export default function AddEmailModal() {
         }
         window.addEventListener("message", onMessage);
         return () => window.removeEventListener("message", onMessage);
-    }, [qc, user, onConnectError, isHe]);
+    }, [qc, user, onConnectError, isHe, warmupOnly]);
 
     async function startOAuth(provider: OAuthProvider, slotId?: string) {
         if (oauthBusy) return;
@@ -349,6 +362,8 @@ export default function AddEmailModal() {
                                                 slots={slotsQuery.data?.filter((s) => s.provider === "gmail") ?? []}
                                                 selectedSlotId={selectedSlotId}
                                                 onSelectSlot={setSelectedSlotId}
+                                                warmupOnly={warmupOnly}
+                                                onToggleWarmupOnly={setWarmupOnly}
                                                 onConnect={(slotId) => startOAuth("gmail", slotId)}
                                             />
                                         )
@@ -364,12 +379,16 @@ export default function AddEmailModal() {
                                                 slots={slotsQuery.data?.filter((s) => s.provider === "outlook") ?? []}
                                                 selectedSlotId={selectedSlotId}
                                                 onSelectSlot={setSelectedSlotId}
+                                                warmupOnly={warmupOnly}
+                                                onToggleWarmupOnly={setWarmupOnly}
                                                 onConnect={(slotId) => startOAuth("outlook", slotId)}
                                             />
                                         )
                                     )}
                                     {view === "smtp_imap" && (
                                         <SmtpImapPanel
+                                            warmupOnly={warmupOnly}
+                                            onToggleWarmupOnly={setWarmupOnly}
                                             onDone={() => {
                                                 qc.invalidateQueries({ queryKey: ["emails", "list"] });
                                                 user.setAddEmail(false);
@@ -838,6 +857,8 @@ function OAuthPanel({
     slots = [],
     selectedSlotId,
     onSelectSlot,
+    warmupOnly = false,
+    onToggleWarmupOnly,
     onConnect,
 }: {
     provider: OAuthProvider;
@@ -846,6 +867,8 @@ function OAuthPanel({
     slots?: OAuthSlot[];
     selectedSlotId: string | null;
     onSelectSlot: (id: string | null) => void;
+    warmupOnly?: boolean;
+    onToggleWarmupOnly?: (v: boolean) => void;
     onConnect: (slotId?: string) => void;
 }) {
     const { i18n } = useTranslation();
@@ -983,6 +1006,30 @@ function OAuthPanel({
                 </div>
             )}
 
+            {onToggleWarmupOnly && (
+                <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/60 space-y-1.5">
+                    <label className="flex items-center justify-between gap-2 cursor-pointer">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <FlameIcon className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span className="text-[12.5px] font-semibold text-amber-900">
+                                {isHe ? "חבר כתיבת חימום בלבד (מומלץ ל-Gmail)" : "Connect as warmup-only mailbox"}
+                            </span>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={warmupOnly}
+                            onChange={(e) => onToggleWarmupOnly(e.target.checked)}
+                            className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer"
+                        />
+                    </label>
+                    <p className="text-[11px] text-amber-700/90 leading-relaxed">
+                        {isHe
+                            ? "מומלץ עבור חשבונות Gmail ייעודיים. התיבה תתויג אוטומטית כ-חימום, תבודד מקמפיינים ויושתקו בה כל התראות ה-DNS."
+                            : "Recommended for aged Gmail accounts. Mailbox will be tagged as warmup, isolated from campaigns, with DNS alerts suppressed."}
+                    </p>
+                </div>
+            )}
+
             <ul className="text-[11.5px] text-slate-600 space-y-1.5 px-1">
                 <Scope>{isHe ? "שליחה וקריאה של מיילים בשמך" : "Send and read mail on your behalf"}</Scope>
                 <Scope>{isHe ? "מעקב אחר מענים ומסירות" : "Track replies and deliveries"}</Scope>
@@ -1018,7 +1065,17 @@ function Scope({ children }: { children: React.ReactNode }) {
     );
 }
 
-function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: unknown) => void }) {
+function SmtpImapPanel({
+    onDone,
+    onError,
+    warmupOnly = false,
+    onToggleWarmupOnly,
+}: {
+    onDone: () => void;
+    onError: (e: unknown) => void;
+    warmupOnly?: boolean;
+    onToggleWarmupOnly?: (v: boolean) => void;
+}) {
     const { i18n } = useTranslation();
     const isHe = i18n.language?.startsWith("he");
 
@@ -1107,7 +1164,7 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
         setSubmitting(true);
         const eff = effectiveSmtp();
         try {
-            await toast.promise(
+            const inbox = await toast.promise(
                 addEmail({
                     name: name.trim(),
                     email: email.trim(),
@@ -1128,10 +1185,18 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                 }),
                 {
                     loading: isHe ? "בודק את פרטי ההתחברות…" : "Verifying credentials…",
-                    success: isHe ? "תיבת הדואר חוברה בהצלחה" : "Mailbox connected",
+                    success: isHe ? (warmupOnly ? "תיבת חימום חוברה והופעלה בהצלחה" : "תיבת הדואר חוברה בהצלחה") : "Mailbox connected",
                     error: (e: AppError) => buildError(e),
                 },
             );
+            if (warmupOnly && inbox?.id) {
+                try {
+                    await bulkTagEmails([inbox.id], ["חימום"], []);
+                    await warmupLifecycle(inbox.id, "start");
+                } catch (err) {
+                    console.error("Failed to tag/start warmup:", err);
+                }
+            }
             onDone();
         } catch (e) {
             // Surfaced by the toast, except a full allowance, which gets its dialog.
@@ -1251,6 +1316,30 @@ function SmtpImapPanel({ onDone, onError }: { onDone: () => void; onError: (e: u
                     )}
                 </AnimatePresence>
             </Section>
+
+            {onToggleWarmupOnly && (
+                <div className="p-3 mx-4 mb-3 rounded-xl border border-amber-200 bg-amber-50/60 space-y-1.5">
+                    <label className="flex items-center justify-between gap-2 cursor-pointer">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <FlameIcon className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span className="text-[12.5px] font-semibold text-amber-900">
+                                {isHe ? "חבר כתיבת חימום בלבד" : "Connect as warmup-only mailbox"}
+                            </span>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={warmupOnly}
+                            onChange={(e) => onToggleWarmupOnly(e.target.checked)}
+                            className="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer"
+                        />
+                    </label>
+                    <p className="text-[11px] text-amber-700/90 leading-relaxed">
+                        {isHe
+                            ? "התיבה תתויג אוטומטית כ-חימום, תבודד מקמפיינים ותופעל בחימום ישירות."
+                            : "Mailbox will be tagged as warmup, isolated from campaigns, and warmed up."}
+                    </p>
+                </div>
+            )}
 
             <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50/60 flex items-center gap-2 min-w-0 sticky bottom-0">
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500 min-w-0 flex-1">

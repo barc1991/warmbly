@@ -233,7 +233,8 @@ func detectDomainAuth(s *repository.AdvisorSnapshot) []Finding {
 		// Warmup-only mailboxes (e.g. aged Gmail peer nodes) are used strictly
 		// for peer warmup exchanges and do not send cold outreach. Skip domain
 		// auth check so personal domains without custom DNS don't raise false alarms.
-		if m.IsWarmupOnly {
+		emailLower := strings.ToLower(strings.TrimSpace(m.Email))
+		if m.IsWarmupOnly || strings.HasSuffix(emailLower, "@gmail.com") || strings.HasSuffix(emailLower, "@googlemail.com") {
 			continue
 		}
 

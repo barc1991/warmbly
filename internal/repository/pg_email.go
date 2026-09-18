@@ -1697,6 +1697,12 @@ func (r *emailRepository) GetAllActiveInScope(ctx context.Context, scope Account
 		FROM email_accounts ea
 		WHERE ea.organization_id = $1
 		  AND ea.status = 'active'
+		  AND NOT EXISTS (
+			SELECT 1 FROM email_tags et
+			JOIN tags t ON t.id = et.tag_id
+			WHERE et.email_id = ea.id
+			  AND LOWER(TRIM(t.title)) IN ('חימום', 'warmup')
+		  )
 		ORDER BY ea.id
 	`
 
