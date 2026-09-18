@@ -758,7 +758,7 @@ function MailboxRow({
                         <PopoverMenuTrigger asChild>
                             <button
                                 type="button"
-                                aria-label="Warmup actions"
+                                aria-label="פעולות חימום"
                                 disabled={life.isPending}
                                 className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-orange-600 transition-colors cursor-pointer disabled:opacity-50"
                             >
@@ -766,40 +766,40 @@ function MailboxRow({
                             </button>
                         </PopoverMenuTrigger>
                         <PopoverMenuContent minWidth={208}>
-                            <PopoverMenuLabel>Warmup · {inCloud ? (cloudPaused ? "Paused in cloud" : "Warmbly Cloud") : active ? "Active" : paused ? "Paused" : "Off"}</PopoverMenuLabel>
+                            <PopoverMenuLabel>חימום · {inCloud ? (cloudPaused ? "מושהה בענן" : "ענן Warmbly") : active ? "פעיל" : paused ? "מושהה" : "כבוי"}</PopoverMenuLabel>
                             {inCloud && (
                                 <>
                                     <PopoverMenuItem
-                                        onSelect={() => void cloudRun(() => cloudLifecycle.mutateAsync({ id: box.id, action: cloudPaused ? "resume" : "pause" }), cloudPaused ? "Warmup resumed" : "Warmup paused")}
+                                        onSelect={() => void cloudRun(() => cloudLifecycle.mutateAsync({ id: box.id, action: cloudPaused ? "resume" : "pause" }), cloudPaused ? "החימום חודש" : "החימום הושהה")}
                                         icon={cloudPaused ? <PlayIcon className="w-3 h-3" /> : <PauseIcon className="w-3 h-3" />}
                                     >
-                                        {cloudPaused ? "Resume in Warmbly Cloud" : "Pause in Warmbly Cloud"}
+                                        {cloudPaused ? "חדש בענן Warmbly" : "השהה בענן Warmbly"}
                                     </PopoverMenuItem>
                                     <PopoverMenuItem
                                         danger
                                         onSelect={() =>
                                             confirm.show(
                                                 cloud?.managed
-                                                    ? `Remove ${box.email} from this instance? It stays in your Warmbly Cloud workspace, where its sign-in lives; campaigns here stop sending from it.`
-                                                    : `Stop warming ${box.email} in the Warmbly pool? The cloud deletes its credential right away.`,
+                                                    ? `להסיר את ${box.email} ממופע זה? התיבה תישאר בסביבת הענן שלך; קמפיינים כאן יפסיקו לשלוח ממנה.`
+                                                    : `להפסיק לחמם את ${box.email} במאגר Warmbly? פרטי ההתחברות יימחקו מהענן מיידית.`,
                                                 async () => {
-                                                    await cloudRun(() => cloudUnenroll.mutateAsync(box.id), cloud?.managed ? `${box.email} removed from this instance` : `${box.email} removed from the pool`);
+                                                    await cloudRun(() => cloudUnenroll.mutateAsync(box.id), cloud?.managed ? `${box.email} הוסר ממופע זה` : `${box.email} הוסר ממאגר החימום`);
                                                 },
                                             )
                                         }
                                         icon={<CloudIcon className="w-3 h-3" />}
                                     >
-                                        {cloud?.managed ? "Remove from this instance" : "Remove from Warmbly Cloud"}
+                                        {cloud?.managed ? "הסר ממופע זה" : "הסר מענן Warmbly"}
                                     </PopoverMenuItem>
                                     <PopoverMenuSeparator />
                                 </>
                             )}
                             {!inCloud && cloudConnected && cloudSupported && (
                                 <PopoverMenuItem
-                                    onSelect={() => void cloudRun(() => cloudEnroll.mutateAsync(box.id), `${box.email} is now warming in the pool`)}
+                                    onSelect={() => void cloudRun(() => cloudEnroll.mutateAsync(box.id), `${box.email} מתחמם כעת במאגר החימום`)}
                                     icon={<CloudIcon className="w-3 h-3" />}
                                 >
-                                    Warm in Warmbly Cloud
+                                    חמם בענן Warmbly
                                 </PopoverMenuItem>
                             )}
                             {!inCloud && off && (

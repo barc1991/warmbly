@@ -39,16 +39,17 @@ function formatWhen(iso: string): { absolute: string; relative: string } {
 
     let relative: string;
     if (absMs < 60_000) relative = future ? "עוד רגע" : "כל רגע";
-    else if (minutes < 60) relative = future ? `in ${minutes}m` : `${minutes}m late`;
-    else if (hours < 24) relative = future ? `in ${hours}h` : `${hours}h late`;
-    else relative = future ? `in ${days}d` : `${days}d late`;
+    else if (minutes < 60) relative = future ? `בעוד ${minutes} דק'` : `באיחור ${minutes} דק'`;
+    else if (hours < 24) relative = future ? `בעוד ${hours} שע'` : `באיחור ${hours} שע'`;
+    else relative = future ? `בעוד ${days} ימ'` : `באיחור ${days} ימ'`;
 
-    const absolute = d.toLocaleString(undefined, {
+    const absolute = d.toLocaleString("he-IL", {
         weekday: "short",
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
     });
 
     return { absolute, relative };
@@ -67,22 +68,22 @@ export function ScheduledList({ onOpenScopeSheet }: { onOpenScopeSheet?: () => v
             queryClient.invalidateQueries({ queryKey: ["unibox", "scheduled"] });
             queryClient.invalidateQueries({ queryKey: ["unibox", "overview"] });
         },
-        onError: () => toast.error("Couldn't cancel — it may have already sent."),
+        onError: () => toast.error("לא ניתן היה לבטל — ייתכן שההודעה כבר נשלחה."),
         onSettled: () => setCancelingId(null),
     });
 
     const items = q.data?.data ?? [];
 
     const header = (
-        <div className="h-11 pl-3 pr-2 shrink-0 border-b border-slate-200 flex items-center gap-1.5">
+        <div className="h-11 ps-3 pe-2 shrink-0 border-b border-slate-200 flex items-center gap-1.5">
             {onOpenScopeSheet && (
                 <button
                     type="button"
                     onClick={onOpenScopeSheet}
-                    aria-label="Switch view"
-                    className="lg:hidden size-7 -ml-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
+                    aria-label="החלף תצוגה"
+                    className="lg:hidden size-7 -ms-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
                 >
-                    <PanelLeftIcon className="w-4 h-4" />
+                    <PanelLeftIcon className="w-4 h-4 rtl:scale-x-[-1]" />
                 </button>
             )}
             <h1 className="text-[13.5px] font-semibold text-slate-900">מתוזמנים</h1>
@@ -92,8 +93,8 @@ export function ScheduledList({ onOpenScopeSheet }: { onOpenScopeSheet?: () => v
             <button
                 type="button"
                 onClick={() => q.refetch()}
-                aria-label="Refresh"
-                className="ml-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
+                aria-label="רענן"
+                className="ms-auto size-7 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
             >
                 <RefreshCwIcon className={cn("w-3.5 h-3.5", q.isFetching && "animate-spin")} />
             </button>
@@ -106,7 +107,7 @@ export function ScheduledList({ onOpenScopeSheet }: { onOpenScopeSheet?: () => v
                 {header}
                 <div className="flex-1 flex items-center justify-center gap-2 text-[12px] text-slate-400">
                     <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-                    Loading scheduled sends
+                    טוען הודעות מתוזמנות…
                 </div>
             </div>
         );
@@ -115,22 +116,22 @@ export function ScheduledList({ onOpenScopeSheet }: { onOpenScopeSheet?: () => v
     if (q.isError) {
         return (
             <div className="flex-1 flex flex-col min-h-0">
-            {header}
-            <div className="flex-1 flex items-center justify-center px-6">
-                <div className="text-center max-w-sm">
-                    <AlertCircleIcon className="w-5 h-5 text-rose-500 mx-auto mb-2" />
-                    <p className="text-[12.5px] font-medium text-slate-900 mb-1">
-                        Couldn't load scheduled sends
-                    </p>
-                    <button
-                        type="button"
-                        onClick={() => q.refetch()}
-                        className="h-7 px-2.5 mt-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
-                    >
-                        Try again
-                    </button>
+                {header}
+                <div className="flex-1 flex items-center justify-center px-6">
+                    <div className="text-center max-w-sm">
+                        <AlertCircleIcon className="w-5 h-5 text-rose-500 mx-auto mb-2" />
+                        <p className="text-[12.5px] font-medium text-slate-900 mb-1">
+                            לא ניתן היה לטעון הודעות מתוזמנות
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => q.refetch()}
+                            className="h-7 px-2.5 mt-2 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
+                        >
+                            נסה שוב
+                        </button>
+                    </div>
                 </div>
-            </div>
             </div>
         );
     }
@@ -141,12 +142,12 @@ export function ScheduledList({ onOpenScopeSheet }: { onOpenScopeSheet?: () => v
                 {header}
                 <div className="flex-1 flex items-center justify-center">
                     <div className="text-center px-5">
-                        <SendIcon className="w-5 h-5 text-slate-300 mx-auto mb-2.5" strokeWidth={1.5} />
+                        <SendIcon className="w-5 h-5 text-slate-300 mx-auto mb-2.5 rtl:scale-x-[-1]" strokeWidth={1.5} />
                         <p className="text-[12.5px] font-medium text-slate-600">
-                            No scheduled sends
+                            אין הודעות מתוזמנות
                         </p>
                         <p className="text-[11.5px] text-slate-400 mt-1 max-w-[34ch] leading-relaxed">
-                            Replies you schedule show up here until they fire.
+                            תשובות שתוזמנו יופיעו כאן עד לשליחתן בפועל.
                         </p>
                     </div>
                 </div>
@@ -172,9 +173,8 @@ export function ScheduledList({ onOpenScopeSheet }: { onOpenScopeSheet?: () => v
                 </ul>
 
                 <div className="px-5 py-4 text-[11px] text-slate-400 leading-relaxed">
-                    <InboxIcon className="inline w-3 h-3 mr-1 -mt-px" />
-                    Cancelling a send keeps the body and recipients on record; only the
-                    delivery is stopped.
+                    <InboxIcon className="inline w-3 h-3 me-1 -mt-px" />
+                    ביטול שליחה שומר את תוכן ההודעה והנמענים; רק השליחה מופסקת.
                 </div>
             </div>
         </div>
@@ -231,13 +231,13 @@ function ScheduledRow({
                     </div>
 
                     <p className="text-[13px] font-medium text-slate-900 truncate">
-                        {item.subject || "(no subject)"}
+                        {item.subject || "(ללא נושא)"}
                     </p>
 
                     <p className="mt-0.5 text-[11.5px] text-slate-500 truncate">
                         <span className="text-slate-400">אל</span> {recipients}
                         {ccCount > 0 && (
-                            <span className="text-slate-400"> · +{ccCount} cc/bcc</span>
+                            <span className="text-slate-400"> · +{ccCount} עותק/מוסתר</span>
                         )}
                     </p>
 
@@ -253,7 +253,7 @@ function ScheduledRow({
                         </span>
                         {item.thread_id && (
                             <span className="text-[10.5px] text-slate-400">
-                                replies into thread
+                                משיב בתוך השרשור
                             </span>
                         )}
                     </div>

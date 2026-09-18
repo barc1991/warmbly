@@ -431,10 +431,10 @@ function IntentPicker({
             </div>
             <p className="mt-2 text-[11.5px] text-slate-500 leading-relaxed">
                 {value.length === 0
-                    ? "Nothing opens a task. Same as turning the switch off."
-                    : `A reply classified ${REPLY_INTENT_CHOICES.filter((c) => has(c.id))
-                          .map((c) => c.label.toLowerCase())
-                          .join(", ")} opens a task.`}
+                    ? "אף תגובה אינה פותחת משימה. שווה ערך לכיבוי המתג."
+                    : `תגובה המסווגת כ-${REPLY_INTENT_CHOICES.filter((c) => has(c.id))
+                          .map((c) => c.label)
+                          .join(", ")} תפתח משימת מעקב.`}
             </p>
         </div>
     );
@@ -454,26 +454,26 @@ function UnsubscribeRows({
     return (
         <>
             <Row
-                label="Opt-out line"
+                label="שורת הסרה מרשימת תפוצה"
                 description={
                     mode === "text"
-                        ? "A plain sentence inviting a reply. Reads like a personal email; the reply is detected and honoured automatically."
+                        ? "משפט פשוט המזמין מענה. נקרא כמו מייל אישי; המענה מזוהה ומכובד אוטומטית."
                         : mode === "link"
-                          ? "A sentence with a real unsubscribe link. One click on a confirmation page; the mail client may also show its own Unsubscribe button. Reads as bulk mail where a reply reads as a person, so keep it for lists that need a link. On a plain-text campaign it prints the full address in the copy."
-                          : "No opt-out in the body. Keep the unsubscribe header on in each campaign, or you are relying on recipients replying."
+                          ? "משפט הכולל קישור הסרה אמיתי. לחיצה אחת בדף אישור; תוכנת הדואר עשויה להציג גם כפתור הסרה משלה. נקרא כמייל המוני, שמור לרשימות הדורשות קישור."
+                          : "ללא שורת הסרה בגוף המייל. שמור על כותרת ההסרה (Unsubscribe Header) פעילה בכל קמפיין, אחרת אתה מסתמך על מענה הנמענים בלבד."
                 }
             >
                 <SelectMenu
                     value={mode}
                     onChange={(v) => onChange({ mode: v as UnsubscribeMode })}
                     options={UNSUB_MODES}
-                    aria-label="Opt-out line"
+                    aria-label="שורת הסרה מרשימת תפוצה"
                     minWidth={240}
                     align="end"
                 />
             </Row>
             {mode === "text" && (
-                <Row label="Wording" description="One sentence, appended after the signature." align="start">
+                <Row label="נוסח ההודעה" description="משפט אחד, מתווסף לאחר החתימה." align="start">
                     <TextInput
                         value={value.text}
                         onChange={(v) => onChange({ text: v })}
@@ -484,7 +484,7 @@ function UnsubscribeRows({
             )}
             {mode === "link" && (
                 <>
-                    <Row label="Wording" description="The sentence before the link." align="start">
+                    <Row label="נוסח ההודעה" description="המשפט המופיע לפני הקישור." align="start">
                         <TextInput
                             value={value.link_intro}
                             onChange={(v) => onChange({ link_intro: v })}
@@ -492,7 +492,7 @@ function UnsubscribeRows({
                             className="w-full sm:w-[420px]"
                         />
                     </Row>
-                    <Row label="Link text" description="What the link itself says.">
+                    <Row label="טקסט הקישור" description="מה שמוצג בקישור עצמו.">
                         <TextInput
                             value={value.link_text}
                             onChange={(v) => onChange({ link_text: v })}
@@ -503,7 +503,7 @@ function UnsubscribeRows({
                 </>
             )}
             {mode !== "off" && (
-                <Row label="Preview" align="start">
+                <Row label="תצוגה מקדימה" align="start">
                     <p className="w-full sm:w-[420px] rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2 text-[12px] text-slate-500">
                         {mode === "text" ? (
                             text
@@ -516,11 +516,11 @@ function UnsubscribeRows({
                 </Row>
             )}
             <Row
-                label="Suppression list"
-                description="Everyone who opted out, bounced or complained, plus anything added by hand. No campaign emails an entry on it."
+                label="רשימת חסימות (הסרות)"
+                description="כל מי שביקש להסיר, מיילים שחזרו (Bounce) או התלוננו, וכן כתובות שנוספו ידנית. אף קמפיין לא ישלח מייל לכתובת ברשימה זו."
             >
                 <Link to="/app/contacts/suppressions" className="text-[12px] text-sky-700 hover:text-sky-800 font-medium">
-                    Open the list
+                    פתח את הרשימה
                 </Link>
             </Row>
         </>

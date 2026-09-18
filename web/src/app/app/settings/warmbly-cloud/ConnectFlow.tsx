@@ -15,9 +15,9 @@ import { Toggle } from "../_components/SectionShell";
 import { providerLabel, providerSupported } from "./providers";
 
 const STEPS = [
-    { label: "Link", icon: CloudIcon },
-    { label: "Mailboxes", icon: InboxIcon },
-    { label: "Done", icon: SparklesIcon },
+    { label: "חיבור", icon: CloudIcon },
+    { label: "תיבות דואר", icon: InboxIcon },
+    { label: "סיום", icon: SparklesIcon },
 ] as const;
 type Step = 0 | 1 | 2;
 
@@ -43,7 +43,7 @@ export default function ConnectFlow({
     // to come from the poll that completed it.
     const [orgName, setOrgName] = React.useState(status.link?.organization_name ?? "");
 
-    const issue = step === 0 && !linked ? "Approve the code on Warmbly Cloud first" : null;
+    const issue = step === 0 && !linked ? "אשר את הקוד ב-Warmbly Cloud תחילה" : null;
     React.useEffect(() => {
         if (!issue) setNudged(false);
     }, [issue]);
@@ -189,7 +189,7 @@ function Footer({ step, issue, nudged, onBack, onNext }: { step: Step; issue: st
             </div>
             {step > 0 && (
                 <button type="button" onClick={onBack} className="h-7 px-2.5 rounded-md text-[12px] text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors">
-                    Back
+                    חזור
                 </button>
             )}
             <button
@@ -199,8 +199,8 @@ function Footer({ step, issue, nudged, onBack, onNext }: { step: Step; issue: st
                     issue ? "bg-slate-300 cursor-not-allowed" : "bg-sky-600 hover:bg-sky-700"
                 }`}
             >
-                {step === 2 ? "Finish" : "Continue"}
-                <ArrowRightIcon className="w-3.5 h-3.5" />
+                {step === 2 ? "סיום" : "המשך"}
+                <ArrowRightIcon className="w-3.5 h-3.5 rtl:rotate-180" />
             </button>
         </div>
     );
@@ -227,10 +227,10 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
         try {
             if (row.enrolled) {
                 await unenroll.mutateAsync(row.id);
-                toast.success(`${row.email} removed from the pool`);
+                toast.success(`${row.email} הוסר ממאגר החימום`);
             } else {
                 await enroll.mutateAsync(row.id);
-                toast.success(`${row.email} is now warming in the pool`);
+                toast.success(`${row.email} מתחמם כעת במאגר החימום`);
             }
         } catch (e) {
             toast.error(buildError(e as AppError));
@@ -242,9 +242,9 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
     return (
         <div className="space-y-4">
             <div>
-                <h3 className="text-[14px] font-semibold text-slate-900">Choose the mailboxes to warm</h3>
+                <h3 className="text-[14px] font-semibold text-slate-900">בחר את תיבות הדואר לחימום</h3>
                 <p className="text-[12.5px] text-slate-500 leading-relaxed mt-1">
-                    Each enrolled mailbox is warmed by Warmbly Cloud from now on. Its local warmup stops; campaigns keep sending from here as usual.
+                    כל תיבה שתירשם תחומם מעתה על ידי Warmbly Cloud. החימום המקומי שלה יופסק; קמפיינים ימשיכו לשלוח ממנה כרגיל.
                 </p>
             </div>
             {rows.isLoading ? (
@@ -252,7 +252,7 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
                     <Loader2Icon className="w-4 h-4 animate-spin" />
                 </div>
             ) : (rows.data ?? []).length === 0 ? (
-                <p className="text-[12.5px] text-slate-500">No active mailboxes yet. Connect one under Mailboxes, then come back here.</p>
+                <p className="text-[12.5px] text-slate-500">אין עדיין תיבות דואר פעילות. חבר תיבה תחת 'תיבות דואר', ולאחר מכן חזור לכאן.</p>
             ) : (
                 <ul className="rounded-md border border-slate-200 divide-y divide-slate-200/70 overflow-hidden">
                     {(rows.data ?? []).map((row, i) => {
@@ -269,7 +269,7 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
                                     <p className="text-[12.5px] text-slate-900 truncate">{row.email}</p>
                                     <p className="text-[11px] text-slate-400 truncate">
                                         {providerLabel(row.provider)}
-                                        {!supported && " · connect with SMTP/IMAP to enroll"}
+                                        {!supported && " · חבר באמצעות SMTP/IMAP כדי להירשם"}
                                     </p>
                                 </div>
                                 {busy === row.id ? (
@@ -283,8 +283,7 @@ function MailboxesStep({ onCountChange }: { onCountChange: (n: number) => void }
                 </ul>
             )}
             <p className="text-[11px] text-slate-400 leading-relaxed">
-                Enrolling sends the mailbox's SMTP/IMAP credential to Warmbly Cloud, sealed in transit and at rest, and used only to send and read warmup mail.
-                Nothing else in the mailbox is stored.
+                ההרשמה שולחת את פרטי ה-SMTP/IMAP של התיבה ל-Warmbly Cloud כשהם מוצפנים בהעברה ובמנוחה, ומשמשים לשליחה וקריאה של מיילי חימום בלבד. שום מידע אחר אינו נשמר.
             </p>
         </div>
     );
@@ -303,11 +302,11 @@ function DoneStep({ orgName, enrolledCount }: { orgName: string; enrolledCount: 
             </motion.span>
             <div>
                 <p className="text-[14px] font-semibold text-slate-900">
-                    {enrolledCount === 0 ? "You are all set" : `${enrolledCount} mailbox${enrolledCount === 1 ? "" : "es"} warming in the pool`}
+                    {enrolledCount === 0 ? "הכל מוכן!" : `${enrolledCount} תיבות דואר מתחממות במאגר`}
                 </p>
                 <p className="text-[12.5px] text-slate-500 mt-0.5 max-w-md">
-                    {orgName ? `Linked to ${orgName}. ` : ""}
-                    Warmup starts on the first slot of each mailbox's window and ramps daily. Health and volume show up on this page as they arrive.
+                    {orgName ? `חובר בהצלחה ל-${orgName}. ` : ""}
+                    החימום יתחיל בחלון הזמנים הראשון של כל תיבה ויעלה בהדרגה מדי יום. נתוני הבריאות והנפח יוצגו בדף זה ברגע שיגיעו.
                 </p>
             </div>
         </div>

@@ -20,10 +20,52 @@ function KeyboardKey({ children }: { children: React.ReactNode }) {
   )
 }
 
+const hebrewGroupTitles: Record<ShortcutGroupId, string> = {
+  navigation: 'ניווט',
+  list: 'ניווט ברשימות',
+  actions: 'פעולות',
+  assistant: 'עוזר AI',
+}
+
+const hebrewDescriptions: Record<string, string> = {
+  'Go to Email Accounts': 'מעבר לתיבות דואר',
+  'Go to Contacts': 'מעבר לאנשי קשר',
+  'Go to Campaigns': 'מעבר לקמפיינים',
+  'Go to Unibox': 'מעבר לתיבת דואר מאוחדת (Unibox)',
+  'Go to Analytics': 'מעבר לאנליטיקה',
+  'Go to Pipelines': 'מעבר לצינורות מכירה',
+  'Go to Deals': 'מעבר לעסקאות',
+  'Go to Tasks': 'מעבר למשימות',
+  'Go to Templates': 'מעבר לתבניות',
+  'Go to API Keys': 'מעבר למפתחות API',
+  'Go to Settings': 'מעבר להגדרות',
+  'Move down in list': 'ירידה שורה ברשימה',
+  'Move up in list': 'עלייה שורה ברשימה',
+  'Go to first item': 'מעבר לפריט הראשון',
+  'Go to last item': 'מעבר לפריט האחרון',
+  'Open selected item': 'פתיחת הפריט הנבחר',
+  'Close modal / Deselect': 'סגירת חלון / ביטול בחירה',
+  'Select/deselect item': 'בחירה או ביטול בחירה של פריט',
+  'Focus search': 'התמקדות בשורת החיפוש',
+  'Compose a new email': 'חיבור אימייל חדש',
+  'Edit selected item': 'עריכת הפריט הנבחר',
+  'Toggle sidebar': 'הצגה או הסתרת סרגל צד',
+  'Show shortcuts': 'הצגת קיצורי מקשים',
+  'Command palette': 'לוח פקודות וחיפוש',
+  'Open / close the assistant': 'פתיחה או סגירת עוזר ה-AI',
+  'Next conversation tab': 'לשונית השיחה הבאה',
+  'Previous conversation tab': 'לשונית השיחה הקודמת',
+  'New chat': 'שיחה חדשה',
+  'Close tab': 'סגירת לשונית',
+  'Minimize to dock': 'מזעור לפס התחתון',
+  'Pop out / dock the panel': 'הצמדה או הצפת הפאנל',
+  'Close the panel': 'סגירת הפאנל',
+}
+
 function ShortcutRowView({ keys, description }: ShortcutRow) {
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className="text-sm text-foreground">{description}</span>
+      <span className="text-sm text-foreground">{hebrewDescriptions[description] ?? description}</span>
       <div className="flex items-center gap-1">
         {keys.map((key, i) => (
           <span key={i} className="flex items-center gap-1">
@@ -45,7 +87,7 @@ function ShortcutGroup({ group }: { group: ShortcutGroupId }) {
   return (
     <div className="space-y-1">
       <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-        {shortcutGroupTitles[group]}
+        {hebrewGroupTitles[group] ?? shortcutGroupTitles[group]}
       </h3>
       <div className="divide-y divide-border">
         {rows.map((row, i) => (

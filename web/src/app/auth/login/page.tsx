@@ -678,11 +678,7 @@ export default function LoginPage() {
         <div className="relative">
             {authConfigUnreachable && (
                 <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] leading-relaxed text-amber-800">
-                    {isHe ? (
-                        <>לא ניתן להתחבר ל-API בכתובת <span className="font-mono break-all">{API_URL}</span>. אפשרויות ההתחברות המוצגות כאן עשויות לא להתאים לשרת זה.</>
-                    ) : (
-                        <>Could not reach the API at <span className="font-mono break-all">{API_URL}</span>. The sign-in options shown here may not match this server.</>
-                    )}
+                    לא ניתן להתחבר ל-API בכתובת <span className="font-mono break-all">{API_URL}</span>. אפשרויות ההתחברות המוצגות כאן עשויות לא להתאים לשרת זה.
                 </div>
             )}
 
@@ -1387,17 +1383,11 @@ function VerifyStep({
                     {isHe ? "בדוק את תיבת הדוא\"ל שלך" : "Check your email"}
                 </h1>
                 <p className="text-sm text-slate-400 mt-1.5">
-                    {isHe ? (
-                        <>שלחנו קוד בן 6 ספרות לכתובת <span className="text-slate-600 font-medium break-all">{email}</span></>
-                    ) : (
-                        <>We sent a 6-digit code to <span className="text-slate-600 font-medium break-all">{email}</span></>
-                    )}
+                    שלחנו קוד בן 6 ספרות לכתובת <span className="text-slate-600 font-medium break-all">{email}</span>
                 </p>
                 {!mailDelivers && (
                     <p className="mt-3 mx-auto max-w-sm rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] leading-relaxed text-amber-800">
-                        {isHe
-                            ? <>בשרת זה לא מוגדר שרת דואר יוצא, לכן הקוד נרשם בלוגים של ה-backend במקום להישלח. הרץ <span className="font-mono">docker compose logs backend</span> כדי לקרוא אותו.</>
-                            : <>This server has no mail transport configured, so the code was written to the backend logs instead of being sent. Run <span className="font-mono">docker compose logs backend</span> to read it.</>}
+                        בשרת זה לא מוגדר שרת דואר יוצא, לכן הקוד נרשם בלוגים של ה-backend במקום להישלח. הרץ <span className="font-mono">docker compose logs backend</span> כדי לקרוא אותו.
                     </p>
                 )}
             </div>
@@ -1431,21 +1421,17 @@ function VerifyStep({
                             onClick={handleResend}
                             className="text-sm text-sky-500 hover:text-sky-600 font-medium transition-colors cursor-pointer"
                         >
-                            {isHe ? "שלח קוד שוב" : "Resend code"}
+                            שלח קוד שוב
                         </button>
                     ) : (
                         <p className="text-sm text-slate-400">
-                            {isHe ? (
-                                <>שלח קוד שוב בעוד <span className="font-medium text-slate-500">{count} שניות</span></>
-                            ) : (
-                                <>Resend code in <span className="font-medium text-slate-500">{count}s</span></>
-                            )}
+                            שלח קוד שוב בעוד <span className="font-medium text-slate-500">{count} שניות</span>
                         </p>
                     )}
                 </div>
 
                 <div onClick={() => !pending && onSubmit(otp)}>
-                    <AuthButton loading={pending}>{isHe ? "אימות" : "Verify"}</AuthButton>
+                    <AuthButton loading={pending}>אימות</AuthButton>
                 </div>
             </div>
         </div>

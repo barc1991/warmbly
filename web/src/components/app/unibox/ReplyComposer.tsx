@@ -395,7 +395,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             {/* Target strip: one quiet line naming what this composer is
                 doing (same visual language as the compose window's header),
                 plus the close handle. */}
-            <div className="h-8 pl-4 pr-1.5 flex items-center gap-2 bg-slate-50 border-b border-slate-200 select-none">
+            <div className="h-8 ps-4 pe-1.5 flex items-center gap-2 bg-slate-50 border-b border-slate-200 select-none">
                 <CornerUpLeftIcon
                     className={cn(
                         "w-3.5 h-3.5 shrink-0 rtl:scale-x-[-1]",
@@ -428,7 +428,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         type="button"
                         onClick={() => {
                             if (draft.discard()) onClose();
-                            else toast.error("Could not remove the saved draft. Browser storage is unavailable.");
+                            else toast.error("לא ניתן היה למחוק את הטיוטה השמורה.");
                         }}
                         title="מחק טיוטה זו"
                         className="h-6 px-1.5 rounded-md text-[10.5px] text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-colors shrink-0"

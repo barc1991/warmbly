@@ -122,10 +122,10 @@ function draftSnapshot(d: {
 }
 
 const SCHEDULE_PRESETS: { label: string; at: () => Date }[] = [
-    { label: "In 1 hour", at: () => offsetHours(1) },
-    { label: "In 3 hours", at: () => offsetHours(3) },
-    { label: "Tomorrow 9:00", at: () => atHour(1, 9) },
-    { label: "Tomorrow 17:00", at: () => atHour(1, 17) },
+    { label: "בעוד שעה", at: () => offsetHours(1) },
+    { label: "בעוד 3 שעות", at: () => offsetHours(3) },
+    { label: "מחר ב-09:00", at: () => atHour(1, 9) },
+    { label: "מחר ב-17:00", at: () => atHour(1, 17) },
 ];
 
 export default function ComposeWindow() {
@@ -275,7 +275,7 @@ function ComposeWindowInner({
             if (line) setSubject(line);
         } catch (e) {
             const err = e as AppError;
-            toast.error(err?.status === 402 ? "You're out of AI credits." : buildError(err));
+            toast.error(err?.status === 402 ? "אזלו לך קרדיטים של AI." : buildError(err));
         }
     };
 
@@ -389,8 +389,8 @@ function ComposeWindowInner({
             } else {
                 toast.success(
                     scheduledAt
-                        ? `Scheduled for ${formatFriendly(scheduledAt)} from ${res.account_email}`
-                        : `Sent from ${res.account_email}${res.auto ? " · picked automatically" : ""}`,
+                        ? `מתוזמן ל-${formatFriendly(scheduledAt)} מ-${res.account_email}`
+                        : `נשלח מ-${res.account_email}${res.auto ? " · נבחר אוטומטית" : ""}`,
                 );
             }
             // The email is on its way; its draft is done.
@@ -405,11 +405,11 @@ function ComposeWindowInner({
 
     const handleSchedule = (d: Date) => {
         if (!Number.isFinite(d.getTime()) || d.getTime() <= Date.now() + 5_000) {
-            toast.error("Pick a future time (a few seconds out, please)");
+            toast.error("בחר מועד עתידי (לפחות מספר שניות מהרגע)");
             return;
         }
         if (d.getTime() - Date.now() > MAX_SCHEDULE_MS) {
-            toast.error("Scheduled send can't be more than 29 days out");
+            toast.error("לא ניתן לתזמן שליחה ליותר מ-29 ימים מראש");
             return;
         }
         setScheduleOpen(false);
@@ -443,7 +443,7 @@ function ComposeWindowInner({
                 "fixed z-[70] flex items-stretch rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden",
                 full
                     ? "inset-2 sm:inset-y-6 sm:inset-x-[max(1.5rem,calc(50%_-_30rem))]"
-                    : "inset-x-2 bottom-2 sm:inset-x-auto sm:right-4 sm:bottom-4 max-h-[min(660px,calc(100dvh-1rem))]",
+                    : "inset-x-2 bottom-2 sm:inset-x-auto sm:end-4 sm:bottom-4 max-h-[min(660px,calc(100dvh-1rem))]",
             )}
             onKeyDown={(e) => {
                 if (e.key === "Escape") {
@@ -463,7 +463,7 @@ function ComposeWindowInner({
             <div className={cn("flex flex-col w-full min-h-0", minimized ? "sm:w-[280px]" : full ? "sm:w-full" : "sm:w-[540px]")}>
                 <div
                     className={cn(
-                        "shrink-0 h-8 pl-3 pr-1.5 flex items-center gap-2 bg-slate-100/80 select-none",
+                        "shrink-0 h-8 ps-3 pe-1.5 flex items-center gap-2 bg-slate-100/80 select-none",
                         minimized ? "cursor-pointer hover:bg-slate-100" : "border-b border-slate-200",
                     )}
                     onClick={minimized ? () => setMinimized(false) : undefined}
@@ -474,11 +474,11 @@ function ComposeWindowInner({
                         {contact ? (
                             <>
                                 {" "}
-                                to {contactDisplay}
+                                אל {contactDisplay}
                                 {contact.company ? `, ${contact.company}` : ""}
                             </>
                         ) : primary ? (
-                            <> to {primary}</>
+                            <> אל {primary}</>
                         ) : null}
                     </span>
                     <div className="flex items-center gap-0.5 shrink-0">
@@ -598,28 +598,28 @@ function ComposeWindowInner({
 
                     {showCc && (
                         <ComposeRow
-                            label="Cc"
+                            label="עותק"
                             onRemove={() => {
                                 setCc([]);
                                 setShowCc(false);
                             }}
                         >
-                            <ContactRecipientField value={cc} onChange={setCc} placeholder="Add Cc recipients" />
+                            <ContactRecipientField value={cc} onChange={setCc} placeholder="הוסף נמעני עותק" />
                         </ComposeRow>
                     )}
                     {showBcc && (
                         <ComposeRow
-                            label="Bcc"
+                            label="עותק מוסתר"
                             onRemove={() => {
                                 setBcc([]);
                                 setShowBcc(false);
                             }}
                         >
-                            <ContactRecipientField value={bcc} onChange={setBcc} placeholder="Add Bcc recipients" />
+                            <ContactRecipientField value={bcc} onChange={setBcc} placeholder="הוסף נמעני עותק מוסתר" />
                         </ComposeRow>
                     )}
 
-                    <ComposeRow label="From">
+                    <ComposeRow label="מאת">
                         <MailboxPicker
                             value={accountSel}
                             autoTag={autoTagId}
@@ -637,7 +637,7 @@ function ComposeWindowInner({
                             type="text"
                             value={subject}
                             onChange={(e) => setSubject(e.target.value)}
-                            placeholder="Subject"
+                            placeholder="נושא ההודעה"
                             className="flex-1 min-w-0 h-9 bg-transparent text-[13px] font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal outline-none"
                         />
                         {body.trim() && !subject.trim() && (
@@ -645,13 +645,13 @@ function ComposeWindowInner({
                                 type="button"
                                 onClick={suggestSubject}
                                 disabled={subjectMut.isPending}
-                                title="Suggest a subject from the body (from 1 credit)"
+                                title="הצע נושא מתוכן ההודעה (מקרדיט 1)"
                                 className="shrink-0 h-5 px-1.5 rounded inline-flex items-center gap-1 text-[10.5px] text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors disabled:opacity-50"
                             >
                                 {subjectMut.isPending && (
                                     <Loader2Icon className="w-2.5 h-2.5 animate-spin" />
                                 )}
-                                Suggest
+                                הצע נושא
                             </button>
                         )}
                     </div>
@@ -661,8 +661,8 @@ function ComposeWindowInner({
                     <div className="shrink-0 mx-3.5 mt-2 px-2.5 py-1.5 rounded-md border border-rose-200 bg-rose-50 flex items-start gap-1.5 text-[11.5px] text-rose-800">
                         <OctagonAlertIcon className="w-3 h-3 mt-0.5 shrink-0" />
                         <span className="leading-snug">
-                            {primary} is suppressed for this workspace
-                            {candidates?.suppression?.reason ? ` (${candidates.suppression.reason})` : ""}. Sending is blocked to protect your reputation.
+                            {primary} חסום לשליחה בסביבת עבודה זו
+                            {candidates?.suppression?.reason ? ` (${candidates.suppression.reason})` : ""}. השליחה נחסמה כדי להגן על המוניטין שלך.
                         </span>
                     </div>
                 )}
@@ -673,7 +673,7 @@ function ComposeWindowInner({
                         ref={bodyRef}
                         value={body}
                         onChange={(e) => setBody(e.target.value.slice(0, MAX_BODY_LEN))}
-                        placeholder="Write your email…"
+                        placeholder="כתוב את הודעתך…"
                         onKeyDown={(e) => {
                             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                                 e.preventDefault();
@@ -689,10 +689,10 @@ function ComposeWindowInner({
                         ctrl={aiDraft}
                         busyLabels={[
                             contactDisplay
-                                ? `Thinking about ${contactDisplay}…`
-                                : "Thinking about your recipient…",
-                            "Writing your email…",
-                            "Polishing…",
+                                ? `חושב על ${contactDisplay}…`
+                                : "חושב על הנמען שלך…",
+                            "כותב את הודעתך…",
+                            "משפר ניסוח…",
                         ]}
                     />
                 </div>
@@ -708,8 +708,8 @@ function ComposeWindowInner({
                     value={body}
                     onChange={(next) => setBody(next.slice(0, MAX_BODY_LEN))}
                     onDraftReply={() => aiDraft.start()}
-                    draftLabel="Draft this email with AI"
-                    draftCost="from 2 credits"
+                    draftLabel="נסח אימייל זה עם AI"
+                    draftCost="החל מ-2 קרדיטים"
                     contextHint={`It is a new outbound email${contactDisplay ? ` to ${contactDisplay}` : ""}${subject.trim() ? ` with the subject "${subject.trim()}"` : ""}.`}
                     maxLen={MAX_BODY_LEN}
                 />
@@ -735,7 +735,7 @@ function ComposeWindowInner({
                         type="button"
                         onClick={() => void send()}
                         disabled={!canSend}
-                        title="Send now (⌘Enter)"
+                        title="שלח עכשיו (⌘Enter)"
                         className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isSending ? (
@@ -743,7 +743,7 @@ function ComposeWindowInner({
                         ) : (
                             <SendIcon className="w-3 h-3" />
                         )}
-                        {isSending ? "Sending" : "Send"}
+                        {isSending ? "שולח…" : "שלח"}
                         {!isSending && <Kbd combo="mod+enter" />}
                     </button>
 
@@ -760,18 +760,18 @@ function ComposeWindowInner({
                             <button
                                 type="button"
                                 disabled={!canSend}
-                                title="Send later, up to 29 days out"
+                                title="שלח מאוחר יותר, עד 29 ימים קדימה"
                                 className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <ClockIcon className="w-3 h-3" />
-                                Schedule
+                                תזמן
                                 <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                             </button>
                         </PopoverMenuTrigger>
                         <PopoverMenuContent minWidth={240}>
                             {customMode ? (
                                 <div className="px-1 py-1 w-[260px]">
-                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
+                                    <PopoverMenuLabel>שלח ב-</PopoverMenuLabel>
                                     <div className="mt-1">
                                         <DateTimePicker value={customValue} onChange={setCustomValue} stepMinutes={15} />
                                     </div>
@@ -783,20 +783,20 @@ function ComposeWindowInner({
                                             className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                                         >
                                             <CheckIcon className="w-3 h-3" />
-                                            Schedule
+                                            תזמן
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setCustomMode(false)}
                                             className="h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] transition-colors"
                                         >
-                                            Back
+                                            חזרה
                                         </button>
                                     </div>
                                 </div>
                             ) : (
                                 <>
-                                    <PopoverMenuLabel>Send at</PopoverMenuLabel>
+                                    <PopoverMenuLabel>שלח ב-</PopoverMenuLabel>
                                     {SCHEDULE_PRESETS.map((p) => (
                                         <PopoverMenuItem key={p.label} onSelect={() => handleSchedule(p.at())}>
                                             {p.label}
@@ -804,7 +804,7 @@ function ComposeWindowInner({
                                     ))}
                                     <PopoverMenuSeparator />
                                     <PopoverMenuItem onSelect={() => setCustomMode(true)} closeOnSelect={false}>
-                                        Pick a time
+                                        בחר מועד
                                     </PopoverMenuItem>
                                 </>
                             )}
@@ -815,11 +815,11 @@ function ComposeWindowInner({
                         <PopoverMenuTrigger asChild>
                             <button
                                 type="button"
-                                title="Drop a saved template into the email"
+                                title="הכנס תשובה שמורה לגוף"
                                 className="h-7 px-2 rounded-md border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 text-[12px] inline-flex items-center gap-1 transition-colors"
                             >
                                 <FileTextIcon className="w-3 h-3" />
-                                Template
+                                תבנית
                                 <ChevronDownIcon className="w-3 h-3 text-slate-400" />
                             </button>
                         </PopoverMenuTrigger>
@@ -851,21 +851,21 @@ function ComposeWindowInner({
 
                     <span
                         className={cn(
-                            "ml-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
+                            "ms-auto inline-flex items-center gap-1 h-5 px-1.5 rounded text-[10px] font-medium",
                             resolvedAccount?.signature_sync && resolvedAccount.signature_plain?.trim()
                                 ? "bg-emerald-50 text-emerald-700"
                                 : "bg-slate-100 text-slate-500",
                         )}
                         title={
                             resolvedAccount?.signature_sync && resolvedAccount.signature_plain?.trim()
-                                ? `The ${resolvedAccount.email} signature is appended on send.`
-                                : "No signature will be appended for the sending mailbox."
+                                ? `חתימת ${resolvedAccount.email} תצורף בעת השליחה.`
+                                : "לא תצורף חתימה לתיבת דואר זו."
                         }
                     >
                         <PenLineIcon className="w-2.5 h-2.5" />
                         {resolvedAccount?.signature_sync && resolvedAccount.signature_plain?.trim()
-                            ? "Signature on"
-                            : "No signature"}
+                            ? "חתימה פעילה"
+                            : "ללא חתימה"}
                     </span>
                     <span className="font-mono text-[10px] text-slate-400 tabular-nums">
                         {body.length}/{MAX_BODY_LEN}
@@ -883,7 +883,7 @@ function ComposeWindowInner({
                         animate={{ width: 300, opacity: 1 }}
                         exit={{ width: 0, opacity: 0 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="hidden sm:block border-l border-slate-200 bg-slate-50/40 overflow-hidden"
+                        className="hidden sm:block border-s border-slate-200 bg-slate-50/40 overflow-hidden"
                     >
                         <div className="w-[300px] h-full">
                             <ComposeHistoryPanel
@@ -919,7 +919,7 @@ function ComposeRow({
                 <button
                     type="button"
                     onClick={onRemove}
-                    aria-label={`Remove ${label}`}
+                    aria-label={`הסר ${label}`}
                     className="size-5 inline-flex items-center justify-center rounded text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors shrink-0"
                 >
                     <XIcon className="w-3 h-3" />

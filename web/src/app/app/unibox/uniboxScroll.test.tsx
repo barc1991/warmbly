@@ -134,7 +134,7 @@ describe("unibox scroll position", SUITE, () => {
         // The thread pane's back link, the mobile way back to the list.
         const back = screen
             .getAllByRole("button", { name: "Inbox" })
-            .find((b) => b.className.includes("md:hidden"))!;
+            .find((b: HTMLElement) => b.className.includes("md:hidden"))!;
         await act(async () => {
             fireEvent.click(back);
         });

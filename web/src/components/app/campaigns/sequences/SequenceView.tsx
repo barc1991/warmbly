@@ -89,8 +89,8 @@ export default function SequenceView({
                 ...(draft.thread_reply !== baseline.thread_reply && { thread_reply: draft.thread_reply }),
             };
             await toast.promise(updateSequence.mutateAsync(data), {
-                loading: "Saving step…",
-                success: "Step saved.",
+                loading: "שומר שלב…",
+                success: "השלב נשמר בהצלחה.",
                 error: (err: AppError) => buildError(err),
             });
         } finally {
@@ -101,58 +101,56 @@ export default function SequenceView({
     return (
         <div className={embedded ? "" : "rounded-md border border-slate-200 bg-white"}>
             <div
-                className={`flex flex-col gap-3 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between ${
-                    embedded ? "" : "border-b border-slate-200"
+                className={`flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 ${
+                    embedded ? "" : "border-b border-slate-200/80"
                 }`}
             >
                 {!embedded && (
                     <div className="min-w-0">
                         <div className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                            Step {index + 1}
+                            שלב {index + 1}
                         </div>
-                        <p className="mt-0.5 truncate text-[11px] text-slate-400">Compose the email this step sends.</p>
+                        <p className="mt-0.5 truncate text-[11px] text-slate-400">נסח את הודעת הדוא״ל ששלב זה שולח.</p>
                     </div>
                 )}
-                <div className="flex flex-wrap shrink-0 items-center gap-2 sm:ml-auto">
+                <div className="flex flex-wrap shrink-0 items-center gap-2 sm:ms-auto">
                     {headerExtra}
                     <button
                         type="button"
-                        onClick={() => setDraft(toDraft(sequence))}
+                        onClick={() => setDraft(baseline)}
                         disabled={!savable || load}
                         className="h-7 px-2.5 rounded-md border border-slate-200 bg-white text-[12px] font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:opacity-40"
                     >
-                        Reset
+                        איפוס
                     </button>
                     <button
                         type="button"
                         onClick={submit}
                         disabled={!savable || load}
-                        className="h-7 px-3 rounded-md bg-sky-600 text-[12px] font-medium text-white transition-colors hover:bg-sky-700 inline-flex items-center gap-1.5 disabled:opacity-40"
+                        className="h-7 px-3 rounded-md bg-sky-600 text-[12px] font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-40"
                     >
-                        {load && <Loader2Icon className="w-3 h-3 animate-spin" />}
-                        שמור שינויים
+                        {load ? "שומר…" : "שמור שינויים"}
                     </button>
                 </div>
             </div>
 
             <div className="space-y-4 p-3">
                 <div>
-                    <Label>Step name</Label>
-                    <TextInput value={draft.name} onChange={(v) => patch({ name: v })} placeholder={`Step ${index + 1}`} />
-                    <p className="mt-1.5 text-[10.5px] text-slate-400">Internal label only — recipients never see it.</p>
+                    <Label>שם השלב</Label>
+                    <TextInput value={draft.name} onChange={(v) => patch({ name: v })} placeholder={`שלב ${index + 1}`} />
+                    <p className="mt-1.5 text-[10.5px] text-slate-400">תווית פנימית בלבד (הנמענים אינם רואים זאת).</p>
                 </div>
 
                 {canThread && (
                     <div className="rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2.5">
                         <SettingRow
-                            title="Reply in thread"
+                            title="תשובה בשרשור"
                             description={
                                 <span className="inline-flex items-start gap-1.5">
                                     <ReplyIcon className="mt-0.5 w-3 h-3 shrink-0 text-slate-400" />
                                     <span>
-                                        Send this step as a reply on the conversation the contact is already in, so it
-                                        lands under the email they have instead of arriving as a second cold email.
-                                        Turn it off to start a fresh conversation with its own subject.
+                                        שלח שלב זה כתשובה בשיחה שהאיש קשר כבר נמצא בה, כך שהיא תנחת תחת האימייל שכבר קיבל במקום להגיע כאימייל קר נפרד.
+                                        כבה אפשרות זו כדי להתחיל שיחה חדשה עם נושא משלה.
                                     </span>
                                 </span>
                             }
@@ -174,7 +172,7 @@ export default function SequenceView({
                         inheritsSubject
                             ? {
                                   subject: conversationSubject ?? "",
-                                  note: "A reply carries the conversation's subject. Turn off Reply in thread to write your own.",
+                                  note: "תשובה בשרשור יורשת את נושא השיחה. כבה את 'תשובה בשרשור' כדי להזין נושא משלך.",
                               }
                             : undefined
                     }

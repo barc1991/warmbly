@@ -481,7 +481,7 @@ function ProgressBar({ active }: { active: boolean }) {
         <motion.div
           key="progress"
           role="progressbar"
-          aria-label="Loading conversations"
+          aria-label="טוען שיחות"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

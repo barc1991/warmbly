@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 import { PROVIDER_LABELS, type IntegrationProvider } from "@/lib/api/models/app/integrations/Integration";
 
 const SEGMENTS = [
-    { key: "valid", label: "Deliverable", color: "bg-emerald-500", text: "text-emerald-700" },
-    { key: "risky", label: "Risky", color: "bg-amber-400", text: "text-amber-700" },
-    { key: "invalid", label: "Undeliverable", color: "bg-rose-500", text: "text-rose-700" },
-    { key: "unknown", label: "Unverified", color: "bg-slate-200", text: "text-slate-500" },
+    { key: "valid", label: "בר מסירה", color: "bg-emerald-500", text: "text-emerald-700" },
+    { key: "risky", label: "בסיכון", color: "bg-amber-400", text: "text-amber-700" },
+    { key: "invalid", label: "לא ניתן למסירה", color: "bg-rose-500", text: "text-rose-700" },
+    { key: "unknown", label: "לא מאומת", color: "bg-slate-200", text: "text-slate-500" },
 ] as const;
 
 export default function VerificationSettings() {
@@ -29,8 +29,8 @@ export default function VerificationSettings() {
 
     return (
         <Section
-            eyebrow="Address verification"
-            description="Every contact you add is checked before any campaign sends to it, so bad addresses never become bounces. Nothing to run: verdicts land in the background and appear on each contact."
+            eyebrow="אימות כתובות"
+            description="כל איש קשר שנוסף נבדק לפני שקמפיין שולח אליו, כדי שכתובות פגומות לא יהפכו להחזרות (bounces). הכל מתבצע ברקע והתוצאות מופיעות בכל איש קשר."
         >
             {isLoading || !data ? (
                 <div className="h-16 rounded-md bg-slate-100 animate-pulse" />
@@ -51,35 +51,35 @@ export default function VerificationSettings() {
                             </motion.span>
                             <div className="min-w-0">
                                 <p className="text-[12.5px] font-medium text-slate-900">
-                                    {paid ? providerName : "Built-in check"}
-                                    <span className="ml-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                                        {paid ? "connected service" : "included"}
+                                    {paid ? providerName : "בדיקה מובנית"}
+                                    <span className="ms-1.5 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
+                                        {paid ? "שירות מחובר" : "כלול במערכת"}
                                     </span>
                                 </p>
                                 <p className="text-[11.5px] text-slate-500 leading-snug">
                                     {paid
                                         ? data.credits != null
-                                            ? `One credit per address, from your own ${providerName} balance.`
-                                            : `One check per address, from your own ${providerName} account. It publishes no balance, so view what is left in ${providerName}.`
+                                            ? `קרדיט אחד לכל כתובת, מתוך יתרת ה-${providerName} שלך.`
+                                            : `בדיקה אחת לכל כתובת, מחשבון ה-${providerName} שלך. השירות אינו מפרסם יתרה, לכן בדוק מה נותר ישירות ב-${providerName}.`
                                         : data.builtin_ready
-                                          ? "Syntax, mail server, disposable domains and a mailbox probe. Catch-all domains and Microsoft 365 stay unverified."
-                                          : "Syntax, mail server and disposable-domain checks. The mailbox probe is off on this instance, so most addresses stay unverified."}
+                                          ? "תחביר, שרת דואר, דומיינים זמניים ובדיקת תיבה ישירה. דומיינים מסוג Catch-all ו-Microsoft 365 נשארים ללא אימות."
+                                          : "בדיקות תחביר, שרת דואר ודומיינים זמניים. בדיקת התיבה כבויה במופע זה, לכן רוב הכתובות נשארות ללא אימות."}
                                 </p>
                             </div>
                         </div>
-                        <div className="md:ml-auto shrink-0 flex items-center gap-2">
+                        <div className="md:ms-auto shrink-0 flex items-center gap-2">
                             {paid && data.credits != null && (
                                 <span className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-slate-50 border border-slate-200 text-[12px] text-slate-700">
                                     <CoinsIcon className="w-3.5 h-3.5 text-amber-500" />
-                                    <AnimatedNumber value={data.credits} className="font-medium tabular-nums" /> credits
+                                    <AnimatedNumber value={data.credits} className="font-medium tabular-nums" /> קרדיטים
                                 </span>
                             )}
                             <Link
                                 to="/app/integrations"
                                 className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors"
                             >
-                                {data.connection_id ? "Manage connection" : "Connect verification service"}
-                                <ArrowRightIcon className="w-3.5 h-3.5" />
+                                {data.connection_id ? "ניהול חיבור" : "חיבור שירות אימות"}
+                                <ArrowRightIcon className="w-3.5 h-3.5 rtl:scale-x-[-1]" />
                             </Link>
                         </div>
                     </div>

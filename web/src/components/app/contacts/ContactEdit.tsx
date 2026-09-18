@@ -224,27 +224,24 @@ function ContactEditPanel({
     }, [requestClose]);
 
     const displayName =
-        firstName || lastName ? `${firstName} ${lastName}`.trim() : "Unnamed contact";
+        firstName || lastName ? `${firstName} ${lastName}`.trim() : "איש קשר ללא שם";
     const suppressed = !!detail.data?.suppression;
 
     return (
-        <motion.div
-            key="overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[110] flex justify-end bg-slate-900/30 backdrop-blur-[2px]"
-            onMouseDown={requestClose}
+        <div
+            className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-[2px]"
+            onClick={requestClose}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`עריכת איש קשר: ${displayName}`}
         >
-            <motion.aside
-                key="panel"
+            <motion.div
                 initial={{ x: 32, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: 32, opacity: 0 }}
                 transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
                 onMouseDown={(e) => e.stopPropagation()}
-                className="flex flex-col w-full max-w-full md:w-[32rem] md:max-w-[95%] h-full bg-white border-l border-slate-200 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.08)]"
+                className="flex flex-col w-full max-w-full md:w-[32rem] md:max-w-[95%] h-full bg-white border-s border-slate-200 shadow-[-12px_0_24px_-12px_rgba(15,23,42,0.08)]"
             >
                 <ContactHeader
                     contact={contact}
@@ -320,8 +317,8 @@ function ContactEditPanel({
                         </button>
                     </footer>
                 )}
-            </motion.aside>
-        </motion.div>
+            </motion.div>
+        </div>
     );
 }
 
@@ -356,13 +353,13 @@ function ContactHeader({
     if (suppressed) {
         statusPill = (
             <span className="inline-flex h-5 items-center px-1.5 rounded text-[10px] font-medium text-red-700 bg-red-50 border border-red-200">
-                Suppressed
+                מושתק
             </span>
         );
     } else if (!subscribed) {
         statusPill = (
             <span className="inline-flex h-5 items-center px-1.5 rounded text-[10px] font-medium text-slate-600 bg-slate-100 border border-slate-200">
-                Unsubscribed
+                הסיר הרשמה
             </span>
         );
     }
@@ -382,7 +379,7 @@ function ContactHeader({
                     <ResourceViewers resource={`contact:${contact.id}`} className="shrink-0" />
                     {dirty && (
                         <span className="inline-flex h-5 items-center px-1.5 rounded text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200">
-                            Unsaved
+                            לא נשמר
                         </span>
                     )}
                 </div>
@@ -393,7 +390,7 @@ function ContactHeader({
                     <button
                         type="button"
                         onClick={copy}
-                        aria-label="Copy email"
+                        aria-label="העתק כתובת דוא״ל"
                         className="shrink-0 size-5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 inline-flex items-center justify-center transition-colors"
                     >
                         {copied ? (
@@ -408,21 +405,21 @@ function ContactHeader({
                 type="button"
                 onClick={() => useComposeStore.getState().openCompose(contact.email)}
                 className="shrink-0 h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1.5 transition-colors text-[12px]"
-                title="Compose an email to this contact"
-                aria-label="Compose email"
+                title="חיבור דוא״ל לאיש קשר זה"
+                aria-label="שלח דוא״ל"
             >
                 <MailIcon className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Email</span>
+                <span className="hidden md:inline">דוא״ל</span>
             </button>
             <button
                 type="button"
                 onClick={() => setMeetingOpen(true)}
                 className="shrink-0 h-7 px-2 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center gap-1.5 transition-colors text-[12px]"
-                title="Schedule a call with this contact"
-                aria-label="Schedule call"
+                title="קביעת שיחה עם איש קשר זה"
+                aria-label="קבע שיחה"
             >
                 <CalendarPlusIcon className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Schedule call</span>
+                <span className="hidden md:inline">קבע שיחה</span>
             </button>
             <BookACallButton
                 email={contact.email}
@@ -433,7 +430,7 @@ function ContactHeader({
             <button
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label="סגור"
                 className="size-7 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 inline-flex items-center justify-center transition-colors shrink-0"
             >
                 <XIcon className="w-3.5 h-3.5" />
@@ -443,7 +440,7 @@ function ContactHeader({
                 open={meetingOpen}
                 onClose={() => setMeetingOpen(false)}
                 prefill={{
-                    title: displayName ? `Call with ${displayName}` : "Call",
+                    title: displayName ? `שיחה עם ${displayName}` : "שיחה",
                     name: displayName,
                     email: contact.email,
                     contactId: contact.id,

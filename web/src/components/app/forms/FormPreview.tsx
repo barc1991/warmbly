@@ -57,7 +57,7 @@ function DropEndZone({ caret, children }: { caret: boolean; children: React.Reac
 function FieldBody({ field }: { field: FormField }) {
     const label = (
         <label className="l">
-            {field.label || <em style={{ color: "var(--wf-placeholder)" }}>Untitled</em>}
+            {field.label || <em style={{ color: "var(--wf-placeholder)" }}>ללא כותרת</em>}
             {field.required && <span className="req"> *</span>}
         </label>
     );
@@ -66,9 +66,9 @@ function FieldBody({ field }: { field: FormField }) {
 
     switch (field.type) {
         case "heading":
-            return <h2 className="h">{field.label || "Heading"}</h2>;
+            return <h2 className="h">{field.label || "כותרת"}</h2>;
         case "paragraph":
-            return <p className="p">{field.value || "Text block"}</p>;
+            return <p className="p">{field.value || "בלוק טקסט"}</p>;
         case "divider":
             return <hr className="d" />;
         case "hidden":
@@ -82,8 +82,8 @@ function FieldBody({ field }: { field: FormField }) {
                         padding: "6px 10px",
                     }}
                 >
-                    Hidden field · {field.id}
-                    {field.value ? ` = ${field.value}` : ""} (not shown to visitors)
+                    שדה מוסתר · {field.id}
+                    {field.value ? ` = ${field.value}` : ""} (לא מוצג למבקרים)
                 </div>
             );
         case "textarea":
@@ -99,7 +99,7 @@ function FieldBody({ field }: { field: FormField }) {
                 <div>
                     {label}
                     <select disabled tabIndex={-1}>
-                        <option>{field.placeholder || "Select…"}</option>
+                        <option>{field.placeholder || "בחר…"}</option>
                     </select>
                     {help}
                 </div>
@@ -126,7 +126,7 @@ function FieldBody({ field }: { field: FormField }) {
                     <label className="opt">
                         <input type="checkbox" disabled tabIndex={-1} />
                         <span>
-                            {field.placeholder || field.label || "I agree"}
+                            {field.placeholder || field.label || "אני מסכים"}
                             {field.required && <span className="req"> *</span>}
                         </span>
                     </label>
@@ -157,7 +157,7 @@ function PageBreakRow({ pageNum, label }: { pageNum: number; label: string }) {
                 className="px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap"
                 style={{ color: "var(--wf-accent)", background: "color-mix(in srgb, var(--wf-accent) 10%, transparent)" }}
             >
-                Page {pageNum}
+                עמוד {pageNum}
                 {label ? ` · ${label}` : ""}
             </span>
             {line}
@@ -179,7 +179,7 @@ function CaptchaBadge({ caret }: { caret?: boolean }) {
             }}
         >
             {caret && <DropCaret side="top" />}
-            Spam protection challenge appears here
+            אימות נגד ספאם יוצג כאן
         </div>
     );
 }
@@ -258,7 +258,7 @@ function SortableField({
                     <button
                         ref={setActivatorNodeRef}
                         type="button"
-                        aria-label="Drag to reorder"
+                        aria-label="גרור לשינוי סדר"
                         // touch-action must be none or a touch drag scrolls the
                         // canvas instead of picking the field up.
                         className="size-5 inline-flex items-center justify-center text-slate-400 hover:text-slate-700 cursor-grab active:cursor-grabbing touch-none"
@@ -269,7 +269,7 @@ function SortableField({
                     </button>
                     <button
                         type="button"
-                        aria-label="Duplicate field"
+                        aria-label="שכפל שדה"
                         onClick={() => onDuplicate(field.id)}
                         className="size-5 inline-flex items-center justify-center text-slate-400 hover:text-slate-700"
                     >
@@ -277,7 +277,7 @@ function SortableField({
                     </button>
                     <button
                         type="button"
-                        aria-label="Delete field"
+                        aria-label="מחק שדה"
                         onClick={() => onDelete(field.id)}
                         className="size-5 inline-flex items-center justify-center text-slate-400 hover:text-rose-600"
                     >
@@ -308,7 +308,7 @@ function PreviewPager({
                 <>
                     <button
                         type="button"
-                        aria-label="Previous question"
+                        aria-label="שאלה קודמת"
                         disabled={page === 0}
                         onClick={() => onPage(page - 1)}
                         className="size-6 inline-flex items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-40"
@@ -320,7 +320,7 @@ function PreviewPager({
                     </span>
                     <button
                         type="button"
-                        aria-label="Next question"
+                        aria-label="שאלה הבאה"
                         disabled={page >= total - 1}
                         onClick={() => onPage(page + 1)}
                         className="size-6 inline-flex items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-40"
@@ -333,7 +333,7 @@ function PreviewPager({
                     <button
                         key={i}
                         type="button"
-                        aria-label={`Page ${i + 1}`}
+                        aria-label={`עמוד ${i + 1}`}
                         onClick={() => onPage(i)}
                         className={`h-6 min-w-6 px-1.5 rounded-full text-[11px] font-medium tabular-nums transition-colors ${
                             i === page ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -425,7 +425,7 @@ export default function FormPreview({
                 belongs in it instead of showing nothing. */}
             {!headerLogo && !r.headerTitle && (
                 <span className="wf-header-title" style={{ color: "var(--wf-placeholder)", fontWeight: 400 }}>
-                    Add a logo or a header title
+                    הוסף לוגו או כותרת עליונה
                 </span>
             )}
         </header>
@@ -452,7 +452,7 @@ export default function FormPreview({
                             dropIndex != null ? "border-sky-400 bg-sky-50/60 text-sky-700" : "border-slate-200 text-slate-400",
                         )}
                     >
-                        Add fields from the left panel
+                        הוסף שדות מהפאנל
                     </div>
                 )}
                 {fields.map((f, i) => (
@@ -489,7 +489,7 @@ export default function FormPreview({
                     {r.mode === "classic" && screen.title && <p className="wf-pagetitle">{screen.title}</p>}
                     {shown.length === 0 && (
                         <div className="w-full rounded-md border-2 border-dashed border-slate-200 p-8 text-center text-[12.5px] text-slate-400">
-                            Nothing on this page yet
+                            אין תוכן בעמוד זה עדיין
                         </div>
                     )}
                     {shown.map((f) => (
@@ -502,7 +502,7 @@ export default function FormPreview({
                         <div className={cur > 0 ? "wf-pagenav" : "btnrow"}>
                             {cur > 0 && (
                                 <button type="button" className="wf-back" onClick={() => setPage(cur - 1)}>
-                                    Back
+                                    הקודם
                                 </button>
                             )}
                             {submitBtn}
@@ -511,17 +511,17 @@ export default function FormPreview({
                         <div className="wf-pagenav">
                             {cur > 0 ? (
                                 <button type="button" className="wf-back" onClick={() => setPage(cur - 1)}>
-                                    Back
+                                    הקודם
                                 </button>
                             ) : (
                                 <span />
                             )}
                             <button type="button" className="submit" onClick={() => setPage(cur + 1)}>
-                                Next
+                                הבא
                             </button>
                         </div>
                     )}
-                    {r.mode === "focus" && <p className="wf-hint">Press Enter to continue</p>}
+                    {r.mode === "focus" && <p className="wf-hint">לחץ Enter להמשך</p>}
                 </div>
             </div>
         </>

@@ -461,17 +461,17 @@ function EngagementAudience({
                 <div className="px-5 py-8 text-center">
                     <p className="text-[12.5px] text-slate-700 font-medium mb-1">אין עדיין פתיחות או לחיצות</p>
                     <p className="text-[11.5px] text-slate-400 max-w-[36ch] mx-auto leading-relaxed">
-                        Once people open and click, this shows which countries, mail clients and devices they did it from.
+                        ברגע שנמענים יפתחו וילחצו, כאן יוצגו המדינות, תוכנות הדואר והמכשירים שמהם הם ביצעו זאת.
                     </p>
                 </div>
             ) : (
-                <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-200/60">
+                <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x md:rtl:divide-x-reverse divide-slate-200/60">
                     {columns.map((c) => (
                         <div key={c.kind} className="min-w-0">
                             <div className="h-8 px-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
                                 <span className="flex-1 min-w-0">{c.label}</span>
-                                <span className="w-12 text-right">Opens</span>
-                                <span className="w-12 text-right">Clicks</span>
+                                <span className="w-12 text-end">פתיחות</span>
+                                <span className="w-12 text-end">לחיצות</span>
                             </div>
                             {c.rows.length === 0 ? (
                                 <div className="px-5 py-3 text-[11.5px] text-slate-400">אין עדיין</div>
@@ -482,10 +482,10 @@ function EngagementAudience({
                                             <span className="flex-1 min-w-0 text-[12px] text-slate-700 truncate" title={r.key || undefined}>
                                                 {bucketLabel(c.kind, r.key)}
                                             </span>
-                                            <span className="w-12 text-right font-mono text-[11.5px] text-emerald-600 tabular-nums">
+                                            <span className="w-12 text-end font-mono text-[11.5px] text-emerald-600 tabular-nums">
                                                 {r.opens}
                                             </span>
-                                            <span className="w-12 text-right font-mono text-[11.5px] text-violet-600 tabular-nums">
+                                            <span className="w-12 text-end font-mono text-[11.5px] text-violet-600 tabular-nums">
                                                 {r.clicks}
                                             </span>
                                         </div>

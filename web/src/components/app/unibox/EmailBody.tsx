@@ -175,7 +175,7 @@ export default function EmailBody({ html, plain }: EmailBodyProps) {
 
     if (!srcDoc) {
         return (
-            <p className="text-[13px] text-slate-400 italic">This message has no content.</p>
+            <p className="text-[13px] text-slate-400 italic">להודעה זו אין תוכן.</p>
         );
     }
 
@@ -183,7 +183,7 @@ export default function EmailBody({ html, plain }: EmailBodyProps) {
         <>
             <iframe
                 ref={frameRef}
-                title="Message body"
+                title="גוף ההודעה"
                 srcDoc={srcDoc}
                 onLoad={onLoad}
                 // No allow-scripts: message markup can never run code. allow-popups
@@ -198,11 +198,11 @@ export default function EmailBody({ html, plain }: EmailBodyProps) {
                     type="button"
                     onClick={() => setShowQuoted((v) => !v)}
                     aria-expanded={showQuoted}
-                    title={showQuoted ? "Hide the quoted conversation" : "Show the quoted conversation"}
+                    title={showQuoted ? "הסתר שיחה מצוטטת" : "הצג שיחה מצוטטת"}
                     className="mt-1 h-5 px-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 text-[10.5px] transition-colors"
                 >
                     <MoreHorizontalIcon className="w-3 h-3" />
-                    {showQuoted ? "Hide quoted text" : "Show quoted text"}
+                    {showQuoted ? "הסתר טקסט מצוטט" : "הצג טקסט מצוטט"}
                 </button>
             )}
         </>

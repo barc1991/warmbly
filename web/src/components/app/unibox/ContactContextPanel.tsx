@@ -250,7 +250,7 @@ export default function ContactContextPanel({
                             contactId={contact.id}
                             tasks={(tasksQ.data?.data ?? []).filter((t) => t.status !== "completed" && t.status !== "cancelled")}
                             loading={tasksQ.isPending}
-                            defaultTitle={`Follow up with ${name}`}
+                            defaultTitle={`מעקב עם ${name}`}
                             contactName={name}
                             company={contact.company}
                             dealId={(dealsQ.data ?? []).find((d) => d.status === "open")?.id}
@@ -266,7 +266,7 @@ export default function ContactContextPanel({
                     open={meetingOpen}
                     onClose={() => setMeetingOpen(false)}
                     prefill={{
-                        title: name ? `Call with ${name}` : "Call",
+                        title: name ? `שיחה עם ${name}` : "שיחה",
                         name,
                         email: contact.email,
                         contactId: contact.id,

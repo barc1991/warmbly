@@ -54,11 +54,12 @@ export function MessageBubble({
     const body = useUniboxEmail(email.id, expanded);
 
     const date = new Date(email.date);
-    const dateStr = date.toLocaleString(undefined, {
+    const dateStr = date.toLocaleString("he-IL", {
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hour12: false,
     });
 
     const name = fromName(email.from);
@@ -68,9 +69,9 @@ export function MessageBubble({
     return (
         <article
             className={cn(
-                "group border-l-2 pl-[14px] sm:pl-[18px] pr-4 sm:pr-5",
+                "group border-s-2 ps-[14px] sm:ps-[18px] pe-4 sm:pe-5",
                 expanded ? "py-4" : "py-2.5",
-                outbound ? "border-l-sky-400 bg-sky-50/30" : "border-l-transparent",
+                outbound ? "border-s-sky-400 bg-sky-50/30" : "border-s-transparent",
             )}
         >
             {/* Not a <button>: the reply/forward controls live inside it. */}

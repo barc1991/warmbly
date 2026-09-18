@@ -82,8 +82,8 @@ export default function useUpgradeFlow() {
         try {
             // Stripe returns the browser to wherever the portal was opened from.
             const { url } = await toast.promise(portal.mutateAsync({ return_url: window.location.href }), {
-                loading: "Opening billing portal…",
-                success: "Portal ready",
+                loading: "פותח את פורטל החיוב…",
+                success: "הפורטל מוכן",
                 error: (e: AppError) => buildError(e),
             });
             window.location.assign(url);
@@ -98,7 +98,7 @@ export default function useUpgradeFlow() {
             if (pending) return "failed";
             // Wait for billing state before choosing checkout or a plan change.
             if (plansQuery.isPending || subscription.isPending) {
-                toast.error("Still loading plans. Try again in a moment.");
+                toast.error("טוען את התוכניות. נסה שוב בעוד רגע.");
                 return "failed";
             }
             if (subscription.isError || plansQuery.isError) {
@@ -131,8 +131,8 @@ export default function useUpgradeFlow() {
                             interval: annual ? "year" : "month",
                         }),
                         {
-                            loading: "Updating your plan…",
-                            success: `You're on ${getPlan(catalogId).label} now`,
+                            loading: "מעדכן את התוכנית שלך…",
+                            success: `התוכנית עודכנה ל-${getPlan(catalogId).label}`,
                             error: (e: AppError) => buildError(e),
                         },
                     );
@@ -149,8 +149,8 @@ export default function useUpgradeFlow() {
                         discount_code: opts.discountCode,
                     }),
                     {
-                        loading: "Starting checkout…",
-                        success: "Redirecting to checkout…",
+                        loading: "מתחיל תהליך תשלום…",
+                        success: "מעביר לתשלום מאובטח…",
                         error: (e: AppError) => buildError(e),
                     },
                 );

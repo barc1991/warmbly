@@ -16,17 +16,17 @@ import { nameFromAddr } from "@/lib/helper/emailAddress";
 function relative(d: Date): string {
   const diff = Date.now() - d.getTime();
   const m = Math.floor(diff / 60_000);
-  if (m < 1) return "now";
-  if (m < 60) return `${m}m`;
+  if (m < 1) return "עכשיו";
+  if (m < 60) return `${m} דק'`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
+  if (h < 24) return `${h} ש'`;
   const days = Math.floor(h / 24);
-  if (days < 7) return `${days}d`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (days < 7) return `${days} ימ'`;
+  return d.toLocaleDateString("he-IL", { month: "short", day: "numeric" });
 }
 
-function fromName(s: string): string {
-  if (!s) return "Unknown sender";
+function fromName(s: string, isHe = false): string {
+  if (!s) return "שולח לא ידוע";
   return nameFromAddr(s);
 }
 
@@ -93,7 +93,7 @@ export function ConversationItem({ email }: ConversationItemProps) {
           {messageCount > 1 && (
             <span
               className="shrink-0 tabular-nums text-[11px] text-slate-400"
-              title={`${messageCount} messages in this conversation`}
+              title={`${messageCount} הודעות בשיחה זו`}
             >
               {messageCount}
             </span>
@@ -103,8 +103,8 @@ export function ConversationItem({ email }: ConversationItemProps) {
               className="shrink-0 relative flex size-2"
               title={
                 replierName
-                  ? `${replierName} is replying`
-                  : `${viewers[0].name ?? "A teammate"} is viewing`
+                  ? `${replierName} משיב/ה כעת`
+                  : `${viewers[0].name ?? "חבר צוות"} צופה כעת`
               }
             >
               <span
@@ -137,7 +137,7 @@ export function ConversationItem({ email }: ConversationItemProps) {
               unread ? "text-slate-900 font-medium" : "text-slate-600",
             )}
           >
-            {email.subject || "(no subject)"}
+            {email.subject || ("(ללא נושא)")}
           </span>
           {labels.length > 0 && (
             <span className="ml-auto shrink-0 inline-flex items-center gap-1">
@@ -160,7 +160,7 @@ export function ConversationItem({ email }: ConversationItemProps) {
         </div>
         <div className="flex items-center gap-2 min-w-0 mt-0.5">
           <span className="text-[11.5px] text-slate-400 truncate min-w-0">
-            {preview || "(no preview)"}
+            {preview || ("(אין תצוגה מקדימה)")}
           </span>
           {showMailbox && (
             <span
