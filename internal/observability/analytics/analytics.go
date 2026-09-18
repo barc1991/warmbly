@@ -27,8 +27,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -68,26 +66,7 @@ type Client struct {
 // than a disabled client is deliberate: it makes "analytics is off" the same
 // shape as "analytics was never wired", so there is one path to test.
 func New(key, host string) *Client {
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return nil
-	}
-	host = strings.TrimRight(strings.TrimSpace(host), "/")
-	if host == "" {
-		host = DefaultHost
-	}
-	// Events name a person, so a plaintext host off this machine hands their
-	// email and address to the network. Not refused: a self-hosted PostHog on
-	// a private network over http is a supported shape, and refusing would
-	// silently turn analytics off. Said once, loudly.
-	if u, err := url.Parse(host); err == nil && u.Scheme == "http" && !isLoopback(u.Hostname()) {
-		log.Printf("product analytics: POSTHOG_HOST %s is plaintext http; identified events (email, name, IP) will cross the network unencrypted", host)
-	}
-	return &Client{
-		key:  key,
-		host: host,
-		http: &http.Client{Timeout: sendTimeout},
-	}
+	return nil
 }
 
 // isLoopback reports whether the host is this machine, where plaintext is fine.

@@ -2912,6 +2912,29 @@ func (r *contactRepository) Delete(ctx context.Context, userID string, orgID uui
 const MaxImportCategoryNames = 100
 
 func (r *contactRepository) ResolveCategoryNames(ctx context.Context, orgID, userID uuid.UUID, names []string) (map[string]uuid.UUID, *errx.Error) {
+	if orgID == uuid.Nil {
+		var foundOrgID uuid.UUID
+		err := r.DB.QueryRow(ctx, `
+			SELECT organization_id FROM organization_members
+			WHERE user_id = $1
+			ORDER BY accepted_at ASC NULLS LAST, id ASC
+			LIMIT 1
+		`, userID).Scan(&foundOrgID)
+		if err == nil && foundOrgID != uuid.Nil {
+			orgID = foundOrgID
+		} else {
+			_ = r.DB.QueryRow(ctx, `
+				SELECT id FROM organizations
+				WHERE owner_user_id = $1
+				ORDER BY created_at ASC
+				LIMIT 1
+			`, userID).Scan(&foundOrgID)
+			if foundOrgID != uuid.Nil {
+				orgID = foundOrgID
+			}
+		}
+	}
+
 	out := make(map[string]uuid.UUID, len(names))
 	wanted := make([]string, 0, len(names))
 	seen := make(map[string]string, len(names)) // lowered -> original casing

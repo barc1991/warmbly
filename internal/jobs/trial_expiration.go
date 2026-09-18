@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,7 +66,6 @@ func NewTrialExpirationJobWithDB(
 func (j *TrialExpirationJob) Run(ctx context.Context) error {
 	return nil
 }
-
 
 // notifyTrialExpired sends an email notification about trial expiration
 func (j *TrialExpirationJob) notifyTrialExpired(ctx context.Context, userID interface{}, userEmail string) {

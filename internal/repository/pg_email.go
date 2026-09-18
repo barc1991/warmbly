@@ -173,6 +173,8 @@ type EmailRepository interface {
 	// ListActiveAccountsByWorker returns the ids of the active mailboxes
 	// assigned to one worker, for reloading them after that worker restarts.
 	ListActiveAccountsByWorker(ctx context.Context, workerID uuid.UUID) ([]uuid.UUID, error)
+	// IsWarmupOnlyMailbox reports whether a mailbox carries a warmup-only tag ('חימום' or 'warmup').
+	IsWarmupOnlyMailbox(ctx context.Context, emailAccountID uuid.UUID) bool
 }
 
 type emailRepository struct {
@@ -2028,4 +2030,22 @@ func (r *emailRepository) ListOrganizationIDs(ctx context.Context) ([]uuid.UUID,
 		out = append(out, id)
 	}
 	return out, rows.Err()
+}
+
+// IsWarmupOnlyMailbox reports whether a mailbox carries a warmup-only tag ('חימום' or 'warmup').
+func (r *emailRepository) IsWarmupOnlyMailbox(ctx context.Context, emailAccountID uuid.UUID) bool {
+	query := `
+		SELECT EXISTS (
+			SELECT 1
+			FROM email_tags et
+			JOIN tags t ON t.id = et.tag_id
+			WHERE et.email_id = $1
+			  AND LOWER(TRIM(t.title)) IN ('חימום', 'warmup')
+		)
+	`
+	var isWarmup bool
+	if err := r.DB.QueryRow(ctx, query, emailAccountID).Scan(&isWarmup); err != nil {
+		return false
+	}
+	return isWarmup
 }

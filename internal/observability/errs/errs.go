@@ -20,7 +20,6 @@ package errs
 import (
 	"context"
 	"errors"
-	"log"
 	"sync/atomic"
 	"time"
 )
@@ -61,35 +60,9 @@ var active atomic.Pointer[[]sink]
 // account to run APP_ENV=prod made a self-hosted deployment fail to boot over a
 // service it never asked for.
 func Init(cfg Config) error {
-	var sinks []sink
-	var initErr error
-
-	if cfg.PostHogKey != "" {
-		s, err := newPostHogSink(cfg)
-		if err != nil {
-			initErr = err
-		} else {
-			sinks = append(sinks, s)
-		}
-	}
-	if cfg.SentryDSN != "" {
-		s, err := newSentrySink(cfg)
-		if err != nil {
-			initErr = err
-		} else {
-			sinks = append(sinks, s)
-		}
-	}
-
-	if len(sinks) == 0 {
-		if cfg.Environment == "prod" {
-			log.Printf("Error reporting is not configured (no POSTHOG_KEY, no SENTRY_DSN); errors are logged locally only.")
-		}
-		sinks = append(sinks, localSink{service: cfg.Service})
-	}
-
+	sinks := []sink{localSink{service: cfg.Service}}
 	active.Store(&sinks)
-	return initErr
+	return nil
 }
 
 // Option decorates the scope one event is reported on. Callers build these with

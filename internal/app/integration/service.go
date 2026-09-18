@@ -170,6 +170,12 @@ type Service interface {
 	ReportVerificationProviderError(ctx context.Context, connectionID uuid.UUID, err error)
 	ClearVerificationProviderError(ctx context.Context, connectionID uuid.UUID)
 
+	// Frappe CRM synchronization
+	SyncFrappeLead(ctx context.Context, orgID uuid.UUID, email string, props map[string]any, task map[string]any, event map[string]any) (string, error)
+	MarkFrappeLeadDNC(ctx context.Context, orgID uuid.UUID, email string) error
+	GetFrappeLead(ctx context.Context, orgID uuid.UUID, email string) (map[string]any, error)
+	SyncMeetingToFrappeEvent(ctx context.Context, orgID uuid.UUID, booking *models.MeetingBooking) error
+
 	// Repo exposes the underlying repository for the inbound webhook handlers.
 	Repo() repository.IntegrationRepository
 }

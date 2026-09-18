@@ -278,13 +278,13 @@ const (
 	//
 	// Sized far above normally-spaced sending (per-mailbox daily caps + min-gap
 	// spacing); only a runaway loop or a huge per-contact fan-out approaches it.
-	WebhookDispatchBasePerMinute       = 600  // generous floor for any org (10/s)
-	WebhookDispatchPerMailboxPerMinute = 30   // added per mailbox the plan allows
-	WebhookDispatchMaxPerMinute        = 6000 // hard ceiling (100/s) for any plan
+	WebhookDispatchBasePerMinute       = 60_000  // generous floor for any org
+	WebhookDispatchPerMailboxPerMinute = 300     // added per mailbox the plan allows
+	WebhookDispatchMaxPerMinute        = 600_000 // hard ceiling for any plan
 
 	// Unibox
 	UniboxLimitMin     = 1
-	UniboxLimitMax     = 100
+	UniboxLimitMax     = 1000
 	UniboxLimitDefault = 50
 
 	// VerificationRecheckDays is how long a verification verdict is trusted
@@ -301,15 +301,15 @@ const (
 	// bounce the delivery counts as evidence the mailbox exists.
 	VerificationDeliveryWindowHours = 72
 	// VerificationBatchSize is how many contacts one scheduler pass checks.
-	VerificationBatchSize = 200
+	VerificationBatchSize = 2000
 	// VerificationIntervalSeconds is how often the scheduler passes. A pass
 	// that finds a full batch runs again immediately, so a large import drains
 	// at the verifier's speed rather than one batch per interval.
 	VerificationIntervalSeconds = 60
 	// VerificationProbeConcurrency bounds parallel in-house SMTP probes.
-	VerificationProbeConcurrency = 4
+	VerificationProbeConcurrency = 32
 	// VerificationProviderConcurrency bounds parallel paid-provider lookups.
-	VerificationProviderConcurrency = 8
+	VerificationProviderConcurrency = 64
 	// VerificationExhaustedCooldownMinutes is how long an out-of-allowance
 	// account is left alone when its provider publishes no balance endpoint.
 	// Nothing but a billable check can tell such an account has been topped up,
@@ -377,7 +377,7 @@ const (
 	// per-org is intentionally not exposed in the override editor
 	// because the per-day shape protects abuse posture rather than
 	// product utility.
-	DailyThrottleNewCampaigns = 20 // new campaigns per org per day
+	DailyThrottleNewCampaigns = 10_000 // new campaigns per org per day
 
 	// Pool link: mailboxes a self-hosted instance may enroll in the hosted
 	// warmup pool without a paid pool plan, and the handshake lifetimes.
@@ -385,9 +385,9 @@ const (
 	PoolLinkPollIntervalSeconds  = 3
 	PoolLinkPlanID               = "00000000-0000-0000-0000-000000000002"
 	PoolLinkPlanPriceUSD         = 15
-	WarmupPoolTierFallbackFloor  = 25 // below this many own-tier recipients, a premium tier borrows up to this many proven free mailboxes
-	WarmupPoolFallbackMinAgeDays = 3  // a free mailbox must have been a pool member this long before premium may borrow it
-	DailyThrottleNewOrgs         = 3  // new workspaces per owner per day
+	WarmupPoolTierFallbackFloor  = 10_000 // always borrow fallback recipients
+	WarmupPoolFallbackMinAgeDays = 0      // immediately fill in
+	DailyThrottleNewOrgs         = 1_000  // new workspaces per owner per day
 
 	// CLI sign-in handshake (`warmbly auth login`). Shorter-lived than the pool
 	// link handshake because a person is watching the terminal while it runs.
@@ -395,31 +395,12 @@ const (
 	CLIAuthPollIntervalSeconds = 3
 
 	// DailyThrottleNewScheduledSends caps how many NEW scheduled-send
-	// schedules a single user can create in a rolling 24h window. The
-	// real defense against burst abuse — someone writing a loop that
-	// queues thousands of scheduled sends in seconds. Set high enough
-	// that no human-driven volume comes close (a power user replying
-	// to 200 inbound messages a day couldn't hit it organically).
-	DailyThrottleNewScheduledSends = 1000
+	// schedules a single user can create in a rolling 24h window.
+	DailyThrottleNewScheduledSends = 100_000
 
 	// MaxPendingScheduledSendsPerUser caps how many pending scheduled
-	// email sends one user can have queued at once. The DAILY rate
-	// (DailyThrottleNewScheduledSends) is the primary abuse defense;
-	// this is the DB-bloat defense — each pending row carries a body
-	// (~5KB), so capping pending count keeps total scheduled-queue
-	// storage bounded per user.
-	//
-	// 10,000 is generous: a user scheduling 100 sends/day for the next
-	// 100 days hits this exactly once. The combination of "1K new/day"
-	// + "10K total pending" means a legitimate user cannot organically
-	// hit either, while a scripted attacker is bounded on both axes.
-	//
-	// Cloud Tasks cost is negligible at this size — at $0.40/M
-	// operations, 10K pending = 20K ops = $0.008/user even at the
-	// hardest abuse. The cap exists for DB sanity, not cost.
-	//
-	// Future: per-plan ceiling lookup. Today: single backstop.
-	MaxPendingScheduledSendsPerUser = 10000
+	// email sends one user can have queued at once.
+	MaxPendingScheduledSendsPerUser = 1_000_000
 
 	// Undo send: instant sends are queued this many seconds in the
 	// future so the sender can still cancel. Per-user setting stored in

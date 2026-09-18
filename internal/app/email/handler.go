@@ -451,29 +451,7 @@ func (s *emailService) orgSuspendedOrRestricted(ctx context.Context, orgID uuid.
 	return states[orgID].ForcesFreeWarmupPool()
 }
 
-func (s *emailService) resolveWarmupPoolType(ctx context.Context, account *models.Email) string {
-	if account == nil {
-		return "premium"
-	}
-	// No organization means no entitlement to check, so the mailbox gets the
-	// lower-trust pool rather than defaulting into the paid one.
-	if account.OrganizationID == nil {
-		return "free"
-	}
-	// A restricted organization leaves the paid pool whatever it pays. Checked
-	// before the stored tier, which is never empty and would short-circuit it.
-	if s.orgSuspendedOrRestricted(ctx, *account.OrganizationID) {
-		return "free"
-	}
-	if account.WarmupPoolType != "" {
-		return account.WarmupPoolType
-	}
-	if s.featureGate != nil {
-		isPaid, err := s.featureGate.IsPaidOrganization(ctx, *account.OrganizationID)
-		if err == nil && !isPaid {
-			return "free"
-		}
-	}
+func (s *emailService) resolveWarmupPoolType(_ context.Context, _ *models.Email) string {
 	return "premium"
 }
 
