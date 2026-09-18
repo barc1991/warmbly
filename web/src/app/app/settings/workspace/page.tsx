@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAppStore, type Organization as StoreOrganization } from "@/stores";
 import { TextInput } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +33,8 @@ export default function WorkspaceSettingsPage() {
 }
 
 function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null }) {
+    const { i18n } = useTranslation();
+    const isHe = i18n.language === "he";
     const [name, setName] = React.useState(currentOrg?.name ?? "");
     const orgID = currentOrg?.id;
 
@@ -230,12 +233,20 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null 
             </Section>
 
             <Section
-                eyebrow="AI voice profile"
-                description="Grounds every AI writing surface (assistant, reply drafts, research openers) so drafts sound like you and know what you sell. All optional."
+                eyebrow={isHe ? "פרופיל קול AI" : "AI voice profile"}
+                description={
+                    isHe
+                        ? "הגדרת קול המותג עבור כל כלי ה-AI (עוזר כתיבה, טיוטות תשובה, מחקר) כדי שהניסוחים ישמעו אותנטיים. ללא הגבלת תווים."
+                        : "Grounds every AI writing surface (assistant, reply drafts, research openers) so drafts sound like you and know what you sell. All optional, no character limits."
+                }
             >
                 <Row
-                    label="What you sell"
-                    description="One or two sentences on your product and the outcome it delivers."
+                    label={isHe ? "מה אתה מוכר" : "What you sell"}
+                    description={
+                        isHe
+                            ? "פירוט מלא על המוצר, השירותים והערך שאתה מספק (ללא הגבלת תווים)."
+                            : "Detailed description of your product, services, and value proposition (unlimited)."
+                    }
                     align="start"
                 >
                     <Textarea
@@ -243,15 +254,22 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null 
                         onChange={(e) => setProductDesc(e.target.value)}
                         onBlur={() => saveVoiceField("product_description", productDesc, orgQuery.data?.product_description ?? "")}
                         disabled={!canManageSettings}
-                        rows={3}
-                        maxLength={2000}
-                        placeholder="We help RevOps teams keep their CRM clean by..."
-                        className="w-full max-w-[420px] text-[12.5px]"
+                        rows={4}
+                        placeholder={
+                            isHe
+                                ? "אנחנו עוזרים לצוותי מכירות לשמור על CRM נקי על ידי..."
+                                : "We help RevOps teams keep their CRM clean by..."
+                        }
+                        className="w-full max-w-[640px] text-[12.5px]"
                     />
                 </Row>
                 <Row
-                    label="Who you sell to"
-                    description="Your ideal customer: role, company type, the pain they feel."
+                    label={isHe ? "למי אתה מוכר" : "Who you sell to"}
+                    description={
+                        isHe
+                            ? "פרופיל הלקוח האידיאלי (ICP): תפקידים, ענף, גודל חברות והכאבים שהם חווים."
+                            : "Your ideal customer profile (ICP): role, industry, company size, key pain points."
+                    }
                     align="start"
                 >
                     <Textarea
@@ -259,15 +277,22 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null 
                         onChange={(e) => setIcpNotes(e.target.value)}
                         onBlur={() => saveVoiceField("icp_notes", icpNotes, orgQuery.data?.icp_notes ?? "")}
                         disabled={!canManageSettings}
-                        rows={3}
-                        maxLength={2000}
-                        placeholder="Heads of RevOps at 50-500 person B2B SaaS companies who..."
-                        className="w-full max-w-[420px] text-[12.5px]"
+                        rows={4}
+                        placeholder={
+                            isHe
+                                ? "מנהלי מכירות בחברות SaaS B2B של 50-500 עובדים ש..."
+                                : "Heads of RevOps at 50-500 person B2B SaaS companies who..."
+                        }
+                        className="w-full max-w-[640px] text-[12.5px]"
                     />
                 </Row>
                 <Row
-                    label="House voice"
-                    description="How you want to sound. Casual or formal, phrases to use or avoid."
+                    label={isHe ? "טון דיבור וסגנון" : "House voice"}
+                    description={
+                        isHe
+                            ? "איך אתה רוצה להישמע: הנחיות סגנון, אישיות, ביטויים לשימוש או להימנעות, חוקים ספציפיים."
+                            : "How you want to sound: tone, persona, phrases to use or avoid, specific rules."
+                    }
                     align="start"
                 >
                     <Textarea
@@ -275,10 +300,13 @@ function WorkspaceSettings({ org: currentOrg }: { org: StoreOrganization | null 
                         onChange={(e) => setVoiceProfile(e.target.value)}
                         onBlur={() => saveVoiceField("voice_profile", voiceProfile, orgQuery.data?.voice_profile ?? "")}
                         disabled={!canManageSettings}
-                        rows={3}
-                        maxLength={2000}
-                        placeholder="Direct and warm, lowercase openers are fine, never salesy."
-                        className="w-full max-w-[420px] text-[12.5px]"
+                        rows={5}
+                        placeholder={
+                            isHe
+                                ? "ישיר וחם, שאל שאלות קצרות, הימנע מביטויי שיווק קלישאתיים, הצע תמיד ערך מוחשי לפני קריאה לפעולה."
+                                : "Direct and warm, ask short questions, avoid marketing cliches, always offer concrete value before CTA."
+                        }
+                        className="w-full max-w-[640px] text-[12.5px]"
                     />
                 </Row>
             </Section>

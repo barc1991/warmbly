@@ -108,11 +108,8 @@ export default function AddressesPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const queryClient = useQueryClient();
 
-    // Warmup is a paid/trial feature; gate the start controls when the org
-    // isn't entitled. Treat unknown (still loading) as allowed — the backend
-    // is the real enforcement point.
-    const featureStatus = useFeatureStatus();
-    const canWarmup = featureStatus.data?.can_use_warmup !== false;
+    // Warmup is always allowed without limits
+    const canWarmup = true;
 
     // Self-hosted instances can hand warmup to the Warmbly pool; the banner,
     // row badges and menu items below key off this.
@@ -585,6 +582,10 @@ function MailboxRow({
         [box.tags, tags],
     );
     const shownTags = rowTags.slice(0, 3);
+    const isWarmupOnly = useMemo(
+        () => rowTags.some((t) => ["חימום", "warmup"].includes(t.title.trim().toLowerCase())),
+        [rowTags],
+    );
 
     const off = !box.warmup;
     const paused = !!box.warmup && !!box.warmup_paused_at;
@@ -689,11 +690,15 @@ function MailboxRow({
                             <CloudIcon className="w-2.5 h-2.5" /> Cloud
                         </span>
                     )}
-                    {inCampaign && (
-                        <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-sky-50 text-sky-600 text-[9.5px] font-medium uppercase tracking-[0.08em]">
-                            <ActivityIcon className="w-2.5 h-2.5" /> In campaign
+                    {isWarmupOnly ? (
+                        <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-amber-50 text-amber-700 text-[9.5px] font-medium shrink-0">
+                            <RiFireLine className="w-2.5 h-2.5" /> חימום בלבד
                         </span>
-                    )}
+                    ) : inCampaign ? (
+                        <span className="hidden sm:inline-flex items-center gap-1 h-4 px-1.5 rounded-full bg-sky-50 text-sky-600 text-[9.5px] font-medium uppercase tracking-[0.08em] shrink-0">
+                            <ActivityIcon className="w-2.5 h-2.5" /> בקמפיין
+                        </span>
+                    ) : null}
                     {shownTags.map((t) => (
                         <span
                             key={t.id}
@@ -798,31 +803,31 @@ function MailboxRow({
                                 </PopoverMenuItem>
                             )}
                             {!inCloud && off && (
-                                <PopoverMenuItem onSelect={canWarmup ? () => run("start", "started") : upsell} icon={<PlayIcon className="w-3 h-3" />}>
-                                    {canWarmup ? "Start warmup" : "Upgrade to start warmup"}
+                                <PopoverMenuItem onSelect={() => run("start", "started")} icon={<PlayIcon className="w-3 h-3" />}>
+                                    הפעל חימום
                                 </PopoverMenuItem>
                             )}
                             {!inCloud && paused && (
-                                <PopoverMenuItem onSelect={canWarmup ? () => run("resume", "resumed") : upsell} icon={<PlayIcon className="w-3 h-3" />}>
-                                    {canWarmup ? "Resume warmup" : "Upgrade to resume warmup"}
+                                <PopoverMenuItem onSelect={() => run("resume", "resumed")} icon={<PlayIcon className="w-3 h-3" />}>
+                                    חדש חימום
                                 </PopoverMenuItem>
                             )}
                             {!inCloud && active && (
                                 <PopoverMenuItem onSelect={() => run("pause", "paused")} icon={<PauseIcon className="w-3 h-3" />}>
-                                    Pause warmup
+                                    השהה חימום
                                 </PopoverMenuItem>
                             )}
                             {!inCloud && (active || paused) && (
                                 <PopoverMenuItem danger onSelect={stopReset} icon={<RotateCcwIcon className="w-3 h-3" />}>
-                                    Stop &amp; reset
+                                    איפוס חימום
                                 </PopoverMenuItem>
                             )}
                             <PopoverMenuSeparator />
                             <PopoverMenuItem onSelect={() => onOpen(box.id, "warmup")} icon={<RiFireLine className="w-3 h-3" />}>
-                                Warmup settings
+                                הגדרות חימום
                             </PopoverMenuItem>
                             <PopoverMenuItem onSelect={() => onOpen(box.id, "overview")} icon={<GaugeIcon className="w-3 h-3" />}>
-                                Mailbox health
+                                בריאות התיבה
                             </PopoverMenuItem>
                         </PopoverMenuContent>
                     </PopoverMenu>
