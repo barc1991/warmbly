@@ -303,6 +303,9 @@ func BuildEditRules(vc VoiceContext) string {
 	if tone := strings.TrimSpace(vc.Tone); tone != "" {
 		fmt.Fprintf(&b, "\n\nTONE: %s.", tone)
 	}
+	if isHebrewVoice(vc) {
+		b.WriteString(hebrewWritingRules)
+	}
 	return b.String()
 }
 

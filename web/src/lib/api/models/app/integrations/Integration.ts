@@ -3,6 +3,7 @@
 // generic so the UI can dig in without round-trips to the type system.
 
 export type IntegrationProvider =
+    | "frappe_crm"
     | "hubspot"
     | "salesforce"
     | "pipedrive"
@@ -158,6 +159,7 @@ export interface IntegrationConnection {
 }
 
 export type IntegrationAction =
+    | "frappe_crm.upsert_lead"
     | "slack.notify"
     | "discord.notify"
     | "telegram.notify"
@@ -329,6 +331,8 @@ export const EVENT_LABELS: Record<string, string> = {
 // Which action a provider performs for an event subscription.
 export function defaultActionForProvider(provider: IntegrationProvider): IntegrationAction {
     switch (provider) {
+        case "frappe_crm":
+            return "frappe_crm.upsert_lead";
         case "slack":
             return "slack.notify";
         case "discord":
@@ -350,6 +354,7 @@ export function defaultActionForProvider(provider: IntegrationProvider): Integra
 
 // CRM providers the contextual "push to CRM" action can target.
 export const PUSHABLE_PROVIDERS: IntegrationProvider[] = [
+    "frappe_crm",
     "hubspot",
     "pipedrive",
     "salesforce",
@@ -358,6 +363,7 @@ export const PUSHABLE_PROVIDERS: IntegrationProvider[] = [
 
 // Display names for providers, used by contextual menus that list connections.
 export const PROVIDER_LABELS: Record<IntegrationProvider, string> = {
+    frappe_crm: "Frappe CRM",
     hubspot: "HubSpot",
     salesforce: "Salesforce",
     pipedrive: "Pipedrive",

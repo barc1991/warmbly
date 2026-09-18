@@ -56,6 +56,7 @@ type generationEditRequest struct {
 	Instruction string `json:"instruction"`
 	Context     string `json:"context"`
 	Tone        string `json:"tone"`
+	Language    string `json:"language"`
 }
 
 // GenerateEdit — POST /generation/edit
@@ -146,6 +147,9 @@ func (h *Handler) GenerateEdit(c *gin.Context) {
 	}
 
 	voice := h.orgVoice(c.Request.Context(), *orgID, req.Tone)
+	if req.Language == "he" || generation.ContainsHebrew(req.Text) || generation.ContainsHebrew(req.Instruction) {
+		voice.Language = "he"
+	}
 	result, gerr := h.AIProvider.Complete(c.Request.Context(), generation.CompletionRequest{
 		System:    generation.BuildEditRules(voice),
 		Prompt:    buildEditPrompt(req),
