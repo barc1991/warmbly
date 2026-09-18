@@ -106,6 +106,7 @@ function ContactEditPanel({
     const [email, setEmail] = React.useState(contact.email);
     const [company, setCompany] = React.useState(contact.company);
     const [phone, setPhone] = React.useState(contact.phone);
+    const [website, setWebsite] = React.useState(contact.website ?? "");
     const [subscribed, setSubscribed] = React.useState(contact.subscribed);
     const [campaigns, setCampaigns] = React.useState<MiniCampaign[]>(contact.campaigns ?? []);
     const [categoryIds, setCategoryIds] = React.useState<string[]>(() => idsOf(contact.categories ?? []));
@@ -119,6 +120,7 @@ function ContactEditPanel({
         setEmail(contact.email);
         setCompany(contact.company);
         setPhone(contact.phone);
+        setWebsite(contact.website ?? "");
         setSubscribed(contact.subscribed);
         setCampaigns(contact.campaigns ?? []);
         setCategoryIds(idsOf(contact.categories ?? []));
@@ -141,6 +143,7 @@ function ContactEditPanel({
         setEmail((v) => rebase(v, prev.email, contact.email));
         setCompany((v) => rebase(v, prev.company, contact.company));
         setPhone((v) => rebase(v, prev.phone, contact.phone));
+        setWebsite((v) => rebase(v, prev.website ?? "", contact.website ?? ""));
         setSubscribed((v) => rebase(v, prev.subscribed, contact.subscribed));
         setCampaigns((v) => rebase(v, prev.campaigns ?? [], contact.campaigns ?? [], sameCampaigns));
         setCategoryIds((v) =>
@@ -163,6 +166,7 @@ function ContactEditPanel({
         if (email !== contact.email) return true;
         if (company !== contact.company) return true;
         if (phone !== contact.phone) return true;
+        if ((website ?? "") !== (contact.website ?? "")) return true;
         if (subscribed !== contact.subscribed) return true;
         if (!sameFields(customFields, fieldsOf(contact.custom_fields))) return true;
         if (!sameCampaigns(campaigns, contact.campaigns ?? [])) return true;
@@ -183,6 +187,7 @@ function ContactEditPanel({
         if (email !== contact.email) data.email = email;
         if (company !== contact.company) data.company = company;
         if (phone !== contact.phone) data.phone = phone;
+        if ((website ?? "") !== (contact.website ?? "")) data.website = website;
         if (subscribed !== contact.subscribed) data.subscribed = subscribed;
         // Same comparisons `dirty` and the rebase use, so what counts as
         // changed is decided in exactly one place.
@@ -194,8 +199,8 @@ function ContactEditPanel({
 
         try {
             await toast.promise(update.mutateAsync(data), {
-                loading: "Updating contact…",
-                success: "Contact updated",
+                loading: "מעדכן איש קשר…",
+                success: "איש הקשר עודכן",
                 error: (err: AppError) => buildError(err),
             });
             onClose();
@@ -276,6 +281,8 @@ function ContactEditPanel({
                             setCompany={setCompany}
                             phone={phone}
                             setPhone={setPhone}
+                            website={website}
+                            setWebsite={setWebsite}
                             subscribed={subscribed}
                             setSubscribed={setSubscribed}
                             campaigns={campaigns}

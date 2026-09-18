@@ -167,8 +167,8 @@ export default function CampaignOverview() {
 
                     {analytics.isError ? (
                         <div className="rounded-md border border-rose-200 bg-rose-50/40 px-5 py-8 text-center">
-                            <p className="text-[12.5px] text-slate-900 font-medium">Couldn't load analytics</p>
-                            <p className="text-[11.5px] text-slate-500 mt-1">The request failed — try refreshing.</p>
+                            <p className="text-[12.5px] text-slate-900 font-medium">לא ניתן לטעון אנליטיקה</p>
+                            <p className="text-[11.5px] text-slate-500 mt-1">הבקשה נכשלה - נסה לרענן.</p>
                         </div>
                     ) : (
                         <div className="rounded-md border border-slate-200 overflow-hidden bg-white">

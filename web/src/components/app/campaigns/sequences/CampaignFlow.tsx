@@ -775,7 +775,7 @@ function SwitchNode({ id, data, selected }: NodeProps) {
                 <div className="mt-0.5 truncate text-[11.5px] text-slate-500">{d.subtitle}</div>
             </div>
             {d.cases.length === 0 ? (
-                <div className="px-2.5 pb-2 text-[10.5px] text-slate-400">Open the step to add cases</div>
+                <div className="px-2.5 pb-2 text-[10.5px] text-slate-400">פתח את השלב להוספת מקרים</div>
             ) : (
                 <div className="pb-1.5">
                     {d.cases.map((c) => {
@@ -2245,7 +2245,7 @@ function StopOnReplyToggle({ on, onToggle }: { on: boolean; onToggle: (next: boo
             className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm"
             title={STOP_ON_REPLY_HELP}
         >
-            <span className="text-[11.5px] text-slate-600">Stop on reply</span>
+            <span className="text-[11.5px] text-slate-600">עצור בתשובה</span>
             {/* Tooltips never show on touch; surface the same copy on tap. Hidden
                 at md+ where the title attribute keeps desktop pixel-identical. */}
             <PopoverMenu align="start">
@@ -2325,7 +2325,7 @@ function WaitRow({ value, onCommit }: { value: number; onCommit: (v: number) => 
                 className="w-16"
                 align="center"
             />
-            <span>days before it</span>
+            <span>ימים לפני זה</span>
         </div>
     );
 }
@@ -2453,7 +2453,7 @@ function ConnectionEditor({
 
             <div className="space-y-2 text-[12px] text-slate-600">
                 <div className="flex flex-wrap items-center gap-1.5">
-                    <span>then go to</span>
+                    <span>אז עבור ל</span>
                     <span className="font-medium text-slate-800">{targetLabel}</span>
                     {branch.target_step_id !== null && (
                         <button
