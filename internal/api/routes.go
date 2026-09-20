@@ -574,6 +574,9 @@ func Run(
 				campaigns.POST("/:id/start", m.RequireOrganization(), m.RequireAccess(models.PermSendCampaigns, models.APIPermSendCampaigns), h.StartCampaign)
 				campaigns.POST("/:id/stop", m.RequireOrganization(), m.RequireAccess(models.PermSendCampaigns, models.APIPermSendCampaigns), h.StopCampaign)
 				campaigns.GET("/:id/logs", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadCampaigns), h.GetCampaignLogs)
+				// Today's sending plan: derived through the scheduler's gates on
+				// every read, never stored.
+				campaigns.GET("/:id/send-plan", m.RateLimitMiddleware(models.RateLimitRead), m.RequireOrganization(), m.RequireAccess(models.PermViewCampaigns, models.APIPermReadCampaigns), h.GetCampaignSendPlan)
 
 				// Form performance for this campaign's recipients.
 				campaigns.GET("/:id/forms", m.RequireOrganization(), m.RequireAccess(models.PermViewCampaigns, models.APIPermReadCampaigns), h.GetCampaignForms)
@@ -1299,6 +1302,13 @@ func Run(
 				account.GET("/danger-zone", h.GetAccountDangerZone)
 				account.POST("/danger-zone/delete", h.ScheduleAccountDeletion)
 				account.DELETE("/danger-zone/delete", h.CancelAccountDeletion)
+
+				// A member's own layout of a dashboard list (columns, order,
+				// sort) in the current workspace. Personal, so JWT only: an API
+				// key has no screen to lay out.
+				account.GET("/views/:view", m.RequireOrganization(), h.GetViewPreferences)
+				account.PUT("/views/:view", m.RequireOrganization(), h.UpdateViewPreferences)
+				account.DELETE("/views/:view", m.RequireOrganization(), h.ResetViewPreferences)
 			}
 
 			jwtOnly.GET("/invitations", h.GetMyPendingInvitations)

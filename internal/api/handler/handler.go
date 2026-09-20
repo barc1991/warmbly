@@ -67,6 +67,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/unsublink"
 	"github.com/warmbly/warmbly/internal/app/updates"
 	"github.com/warmbly/warmbly/internal/app/user"
+	"github.com/warmbly/warmbly/internal/app/viewprefs"
 	"github.com/warmbly/warmbly/internal/app/warmup"
 	"github.com/warmbly/warmbly/internal/app/warmupcontent"
 	"github.com/warmbly/warmbly/internal/app/webhook"
@@ -122,6 +123,8 @@ type Handler struct {
 	TasksService        tasks.TasksService
 	NotificationService notification.Service
 	TwoFAService        twofa.Service
+	// ViewPreferencesService keeps each member's saved list layouts.
+	ViewPreferencesService viewprefs.Service
 
 	// New services
 	APIKeyService    apikey.APIKeyService

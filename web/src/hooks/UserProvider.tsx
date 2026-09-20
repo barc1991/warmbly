@@ -1,3 +1,5 @@
+import { clearClientSession } from "@/lib/session";
+import { SESSION_ENDED_EVENT } from "@/lib/auth";
 import React, { useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { UserContext } from './context/user';
@@ -10,7 +12,6 @@ import useTimezones from '@/lib/api/hooks/app/useTimezones';
 import type { AppError } from '@/lib/api/client/normalizeError';
 import { AuthError } from '@/lib/errors/auth';
 import { Navigate } from 'react-router-dom';
-import { clearTokens } from '@/lib/auth';
 import type Access from '@/lib/api/models/app/admin/Access';
 import type Timezone from '@/lib/api/models/app/Timezone';
 import type User from '@/lib/api/models/auth/User';
@@ -38,23 +39,33 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         };
     }, [user.data]);
 
+    // The api client ends a session from outside React, and the three queries
+    // below are cached and never poll, so without this the tokens went and the
+    // app stayed put on a page it could no longer authenticate.
+    const [sessionEnded, setSessionEnded] = React.useState(false);
+    React.useEffect(() => {
+        const ended = () => setSessionEnded(true);
+        window.addEventListener(SESSION_ENDED_EVENT, ended);
+        return () => window.removeEventListener(SESSION_ENDED_EVENT, ended);
+    }, []);
+
     const error = useMemo(() => {
         const errs = [user.error, access.error, timezones.error].filter(Boolean);
         for (const err of errs) {
             if (err instanceof AuthError) {
-                return { redirect: true, title: "Authentication Required", message: err.message };
+                return { redirect: true, title: "נדרש אימות", message: err.message };
             }
             const myerr = err as unknown as AppError;
             if (myerr.status === 401 || myerr.redirect) {
-                return { redirect: true, title: "Authentication Required", message: myerr.message ?? "Session expired." };
+                return { redirect: true, title: "נדרש אימות", message: myerr.message ?? "פג תוקף ההפעלה." };
             }
         }
 
         if (user.error) {
             const myerr = user.error as unknown as AppError;
             return {
-                title: `${myerr.error ?? "Error"}${myerr.status ? ` (${myerr.status})` : ""}`,
-                message: myerr.message ?? "An unexpected error occurred.",
+                title: `${myerr.error ?? "שגיאה"}${myerr.status ? ` (${myerr.status})` : ""}`,
+                message: myerr.message ?? "אירעה שגיאה בלתי צפויה.",
             };
         }
     }, [user.error, access.error, timezones.error]);
@@ -67,8 +78,10 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         ));
     }, [queryClient]);
 
-    if (error?.redirect) {
-        clearTokens();
+    if (sessionEnded || error?.redirect) {
+        // Same teardown as an explicit sign-out: being signed out must not
+        // leave the previous person's drafts and workspace selection behind.
+        clearClientSession(queryClient);
         return <Navigate to="/auth/login" replace />;
     }
 

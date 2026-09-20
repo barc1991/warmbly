@@ -103,6 +103,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/unibox"
 	"github.com/warmbly/warmbly/internal/app/updates"
 	"github.com/warmbly/warmbly/internal/app/user"
+	"github.com/warmbly/warmbly/internal/app/viewprefs"
 	warmupapp "github.com/warmbly/warmbly/internal/app/warmup"
 	"github.com/warmbly/warmbly/internal/app/warmupcontent"
 	"github.com/warmbly/warmbly/internal/app/webhook"
@@ -318,6 +319,7 @@ func main() {
 	var integrationServiceForHandler integration.Service
 	var oauthService *oauth.Service
 	var notificationService notification.Service
+	var viewPreferencesService viewprefs.Service
 	var twofaService twofa.Service
 	var contactRepoForHandler repository.ContactRepository
 	var attachmentRepoForHandler repository.AttachmentRepository
@@ -1521,6 +1523,8 @@ func main() {
 		// onto the backend's advanced service (deliverability webhooks can ingest
 		// here too).
 		notificationService = notification.NewService(repository.NewNotificationRepository(primaryDB.Pool), streamingPublisher)
+		// Saved list layouts: each member's columns and sort per dashboard list.
+		viewPreferencesService = viewprefs.NewService(repository.NewViewPreferencesRepository(primaryDB.Pool))
 		notificationService.WireDelivery(emailNotificationService, integrationServiceForHandler, userRepostory, organizationRepoForHandler)
 		// Mobile push (APNs): device registration always works; delivery only
 		// activates when the APNS_* env is configured. The Redis client backs
@@ -1956,11 +1960,12 @@ func main() {
 		TagService:      tagService,
 		CategoryService: categoryService,
 
-		TzService:           tzService,
-		SocketService:       socketService,
-		TasksService:        tasksService,
-		NotificationService: notificationService,
-		TwoFAService:        twofaService,
+		TzService:              tzService,
+		SocketService:          socketService,
+		TasksService:           tasksService,
+		NotificationService:    notificationService,
+		TwoFAService:           twofaService,
+		ViewPreferencesService: viewPreferencesService,
 
 		// API Keys
 		APIKeyService: apiKeyService,

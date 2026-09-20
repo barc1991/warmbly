@@ -90,6 +90,7 @@ type EmailRepository interface {
 	GetSMTPCredentials(ctx context.Context, emailAccountID uuid.UUID) (*SMTPCredentials, *errx.Error)
 	GetOAuthCredentials(ctx context.Context, emailAccountID uuid.UUID) (*OAuthCredentials, *errx.Error)
 	GetWorkerID(ctx context.Context, emailAccountID uuid.UUID) (*uuid.UUID, *errx.Error)
+	SetStatus(ctx context.Context, emailAccountID uuid.UUID, status string) *errx.Error
 	SetWorkerID(ctx context.Context, emailAccountID, workerID uuid.UUID) *errx.Error
 	Update(ctx context.Context, orgID, emailAccountID string, udata *models.UpdateEmail) (*models.Email, *errx.Error)
 	// GetSendIdentity reads the mailbox's stored sending identity: the
@@ -111,7 +112,7 @@ type EmailRepository interface {
 	// resumes where it left off); "pause" keeps progress; "disable" turns
 	// warmup off entirely. The timestamp math runs in SQL so the transition
 	// is atomic and idempotent.
-	SetWarmupLifecycle(ctx context.Context, userID, emailAccountID, action string) (*models.Email, *errx.Error)
+	SetWarmupLifecycle(ctx context.Context, orgID, emailAccountID, action string) (*models.Email, *errx.Error)
 	UpdateTrackingDomain(ctx context.Context, orgID, emailAccountID, domain string, verified bool, verifiedAt *time.Time) *errx.Error
 	UpdateTrackDirectMail(ctx context.Context, orgID, emailAccountID string, enabled bool) *errx.Error
 	// ListOrganizationIDs names every workspace with a mailbox, for sweeps that
@@ -139,10 +140,16 @@ type EmailRepository interface {
 	// domains. It returns the mailboxes that entered the failing state on THIS
 	// call, which is what the sweep notifies on.
 	UpdateDomainAuthState(ctx context.Context, domain, state string, spf, dkim, dmarc bool, dmarcPolicy, reason string, checkedAt time.Time) ([]models.EmailAuthTransition, *errx.Error)
+	// UpdateDomainAuthStateForOrg is the same write confined to one
+	// organization's mailboxes. The user-facing "check again" button uses it:
+	// the verdict comes from public DNS so it cannot be poisoned, but one
+	// workspace pressing a button must not rewrite rows belonging to every
+	// other workspace that happens to send from the same domain.
+	UpdateDomainAuthStateForOrg(ctx context.Context, orgID uuid.UUID, domain, state string, spf, dkim, dmarc bool, dmarcPolicy, reason string, checkedAt time.Time) ([]models.EmailAuthTransition, *errx.Error)
 	// Delete removes a mailbox and refunds workerLoadRefund of its worker's
 	// load in the same transaction, so a deleted mailbox can never leave a
 	// worker permanently charged for it.
-	Delete(ctx context.Context, userID, emailAccountID string, workerLoadRefund float64) *errx.Error
+	Delete(ctx context.Context, orgID, emailAccountID string, workerLoadRefund float64) *errx.Error
 
 	NewOauthAccount(ctx context.Context, userID string, data models.NewOauthAccount) (*models.Email, *errx.Error)
 	// NewManagedAccount creates an OAuth mailbox whose credential lives on Warmbly Cloud, so no token row is written.
@@ -1303,16 +1310,28 @@ func (r *emailRepository) ListAuthCheckDue(ctx context.Context, staleBefore time
 }
 
 func (r *emailRepository) UpdateDomainAuthState(ctx context.Context, domain, state string, spf, dkim, dmarc bool, dmarcPolicy, reason string, checkedAt time.Time) ([]models.EmailAuthTransition, *errx.Error) {
+	return r.updateDomainAuthState(ctx, nil, domain, state, spf, dkim, dmarc, dmarcPolicy, reason, checkedAt)
+}
+
+func (r *emailRepository) UpdateDomainAuthStateForOrg(ctx context.Context, orgID uuid.UUID, domain, state string, spf, dkim, dmarc bool, dmarcPolicy, reason string, checkedAt time.Time) ([]models.EmailAuthTransition, *errx.Error) {
+	return r.updateDomainAuthState(ctx, &orgID, domain, state, spf, dkim, dmarc, dmarcPolicy, reason, checkedAt)
+}
+
+func (r *emailRepository) updateDomainAuthState(ctx context.Context, orgID *uuid.UUID, domain, state string, spf, dkim, dmarc bool, dmarcPolicy, reason string, checkedAt time.Time) ([]models.EmailAuthTransition, *errx.Error) {
 	// Only 'passing' clears the grace clock; 'unknown' preserves it so a domain
 	// cannot flap through a transient DNS error to escape the gate.
 	// `before` keys on auth_failing_since, not auth_state, or that same flap
 	// would re-report every mailbox on the domain as newly failing.
+	// $9 confines the write to one workspace when the caller named one, and is
+	// NULL for the background sweep, which is meant to cover every mailbox on
+	// the domain.
 	query := `
 		WITH before AS (
 			SELECT id
 			FROM email_accounts
 			WHERE status = 'active'
 			  AND lower(split_part(email, '@', 2)) = $8
+			  AND ($9::uuid IS NULL OR organization_id = $9::uuid)
 			  AND auth_failing_since IS NOT NULL
 		),
 		updated AS (
@@ -1326,6 +1345,7 @@ func (r *emailRepository) UpdateDomainAuthState(ctx context.Context, domain, sta
 			        ELSE auth_failing_since
 			    END
 			WHERE status = 'active' AND lower(split_part(email, '@', 2)) = $8
+			  AND ($9::uuid IS NULL OR organization_id = $9::uuid)
 			RETURNING id, email, organization_id, auth_state
 		)
 		SELECT u.id, u.email, u.organization_id
@@ -1343,6 +1363,7 @@ func (r *emailRepository) UpdateDomainAuthState(ctx context.Context, domain, sta
 		reason,
 		checkedAt,
 		strings.ToLower(strings.TrimSpace(domain)),
+		orgID,
 	}
 
 	rows, err := r.DB.Query(ctx, query, params...)
@@ -1368,32 +1389,31 @@ func (r *emailRepository) UpdateDomainAuthState(ctx context.Context, domain, sta
 	return transitions, nil
 }
 
+// deleteDeadlockAttempts bounds the retry below. Two is almost always enough:
+// the transaction we lost to has committed by the time we come back.
 const deleteDeadlockAttempts = 3
 
-// Delete removes a mailbox and refunds its worker's capacity in ONE
-// transaction. Split in two, the refund can be lost for good: after the row is
-// gone nothing records which worker was charged for that mailbox, so a refund
-// that failed on its own could never be repaired and the worker would carry a
-// deleted mailbox's load forever. workerLoadRefund is the mailbox's placement
-// weight, computed by the caller from the same provider and warmup flag
-// assignment charged it with.
-func (r *emailRepository) Delete(ctx context.Context, userID, emailAccountID string, workerLoadRefund float64) *errx.Error {
-	for attempt := 0; attempt < deleteDeadlockAttempts; attempt++ {
-		err, retry := r.deleteOnce(ctx, userID, emailAccountID, workerLoadRefund)
-		if !retry {
-			return err
+// Delete removes a mailbox, retrying a deadlock.
+//
+// The delete cascades into two dozen child tables (tasks, unibox_emails,
+// email_sync_state, warmup_statistics and the rest) and takes a lock on each,
+// while the consumer is still writing to several of them for the same mailbox.
+// Postgres resolves the cycle by aborting one side, and roughly half the time
+// that side is this one. Nothing is wrong when it happens and the work is
+// entirely redoable, so surfacing it meant someone clicking Disconnect got an
+// error for an operation that would have succeeded a moment later.
+func (r *emailRepository) Delete(ctx context.Context, orgID, emailAccountID string, workerLoadRefund float64) *errx.Error {
+	for attempt := 1; ; attempt++ {
+		xerr, deadlocked := r.deleteOnce(ctx, orgID, emailAccountID, workerLoadRefund)
+		if !deadlocked || attempt >= deleteDeadlockAttempts {
+			return xerr
 		}
-		time.Sleep(time.Duration(50*(attempt+1)) * time.Millisecond)
 	}
-	return errx.InternalError()
 }
 
-func (r *emailRepository) deleteOnce(ctx context.Context, userID, emailAccountID string, workerLoadRefund float64) (*errx.Error, bool) {
+func (r *emailRepository) deleteOnce(ctx context.Context, orgID, emailAccountID string, workerLoadRefund float64) (*errx.Error, bool) {
 	tx, err := r.DB.Begin(ctx)
 	if err != nil {
-		if isDeadlock(err) {
-			return errx.InternalError(), true
-		}
 		db.CaptureError(err, "", nil, "begin")
 		return errx.InternalError(), false
 	}
@@ -1407,11 +1427,11 @@ func (r *emailRepository) deleteOnce(ctx context.Context, userID, emailAccountID
 		UPDATE warmup_reputation_ledger l
 		   SET recorded_at = now()
 		  FROM email_accounts a
-		 WHERE a.user_id = $1 AND a.id = $2
+		 WHERE a.organization_id = $1 AND a.id = $2
 		   AND l.organization_id = a.organization_id
 		   AND l.email = lower(btrim(a.email))
 	`
-	bumpParams := []any{userID, emailAccountID}
+	bumpParams := []any{orgID, emailAccountID}
 	if _, err := tx.Exec(ctx, bump, bumpParams...); err != nil {
 		if isDeadlock(err) {
 			return errx.InternalError(), true
@@ -1420,12 +1440,12 @@ func (r *emailRepository) deleteOnce(ctx context.Context, userID, emailAccountID
 		return errx.InternalError(), false
 	}
 
-	// Before the row goes: what the mailbox leaves outside Postgres. The
+	// Erasures must be enqueued while the credentials still exist. The
 	// sealed refresh token lives in email_accounts_oauth, which cascades away
 	// with the mailbox, so reading it afterwards is impossible and the grant
 	// would stay live at the provider forever.
-	const scope = `a.user_id = $1 AND a.id = $2`
-	if _, err := EnqueueMailboxErasures(ctx, tx, scope, userID, emailAccountID); err != nil {
+	const scope = `a.organization_id = $1 AND a.id = $2`
+	if _, err := EnqueueMailboxErasures(ctx, tx, scope, orgID, emailAccountID); err != nil {
 		if isDeadlock(err) {
 			return errx.InternalError(), true
 		}
@@ -1433,7 +1453,7 @@ func (r *emailRepository) deleteOnce(ctx context.Context, userID, emailAccountID
 	}
 
 	// The threads this mailbox holds messages in, read while they still exist.
-	threads, err := CollectMailboxThreadState(ctx, tx, scope, userID, emailAccountID)
+	threads, err := CollectMailboxThreadState(ctx, tx, scope, orgID, emailAccountID)
 	if err != nil {
 		if isDeadlock(err) {
 			return errx.InternalError(), true
@@ -1441,33 +1461,29 @@ func (r *emailRepository) deleteOnce(ctx context.Context, userID, emailAccountID
 		return errx.InternalError(), false
 	}
 
-	query := `
-		DELETE FROM email_accounts
-		WHERE user_id = $1 AND id = $2
-		RETURNING worker_id
-	`
-	params := []any{userID, emailAccountID}
+	// Soft-cascade: Delete email account (foreign keys with ON DELETE CASCADE handle relations)
+	query := `DELETE FROM email_accounts WHERE organization_id = $1 AND id = $2 RETURNING worker_id`
+	params := []any{orgID, emailAccountID}
 
 	var workerID *uuid.UUID
 	if err := tx.QueryRow(ctx, query, params...).Scan(&workerID); err != nil {
-		if isDeadlock(err) {
-			return errx.InternalError(), true
-		}
 		if errors.Is(err, pgx.ErrNoRows) {
 			return errx.ErrNotFound, false
+		}
+		// The cascade is what deadlocks, so this is the statement that loses
+		// most often. Not captured: a retried deadlock is not an incident.
+		if isDeadlock(err) {
+			return errx.InternalError(), true
 		}
 		db.CaptureError(err, query, params, "queryrow")
 		return errx.InternalError(), false
 	}
 
-	// After the row goes: the labels and snoozes whose threads the cascade just
+	// Remove unibox thread state for threads whose messages were entirely
 	// emptied. Nothing references the mailbox from those rows, so without this
 	// the workspace keeps labels on threads with no messages left in them.
 	if err := DeleteOrphanedThreadState(ctx, tx, threads); err != nil {
-		if isDeadlock(err) {
-			return errx.InternalError(), true
-		}
-		return errx.InternalError(), false
+		return errx.InternalError(), isDeadlock(err)
 	}
 
 	if workerID != nil {
@@ -1506,7 +1522,7 @@ func (r *emailRepository) deleteOnce(ctx context.Context, userID, emailAccountID
 //     ramp continues where it left off; an already-active mailbox is a no-op.
 //   - pause: stamps warmup_paused_at only while actively warming.
 //   - disable: clears warmup entirely (next restart begins a fresh ramp).
-func (r *emailRepository) SetWarmupLifecycle(ctx context.Context, userID, emailAccountID, action string) (*models.Email, *errx.Error) {
+func (r *emailRepository) SetWarmupLifecycle(ctx context.Context, orgID, emailAccountID, action string) (*models.Email, *errx.Error) {
 	var setClause string
 	switch action {
 	case "start", "resume":
@@ -1530,12 +1546,12 @@ func (r *emailRepository) SetWarmupLifecycle(ctx context.Context, userID, emailA
 	query := fmt.Sprintf(`
 		UPDATE email_accounts
 		SET %s, updated_at = now()
-		WHERE user_id = $1 AND id = $2
+		WHERE organization_id = $1 AND id = $2
 	`, setClause)
 
-	tag, err := r.DB.Exec(ctx, query, userID, emailAccountID)
+	tag, err := r.DB.Exec(ctx, query, orgID, emailAccountID)
 	if err != nil {
-		db.CaptureError(err, query, []any{userID, emailAccountID}, "exec")
+		db.CaptureError(err, query, []any{orgID, emailAccountID}, "exec")
 		return nil, errx.InternalError()
 	}
 	if tag.RowsAffected() == 0 {
@@ -2024,6 +2040,28 @@ func (r *emailRepository) GetWorkerID(ctx context.Context, emailAccountID uuid.U
 	}
 
 	return workerID, nil
+}
+
+// SetStatus sets a mailbox's status by id alone.
+//
+// Update is scoped to an organization because it serves a person editing their
+// own mailbox. This serves the consumer reacting to a worker's report about a
+// specific mailbox, where the id is already the primary key and a tenant id
+// adds no safety: passing the wrong one cannot deny access, it can only turn
+// the write into a silent no-op. That is exactly what happened, for months, to
+// every mailbox that failed authentication.
+func (r *emailRepository) SetStatus(ctx context.Context, emailAccountID uuid.UUID, status string) *errx.Error {
+	query := `UPDATE email_accounts SET status = $1, updated_at = NOW() WHERE id = $2`
+
+	cmd, err := r.DB.Exec(ctx, query, status, emailAccountID)
+	if err != nil {
+		db.CaptureError(err, query, []any{status, emailAccountID}, "exec")
+		return errx.InternalError()
+	}
+	if cmd.RowsAffected() == 0 {
+		return errx.ErrNotFound
+	}
+	return nil
 }
 
 // SetWorkerID assigns a worker to an email account

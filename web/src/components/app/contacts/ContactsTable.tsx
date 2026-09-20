@@ -14,6 +14,8 @@ import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     AlertTriangleIcon,
+    ArrowDownIcon,
+    ArrowUpIcon,
     BanIcon,
     Building2Icon,
     CableIcon,
@@ -96,7 +98,12 @@ import type { ExportScopeContext } from "./ExportDialog";
 import useUpdateContactsBulk from "@/lib/api/hooks/app/contacts/useUpdateContactsBulk";
 import useAiMetered from "@/hooks/useAiMetered";
 import SyncSourcesPanel from "./SyncSourcesPanel";
-import { CategoryChip } from "./CategoryPicker";
+import { columnClass, sortOptions, type ContactColumn, type ContactRow } from "./columns";
+import { ColumnChooser, SortMenu, type ViewSortState } from "./ViewControls";
+import { useContactView } from "./useContactView";
+import { readCachedView } from "@/lib/api/hooks/app/views/useViewPreferences";
+import type { SearchContactsSortBy } from "@/lib/api/models/app/contacts/search-contacts.types";
+import type { ViewName } from "@/lib/api/models/app/views/ViewPreferences";
 
 import {
     EmptyBlock,
@@ -162,13 +169,62 @@ export default function ContactsTable({
     // ?category=<id> pre-filters the list (the Categories tab links here).
     const [params] = useSearchParams();
 
+    // The member's saved layout for this list: its columns and its sort.
+    const viewName: ViewName = current_campaign ? "campaign_leads" : "contacts";
+    const view = useContactView(viewName);
+
     const [searchProps, setSearchProps] = React.useState<SearchContacts>(() => {
         const category = params.get("category");
+        const cached = readCachedView(view.scope, viewName)?.sort;
         return {
             ...scopeSearch({ campaignId: current_campaign?.id, segmentId: segment?.id }),
             category_ids: category && !segment && !current_campaign ? [category] : undefined,
+            ...(cached ? { sort_by: cached.by as SearchContactsSortBy, reverse: cached.reverse } : {}),
         };
     });
+
+    const appliedSortRef = React.useRef<string | null>(null);
+    React.useEffect(() => {
+        if (!view.loaded) return;
+        const saved = view.savedSort;
+        const sig = saved ? `${saved.by}:${saved.reverse}` : "default";
+        if (appliedSortRef.current === sig) return;
+        appliedSortRef.current = sig;
+        setSearchProps((prev) => ({
+            ...prev,
+            sort_by: (saved?.by ?? "created_at") as SearchContactsSortBy,
+            reverse: saved?.reverse ?? false,
+        }));
+    }, [view.loaded, view.savedSort]);
+
+    const sortState: ViewSortState = { by: searchProps.sort_by, reverse: searchProps.reverse };
+    function changeSort(next: ViewSortState) {
+        appliedSortRef.current = `${next.by}:${next.reverse}`;
+        setSearchProps((s) => ({ ...s, sort_by: next.by, reverse: next.reverse }));
+        view.setSort({ by: next.by, reverse: next.reverse });
+    }
+    function sortByColumn(col: ContactColumn) {
+        if (!col.sortKey) return;
+        if (searchProps.sort_by === col.sortKey) changeSort({ by: col.sortKey, reverse: !searchProps.reverse });
+        else changeSort({ by: col.sortKey, reverse: !!col.sortAsc });
+    }
+    function resetView() {
+        view.reset();
+        appliedSortRef.current = "default";
+        setSearchProps((s) => ({ ...s, sort_by: "created_at", reverse: false }));
+    }
+    const viewControls = (
+        <>
+            <SortMenu sort={sortState} options={sortOptions(viewName)} customKeys={view.customKeys} onChange={changeSort} />
+            <ColumnChooser
+                visible={view.columns}
+                available={view.available}
+                customized={view.customized}
+                onChange={view.setColumns}
+                onReset={resetView}
+            />
+        </>
+    );
 
     function saveAsSegment(draft: SearchContacts) {
         const { conditions, dropped } = filtersToSegment(draft, current_campaign?.id);
@@ -496,6 +552,9 @@ export default function ContactsTable({
             onRetry={() => contactsData.refetch()}
             isRefetching={contactsData.isFetching && !contactsData.isPending}
             contacts={rows}
+            columns={view.columns}
+            sort={sortState}
+            onSort={sortByColumn}
             isRowSelected={isRowSelected}
             onToggle={(id, on) => setRowSel((s) => rowSelection.toggleRow(s, id, on))}
             isSelectedAll={loadedAllSelected}
@@ -656,6 +715,7 @@ export default function ContactsTable({
                         placeholder="חיפוש לידים…"
                         className="w-full sm:w-56"
                     />
+                    {viewControls}
                     <TopbarAction
                         variant="ghost"
                         icon={<LayersIcon className="w-3 h-3" />}
@@ -926,45 +986,7 @@ export default function ContactsTable({
                     placeholder="חיפוש לפי שם, אימייל, חברה…"
                     className="w-full sm:w-72"
                 />
-                <PopoverMenu align="end">
-                    <PopoverMenuTrigger asChild>
-                        <SelectButton
-                            icon={<Settings2Icon className="w-3.5 h-3.5" />}
-                            label="מיין"
-                        />
-                    </PopoverMenuTrigger>
-                    <PopoverMenuContent>
-                        <PopoverMenuLabel>מיין לפי</PopoverMenuLabel>
-                        {[
-                            ["created_at", "תאריך הוספה"],
-                            ["email", "אימייל"],
-                            ["first_name", "שם פרטי"],
-                            ["last_name", "שם משפחה"],
-                            ["company", "חברה"],
-                        ].map(([key, label]) => (
-                            <PopoverMenuItem
-                                key={key}
-                                selected={searchProps.sort_by === key}
-                                onSelect={() =>
-                                    setSearchProps((s) => ({
-                                        ...s,
-                                        sort_by: key as SearchContacts["sort_by"],
-                                    }))
-                                }
-                            >
-                                {label}
-                            </PopoverMenuItem>
-                        ))}
-                        <PopoverMenuSeparator />
-                        <PopoverMenuItem
-                            selected={searchProps.reverse}
-                            onSelect={() => setSearchProps((s) => ({ ...s, reverse: !s.reverse }))}
-                            closeOnSelect={false}
-                        >
-                            Reverse order
-                        </PopoverMenuItem>
-                    </PopoverMenuContent>
-                </PopoverMenu>
+                {viewControls}
             </SectionBar>
 
             <FilterBar
@@ -1055,6 +1077,9 @@ function ContactsTableBody({
     onRetry,
     isRefetching,
     contacts,
+    columns,
+    sort,
+    onSort,
     isRowSelected,
     onToggle,
     isSelectedAll,
@@ -1081,25 +1106,10 @@ function ContactsTableBody({
     errorMessage: string;
     onRetry: () => void;
     isRefetching: boolean;
-    contacts: {
-        id: string;
-        first_name: string;
-        last_name: string;
-        email: string;
-        company: string;
-        phone: string;
-        subscribed: boolean;
-        campaigns: { id: string }[];
-        categories?: { id: string; title: string; color: string }[];
-        campaign_lead?: ContactCampaignProgress | null;
-        verification_status?: VerificationStatus;
-        verification_sub_status?: string;
-        verification_source?: VerificationSource;
-        verification_provider?: string;
-        verification_checked_at?: string | null;
-        verification_confidence?: number;
-        created_at: Date;
-    }[];
+    contacts: ContactRow[];
+    columns: ContactColumn[];
+    sort: ViewSortState;
+    onSort: (col: ContactColumn) => void;
     isRowSelected: (id: string) => boolean;
     onToggle: (id: string, on: boolean) => void;
     isSelectedAll: boolean;
@@ -1263,10 +1273,10 @@ function ContactsTableBody({
                 (issue #461). So every column carries a width and every cell
                 clips; content that overflows a cell still extends the scroll
                 container. */}
-            <table className="w-full table-fixed text-left">
+            <table className="w-full table-fixed text-start" dir="rtl">
                 <thead className="sticky top-0 bg-white z-[1]">
                     <tr className="border-b border-slate-200">
-                        <th className="pl-5 pr-2 py-2 w-11">
+                        <th className="pr-5 pl-2 py-2 w-11">
                             <input
                                 type="checkbox"
                                 className="w-3.5 h-3.5 rounded accent-sky-600"
@@ -1274,54 +1284,9 @@ function ContactsTableBody({
                                 onChange={onToggleAll}
                             />
                         </th>
-                        <Th>שם</Th>
-                        <Th className={companyCol}>חברה</Th>
-                        {!embedded && <Th className={phoneCol}>טלפון</Th>}
-                        <Th className="w-12 sm:w-32">
-                            {/* Below sm the pill is its icon alone, so the column
-                                narrows to it and the label waits for the room —
-                                but never leaves the accessibility tree. */}
-                            <span className="sr-only">{embedded ? "התקדמות" : "סטטוס"}</span>
-                            <span aria-hidden className="hidden sm:inline">{embedded ? "התקדמות" : "סטטוס"}</span>
-                        </Th>
-                        {embedded && (
-                            <>
-                                <Th className="w-24 hidden lg:table-cell">
-                                    <span className="inline-flex items-center gap-1">
-                                        נפתח
-                                        <span
-                                            className="inline-flex cursor-help text-slate-300 hover:text-slate-500"
-                                            title="פתיחות מתבססות על טעינת תמונות בתוכנת הדואר. תוכנות החוסמות תמונות לא יציגו פתיחה גם אם המייל נקרא. לחיצה על קישור נספרת תמיד גם כפתיחה."
-                                        >
-                                            <InfoIcon className="w-3 h-3" aria-label="כיצד נספרות פתיחות" />
-                                        </span>
-                                    </span>
-                                </Th>
-                                <Th className="w-24 hidden lg:table-cell">לחיצות</Th>
-                                <Th className="w-24 hidden lg:table-cell">השיבו</Th>
-                            </>
-                        )}
-                        {embedded ? (
-                            <>
-                                <Th className="w-32 hidden xl:table-cell">שלב נוכחי</Th>
-                                <Th className="w-36 hidden 2xl:table-cell">
-                                    <span className="inline-flex items-center gap-1">
-                                        שולח
-                                        <span
-                                            className="inline-flex cursor-help text-slate-300 hover:text-slate-500"
-                                            title="תיבת הדואר שממנה נשלח כל הרצף של ליד זה. התיבה נבחרת עם שליחת המייל הראשון ונשמרת לאורך כל המעקבים."
-                                        >
-                                            <InfoIcon className="w-3 h-3" aria-label="כיצד נבחר השולח" />
-                                        </span>
-                                    </span>
-                                </Th>
-                            </>
-                        ) : (
-                            <Th className="w-28 text-right hidden lg:table-cell">קמפיינים</Th>
-                        )}
-                        <Th className={`text-right ${embedded ? "w-32 hidden 2xl:table-cell" : "w-24 hidden md:table-cell"}`}>
-                            {embedded ? "פעילות אחרונה" : "נוסף ב"}
-                        </Th>
+                        {columns.map((col) => (
+                            <Th key={col.id} col={col} sort={sort} onSort={onSort} />
+                        ))}
                         <th className="px-3 py-2 w-[76px]"></th>
                     </tr>
                 </thead>
@@ -1332,9 +1297,6 @@ function ContactsTableBody({
                             (c.first_name || c.last_name)
                                 ? `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim()
                                 : c.email;
-                        // In the campaign Leads view, terminal leads (replied /
-                        // bounced / unsubscribed) are "already processed" — render
-                        // them muted so the eye lands on what's still in flight.
                         const lead = c.campaign_lead;
                         const processed =
                             embedded &&
@@ -1342,9 +1304,6 @@ function ContactsTableBody({
                             (lead.status === "replied" ||
                                 lead.status === "bounced" ||
                                 lead.status === "unsubscribed");
-                        // A lead routing will never offer again cannot be
-                        // held: pausing it would report success and change
-                        // nothing on the row.
                         const terminal =
                             processed ||
                             (!!lead &&
@@ -1367,7 +1326,7 @@ function ContactsTableBody({
                                 }`}
                             >
                                 <td
-                                    className="pl-5 pr-2"
+                                    className="pr-5 pl-2"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     <input
@@ -1377,152 +1336,18 @@ function ContactsTableBody({
                                         onChange={() => onToggle(c.id, !isSel)}
                                     />
                                 </td>
-                                <td className="px-3 overflow-hidden">
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                        <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                                            <span className="text-[9.5px] font-semibold text-slate-600">
-                                                {(c.first_name || c.email)?.slice(0, 2).toUpperCase()}
-                                            </span>
-                                        </div>
-                                        {/* flex-1, not shrink-to-fit: the chip cap below is a
-                                            percentage, so this has to be the column's width and
-                                            not the name's. */}
-                                        <div className="flex-1 min-w-0">
-                                            <div className={`text-[12.5px] font-medium truncate leading-tight flex items-center gap-1.5 ${processed ? "text-slate-400" : "text-slate-900"}`}>
-                                                <span className="truncate" {...clippedTitle}>{name}</span>
-                                                {/* One tag, then a count. The Name column is a fixed width
-                                                    now, and two tags sharing it with a name left each of them
-                                                    about three legible characters. The tags take at most 45%
-                                                    of the line, and the +N tooltip names the rest in full. */}
-                                                {c.categories && c.categories.length > 0 && (
-                                                    <span className="inline-flex items-center gap-0.5 min-w-0 max-w-[45%]">
-                                                        <CategoryChip category={c.categories[0]} compact />
-                                                        {c.categories.length > 1 && (
-                                                            <span
-                                                                className="inline-flex items-center h-4 px-1 shrink-0 rounded text-[10px] font-medium bg-slate-100 text-slate-500"
-                                                                title={c.categories.slice(1).map((x) => x.title).join(", ")}
-                                                            >
-                                                                +{c.categories.length - 1}
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="text-[10.5px] text-slate-400 truncate font-mono leading-tight flex items-center gap-1">
-                                                <MailIcon className="w-2.5 h-2.5 shrink-0" />
-                                                <span className="truncate" {...clippedTitle}>{c.email}</span>
-                                                <VerificationBadge contact={c} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className={`px-3 overflow-hidden text-[12px] text-slate-600 ${companyCol}`}>
-                                    {c.company ? (
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                            <Building2Icon className="w-3 h-3 shrink-0 text-slate-400" />
-                                            <span className="truncate" {...clippedTitle}>
-                                                {c.company}
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <span className="text-slate-300">—</span>
-                                    )}
-                                </td>
-                                {!embedded && (
-                                    <td className={`px-3 overflow-hidden text-[12px] text-slate-600 font-mono ${phoneCol}`}>
-                                        {c.phone ? (
-                                            <div className="flex items-center gap-1.5 min-w-0">
-                                                <PhoneIcon className="w-3 h-3 shrink-0 text-slate-400" />
-                                                <span className="truncate" {...clippedTitle}>
-                                                    {c.phone}
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <span className="text-slate-300">—</span>
-                                        )}
-                                    </td>
-                                )}
-                                <td className="px-3 overflow-hidden">
-                                    {embedded ? (
-                                        <LeadStatusPill lead={lead} />
-                                    ) : (
-                                        <StatusPill subscribed={c.subscribed} />
-                                    )}
-                                </td>
-                                {embedded && (
-                                    <>
-                                        <EngagementCell
-                                            n={lead?.opened ?? 0}
-                                            sent={(lead?.sent ?? 0) > 0}
-                                            Icon={MailOpenIcon}
-                                            label="opened"
-                                            auto={(lead?.machine_opened ?? 0) > 0}
-                                        />
-                                        <EngagementCell
-                                            n={lead?.clicked ?? 0}
-                                            sent={(lead?.sent ?? 0) > 0}
-                                            Icon={MousePointerClickIcon}
-                                            label="clicked"
-                                        />
-                                        <EngagementCell
-                                            n={lead?.replied ?? 0}
-                                            sent={(lead?.sent ?? 0) > 0}
-                                            Icon={CornerUpLeftIcon}
-                                            label="replied"
-                                        />
-                                    </>
-                                )}
-                                {embedded ? (
-                                    <>
-                                    <td className="px-3 overflow-hidden hidden xl:table-cell">
-                                        {lead?.current_step ? (
-                                            <span
-                                                title={lead.current_step}
-                                                className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-medium max-w-full ${
-                                                    processed
-                                                        ? "bg-slate-100 text-slate-400"
-                                                        : "bg-sky-100 text-sky-700"
-                                                }`}
-                                            >
-                                                <span className="truncate">{lead.current_step}</span>
-                                            </span>
-                                        ) : (
-                                            <span className="text-[11px] text-slate-300">לא התחיל</span>
-                                        )}
-                                    </td>
-                                    <td className="px-3 overflow-hidden hidden 2xl:table-cell">
-                                        {lead?.sender ? (
-                                            <span
-                                                title={`Every step of this lead's sequence sends from ${lead.sender}`}
-                                                className="block truncate text-[11.5px] text-slate-600"
-                                            >
-                                                {lead.sender}
-                                            </span>
-                                        ) : (
-                                            <span className="text-[11px] text-slate-300">לא שויך</span>
-                                        )}
-                                    </td>
-                                    </>
-                                ) : (
-                                    <td className="px-3 text-right font-mono text-[12px] text-slate-600 tabular-nums hidden lg:table-cell">
-                                        {c.campaigns?.length ?? 0}
-                                    </td>
-                                )}
-                                <td className={`px-3 text-right font-mono text-[11px] text-slate-500 tabular-nums ${embedded ? "hidden 2xl:table-cell" : "hidden md:table-cell"}`}>
-                                    {embedded
-                                        ? lead?.last_activity_at
-                                            ? new Date(lead.last_activity_at).toLocaleDateString("he-IL", {
-                                                  month: "short",
-                                                  day: "numeric",
-                                              })
-                                            : "—"
-                                        : c.created_at
-                                            ? new Date(c.created_at).toLocaleDateString("he-IL", {
-                                                  month: "short",
-                                                  day: "numeric",
-                                              })
-                                            : "—"}
-                                </td>
+                                {columns.map((col) => {
+                                    const isName = col.id === "name";
+                                    return (
+                                        <td
+                                            key={col.id}
+                                            className={`px-3 overflow-hidden ${columnClass(col)} ${col.cellClassName ?? ""}`}
+                                            onClick={isName ? undefined : () => onRowClick(c.id)}
+                                        >
+                                            {col.cell({ c, lead, processed: !!processed, embedded: !!embedded })}
+                                        </td>
+                                    );
+                                })}
                                 <td className="px-3" onClick={(e) => e.stopPropagation()}>
                                     {/* Touch-safe: always visible on mobile, hover-reveal on desktop. */}
                                     <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
@@ -1530,7 +1355,7 @@ function ContactsTableBody({
                                             <button
                                                 type="button"
                                                 aria-label="המשך ליד"
-                                                title={`${holdSummary(lead.hold)}. Resume now`}
+                                                title={`${holdSummary(lead.hold)}. המשך כעת`}
                                                 onClick={() => onResumeLead(c.id)}
                                                 className="size-6 rounded text-violet-500 hover:text-violet-700 hover:bg-violet-50 flex items-center justify-center transition-colors"
                                             >
@@ -1586,134 +1411,29 @@ function ContactsTableBody({
     );
 }
 
-function Th({ children, className }: { children: React.ReactNode; className?: string }) {
+function Th({ col, sort, onSort }: { col: ContactColumn; sort: ViewSortState; onSort: (col: ContactColumn) => void }) {
+    const base = `px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] truncate ${columnClass(col)}`;
+    const content = col.header ?? col.label;
+    if (!col.sortKey) return <th className={base}>{content}</th>;
+    const active = sort.by === col.sortKey;
+    const Dir = sort.reverse ? ArrowUpIcon : ArrowDownIcon;
     return (
-        <th
-            className={`px-3 py-2 text-[10px] font-medium text-slate-400 uppercase tracking-[0.14em] truncate ${className ?? ""}`}
-        >
-            {children}
+        <th className={base} aria-sort={active ? (sort.reverse ? "ascending" : "descending") : "none"}>
+            <button
+                type="button"
+                onClick={() => onSort(col)}
+                title={`מיין לפי ${col.label}`}
+                className={`group/th inline-flex items-center gap-1 max-w-full uppercase tracking-[0.14em] hover:text-slate-700 transition-colors ${
+                    active ? "text-slate-700" : ""
+                } ${col.align === "right" ? "flex-row-reverse" : ""}`}
+            >
+                <span className="truncate">{content}</span>
+                <Dir className={`w-3 h-3 shrink-0 ${active ? "" : "opacity-0 group-hover/th:opacity-60"}`} aria-hidden />
+            </button>
         </th>
     );
 }
 
-function StatusPill({ subscribed }: { subscribed: boolean }) {
-    const label = subscribed ? "מנוי" : "הסיר מנוי";
-    return (
-        <span
-            className={`inline-flex items-center gap-1 max-w-full text-[10.5px] font-medium uppercase tracking-[0.08em] ${
-                subscribed ? "text-emerald-700" : "text-slate-500"
-            }`}
-        >
-            <span
-                className={`size-1.5 shrink-0 rounded-full ${subscribed ? "bg-emerald-500" : "bg-slate-300"}`}
-            />
-            {/* The dot carries the state on its own below sm, so the word stays
-                for screen readers at every width and the visible copy is the
-                one that comes and goes. */}
-            <span className="sr-only">{label}</span>
-            <span aria-hidden className="hidden sm:inline truncate" {...clippedTitle}>
-                {label}
-            </span>
-        </span>
-    );
-}
-
-// One engagement column of the Leads view. A count of steps engaged, a dash
-// for a lead that was sent but never did, and blank for a lead never emailed.
-// A machine-only open (Apple MPP prefetch) reads "auto" so it is not mistaken
-// for a person.
-function EngagementCell({
-    n,
-    sent,
-    Icon,
-    label,
-    auto = false,
-}: {
-    n: number;
-    sent: boolean;
-    Icon: typeof MailOpenIcon;
-    label: string;
-    auto?: boolean;
-}) {
-    const heLabel = label === "opened" ? "נפתח" : label === "clicked" ? "נלחץ" : label === "replied" ? "נענה" : label;
-    return (
-        <td className="px-3 overflow-hidden hidden lg:table-cell">
-            {n > 0 ? (
-                <span
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 tabular-nums"
-                    title={`${heLabel} ב-${n} ${n === 1 ? "אימייל" : "אימיילים"}`}
-                >
-                    <Icon className="w-3 h-3 shrink-0" />
-                    {n}
-                </span>
-            ) : auto ? (
-                <span
-                    className="text-[10.5px] text-slate-400"
-                    title="נפתח אוטומטית על ידי תוכנת/שרת הדואר (פתיחת מכונה), לא על ידי אדם"
-                >
-                    אוטומטי
-                </span>
-            ) : sent ? (
-                <span className="text-slate-300 text-[11px]" aria-label={`לא ${heLabel}`}>
-                    —
-                </span>
-            ) : null}
-        </td>
-    );
-}
-
-// Per-lead processing state inside a campaign (campaign Leads view only).
-// `active` renders the animated dot-grid loader (the same "processing" motif
-// used across the app); every other state is a distinct lucide icon.
-const LEAD_META: Record<
-    LeadStatus,
-    { label: string; dot: string; text: string; Icon: typeof ClockIcon }
-> = {
-    pending: { label: "בתור", dot: "bg-slate-300", text: "text-slate-500", Icon: ClockIcon },
-    active: { label: "בעיבוד", dot: "bg-sky-500", text: "text-sky-700", Icon: ClockIcon },
-    completed: { label: "הושלם", dot: "bg-indigo-500", text: "text-indigo-700", Icon: CheckIcon },
-    replied: { label: "השיב", dot: "bg-emerald-500", text: "text-emerald-700", Icon: CornerUpLeftIcon },
-    bounced: { label: "הוחזר", dot: "bg-rose-500", text: "text-rose-600", Icon: AlertTriangleIcon },
-    failed: { label: "נכשל", dot: "bg-rose-500", text: "text-rose-600", Icon: AlertTriangleIcon },
-    unsubscribed: { label: "הסיר מנוי", dot: "bg-slate-300", text: "text-slate-400", Icon: BanIcon },
-    paused: { label: "מושהה", dot: "bg-violet-400", text: "text-violet-600", Icon: PauseIcon },
-    undeliverable: { label: "לא ניתן למסירה", dot: "bg-amber-500", text: "text-amber-600", Icon: AlertTriangleIcon },
-};
-
-function LeadStatusPill({ lead }: { lead?: ContactCampaignProgress | null }) {
-    const status: LeadStatus = lead?.status ?? "pending";
-    const meta = LEAD_META[status];
-    const Icon = meta.Icon;
-    // A failed lead carries the worker's reason; surface it on hover since the
-    // pill itself only has room for the word.
-    const title =
-        status === "failed" && lead?.failure_reason
-            ? `שליחה נכשלה: ${lead.failure_reason}`
-            : status === "undeliverable"
-                ? "אימות הכתובת דחה נמען זה, ולכן הקמפיין מדלג עליו"
-                : lead?.hold
-                    ? holdSummary(lead.hold)
-                    : undefined;
-    return (
-        <span
-            className={`inline-flex items-center gap-1.5 max-w-full text-[10.5px] font-medium uppercase tracking-[0.08em] ${meta.text}`}
-            title={title}
-        >
-            {status === "active" ? (
-                <span className="campaign-grid text-sky-600 shrink-0" aria-hidden />
-            ) : (
-                <Icon className="w-3 h-3 shrink-0" />
-            )}
-            <span className="sr-only">{meta.label}</span>
-            {/* The reason, when there is one, is worth more than the word it
-                covers — and React owning the attribute is what clears any word
-                the tooltip helper left here before the lead changed state. */}
-            <span aria-hidden className="hidden sm:inline truncate" title={title} {...(title ? {} : clippedTitle)}>
-                {meta.label}
-            </span>
-        </span>
-    );
-}
 
 // Compact campaign-state strip above the Leads list: a segmented bar + per-state
 // counts, so you can see at a glance how the campaign is processing its leads.

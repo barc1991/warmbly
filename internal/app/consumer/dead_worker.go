@@ -142,8 +142,32 @@ func (s *JobsService) notifyWorkerDown(ctx context.Context, workerID uuid.UUID, 
 // expensive mass reassignment.
 const MailboxEvacuationGrace = 10 * time.Minute
 
-func (s *JobsService) unreachableLongEnoughToEvacuate(w models.Worker) bool {
-	if w.LastSeenAt != nil && time.Since(*w.LastSeenAt) < MailboxEvacuationGrace {
+// unreachableLongEnoughToEvacuate reports whether a worker with no heartbeat
+// key has also been absent from the registry long enough to be worth moving
+// mailboxes off.
+//
+// Both signals are required for the same reason deactivateIfLongDead needs
+// both: during a Redis outage every heartbeat key vanishes at once while
+// POSTed beats keep last_seen_at fresh, and evacuating on the key alone would
+// migrate every mailbox in the fleet at once.
+//
+// The worker is re-read because the caller's copy is a snapshot from the top of
+// a scan that walks the whole fleet.
+func (s *JobsService) unreachableLongEnoughToEvacuate(ctx context.Context, w models.Worker) bool {
+	current, err := s.WorkerRepo.GetByID(ctx, w.ID)
+	if err != nil || current == nil {
+		return false
+	}
+	// Never seen at all means the age is unknown, not old: a worker that has
+	// only just registered has no mailboxes worth moving anyway.
+	if current.LastSeenAt == nil {
+		return false
+	}
+	if time.Since(*current.LastSeenAt) < MailboxEvacuationGrace {
+		log.Info().
+			Str("worker_id", w.ID.String()).
+			Time("last_seen_at", *current.LastSeenAt).
+			Msg("worker is unreachable but within the evacuation grace; leaving its mailboxes in place")
 		return false
 	}
 	return true
@@ -183,7 +207,7 @@ func (s *JobsService) detectDeadWorkers(ctx context.Context) {
 			continue // Worker is alive
 		}
 
-		if !s.unreachableLongEnoughToEvacuate(w) {
+		if !s.unreachableLongEnoughToEvacuate(ctx, w) {
 			continue
 		}
 

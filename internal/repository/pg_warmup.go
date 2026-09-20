@@ -113,6 +113,9 @@ type WarmupRepository interface {
 	// gate cold sends on warmup health without needing a pool type. Returns
 	// ("healthy", nil) when the account is in no pool.
 	GetHealthState(ctx context.Context, accountID uuid.UUID) (models.WarmupHealthState, *time.Time, error)
+	// GetHealthStates is GetHealthState for a pool in one read. A mailbox in
+	// no pool is healthy, as the single read reports it.
+	GetHealthStates(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]WarmupHealthRead, error)
 	UnblockFromPool(ctx context.Context, accountID uuid.UUID) error
 	IsInPool(ctx context.Context, accountID uuid.UUID, poolType string) (bool, error)
 	GetParticipantHealth(ctx context.Context, accountID uuid.UUID, poolType string) (*models.WarmupParticipantHealth, error)
@@ -420,6 +423,52 @@ func (r *warmupRepository) GetHealthState(ctx context.Context, accountID uuid.UU
 		return models.WarmupHealthHealthy, nil, err
 	}
 	return models.WarmupHealthState(state), blockedUntil, nil
+}
+
+// WarmupHealthRead is one mailbox's worst live standing across its pools.
+type WarmupHealthRead struct {
+	State        models.WarmupHealthState
+	BlockedUntil *time.Time
+}
+
+// GetHealthStates is GetHealthState over a pool: the worst standing per
+// mailbox, in one query.
+func (r *warmupRepository) GetHealthStates(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]WarmupHealthRead, error) {
+	out := make(map[uuid.UUID]WarmupHealthRead, len(accountIDs))
+	for _, id := range accountIDs {
+		out[id] = WarmupHealthRead{State: models.WarmupHealthHealthy}
+	}
+	if len(accountIDs) == 0 {
+		return out, nil
+	}
+	query := `
+		SELECT DISTINCT ON (email_account_id) email_account_id, health_state, blocked_until
+		FROM warmup_pool_participants
+		WHERE email_account_id = ANY($1)
+		ORDER BY email_account_id, CASE health_state
+			WHEN 'blocked' THEN 5
+			WHEN 'quarantined' THEN 4
+			WHEN 'throttled' THEN 3
+			WHEN 'watch' THEN 2
+			WHEN 'healthy' THEN 1
+			ELSE 0
+		END DESC
+	`
+	rows, err := r.db.Query(ctx, query, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var state string
+		var blockedUntil *time.Time
+		if err := rows.Scan(&id, &state, &blockedUntil); err != nil {
+			return nil, err
+		}
+		out[id] = WarmupHealthRead{State: models.WarmupHealthState(state), BlockedUntil: blockedUntil}
+	}
+	return out, rows.Err()
 }
 
 // UnblockFromPool unblocks an account from all warmup pools

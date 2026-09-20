@@ -47,17 +47,20 @@ func (s *JobsService) ingestNewEmail(ctx context.Context, e *models.JobEventNewE
 			return fmt.Errorf("%w: %w", errWarmupVerification, err)
 		}
 		if handled {
+			s.fileWarmupSentCopy(ctx, e)
 			return nil
 		}
 	}
 	if handled, err := s.handleUnmarkedWarmupEmail(ctx, e); err != nil {
 		return fmt.Errorf("%w: %w", errWarmupVerification, err)
 	} else if handled {
+		s.fileWarmupSentCopy(ctx, e)
 		return nil
 	}
 	if warmup, err := s.isKnownWarmupEmail(ctx, e); err != nil {
 		return fmt.Errorf("%w: %w", errWarmupVerification, err)
 	} else if warmup {
+		s.fileWarmupSentCopy(ctx, e)
 		return nil
 	}
 
@@ -541,4 +544,60 @@ func (s *JobsService) orgForMailbox(ctx context.Context, accountID uuid.UUID) (u
 		return uuid.Nil, nil
 	}
 	return *account.OrganizationID, nil
+}
+
+// fileWarmupSentCopy files a mailbox's own copy of a warmup message it SENT.
+//
+// Warmup stays out of the unibox on its own, but the copy the provider filed in
+// the customer's Sent folder is theirs to see, and a mailbox warming at forty a
+// day buries its real sent mail inside a week. The arrival of that copy is the
+// only event that says it exists, so this runs on every path that recognises
+// warmup mail and does nothing unless the message is in the sent folder.
+//
+// Only the filing action is published: read state, importance and stars are
+// recipient-side engagement signals, and there is no reputation to earn by
+// flagging your own outbound mail.
+func (s *JobsService) fileWarmupSentCopy(ctx context.Context, e *models.JobEventNewEmail) {
+	if s.Publisher == nil || s.EmailRepository == nil || e == nil || e.Message == nil {
+		return
+	}
+	if !sentFolderCopy(e.Message) {
+		return
+	}
+	account, err := s.EmailRepository.GetByID(ctx, e.Message.EmailID)
+	if err != nil || account == nil {
+		return
+	}
+	placement, folder := account.WarmupFiling()
+	if placement == models.WarmupPlacementInbox {
+		return
+	}
+	if account.WorkerID == nil {
+		log.Warn().
+			Str("email_id", e.Message.EmailID.String()).
+			Msg("Warmup sent copy left in place: mailbox has no assigned worker")
+		return
+	}
+	s.Publisher.PublishWarmupAction(ctx, *account.WorkerID, &models.WarmupEmailAction{
+		UserID:             e.UserID,
+		EmailID:            e.Message.EmailID,
+		GmailID:            e.Message.GmailID,
+		UID:                e.Message.UID,
+		MailboxUIDValidity: e.Message.Mailbox,
+		MailboxFolder:      e.Message.FolderPath,
+		RFCMessageID:       e.Message.MessageID,
+		Actions:            []string{models.WarmupActionFile},
+		Placement:          placement,
+		TargetFolder:       folder,
+		Folder:             folder,
+	})
+}
+
+// sentFolderCopy reports whether this arrival is the mailbox's own copy of
+// something it sent. Either source is trusted: Folder is what the worker
+// resolved at sync time and ProviderFolder is where the provider still has it,
+// and a sent copy only ever needs one of them to say so.
+func sentFolderCopy(m *models.EmailMessageStoreData) bool {
+	return models.NormalizeFolder(m.Folder, m.Flags) == models.FolderSent ||
+		m.ProviderFolder == models.FolderSent
 }

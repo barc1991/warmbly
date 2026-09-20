@@ -1,23 +1,23 @@
 // Suppression list: every address and domain campaign mail must not go to,
 // however it got there (a click, a reply, a bounce, a complaint, or the
-// team). Search, paste-to-add, and per-entry removal. Lifting an entry the
-// recipient made themselves is confirmed with a stronger warning.
+// team). Search, a paste-to-add dialog, and per-entry removal. Lifting an
+// entry the recipient made themselves is confirmed with a stronger warning.
 
 import React from "react";
 import { GlobeIcon, MailIcon, MoreHorizontalIcon, PlusIcon, XIcon } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { EmptyBlock, Page, PageBody, PageTopbar, SectionBar, TopbarAction } from "@/components/layout/Page";
-import { Label, SearchInput, TextInput } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
+import { SearchInput } from "@/components/ui/field";
 import { PopoverMenu, PopoverMenuContent, PopoverMenuItem, PopoverMenuTrigger } from "@/components/ui/popover-menu";
 import { useConfirm } from "@/hooks/context/confirm";
 import { useWriteGuard } from "@/hooks/usePermission";
-import { useAddSuppressions, useRemoveSuppression, useSuppressions } from "@/lib/api/hooks/app/suppressions/useSuppressions";
+import { useRemoveSuppression, useSuppressions } from "@/lib/api/hooks/app/suppressions/useSuppressions";
 import { SOURCE_LABEL, recipientTriggered, type default as Suppression } from "@/lib/api/models/app/suppressions/Suppression";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
 import { fmtAbsolute } from "@/components/app/contacts/contact-edit/format";
+import AddSuppressionsDialog from "@/components/app/contacts/AddSuppressionsDialog";
 
 export default function SuppressionsPage() {
     const write = useWriteGuard("MANAGE_CONTACTS");
@@ -34,7 +34,7 @@ export default function SuppressionsPage() {
 
     return (
         <Page>
-            <PageTopbar eyebrow="רשימת חסימה" subtitle="כתובות ודומיינים שאף קמפיין לא ישלח אליהם אימייל">
+            <PageTopbar eyebrow="רשימת החרגות" subtitle="כתובות ודומיינים שאף קמפיין לא ישלח אליהם אימייל">
                 <TopbarAction icon={<PlusIcon className="w-3 h-3" />} onClick={guarded(() => setAdding(true))}>
                     הוסף
                 </TopbarAction>
@@ -44,8 +44,9 @@ export default function SuppressionsPage() {
                 <SearchInput value={query} onChange={setQuery} placeholder="חיפוש כתובות או דומיינים…" className="w-full sm:w-72" />
             </SectionBar>
 
+            <AddSuppressionsDialog open={adding} onClose={() => setAdding(false)} />
+
             <PageBody>
-                {adding && <AddForm onClose={() => setAdding(false)} />}
                 {list.isLoading ? (
                     <div className="px-5 py-3 space-y-2">
                         {[0, 1, 2].map((i) => (
@@ -54,7 +55,7 @@ export default function SuppressionsPage() {
                     </div>
                 ) : list.entries.length === 0 ? (
                     <EmptyBlock
-                        title={debounced ? "לא נמצאו רשומות מתאימות" : "אין עדיין רשומות חסומות"}
+                        title={debounced ? "לא נמצאו רשומות מתאימות" : "אין עדיין רשומות מוחרגות"}
                         body={
                             debounced
                                 ? "נסה חיפוש אחר."
@@ -92,79 +93,6 @@ export default function SuppressionsPage() {
     );
 }
 
-// Paste-to-add: one address or domain per line, comma or whitespace also
-// accepted, so a column copied out of a spreadsheet works as is.
-function AddForm({ onClose }: { onClose: () => void }) {
-    const add = useAddSuppressions();
-    const [raw, setRaw] = React.useState("");
-    const [reason, setReason] = React.useState("");
-    const values = React.useMemo(
-        () => Array.from(new Set(raw.split(/[\s,;]+/).map((v) => v.trim()).filter(Boolean))),
-        [raw],
-    );
-
-    async function submit() {
-        if (values.length === 0 || add.isPending) return;
-        try {
-            const res = await add.mutateAsync({ entries: values.map((value) => ({ value })), reason: reason.trim() || undefined });
-            const skipped = res.skipped?.length ?? 0;
-            toast.success(
-                skipped
-                    ? `נוספו ${res.added}; דולגו ${skipped} שלא נראו כמו כתובת או דומיין תקינים`
-                    : `נוספו ${res.added} לרשימת החסימה`,
-            );
-            onClose();
-        } catch (err) {
-            toast.error(buildError(err as AppError));
-        }
-    }
-
-    return (
-        <form
-            onSubmit={(e) => {
-                e.preventDefault();
-                void submit();
-            }}
-            className="px-5 py-3 border-b border-slate-200/60 bg-sky-50/40 space-y-2.5 text-start"
-        >
-            <div>
-                <Label>כתובות או דומיינים</Label>
-                <Textarea
-                    value={raw}
-                    onChange={(e) => setRaw(e.target.value)}
-                    rows={4}
-                    autoFocus
-                    placeholder={"jane@acme.com\nacme.com\n@partner.io"}
-                    className="w-full max-w-[520px] text-[12.5px] font-mono text-start"
-                />
-                <p className="mt-1 text-[11px] text-slate-500">
-                    אחת בכל שורה, או הדבק עמודה. דומיין בודד חוסם כל כתובת תחתיו.
-                </p>
-            </div>
-            <div>
-                <Label>סיבה (אופציונלי)</Label>
-                <TextInput value={reason} onChange={setReason} placeholder="לקוח קיים" className="w-full max-w-[520px]" />
-            </div>
-            <div className="flex items-center gap-2">
-                <button
-                    type="submit"
-                    disabled={values.length === 0 || add.isPending}
-                    className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium transition-colors disabled:opacity-50"
-                >
-                    {add.isPending ? "מוסיף…" : values.length > 1 ? `הוסף ${values.length}` : "הוסף"}
-                </button>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="h-7 px-2.5 rounded-md text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                >
-                    ביטול
-                </button>
-            </div>
-        </form>
-    );
-}
-
 function SuppressionRow({ entry }: { entry: Suppression }) {
     const confirm = useConfirm();
     const write = useWriteGuard("MANAGE_CONTACTS");
@@ -173,8 +101,8 @@ function SuppressionRow({ entry }: { entry: Suppression }) {
 
     function askRemove() {
         const text = recipientTriggered(entry)
-            ? `${entry.email} ${SOURCE_LABEL[entry.source]?.toLowerCase() ?? "נחסם"} ביוזמתו. הסרת הרשומה תאפשר לקמפיינים לשלוח אליו אימיילים שוב, ופעולה זו תתועד ביומן הביקורת. האם להמשיך?`
-            : `להסיר את ${entry.email} מרשימת החסימה? קמפיינים יוכלו לשלוח שוב אימיילים אל ${isDomain ? "כתובות בדומיין זה" : "כתובת זו"}.`;
+            ? `${entry.email} ${SOURCE_LABEL[entry.source]?.toLowerCase() ?? "הוחרג"} ביוזמתו. הסרת הרשומה תאפשר לקמפיינים לשלוח אליו אימיילים שוב, ופעולה זו תתועד ביומן הביקורת. האם להמשיך?`
+            : `להסיר את ${entry.email} מרשימת ההחרגות? קמפיינים יוכלו לשלוח שוב אימיילים אל ${isDomain ? "כתובות בדומיין זה" : "כתובת זו"}.`;
         confirm.show(text, async () => {
             try {
                 await remove.mutateAsync(entry.id);
@@ -190,7 +118,7 @@ function SuppressionRow({ entry }: { entry: Suppression }) {
         <div className="group h-11 px-5 flex items-center gap-3 border-b border-slate-200/60 transition-colors hover:bg-slate-50/80">
             <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <div className="min-w-0 flex-1 text-start">
-                <div className="text-[12.5px] font-medium text-slate-900 truncate">
+                <div className="text-[12.5px] font-medium text-slate-900 truncate" dir="ltr">
                     {isDomain ? `@${entry.email}` : entry.email}
                 </div>
                 <div className="text-[11px] text-slate-500 truncate">{entry.reason || "לא צוינה סיבה"}</div>
@@ -204,7 +132,7 @@ function SuppressionRow({ entry }: { entry: Suppression }) {
             >
                 {SOURCE_LABEL[entry.source] ?? entry.source}
             </span>
-            <span className="hidden md:inline text-[11px] text-slate-400 tabular-nums w-28 text-end shrink-0">
+            <span className="hidden md:inline text-[11px] text-slate-400 tabular-nums whitespace-nowrap text-end shrink-0">
                 {fmtAbsolute(entry.created_at)}
             </span>
             <PopoverMenu align="start">
@@ -218,8 +146,7 @@ function SuppressionRow({ entry }: { entry: Suppression }) {
                     </button>
                 </PopoverMenuTrigger>
                 <PopoverMenuContent minWidth={200}>
-                    <PopoverMenuItem onSelect={() => write.guard(askRemove)({})} danger>
-                        <XIcon className="w-3.5 h-3.5" />
+                    <PopoverMenuItem onSelect={() => write.guard(askRemove)({})} icon={<XIcon className="w-3.5 h-3.5" />} danger>
                         הסר מהרשימה
                     </PopoverMenuItem>
                 </PopoverMenuContent>

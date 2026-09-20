@@ -24,6 +24,7 @@ import (
 	warmupapp "github.com/warmbly/warmbly/internal/app/warmup"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/pkg/mailhdr"
 	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
 	"github.com/warmbly/warmbly/internal/pkg/warmlint"
 	"github.com/warmbly/warmbly/internal/repository"
@@ -874,10 +875,7 @@ func parseSenderEmail(addrs []string) string {
 	if primary == "" {
 		return ""
 	}
-	if parsed, err := mail.ParseAddress(primary); err == nil {
-		return strings.ToLower(strings.TrimSpace(parsed.Address))
-	}
-	return strings.ToLower(strings.Trim(primary, "<>"))
+	return strings.ToLower(strings.Trim(mailhdr.Bare(primary), "<>"))
 }
 
 func messageAddressesMailbox(msg *models.EmailMessageStoreData, account *models.Email) bool {
@@ -1088,9 +1086,6 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	if err != nil {
 		return toErrx(err)
 	}
-	if !settings.ReplyIntent.Enabled {
-		return nil
-	}
 
 	sender := parseSenderEmail(msg.FromAddr)
 	if sender == "" {
@@ -1120,6 +1115,9 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	var contactID *uuid.UUID
 	var taskID *uuid.UUID
 	var referencesCampaignThread bool
+	// contactEmail is the address we mailed, which is not always the one
+	// that answered; an opt-out has to reach both.
+	var contactEmail string
 
 	// First, try exact message threading via In-Reply-To.
 	for _, mid := range msg.InReplyTo {
@@ -1152,13 +1150,20 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 				continue
 			}
 		}
+		// The thread is the evidence; the From address does not have to be
+		// the contact's. People answer from a "send as" alias, a forward or
+		// a colleague's desk, and each of those is a reply to the email we
+		// sent this lead. Requiring the addresses to match threw every one
+		// of them away, and the fallback below refused them too because the
+		// thread was ours (a Gmail replying as its alias never counted).
 		contact, contactErr := s.contactRepo.GetByID(ctx, *ct.ContactID)
 		if contactErr != nil {
 			return contactErr
 		}
-		if contact == nil || !strings.EqualFold(strings.TrimSpace(contact.Email), sender) {
+		if contact == nil {
 			continue
 		}
+		contactEmail = strings.TrimSpace(contact.Email)
 		taskID = &task.ID
 		campaignID = ct.CampaignID
 		contactID = ct.ContactID
@@ -1173,6 +1178,7 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		}
 		if contact != nil {
 			contactID = &contact.ID
+			contactEmail = strings.TrimSpace(contact.Email)
 		}
 	}
 
@@ -1302,6 +1308,13 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		s.fireInstantActions(ctx, cID, ctID, sID, "reply")
 	}
 
+	// Everything above is detection, and a reply is a reply whatever the
+	// workspace automates on it. The switch governs only what follows:
+	// intents, holds, pauses, opt-outs, CRM tasks and the fan-out.
+	if !settings.ReplyIntent.Enabled {
+		return nil
+	}
+
 	// A reply with no campaign behind it was never classified above, and a
 	// machine announces itself in the headers (RFC 3834, Precedence, a null
 	// Return-Path, a delivery-status report) whether or not we ever mailed the
@@ -1368,6 +1381,24 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		})
 		if err := s.contactRepo.SetSubscribedByEmail(ctx, *account.OrganizationID, sender, false); err != nil {
 			log.Warn().Err(err).Msg("reply opt-out: could not clear the contact's subscription flag")
+		}
+		// Answered from another address: the one we mailed asked to stop too.
+		if contactEmail != "" && !strings.EqualFold(contactEmail, sender) {
+			_ = s.repo.UpsertSuppressedRecipient(ctx, &models.SuppressedRecipient{
+				OrganizationID: *account.OrganizationID,
+				Email:          strings.ToLower(contactEmail),
+				Kind:           models.SuppressionKindEmail,
+				Reason:         "asked to stop in a reply sent from " + sender,
+				Source:         models.DeliverabilityEventUnsubscribe,
+				CampaignID:     campaignID,
+				Metadata: map[string]interface{}{
+					"via":        "reply",
+					"replied_as": sender,
+				},
+			})
+			if err := s.contactRepo.SetSubscribedByEmail(ctx, *account.OrganizationID, strings.ToLower(contactEmail), false); err != nil {
+				log.Warn().Err(err).Msg("reply opt-out: could not clear the mailed contact's subscription flag")
+			}
 		}
 		s.emit(ctx, *account.OrganizationID, models.WebhookEventCampaignUnsubscribed, map[string]any{
 			"campaign_id":   uuidString(campaignID),
@@ -1535,6 +1566,60 @@ func ptrTime(t time.Time) *time.Time {
 	return &t
 }
 
+// verifyEventOwnership refuses a deliverability event whose campaign, contact
+// or task belongs to another organization. Anything absent is fine; anything
+// present has to resolve inside the caller's workspace.
+func (s *service) verifyEventOwnership(ctx context.Context, organizationID uuid.UUID, req *models.IngestDeliverabilityEventRequest) *errx.Error {
+	foreign := errx.New(errx.NotFound, "campaign, contact or task not found")
+
+	if req.CampaignID != nil {
+		campaign, err := s.campaignRepo.GetByID(ctx, *req.CampaignID)
+		if err != nil || campaign == nil || campaign.OrganizationID == nil || *campaign.OrganizationID != organizationID {
+			return foreign
+		}
+	}
+
+	if req.ContactID != nil {
+		owned, xerr := s.contactRepo.GetByIDsAndOrganization(ctx, organizationID, []uuid.UUID{*req.ContactID})
+		if xerr != nil || len(owned) == 0 {
+			return foreign
+		}
+	}
+
+	if req.TaskID != nil {
+		ct, err := s.taskRepo.GetCampaignTask(ctx, *req.TaskID)
+		switch {
+		case err == nil && ct != nil && ct.CampaignID != nil:
+			// The task names its own campaign, so the pair has to agree: a real
+			// task id combined with a different campaign id describes a step
+			// that does not exist.
+			if req.CampaignID != nil && *ct.CampaignID != *req.CampaignID {
+				return foreign
+			}
+			taskCampaign, cErr := s.campaignRepo.GetByID(ctx, *ct.CampaignID)
+			if cErr != nil || taskCampaign == nil || taskCampaign.OrganizationID == nil || *taskCampaign.OrganizationID != organizationID {
+				return foreign
+			}
+		default:
+			// Not every task belongs to a campaign: a test send and an inbound
+			// bounce resolved by message id both reach here with a task that has
+			// no campaign row. Those still have to belong to the caller, so
+			// fall back to the mailbox that owns the task rather than refusing
+			// and silently dropping real bounce processing.
+			task, tErr := s.taskRepo.GetTask(ctx, *req.TaskID)
+			if tErr != nil || task == nil {
+				return foreign
+			}
+			account, aErr := s.emailRepo.GetByID(ctx, task.EmailAccountID)
+			if aErr != nil || account == nil || account.OrganizationID == nil || *account.OrganizationID != organizationID {
+				return foreign
+			}
+		}
+	}
+
+	return nil
+}
+
 func (s *service) IngestDeliverabilityEvent(ctx context.Context, organizationID uuid.UUID, req *models.IngestDeliverabilityEventRequest) *errx.Error {
 	if req == nil {
 		return errx.New(errx.BadRequest, "event payload is required")
@@ -1553,6 +1638,16 @@ func (s *service) IngestDeliverabilityEvent(ctx context.Context, organizationID 
 		models.DeliverabilityEventReply:
 	default:
 		return errx.New(errx.BadRequest, "invalid event_type")
+	}
+
+	// Every id in the body is caller-supplied, and a campaign, contact and task
+	// id are all visible to the recipient of a campaign email: the task id is in
+	// the tracking pixel URL. They therefore prove nothing on their own, and
+	// each has to be resolved inside the caller's workspace before this event is
+	// allowed to move progress counters, A/B assignment, the auto-pause breaker
+	// or warmup health.
+	if xerr := s.verifyEventOwnership(ctx, organizationID, req); xerr != nil {
+		return xerr
 	}
 
 	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)

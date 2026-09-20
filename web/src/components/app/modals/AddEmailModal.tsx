@@ -84,9 +84,10 @@ import { allowanceFull } from "@/lib/api/models/app/emails/MailboxAllowance";
 import type MailboxAllowance from "@/lib/api/models/app/emails/MailboxAllowance";
 import MailboxAllowanceDialog from "@/components/app/emails/MailboxAllowanceDialog";
 import BulkConnectPanel from "@/components/app/emails/BulkConnectPanel";
+import GmailAppPasswordPanel from "@/components/app/emails/GmailAppPasswordPanel";
 import { DitherMeter, type DitherTone } from "@/components/ui/dither";
 
-type View = "pick" | "gmail" | "outlook" | "smtp_imap" | "bulk";
+type View = "pick" | "gmail" | "gmail_app_password" | "outlook" | "smtp_imap" | "bulk";
 
 /** The one answer every connect path shares: open the allowance dialog. */
 function isAllowanceError(e: unknown): boolean {
@@ -152,6 +153,8 @@ export default function AddEmailModal() {
     const user = useUserProfile();
     const qc = useQueryClient();
     const isHe = true;
+    const authConfig = useAuthConfig();
+    const gmailOAuth = authConfig.config.gmail_oauth_connect === true;
 
     const [view, setView] = React.useState<View>("pick");
     const [oauthBusy, setOauthBusy] = React.useState<OAuthProvider | null>(null);
@@ -344,6 +347,7 @@ export default function AddEmailModal() {
                                             <PickProvider
                                                 onPick={setView}
                                                 viaCloud={viaCloud}
+                                                gmailOAuth={gmailOAuth}
                                                 onAdopted={() => {
                                                     qc.invalidateQueries({ queryKey: ["emails", "list"] });
                                                     user.setAddEmail(false);
@@ -365,8 +369,18 @@ export default function AddEmailModal() {
                                                 warmupOnly={warmupOnly}
                                                 onToggleWarmupOnly={setWarmupOnly}
                                                 onConnect={(slotId) => startOAuth("gmail", slotId)}
+                                                onUseAppPassword={() => setView("gmail_app_password")}
                                             />
                                         )
+                                    )}
+                                    {view === "gmail_app_password" && (
+                                        <GmailAppPasswordPanel
+                                            onDone={() => {
+                                                qc.invalidateQueries({ queryKey: ["emails", "list"] });
+                                                user.setAddEmail(false);
+                                            }}
+                                            onError={onConnectError}
+                                        />
                                     )}
                                     {view === "outlook" && (
                                         notConfigured === "outlook" ? (
@@ -512,6 +526,7 @@ function Header({
     const sub: Record<View, string> = {
         pick: isHe ? "חיבור תיבת דואר לשליחה" : "Connect a sending account",
         gmail: isHe ? "Gmail או Google Workspace" : "Gmail or Google Workspace",
+        gmail_app_password: isHe ? "Gmail או Google Workspace" : "Gmail or Google Workspace",
         outlook: isHe ? "Outlook או Microsoft 365" : "Outlook or Microsoft 365",
         smtp_imap: isHe ? "כל ספק באמצעות SMTP / IMAP" : "Any provider via SMTP / IMAP",
         bulk: isHe ? "ייבוא תיבות מרובות מקובץ CSV" : "Many mailboxes from one CSV",
@@ -646,7 +661,17 @@ function ProviderNotConfigured({ provider, selfHosted }: { provider: OAuthProvid
     );
 }
 
-function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => void; viaCloud: boolean; onAdopted: () => void }) {
+function PickProvider({
+    onPick,
+    viaCloud,
+    gmailOAuth,
+    onAdopted,
+}: {
+    onPick: (v: View) => void;
+    viaCloud: boolean;
+    gmailOAuth: boolean;
+    onAdopted: () => void;
+}) {
     const { i18n } = useTranslation();
     const isHe = i18n.language?.startsWith("he");
 
@@ -656,15 +681,21 @@ function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => vo
         title: string;
         sub: string;
         tone: "primary" | "neutral";
+        badge?: string;
     }> = [
         {
-            key: "gmail",
+            key: gmailOAuth ? "gmail" : "gmail_app_password",
             icon: <Google className="w-5 h-5" />,
             title: isHe ? "Gmail / Google Workspace" : "Gmail / Google Workspace",
-            sub: isHe
-                ? "חיבור OAuth מאובטח מול Google. עבירות מיטבית עבור Gmail."
-                : "OAuth via Google. Best deliverability for Gmail.",
+            sub: gmailOAuth
+                ? isHe
+                    ? "חיבור OAuth מאובטח מול Google. עבירות מיטבית עבור Gmail."
+                    : "OAuth via Google. Best deliverability for Gmail."
+                : isHe
+                    ? "באמצעות סיסמת אפליקציה דרך IMAP ו-SMTP. בכשתי דקות עם הדרכה מפורטת."
+                    : "With an app password, over IMAP and SMTP. About two minutes; we walk you through it.",
             tone: "primary",
+            badge: gmailOAuth ? undefined : (isHe ? "סיסמת אפליקציה" : "App password"),
         },
         {
             key: "outlook",
@@ -706,7 +737,14 @@ function PickProvider({ onPick, viaCloud, onAdopted }: { onPick: (v: View) => vo
                         {r.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                        <div className="text-[13px] font-medium text-slate-900 truncate">{r.title}</div>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[13px] font-medium text-slate-900 truncate">{r.title}</span>
+                            {r.badge && (
+                                <span className="shrink-0 h-[18px] px-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-[10px] font-medium inline-flex items-center">
+                                    {r.badge}
+                                </span>
+                            )}
+                        </div>
                         <div className="text-[11.5px] text-slate-500 truncate">{r.sub}</div>
                     </div>
                     <ChevronRightIcon className="w-4 h-4 text-slate-300 shrink-0 group-hover:text-slate-500 rtl:rotate-180 group-hover:ltr:translate-x-0.5 group-hover:rtl:-translate-x-0.5 transition-all" />
@@ -860,6 +898,7 @@ function OAuthPanel({
     warmupOnly = false,
     onToggleWarmupOnly,
     onConnect,
+    onUseAppPassword,
 }: {
     provider: OAuthProvider;
     busy: boolean;
@@ -870,6 +909,7 @@ function OAuthPanel({
     warmupOnly?: boolean;
     onToggleWarmupOnly?: (v: boolean) => void;
     onConnect: (slotId?: string) => void;
+    onUseAppPassword?: () => void;
 }) {
     const { i18n } = useTranslation();
     const isHe = i18n.language?.startsWith("he");
@@ -1052,6 +1092,19 @@ function OAuthPanel({
                     ? (isHe ? "ממתין לאישור ההרשאות…" : "Waiting for authorization…")
                     : (isHe ? `המשך עם ${label}` : `Continue with ${label}`)}
             </motion.button>
+
+            {onUseAppPassword && (
+                <p className="text-[11.5px] text-slate-500 text-center">
+                    {isHe ? "מעדיף לא להשתמש בהתחברות של Google? " : "Prefer not to use Google sign-in? "}
+                    <button
+                        type="button"
+                        onClick={onUseAppPassword}
+                        className="text-sky-700 underline decoration-sky-300 hover:decoration-sky-600 transition-colors"
+                    >
+                        {isHe ? "התחבר באמצעות סיסמת אפליקציה במקום" : "Connect it with an app password instead"}
+                    </button>
+                </p>
+            )}
         </div>
     );
 }

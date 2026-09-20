@@ -60,6 +60,8 @@ import useSendIdentity from "@/lib/api/hooks/app/emails/useSendIdentity";
 import useRefreshSendIdentity from "@/lib/api/hooks/app/emails/useRefreshSendIdentity";
 import getEmail from "@/lib/api/client/app/emails/getEmail";
 import { SelectMenu, type SelectOption } from "@/components/ui/select-menu";
+import { OptionSelect } from "@/components/app/campaigns/preferences/components/CampaignPreferenceBoolBox";
+import WarmupPartnerDiversity from "./WarmupPartnerDiversity";
 import useUpdateEmailTrackingDomain from "@/lib/api/hooks/app/emails/useUpdateEmailTrackingDomain";
 import useEmailTrackingDomain from "@/lib/api/hooks/app/emails/useEmailTrackingDomain";
 import useVerifyEmailTrackingDomain from "@/lib/api/hooks/app/emails/useVerifyEmailTrackingDomain";
@@ -1106,11 +1108,66 @@ function AuthCheckPanel({ mailbox }: { mailbox: Inbox }) {
     );
 }
 
-const WARMUP_PLACEMENT_OPTIONS: SelectOption[] = [
-    { value: "folder", label: "תיקייה ייעודית" },
-    { value: "archive", label: "ארכיון (הסרה מתיבת דואר נכנס)" },
-    { value: "inbox", label: "דואר נכנס (ללא העברה)" },
-];
+function WarmupPlacementFields({
+    form,
+    update,
+    provider,
+}: {
+    form: Inbox;
+    update: (patch: Partial<Inbox>) => void;
+    provider: string;
+}) {
+    const gmail = provider === "gmail";
+    const noun = gmail ? "תווית" : "תיקייה";
+    const placement = form.warmup_placement ?? "folder";
+    const folder = form.warmup_folder ?? "";
+
+    return (
+        <>
+            <Eyebrow>בתוך תיבת דואר זו</Eyebrow>
+            <FieldShell
+                label="לאן מנותב דואר החימום"
+                hint={`חל על דואר חימום שתיבה זו מקבלת ועל העותק של כל הודעת חימום שהיא שולחת, כך שדואר חימום לעולם לא יופיע ${gmail ? "בדואר הנכנס או בפריטים שנשלחו" : "בדואר הנכנס או בתיקיית פריטים שנשלחו"}.`}
+            >
+                <OptionSelect<"folder" | "inbox" | "archive">
+                    aria-label="ניתוב דואר חימום"
+                    value={placement}
+                    onChange={(v) => update({ warmup_placement: v })}
+                    options={[
+                        {
+                            value: "folder",
+                            label: `${noun} ייעודית`,
+                            hint: "מומלץ. כל הודעות החימום מרוכזות במקום אחד שניתן לפתוח, לחפש או להתעלם ממנו.",
+                        },
+                        {
+                            value: "inbox",
+                            label: "השאר בדואר הנכנס",
+                            hint: "דואר החימום נשאר היכן שספק הדואר הניח אותו. הודעות שנחתו בספאם עדיין יחולצו.",
+                        },
+                        {
+                            value: "archive",
+                            label: "העבר לארכיון",
+                            hint: `מחוץ לדואר הנכנס ללא ${noun} ייעודית. ניתן לאיתור באמצעות חיפוש בלבד.`,
+                        },
+                    ]}
+                />
+            </FieldShell>
+            {placement === "folder" && (
+                <FieldShell
+                    label={`שם ה${noun}`}
+                    hint={`נוצרת בשימוש הראשון. השאר ריק עבור "Warmbly". תוכל להפנות ל${noun} קיימת אם כלי קודם כבר יצר כזו.`}
+                >
+                    <TextInput
+                        value={folder}
+                        placeholder="Warmbly"
+                        onChange={(v) => update({ warmup_folder: v.replace(/[/\\.%*"]/g, "").slice(0, 64) })}
+                        className="w-full h-9"
+                    />
+                </FieldShell>
+            )}
+        </>
+    );
+}
 
 function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: Inbox; update: (p: Partial<Inbox>) => void; status?: AccountStatusModel; mailbox: Inbox; canWarmup?: boolean }) {
     const ws = status?.warmup_status;
@@ -1251,6 +1308,7 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
                     {wh.blocked_until && (
                         <p className="mt-1 text-[11px] text-rose-600">מושהה מהמאגר עד {new Date(wh.blocked_until).toLocaleDateString("he-IL")}.</p>
                     )}
+                    <WarmupPartnerDiversity health={wh} />
                 </div>
             )}
 
@@ -1321,27 +1379,9 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
                 </FieldShell>
             </div>
 
-            {/* Warmup Placement / Storage */}
-            <div className="px-5 py-5 space-y-5">
-                <Eyebrow>מיקום ואחסון הודעות חימום</Eyebrow>
-                <FieldShell label="מיקום הודעות חימום" hint="לאן לנתב הודעות חימום נכנסות כדי שלא יפריעו לדואר הנכנס השוטף.">
-                    <SelectMenu
-                        value={form.warmup_placement || "folder"}
-                        onChange={(v) => update({ warmup_placement: v as "folder" | "archive" | "inbox" })}
-                        options={WARMUP_PLACEMENT_OPTIONS}
-                        fullWidth
-                    />
-                </FieldShell>
-                {(form.warmup_placement || "folder") === "folder" && (
-                    <FieldShell label="שם התיקייה" hint="שם התווית או התיקייה שתיפתח בתיבת הדואר (ברירת מחדל: Warmbly).">
-                        <TextInput
-                            value={form.warmup_folder || "Warmbly"}
-                            placeholder="Warmbly"
-                            onChange={(v) => update({ warmup_folder: v })}
-                            className="w-full h-9"
-                        />
-                    </FieldShell>
-                )}
+            {/* Where warmup mail lands in the real mail client */}
+            <div className="px-5 py-5 space-y-4">
+                <WarmupPlacementFields form={form} update={update} provider={mailbox.provider} />
             </div>
         </div>
     );

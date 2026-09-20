@@ -22,9 +22,9 @@ const (
 type WarmupPlacement string
 
 const (
-	WarmupPlacementFolder  WarmupPlacement = "folder"
-	WarmupPlacementArchive WarmupPlacement = "archive"
-	WarmupPlacementInbox   WarmupPlacement = "inbox"
+	WarmupPlacementFolder  = "folder"
+	WarmupPlacementArchive = "archive"
+	WarmupPlacementInbox   = "inbox"
 )
 
 const DefaultWarmupFolder = "Warmbly"
@@ -151,6 +151,31 @@ func (e *Email) DomainAuthBlocked(now time.Time, grace time.Duration) bool {
 // mailbox keeps its ramp progress (the anchor is shifted forward on resume).
 func (e *Email) IsWarmupPaused() bool {
 	return e.Warmup != nil && e.WarmupPausedAt != nil
+}
+
+// ValidWarmupPlacement reports whether p is one of the placement modes.
+func ValidWarmupPlacement(p string) bool {
+	switch WarmupPlacement(p) {
+	case WarmupPlacementFolder, WarmupPlacementInbox, WarmupPlacementArchive:
+		return true
+	}
+	return false
+}
+
+// WarmupFiling resolves where this mailbox's warmup mail belongs: the placement
+// mode, and the folder name to use when that mode is "folder". A row written
+// before the columns existed carries neither, and filing into the default
+// folder is the behaviour every mailbox already had.
+func (e *Email) WarmupFiling() (placement, folder string) {
+	p := string(e.WarmupPlacement)
+	if !ValidWarmupPlacement(p) {
+		p = string(WarmupPlacementFolder)
+	}
+	folder = strings.TrimSpace(e.WarmupFolder)
+	if folder == "" {
+		folder = config.WarmupFolderDefault
+	}
+	return p, folder
 }
 
 // SendFrom is the address this mailbox's mail is actually From. A verified

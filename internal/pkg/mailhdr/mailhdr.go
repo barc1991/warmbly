@@ -75,6 +75,13 @@ func Bare(s string) string {
 			return strings.TrimSpace(s[i+1 : i+j])
 		}
 	}
+	if i := strings.LastIndex(s, "("); i != -1 {
+		if j := strings.Index(s[i:], ")"); j != -1 {
+			if inner := strings.TrimSpace(s[i+1 : i+j]); strings.Contains(inner, "@") {
+				return inner
+			}
+		}
+	}
 	return s
 }
 

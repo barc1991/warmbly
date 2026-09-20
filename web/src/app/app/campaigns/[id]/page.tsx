@@ -16,12 +16,13 @@ import { TONE_DOT } from "@/components/ui/tones";
 import type { DitherTone } from "@/components/ui/dither";
 import AnalyticsShareButton from "@/components/app/analytics/AnalyticsShareButton";
 import TaskPreview from "@/components/app/campaigns/TaskPreview";
+import SendPlanCard from "@/components/app/campaigns/SendPlanCard";
 import CampaignFormsPanel from "@/components/app/campaigns/CampaignFormsPanel";
 import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import AdvisorStrip from "@/components/app/advisor/AdvisorStrip";
 
-const AUTO_OPENS_TIP = "Auto-opens: pixel fetches from privacy proxies (e.g. Apple Mail) or within seconds of sending, not a person reading";
-const AUTO_CLICKS_TIP = "Auto-clicks: links followed by a security gateway scanning the email, not a person; not counted as clicks";
+const AUTO_OPENS_TIP = "פתיחות אוטומטיות: משיכות פיקסל מפרוקסי פרטיות (כגון Apple Mail) או תוך שניות מהשליחה, לא קריאה אנושית. נרשם כהוכחת מסירה, לא נספר כפתיחה";
+const AUTO_CLICKS_TIP = "לחיצות אוטומטיות: קישורים שנבדקו על ידי מערכות אבטחה הסורקות את האימייל, ולא אדם; לא נספר כלחיצות";
 
 const pctFmt = (v: number) => `${v.toFixed(1)}%`;
 
@@ -114,6 +115,10 @@ export default function CampaignOverview() {
             {/* What the Advisor has found about THIS campaign, above the numbers
                 that motivated it. Renders nothing when there is nothing wrong. */}
             <AdvisorStrip entityType="campaign" entityId={id} title="" limit={3} compact />
+
+            {/* What will actually go out today and every limit that decided
+                it, read through the scheduler's own gates. */}
+            <SendPlanCard campaignId={id} />
 
             <div className="grid lg:grid-cols-[1fr_340px] gap-5 items-start">
                 {/* Main analytics column */}
