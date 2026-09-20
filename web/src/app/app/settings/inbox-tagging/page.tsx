@@ -31,6 +31,13 @@ import useInboxTagReview from "@/lib/api/hooks/app/inboxtag/useInboxTagReview";
 import type { InboxTagRow } from "@/lib/api/models/app/inboxtag/InboxTagReview";
 import { cn } from "@/lib/utils";
 
+const ACTION_LABEL: Record<string, string> = {
+    hold: "הושהה",
+    stop: "הופסק",
+    task: "נפתחה משימה",
+    suppress: "נחסם",
+};
+
 const PRIORITY_LABELS: Record<string, string> = {
     now: "עכשיו",
     today: "היום",
@@ -99,6 +106,18 @@ function Row({ r }: { r: InboxTagRow }) {
                     )}
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400 flex-wrap">
+                    {(r.actions ?? []).map((a) => (
+                        <span
+                            key={a}
+                            title="פעולה שהותרה ובוצעה בעקבות ההכרעה"
+                            className={cn(
+                                "px-1.5 rounded text-[10px] font-semibold uppercase tracking-wide",
+                                a === "suppress" ? "bg-rose-50 text-rose-700" : "bg-sky-50 text-sky-700",
+                            )}
+                        >
+                            {ACTION_LABEL[a] ?? a}
+                        </span>
+                    ))}
                     <span className="font-mono truncate max-w-[22ch]" title={r.thread_id}>
                         {r.thread_id || "—"}
                     </span>
@@ -145,7 +164,7 @@ export default function InboxTaggingPage() {
         <Page>
             <PageTopbar
                 eyebrow="תיוג תיבת דואר אוטומטי"
-                subtitle="החלטות המסווג ורמת הוודאות. שלב 1 מפיק תוויות בלבד ללא פעולות אוטומטיות."
+                subtitle="החלטות המסווג, רמת הוודאות והפעולות שבוצעו. הגדרת הפעולות מנוהלת תחת שליחה."
             />
 
             {!d?.enabled && !q.isPending && !q.isError && (
@@ -162,7 +181,13 @@ export default function InboxTaggingPage() {
                 <Stat label="סווגו" value={q.isPending ? "—" : (d?.summary.total ?? 0).toLocaleString()} sub="הודעות" accent={(d?.summary.total ?? 0) > 0} />
                 <Stat label="דורש בדיקה" value={q.isPending ? "—" : (d?.summary.needs_review ?? 0).toLocaleString()} sub="מתחת לרף הוודאות" />
                 <Stat label="הוכרע מקומית" value={q.isPending ? "—" : (d?.summary.from_offline ?? 0).toLocaleString()} sub="ללא קריאה למודל" />
-                <Stat label="פעולות שבוצעו" value="0" sub="שלב 1 מוסיף תוויות בלבד" last />
+                <Stat
+                    label="פעולות שבוצעו"
+                    value={q.isPending ? "—" : (d?.summary.acted ?? 0).toLocaleString()}
+                    sub="השהיה, עצירה, פתיחת משימה או חסימה"
+                    accent={(d?.summary.acted ?? 0) > 0}
+                    last
+                />
             </StatStrip>
 
             <SectionBar label="החלטות אחרונות" count={rows.length}>
@@ -225,13 +250,17 @@ export default function InboxTaggingPage() {
                 )}
             </PageBody>
 
-            <div className="px-5 py-3 flex items-center gap-1.5 text-[11px] text-slate-400">
+            <div className="px-5 py-3 flex items-center gap-1.5 text-[11px] text-slate-400 flex-wrap">
                 <SparklesIcon className="w-3 h-3" />
                 כל תווית היא תווית ארגונית, כך שניתן לסנן לפיה בתוך{" "}
                 <Link to="/app/unibox/all" className="underline underline-offset-2 hover:text-slate-700">
                     תיבת הדואר
                 </Link>{" "}
-                כמו כל תווית רגילה.
+                כמו כל תווית רגילה. הגדרת הפעולות נקבעת תחת{" "}
+                <Link to="/app/settings/sending" className="underline underline-offset-2 hover:text-slate-700">
+                    שליחה
+                </Link>
+                .
             </div>
         </Page>
     );

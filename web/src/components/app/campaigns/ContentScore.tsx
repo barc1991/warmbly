@@ -30,6 +30,7 @@ import scoreTemplate from "@/lib/api/client/app/campaigns/scoreTemplate";
 import useAnalyzeTemplate from "@/lib/api/hooks/app/campaigns/useAnalyzeTemplate";
 import type TemplateScore from "@/lib/api/models/app/campaigns/TemplateScore";
 import type {
+    CopyJudgment,
     SpamFinding,
     TemplateAnalysis,
     TemplateField,
@@ -150,6 +151,95 @@ function FindingRow({ finding }: { finding: SpamFinding }) {
                 )}
             </div>
         </li>
+    );
+}
+
+// Thresholds mirror the backend policy (internal/app/copyjudge): a spam claim
+// counts from 0.7, and a three-level scale splits at thirds.
+const SPAM_CLAIM_AT = 0.7;
+const BULK_AT = 0.75;
+const JUDGMENT_CONF_FLOOR = 0.7;
+
+// Mirrors copyjudge.Verdict.ReadsAsBulk on the backend.
+function readsAsBulk(j: { reads_as: number; spam_claim: number; confidence: number }): boolean {
+    return (j.reads_as >= BULK_AT && j.confidence >= JUDGMENT_CONF_FLOOR) || j.spam_claim >= SPAM_CLAIM_AT;
+}
+
+function readsAsLabel(v: number): { label: string; tone: DitherTone; text: string } {
+    if (v < 1 / 3) return { label: "הודעה אישית", tone: "emerald", text: "text-emerald-600" };
+    if (v < 2 / 3) return { label: "איפשהו באמצע", tone: "amber", text: "text-amber-600" };
+    return { label: "תפוצה רחבה", tone: "rose", text: "text-rose-600" };
+}
+
+function personalizationLabel(v: number): { label: string; tone: DitherTone; text: string } {
+    if (v < 0.5) return { label: "מותאם אישית לנמען", tone: "emerald", text: "text-emerald-600" };
+    return { label: "כללי, מתאים לכל אחד", tone: "amber", text: "text-amber-600" };
+}
+
+const ASK_LABEL: Record<CopyJudgment["ask"], { label: string; text: string }> = {
+    one_clear_ask: { label: "בקשה אחת ברורה", text: "text-emerald-600" },
+    several_asks: { label: "מספר בקשות", text: "text-amber-600" },
+    no_ask: { label: "אין קריאה לפעולה", text: "text-amber-600" },
+};
+
+// One row of the judgment: a name, a meter for scaled answers, and the band it
+// landed in. Meters run from the personal end, so a low fraction is the good
+// one and the tone carries the reading.
+function JudgmentRow({
+    name,
+    label,
+    text,
+    frac,
+    tone,
+}: {
+    name: string;
+    label: string;
+    text: string;
+    frac?: number;
+    tone?: DitherTone;
+}) {
+    return (
+        <div className="flex items-center gap-2">
+            <span className="w-24 shrink-0 text-[11.5px] text-slate-500">{name}</span>
+            {frac !== undefined && tone && (
+                <DitherMeter frac={Math.max(0, Math.min(1, frac))} tone={tone} height={4} className="flex-1" />
+            )}
+            <span className={cn("ltr:ml-auto rtl:mr-auto shrink-0 text-[11.5px] font-medium", text)}>{label}</span>
+        </div>
+    );
+}
+
+// How the copy reads to its recipient. Numbers from a calibrated model, so the
+// panel shows the band each one landed in rather than restating a verdict.
+function JudgmentBlock({ judgment }: { judgment: CopyJudgment }) {
+    const reads = readsAsLabel(judgment.reads_as);
+    const personal = personalizationLabel(judgment.personalization);
+    const ask = ASK_LABEL[judgment.ask] ?? ASK_LABEL.no_ask;
+    const unsure = judgment.confidence < 0.7;
+    return (
+        <div className="mt-2 rounded-md border border-slate-200 bg-slate-50/60 p-2">
+            <div className="flex items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">אופן הקריאה</span>
+                {unsure && <span className="text-[10px] text-slate-400">ביטחון נמוך</span>}
+            </div>
+            <div className="mt-1.5 space-y-1.5">
+                <JudgmentRow name="עבור הקורא" label={reads.label} text={reads.text} frac={judgment.reads_as} tone={reads.tone} />
+                <JudgmentRow
+                    name="התאמה אישית"
+                    label={personal.label}
+                    text={personal.text}
+                    frac={judgment.personalization}
+                    tone={personal.tone}
+                />
+                <JudgmentRow name="קריאה לפעולה" label={ask.label} text={ask.text} />
+            </div>
+            {judgment.spam_claim >= SPAM_CLAIM_AT && (
+                <p className="mt-1.5 inline-flex items-center gap-1.5 text-[11.5px] text-rose-600">
+                    <AlertTriangleIcon className="w-3.5 h-3.5" />
+                    כולל טענה שמסנני ספאם עלולים להתנגד לה.
+                </p>
+            )}
+        </div>
     );
 }
 
@@ -430,6 +520,8 @@ export default function ContentScore({
                         <p className="mt-2 text-[12px] leading-relaxed text-slate-600">{analysis.verdict}</p>
                     )}
 
+                    {analysis.judgment && <JudgmentBlock judgment={analysis.judgment} />}
+
                     {analysis.findings.length > 0 ? (
                         <ul className="mt-1.5 divide-y divide-slate-200/60">
                             {analysis.findings.map((finding, i) => (
@@ -437,9 +529,11 @@ export default function ContentScore({
                             ))}
                         </ul>
                     ) : (
-                        <p className="mt-2 inline-flex items-center gap-1.5 text-[11.5px] text-emerald-600">
-                            <ShieldCheckIcon className="w-3.5 h-3.5" /> Nothing in this copy stood out as spammy.
-                        </p>
+                        !(analysis.judgment && readsAsBulk(analysis.judgment)) && (
+                            <p className="mt-2 inline-flex items-center gap-1.5 text-[11.5px] text-emerald-600">
+                                <ShieldCheckIcon className="w-3.5 h-3.5" /> שום דבר בטקסט זה לא נראה כמו ספאם.
+                            </p>
+                        )
                     )}
 
                     {suggestedSubject && suggestedSubject !== subject.trim() && (

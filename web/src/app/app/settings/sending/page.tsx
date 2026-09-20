@@ -22,12 +22,14 @@ import {
 import VerificationSettings from "@/components/app/contacts/VerificationSettings";
 import {
     AUTOMATED_INTENTS,
+    DEFAULT_INBOX_TAGGING,
     DEFAULT_PREFERRED_HOURS,
     DEFAULT_UNSUBSCRIBE,
     REPLY_INTENT_CHOICES,
     describeHours,
     formatHour,
     taskIntents,
+    type InboxTaggingSettings,
     type OutreachSettings,
     type ReplyIntent,
     type ReplyIntentSettings,
@@ -103,6 +105,18 @@ function SendingSettings() {
         },
         [],
     );
+
+    const patchInboxTagging = React.useCallback(
+        (next: Partial<InboxTaggingSettings>) => {
+            setDraft((prev) =>
+                prev
+                    ? { ...prev, inbox_tagging: { ...(prev.inbox_tagging ?? DEFAULT_INBOX_TAGGING), ...next } }
+                    : prev,
+            );
+        },
+        [],
+    );
+    const tagging = draft?.inbox_tagging ?? DEFAULT_INBOX_TAGGING;
 
     const patchPreflight = React.useCallback(
         (next: Partial<OutreachSettings["preflight"]>) => {
@@ -338,6 +352,74 @@ function SendingSettings() {
                                 />
                             </Row>
                         )}
+                    </>
+                )}
+            </Section>
+
+            <Section
+                eyebrow="תגובות מסווגות"
+                description="הפעולות שיתבצעו לאחר שתיוג תיבת הדואר האוטומטי סיווג תגובה נכנסת. השהיה, עצירה ופתיחת משימה מופעלים כברירת מחדל וכולם ניתנים לביטול ולניהול בלשונית הלידים של הקמפיין. חסימה (דיכוי) כבויה כברירת מחדל, ומומלץ לעיין תחילה בדף הסקירה תחת הגדרות."
+            >
+                {isLoading || !draft ? (
+                    <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
+                ) : (
+                    <>
+                        <Row
+                            label="השהה איש קשר שמבקש לדחות למועד מאוחר יותר"
+                            description="תגובה שזוהתה כמתעניינת עקרונית אך התזמון אינו מתאים תשהה את הרצפים של איש הקשר בכל הקמפיינים שלו, והמשך המעקב יתחדש בתום תקופת ההשהיה במקום בעוד מספר ימים."
+                        >
+                            <Toggle
+                                on={tagging.hold_on_not_now}
+                                onChange={(on) => patchInboxTagging({ hold_on_not_now: on })}
+                            />
+                        </Row>
+                        {tagging.hold_on_not_now && (
+                            <Row label="משך השהיה" description="בין יום אחד ל-90 ימים.">
+                                <div className="flex items-center gap-1.5">
+                                    <NumberInput
+                                        min={1}
+                                        max={90}
+                                        value={tagging.not_now_hold_days}
+                                        onChange={(n) =>
+                                            patchInboxTagging({
+                                                not_now_hold_days: Number.isFinite(n)
+                                                    ? Math.min(90, Math.max(1, n))
+                                                    : 30,
+                                            })
+                                        }
+                                        className="w-20"
+                                    />
+                                    <span className="text-[11.5px] text-slate-500">ימים</span>
+                                </div>
+                            </Row>
+                        )}
+                        <Row
+                            label="עצור איש קשר שדחה את הפנייה"
+                            description="אינו מעוניין, או שאינו האדם הנכון: רצפי איש הקשר מושהים למשך שנה. איש הקשר אינו מוסר ואינו נמחק, וחבר צוות יכול לחדש את הליד בכל שלב במידה והתגובה סווגה בטעות."
+                        >
+                            <Toggle
+                                on={tagging.stop_on_declined}
+                                onChange={(on) => patchInboxTagging({ stop_on_declined: on })}
+                            />
+                        </Row>
+                        <Row
+                            label="פתח משימה בעת בקשה לשיחה"
+                            description="תגובה המבקשת שיחה או מציעה מועד תפתח משימה בעדיפות גבוהה עבור בעל תיבת הדואר, לטיפול תוך 24 שעות."
+                        >
+                            <Toggle
+                                on={tagging.task_on_call_request}
+                                onChange={(on) => patchInboxTagging({ task_on_call_request: on })}
+                            />
+                        </Row>
+                        <Row
+                            label="חסום איש קשר שמבקש הסרה"
+                            description="מוסיף את השולח לרשימת החסימות (הסרה מרשימת תפוצה) כאשר המסווג בטוח ב-80% ומעלה שהתגובה מבקשת להפסיק לקבל מיילים. חסימה זו היא קבועה עד שחבר צוות מסיר אותה באופן יזום."
+                        >
+                            <Toggle
+                                on={tagging.suppress_on_removal_request}
+                                onChange={(on) => patchInboxTagging({ suppress_on_removal_request: on })}
+                            />
+                        </Row>
                     </>
                 )}
             </Section>

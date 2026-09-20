@@ -74,6 +74,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/websitetracking"
 	"github.com/warmbly/warmbly/internal/app/worker"
 	"github.com/warmbly/warmbly/internal/pkg/generation"
+	"github.com/warmbly/warmbly/internal/pkg/typesafe"
 
 	"github.com/warmbly/warmbly/internal/infrastructure/encryptedkeys"
 	"github.com/warmbly/warmbly/internal/infrastructure/kms"
@@ -216,7 +217,11 @@ type Handler struct {
 	// shared by the dashboard agent, research, automation AI nodes, and the
 	// inbox agent. Nil when no LLM provider is configured.
 	AIProvider generation.Provider
-	AISearch   generation.SearchClient
+	// TypeSafe is the shared typed-judgment client. Nil when no key is
+	// configured; every endpoint that reads it degrades to its rules-only
+	// answer.
+	TypeSafe typesafe.Asker
+	AISearch generation.SearchClient
 
 	// AITools is the shared tool registry the dashboard agent and MCP server
 	// run on. Handlers bound to the invoking user's permissions.

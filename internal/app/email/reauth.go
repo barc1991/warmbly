@@ -228,5 +228,6 @@ func validateSMTPIMAPCredentials(creds *models.SmtpImap) *errx.Error {
 	if !validPort(creds.IMAP.Port) {
 		return errx.ErrEmailIMAPPort
 	}
+	normalizeMailPasswords(creds.SMTP, creds.IMAP)
 	return validateMailSecurity(creds.SMTP, creds.IMAP)
 }

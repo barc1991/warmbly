@@ -28,7 +28,11 @@ export type BranchField =
     // The AI step that owns this branch stored this label for the contact
     // (campaign_contact_progress.ai_label). Operator is "is"; the label rides
     // in `label`. Only meaningful on branches out of an AI step.
-    | "ai_label";
+    | "ai_label"
+    // Automatic inbox tagging stored this intent for the contact's human reply
+    // (campaign_contact_progress.reply_intent). Operator is "is"; the intent
+    // rides in `label`. Empty when tagging is off or the classifier was unsure.
+    | "reply_intent";
 
 export type BranchOperator = "within_days" | "ever" | "chance" | "is";
 
@@ -59,6 +63,7 @@ export const INSTANT_CAPABLE_FIELDS: BranchField[] = [
     "reply_negative",
     "reply_neutral",
     "reply_automated",
+    "reply_intent",
     "opened",
     "clicked",
 ];
@@ -72,7 +77,8 @@ export interface BranchCondition {
     operator: BranchOperator;
     // Days for `within_days`; percent (1-99) for `random`/`chance`. Omitted for `ever`.
     value?: number;
-    // The AI-step label an `ai_label` condition compares against (operator "is").
+    // The AI-step label an `ai_label` condition, or the intent a `reply_intent`
+    // condition, compares against (operator "is").
     label?: string;
 }
 
@@ -106,4 +112,25 @@ export const BRANCH_FIELD_LABELS: Record<BranchField, string> = {
     reply_neutral: "מענה: ניטרלי",
     reply_automated: "מענה אוטומטי / מחוץ למשרד",
     ai_label: "תווית AI היא",
+    reply_intent: "כוונת המענה היא",
 };
+
+// The intents automatic inbox tagging can store for a human reply, as a
+// `reply_intent` condition offers them. Values mirror internal/app/inboxtag.
+export const REPLY_INTENTS: { value: string; label: string }[] = [
+    { value: "agreed", label: "הסכים / מעוניין" },
+    { value: "wants_info", label: "מבקש מידע" },
+    { value: "wants_pricing", label: "מבקש הצעת מחיר" },
+    { value: "not_now", label: "לא עכשיו" },
+    { value: "not_interested", label: "לא מעוניין" },
+    { value: "wrong_person", label: "האדם הלא נכון" },
+    { value: "opt_out", label: "הסרה מרשימה" },
+    { value: "scheduling", label: "תיאום פגישה" },
+    { value: "in_progress", label: "בטיפול" },
+    { value: "question_answered", label: "מענה לשאלה" },
+    { value: "unclear", label: "לא ברור" },
+];
+
+export function replyIntentLabel(intent: string | undefined): string {
+    return REPLY_INTENTS.find((i) => i.value === intent)?.label ?? intent ?? "…";
+}

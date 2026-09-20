@@ -71,7 +71,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import type Sequence from "@/lib/api/models/app/campaigns/sequences/Sequence";
 import type { SequenceBranch, BranchCondition, BranchField } from "@/lib/api/models/app/campaigns/sequences/Branching";
-import { BRANCH_FIELD_LABELS, isReplyBranchField, isInstantCapableField } from "@/lib/api/models/app/campaigns/sequences/Branching";
+import { BRANCH_FIELD_LABELS, REPLY_INTENTS, isReplyBranchField, isInstantCapableField, replyIntentLabel } from "@/lib/api/models/app/campaigns/sequences/Branching";
 import useSequences from "@/lib/api/hooks/app/campaigns/sequences/useSequences";
 import useCreateSequence from "@/lib/api/hooks/app/campaigns/sequences/useCreateSequence";
 import useDeleteSequence from "@/lib/api/hooks/app/campaigns/sequences/useDeleteSequence";
@@ -148,6 +148,7 @@ const POSITIVE_REPLY_FIELDS: BranchField[] = [
     "reply_negative",
     "reply_neutral",
     "reply_automated",
+    "reply_intent",
 ];
 const isPositiveReplyField = (f: BranchField) => POSITIVE_REPLY_FIELDS.includes(f);
 
@@ -183,6 +184,7 @@ function conditionText(b: SequenceBranch): string {
             const f = BRANCH_FIELD_LABELS[c.field] ?? c.field;
             // Reply-class conditions are "ever" (no day window).
             if (c.field === "ai_label") return `מקרה: ${c.label ?? "…"}`;
+            if (c.field === "reply_intent") return `כוונה: ${replyIntentLabel(c.label)}`;
             if (isReplyBranchField(c.field)) return f;
             return `${f} תוך ${c.value ?? 3} ימים`;
         })
@@ -2330,6 +2332,7 @@ const BRANCH_PATH_OPTIONS: SelectOption[] = [
     { value: "reply_negative", label: "אם השיב: תגובה שלילית", group: "כוונת תגובה" },
     { value: "reply_neutral", label: "אם השיב: תגובה ניטרלית", group: "כוונת תגובה" },
     { value: "reply_automated", label: "אם מענה אוטומטי / מחוץ למשרד", group: "כוונת תגובה" },
+    { value: "reply_intent", label: "אם כוונת המענה היא…", group: "כוונת תגובה" },
     { value: "random", label: "פיצול אקראי" },
 ];
 
@@ -2361,6 +2364,8 @@ function ConnectionEditor({
     const c0 = branch.conditions?.[0];
     const [field, setField] = React.useState<string>(c0?.field ?? "always");
     const [value, setValue] = React.useState<number>(c0?.value ?? (c0?.field === "random" ? 50 : 3));
+    // The intent a reply_intent path routes on; stored in the condition's label.
+    const [intent, setIntent] = React.useState<string>(c0?.field === "reply_intent" ? (c0.label ?? "agreed") : "agreed");
     // Instant-capable branches (reply intent, opened, clicked) fire the moment
     // the event lands by default; this lets the user opt out so the path routes
     // at the next step boundary instead.
@@ -2373,6 +2378,7 @@ function ConnectionEditor({
     const isCasePath = c0?.field === "ai_label";
     const caseName = isCasePath ? (c0?.label ?? "").trim() : "";
     const isReply = isReplyBranchField(field as BranchField);
+    const isIntent = field === "reply_intent";
     const isInstantCapable = !isCasePath && isInstantCapableField(field as BranchField);
     const instantVerb = field === "opened" ? "יפתחו" : field === "clicked" ? "ילחצו" : "ישיבו";
     const isNegative = field === "not_opened" || field === "not_clicked" || field === "not_replied";
@@ -2386,6 +2392,7 @@ function ConnectionEditor({
         if (isRandom) return [{ field: "random", operator: "chance", value }];
         // Reply-class conditions are checked once, ever (no day window / value).
         if (isReply) return [{ field: field as BranchField, operator: "ever" }];
+        if (isIntent) return [{ field: "reply_intent", operator: "is", label: intent }];
         return [{ field: field as BranchField, operator: "within_days", value }];
     };
     const save = (target_step_id: string | null) => {
@@ -2463,7 +2470,7 @@ function ConnectionEditor({
                             onChange={(f) => {
                                 setField(f);
                                 if (f === "random") setValue((v) => (v >= 1 && v <= 99 ? v : 50));
-                                else if (f !== "always" && !isReplyBranchField(f as BranchField))
+                                else if (f !== "always" && f !== "reply_intent" && !isReplyBranchField(f as BranchField))
                                     setValue((v) => (v >= 1 && v <= 60 ? v : 3));
                             }}
                         />
@@ -2476,6 +2483,12 @@ function ConnectionEditor({
                         <span>% מאנשי הקשר (נבחרים באקראי)</span>
                     </div>
                 )}
+                {isIntent && (
+                    <div>
+                        <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">כוונת מענה</p>
+                        <SelectMenu className="w-full" value={intent} options={REPLY_INTENTS} onChange={setIntent} />
+                    </div>
+                )}
                 {isCasePath && (
                     <p className="rounded-md bg-slate-50 px-2 py-1.5 text-[11px] leading-relaxed text-slate-600 ring-1 ring-slate-200">
                         מקרה ״{caseName}״ של פיצול זה: אנשי קשר עוברים בנתיב זה כאשר{" "}
@@ -2483,7 +2496,7 @@ function ConnectionEditor({
                         עצמו; הניתוב מתבצע בגבול השלב ללא נקודות זכות נוספות.
                     </p>
                 )}
-                {!isAlways && !isRandom && !isReply && !isCasePath && (
+                {!isAlways && !isRandom && !isReply && !isIntent && !isCasePath && (
                     <div className="flex flex-wrap items-center gap-1.5">
                         <span>תוך</span>
                         <NumberInput value={value} onChange={(v) => setValue(Math.max(1, Math.min(60, Math.round(v) || 1)))} min={1} max={60} className="w-16" align="center" />

@@ -132,7 +132,7 @@ var table = []Entry{
 	},
 	{
 		Key: "TYPESAFE_API_KEY", Group: GroupDeployment, RuntimeChangeable: ChangeBootOnly,
-		Effect:     "Credential for optional automatic inbox tagging. The feature remains off until INBOX_TAGGING_ENABLED is also true.",
+		Effect:     "Credential for the TypeSafe judgments: reply classification, copy judgment, warmup content lint, bounce classification and form triage. Inbox tagging also needs INBOX_TAGGING_ENABLED.",
 		DocsAnchor: docsAI,
 		Resolve:    envValue("TYPESAFE_API_KEY"),
 	},
@@ -743,6 +743,16 @@ var table = []Entry{
 		Effect:     "The secret for the Gmail mailbox OAuth client.",
 		DocsAnchor: docsWorkers,
 		Resolve:    envValue("BOX_GOOGLE_CLIENT_SECRET"),
+	},
+	{
+		Key: "BOX_GOOGLE_OAUTH_CONNECT", Group: GroupWorkers, RuntimeChangeable: ChangeBootOnly,
+		Effect:     "true lets new Gmail mailboxes connect with Google sign-in. Off, the connect dialog walks through an app password over IMAP and SMTP instead; mailboxes already on Google sign-in keep working and can be re-authorized either way.",
+		DocsAnchor: docsWorkers,
+		// Through the config helper, not boolOr: boolOr accepts yes/on and
+		// GoogleOAuthConnect parses with strconv.ParseBool, which does not, so
+		// reading the raw value here would report true on a setting the gate
+		// treats as false.
+		Resolve: func(*Runtime) string { return yesNo(config.GoogleOAuthConnect()) },
 	},
 	{
 		Key: "BOX_OUTLOOK_CLIENT_ID", Group: GroupWorkers, RuntimeChangeable: ChangeBootOnly,

@@ -23,6 +23,8 @@ export interface InboxTagRow {
     /** Which confidence fell below the floor: kind or intent. */
     review_reason: "" | "kind" | "intent";
     labels: string[];
+    /** What the workspace's switches let this verdict do: hold, stop, task, suppress. */
+    actions: string[];
     /** Every raw probability, exactly as the API returned it. */
     answers: Record<string, unknown>;
     model: string;
@@ -39,6 +41,8 @@ export default interface InboxTagReview {
         total: number;
         needs_review: number;
         from_offline: number;
+        /** Verdicts that held, stopped, opened a task or suppressed. */
+        acted: number;
     };
     pagination: {
         next_cursor: string | null;
