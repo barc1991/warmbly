@@ -224,8 +224,7 @@ The platform includes an autonomous B2B Business Development Representative (BDR
 * **Dynamic Fallback Chain**:
   1. `gemini-3.8-flash` (Primary default, optimal latency and tool execution).
   2. `gemini-3.7-flash` (First fallback under load or rate limits).
-  3. `gemini-3.6-flash` (Second fallback for extreme load).
-  4. `gemini-3.5-flash-lite` (Lightweight third fallback).
+  3. `gemini-3.5-flash-lite` (Lightweight second fallback).
 * **Multi-Key Rotator**: Manages multiple free-tier Gemini API keys per organization with automatic round-robin, 429 cooldown detection, and quota tracking.
 
 ### B. Serper Google Search Key Rotator & 7-Day Quota Cache

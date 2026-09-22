@@ -15,7 +15,6 @@ import (
 const (
 	GeminiModel38Flash     = "gemini-3.8-flash"
 	GeminiModel37Flash     = "gemini-3.7-flash"
-	GeminiModel36Flash     = "gemini-3.6-flash"
 	GeminiModel35FlashLite = "gemini-3.5-flash-lite"
 
 	GeminiModelPrimary = GeminiModel38Flash
@@ -25,7 +24,6 @@ const (
 var DefaultGeminiFallbackChain = []string{
 	GeminiModel38Flash,
 	GeminiModel37Flash,
-	GeminiModel36Flash,
 	GeminiModel35FlashLite,
 }
 

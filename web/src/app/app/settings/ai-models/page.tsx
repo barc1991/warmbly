@@ -69,15 +69,9 @@ const AVAILABLE_MODELS = [
         desc: "מודל מהיר וחכם מאוד, מצוין כגיבוי ראשון בעת עומס על 3.8.",
     },
     {
-        id: "gemini-3.6-flash",
-        name: "Gemini 3.6 Flash",
-        badge: "גיבוי שלב 2",
-        desc: "מודל מוכח ויציב ביותר, מבטיח המשכיות עבודה תחת כל תנאי רשת.",
-    },
-    {
         id: "gemini-3.5-flash-lite",
         name: "Gemini 3.5 Flash-Lite",
-        badge: "גיבוי שלב 3",
+        badge: "גיבוי שלב 2",
         desc: "מודל קל משקל וחסכוני ביותר, מגיב מיידית גם בזמני שיא ועומסים חריגים.",
     },
 ];
@@ -105,7 +99,6 @@ export default function AIModelsSettingsPage() {
         fallback_chain: [
             "gemini-3.8-flash",
             "gemini-3.7-flash",
-            "gemini-3.6-flash",
             "gemini-3.5-flash-lite",
         ],
     };

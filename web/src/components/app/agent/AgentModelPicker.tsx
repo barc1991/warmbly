@@ -25,15 +25,9 @@ export const GEMINI_PANEL_MODELS = [
         description: "חכם, יציב ומהיר",
     },
     {
-        id: "gemini-3.6-flash",
-        name: "Gemini 3.6 Flash",
-        badge: "גיבוי 2",
-        description: "מאוזן ואמין לעבודה רציפה",
-    },
-    {
         id: "gemini-3.5-flash-lite",
         name: "Gemini 3.5 Flash-Lite",
-        badge: "גיבוי 3",
+        badge: "גיבוי 2",
         description: "קל משקל ומגיב מיידית",
     },
 ];

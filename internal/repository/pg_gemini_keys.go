@@ -171,18 +171,32 @@ func (r *geminiKeysRepository) GetConfig(ctx context.Context, orgID uuid.UUID) (
 			return &models.GeminiOrgConfig{
 				PrimaryModel:    "gemini-3.8-flash",
 				FallbackEnabled: true,
-				FallbackChain:   []string{"gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"},
+				FallbackChain:   []string{"gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"},
 			}, nil
 		}
 		return nil, err
+	}
+
+	if primaryModel == "gemini-3.6-flash" || primaryModel == "" {
+		primaryModel = "gemini-3.8-flash"
 	}
 
 	var chain []string
 	if len(fallbackChainJSON) > 0 {
 		_ = json.Unmarshal(fallbackChainJSON, &chain)
 	}
+
+	// Filter out discontinued/paid models like gemini-3.6-flash
+	filtered := make([]string, 0, len(chain))
+	for _, m := range chain {
+		if m != "gemini-3.6-flash" && m != "" {
+			filtered = append(filtered, m)
+		}
+	}
+	chain = filtered
+
 	if len(chain) == 0 {
-		chain = []string{"gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"}
+		chain = []string{"gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"}
 	}
 
 	return &models.GeminiOrgConfig{
