@@ -100,6 +100,8 @@ type PoolLinkPlan struct {
 	PriceUSD int `json:"price_usd"`
 	// UpgradeURL is empty when billing is off or the plan has no price.
 	UpgradeURL string `json:"upgrade_url,omitempty"`
+	// ManageURL is the cloud billing page; empty when billing is off.
+	ManageURL string `json:"manage_url,omitempty"`
 	// WarmupEntitled is false when the cloud workspace itself cannot warm.
 	WarmupEntitled bool `json:"warmup_entitled"`
 }
@@ -188,6 +190,10 @@ type PoolLinkWarmupDeliveryQuery struct {
 	Sender    string `json:"sender"`
 	MessageID string `json:"message_id"`
 	Subject   string `json:"subject"`
+	// InReplyTo asks by ancestry instead: a reply typed by hand in a warmup
+	// thread names no token and no known id of its own, only the turn it
+	// answers. A cloud predating the field ignores it and answers no.
+	InReplyTo []string `json:"in_reply_to,omitempty"`
 }
 
 // PoolLinkMailboxState is the per-mailbox view shown in both dashboards.
@@ -272,7 +278,7 @@ type CloudLinkMailboxRow struct {
 	Cloud      *PoolLinkMailboxState `json:"cloud,omitempty"`
 }
 
-// PoolLinkOffer is the self-hosted pool plan as an upgrade prompt sees it:
+// PoolLinkOffer is the warmup plan as an upgrade prompt sees it:
 // what it costs, and whether it can actually be bought here.
 type PoolLinkOffer struct {
 	Available        bool    `json:"available"`

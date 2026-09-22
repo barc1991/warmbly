@@ -75,6 +75,7 @@ import UpdateCredentialsDialog from "./UpdateCredentialsDialog";
 import EmailEditor from "../EmailEditor";
 import SendingBehaviorTab from "./SendingBehaviorTab";
 import SyncStatusCard from "./SyncStatusCard";
+import { clampWarmupRetentionDays } from "@/lib/warmupRetention";
 import CloudWarmupCard from "./CloudWarmupCard";
 import useCloudPool from "@/hooks/useCloudPool";
 import { Toggle } from "@/components/app/campaigns/preferences/components/CampaignPreferenceBoolBox";
@@ -644,7 +645,7 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
             </div>
 
             {/* Sync: import progress and fair-use status */}
-            <SyncStatusCard mailboxId={mailbox.id} />
+            <SyncStatusCard mailboxId={mailbox.id} provider={mailbox.provider} />
 
             {/* Key stats */}
             <div className="grid grid-cols-2 divide-x divide-y divide-slate-200/60">
@@ -747,10 +748,12 @@ function AnalyticsTab({ warmup, loading }: { warmup?: import("@/lib/api/models/a
         );
     }
     const s = warmup.summary;
+    const received = s.total_received ?? 0;
+    const exchange = s.total_sent > 0 ? `${Math.round((received / s.total_sent) * 100)}% ממה שנשלח` : "ממאגר החימום";
     const chartData = warmup.daily_stats.map((d) => ({
         key: d.date,
         value: d.emails_sent,
-        hint: `${d.date}: ${d.emails_sent} נשלחו / יעד ${d.target_volume} · ${d.emails_replied} תשובות`,
+        hint: `${d.date}: ${d.emails_sent} נשלחו / יעד ${d.target_volume} · ${d.emails_received ?? 0} התקבלו · ${d.emails_replied} מענים`,
     }));
     const targets = warmup.daily_stats.map((d) => d.target_volume);
     const selectedIndex = selectedDay ? warmup.daily_stats.findIndex((d) => d.date === selectedDay) : -1;
@@ -758,10 +761,13 @@ function AnalyticsTab({ warmup, loading }: { warmup?: import("@/lib/api/models/a
     return (
         <div className="divide-y divide-slate-200/60">
             <div className="grid grid-cols-2 divide-x divide-y divide-slate-200/60">
-                <StatCard label="Total sent" value={s.total_sent} sub={`${s.average_daily.toFixed(1)}/active day`} />
-                <StatCard label="Replies" value={s.total_replied} sub={`${s.reply_rate.toFixed(1)}% reply rate`} accent />
-                <StatCard label="Target met" value={`${Math.round(s.target_progress)}%`} sub="of planned volume" />
-                <StatCard label="Days active" value={s.days_active} sub={`${warmup.date_range.from} → ${warmup.date_range.to}`} />
+                <StatCard label="סה״כ נשלחו" value={s.total_sent} sub={`${s.average_daily.toFixed(1)}/יום פעיל`} />
+                <StatCard label="התקבלו" value={received} sub={exchange} accent />
+                <StatCard label="מענים" value={s.total_replied} sub={`${s.reply_rate.toFixed(1)}% יחס מענה`} />
+                <StatCard label="עמידה ביעד" value={`${Math.round(s.target_progress)}%`} sub="מנפח מתוכנן" />
+                <div className="col-span-2">
+                    <StatCard label="ימים פעילים" value={s.days_active} sub={`${warmup.date_range.from} → ${warmup.date_range.to}`} />
+                </div>
             </div>
 
             <div className="px-5 py-4">
@@ -789,7 +795,7 @@ function AnalyticsTab({ warmup, loading }: { warmup?: import("@/lib/api/models/a
                     if (!d) return null;
                     return (
                         <p className="mt-2 text-[11px] text-slate-500 font-mono tabular-nums">
-                            {d.date}: {d.emails_sent} נשלחו / יעד {d.target_volume} · {d.emails_replied} תשובות
+                            {d.date}: {d.emails_sent} נשלחו / יעד {d.target_volume} · {d.emails_received ?? 0} התקבלו · {d.emails_replied} מענים
                         </p>
                     );
                 })()}
@@ -1165,7 +1171,36 @@ function WarmupPlacementFields({
                     />
                 </FieldShell>
             )}
+            <WarmupRetentionField form={form} update={update} gmail={gmail} />
         </>
+    );
+}
+
+function WarmupRetentionField({
+    form,
+    update,
+    gmail,
+}: {
+    form: Inbox;
+    update: (patch: Partial<Inbox>) => void;
+    gmail: boolean;
+}) {
+    const days = form.warmup_retention_days ?? 0;
+    const where = gmail ? "מועבר לאשפה, שמתרוקנת על ידי Gmail לאחר 30 יום" : "נמחק";
+    return (
+        <FieldShell
+            label="שמור דואר חימום למשך (ימים)"
+            hint={`דואר חימום ישן מכך ${where} על ידי Warmbly מכל מקום שההגדרה מעלה שומרת אותו, וגם העותק השמור ב-Warmbly מוסר. 0 עוקב אחר הגדרת המערכת (30 יום כברירת מחדל); אחרת בין 3 ל-3650. הודעה לעולם אינה נמחקת לפני תיעוד המעורבות שלה.`}
+        >
+            <NumberInput
+                value={days}
+                min={0}
+                max={3650}
+                suffix="ימים"
+                onChange={(n) => update({ warmup_retention_days: clampWarmupRetentionDays(n) })}
+                className="w-full h-9"
+            />
+        </FieldShell>
     );
 }
 

@@ -214,7 +214,7 @@ func (s *workerAssignmentService) SelectWorkerFor(ctx context.Context, lookup Pl
 	if err != nil || len(rows) == 0 {
 		// A broken or unpopulated capacity view must not take onboarding down.
 		// Fall back to the least-loaded live worker.
-		return s.selectFallback(ctx, lookup.ExcludeWorkerID)
+		return s.selectFallback(ctx, req, lookup.ExcludeWorkerID)
 	}
 
 	candidates := make([]PlacementCandidate, 0, len(rows))
@@ -273,7 +273,7 @@ func (s *workerAssignmentService) SelectWorkerFor(ctx context.Context, lookup Pl
 
 	best := SelectPlacement(candidates, req)
 	if best == nil {
-		return s.selectFallback(ctx, lookup.ExcludeWorkerID)
+		return s.selectFallback(ctx, req, lookup.ExcludeWorkerID)
 	}
 	return s.buildResult(ctx, *best, req, candidates)
 }
@@ -319,7 +319,7 @@ func (s *workerAssignmentService) buildResult(
 // worker could empty the candidate set, fall through here, and place the
 // mailboxes onto another blocked machine, which is the opposite of what the
 // drain was for.
-func (s *workerAssignmentService) selectFallback(ctx context.Context, exclude *uuid.UUID) (*PlacementResult, error) {
+func (s *workerAssignmentService) selectFallback(ctx context.Context, req PlacementRequest, exclude *uuid.UUID) (*PlacementResult, error) {
 	workers, err := s.workerRepo.ListPlaceableWorkers(ctx)
 	if err != nil {
 		return nil, err

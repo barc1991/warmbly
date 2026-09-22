@@ -2,10 +2,10 @@ package auth
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/warmbly/warmbly/internal/app/token"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/notify/templates"
@@ -15,11 +15,14 @@ import (
 )
 
 func (s *authService) RegistrationStart(ctx context.Context, data *AuthData, origin SignupOrigin) (*models.AuthSession, *errx.Error) {
-	data.Email = strings.ToLower(strings.TrimSpace(data.Email))
 	ipaddr := origin.IP
 	if s.policy.DisablePasswordLogin {
 		return nil, errx.New(errx.Forbidden, "password sign-up is disabled on this deployment")
 	}
+
+	// Folded before the duplicate check, or "Vincent@" and "vincent@" both get
+	// past it and become two accounts for one person.
+	data.Email = normalizeEmail(data.Email)
 
 	if err := s.signupAllowed(ctx, data.Email, data.Invite); err != nil {
 		return nil, err
@@ -30,8 +33,8 @@ func (s *authService) RegistrationStart(ctx context.Context, data *AuthData, ori
 		return nil, xerr
 	}
 
-	if !crypt.ValidatePassword(data.Password) {
-		return nil, errx.ErrPassword
+	if perr := crypt.PasswordError(data.Password); perr != nil {
+		return nil, perr
 	}
 
 	passwordHash, xerr := argon2.Hash(data.Password)
@@ -109,7 +112,7 @@ func (s *authService) RegistrationStart(ctx context.Context, data *AuthData, ori
 		return nil, err
 	}
 
-	sessionToken, xerr := s.tokenService.GenerateToken(uuid.Nil, sessionID, data.Email, nonce, issuedAt, expiresAt)
+	sessionToken, xerr := s.tokenService.GenerateTokenFor(token.PurposeRegistration, uuid.Nil, sessionID, data.Email, nonce, issuedAt, expiresAt)
 	if xerr != nil {
 		errs.CaptureException(xerr)
 		return nil, errx.InternalError()
@@ -122,18 +125,18 @@ func (s *authService) RegistrationStart(ctx context.Context, data *AuthData, ori
 }
 
 func (s *authService) RegistrationConfirm(ctx context.Context, data *ConfirmData, session string, origin SignupOrigin) (*models.AuthSession, *errx.Error) {
-	token, err := s.tokenService.VerifyToken(session)
+	claims, err := s.tokenService.VerifyTokenFor(token.PurposeRegistration, session)
 	if err != nil {
 		return nil, err
 	}
-	if token.ExpiresAt.Before(time.Now()) {
+	if claims.ExpiresAt.Before(time.Now()) {
 		return nil, errx.ErrSession
 	}
-	sess, err := s.getRegistrationSession(ctx, token.SessionID)
+	sess, err := s.getRegistrationSession(ctx, claims.SessionID)
 	if err != nil {
 		return nil, err
 	}
-	if sess == nil || sess.Nonce != token.Nonce {
+	if sess == nil || sess.Nonce != claims.Nonce {
 		return nil, errx.ErrSession
 	}
 
@@ -149,13 +152,13 @@ func (s *authService) RegistrationConfirm(ctx context.Context, data *ConfirmData
 
 	if !v {
 		sess.Tries++
-		_ = s.saveRegistrationSession(ctx, token.SessionID, sess, token.ExpiresAt.Time)
+		_ = s.saveRegistrationSession(ctx, claims.SessionID, sess, claims.ExpiresAt.Time)
 		return nil, errx.ErrCode
 	}
 
 	// Re-check the policy: a session minted while signups were open must not
 	// outlive a lockdown applied before the code came back.
-	if err := s.signupAllowed(ctx, token.Email, sess.Invite); err != nil {
+	if err := s.signupAllowed(ctx, claims.Email, sess.Invite); err != nil {
 		return nil, err
 	}
 
@@ -163,7 +166,7 @@ func (s *authService) RegistrationConfirm(ctx context.Context, data *ConfirmData
 	if sess.Acquisition != nil {
 		attr.Acquisition = *sess.Acquisition
 	}
-	u, cerr := s.createAccount(ctx, token.Email, sess.PasswordHash, attr, origin)
+	u, cerr := s.createAccount(ctx, claims.Email, sess.PasswordHash, attr, origin)
 	if cerr != nil {
 		return nil, cerr
 	}

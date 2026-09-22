@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
@@ -167,14 +168,64 @@ func (w *WMail) storeNew(ctx context.Context, msg *models.EmailMessageData, data
 		return err
 	}
 
-	w.maybeEmitBounce(msg)
-	w.maybeEmitComplaint(msg)
+	// Both report the send they are about, if any. The id goes on the arrival
+	// event so the consumer can tell a report about a campaign send from one
+	// about a warmup send without reading the body it is buried in.
+	// Both still run on every message: a report is one or the other in
+	// practice, and deciding that here by skipping the second would be this
+	// function guessing at a MIME question the parsers already answer.
+	bounce := w.bounceReport(msg)
+	complaint := w.complaintReport(msg)
+	var reportAbout string
+	switch {
+	case bounce != nil:
+		reportAbout = bounce.OriginalMessageID
+	case complaint != nil:
+		reportAbout = complaint.OriginalMessageID
+	}
 
 	// The consumer decodes NEW_EMAIL as JobEventNewEmail{user_id, message}.
-	return w.onEvent(models.JobEventTypeNewEmail, &models.JobEventNewEmail{
-		UserID:  w.UserID,
-		Message: data,
+	err := w.onEvent(models.JobEventTypeNewEmail, &models.JobEventNewEmail{
+		UserID:                  w.UserID,
+		Message:                 data,
+		ReportOriginalMessageID: reportAbout,
 	})
+	if err != nil {
+		// The entry would mark a message that never reached the unibox as
+		// known, and every later pass would skip it; drop it so it is re-offered.
+		if derr := w.EmailMessageMapRepository.Del(ctx, w.UserID, w.ID, mapKey, data.ID); derr != nil {
+			log.Warn().Err(derr).Str("email_id", w.ID.String()).Msg("sync: map entry for an unpublished message not removed; retried next pass")
+			if w.unmapPending == nil {
+				w.unmapPending = map[string]uuid.UUID{}
+			}
+			w.unmapPending[mapKey] = data.ID
+		}
+		return err
+	}
+
+	// Reports go out only once the arrival is published, so a message
+	// re-offered after a failed publish does not apply its report twice.
+	if bounce != nil {
+		_ = w.onEvent(models.JobEventTypeInboundBounce, bounce)
+	}
+	if complaint != nil {
+		_ = w.onEvent(models.JobEventTypeInboundComplaint, complaint)
+	}
+	return nil
+}
+
+// retryUnmap removes the map entries a failed publish could not, and reports
+// whether none is left. A pass must not run while one is: it would read that
+// message as known and move its cursor past it.
+func (w *WMail) retryUnmap(ctx context.Context) bool {
+	for key, id := range w.unmapPending {
+		if err := w.EmailMessageMapRepository.Del(ctx, w.UserID, w.ID, key, id); err != nil {
+			log.Warn().Err(err).Str("email_id", w.ID.String()).Msg("sync: map entry for an unpublished message still not removed; pass skipped")
+			return false
+		}
+		delete(w.unmapPending, key)
+	}
+	return true
 }
 
 // capBody bounds a stored body part at MaxEmailBodySize. IMAP already reads

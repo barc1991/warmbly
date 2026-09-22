@@ -1,6 +1,7 @@
 package models
 
 import (
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,6 +11,11 @@ type EmailMessage struct { // used for sending to the user
 	ID      uuid.UUID `json:"id"`       // Gmail
 	GmailID string    `json:"gmail_id"` // Gmail
 	UID     uint32    `json:"uid"`      // IMAP
+
+	// EmailID is the connected mailbox the message belongs to.
+	EmailID uuid.UUID `json:"email_id"`
+	// Folder is the canonical folder (Folder* consts) the message sits in.
+	Folder string `json:"folder"`
 
 	ParentID string `json:"parent_id"`
 	ThreadID string `json:"thread_id"`
@@ -326,15 +332,24 @@ type MailSearchParams struct {
 	// conversation labels at all. nil = no filter.
 	Uncategorized *bool
 	// Folder narrows to one canonical folder (inbox/sent/drafts/archive/
-	// spam/trash). nil = every folder except spam and trash, so junk never
-	// bleeds into the combined view.
-	Folder   *string
-	PageSize int
-	Cursor   string
+	// spam/trash). nil = every working folder, so junk and filed mail never
+	// bleed into the combined view.
+	Folder *string
+	// IncludeArchived puts archived conversations back into an unscoped
+	// result. Filing is how a conversation leaves the working views, so it
+	// has to leave all of them; only "All mail" and reference reads (compose
+	// history) ask for it. Ignored when Folder names one.
+	IncludeArchived *bool
+	PageSize        int
+	Cursor          string
 }
 
 type MarkSeen struct {
 	EmailIDs []uuid.UUID `json:"email_ids"`
+	// ThreadIDs marks whole conversations, so a caller holding a list row
+	// does not have to fetch the thread to learn its message ids. Each entry
+	// is a thread id, or a message id for mail that never got one.
+	ThreadIDs []string `json:"thread_ids,omitempty"`
 	// Folder, when set, marks every unread message in that folder for the
 	// whole workspace instead of the explicit id list.
 	Folder string `json:"folder,omitempty"`
@@ -346,7 +361,12 @@ type MarkSeen struct {
 // is not moved, so the message stays where it is in the user's mail client.
 type MoveFolder struct {
 	EmailIDs []uuid.UUID `json:"email_ids"`
-	Folder   string      `json:"folder"`
+	// ThreadIDs files whole conversations. A row in the list knows its thread
+	// but not the ids inside it, and filing half a conversation leaves it in
+	// the view it was filed out of. Each entry is a thread id, or a message id
+	// for mail that never got one.
+	ThreadIDs []string `json:"thread_ids,omitempty"`
+	Folder    string   `json:"folder"`
 }
 
 // UniboxSnooze hides a thread from the user's inbox until SnoozedUntil
@@ -509,4 +529,18 @@ type SeenRelayTarget struct {
 	// leave the provider holding the earlier answer.
 	Seen bool
 	Ref  MessageSeenRef
+}
+
+// FlagSeen is the RFC 3501 read-state flag. Every provider is mapped onto it
+// before it reaches the platform: IMAP reports it directly, the Gmail sync
+// adds it when the UNREAD label is absent, and the Graph sync adds it for
+// isRead.
+const FlagSeen = `\Seen`
+
+// SeenFromFlags reads a message's read state out of its flags. The stored
+// `seen` column has to follow the provider: mail the customer already read in
+// their own client is read in Warmbly, and a copy the worker files in Sent
+// (appended \Seen, since the sender wrote it) must never arrive as unread.
+func SeenFromFlags(flags []string) bool {
+	return slices.Contains(flags, FlagSeen)
 }

@@ -26,6 +26,7 @@ type CloudLinkVerifier interface {
 	CheckEnrollment(ctx context.Context, accountID uuid.UUID) (bool, error)
 	VerifyWarmupToken(ctx context.Context, accountID uuid.UUID, token string) (bool, error)
 	IsCloudWarmupDelivery(ctx context.Context, accountID uuid.UUID, sender, messageID, subject string) (bool, error)
+	IsCloudWarmupThreadReply(ctx context.Context, accountID uuid.UUID, messageID string, inReplyTo []string) (bool, error)
 }
 
 type JobsService struct {
@@ -69,6 +70,11 @@ type JobsService struct {
 
 	// Cache for dead worker detection
 	Cache *cache.Cache
+
+	// Retention is the operator-editable retention section, read by the
+	// warmup mail retention sweep on every pass. Nil keeps the compiled
+	// defaults.
+	Retention RetentionSource
 
 	// AdminRepo for writing audit-log rows when the dead-worker job
 	// auto-reassigns email accounts (optional — heartbeat sync also writes

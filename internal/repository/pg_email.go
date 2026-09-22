@@ -115,6 +115,13 @@ type EmailRepository interface {
 	SetWarmupLifecycle(ctx context.Context, orgID, emailAccountID, action string) (*models.Email, *errx.Error)
 	UpdateTrackingDomain(ctx context.Context, orgID, emailAccountID, domain string, verified bool, verifiedAt *time.Time) *errx.Error
 	UpdateTrackDirectMail(ctx context.Context, orgID, emailAccountID string, enabled bool) *errx.Error
+	// GetSyncSkipFolders is the folders this mailbox's sync leaves alone.
+	// Read without a tenant predicate by the loader, which ships it to the
+	// worker inside the mailbox's sync policy.
+	GetSyncSkipFolders(ctx context.Context, emailAccountID uuid.UUID) ([]string, *errx.Error)
+	// SetSyncSkipFolders replaces that list, scoped by organization like every
+	// other mailbox setting a workspace admin may change.
+	SetSyncSkipFolders(ctx context.Context, orgID, emailAccountID string, folders []string) *errx.Error
 	// ListOrganizationIDs names every workspace with a mailbox, for sweeps that
 	// run per workspace rather than per event.
 	ListOrganizationIDs(ctx context.Context) ([]uuid.UUID, error)
@@ -668,7 +675,7 @@ func (r *emailRepository) Search(ctx context.Context, orgID, search string, curs
 		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail,
 		 ea.auth_state, ea.auth_spf, ea.auth_dkim, ea.auth_dmarc, ea.auth_dmarc_policy, ea.auth_reason, ea.auth_checked_at, ea.auth_failing_since,
 		 ea.warmup, ea.warmup_paused_at, ea.warmup_base,
-		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.warmup_placement, ea.warmup_folder, ea.timezone, ea.save_to_sent,
+		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.warmup_placement, ea.warmup_folder, COALESCE(ea.warmup_retention_days, 0) AS warmup_retention_days, ea.timezone, ea.save_to_sent,
 		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
 		 COALESCE(
 			array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}'
@@ -719,7 +726,7 @@ func (r *emailRepository) Search(ctx context.Context, orgID, search string, curs
 			&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail,
 			&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
 			&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
-			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.Timezone, &i.SaveToSent,
+			&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.WarmupRetentionDays, &i.Timezone, &i.SaveToSent,
 			&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
 		)
 		if err != nil {
@@ -790,7 +797,7 @@ func (r *emailRepository) Get(ctx context.Context, orgID, emailAccountID string)
 		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail,
 		 ea.auth_state, ea.auth_spf, ea.auth_dkim, ea.auth_dmarc, ea.auth_dmarc_policy, ea.auth_reason, ea.auth_checked_at, ea.auth_failing_since,
 		 ea.warmup, ea.warmup_paused_at, ea.warmup_base,
-		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.warmup_placement, ea.warmup_folder, ea.timezone, ea.save_to_sent,
+		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, COALESCE(ea.warmup_pool_type, 'free') AS warmup_pool_type, ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.warmup_placement, ea.warmup_folder, COALESCE(ea.warmup_retention_days, 0) AS warmup_retention_days, ea.timezone, ea.save_to_sent,
 		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
 		 COALESCE(array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}') AS tags
 		FROM email_accounts ea
@@ -814,7 +821,7 @@ func (r *emailRepository) Get(ctx context.Context, orgID, emailAccountID string)
 		&i.LastSyncedAt, &i.LastID, &i.CampaignLimit, &i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail,
 		&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
 		&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
-		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.Timezone, &i.SaveToSent,
+		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.WarmupRetentionDays, &i.Timezone, &i.SaveToSent,
 		&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
 	)
 	if err != nil {
@@ -1070,6 +1077,16 @@ func (r *emailRepository) Update(ctx context.Context, orgID, emailAccountID stri
 		args = append(args, folder)
 		argPos++
 	}
+	if udata.WarmupRetentionDays != nil {
+		if !models.ValidWarmupRetentionDays(*udata.WarmupRetentionDays) {
+			return nil, errx.ErrEmailWarmupRetention
+		}
+		// Zero is "follow the instance", stored as NULL so a later change to
+		// the instance setting reaches every mailbox that never chose.
+		setClauses = append(setClauses, fmt.Sprintf("%s = NULLIF($%d, 0)", "warmup_retention_days", argPos))
+		args = append(args, *udata.WarmupRetentionDays)
+		argPos++
+	}
 
 	// Tags are not a column on the row, so a patch that only moves them still
 	// leaves setClauses empty. Refusing it made the mailbox drawer's tag
@@ -1096,7 +1113,7 @@ func (r *emailRepository) Update(ctx context.Context, orgID, emailAccountID stri
 		          COALESCE(last_synced_at, created_at) AS last_synced_at, last_id, campaign_limit, min_wait_time, reply_to, tracking_domain, tracking_domain_verified, tracking_domain_verified_at, track_direct_mail,
 		          auth_state, auth_spf, auth_dkim, auth_dmarc, auth_dmarc_policy, auth_reason, auth_checked_at, auth_failing_since,
 		          warmup, warmup_paused_at, warmup_base, warmup_max, warmup_increase, warmup_reply_rate, warmup_tag, warmup_pool_type,
-		          warmup_start_time, warmup_end_time, warmup_days, warmup_placement, warmup_folder, save_to_sent, created_at, updated_at
+		          warmup_start_time, warmup_end_time, warmup_days, warmup_placement, warmup_folder, COALESCE(warmup_retention_days, 0) AS warmup_retention_days, save_to_sent, created_at, updated_at
 	`, strings.Join(setClauses, ", "))
 
 	var i models.Email
@@ -1108,7 +1125,7 @@ func (r *emailRepository) Update(ctx context.Context, orgID, emailAccountID stri
 		// dashboard on every unrelated edit.
 		&i.AuthState, &i.AuthSPF, &i.AuthDKIM, &i.AuthDMARC, &i.AuthDMARCPolicy, &i.AuthReason, &i.AuthCheckedAt, &i.AuthFailingSince,
 		&i.Warmup, &i.WarmupPausedAt, &i.WarmupBase, &i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
-		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.SaveToSent,
+		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.WarmupRetentionDays, &i.SaveToSent,
 		&i.CreatedAt, &i.UpdatedAt,
 	)
 	if err != nil {
@@ -1573,7 +1590,7 @@ func (r *emailRepository) GetByID(ctx context.Context, emailAccountID uuid.UUID)
 		 ea.provider, ea.status, COALESCE(ea.last_synced_at, ea.created_at) AS last_synced_at, ea.last_id, ea.campaign_limit,
 		 ea.min_wait_time, ea.reply_to, ea.tracking_domain, ea.tracking_domain_verified, ea.tracking_domain_verified_at, ea.track_direct_mail, ea.warmup, ea.warmup_paused_at, ea.warmup_base,
 		 ea.warmup_max, ea.warmup_increase, ea.warmup_reply_rate, ea.warmup_tag, ea.warmup_pool_type,
-		 ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.warmup_placement, ea.warmup_folder, ea.timezone, ea.save_to_sent,
+		 ea.warmup_start_time, ea.warmup_end_time, ea.warmup_days, ea.warmup_placement, ea.warmup_folder, COALESCE(ea.warmup_retention_days, 0) AS warmup_retention_days, ea.timezone, ea.save_to_sent,
 		 ea.auth_state, ea.auth_failing_since,
 		 ea.created_at, ea.updated_at, ea.oauth_slot_id,
 		 COALESCE(array_agg(eat.tag_id) FILTER (WHERE eat.tag_id IS NOT NULL), '{}') AS tags
@@ -1589,7 +1606,7 @@ func (r *emailRepository) GetByID(ctx context.Context, emailAccountID uuid.UUID)
 		&i.Provider, &i.Status, &i.LastSyncedAt, &i.LastID, &i.CampaignLimit,
 		&i.MinWaitTime, &i.ReplyTo, &i.TrackingDomain, &i.TrackingDomainVerified, &i.TrackingDomainVerifiedAt, &i.TrackDirectMail, &i.Warmup, &i.WarmupPausedAt, &i.WarmupBase,
 		&i.WarmupMax, &i.WarmupIncrease, &i.WarmupReplyRate, &i.WarmupTag, &i.WarmupPoolType,
-		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.Timezone, &i.SaveToSent,
+		&i.WarmupStartTime, &i.WarmupEndTime, &i.WarmupDays, &i.WarmupPlacement, &i.WarmupFolder, &i.WarmupRetentionDays, &i.Timezone, &i.SaveToSent,
 		&i.AuthState, &i.AuthFailingSince,
 		&i.CreatedAt, &i.UpdatedAt, &i.OAuthSlotID, &i.Tags,
 	)
@@ -2132,6 +2149,46 @@ func (r *emailRepository) ListOrganizationIDs(ctx context.Context) ([]uuid.UUID,
 		out = append(out, id)
 	}
 	return out, rows.Err()
+}
+
+// GetSyncSkipFolders reads the mailbox's skip list; an empty list for a
+// mailbox that never set one.
+func (r *emailRepository) GetSyncSkipFolders(ctx context.Context, emailAccountID uuid.UUID) ([]string, *errx.Error) {
+	query := `SELECT sync_skip_folders FROM email_accounts WHERE id = $1`
+	var folders []string
+	if err := r.DB.QueryRow(ctx, query, emailAccountID).Scan(&folders); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errx.ErrNotFound
+		}
+		db.CaptureError(err, query, []any{emailAccountID}, "query")
+		return nil, errx.InternalError()
+	}
+	return folders, nil
+}
+
+// SetSyncSkipFolders stores the skip list as given; the caller has already
+// normalized it. A nil slice would bind as SQL NULL against a NOT NULL
+// column, so an empty list is written as an empty array.
+func (r *emailRepository) SetSyncSkipFolders(ctx context.Context, orgID, emailAccountID string, folders []string) *errx.Error {
+	if folders == nil {
+		folders = []string{}
+	}
+	query := `
+		UPDATE email_accounts
+		SET sync_skip_folders = $1, updated_at = NOW()
+		WHERE organization_id = $2 AND id = $3
+	`
+	params := []any{folders, orgID, emailAccountID}
+
+	cmd, err := r.DB.Exec(ctx, query, params...)
+	if err != nil {
+		db.CaptureError(err, query, params, "exec")
+		return errx.InternalError()
+	}
+	if cmd.RowsAffected() == 0 {
+		return errx.ErrNotFound
+	}
+	return nil
 }
 
 // IsWarmupOnlyMailbox reports whether a mailbox carries a warmup-only tag ('חימום' or 'warmup').

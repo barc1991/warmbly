@@ -52,6 +52,26 @@ export default function SSOCallbackPage() {
                     navigate("/auth/login", { replace: true, state: { two_fa_pending: session.pending_token } });
                     return;
                 }
+                // The provider's address already belongs to an account with a
+                // password. Nothing is linked and no session exists until that
+                // password is entered, which the login screen collects.
+                if (session.link_required) {
+                    if (!session.pending_token) {
+                        setError("לכתובת זו כבר קיים חשבון, אך בקשת הקישור לא התקבלה. נסה להתחבר שוב.");
+                        return;
+                    }
+                    navigate("/auth/login", {
+                        replace: true,
+                        state: {
+                            sso_link: {
+                                pending_token: session.pending_token,
+                                email: session.link_email ?? "",
+                                provider: session.link_provider ?? "",
+                            },
+                        },
+                    });
+                    return;
+                }
                 if (!session.access_token) {
                     setError("ההתחברות לא החזירה סשן פעיל. נסה שוב.");
                     return;

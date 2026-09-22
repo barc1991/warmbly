@@ -22,6 +22,9 @@ func (w *WMail) SyncGoogle(ctx context.Context) *errx.MailError {
 	w.beginTick()
 	stats := &tickStats{}
 	w.googleTick = stats
+	if !w.retryUnmap(ctx) {
+		return nil
+	}
 
 	newHistoryID, err := w.GoogleData.Client.FetchHistory(ctx, w.GoogleData.LastHistoryID)
 	if newHistoryID != 0 && newHistoryID != w.GoogleData.LastHistoryID {
@@ -140,7 +143,7 @@ func (w *WMail) googleStore(ctx context.Context, msg *models.EmailMessageData) e
 		SentDate:     msg.Date,
 		Snippet:      msg.Snippet,
 		BodyText:     SearchText(msg.BodyPlain, msg.BodyHTML),
-		Seen:         false,
+		Seen:         models.SeenFromFlags(msg.Flags),
 		UpdatedAt:    now,
 		CreatedAt:    now,
 	}

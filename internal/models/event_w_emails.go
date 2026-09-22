@@ -5,12 +5,25 @@ import "github.com/google/uuid"
 type JobEventNewEmail struct {
 	UserID  uuid.UUID              `json:"user_id" avro:"user_id"`
 	Message *EmailMessageStoreData `json:"message" avro:"message"`
+	// ReportOriginalMessageID is set when this arrival is a delivery-status
+	// notification or an abuse report ABOUT one of our own sends, and carries
+	// that send's RFC Message-ID. The worker is the only side that can read it
+	// (the id lives in the report's body, which the consumer has no access to),
+	// and the consumer needs it to tell a report about a campaign send, which
+	// the customer should see, from one about a warmup send, which is pool
+	// traffic they never sent and cannot act on. Empty on ordinary mail and on
+	// events from workers predating the field.
+	ReportOriginalMessageID string `json:"report_original_message_id,omitempty" avro:"report_original_message_id"`
 }
 
 type JobEventRemoveEmail struct {
 	UserID  uuid.UUID `json:"user_id" avro:"user_id"`
 	EmailID uuid.UUID `json:"email_id" avro:"email_id"`
 	ID      uuid.UUID `json:"id" avro:"id"`
+	// SkippedFolder is set when the message was found in a folder the owner
+	// excluded from sync: it still exists in the mailbox, so the removal is
+	// filing, not deletion.
+	SkippedFolder string `json:"skipped_folder,omitempty" avro:"skipped_folder"`
 }
 
 type JobEventFlags struct {

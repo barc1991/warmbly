@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/infrastructure/db"
 	"github.com/warmbly/warmbly/internal/models"
@@ -59,20 +61,48 @@ func NewAnalyticsRepository(db *db.DB) AnalyticsRepository {
 }
 
 func (r *analyticsRepository) GetWarmupStats(ctx context.Context, orgID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) ([]models.WarmupDailyStats, *errx.Error) {
+	// Sends come from the daily plan rows, arrivals from the verified receipts,
+	// joined both ways so a day the mailbox was written to but did not send
+	// still shows what came in. Receipts are bucketed on the UTC day, which is
+	// the day the plan rows are keyed on, and bounded by the UTC instants the
+	// caller passes rather than a session-timezone date cast.
 	query := `
+		WITH sent AS (
+			SELECT
+				ws.date,
+				SUM(ws.emails_sent) AS emails_sent,
+				SUM(ws.emails_replied) AS emails_replied,
+				SUM(ws.target_volume) AS target_volume
+			FROM warmup_statistics ws
+			JOIN email_accounts ea ON ea.id = ws.email_account_id
+			WHERE ea.organization_id = $1
+			  AND ws.date >= $2
+			  AND ws.date <= $3
+			  AND ($4::uuid IS NULL OR ws.email_account_id = $4)
+			GROUP BY ws.date
+		),
+		received AS (
+			SELECT
+				(wr.created_at AT TIME ZONE 'UTC')::date AS date,
+				COUNT(*) AS emails_received
+			FROM warmup_received wr
+			JOIN email_accounts ea ON ea.id = wr.email_account_id
+			WHERE ea.organization_id = $1
+			  AND wr.created_at >= $2::timestamptz
+			  AND wr.created_at < ($3::timestamptz + interval '1 day')
+			  AND ($4::uuid IS NULL OR wr.email_account_id = $4)
+			GROUP BY 1
+		)
 		SELECT
-			ws.date::text,
-			SUM(ws.emails_sent),
-			SUM(ws.emails_replied),
-			SUM(ws.target_volume)
-		FROM warmup_statistics ws
-		JOIN email_accounts ea ON ea.id = ws.email_account_id
-		WHERE ea.organization_id = $1
-		  AND ws.date >= $2
-		  AND ws.date <= $3
-		  AND ($4::uuid IS NULL OR ws.email_account_id = $4)
-		GROUP BY ws.date
-		ORDER BY ws.date ASC
+			COALESCE(s.date, r.date)::text,
+			COALESCE(s.emails_sent, 0),
+			COALESCE(s.emails_replied, 0),
+			COALESCE(r.emails_received, 0),
+			COALESCE(s.target_volume, 0),
+			s.date IS NOT NULL
+		FROM sent s
+		FULL OUTER JOIN received r ON r.date = s.date
+		ORDER BY 1 ASC
 	`
 
 	params := []any{orgID, from, to, emailAccountID}
@@ -87,7 +117,7 @@ func (r *analyticsRepository) GetWarmupStats(ctx context.Context, orgID uuid.UUI
 	stats := make([]models.WarmupDailyStats, 0)
 	for rows.Next() {
 		var s models.WarmupDailyStats
-		if err := rows.Scan(&s.Date, &s.EmailsSent, &s.EmailsReplied, &s.TargetVolume); err != nil {
+		if err := rows.Scan(&s.Date, &s.EmailsSent, &s.EmailsReplied, &s.EmailsReceived, &s.TargetVolume, &s.Active); err != nil {
 			db.CaptureError(err, "", nil, "scan")
 			return nil, errx.InternalError()
 		}
@@ -218,6 +248,10 @@ func (r *analyticsRepository) GetCampaignEngagementBreakdown(ctx context.Context
 	// browser so a plain webmail open still lands in a named bucket, and
 	// unknown stays the empty key.
 	bucket := func(keyExpr string) ([]models.EngagementBucket, *errx.Error) {
+		// The aggregates are grouped in a subquery and ordered outside it
+		// because Postgres only resolves an output column name in ORDER BY
+		// when it stands alone: inside `opens + clicks` it looked for a column
+		// named `opens` on email_opens and every call failed with 42703.
 		query := `
 			WITH ev AS (
 				SELECT contact_id, 'open' AS kind, client, browser, device_type, country_code
@@ -227,12 +261,15 @@ func (r *analyticsRepository) GetCampaignEngagementBreakdown(ctx context.Context
 				SELECT contact_id, 'click' AS kind, client, browser, device_type, country_code
 				FROM email_link_clicks
 				WHERE campaign_id = $1 AND NOT machine
+			), buckets AS (
+				SELECT ` + keyExpr + ` AS key,
+				       COUNT(DISTINCT contact_id) FILTER (WHERE kind = 'open') AS opens,
+				       COUNT(DISTINCT contact_id) FILTER (WHERE kind = 'click') AS clicks
+				FROM ev
+				GROUP BY 1
 			)
-			SELECT ` + keyExpr + ` AS key,
-			       COUNT(DISTINCT contact_id) AS opens,
-			       COUNT(DISTINCT contact_id) FILTER (WHERE kind = 'click') AS clicks
-			FROM ev
-			GROUP BY 1
+			SELECT key, opens, clicks
+			FROM buckets
 			ORDER BY opens + clicks DESC, key ASC
 			LIMIT $2
 		`
@@ -351,6 +388,7 @@ func (r *analyticsRepository) GetAccountsWithErrors(ctx context.Context, userID 
 	return accountIDs, nil
 }
 
+// GetAccountDailyUsage uses the same completed-task ledger as the sending caps.
 func (r *analyticsRepository) GetAccountDailyUsage(ctx context.Context, accountID uuid.UUID, date time.Time) (*models.AccountDailyUsage, *errx.Error) {
 	query := `
 		SELECT
@@ -366,10 +404,17 @@ func (r *analyticsRepository) GetAccountDailyUsage(ctx context.Context, accountI
 				  AND ` + taskDispatchedEmail + `
 			) as campaign_sent,
 			COALESCE(ea.campaign_limit, 50) as campaign_limit,
-			COALESCE(ws.emails_sent, 0) as warmup_sent,
+			(
+				SELECT COUNT(*)
+				FROM tasks t
+				WHERE t.email_account_id = ea.id
+				  AND t.status = 'completed'
+				  AND t.task_type = 'warmup'
+				  AND t.completed_at >= $2::date
+				  AND t.completed_at < $2::date + INTERVAL '1 day'
+			) as warmup_sent,
 			COALESCE(ea.warmup_max, 0) as warmup_limit
 		FROM email_accounts ea
-		LEFT JOIN warmup_statistics ws ON ws.email_account_id = ea.id AND ws.date = $2::date
 		WHERE ea.id = $1
 	`
 
@@ -384,6 +429,13 @@ func (r *analyticsRepository) GetAccountDailyUsage(ctx context.Context, accountI
 		&usage.WarmupLimit,
 	)
 	if err != nil {
+		// Every row here hangs off email_accounts, so no row means the mailbox
+		// is gone rather than that anything failed. Reported as an incident it
+		// filed "no rows in result set" against a query that did exactly what
+		// it was asked, and answered the caller 500 for a 404.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errx.ErrNotFound
+		}
 		db.CaptureError(err, query, params, "queryrow")
 		return nil, errx.InternalError()
 	}

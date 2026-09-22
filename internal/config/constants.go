@@ -95,6 +95,8 @@ const (
 	SyncBackfillPerMinute           = 240   // backfill pacing per mailbox
 	SyncFloodPerHour                = 5_000 // new live messages observed in one hour that mark a mailbox as flooding
 	SyncThrottleEscalationDays      = 3     // throttled UTC days out of the last 7 that deactivate a mailbox
+	SyncSkipFoldersMax              = 50    // folders one mailbox may exclude from sync
+	SyncSkipFolderNameMax           = 255   // characters in one excluded folder name
 
 	// Forms. Funnel events feed analytics ranges up to 90 days, so the default
 	// window keeps double coverage. Operator-editable under Instance settings.
@@ -252,6 +254,30 @@ const (
 	RetentionDaysMin = 1
 	RetentionDaysMax = 3650
 
+	// Warmup mail is real mail in the customer's mailbox, and nothing about
+	// it is worth keeping once its engagement has been recorded. The platform
+	// deletes it from the warmup folder after this many days (per mailbox
+	// override in email_accounts.warmup_retention_days), so a mailbox on a
+	// fixed quota never fills up with it and the deletion is the platform's
+	// own. The floor leaves room for the delayed engagement legs and for a
+	// reply-back in the thread to finish before its opener goes.
+	WarmupMailRetentionDaysDefault = 30
+	WarmupMailRetentionDaysMin     = 3
+
+	// WarmupEventRetentionDaysDefault is how long the per-message warmup
+	// records (tokens, receipts, tampering and spam reports) are kept. The
+	// health bands read at most thirty days, which is the floor; the daily
+	// warmup_statistics rows carry the analytics and are never pruned.
+	WarmupEventRetentionDaysDefault = 365
+	WarmupEventRetentionDaysMin     = 30
+
+	// WarmupDeletionStrikeHours is how soon after arrival a deletion of a
+	// warmup email still costs the pool its engagement and so counts as
+	// tampering. Later on it is housekeeping: the platform was going to delete
+	// it anyway, and a mailbox owner tidying a folder, a provider purging its
+	// Trash or a server retention rule must not read as harm.
+	WarmupDeletionStrikeHours = 24
+
 	// CampaignSendStampAttempts is how many times the control plane retries the
 	// sent_at stamp after a send is already on the bus. The reservation is what
 	// keeps the step from being re-sent, so a lost stamp is a pacing problem,
@@ -396,7 +422,16 @@ const (
 	PoolLinkPlanPriceUSD         = 15
 	WarmupPoolTierFallbackFloor  = 10_000 // always borrow fallback recipients
 	WarmupPoolFallbackMinAgeDays = 0      // immediately fill in
-	DailyThrottleNewOrgs         = 1_000  // new workspaces per owner per day
+	WarmupPoolReturnVisitDays    = 14     // a proven free mailbox may write back to a paying mailbox that wrote to it this recently
+	// What one inbox may receive from the pool in a day: WarmupInboundDailyMultiple
+	// times its own daily sends, never below the floor (a recipient-only mailbox
+	// sends nothing) and never above the ceiling. A recipient at its cap is left
+	// out of every draw for the rest of the day, so paying the pool's debt to a
+	// thin tier never turns into flooding it.
+	WarmupInboundDailyFloor    = 10
+	WarmupInboundDailyCeiling  = 60
+	WarmupInboundDailyMultiple = 2
+	DailyThrottleNewOrgs       = 1_000 // new workspaces per owner per day
 
 	// CLI sign-in handshake (`warmbly auth login`). Shorter-lived than the pool
 	// link handshake because a person is watching the terminal while it runs.

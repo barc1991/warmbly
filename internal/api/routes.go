@@ -39,7 +39,7 @@ func Run(
 	// ours, which reports the panic with its request context before returning
 	// the same 500. Everything else about the pair is unchanged.
 	r := gin.New()
-	r.Use(gin.Logger())
+	r.Use(middleware.RequestLogger())
 	r.Use(middleware.Recovery())
 
 	// Gin trusts every proxy by default, which makes X-Forwarded-For (and so
@@ -54,6 +54,10 @@ func Run(
 	} else {
 		_ = r.SetTrustedProxies(nil)
 	}
+
+	// Registered before every route, including the public ones below, so the
+	// headers reach the OAuth bouncer pages and /public as well as the API.
+	r.Use(middleware.SecurityHeaders())
 
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.APIVersionMiddleware(middleware.APIVersion))
@@ -295,6 +299,16 @@ func Run(
 		cliAuthPublic.POST("/poll", h.CLIAuthPoll)
 	}
 
+	// Minting a passkey challenge gets a dedicated per-IP limiter so a page
+	// that requests one on every load (for discoverable login or autofill)
+	// cannot spend the allowance password sign-in, registration and reset all
+	// draw on. Finishing the ceremony is an attempt and stays on /auth below.
+	passkeyPublic := v1.Group("/auth/passkey")
+	passkeyPublic.Use(m.PasskeyChallengeIPRateLimitMiddleware())
+	{
+		passkeyPublic.POST("/login/begin", h.PasskeyLoginBegin)
+	}
+
 	auth := v1.Group("/auth")
 	// Every unauthenticated auth route shares one per-IP budget. Nothing
 	// throttled these before: RateLimitMiddleware is keyed on the user id and
@@ -323,7 +337,6 @@ func Run(
 		// is already strong auth, so it's a single step with no email OTP.
 		// Public on purpose — there's no account context until the assertion
 		// resolves, and the challenge + signature are the protection.
-		auth.POST("/passkey/login/begin", h.PasskeyLoginBegin)
 		auth.POST("/passkey/login/finish", h.PasskeyLoginFinish)
 
 		// Native-app social sign-in: the app authenticates with Apple/Google
@@ -352,6 +365,10 @@ func Run(
 		// The name the exchange shipped under when OIDC was the only browser
 		// flow, kept so a client written against it keeps working.
 		auth.POST("/oidc/exchange", h.SSOExchange)
+		// A federated sign-in whose address belongs to an existing password
+		// account comes back link_required; this takes the password, attaches
+		// the identity and issues the session.
+		auth.POST("/sso/link", h.SSOLink)
 
 		// 2FA login challenge (PUBLIC): exchanges a single-use pending token +
 		// TOTP/recovery code for a real session. Rate-limited in the service
@@ -400,13 +417,24 @@ func Run(
 		protectedAuth.POST("/2fa/enroll/start", h.TwoFAEnrollStart)
 		protectedAuth.POST("/2fa/enroll/confirm", h.TwoFAEnrollConfirm)
 		protectedAuth.DELETE("/2fa", h.TwoFADisable)
+		// No Idempotency-Key: the proof code is single-use, so a retry is refused rather than rotating twice.
+		protectedAuth.POST("/2fa/recovery-codes", h.TwoFARegenerateRecoveryCodes)
+
+		// Re-prove the account holder behind a live session. What the routes
+		// marked RequireFreshAuth below are waiting for.
+		protectedAuth.POST("/reauth", h.Reauth)
 
 		// Passkey enrollment + management require an authenticated session.
-		protectedAuth.POST("/passkey/register/begin", h.PasskeyRegisterBegin)
-		protectedAuth.POST("/passkey/register/finish", h.PasskeyRegisterFinish)
+		//
+		// Registering a passkey adds a credential that signs in on its own, so
+		// it is a sensitive change in the CASA 2.4.1 sense: a stolen token must
+		// not be enough to leave a permanent way back in. Listing and renaming
+		// are not.
+		protectedAuth.POST("/passkey/register/begin", middleware.RequireFreshAuth(), h.PasskeyRegisterBegin)
+		protectedAuth.POST("/passkey/register/finish", middleware.RequireFreshAuth(), h.PasskeyRegisterFinish)
 		protectedAuth.GET("/passkey/credentials", h.PasskeyListCredentials)
 		protectedAuth.PATCH("/passkey/credentials/:id", h.PasskeyRenameCredential)
-		protectedAuth.DELETE("/passkey/credentials/:id", h.PasskeyDeleteCredential)
+		protectedAuth.DELETE("/passkey/credentials/:id", middleware.RequireFreshAuth(), h.PasskeyDeleteCredential)
 	}
 
 	// The full customer-facing API surface (the API-key-capable `protected`
@@ -474,6 +502,7 @@ func Run(
 				// and warmup gate, so a read-only key must not reach it.
 				emails.POST("/:id/auth-check", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.RefreshEmailAuthCheck)
 				emails.GET("/:id/sync", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.GetEmailSync)
+				emails.PUT("/:id/sync", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.UpdateEmailSync)
 				// Which addresses the provider will let this mailbox send as,
 				// and where its signature came from. The refresh is the only
 				// half that calls the provider, and storing its answer is what
@@ -849,7 +878,11 @@ func Run(
 			apiKeys.Use(m.RateLimitMiddleware(models.RateLimitWrite))
 			{
 				apiKeys.GET("", h.ListAPIKeys)
-				apiKeys.POST("", h.CreateAPIKey)
+				// A new key is a durable credential that outlives the session
+				// that made it, so a session caller confirms first. A key or
+				// OAuth caller has no session to confirm and passes through to
+				// the permission gate.
+				apiKeys.POST("", middleware.RequireFreshAuth(), h.CreateAPIKey)
 				apiKeys.GET("/permissions", h.ListAPIPermissions)
 				apiKeys.GET("/usage/summary", h.GetAPIKeyUsageSummary)
 				apiKeys.GET("/usage/analytics", h.GetAPIKeyAnalytics)
@@ -1229,7 +1262,7 @@ func Run(
 				org.DELETE("/invitations/:id", m.RequireOrganization(), m.RequirePermission(models.PermManageTeam), h.CancelInvitation)
 				org.GET("/invitations/:id/link", m.RequireOrganization(), m.RequirePermission(models.PermManageTeam), h.GetInvitationLink)
 
-				org.POST("/transfer-ownership", m.RequireOrganization(), m.RequirePermission(models.PermTransferOwnership), h.TransferOwnership)
+				org.POST("/transfer-ownership", m.RequireOrganization(), m.RequirePermission(models.PermTransferOwnership), middleware.RequireFreshAuth(), h.TransferOwnership)
 
 				org.POST("/avatar", m.RequireOrganization(), h.UploadOrganizationAvatar)
 				org.DELETE("/avatar", m.RequireOrganization(), h.DeleteOrganizationAvatar)
@@ -1251,7 +1284,7 @@ func Run(
 				org.GET("/current/import/:id", m.RequireOrganization(), h.GetOrgImport)
 
 				org.GET("/current/danger-zone", m.RequireOrganization(), h.GetOrganizationDangerZone)
-				org.POST("/current/danger-zone/delete", m.RequireOrganization(), h.ScheduleOrganizationDeletion)
+				org.POST("/current/danger-zone/delete", m.RequireOrganization(), middleware.RequireFreshAuth(), h.ScheduleOrganizationDeletion)
 				org.DELETE("/current/danger-zone/delete", m.RequireOrganization(), h.CancelOrganizationDeletion)
 
 				// Customer-facing limit-increase requests. The "current
@@ -1300,7 +1333,7 @@ func Run(
 			account := jwtOnly.Group("/me")
 			{
 				account.GET("/danger-zone", h.GetAccountDangerZone)
-				account.POST("/danger-zone/delete", h.ScheduleAccountDeletion)
+				account.POST("/danger-zone/delete", middleware.RequireFreshAuth(), h.ScheduleAccountDeletion)
 				account.DELETE("/danger-zone/delete", h.CancelAccountDeletion)
 
 				// A member's own layout of a dashboard list (columns, order,

@@ -14,6 +14,7 @@ import (
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/observability/analytics"
+	"github.com/warmbly/warmbly/internal/pkg/displayname"
 	"github.com/warmbly/warmbly/internal/pkg/signuprisk"
 )
 
@@ -42,12 +43,13 @@ type SignupAttribution struct {
 }
 
 func (s *authService) createAccount(ctx context.Context, address, passwordHash string, attr SignupAttribution, origin SignupOrigin) (*models.User, *errx.Error) {
-	address = strings.ToLower(strings.TrimSpace(address))
 	email, perr := mail.ParseAddress(address)
 	if perr != nil {
 		return nil, errx.ErrEmail
 	}
-	email.Address = strings.ToLower(strings.TrimSpace(email.Address))
+	// The single write path for a new account, so the stored form is decided
+	// here even though every caller already folded it.
+	email.Address = normalizeEmail(email.Address)
 
 	// Whether the invitation is the only thing that permitted this signup.
 	// When it is, a failed accept cannot fall through to a personal workspace:
@@ -100,10 +102,7 @@ func (s *authService) createAccount(ctx context.Context, address, passwordHash s
 	// Auto-create organization for new user
 	var org *models.Organization
 	if s.organizationService != nil {
-		orgName := u.FirstName + "'s Organization"
-		if u.FirstName == "" {
-			orgName = "My Organization"
-		}
+		orgName := displayname.DefaultWorkspace(u.FirstName)
 		var orgErr *errx.Error
 		org, orgErr = s.organizationService.Create(ctx, u.ID, orgName)
 		if orgErr != nil {
@@ -237,7 +236,7 @@ func (s *authService) notifyOperatorSignup(u *models.User, workspace string) {
 		"A new account finished signing up.",
 		map[string]string{
 			"Email":     u.Email,
-			"Name":      strings.TrimSpace(u.FirstName + " " + u.LastName),
+			"Name":      displayname.FullName(u.FirstName, u.LastName),
 			"Workspace": workspace,
 		},
 	)

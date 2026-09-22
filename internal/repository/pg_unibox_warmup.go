@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -15,7 +16,7 @@ import (
 func (r *uniboxRepository) ListWarmupReviewCandidates(ctx context.Context, afterID uuid.UUID, limit int) ([]models.JobEventNewEmail, error) {
 	rows, err := r.db.Query(ctx, `
 		SELECT u.user_id, u.id, u.email_id, u.message_id, u.thread_id, u.flags, u.from_addr, u.subject,
-		       u.gmail_id, u.uid, u.mailbox, u.folder_path
+		       u.gmail_id, u.uid, u.mailbox, u.folder_path, u.in_reply_to
 		FROM unibox_emails u
 		WHERE u.id > $1 AND (
 		    EXISTS (SELECT 1 FROM cloud_link_mailboxes c WHERE c.email_account_id = u.email_id)
@@ -35,7 +36,7 @@ func (r *uniboxRepository) ListWarmupReviewCandidates(ctx context.Context, after
 		// the same worker action as a fresh arrival, and the Gmail path acts on
 		// gmail_id rather than the RFC id.
 		if err := rows.Scan(&e.UserID, &m.ID, &m.EmailID, &m.MessageID, &m.ThreadID, &m.Flags, &m.FromAddr, &m.Subject,
-			&m.GmailID, &m.UID, &m.Mailbox, &m.FolderPath); err != nil {
+			&m.GmailID, &m.UID, &m.Mailbox, &m.FolderPath, &m.InReplyTo); err != nil {
 			return nil, err
 		}
 		events = append(events, e)
@@ -138,4 +139,58 @@ func (r *uniboxRepository) UpdatePendingEmail(ctx context.Context, userID, id uu
 		return false, err
 	}
 	return true, tx.Commit(ctx)
+}
+
+// ListUnprocessedCampaignReplies feeds the repair sweep in the consumer. A
+// reply that reply processing refused before claiming (an address check that
+// failed, the automation switch) has campaign_reply_processed_at NULL, so
+// this is exactly the set that can still be attributed; everything already
+// decided is excluded by that column. Bounded to `since` because older mail
+// was processed by the code of its day.
+func (r *uniboxRepository) ListUnprocessedCampaignReplies(ctx context.Context, since time.Time, afterID uuid.UUID, limit int) ([]models.JobEventNewEmail, error) {
+	// The sender in whichever form the sync stored it: "Name <addr>",
+	// "Name (addr)" or bare.
+	const bareFrom = `lower(COALESCE(
+		(regexp_match(COALESCE(u.from_addr[1], ''), '<([^<>]+)>\s*$'))[1],
+		(regexp_match(COALESCE(u.from_addr[1], ''), '\(([^()]+)\)\s*$'))[1],
+		u.from_addr[1]))`
+	rows, err := r.db.Query(ctx, `
+		SELECT u.user_id, u.id, u.email_id, u.message_id, u.thread_id, u.flags, u.from_addr, u.to_addr, u.cc, u.bcc,
+		       u.reply_to, u.in_reply_to, u.subject, u.snippet, u.body_text, u.folder, u.provider_folder,
+		       u.gmail_id, u.uid, u.mailbox, u.folder_path, u.internal_date
+		FROM unibox_emails u
+		WHERE u.id > $1
+		  AND u.created_at >= $2
+		  AND u.campaign_reply_processed_at IS NULL
+		  AND u.folder NOT IN ('sent', 'drafts')
+		  AND u.provider_folder NOT IN ('sent', 'drafts')
+		  AND (
+		    EXISTS (
+		      SELECT 1 FROM tasks t
+		      WHERE t.task_type = 'campaign'
+		        AND btrim(t.message_id, '<>') = ANY(ARRAY(SELECT btrim(x, '<>') FROM unnest(u.in_reply_to) AS x))
+		    )
+		    OR EXISTS (
+		      SELECT 1 FROM email_accounts ea
+		      JOIN contacts co ON co.organization_id = ea.organization_id
+		      WHERE ea.id = u.email_id AND lower(co.email) = `+bareFrom+`
+		    )
+		  )
+		ORDER BY u.id LIMIT $3`, afterID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var events []models.JobEventNewEmail
+	for rows.Next() {
+		e := models.JobEventNewEmail{Message: &models.EmailMessageStoreData{}}
+		m := e.Message
+		if err := rows.Scan(&e.UserID, &m.ID, &m.EmailID, &m.MessageID, &m.ThreadID, &m.Flags, &m.FromAddr, &m.ToAddr, &m.CC, &m.BCC,
+			&m.ReplyTo, &m.InReplyTo, &m.Subject, &m.Snippet, &m.BodyText, &m.Folder, &m.ProviderFolder,
+			&m.GmailID, &m.UID, &m.Mailbox, &m.FolderPath, &m.InternalDate); err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
 }
