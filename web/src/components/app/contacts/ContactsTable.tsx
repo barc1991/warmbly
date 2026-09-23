@@ -53,6 +53,7 @@ import useSearchContacts from "@/lib/api/hooks/app/contacts/useSearchContacts";
 import type SearchContacts from "@/lib/api/models/app/contacts/SearchContacts";
 import useDeleteContacts from "@/lib/api/hooks/app/contacts/useDeleteContacts";
 import { useRequestContactVerification } from "@/lib/api/hooks/app/contacts/useContactVerification";
+import { reverifyNotice } from "@/lib/api/client/app/contacts/verification";
 import VerificationBadge from "./VerificationBadge";
 import { useBatchResearch } from "@/lib/api/hooks/app/contacts/useContactResearch";
 import useIntegrationConnections from "@/lib/api/hooks/app/integrations/useIntegrationConnections";
@@ -472,13 +473,17 @@ export default function ContactsTable({
     const verification = useRequestContactVerification();
     function bulkVerify() {
         if (selectionCount === 0) return;
+        const countStr = selectionCount.toLocaleString();
+        const addressStr = selectionCount === 1 ? "כתובת אחת" : `${countStr} כתובות`;
         confirm?.show(
-            `Re-verify ${selectionCount.toLocaleString()} ${selectionCount === 1 ? "address" : "addresses"}? Verdicts land in the background${
-                selectionCount > 50 ? " over the next few minutes" : ""
+            `לבצע אימות מחדש עבור ${addressStr}? הסטטוסים הנוכחיים יישארו בתוקף עד שתוצאות הבדיקה יתקבלו ברקע${
+                selectionCount > 50 ? " במהלך הדקות הקרובות" : ""
             }.`,
             async () => {
                 const res = await verification.mutateAsync({ ...selection, action: "verify" });
-                toast.success(`Re-checking ${res.affected.toLocaleString()} ${res.affected === 1 ? "address" : "addresses"}`);
+                const notice = reverifyNotice(res, "address", "addresses");
+                if (notice.warn) toast(notice.text, { icon: "⚠️" });
+                else toast.success(notice.text);
                 clearSelection();
             },
         );

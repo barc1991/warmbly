@@ -6,18 +6,30 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
     AlertTriangleIcon,
+    BadgeCheckIcon,
     CircleDashedIcon,
+    Loader2Icon,
     MailCheckIcon,
     MailOpenIcon,
     MailWarningIcon,
     MousePointerClickIcon,
+    RefreshCcwIcon,
     ReplyIcon,
     ShieldCheckIcon,
     ShieldXIcon,
     SparklesIcon,
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import type { ContactVerificationDetail, VerificationEvidenceKind } from "@/lib/api/models/app/contacts/ContactDetail";
-import { fmtRelative } from "./format";
+import { useContactVerification, useRequestContactVerification } from "@/lib/api/hooks/app/contacts/useContactVerification";
+import { reverifyNotice } from "@/lib/api/client/app/contacts/verification";
+import { PROVIDER_LABELS, type IntegrationProvider } from "@/lib/api/models/app/integrations/Integration";
+import type { AppError } from "@/lib/api/client/normalizeError";
+import buildError from "@/lib/helper/buildError";
+import { useWriteGuard } from "@/hooks/usePermission";
+import { verificationSourceLabel } from "../VerificationBadge";
+import { fmtAbsolute, fmtRelative } from "./format";
 import { cn } from "@/lib/utils";
 
 const STATUS = {
@@ -70,6 +82,25 @@ export function translateReason(reason: string): string {
     if (lower === "never checked") return "טרם נבדק";
     if (lower.startsWith("real mail outranks the earlier check")) return "דוא״ל אמיתי גובר על בדיקות קודמות";
 
+    if (lower.startsWith("verified deliverable with ")) {
+        return `אומת כניתן למסירה באמצעות ${reason.slice("verified deliverable with ".length)}`;
+    }
+    if (lower.includes(" reported the address undeliverable")) {
+        const parts = reason.split(" reported the address undeliverable");
+        return `${parts[0]} דיווח שהכתובת אינה ניתנת למסירה`;
+    }
+    if (lower.startsWith("flagged risky by ")) {
+        return `סומן בסיכון על ידי ${reason.slice("flagged risky by ".length)}`;
+    }
+    if (lower.endsWith(" could not decide")) {
+        const who = reason.slice(0, reason.length - " could not decide".length);
+        return `${who} לא הצליח להכריע`;
+    }
+    const staleMatch = reason.match(/^real mail to it is older than this check \(last (.+)\)$/i);
+    if (staleMatch) {
+        return `דוא״ל אמיתי לכתובת זו ישן יותר מבדיקה זו (לאחרונה ${translateWhen(staleMatch[1])})`;
+    }
+
     // Evidence reasons:
     const repliedMatch = reason.match(/^replied\s+(.+)$/i);
     if (repliedMatch) return `התקבל מענה ${translateWhen(repliedMatch[1])}`;
@@ -104,12 +135,19 @@ export function translateReason(reason: string): string {
 }
 
 export default function VerificationCard({
+    contactId,
     detail,
     loading,
 }: {
+    contactId: string;
     detail?: ContactVerificationDetail | null;
     loading: boolean;
 }) {
+    const write = useWriteGuard("MANAGE_CONTACTS");
+    const request = useRequestContactVerification();
+    const pending = request.isPending || !!detail?.requested_at;
+    const { data: overview } = useContactVerification(pending);
+
     if (loading && !detail) {
         return <div className="h-20 rounded-md border border-slate-200 bg-slate-50 animate-pulse" />;
     }
@@ -119,6 +157,28 @@ export default function VerificationCard({
     const r = 16;
     const c = 2 * Math.PI * r;
     const pct = Math.max(0, Math.min(100, detail.confidence));
+
+    const source = verificationSourceLabel(detail.source, detail.provider, detail.provider_label);
+    const checkSaid =
+        detail.check_status && detail.check_status !== detail.status && (detail.source === "provider" || detail.source === "probe")
+            ? STATUS[detail.check_status]?.label.toLowerCase()
+            : "";
+    const runner = !overview
+        ? ""
+        : overview.provider !== "builtin" && !overview.provider_error
+          ? PROVIDER_LABELS[overview.provider as IntegrationProvider] ?? overview.provider
+          : "הבדיקה המובנית של Warmbly";
+
+    async function reverify() {
+        try {
+            const res = await request.mutateAsync({ contacts: [contactId], action: "verify" });
+            const notice = reverifyNotice(res, "address", "addresses");
+            if (notice.warn) toast(notice.text, { icon: "⚠️" });
+            else toast.success(notice.text);
+        } catch (err) {
+            toast.error(buildError(err as AppError));
+        }
+    }
 
     return (
         <div className="rounded-md border border-slate-200 bg-white overflow-hidden">
@@ -151,14 +211,34 @@ export default function VerificationCard({
                     </motion.span>
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-1.5">
+                    <div className="flex items-center gap-1.5">
                         <span className={cn("text-[13px] font-semibold", meta.text)}>{meta.label}</span>
                         <span className="text-[11px] text-slate-400 tabular-nums">{pct}% ודאות</span>
                         {detail.decisive && (
-                            <span className="me-auto text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
+                            <span className="hidden sm:inline text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
                                 מדוא״ל אמיתי
                             </span>
                         )}
+                        <button
+                            type="button"
+                            onClick={(e) => write.guard(() => void reverify())(e)}
+                            disabled={pending}
+                            title={pending ? "בדיקה מחדש כבר נמצאת בתור" : "בדוק כתובת זו שוב כעת"}
+                            className="ms-auto shrink-0 h-6 px-2 rounded-md border border-slate-200 bg-white text-[11px] font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 inline-flex items-center gap-1 transition-colors disabled:opacity-60 disabled:cursor-default"
+                        >
+                            {pending ? <Loader2Icon className="w-3 h-3 animate-spin" /> : <RefreshCcwIcon className="w-3 h-3" />}
+                            {pending ? "בודק..." : detail.checked_at ? "אימות מחדש" : "אמת כעת"}
+                        </button>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500 min-w-0">
+                        {detail.source === "provider" ? (
+                            <BadgeCheckIcon className="w-3 h-3 shrink-0 text-sky-600" />
+                        ) : null}
+                        <span className="truncate" title={detail.checked_at ? fmtAbsolute(detail.checked_at) : undefined}>
+                            {source ? source.charAt(0).toUpperCase() + source.slice(1) : "טרם נבדק"}
+                            {checkSaid ? `, לפיו ${checkSaid}` : ""}
+                            {detail.checked_at ? ` · ${fmtRelative(detail.checked_at)}` : ""}
+                        </span>
                     </div>
                     <ul className="mt-0.5 space-y-0.5">
                         <AnimatePresence initial={false}>
@@ -185,6 +265,36 @@ export default function VerificationCard({
                     )}
                 </div>
             </div>
+            <AnimatePresence initial={false}>
+                {pending && (
+                    <motion.div
+                        key="pending"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ type: "spring", duration: 0.35, bounce: 0.1 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="border-t border-sky-100 bg-sky-50/70 px-3 py-2 flex items-start gap-2 text-[11.5px] text-sky-800">
+                            <Loader2Icon className="w-3 h-3 mt-0.5 shrink-0 animate-spin" />
+                            <span className="leading-snug">
+                                מאמת מחדש{runner ? ` באמצעות ${runner}` : ""}. הסטטוס הנוכחי נשאר בתוקף עד לקבלת התוצאה, שתתעדכן כאן אוטומטית.
+                            </span>
+                        </div>
+                        {overview?.provider_error && (
+                            <div className="border-t border-amber-100 bg-amber-50/70 px-3 py-2 flex items-start gap-2 text-[11.5px] text-amber-800">
+                                <AlertTriangleIcon className="w-3 h-3 mt-0.5 shrink-0" />
+                                <span className="leading-snug">
+                                    {overview.provider_error}{" "}
+                                    <Link to="/app/integrations" className="underline underline-offset-2 hover:text-amber-900">
+                                        אינטגרציות
+                                    </Link>
+                                </span>
+                            </div>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
             {detail.evidence.length > 0 && (
                 <div className="border-t border-slate-100 divide-y divide-slate-100">
                     {detail.evidence.slice(0, 6).map((e, i) => {
@@ -200,7 +310,7 @@ export default function VerificationCard({
                             >
                                 <EIcon className={cn("w-3 h-3 shrink-0", m.tone)} />
                                 <span className="text-slate-700 truncate">{m.label}</span>
-                                <span className="me-auto text-slate-400 shrink-0">{fmtRelative(e.observed_at)}</span>
+                                <span className="ms-auto text-slate-400 shrink-0">{fmtRelative(e.observed_at)}</span>
                             </motion.div>
                         );
                     })}

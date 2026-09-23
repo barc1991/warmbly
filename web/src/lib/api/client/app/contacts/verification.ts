@@ -29,6 +29,32 @@ export interface VerificationResponse {
     affected: number;
     action: VerificationAction;
     queued: boolean;
+    // Who runs a queued check: "builtin" or the connected provider, with its
+    // display name. verifier_error says why a connected provider is passed
+    // over right now, in which case the built-in check runs instead.
+    verifier?: string;
+    verifier_label?: string;
+    verifier_error?: string;
+}
+
+// The toast after queueing a re-check: who runs it, and a warning when the
+// connected verifier cannot be used.
+export function reverifyNotice(res: VerificationResponse, noun: string, nouns: string): { text: string; warn: boolean } {
+    const isSingle = res.affected === 1;
+    let label = "";
+    if (noun === "lead" || noun === "leads") {
+        label = isSingle ? "ליד 1" : `${res.affected.toLocaleString()} לידים`;
+    } else if (noun === "address" || noun === "addresses") {
+        label = isSingle ? "כתובת 1" : `${res.affected.toLocaleString()} כתובות`;
+    } else {
+        label = `${res.affected.toLocaleString()} ${isSingle ? noun : nouns}`;
+    }
+
+    if (res.verifier_error) return { text: `הוכנס לתור עבור ${label}. ${res.verifier_error}`, warn: true };
+    if (res.verifier && res.verifier !== "builtin" && res.verifier_label) {
+        return { text: `מאמת מחדש ${label} באמצעות ${res.verifier_label}`, warn: false };
+    }
+    return { text: `בודק מחדש ${label}`, warn: false };
 }
 
 export async function getContactVerification(): Promise<VerificationOverview> {

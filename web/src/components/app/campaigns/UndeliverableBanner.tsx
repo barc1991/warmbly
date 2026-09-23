@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 import { useConfirm } from "@/hooks/context/confirm";
 import PermissionButton from "@/components/ui/PermissionButton";
 import { useRequestContactVerification } from "@/lib/api/hooks/app/contacts/useContactVerification";
+import { reverifyNotice } from "@/lib/api/client/app/contacts/verification";
 import useStartCampaign from "@/lib/api/hooks/app/campaigns/useStartCampaign";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
@@ -31,7 +32,9 @@ export default function UndeliverableBanner({
         setAction("verify");
         try {
             const res = await request.mutateAsync({ campaign_id: campaignId, action: "verify" });
-            toast.success(`בודק מחדש ${res.affected} ${res.affected === 1 ? "ליד" : "לידים"}. השליחה תחודש ברגע שמי מהם יעבור בהצלחה.`);
+            const notice = reverifyNotice(res, "lead", "leads");
+            if (notice.warn) toast(notice.text, { icon: "⚠️" });
+            else toast.success(`${notice.text}. השליחה תחודש ברגע שמי מהם יעבור.`);
         } catch (e) {
             toast.error(buildError(e as AppError));
         } finally {

@@ -91,7 +91,7 @@ export default function OverviewTab({
             )}
 
             <Section title="עבירות מסירה">
-                <VerificationCard detail={detail?.verification} loading={detailLoading} />
+                <VerificationCard contactId={contact.id} detail={detail?.verification} loading={detailLoading} />
             </Section>
 
             <Section title="מעורבות">

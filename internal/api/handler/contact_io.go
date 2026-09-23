@@ -103,6 +103,13 @@ func (h *Handler) ImportPreviewContacts(c *gin.Context) {
 		return
 	}
 
+	// The suggestion matches headers to this workspace's custom fields.
+	orgID := middleware.GetOrganizationID(c)
+	if orgID == nil {
+		errx.Handle(c, errx.New(errx.BadRequest, "no organization selected"))
+		return
+	}
+
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxImportUploadBytes)
 	file, header, err := c.Request.FormFile("file")
 	if err != nil {
@@ -111,7 +118,7 @@ func (h *Handler) ImportPreviewContacts(c *gin.Context) {
 	}
 	defer file.Close()
 
-	preview, xerr := h.ContactService.ImportPreview(c.Request.Context(), file, header.Filename)
+	preview, xerr := h.ContactService.ImportPreview(c.Request.Context(), *orgID, file, header.Filename)
 	if xerr != nil {
 		errx.Handle(c, xerr)
 		return

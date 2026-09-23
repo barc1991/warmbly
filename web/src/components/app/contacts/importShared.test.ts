@@ -5,10 +5,15 @@
 
 import { describe, it, expect } from "vitest";
 import {
+    customKeyOf,
+    customKeyStatus,
+    foldCustomKey,
     isValidCustomKey,
     mappingProblem,
+    matchExistingKey,
     normalizeCustomKey,
     suggestCustomKey,
+    targetIdentity,
 } from "./importShared";
 import type { ImportColumnMapping } from "@/lib/api/client/app/contacts/importContacts";
 
@@ -49,22 +54,63 @@ describe("mappingProblem", () => {
 
     it("names the column when a custom field has no name", () => {
         expect(mappingProblem([email, { index: 5, target: "custom", custom_key: "  " }])).toBe(
-            "Column 6 needs a custom field name.",
+            "עמודה 6 דורשת שם שדה מותאם אישית.",
         );
     });
 
     it("explains an unusable name instead of letting the import fail row by row", () => {
         const msg = mappingProblem([email, { index: 5, target: "custom", custom_key: "Company/Mobile" }]);
         expect(msg).toContain("Company/Mobile");
-        expect(msg).toContain("letters");
+        expect(msg).toContain("אותיות");
     });
 
     it("still requires an email column", () => {
-        expect(mappingProblem([{ index: 1, target: "first_name" }])).toBe("Map a column to Email.");
+        expect(mappingProblem([{ index: 1, target: "first_name" }])).toBe("יש למפות עמודה לאימייל.");
     });
 
     it("understands the legacy custom:<key> spelling", () => {
         expect(mappingProblem([email, { index: 2, target: "custom:plan_tier" }])).toBeNull();
         expect(mappingProblem([email, { index: 2, target: "custom:plan/tier" }])).toContain("plan/tier");
+    });
+});
+
+describe("existing custom fields", () => {
+    const existing = ["Industry", "company_url", "industry", "Total Score"];
+
+    it("finds the field a header names, ignoring case and separators", () => {
+        expect(matchExistingKey("Industry", existing)).toBe("Industry");
+        expect(matchExistingKey("INDUSTRY", existing)).toBe("Industry");
+        expect(matchExistingKey("industry", existing)).toBe("industry");
+        expect(matchExistingKey("Company URL", existing)).toBe("company_url");
+        expect(matchExistingKey("total-score", existing)).toBe("Total Score");
+        expect(matchExistingKey("Website", existing)).toBeUndefined();
+        expect(matchExistingKey("###", existing)).toBeUndefined();
+    });
+
+    it("tells an existing field from a near-duplicate and a new one", () => {
+        expect(customKeyStatus("company_url", existing)).toEqual({ kind: "existing" });
+        expect(customKeyStatus("Company-URL", existing)).toEqual({ kind: "similar", existing: "company_url" });
+        expect(customKeyStatus("Website", existing)).toEqual({ kind: "new" });
+    });
+
+    it("folds the way the server does", () => {
+        expect(foldCustomKey(" Company.URL ")).toBe("companyurl");
+        expect(foldCustomKey("Revenue ($)")).toBe("revenue");
+        expect(foldCustomKey("Area m²")).toBe("aream²");
+    });
+
+    it("reads both spellings of a custom mapping", () => {
+        expect(customKeyOf({ index: 1, target: "custom", custom_key: " Company  Mobile " })).toBe("Company Mobile");
+        expect(customKeyOf({ index: 1, target: "custom:Role" })).toBe("Role");
+        expect(customKeyOf({ index: 1, target: "custom:Role", custom_key: "" })).toBe("Role");
+        expect(customKeyOf({ index: 1, target: "email" })).toBe("");
+    });
+
+    it("names where a mapping writes, except targets that take many columns", () => {
+        expect(targetIdentity({ index: 1, target: "custom", custom_key: "Industry" })).toBe("custom:Industry");
+        expect(targetIdentity({ index: 1, target: "phone" })).toBe("phone");
+        expect(targetIdentity({ index: 1, target: "categories" })).toBeNull();
+        expect(targetIdentity({ index: 1, target: "ignore" })).toBeNull();
+        expect(targetIdentity({ index: 1, target: "custom", custom_key: "" })).toBeNull();
     });
 });
