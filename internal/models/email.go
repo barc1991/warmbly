@@ -119,6 +119,9 @@ type Email struct {
 	WarmupRetentionDays int `json:"warmup_retention_days"`
 
 	Timezone string `json:"timezone"`
+	// OrgTimezone is the workspace timezone, read alongside the row so
+	// ClockTimezone needs no second query. Not part of the mailbox's API shape.
+	OrgTimezone string `json:"-"`
 
 	// SaveToSent applies to SMTP/IMAP mailboxes only: after a send, the worker
 	// APPENDs a copy to the mailbox's Sent folder. Gmail and Outlook file their
@@ -129,6 +132,17 @@ type Email struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ClockTimezone is the zone the mailbox's own hours (warmup window, sending
+// behaviour workday, business-hours band) are read in: its own timezone, else
+// the workspace's. Empty means UTC. Campaign windows are not read here; a
+// mailbox with no timezone of its own follows the campaign's window.
+func (e *Email) ClockTimezone() string {
+	if e.Timezone != "" {
+		return e.Timezone
+	}
+	return e.OrgTimezone
 }
 
 // IsWarmingActive reports whether the mailbox is actively warming up: warmup

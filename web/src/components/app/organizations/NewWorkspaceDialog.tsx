@@ -15,6 +15,7 @@ import { Label, TextInput } from "@/components/ui/field";
 import { useAppStore } from "@/stores";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
+import { browserTimezone } from "@/lib/timezone";
 
 interface Props {
     open: boolean;
@@ -38,7 +39,7 @@ export function NewWorkspaceDialog({ open, onClose }: Props) {
             return;
         }
         try {
-            const org = await toast.promise(create.mutateAsync({ name: t }), {
+            const org = await toast.promise(create.mutateAsync({ name: t, timezone: browserTimezone() || undefined }), {
                 loading: "יוצר סביבת עבודה…",
                 success: "סביבת העבודה נוצרה בהצלחה",
                 error: (e: AppError) => buildError(e),

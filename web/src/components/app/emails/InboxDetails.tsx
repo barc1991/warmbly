@@ -42,6 +42,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useUserProfile } from "@/hooks/context/user";
+import useCurrentOrganization from "@/lib/api/hooks/app/organizations/useCurrentOrganization";
+import { timezoneOptions } from "@/lib/timezone";
 
 import type Inbox from "@/lib/api/models/app/emails/Inbox";
 import type AccountStatusModel from "@/lib/api/models/app/analytics/AccountStatus";
@@ -370,7 +372,7 @@ export default function InboxDetails({
 const EDITABLE: (keyof Inbox)[] = [
     "name", "signature_html", "signature_plain", "signature_sync", "signature_code",
     "send_as_email",
-    "tags", "campaign_limit", "min_wait_time", "reply_to", "save_to_sent",
+    "tags", "campaign_limit", "min_wait_time", "reply_to", "save_to_sent", "timezone",
     "warmup_base", "warmup_max", "warmup_increase", "warmup_reply_rate",
     "warmup_tag", "warmup_start_time", "warmup_end_time", "warmup_days",
     "warmup_placement", "warmup_folder",
@@ -1910,6 +1912,16 @@ function DisconnectCard({ mailbox, onDisconnected }: { mailbox: Inbox; onDisconn
 }
 
 function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; update: (p: Partial<Inbox>) => void; mailbox: Inbox; onDisconnected: () => void }) {
+    const { timezones } = useUserProfile();
+    const org = useCurrentOrganization();
+    const workspaceZone = org.data?.timezone ?? "";
+    const zoneOptions = useMemo<SelectOption[]>(
+        () => [
+            { value: "", label: workspaceZone ? `התאם לסביבת העבודה (${workspaceZone})` : "התאם לסביבת העבודה (UTC עד שמוגדר אזור זמן)" },
+            ...timezoneOptions(timezones, form.timezone),
+        ],
+        [timezones, workspaceZone, form.timezone],
+    );
     return (
         <div className="divide-y divide-slate-200/60">
             <div className="px-5 py-5 space-y-4">
@@ -1992,6 +2004,22 @@ function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; u
                     onAdd={(v) => update({ tags: [...form.tags, v] })}
                     onRemove={(v) => update({ tags: form.tags.filter((t) => t !== v) })}
                 />
+            </div>
+
+            <div className="px-5 py-5 space-y-4">
+                <Eyebrow>אזור זמן</Eyebrow>
+                <FieldShell
+                    label="אזור זמן של תיבת הדואר"
+                    hint="שעות החימום ויום העבודה בהתנהגות השליחה נקראים באזור זמן זה. השאר בהתאמה לסביבת העבודה אלא אם תיבה זו שייכת למישהו באזור אחר; עם אזור זמן משלה היא תישאר בטווח של 8:00 עד 20:00 בזמן המקומי גם בקמפיינים באזור זמן אחר."
+                >
+                    <SelectMenu
+                        value={form.timezone ?? ""}
+                        onChange={(v) => update({ timezone: v })}
+                        options={zoneOptions}
+                        fullWidth
+                        aria-label="אזור זמן של תיבת הדואר"
+                    />
+                </FieldShell>
             </div>
 
             <div className="px-5 py-5 space-y-5">

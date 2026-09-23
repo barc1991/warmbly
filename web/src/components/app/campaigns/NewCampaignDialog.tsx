@@ -39,12 +39,12 @@ import { SelectMenu, type SelectOption } from "@/components/ui/select-menu";
 import { TimePicker } from "@/components/ui/TimePicker";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import WeekdayBitmask from "@/components/app/campaigns/schedule/WeekdayBitmask";
-import EntryDelayPicker from "@/components/app/campaigns/schedule/EntryDelayPicker";
-import { entryDelayLabel } from "@/components/app/campaigns/schedule/entryDelay";
 import TagSelector from "@/components/app/popup/select/TagSelector";
 import { SegmentMultiPicker } from "@/components/app/segments/SegmentPickers";
 import { Toggle } from "@/components/app/campaigns/preferences/components/CampaignPreferenceBoolBox";
 import { useUserProfile } from "@/hooks/context/user";
+import useCurrentOrganization from "@/lib/api/hooks/app/organizations/useCurrentOrganization";
+import { defaultScheduleTimezone, followWorkspaceLabel, timezoneOptions } from "@/lib/timezone";
 import { useConfirm } from "@/hooks/context/confirm";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
@@ -111,8 +111,6 @@ type Draft = {
     days: number;
     startTime: string;
     endTime: string;
-    // Minutes to hold a contact's first email after they enter the campaign.
-    entryDelayMinutes: number;
     emailTagIds: string[];
     dailyLimit: number;
     stopOnReply: boolean;
@@ -136,7 +134,6 @@ const initialDraft = (timezone: string): Draft => ({
     days: WEEKDAYS_MASK,
     startTime: "08:00",
     endTime: "18:00",
-    entryDelayMinutes: 0,
     emailTagIds: [],
     dailyLimit: 50,
     stopOnReply: true,
@@ -221,17 +218,20 @@ function fmtDate(d: Date): string {
 }
 
 function fmtDateTime(d: Date): string {
-    return d.toLocaleString("he-IL", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    return d.toLocaleString("he-IL", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 
 export function NewCampaignDialog({ open, onClose }: Props) {
     const navigate = useNavigate();
-    const profile = useUserProfile();
     const confirm = useConfirm();
     const create = useCreateCampaign();
     const linkSegments = useSetCampaignSegments();
     const start = useStartCampaign();
-    const defaultTimezone = profile?.timezones?.[0]?.name || "Europe/London";
+    // Follow the workspace when it has a timezone, else start from this
+    // browser's. The API's list is sorted by offset, so its first entry is
+    // never a sensible default.
+    const org = useCurrentOrganization();
+    const defaultTimezone = org.data?.timezone ? "" : defaultScheduleTimezone("");
 
     const [step, setStep] = React.useState(0);
     const [direction, setDirection] = React.useState<1 | -1>(1);
@@ -245,7 +245,12 @@ export function NewCampaignDialog({ open, onClose }: Props) {
     const lastStep = steps.length - 1;
     const current = steps[Math.min(step, lastStep)];
 
-    const patch = React.useCallback((p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p })), []);
+    // Set once the user picks a zone, so a workspace default that loads late never overrides it.
+    const tzTouched = React.useRef(false);
+    const patch = React.useCallback((p: Partial<Draft>) => {
+        if (p.timezone !== undefined) tzTouched.current = true;
+        setDraft((d) => ({ ...d, ...p }));
+    }, []);
 
     const setKind = React.useCallback(
         (kind: CampaignKind) =>
@@ -268,6 +273,9 @@ export function NewCampaignDialog({ open, onClose }: Props) {
             setNudged(false);
             setSubmitting(false);
             setDraft(initialDraft(defaultTimezone));
+            tzTouched.current = false;
+        } else if (!tzTouched.current) {
+            setDraft((d) => (d.timezone === defaultTimezone ? d : { ...d, timezone: defaultTimezone }));
         }
     }, [open, defaultTimezone]);
 
@@ -391,7 +399,6 @@ export function NewCampaignDialog({ open, onClose }: Props) {
             days: draft.days,
             start_time: draft.startTime,
             end_time: draft.endTime,
-            entry_delay_minutes: draft.entryDelayMinutes,
             daily_limit: draft.dailyLimit,
             open_tracking: draft.openTracking,
             link_tracking: draft.linkTracking,
@@ -865,9 +872,10 @@ function BasicsStep({
 
 function TimezoneField({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft>) => void }) {
     const profile = useUserProfile();
-    const timezoneOptions = React.useMemo<SelectOption[]>(
-        () => (profile?.timezones || []).map((tz) => ({ value: tz.name, label: tz.display_name })),
-        [profile?.timezones],
+    const org = useCurrentOrganization();
+    const options = React.useMemo<SelectOption[]>(
+        () => [{ value: "", label: followWorkspaceLabel(org.data?.timezone) }, ...timezoneOptions(profile?.timezones, draft.timezone)],
+        [profile?.timezones, draft.timezone, org.data?.timezone],
     );
     return (
         <div>
@@ -875,7 +883,7 @@ function TimezoneField({ draft, patch }: { draft: Draft; patch: (p: Partial<Draf
             <SelectMenu
                 value={draft.timezone}
                 onChange={(v) => patch({ timezone: v })}
-                options={timezoneOptions}
+                options={options}
                 fullWidth
                 placeholder="בחר אזור זמן"
                 aria-label="אזור זמן שליחה"
@@ -965,23 +973,6 @@ function ScheduleStep({ draft, patch }: { draft: Draft; patch: (p: Partial<Draft
             <div className="space-y-5">
                 <TimezoneField draft={draft} patch={patch} />
                 <SendingWindowFields draft={draft} patch={patch} />
-                <div>
-                    <div className="flex items-baseline justify-between">
-                        <Label>המתנה לפני האימייל הראשון</Label>
-                        <span className="text-[10.5px] text-slate-400">
-                            {entryDelayLabel(draft.entryDelayMinutes)}
-                        </span>
-                    </div>
-                    <div className="mt-1">
-                        <EntryDelayPicker
-                            value={draft.entryDelayMinutes}
-                            onChange={(v) => patch({ entryDelayMinutes: v })}
-                        />
-                    </div>
-                    <p className="mt-2 text-[11.5px] leading-relaxed text-slate-500">
-                        נספר מרגע שאיש קשר נכנס לקמפיין, כך שמי שמצטרף לפלח מקושר מאוחר יותר ממתין את פרק הזמן המדויק מההתחלה שלו. השהיות מעקב מוגדרות בשלבים.
-                    </p>
-                </div>
             </div>
         </div>
     );
@@ -1120,9 +1111,6 @@ function EmailsStep({
                 <div className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-slate-500">
                     <button type="button" onClick={() => goToKey("schedule")} className="hover:text-slate-900 hover:underline underline-offset-2">
                         {daysLabel(draft.days)}, {fmt12(draft.startTime)} עד {fmt12(draft.endTime)}
-                        {draft.entryDelayMinutes > 0
-                            ? `, אימייל ראשון לאחר ${entryDelayLabel(draft.entryDelayMinutes)}`
-                            : ""}
                     </button>
                     <span className="text-slate-300">·</span>
                     <button type="button" onClick={() => goToKey("sending")} className="hover:text-slate-900 hover:underline underline-offset-2">

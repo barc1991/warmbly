@@ -139,7 +139,7 @@ func runUserCreate(ctx context.Context, args []string) error {
 		if name == "" {
 			name = defaultOrgName(created.FirstName)
 		}
-		org, oerr := c.orgService().Create(ctx, created.ID, name)
+		org, oerr := c.orgService().Create(ctx, created.ID, name, "")
 		if oerr != nil {
 			return fmt.Errorf("the account %s was created, but its organization was not: %w\nCreate one from the dashboard after signing in.", created.Email, oerr)
 		}
@@ -427,7 +427,7 @@ func runUserRevokeAdmin(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	result, lerr := c.admins.ListAdmins(ctx, nil, 100)
+	result, lerr := c.admins.ListAdmins(ctx, 0, 100)
 	if lerr != nil {
 		return fmt.Errorf("counting the remaining platform admins: %w", lerr)
 	}

@@ -12,6 +12,7 @@ import { Row, Section, SectionShell, initials } from "../_components/SectionShel
 import SaveStatus from "../_components/SaveStatus";
 import { useAutosave, type AutosaveStatus } from "@/hooks/useAutosave";
 import { useRegisterUnsaved } from "@/hooks/context/unsaved";
+import TimezonesSection from "./TimezonesSection";
 
 // Header indicator priority when two autosaves share one SaveStatus.
 function combineStatus(a: AutosaveStatus, b: AutosaveStatus): AutosaveStatus {
@@ -107,20 +108,9 @@ export default function ProfileSettingsPage() {
                         className="w-full max-w-[280px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12.5px] text-slate-500 font-mono text-left rtl:text-right"
                     />
                 </Row>
-                <Row
-                    label="אזור זמן"
-                    description="מזוהה מהדפדפן שלך. משמש להצגת לוחות זמנים של קמפיינים בזמן מקומי."
-                    align="start"
-                >
-                    <input
-                        type="text"
-                        value={Intl.DateTimeFormat().resolvedOptions().timeZone}
-                        readOnly
-                        dir="ltr"
-                        className="w-full max-w-[280px] h-7 px-2.5 rounded-md border border-slate-200 bg-slate-50 text-[12.5px] text-slate-500 font-mono text-left rtl:text-right"
-                    />
-                </Row>
             </Section>
+
+            <TimezonesSection />
 
             <Section
                 eyebrow="ביטול שליחה"

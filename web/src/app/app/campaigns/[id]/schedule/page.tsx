@@ -1,16 +1,16 @@
 import PermissionButton from "@/components/ui/PermissionButton";
 import React from "react";
-import { ArrowRightIcon, CalendarClockIcon, CalendarRangeIcon, GlobeIcon, HourglassIcon } from "lucide-react";
+import { ArrowRightIcon, Building2Icon, CalendarClockIcon, CalendarRangeIcon, GlobeIcon } from "lucide-react";
 import { addDays, differenceInCalendarDays, format } from "date-fns";
 import DateSelect from "@/components/app/campaigns/schedule/ScheduleDateSelect";
 import WeekScheduleGrid, { type Interval } from "@/components/app/campaigns/schedule/WeekScheduleGrid";
-import EntryDelayPicker from "@/components/app/campaigns/schedule/EntryDelayPicker";
-import { entryDelayLabel } from "@/components/app/campaigns/schedule/entryDelay";
 import { Loading } from "@/components/loader";
 import {
     PopoverMenu,
     PopoverMenuContent,
     PopoverMenuItem,
+    PopoverMenuLabel,
+    PopoverMenuSeparator,
     PopoverMenuTrigger,
     SelectButton,
 } from "@/components/ui/popover-menu";
@@ -22,6 +22,8 @@ import toast from "react-hot-toast";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
 import { useUserProfile } from "@/hooks/context/user";
+import useCurrentOrganization from "@/lib/api/hooks/app/organizations/useCurrentOrganization";
+import { followWorkspaceLabel } from "@/lib/timezone";
 
 // ── Wire ↔ display conversion ────────────────────────────────────────────
 // Wire (schedule_windows) is a 7-array indexed by weekday 0=Sun..6=Sat (the
@@ -105,9 +107,6 @@ export default function CampaignSchedule() {
         ...(newData.start_date !== campaign.start_date && { start_date: newData.start_date }),
         ...(newData.end_date !== campaign.end_date && { end_date: newData.end_date }),
         ...(newData.timezone !== campaign.timezone && { timezone: newData.timezone }),
-        ...(newData.entry_delay_minutes !== campaign.entry_delay_minutes && {
-            entry_delay_minutes: newData.entry_delay_minutes,
-        }),
     });
 
     const hasChanges = windowsChanged || Object.keys(fieldChanges()).length > 0;
@@ -137,7 +136,10 @@ export default function CampaignSchedule() {
         }
     }
 
-    const tzLabel = u.timezones.find((tz) => tz.name === newData.timezone)?.display_name ?? newData.timezone;
+    const org = useCurrentOrganization();
+    const followLabel = followWorkspaceLabel(org.data?.timezone);
+    const tzLabel = newData.timezone === "" ? followLabel : (u.timezones.find((tz) => tz.name === newData.timezone)?.display_name ?? newData.timezone);
+    const tzPhrase = newData.timezone === "" ? `אזור הזמן של סביבת העבודה (${org.data?.timezone || "UTC"})` : tzLabel;
 
     const startDate = newData.start_date instanceof Date ? newData.start_date : null;
     const endDate = newData.end_date instanceof Date ? newData.end_date : null;
@@ -186,6 +188,19 @@ export default function CampaignSchedule() {
                                 />
                             </PopoverMenuTrigger>
                             <PopoverMenuContent minWidth={320} className="max-h-72 overflow-y-auto">
+                                <PopoverMenuLabel>שעון סביבת העבודה</PopoverMenuLabel>
+                                <PopoverMenuItem
+                                    icon={<Building2Icon className="w-3.5 h-3.5" />}
+                                    selected={newData.timezone === ""}
+                                    onSelect={() => setNewData((bef) => ({ ...bef, timezone: "" }))}
+                                >
+                                    {followLabel}
+                                </PopoverMenuItem>
+                                <p className="px-3 pb-1.5 text-[11px] leading-snug text-slate-400">
+                                    מתעדכן עם אזור הזמן של סביבת העבודה בהגדרות &gt; פרופיל.
+                                </p>
+                                <PopoverMenuSeparator />
+                                <PopoverMenuLabel>או קבע קמפיין זה ל-</PopoverMenuLabel>
                                 {u.timezones.map((tz) => (
                                     <PopoverMenuItem
                                         key={tz.name}
@@ -227,29 +242,9 @@ export default function CampaignSchedule() {
                         <WeekScheduleGrid windows={windows} onChange={setWindows} />
                     </div>
                     <p className="text-[11px] text-slate-400 mt-3">
-                        כל יום עומד בפני עצמו: הגדר חלונות שונים לכל יום או מספר חלונות ביום אחד. השליחות מתוזמנות לפי {tzLabel}; כתובות ה-IP של השרתים מפזרות את העומס בצורה טבעית.
+                        כל יום עומד בפני עצמו: הגדר חלונות שונים לכל יום או מספר חלונות ביום אחד. השליחות מתוזמנות לפי {tzPhrase}; כתובות ה-IP של השרתים מפזרות את העומס בצורה טבעית.
                     </p>
                 </div>
-            </section>
-
-            {/* Delay before the first email */}
-            <section className="rounded-lg border border-slate-200 bg-white px-4 pt-3 pb-4">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2.5">
-                    <HourglassIcon className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">
-                        לפני האימייל הראשון
-                    </span>
-                    <span className="ms-auto inline-flex items-center h-5 px-1.5 rounded border border-slate-200 bg-slate-50 text-[11px] text-slate-600">
-                        {entryDelayLabel(newData.entry_delay_minutes)}
-                    </span>
-                </div>
-                <EntryDelayPicker
-                    value={newData.entry_delay_minutes}
-                    onChange={(v: number) => setNewData((b) => ({ ...b, entry_delay_minutes: v }))}
-                />
-                <p className="text-[11px] text-slate-400 mt-3">
-                    נספר מרגע כניסת איש הקשר לקמפיין זה. איש קשר שמצטרף לסגמנט מקושר בעוד שבוע ימתין את אותו פרק הזמן מרגע כניסתו. האימייל יישלח בחלון השליחה הראשון לאחר ההשהיה. זמני ההמתנה להמשך השרשור מוגדרים בשלבים עצמם ואינם מושפעים מכך.
-                </p>
             </section>
 
             {/* Run dates */}
