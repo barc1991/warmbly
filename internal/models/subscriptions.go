@@ -178,22 +178,42 @@ type Subscription struct {
 
 // IsInFreeTrial returns true if the user is currently in their free trial period
 func (s *Subscription) IsInFreeTrial() bool {
-	return false
+	if s == nil || s.FreeTrialEndsAt == nil {
+		return false
+	}
+	return time.Now().Before(*s.FreeTrialEndsAt)
 }
 
 // IsFreeTrialExpired returns true if the free trial has expired
 func (s *Subscription) IsFreeTrialExpired() bool {
-	return false
+	if s == nil || s.FreeTrialEndsAt == nil {
+		return false
+	}
+	return time.Now().After(*s.FreeTrialEndsAt)
 }
 
-// HasPaidSubscription returns true if user has an active paid subscription
+// HasPaidSubscription returns true if user has an active paid Stripe subscription
+// or an operator-granted plan that is still in force.
 func (s *Subscription) HasPaidSubscription() bool {
-	return true
+	if s == nil {
+		return false
+	}
+	if s.IsManaged() {
+		return true
+	}
+	return s.StripeSubscriptionID != nil && s.Status.IsActive()
 }
 
-// IsManaged reports whether an operator granted this plan
+// IsManaged reports whether an operator granted this plan and the grant is
+// still in force. An expired ManagedUntil lapses on its own.
 func (s *Subscription) IsManaged() bool {
-	return true
+	if s == nil || s.ManagedAt == nil {
+		return false
+	}
+	if s.ManagedUntil == nil {
+		return true
+	}
+	return time.Now().Before(*s.ManagedUntil)
 }
 
 // EffectivePlanID is the plan that decides entitlements
@@ -201,7 +221,7 @@ func (s *Subscription) EffectivePlanID() uuid.UUID {
 	if s == nil {
 		return uuid.Nil
 	}
-	if s.ManagedPlanID != nil {
+	if s.IsManaged() && s.ManagedPlanID != nil {
 		return *s.ManagedPlanID
 	}
 	return s.PlanID
@@ -209,7 +229,10 @@ func (s *Subscription) EffectivePlanID() uuid.UUID {
 
 // ManagedExpired separates "was granted, has lapsed" from "never granted"
 func (s *Subscription) ManagedExpired() bool {
-	return false
+	if s == nil || s.ManagedAt == nil || s.ManagedUntil == nil {
+		return false
+	}
+	return time.Now().After(*s.ManagedUntil)
 }
 
 // CanSendEmails returns true if user can send campaign emails

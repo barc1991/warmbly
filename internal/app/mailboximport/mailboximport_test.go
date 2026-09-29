@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/mailhost"
@@ -288,7 +289,7 @@ func TestNameFromEmail(t *testing.T) {
 
 func TestReadInputRejectsTooMany(t *testing.T) {
 	text := "email\n"
-	for i := 0; i < 5002; i++ {
+	for i := 0; i < config.MailboxImportMaxRows+2; i++ {
 		text += "a" + strconv.Itoa(i) + "@x.com\n"
 	}
 	if _, xerr := readInput(Input{Text: text}); xerr == nil {
