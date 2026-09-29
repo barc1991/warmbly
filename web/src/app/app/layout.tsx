@@ -51,14 +51,14 @@ export default function RootAppLayout() {
                             </RealtimeManager>
                         </SocketProvider>
                     </LinkProvider>
+                    <TagsModal />
+                    <FoldersModal />
+                    <AddEmailModal />
+                    <ComposeWindow />
+                    <PasskeyEnrollPrompt />
+                    <PermissionDeniedModal />
+                    <ReauthModal />
                 </UpgradeDialogProvider>
-                <TagsModal />
-                <FoldersModal />
-                <AddEmailModal />
-                <ComposeWindow />
-                <PasskeyEnrollPrompt />
-                <PermissionDeniedModal />
-                <ReauthModal />
             </ConfirmProvider>
         </DataSyncProvider>
     </UserProvider>

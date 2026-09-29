@@ -126,7 +126,7 @@ function message(accountId = "acc1") {
 }
 
 function body() {
-    return screen.getByPlaceholderText(/write/i) as HTMLTextAreaElement;
+    return screen.getByPlaceholderText(/(write|כתוב|הערה)/i) as HTMLTextAreaElement;
 }
 
 function fromTrigger(email: string) {
@@ -192,12 +192,12 @@ describe("reply composer drafts", () => {
     it("saves before pagehide and shows only confirmed saves", () => {
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={() => {}} />);
         fireEvent.change(body(), { target: { value: "Before reload" } });
-        expect(screen.queryByText("Draft saved")).toBeNull();
+        expect(screen.queryByText(/(Draft saved|טיוטה נשמרה)/)).toBeNull();
         fireEvent(window, new Event("pagehide"));
         expect(localStorage.getItem(draftKey())).toContain("Before reload");
         fireEvent.change(body(), { target: { value: "After reload" } });
         act(() => vi.advanceTimersByTime(400));
-        expect(screen.getByText("Draft saved")).toBeInTheDocument();
+        expect(screen.getByText(/(Draft saved|טיוטה נשמרה)/)).toBeInTheDocument();
     });
 
     it("does not resurrect a discarded draft during its exit animation", () => {
@@ -205,7 +205,7 @@ describe("reply composer drafts", () => {
         const view = render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={onClose} />);
         fireEvent.change(body(), { target: { value: "Discard me" } });
         act(() => vi.advanceTimersByTime(300));
-        fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+        fireEvent.click(screen.getByRole("button", { name: /^(Discard|מחק)$/ }));
         expect(onClose).toHaveBeenCalledOnce();
         act(() => vi.advanceTimersByTime(500));
         view.unmount();
@@ -284,10 +284,10 @@ describe("reply composer drafts", () => {
         view.unmount();
         expect(localStorage.getItem(replyDraftKey("u1", "org1", "t1", "msg-1", "forward"))).toBeNull();
         view = render(<ReplyComposer threadId="t1" replyTo={message()} mode="forward" onClose={() => {}} />);
-        fireEvent.change(screen.getByPlaceholderText("Subject"), { target: { value: "Custom subject" } });
+        fireEvent.change(screen.getByPlaceholderText(/(Subject|נושא)/i), { target: { value: "Custom subject" } });
         view.unmount();
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="forward" onClose={() => {}} />);
-        expect(screen.getByPlaceholderText("Subject")).toHaveValue("Custom subject");
+        expect(screen.getByPlaceholderText(/(Subject|נושא)/i)).toHaveValue("Custom subject");
     });
 
     it("forwards the message by id, with or without a note", async () => {
@@ -296,7 +296,7 @@ describe("reply composer drafts", () => {
         expect(screen.getByText("Forwarded message")).toBeInTheDocument();
         expect(screen.getByText(/carries that preview/)).toBeInTheDocument();
 
-        const send = screen.getByRole("button", { name: "Send" });
+        const send = screen.getByRole("button", { name: /^(Send|שלח)$/ });
         expect(send).toBeEnabled();
         await act(async () => fireEvent.click(send));
         expect(sendReply).toHaveBeenCalledWith(expect.objectContaining({
@@ -318,7 +318,7 @@ describe("reply composer drafts", () => {
     it("keeps a reply's body required and never names a message to forward", async () => {
         const seed = { to: ["them@example.com"], cc: [], bcc: [], subject: "Re: x", body: "" };
         const view = render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" seed={seed} onClose={() => {}} />);
-        expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+        expect(screen.getByRole("button", { name: /^(Send|שלח)$/ })).toBeDisabled();
         expect(screen.queryByText("Forwarded message")).toBeNull();
         fireEvent.change(body(), { target: { value: "Thanks" } });
         await act(async () => fireEvent.keyDown(body(), { key: "Enter", ctrlKey: true }));
@@ -328,9 +328,9 @@ describe("reply composer drafts", () => {
 
     it("sends from the mailbox picked in From and keeps the conversation", async () => {
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={() => {}} />);
-        expect(screen.queryByText(/Replying from another mailbox/)).toBeNull();
+        expect(screen.queryByText(/(Replying from another mailbox|משיב מתיבת דואר אחרת)/)).toBeNull();
         pickSender("me@example.com", "other@example.com");
-        expect(screen.getByText(/Replying from another mailbox/)).toBeInTheDocument();
+        expect(screen.getByText(/(Replying from another mailbox|משיב מתיבת דואר אחרת)/)).toBeInTheDocument();
         expect(screen.getByText("Other signature")).toBeInTheDocument();
         fireEvent.change(body(), { target: { value: "From the other address" } });
         await act(async () => fireEvent.keyDown(body(), { key: "Enter", ctrlKey: true }));
@@ -344,7 +344,7 @@ describe("reply composer drafts", () => {
         expect(JSON.parse(localStorage.getItem(draftKey()) ?? "{}")).toMatchObject({ email_account_id: "acc2" });
         const reopened = render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={() => {}} />);
         expect(fromTrigger("other@example.com")).toBeInTheDocument();
-        fireEvent.click(screen.getByRole("button", { name: "Switch back" }));
+        fireEvent.click(screen.getByRole("button", { name: /^(Switch back|חזור למקורית)$/ }));
         expect(fromTrigger("me@example.com")).toBeInTheDocument();
         const seed = { to: ["them@example.com"], cc: [], bcc: [], subject: "Re: x", body: "restored", email_account_id: "acc2" };
         reopened.rerender(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" seed={seed} onClose={() => {}} />);
@@ -354,8 +354,8 @@ describe("reply composer drafts", () => {
     it("will not send from an inactive mailbox and says how to fix it", async () => {
         render(<ReplyComposer threadId="t1" replyTo={message("acc3")} mode="reply" onClose={() => {}} />);
         fireEvent.change(body(), { target: { value: "Still here?" } });
-        expect(screen.getByRole("status")).toHaveTextContent("gone@example.com is not active");
-        expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+        expect(screen.getByRole("status")).toHaveTextContent(/gone@example\.com (is not active|אינה פעילה)/);
+        expect(screen.getByRole("button", { name: /^(Send|שלח)$/ })).toBeDisabled();
         await act(async () => fireEvent.keyDown(body(), { key: "Enter", ctrlKey: true }));
         expect(sendReply).not.toHaveBeenCalled();
         pickSender("gone@example.com", "other@example.com");
@@ -376,10 +376,10 @@ describe("reply composer drafts", () => {
         const onClose = vi.fn();
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="forward" onClose={onClose} />);
         fireEvent.click(fromTrigger("me@example.com"));
-        const search = screen.getByPlaceholderText("Search mailboxes…");
+        const search = screen.getByPlaceholderText(/(Search mailboxes|חיפוש תיבות)/i);
         expect(screen.queryByText("Auto")).toBeNull();
         fireEvent.keyDown(search, { key: "Escape" });
-        expect(screen.queryByPlaceholderText("Search mailboxes…")).toBeNull();
+        expect(screen.queryByPlaceholderText(/(Search mailboxes|חיפוש תיבות)/i)).toBeNull();
         expect(fromTrigger("me@example.com")).toHaveFocus();
         expect(onClose).not.toHaveBeenCalled();
     });
@@ -388,8 +388,8 @@ describe("reply composer drafts", () => {
         followUps.campaigns = [{ campaign_id: "c1", campaign_name: "Q3 outreach" }];
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={() => {}} />);
         fireEvent.click(screen.getByRole("button", { name: /Pause follow-ups/ }));
-        fireEvent.click(screen.getByRole("menuitem", { name: "For 1 week" }));
-        expect(screen.getByRole("button", { name: /Pause follow-ups: 1 week/ })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("menuitem", { name: /(For 1 week|לשבוע אחד)/ }));
+        expect(screen.getByRole("button", { name: /Pause follow-ups: (1 week|שבוע)/ })).toBeInTheDocument();
         fireEvent.change(body(), { target: { value: "Let's talk next month" } });
         await act(async () => fireEvent.keyDown(body(), { key: "Enter", ctrlKey: true }));
         expect(sendReply).toHaveBeenCalledOnce();
@@ -404,7 +404,7 @@ describe("reply composer drafts", () => {
         followUps.campaigns = [{ campaign_id: "c1", campaign_name: "Q3 outreach" }];
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={() => {}} />);
         fireEvent.click(screen.getByRole("button", { name: /Pause follow-ups/ }));
-        fireEvent.click(screen.getByRole("menuitem", { name: "Until I resume them" }));
+        fireEvent.click(screen.getByRole("menuitem", { name: /(Until I resume them|עד שאחדש ידנית)/ }));
         fireEvent.change(body(), { target: { value: "Noted" } });
         await act(async () => fireEvent.keyDown(body(), { key: "Enter", ctrlKey: true }));
         expect(followUps.pauseAll).toHaveBeenCalledWith(expect.objectContaining({ contactId: "ct1" }), null);
@@ -422,7 +422,7 @@ describe("reply composer drafts", () => {
         sendReply.mockRejectedValueOnce(new Error("offline"));
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={() => {}} />);
         fireEvent.click(screen.getByRole("button", { name: /Pause follow-ups/ }));
-        fireEvent.click(screen.getByRole("menuitem", { name: "For 3 days" }));
+        fireEvent.click(screen.getByRole("menuitem", { name: /(For 3 days|ל-3 ימים)/ }));
         fireEvent.change(body(), { target: { value: "Will fail" } });
         await act(async () => fireEvent.keyDown(body(), { key: "Enter", ctrlKey: true }));
         expect(followUps.pauseAll).not.toHaveBeenCalled();
@@ -432,10 +432,10 @@ describe("reply composer drafts", () => {
         followUps.campaigns = [{ campaign_id: "c1", campaign_name: "Q3 outreach" }];
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={() => {}} />);
         fireEvent.click(screen.getByRole("button", { name: /Pause follow-ups/ }));
-        fireEvent.click(screen.getByRole("menuitem", { name: "For 3 days" }));
+        fireEvent.click(screen.getByRole("menuitem", { name: /(For 3 days|ל-3 ימים)/ }));
         fireEvent.change(body(), { target: { value: "Talk tomorrow" } });
-        fireEvent.click(screen.getByRole("button", { name: /Schedule/ }));
-        await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: "Tomorrow 9:00" })));
+        fireEvent.click(screen.getByRole("button", { name: /(Schedule|תזמן)/ }));
+        await act(async () => fireEvent.click(screen.getByRole("menuitem", { name: /(Tomorrow 9:00|מחר 09:00)/ })));
         expect(sendReply).toHaveBeenCalledWith(expect.objectContaining({ send_mode: "scheduled" }));
         expect(followUps.pauseAll).toHaveBeenCalledWith(expect.anything(), endOfLocalDay(localDayISO(4)));
     });
@@ -448,7 +448,7 @@ describe("reply composer drafts", () => {
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={() => {}} />);
         fireEvent.click(screen.getByRole("button", { name: /Pause follow-ups/ }));
         fireEvent.click(screen.getByRole("menuitem", { name: "Partners" }));
-        fireEvent.click(screen.getByRole("menuitem", { name: "For 2 weeks" }));
+        fireEvent.click(screen.getByRole("menuitem", { name: /(For 2 weeks|לשבועיים)/ }));
         fireEvent.change(body(), { target: { value: "Only this one" } });
         await act(async () => fireEvent.keyDown(body(), { key: "Enter", ctrlKey: true }));
         expect(followUps.pauseAll).toHaveBeenCalledWith(
@@ -473,9 +473,9 @@ describe("reply composer drafts", () => {
         render(<ReplyComposer threadId="t1" replyTo={message()} mode="reply" onClose={onClose} />);
         fireEvent.change(body(), { target: { value: "Keep me" } });
         act(() => vi.advanceTimersByTime(400));
-        expect(screen.queryByText("Draft saved")).toBeNull();
-        expect(screen.getByText("Draft not saved")).toBeInTheDocument();
-        fireEvent.click(screen.getByLabelText("Close composer, keeping the draft"));
+        expect(screen.queryByText(/(Draft saved|טיוטה נשמרה)/)).toBeNull();
+        expect(screen.getByText(/(Draft not saved|טיוטה לא נשמרה)/)).toBeInTheDocument();
+        fireEvent.click(screen.getByLabelText(/(Close composer, keeping the draft|סגור תוך שמירת הטיוטה)/));
         expect(onClose).not.toHaveBeenCalled();
         expect(body()).toHaveValue("Keep me");
     });

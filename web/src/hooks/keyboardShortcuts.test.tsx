@@ -334,9 +334,9 @@ describe("the ? modal", () => {
 
         // Navigation is unconditional; the list keys are not, because nothing
         // on this screen answers them.
-        expect(screen.getByText("Go to API Keys")).toBeTruthy();
-        expect(screen.queryByText("Move down in list")).toBeNull();
-        expect(screen.queryByText("Focus search")).toBeNull();
+        expect(screen.getByText(/נווט לAPI Keys|Go to API Keys/)).toBeTruthy();
+        expect(screen.queryByText(/הזז למטה ברשימה|Move down in list/)).toBeNull();
+        expect(screen.queryByText(/מקד חיפוש|Focus search/)).toBeNull();
 
         rerender(
             <>
@@ -352,7 +352,7 @@ describe("the ? modal", () => {
             useAppStore.setState({ shortcutsModalOpen: true });
         });
 
-        expect(screen.getByText("Move down in list")).toBeTruthy();
-        expect(screen.getByText("Focus search")).toBeTruthy();
+        expect(screen.getByText(/הזז למטה ברשימה|Move down in list/)).toBeTruthy();
+        expect(screen.getByText(/מקד חיפוש|Focus search/)).toBeTruthy();
     });
 });

@@ -141,7 +141,7 @@ describe("unibox list shortcuts (#484)", SUITE, () => {
         await mount("/app/unibox/all");
         await settle();
 
-        const search = screen.getByPlaceholderText(/^Search/i);
+        const search = screen.getByPlaceholderText(/^(Search|חיפוש)/i);
         press("/");
         expect(document.activeElement).toBe(search);
 
@@ -167,13 +167,13 @@ describe("unibox list shortcuts (#484)", SUITE, () => {
         ).toBe(false);
 
         await act(async () => {
-            fireEvent.click(screen.getByText(ROWS[0].subject).closest("button")!);
+            fireEvent.click(screen.getByText(ROWS[0].subject).closest('button, [role="button"]')!);
         });
         await settle();
 
         expect(visibleShortcuts("list").some((r) => r.keys.join("") === "c")).toBe(true);
         press("c");
         await settle();
-        expect(screen.getByPlaceholderText(/label/i)).toBeTruthy();
+        expect(screen.getByPlaceholderText(/label|תווית/i)).toBeTruthy();
     });
 });

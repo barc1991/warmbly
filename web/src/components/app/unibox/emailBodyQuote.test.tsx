@@ -19,19 +19,19 @@ const PLAIN_REPLY = [
 ].join("\n");
 
 function toggle() {
-    return screen.queryByRole("button", { name: /quoted text/i });
+    return screen.queryByRole("button", { name: /(quoted text|טקסט מצוטט)/i });
 }
 
 describe("EmailBody quoted history", () => {
     it("offers the toggle for an HTML reply that carries a quote", () => {
         render(<EmailBody html={GMAIL_REPLY} />);
-        expect(toggle()).toHaveTextContent("Show quoted text");
+        expect(toggle()).toHaveTextContent(/^(Show quoted text|הצג טקסט מצוטט)$/);
     });
 
     it("flips the toggle label on click", () => {
         render(<EmailBody html={GMAIL_REPLY} />);
         fireEvent.click(toggle()!);
-        expect(toggle()).toHaveTextContent("Hide quoted text");
+        expect(toggle()).toHaveTextContent(/^(Hide quoted text|הסתר טקסט מצוטט)$/);
     });
 
     it("detects a plain-text quote tail and wraps it", () => {

@@ -314,22 +314,40 @@ export default function SendingBehaviorTab({ mailboxId, timezone }: { mailboxId:
 
                 <TodayCard mailboxId={mailboxId} enabled={form.enabled && query.data?.enabled === true} />
 
-                {/* Working days */}
-                <div className="px-5 py-5 space-y-2">
-                    <Eyebrow>ימי עבודה</Eyebrow>
-                    <WeekdayBitmask
-                        weekdays={[...WEEKDAY_LABELS]}
-                        value={form.weekdays}
-                        setValue={(v) => update({ weekdays: v })}
-                    />
-                    <p className="text-[10.5px] text-slate-400 leading-relaxed">
-                        הימים שבהם תיבת דואר זו שולחת בכלל, הן פנייה קרה והן חימום.
-                    </p>
-                </div>
+                {!form.enabled && (
+                    <div className="px-5 py-3">
+                        <p className="text-[11.5px] text-slate-500 leading-relaxed">
+                            תיבת דואר זו פועלת לפי לוח זמנים קבוע, ולכן שום הגדרה למטה אינה תקפה. הפעל &quot;שליחה כמו אדם אמיתי&quot; כדי להשתמש בשעות, בנפחים ובמרווחים אלה במקום המכסה היומית ומרווח המינימום של התיבה.
+                        </p>
+                    </div>
+                )}
 
-                {/* Workday */}
-                <fieldset disabled={!form.enabled} className="contents">
-                <div className="px-5 py-5 space-y-5">
+                {/* Everything below the toggle IS the profile. A native fieldset
+                    greys it and takes it out of the tab order on the fixed
+                    schedule, so the panel stops reading as live settings when
+                    none of it applies (issue #469). */}
+                <fieldset
+                    disabled={!form.enabled}
+                    className={cn(
+                        "block m-0 p-0 min-w-0 divide-y divide-slate-200/60 transition-opacity",
+                        !form.enabled && "opacity-60",
+                    )}
+                >
+                    {/* Working days */}
+                    <div className="px-5 py-5 space-y-2">
+                        <Eyebrow>ימי עבודה</Eyebrow>
+                        <WeekdayBitmask
+                            weekdays={[...WEEKDAY_LABELS]}
+                            value={form.weekdays}
+                            setValue={(v) => update({ weekdays: v })}
+                        />
+                        <p className="text-[10.5px] text-slate-400 leading-relaxed">
+                            הימים שבהם תיבת דואר זו שולחת בכלל, הן פנייה קרה והן חימום.
+                        </p>
+                    </div>
+
+                    {/* Workday */}
+                    <div className="px-5 py-5 space-y-5">
                     <Eyebrow>יום עבודה</Eyebrow>
                     <RangeRow
                         icon={<SunriseIcon className="w-3.5 h-3.5" />}

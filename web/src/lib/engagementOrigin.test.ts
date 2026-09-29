@@ -4,20 +4,20 @@ import { deviceLabel, hiddenReason, originSummary, readerLabel } from "./engagem
 describe("originSummary", () => {
     it("names the device and the app", () => {
         expect(originSummary({ client: "Apple Mail", client_type: "app", device_type: "mobile", os: "iOS" })).toBe(
-            "iPhone · Apple Mail app",
+            "iPhone · אפליקציית Apple Mail",
         );
         expect(originSummary({ client: "Outlook", client_type: "app", device_type: "desktop", os: "Windows" })).toBe(
-            "Windows PC · Outlook app",
+            "מחשב Windows · אפליקציית Outlook",
         );
     });
     it("says a proxy hid the device instead of guessing one", () => {
-        expect(originSummary({ client: "Gmail", device_hidden: true })).toBe("Gmail · device hidden");
-        expect(hiddenReason({ client: "Gmail", device_hidden: true })).toMatch(/Google's servers/);
+        expect(originSummary({ client: "Gmail", device_hidden: true })).toBe("Gmail · מכשיר מוסתר");
+        expect(hiddenReason({ client: "Gmail", device_hidden: true })).toMatch(/השרתים של Google/);
         expect(hiddenReason({ client: "Gmail" })).toBe("");
     });
     it("reads an unnamed browser open as webmail", () => {
         expect(originSummary({ client_type: "webmail", browser: "Chrome", device_type: "desktop", os: "macOS" })).toBe(
-            "Mac · Webmail in Chrome",
+            "Mac · דואר רשת ב-Chrome",
         );
     });
     it("names the browser a link opened in, never webmail", () => {
@@ -30,6 +30,6 @@ describe("originSummary", () => {
     });
     it("tells tablets apart", () => {
         expect(deviceLabel({ device_type: "tablet", os: "iOS" })).toBe("iPad");
-        expect(deviceLabel({ device_type: "tablet", os: "Android" })).toBe("Android tablet");
+        expect(deviceLabel({ device_type: "tablet", os: "Android" })).toBe("טאבלט Android");
     });
 });

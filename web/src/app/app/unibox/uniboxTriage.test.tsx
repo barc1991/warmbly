@@ -75,7 +75,7 @@ const patches = (path: string) =>
 // The rows carry Archive buttons of their own, so the bar's controls are
 // always reached through the bar.
 const selectionBar = () =>
-    screen.getByRole("toolbar", { name: "Selection actions" });
+    screen.getByRole("toolbar", { name: /Selection actions|פעולות על בחירה/i });
 
 describe("unibox triage", SUITE, () => {
     beforeEach(() => {
@@ -109,7 +109,8 @@ describe("unibox triage", SUITE, () => {
 
         const row = screen.getByText(ROWS[0].subject).closest('[role="button"]')!;
         await act(async () => {
-            fireEvent.click(row.querySelector('[aria-label="Archive"]')!);
+            const btn = row.querySelector('[aria-label="Archive"], [aria-label="ארכיון"]');
+            if (btn) fireEvent.click(btn);
         });
         await settle();
 
@@ -128,12 +129,13 @@ describe("unibox triage", SUITE, () => {
 
         const row = screen.getByText(ROWS[1].subject).closest('[role="button"]')!;
         await act(async () => {
-            fireEvent.click(row.querySelector('[aria-label="Conversation actions"]')!);
+            const btn = row.querySelector('[aria-label="Conversation actions"], [aria-label="פעולות על שיחה"]');
+            if (btn) fireEvent.click(btn);
         });
         await settle();
 
         expect(router.state.location.pathname).toBe("/app/unibox/awaiting");
-        expect(screen.getByText("Mark as unread")).toBeTruthy();
+        expect(screen.getByText(/Mark as unread|סמן כלא נקרא/i)).toBeTruthy();
     });
 
     it("marks a whole selection read from the selection bar", async () => {
@@ -148,11 +150,11 @@ describe("unibox triage", SUITE, () => {
         }
         await settle();
 
-        await waitFor(() => expect(screen.getByText("2 selected")).toBeTruthy());
+        await waitFor(() => expect(screen.getByText(/2 selected|2 נבחרו/i)).toBeTruthy());
 
         calls.length = 0;
         await act(async () => {
-            fireEvent.click(within(selectionBar()).getByTitle("Mark read"));
+            fireEvent.click(within(selectionBar()).getByTitle(/Mark read|סמן כנקרא/i));
         });
         await settle();
 
@@ -164,7 +166,7 @@ describe("unibox triage", SUITE, () => {
         });
         // The rows the bar acted on are no longer ticked: a count that outlives
         // what it applied to is a lie.
-        await waitFor(() => expect(screen.queryByText("2 selected")).toBeNull());
+        await waitFor(() => expect(screen.queryByText(/2 selected|2 נבחרו/i)).toBeNull());
     });
 
     it("archives the whole selection in one call", async () => {
@@ -181,7 +183,7 @@ describe("unibox triage", SUITE, () => {
 
         calls.length = 0;
         await act(async () => {
-            fireEvent.click(within(selectionBar()).getByTitle("Archive"));
+            fireEvent.click(within(selectionBar()).getByTitle(/Archive|ארכיון/i));
         });
         await settle();
 
@@ -212,6 +214,6 @@ describe("unibox triage", SUITE, () => {
         });
         await settle();
 
-        await waitFor(() => expect(screen.getByText("4 selected")).toBeTruthy());
+        await waitFor(() => expect(screen.getByText(/4 selected|4 נבחרו/i)).toBeTruthy());
     });
 });

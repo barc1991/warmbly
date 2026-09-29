@@ -47,18 +47,18 @@ describe("customFieldsProblem", () => {
     });
 
     it("refuses a filled row with no name", () => {
-        expect(customFieldsProblem([{ name: " ", value: "x", draft: true }], {})).toMatch(/Name every/);
+        expect(customFieldsProblem([{ name: " ", value: "x", draft: true }], {})).toMatch(/שם לכל שדה|Name every/);
     });
 
     it("refuses a name the API cannot store", () => {
-        expect(customFieldsProblem([{ name: "a/b", value: "x", draft: true }], {})).toMatch(/cannot be used/);
+        expect(customFieldsProblem([{ name: "a/b", value: "x", draft: true }], {})).toMatch(/לא ניתן להשתמש|cannot be used/);
     });
 
     // The server refuses a write naming an old key, so only an untouched one may ride along.
     it("allows an old stored name until the save would send it", () => {
         const rows = [{ name: "linkedin.url", value: "x" }];
         expect(customFieldsProblem(rows, {})).toBeNull();
-        expect(customFieldsProblem([], { "linkedin.url": "" })).toMatch(/old field name/);
+        expect(customFieldsProblem([], { "linkedin.url": "" })).toMatch(/שם שדה ישן|old field name/);
     });
 
     it("refuses the same field filled in twice", () => {
@@ -67,7 +67,7 @@ describe("customFieldsProblem", () => {
                 { name: "industry", value: "Freight" },
                 { name: "industry ", value: "Rail", draft: true },
             ], {}),
-        ).toMatch(/filled in twice/);
+        ).toMatch(/הוזן פעמיים|filled in twice/);
     });
 
     it("lets a draft name a field that is still empty", () => {

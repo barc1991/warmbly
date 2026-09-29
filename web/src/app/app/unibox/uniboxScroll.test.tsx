@@ -10,7 +10,7 @@
 
 import React from "react";
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
-import { screen, act, fireEvent } from "@testing-library/react";
+import { screen, act, fireEvent, waitFor } from "@testing-library/react";
 import {
     installLayoutShims,
     mount,
@@ -81,13 +81,13 @@ describe("unibox scroll position", SUITE, () => {
     it("keeps the list where it was when a thread is opened", async () => {
         const router = await mount("/app/unibox/all");
         await settle();
-        expect(screen.queryByText("Subject 4")).toBeTruthy();
+        await waitFor(() => expect(screen.queryByText("Subject 4")).toBeTruthy());
 
         const before = scroller();
         await scrollTo(1200);
 
         await act(async () => {
-            fireEvent.click(screen.getByText("Subject 4").closest("button")!);
+            fireEvent.click(screen.getByText("Subject 4").closest('button, [role="button"]')!);
         });
         await settle();
 
@@ -101,19 +101,19 @@ describe("unibox scroll position", SUITE, () => {
         await mount("/app/unibox/unread");
         await settle();
 
-        const search = screen.getByPlaceholderText(/^Search unread/i) as HTMLInputElement;
+        const search = screen.getByPlaceholderText(/^(Search unread|חיפוש ב)/i) as HTMLInputElement;
         await act(async () => {
             fireEvent.change(search, { target: { value: "invoice" } });
         });
         await settle();
 
         await act(async () => {
-            fireEvent.click(screen.getByText("Subject 2").closest("button")!);
+            fireEvent.click(screen.getByText("Subject 2").closest('button, [role="button"]')!);
         });
         await settle();
 
         expect(
-            (screen.getByPlaceholderText(/^Search unread/i) as HTMLInputElement).value,
+            (screen.getByPlaceholderText(/^(Search unread|חיפוש ב)/i) as HTMLInputElement).value,
         ).toBe("invoice");
     });
 
@@ -126,14 +126,14 @@ describe("unibox scroll position", SUITE, () => {
         await scrollTo(700);
 
         await act(async () => {
-            fireEvent.click(screen.getByText("Subject 3").closest("button")!);
+            fireEvent.click(screen.getByText("Subject 3").closest('button, [role="button"]')!);
         });
         await settle();
         scroller().scrollTop = 0;
 
         // The thread pane's back link, the mobile way back to the list.
         const back = screen
-            .getAllByRole("button", { name: "Inbox" })
+            .getAllByRole("button", { name: /Inbox|תיבת דואר/i })
             .find((b: HTMLElement) => b.className.includes("md:hidden"))!;
         await act(async () => {
             fireEvent.click(back);

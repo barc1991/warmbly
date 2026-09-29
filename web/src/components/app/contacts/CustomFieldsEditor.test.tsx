@@ -60,7 +60,7 @@ describe("CustomFieldsEditor", () => {
 
         expect(screen.queryByLabelText("g")).toBeNull();
         expect(input("h").value).toBe("set");
-        fireEvent.click(screen.getByText("Show 1 more"));
+        fireEvent.click(screen.getByText(/הצג עוד 1|Show 1 more/));
         expect(screen.getByLabelText("g")).toBeTruthy();
     });
 
@@ -68,13 +68,13 @@ describe("CustomFieldsEditor", () => {
         workspaceKeys.current = ["industry"];
         render(<Harness />);
 
-        fireEvent.click(screen.getByText("New field"));
-        const [name, value] = screen.getAllByPlaceholderText(/Field name|Value/);
+        fireEvent.click(screen.getByText(/שדה חדש|New field/));
+        const [name, value] = screen.getAllByPlaceholderText(/שם שדה|Field name|ערך|Value/);
         fireEvent.change(value, { target: { value: "Freight" } });
         fireEvent.change(name, { target: { value: "Industry" } });
-        expect(screen.getByText(/You already have/)).toBeTruthy();
+        expect(screen.getByText(/כבר קיים|You already have/)).toBeTruthy();
 
-        fireEvent.click(screen.getByText("Use it"));
+        fireEvent.click(screen.getByText(/השתמש בו|Use it/));
         expect(latest).toEqual([{ name: "industry", value: "Freight" }]);
         expect(input("industry").value).toBe("Freight");
     });
@@ -83,14 +83,14 @@ describe("CustomFieldsEditor", () => {
         workspaceKeys.current = ["job title", "industry"];
         render(<Harness />);
 
-        fireEvent.click(screen.getByText("New field"));
-        const name = screen.getByPlaceholderText("Field name");
+        fireEvent.click(screen.getByText(/שדה חדש|New field/));
+        const name = screen.getByPlaceholderText(/שם שדה|Field name/);
         fireEvent.focus(name);
         fireEvent.change(name, { target: { value: "job" } });
         fireEvent.click(screen.getByRole("option", { name: "job title" }));
 
         // Nothing typed as a value yet, so the draft simply becomes the field.
         expect(latest).toEqual([]);
-        expect(screen.queryByPlaceholderText("Field name")).toBeNull();
+        expect(screen.queryByPlaceholderText(/שם שדה|Field name/)).toBeNull();
     });
 });

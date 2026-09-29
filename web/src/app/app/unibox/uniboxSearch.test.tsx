@@ -62,7 +62,7 @@ vi.mock("@/hooks/context/socket", async (orig) => {
 });
 
 function box(): HTMLInputElement {
-    return screen.getByPlaceholderText(/name, address, or any word/i) as HTMLInputElement;
+    return screen.getByPlaceholderText(/name, address, or any word|שם, כתובת או מילה/i) as HTMLInputElement;
 }
 
 async function type(value: string) {
@@ -99,10 +99,10 @@ describe("unibox search", SUITE, () => {
         await settle();
 
         await type("nothing matches this");
-        await waitFor(() => expect(screen.getByText("No matches")).toBeTruthy());
+        await waitFor(() => expect(screen.getByText(/No matches|אין תוצאות/i)).toBeTruthy());
 
         // The offer only exists because the reader is not already in All mail.
-        const widen = screen.getByRole("button", { name: /search all mail/i });
+        const widen = screen.getByRole("button", { name: /search all mail|חפש בכל הדואר/i });
         searchRequests.length = 0;
         await act(async () => {
             fireEvent.click(widen);
@@ -126,8 +126,8 @@ describe("unibox search", SUITE, () => {
         await settle();
 
         await type("nothing matches this");
-        await waitFor(() => expect(screen.getByText("No matches")).toBeTruthy());
-        expect(screen.queryByRole("button", { name: /search all mail/i })).toBeNull();
+        await waitFor(() => expect(screen.getByText(/No matches|אין תוצאות/i)).toBeTruthy());
+        expect(screen.queryByRole("button", { name: /search all mail|חפש בכל הדואר/i })).toBeNull();
     });
 
     it("clears the query on a scope change the reader made", async () => {

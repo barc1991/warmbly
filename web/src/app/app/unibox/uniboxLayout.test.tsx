@@ -104,7 +104,7 @@ async function drag(fromX: number, toX: number) {
 
 async function openThread(subject: string) {
     await act(async () => {
-        fireEvent.click(screen.getByText(subject).closest("button")!);
+        fireEvent.click(screen.getByText(subject).closest('button, [role="button"]')!);
     });
     await settle();
 }
@@ -134,10 +134,10 @@ describe("unibox desktop layout (#473)", SUITE, () => {
         await mount("/app/unibox/all");
         await settle();
         await openThread("Subject 4");
-        expect(screen.getByPlaceholderText(/Write your reply/)).toHaveValue("My older reply");
-        await act(async () => fireEvent.click(screen.getByLabelText("Close composer, keeping the draft")));
+        expect(screen.getByPlaceholderText(/Write your reply|כתוב את תגובתך/i)).toHaveValue("My older reply");
+        await act(async () => fireEvent.click(screen.getByLabelText(/Close composer, keeping the draft|שמירת הטיוטה/i)));
         await settle();
-        expect(screen.queryByPlaceholderText(/Write your reply/)).toBeNull();
+        expect(screen.queryByPlaceholderText(/Write your reply|כתוב את תגובתך/i)).toBeNull();
     });
 
     it("does not forward a different message when the forwarded one is gone", async () => {
@@ -148,9 +148,9 @@ describe("unibox desktop layout (#473)", SUITE, () => {
             to: ["x@example.com"], cc: [], bcc: [], subject: "Fwd: Subject 4", body: "FYI", emailAccountId: "mbox-1",
         }));
         await openThread("Subject 4");
-        expect(screen.queryByPlaceholderText(/Add a note/)).toBeNull();
+        expect(screen.queryByPlaceholderText(/Add a note|הוסף הערה/i)).toBeNull();
         // The thread stays answerable: the Reply/Forward bar is back.
-        expect(screen.getByRole("button", { name: "Forward" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^(Forward|העבר)$/i })).toBeInTheDocument();
     });
 
     describe("collapsible left navigation", () => {
@@ -163,9 +163,9 @@ describe("unibox desktop layout (#473)", SUITE, () => {
             // slow enough in jsdom to dominate the test.
             const settingsLink = () =>
                 document.querySelector<HTMLAnchorElement>('aside a[href="/app/settings"]')!;
-            expect(settingsLink().textContent).toContain("Settings");
+            expect(settingsLink().textContent).toMatch(/Settings|הגדרות/);
 
-            const collapse = screen.getByLabelText("Collapse sidebar");
+            const collapse = screen.getByLabelText(/Collapse sidebar|צמצם סרגל צד/i);
             const aside = collapse.closest("aside")!;
             expect(aside.className).toContain("md:w-64");
 
@@ -181,7 +181,7 @@ describe("unibox desktop layout (#473)", SUITE, () => {
             // not become an aria-label: that would override the whole subtree
             // and silence the unread count nested in the same link.
             expect(settingsLink().getAttribute("aria-label")).toBeNull();
-            expect(settingsLink().textContent).toBe("Settings");
+            expect(settingsLink().textContent).toMatch(/Settings|הגדרות/);
             expect(settingsLink().querySelector("span")?.className).toContain("sr-only");
 
             // `b` is the documented shortcut for the same thing. It was wired to
@@ -191,15 +191,15 @@ describe("unibox desktop layout (#473)", SUITE, () => {
                 fireEvent.keyDown(document.body, { key: "b" });
             });
             expect(aside.className).toContain("md:w-64");
-            expect(screen.getByLabelText("Collapse sidebar")).toBeTruthy();
-            expect(settingsLink().textContent).toContain("Settings");
+            expect(screen.getByLabelText(/Collapse sidebar|צמצם סרגל צד/i)).toBeTruthy();
+            expect(settingsLink().textContent).toMatch(/Settings|הגדרות/);
         });
 
         it("does not eat `b` while the user is typing", async () => {
             await mount("/app/unibox/all");
             await settle();
 
-            const search = screen.getByPlaceholderText(/^Search/i);
+            const search = screen.getByPlaceholderText(/^(Search|חיפוש)/i);
             await act(async () => {
                 fireEvent.keyDown(search, { key: "b" });
             });
@@ -290,30 +290,30 @@ describe("unibox desktop layout (#473)", SUITE, () => {
             await mount("/app/unibox/all");
             await settle();
             await openThread("Subject 4");
-            expect(screen.getByLabelText("Show contact panel")).toBeTruthy();
+            expect(screen.getByLabelText(/Show contact panel|הצג פאנל איש קשר/i)).toBeTruthy();
 
             await act(async () => {
-                fireEvent.click(screen.getByLabelText("Show contact panel"));
+                fireEvent.click(screen.getByLabelText(/Show contact panel|הצג פאנל איש קשר/i));
             });
-            const toggle = screen.getByLabelText("Hide contact panel");
+            const toggle = screen.getByLabelText(/Hide contact panel|הסתר פאנל איש קשר/i);
 
             await act(async () => {
                 fireEvent.click(toggle);
             });
-            expect(screen.getByLabelText("Show contact panel")).toBeTruthy();
+            expect(screen.getByLabelText(/Show contact panel|הצג פאנל איש קשר/i)).toBeTruthy();
 
             // The reader is keyed on the thread id, so this remounts it. The
             // rail must not come back.
             await openThread("Subject 5");
-            expect(screen.getByLabelText("Show contact panel")).toBeTruthy();
+            expect(screen.getByLabelText(/Show contact panel|הצג פאנל איש קשר/i)).toBeTruthy();
             expect(useAppStore.getState().uniboxContactRailOpen).toBe(false);
 
             // Re-opening sticks the same way.
             await act(async () => {
-                fireEvent.click(screen.getByLabelText("Show contact panel"));
+                fireEvent.click(screen.getByLabelText(/Show contact panel|הצג פאנל איש קשר/i));
             });
             await openThread("Subject 6");
-            expect(screen.getByLabelText("Hide contact panel")).toBeTruthy();
+            expect(screen.getByLabelText(/Hide contact panel|הסתר פאנל איש קשר/i)).toBeTruthy();
         });
 
         it("does not bring the narrow overlay back after a trip up past lg", async () => {
@@ -324,19 +324,19 @@ describe("unibox desktop layout (#473)", SUITE, () => {
             // Narrow: the panel is an overlay on top of the thread, and starts
             // closed there whatever the wide-screen preference says.
             await resizeViewportTo(900);
-            expect(screen.getByLabelText("Show contact panel")).toBeTruthy();
+            expect(screen.getByLabelText(/Show contact panel|הצג פאנל איש קשר/i)).toBeTruthy();
 
             // Open the overlay, then widen and narrow again. The overlay state
             // has to be dropped on the way up, or the drawer and its backdrop
             // land back over the thread with nobody asking for them.
             await act(async () => {
-                fireEvent.click(screen.getByLabelText("Show contact panel"));
+                fireEvent.click(screen.getByLabelText(/Show contact panel|הצג פאנל איש קשר/i));
             });
-            expect(screen.getAllByLabelText("Hide contact panel").length).toBeGreaterThan(0);
+            expect(screen.getAllByLabelText(/Hide contact panel|הסתר פאנל איש קשר/i).length).toBeGreaterThan(0);
 
             await resizeViewportTo(1512);
             await resizeViewportTo(900);
-            expect(screen.getByLabelText("Show contact panel")).toBeTruthy();
+            expect(screen.getByLabelText(/Show contact panel|הצג פאנל איש קשר/i)).toBeTruthy();
         });
     });
 });

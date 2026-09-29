@@ -48,6 +48,8 @@ vi.mock("@/hooks/context/socket", async (orig) => {
             isConnected: false,
             subscribeToChannel: () => () => {},
             pushToChannel: () => {},
+            getChannelState: () => "closed",
+            channelStates: {},
             socket: null,
             status: "closed",
         }),
@@ -139,20 +141,20 @@ describe("campaign tabs", () => {
         hang = null;
         const router = mountDashboard();
         await settle();
-        expect(screen.queryByText("Performance")).toBeTruthy();
+        expect(screen.queryByText(/^(Performance|ביצועים)$/i)).toBeTruthy();
 
-        await clickTab(/Leads/i);
+        await clickTab(/Leads|לידים/i);
         await settle();
         expect(router.state.location.pathname).toBe("/app/campaigns/camp-1/leads");
         // The Overview is gone and the Leads browser is mounted in its place.
-        expect(screen.queryByText("Performance")).toBeNull();
-        expect(screen.queryByPlaceholderText("Search leads…")).toBeTruthy();
+        expect(screen.queryByText(/^(Performance|ביצועים)$/i)).toBeNull();
+        expect(screen.queryByPlaceholderText(/Search leads|חיפוש לידים/i)).toBeTruthy();
 
-        await clickTab(/Overview/i);
+        await clickTab(/Overview|סקירה/i);
         await settle();
         expect(router.state.location.pathname).toBe("/app/campaigns/camp-1");
-        expect(screen.queryByPlaceholderText("Search leads…")).toBeNull();
-        expect(screen.queryByText("Performance")).toBeTruthy();
+        expect(screen.queryByPlaceholderText(/Search leads|חיפוש לידים/i)).toBeNull();
+        expect(screen.queryByText(/^(Performance|ביצועים)$/i)).toBeTruthy();
     });
 
     it("puts every navigation back at the top of the content panel", async () => {
@@ -161,7 +163,7 @@ describe("campaign tabs", () => {
         await settle();
         scrolled.length = 0;
 
-        await clickTab(/Leads/i);
+        await clickTab(/Leads|לידים/i);
         await settle();
         expect(scrolled.some((s) => s.top === 0)).toBe(true);
     });
@@ -174,7 +176,7 @@ describe("campaign tabs", () => {
         mountDashboard();
         await settle();
 
-        await clickTab(/Steps/i);
+        await clickTab(/Steps|שלבים/i);
         await settle();
         const main = document.querySelector("main");
         expect(main?.querySelector(".animate-pulse")).toBeTruthy();

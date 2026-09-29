@@ -112,9 +112,9 @@ async function select(editor: Editor, from: number, to: number) {
 
 async function rewrite(instruction = "make it punchier") {
     await act(async () => {
-        fireEvent.mouseDown(await screen.findByText("Edit with AI"));
+        fireEvent.mouseDown(await screen.findByText(/Edit with AI|ערוך באמצעות AI/i));
     });
-    const input = await screen.findByPlaceholderText("Tell AI how to change it…");
+    const input = await screen.findByPlaceholderText(/Tell AI how to change|איך לשנות את הטקסט/i);
     await act(async () => {
         fireEvent.change(input, { target: { value: instruction } });
         fireEvent.keyDown(input, { key: "Enter" });
@@ -168,7 +168,7 @@ describe("Edit with AI in the campaign body", () => {
         await rewrite();
         expect(editor.getHTML()).toBe("<p>New one.</p><p>New two.</p>");
         expect(saved.html).toBe("<p>New one.</p><p>New two.</p>");
-        await screen.findByText("Rewritten");
+        await screen.findByText(/^(Rewritten|שוכתב)$/i);
     });
 
     it("rewrites a phrase in place instead of splitting the paragraph around it", async () => {
@@ -215,8 +215,8 @@ describe("Edit with AI in the campaign body", () => {
         reply = { text: "Already fine.", credits_charged: 1, tokens_used: 10 };
         await select(editor, 1, editor.state.doc.content.size - 1);
         await rewrite("fix grammar");
-        await screen.findByText("No change");
-        expect(screen.queryByText("Rewritten")).toBeNull();
+        await screen.findByText(/^(No change|ללא שינוי)$/i);
+        expect(screen.queryByText(/^(Rewritten|שוכתב)$/i)).toBeNull();
     });
 
     it("gives back the space the selection ended on", async () => {
@@ -243,7 +243,7 @@ describe("Edit with AI in the campaign body", () => {
         await select(editor, 1, editor.state.doc.content.size - 1);
         await rewrite();
         await act(async () => {
-            fireEvent.click(screen.getByText("Undo"));
+            fireEvent.click(screen.getByText(/^(Undo|בטל)$/i));
         });
         expect(editor.getHTML()).toBe("<p>Original one.</p>");
         expect(saved.html).toBe("<p>Original one.</p>");
@@ -264,7 +264,7 @@ describe("Write with AI at the caret", () => {
             editor.commands.setTextSelection(pos);
             fireEvent.keyDown(editor.view.dom, { key: "j", metaKey: true });
         });
-        const input = await screen.findByPlaceholderText("Ask AI to write…");
+        const input = await screen.findByPlaceholderText(/Ask AI to write|בקש מ-AI לכתוב/i);
         await act(async () => {
             fireEvent.change(input, { target: { value: instruction } });
             fireEvent.keyDown(input, { key: "Enter" });

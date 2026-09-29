@@ -78,9 +78,9 @@ describe("TextareaAIEdit against the composer's length cap", () => {
         });
         reply = { text: "TWO IS MUCH LONGER", credits_charged: 1, tokens_used: 10 };
         await act(async () => {
-            fireEvent.mouseDown(await screen.findByText("Edit with AI"));
+            fireEvent.mouseDown(await screen.findByText(/Edit with AI|ערוך באמצעות AI/i));
         });
-        const input = await screen.findByPlaceholderText("Tell AI how to change it…");
+        const input = await screen.findByPlaceholderText(/Tell AI how to change|איך לשנות את הטקסט/i);
         await act(async () => {
             fireEvent.change(input, { target: { value: "expand" } });
             fireEvent.keyDown(input, { key: "Enter" });
@@ -97,7 +97,7 @@ describe("TextareaAIEdit against the composer's length cap", () => {
         // …and Again still re-sends the words that were selected, rather than a
         // range worked back out of the lengths the truncation invalidated.
         await act(async () => {
-            fireEvent.click(screen.getByText("Again"));
+            fireEvent.click(screen.getByText(/Again|שוב/i));
         });
         expect(sent?.text).toBe("two");
     });
@@ -117,22 +117,22 @@ describe("TextareaAIEdit against the composer's length cap", () => {
         // Everything this adds lands past the cap, so the body cannot move.
         reply = { text: "fg extra", credits_charged: 1, tokens_used: 10 };
         await act(async () => {
-            fireEvent.mouseDown(await screen.findByText("Edit with AI"));
+            fireEvent.mouseDown(await screen.findByText(/Edit with AI|ערוך באמצעות AI/i));
         });
-        const input = await screen.findByPlaceholderText("Tell AI how to change it…");
+        const input = await screen.findByPlaceholderText(/Tell AI how to change|איך לשנות את הטקסט/i);
         await act(async () => {
             fireEvent.change(input, { target: { value: "expand" } });
             fireEvent.keyDown(input, { key: "Enter" });
         });
         expect(ta.value).toBe("abcdefg");
-        await screen.findByText("No change");
-        expect(screen.queryByText("Rewritten")).toBeNull();
+        await screen.findByText(/^(No change|ללא שינוי)$/i);
+        expect(screen.queryByText(/^(Rewritten|שוכתב)$/i)).toBeNull();
 
         // Nothing committed, so the range parked for the review selection was
         // never consumed. Closing has to drop it, or the next unrelated edit
         // wears it and the caret jumps.
         await act(async () => {
-            fireEvent.click(screen.getByText("Done"));
+            fireEvent.click(screen.getByText(/Done|סיום/i));
         });
         await act(async () => {
             fireEvent.change(ta, { target: { value: "abcdefgh" } });
@@ -156,15 +156,15 @@ describe("TextareaAIEdit against the composer's length cap", () => {
         });
         reply = { text: "TWO IS MUCH LONGER", credits_charged: 1, tokens_used: 10 };
         await act(async () => {
-            fireEvent.mouseDown(await screen.findByText("Edit with AI"));
+            fireEvent.mouseDown(await screen.findByText(/Edit with AI|ערוך באמצעות AI/i));
         });
-        const input = await screen.findByPlaceholderText("Tell AI how to change it…");
+        const input = await screen.findByPlaceholderText(/Tell AI how to change|איך לשנות את הטקסט/i);
         await act(async () => {
             fireEvent.change(input, { target: { value: "expand" } });
             fireEvent.keyDown(input, { key: "Enter" });
         });
         await act(async () => {
-            fireEvent.click(screen.getByText("Undo"));
+            fireEvent.click(screen.getByText(/Undo|בטל/i));
         });
         expect(ta.value).toBe(initial);
         expect([ta.selectionStart, ta.selectionEnd]).toEqual([4, 7]);
@@ -172,7 +172,7 @@ describe("TextareaAIEdit against the composer's length cap", () => {
         // Undo restores the body whatever the range says, so what it leaves
         // behind is what has to be checked: the next run must target the words
         // that were selected, not a range the truncation invalidated.
-        const again = await screen.findByPlaceholderText("Tell AI how to change it…");
+        const again = await screen.findByPlaceholderText(/Tell AI how to change|איך לשנות את הטקסט/i);
         await act(async () => {
             fireEvent.change(again, { target: { value: "try once more" } });
             fireEvent.keyDown(again, { key: "Enter" });

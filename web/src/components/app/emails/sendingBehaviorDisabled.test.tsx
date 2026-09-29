@@ -43,12 +43,12 @@ const profileToggle = () => screen.getAllByRole("switch")[0];
 describe("SendingBehaviorTab on the fixed schedule", () => {
     it("disables the whole profile and says why", async () => {
         mount();
-        await screen.findByText("Fixed schedule");
+        await screen.findByText(/^(לוח זמנים קבוע|Fixed schedule)$/);
 
-        expect(screen.getByText(/nothing below applies/i)).toBeTruthy();
+        expect(screen.getByText(/שום הגדרה למטה|nothing below applies/i)).toBeTruthy();
         // A plain button (weekday cell) and a spinbutton (a range bound): both
         // inherit their disabled state from the fieldset alone.
-        expect(screen.getByTitle("Mon")).toBeDisabled();
+        expect(screen.getByTitle(/שני|Mon/)).toBeDisabled();
         expect(screen.getAllByRole("spinbutton")[0]).toBeDisabled();
         // The profile switch itself must stay live, or the panel is a dead end.
         expect(profileToggle()).not.toBeDisabled();
@@ -56,19 +56,19 @@ describe("SendingBehaviorTab on the fixed schedule", () => {
 
     it("releases everything when the profile is switched on", async () => {
         mount();
-        await screen.findByText("Fixed schedule");
+        await screen.findByText(/^(לוח זמנים קבוע|Fixed schedule)$/);
 
         fireEvent.click(profileToggle());
 
-        await waitFor(() => expect(screen.getByText("Sending like a person")).toBeTruthy());
-        expect(screen.queryByText(/nothing below applies/i)).toBeNull();
-        expect(screen.getByTitle("Mon")).not.toBeDisabled();
+        await waitFor(() => expect(screen.getByText(/שליחה כמו אדם אמיתי|Sending like a person/)).toBeTruthy());
+        expect(screen.queryByText(/שום הגדרה למטה|nothing below applies/i)).toBeNull();
+        expect(screen.getByTitle(/שני|Mon/)).not.toBeDisabled();
         expect(screen.getAllByRole("spinbutton")[0]).not.toBeDisabled();
     });
 
     it("says the delay range replaces the mailbox minimum gap", async () => {
         mount();
-        await screen.findByText("Fixed schedule");
-        expect(screen.getByText(/replaces the mailbox's minimum gap/i)).toBeTruthy();
+        await screen.findByText(/^(לוח זמנים קבוע|Fixed schedule)$/);
+        expect(screen.getByText(/מחליף את מרווח המינימום|replaces the mailbox's minimum gap/i)).toBeTruthy();
     });
 });

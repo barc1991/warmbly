@@ -25,7 +25,7 @@ describe("addressParts", () => {
 describe("summarizeAddresses", () => {
     it("names the first few and counts the rest", () => {
         const list = ["Alice <a@x.com>", "b@x.com", "Carol <c@x.com>", "Dan <d@x.com>"];
-        expect(summarizeAddresses(list)).toBe("Alice, b@x.com and 2 more");
+        expect(summarizeAddresses(list)).toBe("Alice, b@x.com ו-2 נוספים");
         expect(summarizeAddresses(list.slice(0, 2))).toBe("Alice, b@x.com");
         expect(summarizeAddresses([])).toBe("");
     });
@@ -52,8 +52,8 @@ describe("sameAddress", () => {
 
 describe("folderLabel", () => {
     it("reads the canonical folders and nothing else", () => {
-        expect(folderLabel("inbox")).toBe("Inbox");
-        expect(folderLabel("spam")).toBe("Spam");
+        expect(folderLabel("inbox")).toBe("דואר נכנס");
+        expect(folderLabel("spam")).toBe("ספאם");
         expect(folderLabel("")).toBe("");
         expect(folderLabel(undefined)).toBe("");
         expect(folderLabel("outbox")).toBe("");

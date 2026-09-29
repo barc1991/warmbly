@@ -123,13 +123,13 @@ describe("the contact 360 panel", () => {
 
     it("closes without asking when the contact was re-subscribed elsewhere", () => {
         const { rerender, container } = render(<Panel contacts={[contact()]} />);
-        expect(screen.getByText("Unsubscribed")).toBeTruthy();
+        expect(screen.getByText(/הסיר הרשמה|Unsubscribed/)).toBeTruthy();
 
         // The suppression lift lands: the list refetches and the panel is
         // handed a fresh record, subscribed again.
         rerender(<Panel contacts={[contact({ subscribed: true })]} />);
-        expect(screen.queryByText("Unsubscribed")).toBeNull();
-        expect(screen.queryByText("Unsaved")).toBeNull();
+        expect(screen.queryByText(/הסיר הרשמה|Unsubscribed/)).toBeNull();
+        expect(screen.queryByText(/לא נשמר|Unsaved/)).toBeNull();
 
         clickBackdrop(container);
         expect(confirmShow).not.toHaveBeenCalled();
@@ -138,11 +138,11 @@ describe("the contact 360 panel", () => {
     it("still asks before discarding an edit the user made", () => {
         const { container } = render(<Panel contacts={[contact()]} />);
         fireEvent.click(screen.getByText("rename"));
-        expect(screen.getByText("Unsaved")).toBeTruthy();
+        expect(screen.getByText(/לא נשמר|Unsaved/)).toBeTruthy();
 
         clickBackdrop(container);
         expect(confirmShow).toHaveBeenCalledTimes(1);
-        expect(confirmShow.mock.calls[0][0]).toContain("Discard unsaved changes?");
+        expect(confirmShow.mock.calls[0][0]).toMatch(/שינויים שלא נשמרו|Discard unsaved changes/);
     });
 
     it("keeps the user's edit when the server changes the same field", () => {
@@ -166,7 +166,7 @@ describe("the contact 360 panel", () => {
         rerender(<Panel contacts={[contact({ subscribed: true })]} />);
         // The name edit survives; the subscription follows the server.
         expect(screen.getByText("Edited Demo")).toBeTruthy();
-        expect(screen.queryByText("Unsubscribed")).toBeNull();
+        expect(screen.queryByText(/הסיר הרשמה|Unsubscribed/)).toBeNull();
     });
 
     it("asks before closing on a custom-field row that is typed but not named", () => {
@@ -174,8 +174,8 @@ describe("the contact 360 panel", () => {
         fireEvent.click(screen.getByText("add field"));
         // Nothing to save: the row has no name to save the value under. Still
         // the user's work, so leaving has to ask.
-        expect((screen.getByText("Save changes") as HTMLButtonElement).disabled).toBe(true);
-        expect(screen.getByText("Unsaved")).toBeTruthy();
+        expect((screen.getByText(/שמור שינויים|Save changes/) as HTMLButtonElement).disabled).toBe(true);
+        expect(screen.getByText(/לא נשמר|Unsaved/)).toBeTruthy();
 
         clickBackdrop(container);
         expect(confirmShow).toHaveBeenCalledTimes(1);
@@ -202,7 +202,7 @@ describe("saving the contact 360 panel", () => {
     it("sends only the fields the user changed", async () => {
         render(<Panel contacts={[contact({ categories: [{ id: "cat-1", title: "Agency", color: "#38bdf8" }] })]} />);
         fireEvent.click(screen.getByText("recategorise"));
-        fireEvent.click(screen.getByText("Save changes"));
+        fireEvent.click(screen.getByText(/שמור שינויים|Save changes/));
 
         await waitFor(() => expect(requested.length).toBe(1));
         expect(requested[0].url).toBe("/contacts/contact-1");
@@ -216,7 +216,7 @@ describe("saving the contact 360 panel", () => {
         const { rerender } = render(<Panel contacts={[first]} />);
         fireEvent.click(screen.getByText("drop industry"));
         rerender(<Panel contacts={[contact({ custom_fields: { industry: "Freight", tier: "A" } })]} />);
-        fireEvent.click(screen.getByText("Save changes"));
+        fireEvent.click(screen.getByText(/שמור שינויים|Save changes/));
 
         await waitFor(() => expect(requested.length).toBe(1));
         expect(requested[0].data).toEqual({ custom_fields: { industry: "" } });
@@ -227,7 +227,7 @@ describe("saving the contact 360 panel", () => {
     it("sends a removed custom field as empty so the server drops it", async () => {
         render(<Panel contacts={[contact({ custom_fields: { industry: "Freight", tier: "A" } })]} />);
         fireEvent.click(screen.getByText("drop industry"));
-        fireEvent.click(screen.getByText("Save changes"));
+        fireEvent.click(screen.getByText(/שמור שינויים|Save changes/));
 
         await waitFor(() => expect(requested.length).toBe(1));
         expect(requested[0].data).toEqual({ custom_fields: { industry: "" } });

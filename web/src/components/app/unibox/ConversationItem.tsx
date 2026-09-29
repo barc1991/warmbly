@@ -97,21 +97,33 @@ export function ConversationItem({
   const viewers = useResourceViewers(`thread:${threadId}`);
   const replierName = viewers.find((v) => v.action === "replying")?.name;
 
+  const open = () => {
+    setSelectedThreadId(threadId);
+    setSelectedAccountId(email.account_id ?? null);
+  };
+
   return (
     <div
-      role="row"
-      aria-selected={selected}
-      tabIndex={-1}
-      onClick={() => {
-        setSelectedThreadId(threadId);
-        setSelectedAccountId(email.account_id ?? null);
+      role="button"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={(e) => {
+        // Only the row itself activates: keydown from a nested control bubbles
+        // here, and Enter on the three-dot button must open its menu.
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open();
+        }
       }}
+      aria-current={isSelected ? "true" : undefined}
+      aria-selected={onToggleSelect ? selected : undefined}
       className={cn(
-        "group relative w-full text-right pr-3 pl-4 py-2.5 flex items-start gap-2 transition-colors cursor-pointer select-none",
-        isSelected
-          ? "bg-sky-50"
-          : selected
-            ? "bg-slate-50/80"
+        "group relative w-full text-start ps-3 pe-4 py-2.5 flex items-start gap-2 transition-colors cursor-pointer select-none",
+        selected
+          ? "bg-sky-100/60"
+          : isSelected
+            ? "bg-sky-50"
             : "hover:bg-slate-50",
       )}
     >

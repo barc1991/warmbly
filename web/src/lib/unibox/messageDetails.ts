@@ -87,7 +87,7 @@ export function relativeTime(d: Date, now = Date.now(), locale = "he-IL"): strin
     for (const [unit, ms] of RELATIVE_UNITS) {
         if (abs >= ms) return rtf.format(Math.trunc(diff / ms), unit);
     }
-    return "הרגע";
+    return locale.startsWith("he") ? "הרגע" : "just now";
 }
 
 // A received row is worth showing only when it disagrees with sent beyond clock skew.

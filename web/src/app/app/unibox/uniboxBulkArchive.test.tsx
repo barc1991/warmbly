@@ -93,13 +93,13 @@ const visible = () =>
     [...document.querySelectorAll("[data-thread-id]")].map((e) => e.getAttribute("data-thread-id"));
 
 async function archiveAll() {
-    const select = screen.queryByRole("button", { name: "Select" });
+    const select = screen.queryByRole("button", { name: /^(Select|בחר)$/i });
     if (select) await act(async () => { fireEvent.click(select); });
     await settle();
-    await act(async () => { fireEvent.click(screen.getByLabelText("Select all loaded")); });
+    await act(async () => { fireEvent.click(screen.getByLabelText(/Select all loaded|בחר את כל השיחות שנטענו/i)); });
     await settle();
-    const bar = screen.getByRole("toolbar", { name: "Selection actions" });
-    await act(async () => { fireEvent.click(within(bar).getByTitle("Archive")); });
+    const bar = screen.getByRole("toolbar", { name: /Selection actions|פעולות על בחירה/i });
+    await act(async () => { fireEvent.click(within(bar).getByTitle(/^(Archive|ארכיון)$/i)); });
     for (let i = 0; i < 6; i++) await settle();
 }
 

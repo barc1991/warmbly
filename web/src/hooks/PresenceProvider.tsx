@@ -49,7 +49,7 @@ export function PresenceProvider({ children }: { children: React.ReactNode }) {
         const orgId = orgIdRef.current;
         if (!orgId) return;
         const topic = `org:${orgId}`;
-        const state = getChannelState(topic);
+        const state = typeof getChannelState === 'function' ? getChannelState(topic) : 'closed';
         if (state !== 'joined' && state !== 'joining') return;
         pushToChannel(topic, 'presence:update', { ...activityRef.current });
     }, [pushToChannel, getChannelState]);

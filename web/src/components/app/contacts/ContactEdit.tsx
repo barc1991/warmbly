@@ -236,6 +236,9 @@ function ContactEditPanel({
     return (
         <div
             className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-[2px]"
+            onMouseDown={(e) => {
+                if (e.target === e.currentTarget) requestClose();
+            }}
             onClick={(e) => {
                 if (e.target === e.currentTarget) requestClose();
             }}
