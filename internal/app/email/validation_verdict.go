@@ -6,6 +6,8 @@ import (
 
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/pkg/mailcause"
+	"github.com/warmbly/warmbly/internal/pkg/mailhost"
 )
 
 // Identifiers for a refused connect, one per kind of failure. The message
@@ -58,7 +60,7 @@ func validationError(v models.EmailValidationVerdict, creds *models.SmtpImap) *e
 		}
 	}
 	if lead.res.Reason == models.MailProbeTimeout {
-		return errx.ErrEmailValidation
+		return timeoutError(v, creds, legs)
 	}
 
 	parts := make([]string, 0, len(legs))
@@ -79,15 +81,69 @@ func validationError(v models.EmailValidationVerdict, creds *models.SmtpImap) *e
 	case models.MailProbeTLS:
 		id = ErrIDMailboxTLSFailed
 	}
-	return errx.NewWithIdentifier(errx.BadRequest, id, msg)
+	return withCause(errx.NewWithIdentifier(errx.BadRequest, id, msg), v, creds, lead)
+}
+
+// withCause attaches the grouping key an import reads; a single connect ignores it.
+func withCause(e *errx.Error, v models.EmailValidationVerdict, creds *models.SmtpImap, lead failedLeg) *errx.Error {
+	in := mailcause.Input{SMTP: causeLeg("SMTP", creds.SMTP, v.SMTP), IMAP: causeLeg("IMAP", creds.IMAP, v.IMAP)}
+	if creds.SMTP != nil {
+		in.MailHost = string(mailhost.FromServer(creds.SMTP.Host))
+		in.Password = creds.SMTP.Password
+	}
+	e.Cause = mailcause.Classify(in).Key
+	e.Detail = mailcause.Scrub(lead.res.Detail)
+	return e
+}
+
+func causeLeg(name string, svc *models.Service, res models.EmailValidationLeg) mailcause.Leg {
+	leg := mailcause.Leg{Name: name, OK: res.OK, Reason: res.Reason, Detail: res.Detail}
+	if svc != nil {
+		leg.Host, leg.Port = models.NormalizeMailHost(svc.Host), svc.Port
+	}
+	return leg
+}
+
+// timeoutError is the verdict where the leg that says the most stayed silent.
+// It names that leg and says whether the other one got through, because a
+// port that hangs while the other passes is a network in the way, not a
+// password: many hosts block outbound 465 and leave 587 open.
+func timeoutError(v models.EmailValidationVerdict, creds *models.SmtpImap, failed []failedLeg) *errx.Error {
+	parts := make([]string, 0, 2)
+	for _, l := range []failedLeg{{"SMTP", creds.SMTP, v.SMTP}, {"IMAP", creds.IMAP, v.IMAP}} {
+		if l.res.OK {
+			parts = append(parts, legWhere(l.leg, l.svc, l.res)+" signed in.")
+			continue
+		}
+		parts = append(parts, legSentence(l.leg, l.svc, l.res))
+	}
+	msg := strings.Join(parts, " ") + " Nothing was saved. Check the host and port, then try again."
+	for _, l := range failed {
+		if l.leg == "SMTP" && l.res.Reason == models.MailProbeTimeout && l.svc != nil && l.svc.Port == 465 {
+			msg += " Port 465 did not answer and the worker could not use 587 with STARTTLS on the same server either. Some networks block outbound mail ports; check that the server is reachable from outside and which port it listens on."
+			break
+		}
+	}
+	lead := failed[0]
+	return withCause(errx.NewWithIdentifier(errx.BadRequest, errx.ErrEmailValidation.Identifier, msg), v, creds, lead)
+}
+
+// legWhere names a leg by its server when the caller gave one, and by the port
+// the worker ended up on when that differs from the one asked for.
+func legWhere(leg string, svc *models.Service, res models.EmailValidationLeg) string {
+	if svc == nil {
+		return leg + " server"
+	}
+	host := models.NormalizeMailHost(svc.Host)
+	if res.Port != 0 && res.Port != svc.Port {
+		return fmt.Sprintf("%s (%s, after %d did not answer)", leg, models.MailDialAddress(host, res.Port), svc.Port)
+	}
+	return fmt.Sprintf("%s (%s)", leg, models.MailDialAddress(host, svc.Port))
 }
 
 // legSentence is one leg's failure in the server's own words.
 func legSentence(leg string, svc *models.Service, res models.EmailValidationLeg) string {
-	where := leg + " server"
-	if svc != nil {
-		where = fmt.Sprintf("%s (%s)", leg, models.MailDialAddress(models.NormalizeMailHost(svc.Host), svc.Port))
-	}
+	where := legWhere(leg, svc, res)
 	detail := ""
 	if res.Detail != "" {
 		detail = ": " + res.Detail
@@ -124,7 +180,7 @@ func providerHint(lead failedLeg) string {
 		return ""
 	}
 	if models.GoogleMailHost(lead.svc.Host) {
-		return "Google accepts only a 16-letter app password here, created at myaccount.google.com/apppasswords on the same Google account as the address, with the username being the full address. The account password does not work, and on Google Workspace the administrator can switch IMAP or app passwords off."
+		return "Google itself refused this address and password. Use a 16-letter app password from myaccount.google.com/apppasswords, created while signed in to the Google account that owns this address, and enter the account's own sign-in address rather than an alias or a group. A deleted app password stops working at once, and on Google Workspace the administrator can block app passwords or IMAP."
 	}
 	return ""
 }

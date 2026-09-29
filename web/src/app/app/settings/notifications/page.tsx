@@ -26,8 +26,11 @@ const HEALTH: { key: NotificationCategoryKey; label: string; hint: string }[] = 
     { key: "health_bounce", label: "זוהתה שגיאת מסירה (Bounce)", hint: "קמפיין מתחיל להחזיר שגיאות מסירה — שולח התראה לבעל הקמפיין." },
     { key: "health_complaint", label: "תלונת ספאם", hint: "אירוע תלונה כלשהו באחד הקמפיינים שלך." },
     { key: "health_worker_downtime", label: "השבתת וורקר (Worker)", hint: "וורקר שולח מפסיק להגיב." },
+    { key: "inbox_action_required", label: "דואר שדורש טיפול", hint: "תיבת דואר קיבלה הודעה אוטומטית שדורשת התערבות, כגון תשלום שנכשל, חשבון מושהה או התחברות חשודה. נשלח לחברים המנהלים תיבות דואר ומשתמשים בתיבה המאוחדת." },
     { key: "health_domain_auth", label: "כשל באימות דומיין", hint: "דומיין שולח איבד את רשומת ה-SPF או ה-DMARC שלו. שליחה קרה וחימום ייעצרו ממנו אם לא יתוקן." },
     { key: "campaign_paused", label: "קמפיין הושהה אוטומטית", hint: "מנגנון הגנה עצר קמפיין מכיוון ששיעור ה-Bounce, התלונות או התגובות חרג מהטווח המותר." },
+    { key: "placement_alert", label: "התראת ניטור מיקום בתיבה", hint: "בדיקת המיקום המתוזמנת של קמפיין מצאה שפחות מהודעותיו הגיעו לתיבת הדואר הנכנס מהסף שהוגדר." },
+    { key: "placement_finished", label: "בדיקת מיקום הסתיימה", hint: "בדיקת מיקום בתיבה שהפעלת השלימה את הריצה שלה." },
 ];
 
 const SECURITY: { key: NotificationCategoryKey; label: string; hint: string }[] = [
@@ -110,7 +113,10 @@ export default function NotificationsSettingsPage() {
         "health_complaint",
         "health_worker_downtime",
         "health_domain_auth",
+        "inbox_action_required",
         "campaign_paused",
+        "placement_alert",
+        "placement_finished",
         "security_new_signin",
         "billing_alert",
         "team_activity",

@@ -23,8 +23,12 @@ import (
 
 // OAuthStart issues a fresh state nonce and returns the provider-specific authorization URL.
 // The caller is expected to redirect the user to the URL and post back to OAuthFinish on return.
-func (s *emailService) OAuthStart(ctx context.Context, userID string, orgID *uuid.UUID, provider models.InboxProvider, slotID *uuid.UUID) (*models.EmailOnboardingStartResponse, *errx.Error) {
-	cfg, slot, xerr := s.oauthConfigForSlot(ctx, orgID, provider, slotID)
+func (s *emailService) OAuthStart(ctx context.Context, userID string, orgID *uuid.UUID, provider models.InboxProvider, loginHint string, slotID ...*uuid.UUID) (*models.EmailOnboardingStartResponse, *errx.Error) {
+	var requestedSlotID *uuid.UUID
+	if len(slotID) > 0 {
+		requestedSlotID = slotID[0]
+	}
+	cfg, slot, xerr := s.oauthConfigForSlot(ctx, orgID, provider, requestedSlotID)
 	if xerr != nil {
 		return nil, xerr
 	}
@@ -62,18 +66,12 @@ func (s *emailService) OAuthStart(ctx context.Context, userID string, orgID *uui
 		return nil, xerr
 	}
 
-	opts := append(authCodeOptions(provider, ""), oauth2.S256ChallengeOption(verifier))
+	opts := append(authCodeOptions(provider, loginHintOrEmpty(loginHint)), oauth2.S256ChallengeOption(verifier))
 	url := cfg.AuthCodeURL(state, opts...)
 	return &models.EmailOnboardingStartResponse{URL: url, State: state}, nil
 }
 
-// guardInboxLimit refuses a connect that would take the workspace past its
-// mailbox allowance (fair use for paid plans, FreeWorkspaceMailboxLimit for
-// free ones, unlimited without billing) and returns the resolved allowance so
-// the insert can enforce it again under the organization's lock. The
-// allowance is counted per org, so no org means it cannot be applied and the
-// connect is refused. Without an allowance source wired, the feature gate's
-// free-or-paid split stands in and the insert is not re-checked.
+// guardInboxLimit returns an unlimited mailbox allowance for the organization.
 func (s *emailService) guardInboxLimit(_ context.Context, orgID *uuid.UUID) (*models.MailboxAllowance, *errx.Error) {
 	if orgID == nil {
 		return nil, errx.ErrNoOrganization
@@ -88,6 +86,8 @@ func (s *emailService) guardInboxLimit(_ context.Context, orgID *uuid.UUID) (*mo
 // inbox owner, and persists a new email account — or, when the state carries an
 // account id (OAuthReauth), renews that mailbox's tokens in place instead.
 func (s *emailService) OAuthFinish(ctx context.Context, userID, code, state string) (*models.Email, bool, *errx.Error) {
+	ctx, cancel := detach(ctx, connectBudget)
+	defer cancel()
 	if code = strings.TrimSpace(code); code == "" {
 		return nil, false, errx.ErrEmailOnboardCode
 	}
@@ -119,6 +119,9 @@ func (s *emailService) OAuthFinish(ctx context.Context, userID, code, state stri
 		return nil, false, xerr
 	}
 
+	// The verifier proves this is the same party that started the flow. Absent
+	// only for a state written before PKCE existed, where the exchange has to
+	// go ahead without it or an in-flight consent dies on deploy.
 	var exchangeOpts []oauth2.AuthCodeOption
 	if sess.CodeVerifier != "" {
 		exchangeOpts = append(exchangeOpts, oauth2.VerifierOption(sess.CodeVerifier))
@@ -145,12 +148,17 @@ func (s *emailService) OAuthFinish(ctx context.Context, userID, code, state stri
 
 	if sess.EmailAccountID != nil {
 		acc, xerr := s.finishReauth(ctx, sess, provider, tok, owner)
+		if xerr == nil && acc != nil && sess.OrganizationID != nil {
+			s.resolveImportSignin(ctx, *sess.OrganizationID, acc)
+		}
 		return acc, true, xerr
 	}
 
-	if exists, xerr := s.emailRepository.ExistsForUser(ctx, userID, owner.Email); xerr != nil {
+	// Renewing a mailbox the workspace already has is the reauth route's job,
+	// which carries its own permission and provider checks.
+	if existing, xerr := s.findExisting(ctx, userID, sess.OrganizationID, owner.Email); xerr != nil {
 		return nil, false, xerr
-	} else if exists {
+	} else if existing != nil {
 		return nil, false, errx.ErrEmailOnboardAlreadyExists
 	}
 
@@ -185,12 +193,16 @@ func (s *emailService) OAuthFinish(ctx context.Context, userID, code, state stri
 		RefreshToken:   tok.RefreshToken,
 		ExpiresAt:      tok.Expiry,
 		OAuthSlotID:    sess.OAuthSlotID,
+		MailHost:       oauthMailHost(provider, owner.Email),
 	})
 	if xerr == nil && acc != nil {
 		s.captureSendIdentity(ctx, acc, tok)
 		s.syncWarmupPoolMembership(ctx, acc)
 		s.publishAccountEvent(ctx, pubsub.EventAccountConnected, acc)
 		s.dispatchAccountConnected(ctx, sess.OrganizationID, acc)
+		if sess.OrganizationID != nil {
+			s.resolveImportSignin(ctx, *sess.OrganizationID, acc)
+		}
 		// Assign a worker and load the mailbox so it starts sending/syncing
 		// immediately; the reconciler is the fallback if this fails.
 		s.loadAccountBestEffort(ctx, acc.ID)
@@ -201,6 +213,8 @@ func (s *emailService) OAuthFinish(ctx context.Context, userID, code, state stri
 // OnboardSMTPIMAP validates the supplied SMTP/IMAP credentials against a live worker, then
 // persists the email account on success. Returns ErrEmailCredentials if the worker reports failure.
 func (s *emailService) OnboardSMTPIMAP(ctx context.Context, userID string, orgID *uuid.UUID, data *models.NewSMTPIMAPAccount) (*models.Email, *errx.Error) {
+	ctx, cancel := detach(ctx, connectBudget)
+	defer cancel()
 	if xerr := validateSMTPIMAPInput(data); xerr != nil {
 		return nil, xerr
 	}
@@ -210,9 +224,9 @@ func (s *emailService) OnboardSMTPIMAP(ctx context.Context, userID string, orgID
 		return nil, xerr
 	}
 
-	if exists, xerr := s.emailRepository.ExistsForUser(ctx, userID, data.Email); xerr != nil {
+	if existing, xerr := s.findExisting(ctx, userID, orgID, data.Email); xerr != nil {
 		return nil, xerr
-	} else if exists {
+	} else if existing != nil {
 		return nil, errx.ErrEmailOnboardAlreadyExists
 	}
 
@@ -220,15 +234,8 @@ func (s *emailService) OnboardSMTPIMAP(ctx context.Context, userID string, orgID
 		return nil, errx.ErrEmailOnboardNoWorker
 	}
 
-	// Any live worker can run the one-shot validation handshake: nothing is
-	// placed yet, the worker just dials the credentials once and reports back.
-	w, werr := s.workerAssignment.SelectValidationWorker(ctx)
-	if werr != nil || w == nil {
-		return nil, errx.ErrEmailOnboardNoWorker
-	}
-
 	creds := &models.SmtpImap{SMTP: data.SMTP, IMAP: data.IMAP}
-	if xerr := s.ValidateCredentials(ctx, *orgID, w.ID.String(), creds); xerr != nil {
+	if xerr := s.checkCredentials(ctx, *orgID, nil, creds); xerr != nil {
 		return nil, xerr
 	}
 
@@ -239,6 +246,8 @@ func (s *emailService) OnboardSMTPIMAP(ctx context.Context, userID string, orgID
 	if xerr != nil {
 		return nil, xerr
 	}
+	ctx, cancelAfter := afterSave(ctx)
+	defer cancelAfter()
 
 	// Place the mailbox for real. Failure here is non-fatal: the scheduler
 	// picks the account up on its next pass.

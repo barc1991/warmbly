@@ -87,9 +87,14 @@ type WarmupEmailAction struct {
 	// the live Graph id from this stable key at action time.
 	RFCMessageID string   `json:"rfc_message_id,omitempty" avro:"rfc_message_id"`
 	Actions      []string `json:"actions" avro:"actions"` // "move_to_warmbly", "mark_read", "remove_from_spam", "mark_important"
-	Placement    string   `json:"placement,omitempty" avro:"placement"`
-	TargetFolder string   `json:"target_folder,omitempty" avro:"target_folder"`
-	Folder       string   `json:"folder,omitempty" avro:"folder"`
+
+	// Placement and TargetFolder are where "move_to_warmbly" files the message
+	// in the customer's own mail client, resolved from the mailbox's settings by
+	// the control plane (Email.WarmupFiling). An event from a consumer predating
+	// them carries neither, and the worker falls back to the default folder,
+	// which is what every mailbox did before the setting existed.
+	Placement    string `json:"placement,omitempty" avro:"placement"`
+	TargetFolder string `json:"target_folder,omitempty" avro:"target_folder"`
 
 	// InternalID is the platform's id for the message, which keys the stored
 	// body the delete action drops. Empty when the control plane does not
@@ -173,6 +178,10 @@ type WarmupPartnerCandidate struct {
 	// pinned to it, never to the sender's pool (#495).
 	PoolType string
 	Origin   WarmupPartnerOrigin
+	// Provider and MailHost resolve who runs the candidate's mail, which is
+	// what the sender's per-host placement record is keyed by.
+	Provider string
+	MailHost string
 	// Sent7d and Received7d are the candidate's verified warmup sends and
 	// arrivals over the last seven days, so the draw can favour an inbox that
 	// gives more than it gets. The inbound cap that keeps a candidate out of
@@ -180,6 +189,8 @@ type WarmupPartnerCandidate struct {
 	// sample is taken.
 	Sent7d     int
 	Received7d int
+	// Junked7d is how many of those arrivals its own filter put in spam.
+	Junked7d int
 }
 
 // Borrowed reports whether the candidate was drawn from the tier the sender's
@@ -195,6 +206,20 @@ func (c WarmupPartnerCandidate) Starvation() float64 {
 		return 0
 	}
 	return float64(c.Sent7d-c.Received7d) / float64(c.Sent7d)
+}
+
+// warmupFilterMinReceived is the sample a recipient's filter is judged on.
+const warmupFilterMinReceived = 10
+
+// FilterJunkRate is the share of verified warmup mail this candidate's own
+// filter put in spam over seven days (0..1). Only a small host's filter is
+// read: at Google, Microsoft and Yahoo the verdict is the senders' reputation,
+// not a quirk of the recipient. 0 below the sample.
+func (c WarmupPartnerCandidate) FilterJunkRate() float64 {
+	if WarmupRecipientGroup(c.MailHost, c.Provider) != WarmupRecipientOther || c.Received7d < warmupFilterMinReceived {
+		return 0
+	}
+	return min(1, float64(c.Junked7d)/float64(c.Received7d))
 }
 
 type WarmupHealthState string
@@ -264,16 +289,23 @@ type WarmupHealthCounts struct {
 	// because a deletion is usually housekeeping and a spam flag never is.
 	DeletionsLast7d int
 	SpamFlagsLast7d int
+	// Placement is the last seven days of verified deliveries.
+	Placement WarmupPlacementEvidence
 }
 
 type WarmupHealthMetrics struct {
 	SentLast7d int `json:"sent_last_7d"`
 
-	// SpamPlacementsLast7d counts warmup messages that landed in the
-	// recipient's Junk/Spam folder on delivery. SpamPlacementRate is the
-	// ratio against SentLast7d.
-	SpamPlacementsLast7d int     `json:"spam_placements_last_7d"`
-	SpamPlacementRate    float64 `json:"spam_placement_rate"`
+	// SpamPlacementsLast7d counts every warmup message that landed in a
+	// recipient's Junk/Spam folder on delivery, whoever filed it.
+	SpamPlacementsLast7d int `json:"spam_placements_last_7d"`
+	// SpamPlacementRate is the rate the placement band acts on: spam over
+	// verified deliveries at Google, Microsoft and Yahoo, the PlacementSample.
+	// Other hosts are carried for the reason text and never judged.
+	SpamPlacementRate float64 `json:"spam_placement_rate"`
+	PlacementSample   int     `json:"placement_sample"`
+	OtherSpamRate     float64 `json:"other_spam_rate"`
+	OtherDelivered    int     `json:"other_delivered"`
 
 	// UserComplaintsLast7d counts warmup messages the recipient explicitly
 	// flagged as spam. WarmupComplaintRate is the ratio against SentLast7d.

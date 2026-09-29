@@ -2,7 +2,6 @@ package emailsend
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,6 +39,9 @@ type SendEmailRequest struct {
 	//   "scheduled" → use ScheduledAt verbatim (must be in the future)
 	SendMode    string     `json:"send_mode"`
 	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+	// Forward is the stored message this send forwards, carried under the
+	// body and signature. The caller has already checked it is the org's.
+	Forward *models.ForwardedMessage `json:"-"`
 }
 
 type SendEmailResponse struct {
@@ -134,10 +136,15 @@ func (s *emailSendService) SendEmail(ctx context.Context, userID, orgID, account
 		}
 	}
 
-	// Validate email account exists and belongs to user/org
+	// GetByID is unscoped (the org-scoped Get omits worker_id, which the
+	// send needs), so the tenant check lives here: a foreign mailbox id is
+	// indistinguishable from a missing one.
 	account, xerr := s.emailRepo.GetByID(ctx, accountID)
 	if xerr != nil {
 		return nil, xerr
+	}
+	if account == nil || account.OrganizationID == nil || *account.OrganizationID != orgID {
+		return nil, errx.New(errx.NotFound, "email account not found")
 	}
 
 	// Check CanUseUnibox feature gate
@@ -184,25 +191,6 @@ func (s *emailSendService) SendEmail(ctx context.Context, userID, orgID, account
 		// Redis INCR; checked first because it's faster than a SELECT
 		// COUNT and rejects bursts before they touch the DB.
 		//
-		// Layer 2 (pending-count) — MaxPendingScheduledSendsPerUser
-		// bounds total queued state, so the DB doesn't accumulate
-		// terabytes of pending message bodies even from a user who
-		// schedules slowly over months.
-		//
-		// Both layers are generous enough that no human-driven volume
-		// hits them; they exist for abuse posture, not user discipline.
-		if s.dailyThrottle != nil {
-			if xerr := s.dailyThrottle.CheckAndIncrement(
-				ctx, userID,
-				dailythrottle.ResourceScheduledSend,
-				config.DailyThrottleNewScheduledSends,
-			); xerr != nil {
-				return nil, errx.New(errx.TooManyRequests, fmt.Sprintf(
-					"you've scheduled %d sends in the last 24 hours (max %d). Wait a bit before adding more.",
-					config.DailyThrottleNewScheduledSends, config.DailyThrottleNewScheduledSends,
-				))
-			}
-		}
 		// Scheduled sends are unlimited
 	case "smart":
 		nextTime, err := s.scheduler.CalculateNextEmailTime(ctx, accountID)
@@ -247,22 +235,33 @@ func (s *emailSendService) SendEmail(ctx context.Context, userID, orgID, account
 		threadID = &req.ThreadID
 	}
 
-	bodyHTML, tracked := s.applyDirectTracking(ctx, account, taskID, req.BodyHTML)
+	bodyHTML, bodyPlain := req.BodyHTML, req.BodyPlain
+	var forwardedHTML, forwardedPlain string
+	if req.Forward != nil {
+		forwardedHTML, forwardedPlain = renderForwarded(req.Forward, mailboxLocation(account))
+		forwardedHTML, forwardedPlain = s.untrackForwarded(ctx, forwardedHTML, forwardedPlain)
+		bodyHTML, bodyPlain = forwardNote(bodyHTML, bodyPlain)
+	}
+
+	// Only the note is tracked: the forwarded message's links are someone else's.
+	bodyHTML, tracked := s.applyDirectTracking(ctx, account, taskID, bodyHTML, bodyHTML != "" || forwardedHTML != "")
 
 	emailTask := &repository.EmailTask{
-		TaskID:    taskID,
-		To:        req.To,
-		CC:        req.CC,
-		BCC:       req.BCC,
-		InReplyTo: req.InReplyTo,
-		Subject:   req.Subject,
-		Body:      req.BodyPlain,
-		BodyHTML:  bodyHTML,
-		BodyPlain: req.BodyPlain,
-		ThreadID:  threadID,
-		SendMode:  sendMode,
-		Encrypted: false,
-		Tracked:   tracked,
+		TaskID:         taskID,
+		To:             req.To,
+		CC:             req.CC,
+		BCC:            req.BCC,
+		InReplyTo:      req.InReplyTo,
+		Subject:        req.Subject,
+		Body:           bodyPlain,
+		BodyHTML:       bodyHTML,
+		BodyPlain:      bodyPlain,
+		ThreadID:       threadID,
+		SendMode:       sendMode,
+		Encrypted:      false,
+		Tracked:        tracked,
+		ForwardedHTML:  forwardedHTML,
+		ForwardedPlain: forwardedPlain,
 	}
 
 	if err := s.taskRepo.CreateEmailTaskFull(ctx, task, emailTask); err != nil {
@@ -295,14 +294,15 @@ func (s *emailSendService) SendEmail(ctx context.Context, userID, orgID, account
 
 // applyDirectTracking adds the open pixel and click tickets to a hand-written
 // send, when the sending mailbox has opted in. Returns the body to send and
-// whether anything was actually injected.
+// whether anything was actually injected. htmlPart says the send carries an
+// HTML part at all; a plain-text send must not gain one just for a pixel.
 //
 // Unlike a campaign, a direct send has no contact or sequence, so clicks are
 // counted on the send itself rather than written to email_link_clicks. The
 // tickets still need a row to resolve against, minted with a nil campaign id;
 // tracked_links carries no foreign key on that column.
-func (s *emailSendService) applyDirectTracking(ctx context.Context, account *models.Email, taskID uuid.UUID, bodyHTML string) (string, bool) {
-	if account == nil || !account.TrackDirectMail || bodyHTML == "" {
+func (s *emailSendService) applyDirectTracking(ctx context.Context, account *models.Email, taskID uuid.UUID, bodyHTML string, htmlPart bool) (string, bool) {
+	if account == nil || !account.TrackDirectMail || !htmlPart {
 		return bodyHTML, false
 	}
 	host := tasks.MailboxTrackingHost(account)

@@ -50,6 +50,22 @@ type EmailMessage struct { // used for sending to the user
 	BodyTruncated bool `json:"body_truncated"`
 }
 
+// ForwardedMessage is a stored message as a forward carries it: the envelope
+// and the body as synced, before any rendering.
+type ForwardedMessage struct {
+	// EmailID is the mailbox the message belongs to.
+	EmailID uuid.UUID
+	From    []string
+	To      []string
+	CC      []string
+	Subject string
+	Date    time.Time
+	// BodyHTML is the stored HTML, unsanitized; empty when the message has none.
+	BodyHTML string
+	// BodyPlain is the preview snippet when the full body is not stored.
+	BodyPlain string
+}
+
 type EmailMessageData struct { // used when for kafka when an email arrives
 	ID uuid.UUID `json:"id"`
 
@@ -266,14 +282,30 @@ func NormalizeFolder(folder string, flags []string) string {
 		}
 	}
 	for _, f := range flags {
-		switch f {
-		case "SPAM", "\\Junk", "\\Spam", "Junk":
+		if IsSpamFlag(f) {
 			return FolderSpam
-		case "\\Draft":
+		}
+		if f == "\\Draft" {
 			return FolderDrafts
 		}
 	}
 	return FolderInbox
+}
+
+// IsSpamFlag reports whether a provider flag or label marks a message as spam:
+// Gmail's SPAM label, the Junk flag Graph and IMAP set, and the IMAP keywords.
+// The one list every spam check reads, so they cannot disagree.
+func IsSpamFlag(f string) bool {
+	switch f {
+	case "SPAM", "\\Junk", "\\Spam", "Junk":
+		return true
+	}
+	return false
+}
+
+// HasSpamFlag reports whether any flag marks the message as spam.
+func HasSpamFlag(flags []string) bool {
+	return slices.ContainsFunc(flags, IsSpamFlag)
 }
 
 func outboundOnlyFolder(folder string) bool {
@@ -331,6 +363,9 @@ type MailSearchParams struct {
 	// Uncategorized, when true, narrows to threads carrying no
 	// conversation labels at all. nil = no filter.
 	Uncategorized *bool
+	// Automated narrows to conversations no person wrote in (true) or leaves
+	// them out (false). nil = both.
+	Automated *bool
 	// Folder narrows to one canonical folder (inbox/sent/drafts/archive/
 	// spam/trash). nil = every working folder, so junk and filed mail never
 	// bleed into the combined view.
@@ -432,12 +467,16 @@ type UniboxOverview struct {
 	Week          int64 `json:"week"`
 	Snoozed       int64 `json:"snoozed"`
 	AwaitingReply int64 `json:"awaiting_reply"`
+	// Automated counts conversations no person wrote in. They are left out of
+	// Unread, Today, Week, the Inbox folder and the mailbox and tag counts.
+	Automated       int64 `json:"automated"`
+	AutomatedUnread int64 `json:"automated_unread"`
 	// AwaitingAgentDraft is the count of threads with a pending inbox-agent draft
 	// waiting for human review (M10).
 	AwaitingAgentDraft int64 `json:"awaiting_agent_draft"`
 	ScheduledPending   int64 `json:"scheduled_pending"`
 	// ScheduledPendingMax is the hard cap on pending scheduled email
-	// tasks per user. The dashboard shows current/max so the user
+	// tasks per workspace. The dashboard shows current/max so the user
 	// sees how close they are to the limit before hitting it.
 	ScheduledPendingMax int64                    `json:"scheduled_pending_max"`
 	Folders             []UniboxFolderOverview   `json:"folders"`

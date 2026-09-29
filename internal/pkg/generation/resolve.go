@@ -45,7 +45,7 @@ type providerPreset struct {
 func presetFor(name string) (providerPreset, bool) {
 	switch name {
 	case "openai":
-		// Model default handled by newOpenAIProvider (gpt-4o-mini / gpt-4o).
+		// Model default handled by newOpenAIProvider (gpt-6-luna).
 		return providerPreset{baseURL: defaultOpenAIBaseURL, needsKey: true}, true
 	case "gemini", "google":
 		return providerPreset{gemini: true, defaultModel: GeminiModelPrimary, needsKey: true}, true

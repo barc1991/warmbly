@@ -8,3 +8,8 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
+
+networks:
+  default:
+    name: warmbly_default
+    external: true

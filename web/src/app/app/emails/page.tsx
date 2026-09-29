@@ -198,7 +198,12 @@ export default function AddressesPage() {
         await queryClient.invalidateQueries({ queryKey: ["analytics", "accounts"] });
         setSelected([]);
         const verb = action === "start" ? "started" : "paused";
-        if (failed > 0) toast.error(`${failed} mailbox${failed > 1 ? "es" : ""} couldn't be updated`);
+        const seeds = results.filter(
+            (r) => r.status === "rejected" && (r.reason as AppError | null)?.code === "mailbox_is_seed",
+        ).length;
+        if (failed > 0 && seeds === failed) {
+            toast.error(`${seeds} mailbox${seeds > 1 ? "es are placement seed inboxes" : " is a placement seed inbox"}, and seeds never warm up.`);
+        } else if (failed > 0) toast.error(`${failed} mailbox${failed > 1 ? "es" : ""} couldn't be updated`);
         else toast.success(`Warmup ${verb} for ${n} mailbox${n > 1 ? "es" : ""}`);
     };
 
@@ -637,7 +642,7 @@ function MailboxRow({
     const run = (action: "start" | "pause" | "resume", verb: string) => {
         life.mutate(action, {
             onSuccess: () => toast.success(`Warmup ${verb} for ${box.email}`),
-            onError: () => toast.error("Couldn't update warmup"),
+            onError: (e) => toast.error(warmupErrorMessage(e as unknown as AppError)),
         });
     };
 
@@ -648,8 +653,8 @@ function MailboxRow({
                 try {
                     await life.mutateAsync("stop");
                     toast.success(`Warmup stopped for ${box.email}`);
-                } catch {
-                    toast.error("Couldn't update warmup");
+                } catch (e) {
+                    toast.error(warmupErrorMessage(e as AppError));
                 }
             },
         );
@@ -861,4 +866,14 @@ function MailboxRow({
             </td>
         </tr>
     );
+}
+
+// A refusal the server explains with a code (a seed inbox, a blocked pool)
+// reads better as its own sentence than as a generic failure.
+function warmupErrorMessage(e: AppError | null | undefined): string {
+    if (e?.code === "mailbox_is_seed") {
+        return e.message || "This mailbox is a placement seed inbox, and seeds never warm up. Remove it from your seed inboxes first.";
+    }
+    if (e?.code && e.message) return e.message;
+    return "Couldn't update warmup";
 }

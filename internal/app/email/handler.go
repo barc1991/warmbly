@@ -110,6 +110,15 @@ func (s *emailService) BulkUpdateTags(ctx context.Context, orgID string, emailID
 // of an organization's mailbox, and the route's gate is already the
 // organization's manage-emails permission.
 func (s *emailService) SetWarmupLifecycle(ctx context.Context, orgID, emailAccountID, action string) (*models.Email, *errx.Error) {
+	// A placement seed stays a stranger to every sender, so it never warms.
+	if (action == "start" || action == "resume") && s.seedScope != nil {
+		if id, perr := uuid.Parse(emailAccountID); perr == nil {
+			if scope, err := s.seedScope.SeedScope(ctx, id); err == nil && scope != "" {
+				return nil, errx.NewWithIdentifier(errx.Conflict, "mailbox_is_seed",
+					"This mailbox is a placement seed inbox, which never warms up. Remove it from the seed inboxes first.")
+			}
+		}
+	}
 	account, err := s.emailRepository.SetWarmupLifecycle(ctx, orgID, emailAccountID, action)
 	if err != nil {
 		return nil, err
@@ -406,7 +415,8 @@ func (s *emailService) unenrollFromCloud(ctx context.Context, account *models.Em
 		return nil
 	}
 	if s.cloudUnenroll == nil || s.cloudLink == nil {
-		return nil
+		log.Error().Str("account_id", account.ID.String()).Msg("cloud enrollment dependencies missing; delete refused")
+		return ErrCloudEnrollmentStuck
 	}
 	link, err := s.cloudLink.GetByAccount(ctx, account.ID)
 	if err != nil {
@@ -463,6 +473,13 @@ func (s *emailService) syncWarmupPoolMembership(ctx context.Context, account *mo
 		s.removeFromAllWarmupPools(ctx, account)
 		return
 	}
+	// A placement seed must stay a stranger to every sender, recipient role included.
+	if s.seedScope != nil {
+		if scope, err := s.seedScope.SeedScope(ctx, account.ID); err == nil && scope != "" {
+			s.removeFromAllWarmupPools(ctx, account)
+			return
+		}
+	}
 
 	role := "recipient_only"
 	if account.Warmup != nil {
@@ -513,7 +530,23 @@ func (s *emailService) orgSuspendedOrRestricted(ctx context.Context, orgID uuid.
 	return states[orgID].ForcesFreeWarmupPool()
 }
 
-func (s *emailService) resolveWarmupPoolType(_ context.Context, _ *models.Email) string {
+func (s *emailService) resolveWarmupPoolType(ctx context.Context, account *models.Email) string {
+	if account == nil {
+		return "premium"
+	}
+	// No organization means no entitlement to check, so the mailbox gets the
+	// lower-trust pool rather than defaulting into the paid one.
+	if account.OrganizationID == nil {
+		return "free"
+	}
+	// A restricted organization leaves the paid pool whatever it pays. Checked
+	// before the stored tier, which is never empty and would short-circuit it.
+	if s.orgSuspendedOrRestricted(ctx, *account.OrganizationID) {
+		return "free"
+	}
+	if account.WarmupPoolType != "" {
+		return account.WarmupPoolType
+	}
 	return "premium"
 }
 

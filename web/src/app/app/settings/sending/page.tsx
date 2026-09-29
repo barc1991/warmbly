@@ -38,6 +38,8 @@ import {
 } from "@/lib/api/models/app/outreach/OutreachSettings";
 import { TextInput } from "@/components/ui/field";
 import { Link } from "react-router-dom";
+import TaggingQuestions from "./TaggingQuestions";
+import LanguagePicker from "./LanguagePicker";
 
 const UNSUB_MODES: SelectOption[] = [
     { value: "text", label: "השב כדי לבטל (שורת טקסט)" },
@@ -212,7 +214,7 @@ function SendingSettings() {
 
                                 <Row
                                     label="דלג על סופי שבוע"
-                                    description="דחה שליחה שהייתה אמורה לנחות ביום שבת או ראשון ליום העבודה הבא."
+                                    description="דחה שליחה שהייתה אמורה לנחות בסוף השבוע ליום העבודה הבא."
                                 >
                                     <Toggle
                                         on={(sto.weekend_weight_multiplier ?? 1) < 1}
@@ -420,6 +422,55 @@ function SendingSettings() {
                                 onChange={(on) => patchInboxTagging({ suppress_on_removal_request: on })}
                             />
                         </Row>
+                    </>
+                )}
+            </Section>
+
+            <Section
+                eyebrow="דואר אוטומטי"
+                description="תיוג תיבת הדואר האוטומטי מעביר הודעות שאף אדם לא כתב — כגון קבלות, קודי אימות, ניוזלטרים והחזרות — אל מחוץ לתיבה הנכנסת, לתצוגת 'אוטומטי'. הודעות שחיוניות לתקינות תיבת הדואר עצמה אינן אמורות לעבור לשם."
+            >
+                {isLoading || !draft ? (
+                    <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
+                ) : (
+                    <Row
+                        label="השאר הודעות הדורשות טיפול בתיבת הדואר הנכנס"
+                        description="כל התראה נבדקת גם האם היא דורשת פעולה מצד מישהו: תשלום שנכשל, חשבון מושהה או מוגבל, התחברות חשודה, מגבלת שליחה או שירות שעומד לפוג. אלו שדורשות טיפול נשארות בתיבה הנכנסת עם התגית 'דורש טיפול', וחברי צוות המנהלים תיבות דואר מקבלים התראה."
+                    >
+                        <Toggle
+                            on={tagging.action_required_in_inbox}
+                            onChange={(on) => patchInboxTagging({ action_required_in_inbox: on })}
+                        />
+                    </Row>
+                )}
+            </Section>
+
+            <Section
+                eyebrow="שפות ושאלות תיוג"
+                description="התאם את תיוג תיבת הדואר האוטומטי לדואר שלך. שפות ושאלות משנות רק את האופן שבו התיוג קורא הודעה; הן לעולם אינן משנות את סוג ההודעה, הכוונה או הרלוונטיות שלה בעצמן."
+            >
+                {isLoading || !draft ? (
+                    <div className="h-7 w-40 rounded bg-slate-100 animate-pulse" />
+                ) : (
+                    <>
+                        <Row
+                            label="שפות תיוג"
+                            description="מערכת התיוג קוראת תגובות באנגלית, גרמנית, צרפתית, ספרדית, איטלקית והולנדית כברירת מחדל. הוסף את השפות שבהן מגיע הדואר שלך (כגון עברית) והתיוג יחתוך גם את היסטוריית הציטוטים שלהן ויזהה הודעות היעדרות והודעות שגיאת מסירה בשפות אלו לפני שליחה למסווג."
+                            align="start"
+                        >
+                            <LanguagePicker
+                                value={tagging.languages ?? []}
+                                onChange={(languages) => patchInboxTagging({ languages })}
+                            />
+                        </Row>
+                        <Row
+                            label="השאלות שלך"
+                            description="שאל משהו שהתגיות המובנות אינן שואלות. כל שאלה משייכת תגית משלה ויכולה להשהות, לעצור או לפתוח משימה, בדומה למתגים שלמעלה, ורצה באותה קריאה יחד עם השאלות המובנות."
+                        />
+                        <TaggingQuestions
+                            value={tagging.questions ?? []}
+                            onChange={(questions) => patchInboxTagging({ questions })}
+                        />
                     </>
                 )}
             </Section>

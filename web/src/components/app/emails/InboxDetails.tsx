@@ -1329,6 +1329,13 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
                     <div className="mt-2.5 h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div className="h-full rounded-full bg-orange-400 transition-all" style={{ width: `${Math.min(100, (ws.current_volume / Math.max(1, ws.target_volume)) * 100)}%` }} />
                     </div>
+                    {ws.partner_limit && (
+                        <p className="mt-2 text-[11.5px] text-slate-500 leading-relaxed">
+                            יעד העלייה להיום הוא {ws.partner_limit.ramp_target}, אך רק{" "}
+                            {ws.partner_limit.reachable === 1 ? "שותף אחד זמין" : `${ws.partner_limit.reachable} שותפים זמינים`} לתיבת דואר זו,
+                            והיא לעולם לא שולחת לאותו שותף פעמיים ביום. היא תשלח יותר ככל שיתפנו שותפים נוספים.
+                        </p>
+                    )}
                 </div>
             )}
 
@@ -1336,7 +1343,12 @@ function WarmupTab({ form, update, status, mailbox, canWarmup = true }: { form: 
             {wh && (
                 <div className="px-5 py-4">
                     <div className="flex items-center justify-between">
-                        <Eyebrow>מוניטין חימום</Eyebrow>
+                        <div className="flex items-center gap-2">
+                            <Eyebrow>מוניטין חימום</Eyebrow>
+                            {wh.pool_type && (
+                                <span className="text-[10.5px] text-slate-400">{wh.pool_type === "premium" ? "מאגר פרימיום" : "מאגר רגיל"}</span>
+                            )}
+                        </div>
                         <span className={cn("inline-flex items-center gap-1 text-[11px] font-medium", warmupStateTone[wh.state]?.text ?? "text-slate-500")}>
                             <ShieldCheckIcon className="w-3.5 h-3.5" /> {warmupStateTone[wh.state]?.label ?? wh.state}
                         </span>
@@ -1440,7 +1452,7 @@ function DirectMailTrackingControl({ mailbox }: { mailbox: Inbox }) {
         onSuccess: (_res, next) => {
             queryClient.invalidateQueries({ queryKey: ["emails"] });
             queryClient.invalidateQueries({ queryKey: ["analytics", "direct"] });
-            toast.success(next ? "Tracking direct mail from this mailbox" : "Direct mail is no longer tracked");
+            toast.success(next ? "מעקב אחר דואר ישיר מתיבה זו הופעל" : "מעקב אחר דואר ישיר כובה");
         },
         onError: (e, next) => {
             setEnabled(!next);
@@ -1467,7 +1479,7 @@ function DirectMailTrackingControl({ mailbox }: { mailbox: Inbox }) {
                     value={enabled}
                     onChange={toggle}
                     disabled={save.isPending}
-                    ariaLabel="Track opens and clicks on direct mail"
+                    ariaLabel="עקוב אחר פתיחות ולחיצות בדואר ישיר"
                 />
             </div>
         </div>
@@ -1497,10 +1509,10 @@ function normalizeTrackingDomain(raw: string): string {
 function trackingDomainProblem(host: string): string | null {
     if (!host) return null;
     if (host.length > 253) return "הדומיין ארוך מדי.";
-    if (/[^a-z0-9.-]/.test(host)) return "השתמש בשם מארח פשוט, לדוגמה track.yourdomain.com.";
-    if (!host.includes(".")) return "השתמש בתת-דומיין של דומיין בבעלותך, לדוגמה track.yourdomain.com.";
+    if (/[^a-z0-9.-]/.test(host)) return "השתמש בשם מארח פשוט, לדוגמה link.yourdomain.com.";
+    if (!host.includes(".")) return "השתמש בתת-דומיין של דומיין בבעלותך, לדוגמה link.yourdomain.com.";
     if (host.split(".").some((l) => !l || l.startsWith("-") || l.endsWith("-"))) {
-        return "השתמש בשם מארח פשוט, לדוגמה track.yourdomain.com.";
+        return "השתמש בשם מארח פשוט, לדוגמה link.yourdomain.com.";
     }
     if (!/^[a-z]{2,}$/.test(host.split(".").pop() ?? "")) return "הדומיין חייב להסתיים בסיומת תקינה, לדוגמה .com.";
     return null;
@@ -1600,8 +1612,8 @@ function TrackingDomainCard({ mailbox }: { mailbox: Inbox }) {
                 )}
             </div>
 
-            <FieldShell label="דומיין מעקב מותאם אישית" hint="Track opens & clicks through your own subdomain instead of the shared host, and serve the unsubscribe link there too. Improves deliverability.">
-                <TextInput value={domain} placeholder="track.yourdomain.com" onChange={setDomain} className="w-full h-9" />
+            <FieldShell label="דומיין מעקב מותאם אישית" hint="עקוב אחר פתיחות ולחיצות דרך תת-דומיין משלך במקום שרת המעקב המשותף, והצג שם גם את קישור ההסרה מרשימת התפוצה. משפר את עבירות ההודעות.">
+                <TextInput value={domain} placeholder="link.yourdomain.com" onChange={setDomain} className="w-full h-9" />
             </FieldShell>
 
             {problem && (

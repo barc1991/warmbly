@@ -172,6 +172,17 @@ func (h *Handler) GetUniboxIncoming(c *gin.Context) {
 		params.Uncategorized = &v
 	}
 
+	// automated=true lists only conversations no person wrote in, false leaves
+	// them out; absent is both.
+	switch c.Query("automated") {
+	case "true":
+		v := true
+		params.Automated = &v
+	case "false":
+		v := false
+		params.Automated = &v
+	}
+
 	// Conversation-label filter: category_ids=<uuid>,<uuid>. A thread
 	// matches if it carries any of the listed labels. Invalid UUIDs are
 	// dropped, matching the email_ids behaviour.
@@ -464,9 +475,12 @@ type UniboxReplyRequest struct {
 	ThreadID       string     `json:"thread_id"`
 	SendMode       string     `json:"send_mode"`
 	ScheduledAt    *time.Time `json:"scheduled_at,omitempty"`
+	// ForwardMessageID makes the send a forward of that stored message, which
+	// goes out under the body and signature.
+	ForwardMessageID string `json:"forward_message_id"`
 }
 
-// UniboxReply schedules a reply email from Unibox.
+// UniboxReply schedules a reply or forward email from Unibox.
 // POST /unibox/reply
 func (h *Handler) UniboxReply(c *gin.Context) {
 	orgID := middleware.GetOrganizationID(c)
@@ -497,6 +511,31 @@ func (h *Handler) UniboxReply(c *gin.Context) {
 		return
 	}
 
+	var forward *models.ForwardedMessage
+	if req.ForwardMessageID != "" {
+		// Forwarding discloses the message, so it needs read access as well as write.
+		if xerr := h.hasAccess(c, models.PermAccessUnibox, models.APIPermReadUnibox); xerr != nil {
+			errx.Handle(c, xerr)
+			return
+		}
+		forwardID, err := uuid.Parse(req.ForwardMessageID)
+		if err != nil {
+			errx.Handle(c, errx.New(errx.BadRequest, "forward_message_id must be a message id"))
+			return
+		}
+		src, xerr := h.UniboxService.ForwardSource(c.Request.Context(), *orgID, forwardID)
+		if xerr != nil {
+			errx.Handle(c, xerr)
+			return
+		}
+		// Its mailbox is checked like the sender's.
+		if xerr := mailboxAllowed(c, src.EmailID); xerr != nil {
+			errx.Handle(c, xerr)
+			return
+		}
+		forward = src
+	}
+
 	// The composer only knows the provider thread id, but a thread id is
 	// meaningless outside the sending mailbox: the recipient's client threads
 	// on In-Reply-To/References. Resolve the parent Message-ID here so a reply
@@ -519,6 +558,7 @@ func (h *Handler) UniboxReply(c *gin.Context) {
 		ThreadID:    req.ThreadID,
 		SendMode:    req.SendMode,
 		ScheduledAt: req.ScheduledAt,
+		Forward:     forward,
 	}
 	if sendReq.SendMode == "" {
 		sendReq.SendMode = "instant"
@@ -530,10 +570,14 @@ func (h *Handler) UniboxReply(c *gin.Context) {
 		return
 	}
 
-	h.auditOrg(c, models.AuditActionSend, models.AuditEntityUnibox, &accountID, nil, map[string]string{
+	audit := map[string]string{
 		"send_mode":  sendReq.SendMode,
 		"recipients": strconv.Itoa(len(req.To)),
-	})
+	}
+	if forward != nil {
+		audit["forwarded_message_id"] = req.ForwardMessageID
+	}
+	h.auditOrg(c, models.AuditActionSend, models.AuditEntityUnibox, &accountID, nil, audit)
 
 	c.JSON(http.StatusOK, resp)
 }
@@ -664,10 +708,10 @@ func (h *Handler) DeleteUniboxSnooze(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// ListUniboxScheduled returns every pending email task the user has
-// queued: what the "Scheduled" scope in the dashboard reads from.
-// When `thread_id` is set we scope the response to a single thread,
-// which the ThreadView uses to render queued replies inline. The
+// ListUniboxScheduled returns every pending email task queued from the
+// organization's mailboxes: what the "Scheduled" scope in the dashboard
+// reads from. When `thread_id` is set we scope the response to a single
+// thread, which the ThreadView uses to render queued replies inline. The
 // response shape is identical either way so the same client + hook
 // handle both forms.
 // GET /unibox/scheduled
@@ -676,15 +720,14 @@ func (h *Handler) ListUniboxScheduled(c *gin.Context) {
 	if !h.gateUnibox(c) {
 		return
 	}
-	userID := middleware.GetUserID(c)
-	uid, err := uuid.Parse(userID)
-	if err != nil {
-		errx.Handle(c, errx.ErrUser)
+	orgID := middleware.GetOrganizationID(c)
+	if orgID == nil {
+		errx.Handle(c, errx.New(errx.BadRequest, "no organization selected"))
 		return
 	}
 
 	if threadID := c.Query("thread_id"); threadID != "" {
-		items, xerr := h.UniboxService.ListScheduledByThread(c.Request.Context(), uid, threadID)
+		items, xerr := h.UniboxService.ListScheduledByThread(c.Request.Context(), *orgID, threadID, middleware.GetAPIKeyAllowedEmailAccounts(c))
 		if xerr != nil {
 			errx.Handle(c, xerr)
 			return
@@ -693,7 +736,7 @@ func (h *Handler) ListUniboxScheduled(c *gin.Context) {
 		return
 	}
 
-	items, xerr := h.UniboxService.ListScheduled(c.Request.Context(), uid)
+	items, xerr := h.UniboxService.ListScheduled(c.Request.Context(), *orgID, middleware.GetAPIKeyAllowedEmailAccounts(c))
 	if xerr != nil {
 		errx.Handle(c, xerr)
 		return
@@ -709,10 +752,9 @@ func (h *Handler) CancelUniboxScheduled(c *gin.Context) {
 	if !h.gateUnibox(c) {
 		return
 	}
-	userID := middleware.GetUserID(c)
-	uid, err := uuid.Parse(userID)
-	if err != nil {
-		errx.Handle(c, errx.ErrUser)
+	orgID := middleware.GetOrganizationID(c)
+	if orgID == nil {
+		errx.Handle(c, errx.New(errx.BadRequest, "no organization selected"))
 		return
 	}
 	taskID, err := uuid.Parse(c.Param("task_id"))
@@ -721,7 +763,7 @@ func (h *Handler) CancelUniboxScheduled(c *gin.Context) {
 		return
 	}
 
-	if xerr := h.UniboxService.CancelScheduled(c.Request.Context(), uid, taskID); xerr != nil {
+	if xerr := h.UniboxService.CancelScheduled(c.Request.Context(), *orgID, taskID, middleware.GetAPIKeyAllowedEmailAccounts(c)); xerr != nil {
 		errx.Handle(c, xerr)
 		return
 	}

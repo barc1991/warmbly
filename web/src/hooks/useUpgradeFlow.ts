@@ -17,6 +17,7 @@ import usePlans from "@/lib/api/hooks/app/subscription/usePlans";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import type ServerPlan from "@/lib/api/models/app/subscription/Plan";
 import buildError from "@/lib/helper/buildError";
+import { checkPermission, showPermissionDenied } from "@/hooks/usePermission";
 import { getPlan, type PlanID } from "@/lib/plans";
 import type { BillingInterval } from "@/lib/pricing";
 
@@ -75,8 +76,12 @@ export default function useUpgradeFlow() {
     );
 
     const openPortal = React.useCallback(async (): Promise<boolean> => {
+        if (!checkPermission("MANAGE_BILLING")) {
+            showPermissionDenied("MANAGE_BILLING");
+            return false;
+        }
         if (!hasBillingCustomer) {
-            toast.error(subscription.isPending ? "Still loading billing. Try again in a moment." : "Complete checkout to set up billing before opening the portal.");
+            toast.error(subscription.isPending ? "טוען נתוני חיוב. נסה שוב בעוד רגע." : "השלם רכישה כדי להגדיר חיוב לפני פתיחת הפורטל.");
             return false;
         }
         try {
@@ -96,13 +101,17 @@ export default function useUpgradeFlow() {
     const upgrade = React.useCallback(
         async (catalogId: PlanID, opts: UpgradeOptions): Promise<UpgradeOutcome> => {
             if (pending) return "failed";
+            if (!checkPermission("MANAGE_BILLING")) {
+                showPermissionDenied("MANAGE_BILLING");
+                return "failed";
+            }
             // Wait for billing state before choosing checkout or a plan change.
             if (plansQuery.isPending || subscription.isPending) {
                 toast.error("טוען את התוכניות. נסה שוב בעוד רגע.");
                 return "failed";
             }
             if (subscription.isError || plansQuery.isError) {
-                toast.error("Could not load billing. Reload the page before trying again.");
+                toast.error("לא ניתן לטעון נתוני חיוב. רענן את העמוד ונסה שוב.");
                 return "failed";
             }
             setPending(catalogId);

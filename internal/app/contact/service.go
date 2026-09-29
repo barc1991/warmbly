@@ -59,6 +59,19 @@ type ContactService interface {
 	// result counts plus a list of rows that failed (with reasons).
 	ImportCommit(ctx context.Context, userID string, orgID uuid.UUID, file io.Reader, filename string, opts *models.ContactImportCommit) (*models.ContactImportResult, *errx.Error)
 
+	// ValidateImportOptions runs every check an import makes before it reads a
+	// row, so a background import is refused when it is started.
+	ValidateImportOptions(ctx context.Context, userID string, orgID uuid.UUID, opts *models.ContactImportCommit) *errx.Error
+	// BuildImportPreview describes already-parsed rows for the column mapper.
+	BuildImportPreview(ctx context.Context, orgID uuid.UUID, filename, format string, rows [][]string) (*models.ContactImportPreview, *errx.Error)
+	// AnalyzeImport reports what an import of rows would do under a mapping,
+	// without writing anything.
+	AnalyzeImport(ctx context.Context, userID string, orgID uuid.UUID, rows []ImportRow, mapping []models.ContactImportColumnMapping) (*models.ContactImportAnalysis, *errx.Error)
+	// RunImport applies an import to rows chunk by chunk, settling each chunk
+	// with sink (nil to only collect the result). prior are contacts an
+	// earlier run of the same import touched, so they still join its segments.
+	RunImport(ctx context.Context, userID string, orgID uuid.UUID, rows []ImportRow, opts *models.ContactImportCommit, sink ImportSink, prior []uuid.UUID) (*models.ContactImportResult, *errx.Error)
+
 	// ListCustomFieldKeys returns the org's distinct contact custom-field keys,
 	// frequency-ranked then alphabetical, capped at 200. Powers the dashboard
 	// variable picker's real-field suggestions.
@@ -74,6 +87,9 @@ type ContactService interface {
 	// no contact for that address — a "not a known contact" is a normal,
 	// non-error outcome used by the unibox CRM panel.
 	GetByEmail(ctx context.Context, orgID *uuid.UUID, email string) (*models.Contact, *errx.Error)
+
+	// LookupSender matches the address first, then the thread's campaign send.
+	LookupSender(ctx context.Context, orgID *uuid.UUID, email string, thread models.ContactLookupThread) (*models.ContactLookup, *errx.Error)
 
 	// ListSentEmails enumerates every send (or attempted send) we made
 	// to the contact, newest first.
@@ -172,11 +188,6 @@ func (s *contactService) WireVerification(e VerificationExplainer) { s.explainer
 // WireOrgRisk attaches the organization risk posture.
 func (s *contactService) WireOrgRisk(r orgrisk.Service) { s.orgRisk = r }
 
-// OrgRiskAware is the optional capability the caller uses to attach it.
-type OrgRiskAware interface {
-	WireOrgRisk(r orgrisk.Service)
-}
-
 // WireWebhooks attaches the event dispatcher behind contact.created.
 func (s *contactService) WireWebhooks(w WebhookDispatcher) { s.webhooks = w }
 
@@ -186,6 +197,11 @@ func (s *contactService) WireColumnJudge(a typesafe.Asker) { s.columnJudge = a }
 // ColumnJudgeAware is the optional capability the caller uses to attach it.
 type ColumnJudgeAware interface {
 	WireColumnJudge(a typesafe.Asker)
+}
+
+// OrgRiskAware is the optional capability the caller uses to attach it.
+type OrgRiskAware interface {
+	WireOrgRisk(r orgrisk.Service)
 }
 
 func NewService(

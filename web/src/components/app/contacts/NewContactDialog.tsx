@@ -14,6 +14,9 @@ import { Label, TextInput } from "@/components/ui/field";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
 import CategoryPicker from "./CategoryPicker";
+import CustomFieldsEditor from "./CustomFieldsEditor";
+import { type CustomField, customFieldsProblem } from "./customFields";
+import { recordFromCF } from "./contact-edit/rebase";
 
 interface Props {
     open: boolean;
@@ -34,6 +37,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
     const [phone, setPhone] = React.useState("");
     const [website, setWebsite] = React.useState("");
     const [categories, setCategories] = React.useState<string[]>([]);
+    const [customFields, setCustomFields] = React.useState<CustomField[]>([]);
     const add = useAddContacts();
 
     React.useEffect(() => {
@@ -45,6 +49,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
             setPhone("");
             setWebsite("");
             setCategories([]);
+            setCustomFields([]);
         }
     }, [open]);
 
@@ -58,7 +63,13 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
             toast.error("הזן כתובת דוא״ל תקינה");
             return;
         }
-        const custom_fields: Record<string, string> = {};
+        const fields = recordFromCF(customFields);
+        const problem = customFieldsProblem(customFields, fields);
+        if (problem) {
+            toast.error(problem);
+            return;
+        }
+        const custom_fields: Record<string, string> = { ...fields };
         if (website.trim()) {
             custom_fields.website = website.trim();
         }
@@ -182,6 +193,10 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                             <div>
                                 <Label>קטגוריות</Label>
                                 <CategoryPicker value={categories} onChange={setCategories} />
+                            </div>
+                            <div>
+                                <Label>שדות מותאמים אישית</Label>
+                                <CustomFieldsEditor value={customFields} onChange={setCustomFields} />
                             </div>
                         </form>
 

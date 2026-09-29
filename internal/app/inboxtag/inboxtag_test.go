@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/repository"
 )
 
@@ -24,33 +25,50 @@ import (
 // when the answer MOVES, not to encode an opinion about what it should be.
 
 type fixture struct {
-	Name         string `json:"name"`
-	Subject      string `json:"subject"`
-	Body         string `json:"body"`
-	Previous     string `json:"previous"`
+	Name     string `json:"name"`
+	Subject  string `json:"subject"`
+	Body     string `json:"body"`
+	Previous string `json:"previous"`
+	// Language is the workspace mail language the fixture was recorded with,
+	// as a models.MailLanguageNames code. Empty for the English set.
+	Language     string `json:"language,omitempty"`
 	ExpectKind   string `json:"expect_kind"`
 	ExpectIntent string `json:"expect_intent"`
 }
 
+// loadFixtures reads every testdata/fixtures*.json and responses*.json, so a
+// set in another language is its own file next to the English one.
 func loadFixtures(t *testing.T) ([]fixture, map[string]Response) {
 	t.Helper()
 
 	var fx []fixture
-	raw, err := os.ReadFile(filepath.Join("testdata", "fixtures.json"))
-	if err != nil {
-		t.Fatalf("read fixtures: %v", err)
-	}
-	if err := json.Unmarshal(raw, &fx); err != nil {
-		t.Fatalf("parse fixtures: %v", err)
+	files, _ := filepath.Glob(filepath.Join("testdata", "fixtures*.json"))
+	for _, name := range files {
+		raw, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		var set []fixture
+		if err := json.Unmarshal(raw, &set); err != nil {
+			t.Fatalf("parse %s: %v", name, err)
+		}
+		fx = append(fx, set...)
 	}
 
-	var responses map[string]Response
-	raw, err = os.ReadFile(filepath.Join("testdata", "responses.json"))
-	if err != nil {
-		t.Fatalf("read responses: %v", err)
-	}
-	if err := json.Unmarshal(raw, &responses); err != nil {
-		t.Fatalf("parse responses: %v", err)
+	responses := map[string]Response{}
+	files, _ = filepath.Glob(filepath.Join("testdata", "responses*.json"))
+	for _, name := range files {
+		raw, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		var set map[string]Response
+		if err := json.Unmarshal(raw, &set); err != nil {
+			t.Fatalf("parse %s: %v", name, err)
+		}
+		for k, v := range set {
+			responses[k] = v
+		}
 	}
 	return fx, responses
 }
@@ -203,11 +221,16 @@ func (c *countingAsker) Ask(_ context.Context, _ any, q map[string]Question) (*R
 }
 
 type fakeRepo struct {
-	tagged   map[string]bool
-	saved    []*repository.InboxTagResult
-	untagged []repository.BackfillCandidate
-	previous string
-	states   []repository.ThreadFollowUpState
+	tagged    map[string]bool
+	saved     []*repository.InboxTagResult
+	untagged  []repository.BackfillCandidate
+	cold      []repository.BackfillCandidate
+	notices   []repository.BackfillCandidate
+	previous  string
+	campaign  string
+	inReplyTo []string
+	reopened  []string
+	states    []repository.ThreadFollowUpState
 }
 
 func (f *fakeRepo) Claim(_ context.Context, _, _ uuid.UUID, id, _ string) (bool, error) {
@@ -242,8 +265,20 @@ func (f *fakeRepo) ReviewSummary(context.Context, uuid.UUID) (repository.InboxTa
 func (f *fakeRepo) ListUntagged(context.Context, uuid.UUID, time.Time, int) ([]repository.BackfillCandidate, error) {
 	return f.untagged, nil
 }
-func (f *fakeRepo) PreviousOutbound(context.Context, uuid.UUID, string, time.Time) (string, string, error) {
-	return f.previous, "", nil
+func (f *fakeRepo) PreviousOutbound(_ context.Context, _ uuid.UUID, _ string, inReplyTo []string, _ time.Time) (string, string, error) {
+	f.inReplyTo = inReplyTo
+	return f.previous, f.campaign, nil
+}
+func (f *fakeRepo) ListColdInboundInCampaignThreads(context.Context, uuid.UUID, time.Time, int) ([]repository.BackfillCandidate, error) {
+	return f.cold, nil
+}
+func (f *fakeRepo) ListUncheckedNotifications(context.Context, uuid.UUID, time.Time, int) ([]repository.BackfillCandidate, error) {
+	return f.notices, nil
+}
+func (f *fakeRepo) Reopen(_ context.Context, _ uuid.UUID, id, _ string) ([]string, error) {
+	delete(f.tagged, id)
+	f.reopened = append(f.reopened, id)
+	return []string{"cold-inbound", "needs-review"}, nil
 }
 
 func (f *fakeRepo) ThreadStates(context.Context, uuid.UUID, time.Time, int) ([]repository.ThreadFollowUpState, error) {
@@ -300,7 +335,7 @@ func TestOneCallPerEmailWithAllQuestions(t *testing.T) {
 	if asker.calls != 1 {
 		t.Fatalf("made %d calls, want exactly 1", asker.calls)
 	}
-	if want := len(Questions()); asker.questions != want {
+	if want := len(QuestionsFor(nil, true)); asker.questions != want {
 		t.Fatalf("sent %d questions, want all %d in the one call", asker.questions, want)
 	}
 }
@@ -397,5 +432,59 @@ func TestDisabledMakesNoCalls(t *testing.T) {
 	}
 	if asker.calls != 0 {
 		t.Fatalf("made %d calls while disabled", asker.calls)
+	}
+}
+
+// A failure notice is a bounce, not a helpdesk receipt, and a delay notice is
+// a soft one. Decided from the headers, with no model call.
+func TestDeterministicKindReadsBounces(t *testing.T) {
+	daemon := map[string][]string{"From": {"Mail Delivery Subsystem <mailer-daemon@googlemail.com>"}}
+	hard := deterministicKind(Message{Headers: daemon, Subject: "Delivery Status Notification (Failure)", BodyText: "The group may not exist."}, nil)
+	if hard != KindBounceHard {
+		t.Errorf("failure notice kind = %q, want %q", hard, KindBounceHard)
+	}
+	soft := deterministicKind(Message{Headers: daemon, Subject: "Delivery Status Notification (Delay)", BodyText: "Delivery is delayed; we will retry."}, nil)
+	if soft != KindBounceSoft {
+		t.Errorf("delay notice kind = %q, want %q", soft, KindBounceSoft)
+	}
+	if got := deterministicKind(Message{Headers: map[string][]string{"From": {"Jane <jane@example.org>"}}, Subject: "Re: Hi", BodyText: "Sounds good"}, nil); got != "" {
+		t.Errorf("a person's reply kind = %q, want it left to the model", got)
+	}
+}
+
+// The tagger sees the headers the sync carried as pseudo-flags, so a failure
+// notice is a bounce before any model is asked.
+func TestMessageFromReadsSyncedHeaders(t *testing.T) {
+	m := MessageFrom(uuid.New(), uuid.New(), &models.EmailMessageStoreData{
+		Folder:    models.FolderInbox,
+		FromAddr:  []string{"Notifier <alerts@example.org>"},
+		Subject:   "Your message",
+		Flags:     []string{"\\Seen", "X-Failed-Recipients:info@example.org"},
+		InReplyTo: []string{"<a@example.test>"},
+	}, nil, "", "")
+	if deterministicKind(m, nil) != KindBounceHard {
+		t.Errorf("kind = %q, want %q from the synced header", deterministicKind(m, nil), KindBounceHard)
+	}
+	if len(m.InReplyTo) != 1 {
+		t.Errorf("InReplyTo not carried: %v", m.InReplyTo)
+	}
+}
+
+// A no-reply security alert is a notification, and only machine mail that
+// answers something is an auto-reply. The sender alone decides it, which is
+// all the backfill has.
+func TestDeterministicKindTellsNoticesFromAutoReplies(t *testing.T) {
+	alert := deterministicKind(Message{FromAddr: "Google <no-reply@accounts.google.com>", Subject: "Security alert", BodyText: "2-Step Verification turned on"}, nil)
+	if alert != KindNotification {
+		t.Errorf("security alert kind = %q, want %q", alert, KindNotification)
+	}
+	ack := deterministicKind(Message{
+		FromAddr:  "Support <noreply@helpdesk.example>",
+		Subject:   "Re: Partnership",
+		BodyText:  "We received your request.",
+		InReplyTo: []string{"<ours@example.test>"},
+	}, nil)
+	if ack != KindAutoReplyTicket {
+		t.Errorf("ticket receipt kind = %q, want %q", ack, KindAutoReplyTicket)
 	}
 }

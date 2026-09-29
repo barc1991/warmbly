@@ -182,7 +182,10 @@ func (r *advisorRepository) loadCampaigns(ctx context.Context, orgID uuid.UUID) 
 			c.ramp_enabled, c.ramp_start, c.ramp_ceiling,
 			c.tracking_domain, c.tracking_domain_verified,
 			c.created_at, c.last_status_change_at,
-			COALESCE(snd.n, 0), COALESCE(snd.capacity, 0), COALESCE(st.total, 0), COALESCE(st.emails, 0), COALESCE(ab.n, 0),
+			COALESCE(snd.n, 0), COALESCE(snd.capacity, 0),
+			(SELECT COUNT(*) FROM campaign_senders cs WHERE cs.campaign_id = c.id AND cs.enabled),
+			(SELECT COUNT(*) FROM campaign_email_tags cet WHERE cet.campaign_id = c.id),
+			COALESCE(st.total, 0), COALESCE(st.emails, 0), COALESCE(ab.n, 0),
 			COALESCE(f.sent, 0), COALESCE(f.opened, 0), COALESCE(f.clicked, 0),
 			COALESCE(f.replied, 0), COALESCE(f.bounced, 0),
 			COALESCE(cx.complaints, 0),
@@ -194,11 +197,22 @@ func (r *advisorRepository) loadCampaigns(ctx context.Context, orgID uuid.UUID) 
 			WHERE ea.organization_id = c.organization_id
 			  AND ea.status = 'active'
 			  AND (
-			    EXISTS (SELECT 1 FROM campaign_senders cs WHERE cs.campaign_id = c.id AND cs.email_account_id = ea.id)
+			    EXISTS (SELECT 1 FROM campaign_senders cs WHERE cs.campaign_id = c.id AND cs.email_account_id = ea.id AND cs.enabled)
 			    OR EXISTS (
 			      SELECT 1 FROM campaign_email_tags cet
 			      JOIN email_tags et ON et.tag_id = cet.tag_id
 			      WHERE cet.campaign_id = c.id AND et.email_id = ea.id
+			    )
+			    -- The "all active mailboxes" fallback, on ResolveCampaignSenderPool's terms.
+			    OR (
+			      c.sender_strategy <> 'explicit'
+			      AND NOT EXISTS (SELECT 1 FROM campaign_email_tags cet WHERE cet.campaign_id = c.id)
+			      AND NOT EXISTS (
+			        SELECT 1 FROM campaign_senders cs
+			        JOIN email_accounts sea ON sea.id = cs.email_account_id
+			        WHERE cs.campaign_id = c.id AND cs.enabled
+			          AND sea.organization_id = c.organization_id AND sea.status = 'active'
+			      )
 			    )
 			  )
 		) snd ON true
@@ -221,6 +235,7 @@ func (r *advisorRepository) loadCampaigns(ctx context.Context, orgID uuid.UUID) 
 			FROM campaign_contact_progress ccp
 			WHERE ccp.campaign_id = c.id
 			  AND ccp.sent_at > NOW() - INTERVAL '30 days'
+			  AND ` + progressIsEmailStep("ccp") + `
 		) f ON true
 		LEFT JOIN LATERAL (
 			SELECT COUNT(*) AS complaints FROM deliverability_events de
@@ -233,6 +248,7 @@ func (r *advisorRepository) loadCampaigns(ctx context.Context, orgID uuid.UUID) 
 				COUNT(*) FILTER (WHERE NOT EXISTS (
 					SELECT 1 FROM campaign_contact_progress p
 					WHERE p.campaign_id = c.id AND p.contact_id = cl.contact_id AND p.sent_at IS NOT NULL
+					  AND ` + progressIsEmailStep("p") + `
 				)) AS remaining
 			FROM campaign_leads cl WHERE cl.campaign_id = c.id
 		) l ON true
@@ -259,7 +275,7 @@ func (r *advisorRepository) loadCampaigns(ctx context.Context, orgID uuid.UUID) 
 			&c.RampEnabled, &c.RampStart, &c.RampCeiling,
 			&c.TrackingDomain, &c.TrackingDomainVerified,
 			&c.CreatedAt, &c.LastStatusChangeAt,
-			&c.SenderCount, &c.SenderCapacity, &c.StepCount, &c.EmailStepCount, &c.VariantCount,
+			&c.SenderCount, &c.SenderCapacity, &c.PickedSenders, &c.SenderTags, &c.StepCount, &c.EmailStepCount, &c.VariantCount,
 			&c.Sent, &c.Opened, &c.Clicked, &c.Replied, &c.Bounced, &c.Complaints,
 			&c.LeadsTotal, &c.LeadsRemaining,
 		); err != nil {

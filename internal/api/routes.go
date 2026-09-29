@@ -168,6 +168,10 @@ func Run(
 		// here instead of touching Postgres (read-only, heavily cached there).
 		internal.GET("/tracked-links/:id", h.InternalGetTrackedLink)
 
+		// Sending-domain redirects: the tracking service asks where a verified
+		// bare domain it was reached on should send visitors.
+		internal.GET("/domain-redirects/:host", h.InternalGetDomainRedirect)
+
 		// Website page views: the tracking service forwards each counted hit
 		// here after its own rate limiting and filtering. Enrichment (user
 		// agent, IP location) and storage happen on this side.
@@ -539,6 +543,74 @@ func Run(
 				// manage-emails bar as PATCH /emails/:id.
 				onboardingEmails.POST("/oauth/reauth/:id", m.RequireOrganization(), m.RequirePermission(models.PermManageEmails), h.ReauthEmailOAuth)
 				onboardingEmails.PUT("/smtp-imap/:id", m.RequireOrganization(), m.RequirePermission(models.PermManageEmails), h.UpdateEmailSMTPIMAP)
+				onboardingEmails.POST("/app-password/:id", m.RequireOrganization(), m.RequirePermission(models.PermManageEmails), h.SwitchEmailToAppPassword)
+			}
+
+			// Mailbox imports carry passwords, so like onboarding they are
+			// session-only; they connect workspace assets, so they sit behind
+			// manage-emails.
+			mailboxImports := jwtOnly.Group("/emails/imports")
+			mailboxImports.Use(m.RequireOrganization(), m.RequirePermission(models.PermManageEmails), m.RateLimitMiddleware(models.RateLimitWrite))
+			{
+				mailboxImports.POST("/preview", h.PreviewMailboxImport)
+				mailboxImports.POST("", h.CreateMailboxImport)
+				mailboxImports.GET("", h.ListMailboxImports)
+				mailboxImports.GET("/:id", h.GetMailboxImport)
+				mailboxImports.GET("/:id/rows", h.ListMailboxImportRows)
+				mailboxImports.PATCH("/:id/rows/:line", h.FixMailboxImportRow)
+				mailboxImports.POST("/:id/retry", h.RetryMailboxImport)
+				mailboxImports.POST("/:id/cancel", h.CancelMailboxImport)
+				mailboxImports.POST("/:id/dismiss", h.DismissMailboxImport)
+				mailboxImports.GET("/:id/failed.csv", h.DownloadMailboxImportFailures)
+			}
+
+			// Administrator grants over whole Google Workspace domains and
+			// Microsoft 365 tenants. Session-only and manage-emails, like imports.
+			mailboxGrants := jwtOnly.Group("/emails/grants")
+			mailboxGrants.Use(m.RequireOrganization(), m.RequirePermission(models.PermManageEmails), m.RateLimitMiddleware(models.RateLimitWrite))
+			{
+				mailboxGrants.GET("/config", h.GetMailboxGrantConfig)
+				mailboxGrants.GET("", h.ListMailboxGrants)
+				mailboxGrants.GET("/migration", h.GetSigninMigration)
+				// A grant reaches a whole domain's mail, so recording, removing and
+				// using one needs a recent sign-in.
+				mailboxGrants.POST("/google/start", h.StartGoogleMailboxGrant)
+				mailboxGrants.POST("/google/finish", middleware.RequireFreshAuth(), h.FinishGoogleMailboxGrant)
+				mailboxGrants.POST("/microsoft/start", h.StartMicrosoftMailboxGrant)
+				mailboxGrants.POST("/microsoft/finish", middleware.RequireFreshAuth(), h.FinishMicrosoftMailboxGrant)
+				mailboxGrants.GET("/:id", h.GetMailboxGrant)
+				mailboxGrants.POST("/:id/check", h.CheckMailboxGrant)
+				mailboxGrants.DELETE("/:id", middleware.RequireFreshAuth(), h.DeleteMailboxGrant)
+				mailboxGrants.GET("/:id/users", h.ListMailboxGrantUsers)
+				mailboxGrants.POST("/:id/connect", middleware.RequireFreshAuth(), h.ConnectMailboxGrantUsers)
+			}
+
+			// Sending domains: tracking host per domain and the bare-domain redirect.
+			sendingDomains := jwtOnly.Group("/emails/domains")
+			sendingDomains.Use(m.RequireOrganization(), m.RequirePermission(models.PermManageEmails), m.RateLimitMiddleware(models.RateLimitWrite))
+			{
+				sendingDomains.GET("", h.ListSendingDomains)
+				sendingDomains.POST("/bulk", h.BulkDomainSetup)
+				sendingDomains.GET("/:domain/tracking-suggestion", h.GetTrackingSuggestion)
+				sendingDomains.PUT("/:domain/tracking", h.SetDomainTracking)
+				sendingDomains.PUT("/:domain/redirect", h.SetDomainRedirect)
+				sendingDomains.POST("/:domain/redirect/verify", h.VerifyDomainRedirect)
+				sendingDomains.DELETE("/:domain/redirect", h.DeleteDomainRedirect)
+				sendingDomains.PUT("/:domain/vendor-forwarding", h.SetDomainVendorForwarding)
+				sendingDomains.POST("/:domain/vendor-tracking", h.SetDomainVendorTracking)
+			}
+
+			// Inbox vendor accounts (InboxKit, Zapmail, ...) the workspace imports from.
+			mailboxVendors := jwtOnly.Group("/emails/vendors")
+			mailboxVendors.Use(m.RequireOrganization(), m.RequirePermission(models.PermManageEmails), m.RateLimitMiddleware(models.RateLimitWrite))
+			{
+				mailboxVendors.GET("/catalog", h.ListMailboxVendorCatalog)
+				mailboxVendors.GET("", h.ListMailboxVendors)
+				mailboxVendors.POST("", h.CreateMailboxVendor)
+				mailboxVendors.PATCH("/:id", h.UpdateMailboxVendor)
+				mailboxVendors.DELETE("/:id", h.DeleteMailboxVendor)
+				mailboxVendors.GET("/:id/mailboxes", h.ListMailboxVendorMailboxes)
+				mailboxVendors.POST("/:id/import", h.ImportMailboxVendorMailboxes)
 			}
 
 			// Dynamic OAuth connection slots for multi-app scaling (Google/Outlook).
@@ -598,6 +670,11 @@ func Run(
 				campaigns.POST("/:id/preflight", m.RequireOrganization(), m.RequireAccess(models.PermSendCampaigns, models.APIPermSendCampaigns), h.RunCampaignPreflight)
 				campaigns.GET("/:id/ab-analysis", m.RequireOrganization(), m.RequireAccess(models.PermViewAnalytics, models.APIPermReadAnalytics), h.GetCampaignABAnalysis)
 				campaigns.POST("/:id/test-email", m.RequireOrganization(), m.RequireAccess(models.PermSendCampaigns, models.APIPermSendCampaigns), h.SendTestEmail)
+				// The campaign's scheduled placement test. PUT is a full-state
+				// write, so a retry lands on the same monitor.
+				campaigns.GET("/:id/placement-monitor", m.RequireOrganization(), m.RequireAccess(models.PermViewCampaigns, models.APIPermReadCampaigns), h.GetPlacementMonitor)
+				campaigns.PUT("/:id/placement-monitor", m.RequireOrganization(), m.RequireAccess(models.PermSendCampaigns, models.APIPermSendCampaigns), h.PutPlacementMonitor)
+				campaigns.DELETE("/:id/placement-monitor", m.RequireOrganization(), m.RequireAccess(models.PermSendCampaigns, models.APIPermSendCampaigns), h.DeletePlacementMonitor)
 
 				// Campaign start/stop
 				campaigns.POST("/:id/start", m.RequireOrganization(), m.RequireAccess(models.PermSendCampaigns, models.APIPermSendCampaigns), h.StartCampaign)
@@ -906,6 +983,7 @@ func Run(
 				analytics.GET("/inbox-tagging", h.GetInboxTaggingReview)
 				analytics.GET("/deliverability", m.RequireOrganization(), h.GetDeliverabilityDashboard)
 				analytics.GET("/warmup", h.GetWarmupAnalytics)
+				analytics.GET("/warmup/placement", m.RequireOrganization(), h.GetWarmupPlacement)
 				analytics.GET("/campaigns/compare", h.CompareCampaigns)
 				analytics.GET("/campaigns/:id", h.GetCampaignAnalytics)
 				analytics.GET("/campaigns/:id/daily", h.GetCampaignDailyStats)
@@ -913,6 +991,21 @@ func Run(
 				analytics.GET("/accounts", h.GetAllAccountStatuses)
 				analytics.GET("/accounts/:id", h.GetAccountStatus)
 				analytics.GET("/usage", h.GetUsageOverview)
+			}
+
+			// Inbox placement tests: a template or campaign step sent to a seed
+			// panel from a real mailbox. Reads are analytics; starting one sends
+			// mail, so it takes the campaign-sending gate like a test email.
+			placementTests := protected.Group("/placement")
+			placementTests.Use(m.RequireOrganization())
+			{
+				placementTests.GET("/overview", m.RateLimitMiddleware(models.RateLimitAnalytics), m.RequireAccess(models.PermViewAnalytics, models.APIPermReadAnalytics), h.GetPlacementOverview)
+				placementTests.GET("/tests", m.RateLimitMiddleware(models.RateLimitAnalytics), m.RequireAccess(models.PermViewAnalytics, models.APIPermReadAnalytics), h.ListPlacementTests)
+				placementTests.GET("/tests/:id", m.RateLimitMiddleware(models.RateLimitAnalytics), m.RequireAccess(models.PermViewAnalytics, models.APIPermReadAnalytics), h.GetPlacementTest)
+				placementTests.POST("/tests", m.RequireAccess(models.PermSendCampaigns, models.APIPermSendCampaigns), h.CreatePlacementTest)
+				placementTests.POST("/tests/:id/cancel", m.RequireAccess(models.PermSendCampaigns, models.APIPermSendCampaigns), h.CancelPlacementTest)
+				placementTests.GET("/seeds", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadEmails), h.ListPlacementSeeds)
+				placementTests.PUT("/seeds/:id", m.RequireAccess(models.PermManageEmails, models.APIPermWriteEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.SetPlacementSeed)
 			}
 
 			// Audit logs
@@ -1444,6 +1537,11 @@ func Run(
 				poolLinkInstance.POST("/mailboxes/:remoteId/warmup-deliveries", h.PoolLinkVerifyWarmupDelivery)
 				poolLinkInstance.GET("/workspace-mailboxes", h.PoolLinkWorkspaceMailboxes)
 				poolLinkInstance.POST("/mailboxes/adopt", h.PoolLinkAdopt)
+				// The placement seed panel lent to linked instances.
+				poolLinkInstance.GET("/placement/panel", h.PoolLinkPlacementPanel)
+				poolLinkInstance.POST("/placement/tests", h.PoolLinkStartPlacement)
+				poolLinkInstance.GET("/placement/tests/:testId", h.PoolLinkPlacementVerdicts)
+				poolLinkInstance.POST("/placement/tests/:testId/sends", h.PoolLinkPlacementSends)
 			}
 
 			// Self-hosted side: Settings > Warmbly Cloud.
@@ -1474,10 +1572,10 @@ func Run(
 				subscriptions.GET("/limits", h.GetSubscriptionLimits)
 				subscriptions.GET("/trial", h.GetTrialStatus)
 				subscriptions.GET("/features", h.GetFeatureStatus)
-				subscriptions.POST("/checkout", h.CreateCheckoutSession)
+				subscriptions.POST("/checkout", m.RequireOrganization(), m.RequirePermission(models.PermManageBilling), h.CreateCheckoutSession)
 				subscriptions.POST("/discount/validate", h.ValidateDiscountCode)
-				subscriptions.POST("/portal", h.CreateBillingPortalSession)
-				subscriptions.POST("/cancel", h.CancelSubscription)
+				subscriptions.POST("/portal", m.RequireOrganization(), m.RequirePermission(models.PermManageBilling), h.CreateBillingPortalSession)
+				subscriptions.POST("/cancel", m.RequireOrganization(), m.RequirePermission(models.PermManageBilling), h.CancelSubscription)
 
 				subscriptions.POST("/change-plan", m.RequireOrganization(), m.RequirePermission(models.PermManageBilling), h.ChangePlan)
 				subscriptions.GET("/preview-change", m.RequireOrganization(), m.RequirePermission(models.PermManageBilling), h.PreviewPlanChange)

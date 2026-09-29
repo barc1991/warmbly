@@ -46,7 +46,7 @@ flowchart LR
 
 ## Data flow
 
-The frontend talks to the backend over REST + JWT, and to the realtime service over WebSocket. Backend writes business state to Postgres. Backend, tracking, and workers publish to the event bus: NATS JetStream with JSON encoding by default, Kafka with Avro and Schema Registry as an opt-in build. The consumer reads the bus and updates Postgres (analytics, suppression, deliverability). Workers subscribe to a topic named for their worker UUID (`w.<uuid>`) and publish results to `jobs.worker-events`; see the [event system](/development/events/) for the full topic map.
+The frontend talks to the backend over REST + JWT, and to the realtime service over WebSocket. Backend writes business state to Postgres. Backend, tracking, and workers publish to the event bus: NATS JetStream with JSON encoding by default, Kafka with Avro and Schema Registry as an opt-in build. The consumer reads the bus and updates Postgres (analytics, suppression, deliverability). Workers subscribe to a topic named for their worker UUID (`w.<uuid>`) and publish results to `jobs.worker-events`; see the [event system](/development/events/) for the full topic map. The one exception is the credential check run before a mailbox is saved: someone is waiting on it, and a worker reads its topic one command at a time, so the backend offers it on the worker's Redis channel `email_validation_request:<uuid>` instead and gets the answer back on Redis. A worker that is not subscribed there (an older build) still gets the check over its topic.
 
 Realtime fanout is a separate channel: backend and consumer publish JSON events over Redis pub/sub (or Google Cloud Pub/Sub when `PUBSUB_ENABLED=true`); the Elixir realtime service subscribes and pushes to connected WebSocket clients.
 
@@ -142,6 +142,8 @@ Rotation (`internal/app/worker/rotation.go`) is deliberately reluctant. Mailbox 
 
 The externally managed health labels describe machine or operator state. Mailbox delivery outcomes do not set them.
 
+A worker that stops answering is a separate path (`internal/app/consumer/dead_worker.go`), and it waits before acting. The heartbeat key lives three minutes, which a version rollout can outlast while the container is replaced, so a missing key alone is not death: the worker also has to have been absent from the registry for `MailboxEvacuationGrace` (10 minutes) before its mailboxes are moved. Both signals are required, because during a cache outage every heartbeat key disappears at once while the registry stays current, and moving a mailbox is a real cost rather than a neutral rebalance: it changes the address the mailbox's provider sees and can earn a sign-in challenge.
+
 ### Isolated egress
 
 Plans that reserve egress bind an organization to a worker (`dedicated_worker_assignments`). It is a strong placement preference, not a pin: the worker carries no marking, so if it dies the organization's mailboxes place normally instead of stranding, and the rotation loop pulls them onto a replacement once one exists. Mailboxes belonging to other tenants drift off a reserved worker on the same loop.
@@ -167,7 +169,7 @@ An empty `desired_version` means "no opinion" and must never be read as "downgra
 
 The backend is deliberately excluded from this. It is what tells everyone else their version, and a self-update that goes wrong leaves nothing to recover with.
 
-Trigger model is push-driven, not poll-driven: a one-shot check on backend boot, a GitHub webhook (`POST /webhooks/github/releases`, HMAC-validated) on every release event, and an admin "Check now" button as a manual fallback. All configuration is env-driven (`RELEASES_GITHUB_REPO`, `RELEASES_WORKER_IMAGE_REPO`, `RELEASES_WEBHOOK_SECRET`, `RELEASES_ENABLED`) so self-hosters can point at their own fork and registry.
+The release check runs once when the backend boots, and only with `RELEASES_ENABLED=true`: it is off by default, so a self-hosted fleet is never rolled onto a vendor image. An operator moves the fleet by hand from the admin panel's Fleet section or with `warmblyctl fleet version` and `warmblyctl fleet channel`, which set the channel or pin a tag directly. Configuration is env-driven (`RELEASES_ENABLED`, `RELEASES_GITHUB_REPO`, `RELEASES_WORKER_IMAGE_REPO`, `RELEASES_GITHUB_TOKEN`) so self-hosters can point at their own fork and registry.
 
 See `internal/app/releases/service.go`.
 
@@ -183,7 +185,7 @@ Cold-email throughput is mailbox-first, not worker-first. A worker's safe outbou
 
 Pool model: warmup traffic is segregated into `free` and `premium` pools (the `warmup_pools` tables in `internal/infrastructure/db/migrations/000001_baseline.up.sql`). Pool membership is a property of the mailbox, independent of which worker happens to be sending for it.
 
-Warmup content generation is an offline control-plane workload. The autonomous controller runs every six hours, derives a shared-bank target from seven-day send demand, maintains a 200-thread floor, scales up to 5,000 threads, and submits at most 250 replacements per batch within a 1,000-thread daily cap. It deliberately does not split generation by customer mailbox tags, which would create unbounded queues and smaller, more repetitive content cohorts. Scheduled top-ups use `gpt-5-mini` through durable provider batch jobs rather than synchronous model calls, with a database uniqueness guard that prevents duplicate in-flight scheduled batches when several backend replicas are running. Content with at least 20 sampled sends is automatically archived when it has at least 3 spam placements and a placement rate of 15% or more. The send path atomically selects and increments a least-used active conversation through an indexed query, then falls back to the static reviewed library if no generated content is available. Model availability therefore never gates a warmup send.
+Warmup content generation is an offline control-plane workload. The autonomous controller runs every six hours, derives a shared-bank target from seven-day send demand, maintains a 200-thread floor, scales up to 5,000 threads, and submits at most 250 replacements per batch within a 1,000-thread daily cap. It deliberately does not split generation by customer mailbox tags, which would create unbounded queues and smaller, more repetitive content cohorts. Scheduled top-ups use `gpt-6-luna` through durable provider batch jobs rather than synchronous model calls, with a database uniqueness guard that prevents duplicate in-flight scheduled batches when several backend replicas are running. Content with at least 20 sampled sends is automatically archived when it has at least 3 spam placements and a placement rate of 15% or more. The send path atomically selects and increments a least-used active conversation through an indexed query, then falls back to the static reviewed library if no generated content is available. Model availability therefore never gates a warmup send.
 
 ## Anti-abuse layers
 

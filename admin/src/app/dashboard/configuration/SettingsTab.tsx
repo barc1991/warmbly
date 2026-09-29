@@ -41,34 +41,34 @@ const SYNC_FIELDS = [
     {
         key: "backfillDays",
         setting: "backfill_days",
-        label: "Import window (days)",
+        label: "חלון ייבוא (ימים)",
         min: 1,
         max: 730,
-        help: "How far back the initial import reaches when a mailbox is connected. Newest mail first.",
+        help: "כמה ימים אחורה מגיע הייבוא הראשוני בעת חיבור תיבת דואר. ההודעות החדשות ביותר מיובאות תחילה.",
     },
     {
         key: "backfillMessages",
         setting: "backfill_messages",
-        label: "Import cap (messages per mailbox)",
+        label: "תקרת ייבוא (הודעות לתיבת דואר)",
         min: 1,
         max: 100000,
-        help: "The most messages the initial import stores for one mailbox, whatever the window holds.",
+        help: "מספר ההודעות המרבי שהייבוא הראשוני שומר עבור תיבת דואר אחת, ללא תלות בטווח הימים.",
     },
     {
         key: "dailyPerMailbox",
         setting: "daily_messages_per_mailbox",
-        label: "Daily budget (messages per mailbox)",
+        label: "תקציב יומי (הודעות לתיבת דואר)",
         min: 1,
         max: 100000,
-        help: "New mail one mailbox may store per UTC day. Over it, mail waits for the next day; replies to the mailbox's own sends have a separate budget of the same size and keep landing.",
+        help: "כמות הדואר החדש שתיבת דואר אחת רשאית לשמור בכל יום (UTC). מעבר לכך, הדואר ממתין ליום הבא; לתשובות להודעות שנשלחו מהתיבה עצמה יש תקציב נפרד בגודל זהה והן ממשיכות להיקלט.",
     },
     {
         key: "dailyPerOrg",
         setting: "daily_messages_per_org",
-        label: "Daily budget (messages per organization)",
+        label: "תקציב יומי (הודעות לארגון)",
         min: 1,
         max: 2000000,
-        help: "New plus imported mail across one organization per UTC day.",
+        help: "סך הדואר החדש והמיובא בכל הארגון ביום (UTC).",
     },
 ] as const;
 
@@ -84,20 +84,20 @@ const RETENTION_FIELDS = [
     {
         key: "engagementDays",
         setting: "engagement_event_days",
-        label: "Opens and clicks (days)",
-        help: "Per-event open and click logs, with the client, device and approximate location of each. Campaign counts and routing read a separate summary that is never pruned, so shortening this changes what a contact's timeline can show, not what a campaign does.",
+        label: "פתיחות ולחיצות (ימים)",
+        help: "יומני פתיחות ולחיצות ברמת אירוע בודד, כולל תוכנת הדואר, המכשיר והמיקום המשוער של כל אירוע. ספירות וניתוב בקמפיינים קוראים מסיכום נפרד שלעולם אינו נמחק, כך שקיצור טווח זה משנה את מה שציר הזמן של איש קשר מציג, ולא את פעולת הקמפיין.",
     },
     {
         key: "formDays",
         setting: "form_event_days",
-        label: "Form funnel events (days)",
-        help: "Views, starts, field-level drop-off and submissions for hosted forms. Funnel reports range up to 90 days, so anything below that shortens the report too. Submitted contacts are unaffected.",
+        label: "אירועי משפך טפסים (ימים)",
+        help: "צפיות, התחלות מילוי, נטישה ברמת שדה והגשות עבור טפסים מתארחים. דוחות משפך מציגים עד 90 ימים, כך שערך נמוך מזה יקצר גם את הדוח. אנשי קשר שהגישו טופס אינם מושפעים.",
     },
     {
         key: "auditDays",
         setting: "audit_log_days",
-        label: "Audit log (days)",
-        help: "Who did what, from which IP address and user agent, with the change payload. This window is how long that record is held, and it is the one most likely to be set by a retention policy.",
+        label: "יומן ביקורת (ימים)",
+        help: "מי ביצע מה, מאיזו כתובת IP ודפדפן (User Agent), יחד עם פרטי השינוי. חלון זה קובע למשך כמה זמן נשמרת הרשומה, והוא לרוב מוכתב על ידי מדיניות שמירת נתונים.",
     },
 ] as const;
 
@@ -107,14 +107,14 @@ type RetentionFieldKey = (typeof RETENTION_FIELDS)[number]["key"];
 const RETENTION_PRESETS = [
     {
         id: "default",
-        label: "Defaults",
-        description: "365 / 180 / 90 days",
+        label: "ברירות מחדל",
+        description: "365 / 180 / 90 ימים",
         values: { engagementDays: "365", formDays: "180", auditDays: "90" },
     },
     {
         id: "minimal",
-        label: "Minimal retention",
-        description: "30 / 30 / 30 days",
+        label: "שמירה מינימלית",
+        description: "30 / 30 / 30 ימים",
         values: { engagementDays: "30", formDays: "30", auditDays: "30" },
     },
 ] as const;
@@ -134,30 +134,76 @@ const TRACKING_FIELDS = [
     {
         key: "machineWindowOpen",
         setting: "machine_window_open_seconds",
-        label: "Automated open window (seconds)",
+        label: "חלון פתיחה אוטומטית (שניות)",
         min: MACHINE_WINDOW_MIN_SECONDS,
         max: MACHINE_WINDOW_MAX_SECONDS,
-        help: "An open arriving this soon after a send was dispatched is recorded as automated. Raise it when delivery-time scanners are being counted as opens, lower it when recipients who read immediately are being missed.",
+        help: "פתיחה המתקבלת תוך פרק זמן זה מרגע שליחת ההודעה נרשמת כאוטומטית (בוט/סורק). העלה את הערך כאשר סורקי אבטחה בזמן המסירה נספרים כפתיחות, והורד אותו כאשר נמענים שקוראים מיד מתפספסים.",
     },
     {
         key: "machineWindowClick",
         setting: "machine_window_click_seconds",
-        label: "Automated click window (seconds)",
+        label: "חלון לחיצה אוטומטית (שניות)",
         min: MACHINE_WINDOW_MIN_SECONDS,
         max: MACHINE_WINDOW_MAX_SECONDS,
-        help: "The same window for clicks, kept separate because the two mistakes cost different things: a misjudged open loses a metric, a misjudged click loses the automation behind an interested lead.",
+        help: "אותו חלון עבור לחיצות, המופרד מכיוון שלשתי הטעויות יש מחיר שונה: פתיחה שסווגה בטעות מאבדת מדד סטטיסטי, בעוד לחיצה שסווגה בטעות מפסידה אוטומציה של ליד מתעניין.",
     },
     {
         key: "machineWindowProbable",
         setting: "machine_window_probable_seconds",
-        label: "Probable-scanner window (seconds)",
+        label: "חלון סורק משוער (שניות)",
         min: MACHINE_WINDOW_MIN_SECONDS,
         max: PROBABLE_WINDOW_MAX_SECONDS,
-        help: "Used instead of the two above when the request came from a mail-security network that also renders clicked pages for people, which Proofpoint and Mimecast do through browser isolation. Inside this window the event is classified as the delivery-time scan; past it, as the recipient who got to the mail later. A recipient behind one of those vendors who really does click inside it is recorded as automated, so raise it if their scans still count as engagement and lower it if fast recipients are being missed. It is never applied shorter than the windows above.",
+        help: "משמש במקום שני החלונות שלעיל כאשר הבקשה מגיעה מרשת אבטחת דואר שגם מציגה עמודים שנלחצו עבור אנשים אמיתיים (כפי שעושות Proofpoint ו-Mimecast באמצעות בידוד דפדפן). בתוך חלון זה האירוע מסווג כסריקה בזמן מסירה; לאחריו, כנמען שניגש להודעה מאוחר יותר. נמען מאחורי אחד הספקים הללו שבאמת לוחץ בתוך החלון יירשם כאוטומטי, לכן העלה את הערך אם הסריקות שלהם עדיין נספרות כמעורבות, והורד אותו אם נמענים מהירים מתפספסים. חלון זה לעולם אינו קצר מהחלונות שלעיל.",
     },
 ] as const;
 
 type TrackingFieldKey = (typeof TRACKING_FIELDS)[number]["key"];
+
+// Inbox placement test allowance and pacing, mirroring internal/config/constants.go.
+const PLACEMENT_FIELDS = [
+    {
+        key: "testsTrial",
+        setting: "tests_per_month_trial",
+        label: "בדיקות לחודש בתקופת ניסיון",
+        min: 1,
+        max: 100000,
+        help: "כמה בדיקות רשאית סביבת עבודה ללא מסלול בתשלום להריץ על הפאנלים המנוטרים בכל חודש קלנדרי.",
+    },
+    {
+        key: "testsPaid",
+        setting: "tests_per_month_paid",
+        label: "בדיקות לחודש במסלולים בתשלום",
+        min: 1,
+        max: 100000,
+        help: "אותה מכסה עבור סביבת עבודה עם מנוי פעיל.",
+    },
+    {
+        key: "seedsPerTest",
+        setting: "seeds_per_test",
+        label: "תיבות בדיקה לכל בדיקה",
+        min: 1,
+        max: 100,
+        help: "מספר תיבות הבדיקה המרבי שבדיקה אחת שולחת אליהן, שהוא גם מספר השליחות שהיא צורכת מהמגבלה היומית של תיבת הדואר השולחת. גודל הבדיקה מצטמצם לפי המכסה היומית שנותרה לתיבה היום, והבדיקה נדחית אם נותרו פחות מחמש תיבות.",
+    },
+    {
+        key: "spacingSeconds",
+        setting: "spacing_seconds",
+        label: "מרווח בין עותקים (שניות)",
+        min: 5,
+        max: 600,
+        help: "פער הזמן בין שני עותקים הנשלחים מאותה תיבת דואר (עם אקראיות קלה), כך שהבדיקה לעולם אינה יוצאת כפרץ שליחות פתאומי.",
+    },
+] as const;
+
+type PlacementFieldKey = (typeof PLACEMENT_FIELDS)[number]["key"];
+
+// A backend from before the placement section omits it; the form shows the compiled defaults.
+const PLACEMENT_DEFAULTS: InstanceSettings["placement"] = {
+    tests_per_month_trial: 3,
+    tests_per_month_paid: 40,
+    seeds_per_test: 20,
+    spacing_seconds: 60,
+};
 
 interface FormState {
     linksEnabled: boolean;
@@ -166,11 +212,13 @@ interface FormState {
     sync: Record<SyncFieldKey, string>;
     retention: Record<RetentionFieldKey, string>;
     tracking: Record<TrackingFieldKey, string>;
+    placement: Record<PlacementFieldKey, string>;
     enforceDomainAuth: boolean;
     authGraceHours: string;
 }
 
 function toForm(s: InstanceSettings): FormState {
+    const placement = s.placement ?? PLACEMENT_DEFAULTS;
     return {
         linksEnabled: s.invitations.links_enabled,
         ttlHours: String(s.invitations.ttl_hours),
@@ -190,6 +238,12 @@ function toForm(s: InstanceSettings): FormState {
             machineWindowOpen: String(s.tracking.machine_window_open_seconds),
             machineWindowClick: String(s.tracking.machine_window_click_seconds),
             machineWindowProbable: String(s.tracking.machine_window_probable_seconds),
+        },
+        placement: {
+            testsTrial: String(placement.tests_per_month_trial),
+            testsPaid: String(placement.tests_per_month_paid),
+            seedsPerTest: String(placement.seeds_per_test),
+            spacingSeconds: String(placement.spacing_seconds),
         },
         enforceDomainAuth: s.deliverability.enforce_domain_auth,
         authGraceHours: String(s.deliverability.auth_grace_hours),
@@ -229,9 +283,9 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
         onSuccess: (saved) => {
             qc.setQueryData(SETTINGS_KEY, saved);
             setForm(toForm(saved));
-            toast.success("Instance settings saved");
+            toast.success("הגדרות המופע נשמרו");
         },
-        onError: (err: Error) => toast.error(err.message || "Could not save settings"),
+        onError: (err: Error) => toast.error(err.message || "לא ניתן לשמור את ההגדרות"),
     });
 
     const server = settingsQ.data;
@@ -249,6 +303,13 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
         !!server &&
         !!form &&
         TRACKING_FIELDS.some((f) => form.tracking[f.key] !== String(server.tracking[f.setting]));
+    const placementDirty =
+        !!server &&
+        !!form &&
+        PLACEMENT_FIELDS.some(
+            (f) =>
+                form.placement[f.key] !== String((server.placement ?? PLACEMENT_DEFAULTS)[f.setting]),
+        );
     const dirty =
         !!server &&
         !!form &&
@@ -259,6 +320,7 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
             form.authGraceHours !== String(server.deliverability.auth_grace_hours) ||
             retentionDirty ||
             trackingDirty ||
+            placementDirty ||
             syncDirty);
 
     useEffect(() => {
@@ -276,6 +338,10 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
     const trackingValid =
         form !== null &&
         TRACKING_FIELDS.every((f) => syncFieldValid(form.tracking[f.key], f.min, f.max));
+
+    const placementValid =
+        form !== null &&
+        PLACEMENT_FIELDS.every((f) => syncFieldValid(form.placement[f.key], f.min, f.max));
 
     const authGrace = form ? Number(form.authGraceHours) : NaN;
     const authGraceValid =
@@ -297,29 +363,33 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
         if (!form) return;
         if (!ttlValid) {
             toast.error(
-                `Invitation validity must be a whole number of hours between ${TTL_MIN_HOURS} and ${TTL_MAX_HOURS}`,
+                `תוקף ההזמנה חייב להיות מספר שלם של שעות בין ${TTL_MIN_HOURS} ל-${TTL_MAX_HOURS}`,
             );
             return;
         }
         if (!syncValid) {
-            toast.error("Every sync budget must be a whole number inside its range");
+            toast.error("כל תקציב סנכרון חייב להיות מספר שלם בטווח המוגדר עבורו");
             return;
         }
         if (!retentionValid) {
             toast.error(
-                `Every retention window must be a whole number of days between ${RETENTION_MIN_DAYS} and ${RETENTION_MAX_DAYS.toLocaleString()}`,
+                `כל חלון שמירת נתונים חייב להיות מספר שלם של ימים בין ${RETENTION_MIN_DAYS} ל-${RETENTION_MAX_DAYS.toLocaleString("he-IL")}`,
             );
             return;
         }
         if (!trackingValid) {
             toast.error(
-                "Every automated-engagement window must be a whole number of seconds inside the range shown under it",
+                "כל חלון מעורבות אוטומטית חייב להיות מספר שלם של שניות בטווח המוצג מתחתיו",
             );
+            return;
+        }
+        if (!placementValid) {
+            toast.error("כל הגדרה של בדיקת מיקום חייבת להיות מספר שלם בטווח המוצג מתחתיה");
             return;
         }
         if (!authGraceValid) {
             toast.error(
-                `The authentication grace period must be a whole number of hours between ${AUTH_GRACE_MIN_HOURS} and ${AUTH_GRACE_MAX_HOURS}`,
+                `תקופת החסד לאימות חייבת להיות מספר שלם של שעות בין ${AUTH_GRACE_MIN_HOURS} ל-${AUTH_GRACE_MAX_HOURS}`,
             );
             return;
         }
@@ -346,6 +416,12 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                 enforce_domain_auth: form.enforceDomainAuth,
                 auth_grace_hours: authGrace,
             },
+            placement: {
+                tests_per_month_trial: Number(form.placement.testsTrial),
+                tests_per_month_paid: Number(form.placement.testsPaid),
+                seeds_per_test: Number(form.placement.seedsPerTest),
+                spacing_seconds: Number(form.placement.spacingSeconds),
+            },
         });
     }
 
@@ -353,8 +429,8 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
         <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="max-w-2xl text-sm text-muted-foreground">
-                    Stored in the database and never read from the environment. Everything the
-                    environment owns is on the Environment tab.
+                    נשמר במסד הנתונים ולעולם אינו נקרא ממשתני הסביבה. כל מה שמוגדר ברמת הסביבה
+                    מופיע בלשונית סביבה.
                 </p>
                 <Button
                     size="sm"
@@ -362,7 +438,7 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                     disabled={!dirty || saveMut.isPending || !form}
                 >
                     <Save className="size-4" />
-                    {saveMut.isPending ? "Saving..." : "Save changes"}
+                    {saveMut.isPending ? "שומר..." : "שמירת שינויים"}
                 </Button>
             </div>
 
@@ -376,7 +452,7 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
             {settingsQ.isError && (
                 <ErrorState
                     error={settingsQ.error}
-                    title="Could not load instance settings"
+                    title="לא ניתן לטעון את הגדרות המופע"
                     onRetry={() => settingsQ.refetch()}
                 />
             )}
@@ -385,20 +461,20 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Invitations</CardTitle>
+                            <CardTitle>הזמנות</CardTitle>
                             <CardDescription>
-                                How people are brought into a workspace from Settings, Members in
-                                the dashboard.
+                                אופן צירוף אנשים לסביבת עבודה מתוך הגדרות, חברי צוות בלוח
+                                הבקרה.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3 pt-0">
                             <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
                                 <div className="min-w-0">
-                                    <p className="text-sm font-medium">Invitation links</p>
+                                    <p className="text-sm font-medium">קישורי הזמנה</p>
                                     <p className="text-xs text-muted-foreground">
-                                        Show a copyable link next to each pending invitation. Leave
-                                        this on when the platform mail transport does not deliver,
-                                        otherwise an invited person never receives anything.
+                                        הצג קישור להעתקה ליד כל הזמנה ממתינה. השאר הגדרה זו פעילה
+                                        כאשר שרת הדואר של המערכת אינו מוסר הודעות, אחרת המוזמן לא
+                                        יקבל דבר.
                                     </p>
                                 </div>
                                 <Switch
@@ -410,7 +486,7 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                             </div>
 
                             <div>
-                                <Label htmlFor="ttl-hours">Invitation validity (hours)</Label>
+                                <Label htmlFor="ttl-hours">תוקף הזמנה (שעות)</Label>
                                 {/* Text, not number: the native spinner is not ours, and the value is already validated as a string. */}
                                 <Input
                                     id="ttl-hours"
@@ -425,12 +501,12 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                                     className="mt-1"
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    Between {TTL_MIN_HOURS} and {TTL_MAX_HOURS} hours (30 days).
-                                    Existing invitations keep the expiry they were issued with.
+                                    בין {TTL_MIN_HOURS} ל-{TTL_MAX_HOURS} שעות (30 ימים). הזמנות
+                                    קיימות שומרות על תוקף התפוגה שאיתו הונפקו.
                                 </p>
                                 {!ttlValid && (
                                     <p className="mt-1 text-xs text-red-600">
-                                        Enter a whole number of hours between {TTL_MIN_HOURS} and{" "}
+                                        הזן מספר שלם של שעות בין {TTL_MIN_HOURS} ל-
                                         {TTL_MAX_HOURS}.
                                     </p>
                                 )}
@@ -440,12 +516,12 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Access</CardTitle>
+                            <CardTitle>גישה</CardTitle>
                             <CardDescription>
-                                Who may create an account on this instance. The registration mode
-                                itself is owned by the environment and is listed under{" "}
+                                מי רשאי ליצור חשבון במופע זה. מצב ההרשמה עצמו מנוהל במשתני
+                                הסביבה ומופיע תחת{" "}
                                 <TabLink onClick={() => onSwitchTab?.("environment")}>
-                                    Environment
+                                    סביבה
                                 </TabLink>
                                 .
                             </CardDescription>
@@ -453,11 +529,11 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                         <CardContent className="pt-0">
                             <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
                                 <div className="min-w-0">
-                                    <p className="text-sm font-medium">Allow invited sign-up</p>
+                                    <p className="text-sm font-medium">אפשר הרשמה למוזמנים</p>
                                     <p className="text-xs text-muted-foreground">
-                                        Someone holding a valid invitation can create an account
-                                        even though open sign-ups are closed. Turning this off
-                                        means only existing accounts can sign in.
+                                        אדם המחזיק בהזמנה בתוקף יכול ליצור חשבון גם כאשר ההרשמה
+                                        הפתוחה סגורה. כיבוי אפשרות זו אומר שרק חשבונות קיימים
+                                        יכולים להתחבר.
                                     </p>
                                 </div>
                                 <Switch
@@ -472,15 +548,14 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
 
                     <Card className="lg:col-span-2">
                         <CardHeader>
-                            <CardTitle>Mailbox sync fair use</CardTitle>
+                            <CardTitle>שימוש הוגן בסנכרון תיבות דואר</CardTitle>
                             <CardDescription>
-                                What a connected mailbox imports and how much new mail it may
-                                store. Mail over a budget waits and is picked up when the window
-                                rolls; nothing is dropped, and replies to the mailbox&apos;s own
-                                outreach are never held. Changes apply the next time a mailbox is
-                                loaded onto a worker (within a few minutes). The fixed pacing
-                                numbers are listed under{" "}
-                                <TabLink onClick={() => onSwitchTab?.("limits")}>Limits</TabLink>.
+                                מה תיבת דואר מחוברת מייבאת וכמה דואר חדש היא רשאית לשמור. דואר
+                                מעבר לתקציב ממתין ונקלט עם תחילת החלון הבא; שום הודעה אינה
+                                נמחקת, ותשובות להודעות שנשלחו מהתיבה עצמה לעולם אינן מעוכבות.
+                                שינויים נכנסים לתוקף בפעם הבאה שתיבת הדואר נטענת לתהליך עבודה
+                                (תוך מספר דקות). מספרי הקצב הקבועים מופיעים תחת{" "}
+                                <TabLink onClick={() => onSwitchTab?.("limits")}>מגבלות</TabLink>.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-3 pt-0 md:grid-cols-2">
@@ -505,13 +580,13 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                                             className="mt-1"
                                         />
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            {f.help} Between {f.min.toLocaleString()} and{" "}
-                                            {f.max.toLocaleString()}.
+                                            {f.help} בין {f.min.toLocaleString("he-IL")} ל-
+                                            {f.max.toLocaleString("he-IL")}.
                                         </p>
                                         {!valid && (
                                             <p className="mt-1 text-xs text-red-600">
-                                                Enter a whole number between {f.min.toLocaleString()}{" "}
-                                                and {f.max.toLocaleString()}.
+                                                הזן מספר שלם בין {f.min.toLocaleString("he-IL")}{" "}
+                                                ל-{f.max.toLocaleString("he-IL")}.
                                             </p>
                                         )}
                                     </div>
@@ -522,20 +597,19 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
 
                     <Card className="lg:col-span-2">
                         <CardHeader>
-                            <CardTitle>Data retention</CardTitle>
+                            <CardTitle>שמירת נתונים</CardTitle>
                             <CardDescription>
-                                How long event-level history is kept on this instance. Every window
-                                below is also how long the personal data in that log is held, so
-                                these are the settings a retention or privacy policy applies to. A
-                                sweep runs a few times a day and reads these values each pass, so a
-                                change takes effect without a restart. Deletion is permanent:
-                                shortening a window removes what already sits outside it on the
-                                next sweep.
+                                למשך כמה זמן נשמרת היסטוריה ברמת אירוע במופע זה. כל חלון למטה
+                                קובע גם למשך כמה זמן מוחזקים הנתונים האישיים באותו יומן, כך
+                                שאלו ההגדרות שעליהן חלה מדיניות שמירת נתונים או פרטיות. תהליך
+                                ניקוי רץ מספר פעמים ביום וקורא ערכים אלו בכל סבב, כך ששינוי
+                                נכנס לתוקף ללא הפעלה מחדש. המחיקה היא לצמיתות: קיצור חלון מסיר
+                                בסבב הניקוי הבא את מה שכבר חורג ממנו.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4 pt-0">
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs text-muted-foreground">Presets</span>
+                                <span className="text-xs text-muted-foreground">תבניות קבועות</span>
                                 {RETENTION_PRESETS.map((preset) => {
                                     const active = RETENTION_FIELDS.every(
                                         (f) => form.retention[f.key] === preset.values[f.key],
@@ -554,7 +628,7 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                                             }
                                         >
                                             {preset.label}
-                                            <span className="ml-1.5 text-[11px] opacity-70">
+                                            <span className="ms-1.5 text-[11px] opacity-70">
                                                 {preset.description}
                                             </span>
                                         </Button>
@@ -590,14 +664,14 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                                                 className="mt-1"
                                             />
                                             <p className="mt-1 text-xs text-muted-foreground">
-                                                {f.help} Between {RETENTION_MIN_DAYS} and{" "}
-                                                {RETENTION_MAX_DAYS.toLocaleString()} days.
+                                                {f.help} בין {RETENTION_MIN_DAYS} ל-
+                                                {RETENTION_MAX_DAYS.toLocaleString("he-IL")} ימים.
                                             </p>
                                             {!valid && (
                                                 <p className="mt-1 text-xs text-red-600">
-                                                    Enter a whole number of days between{" "}
-                                                    {RETENTION_MIN_DAYS} and{" "}
-                                                    {RETENTION_MAX_DAYS.toLocaleString()}.
+                                                    הזן מספר שלם של ימים בין{" "}
+                                                    {RETENTION_MIN_DAYS} ל-
+                                                    {RETENTION_MAX_DAYS.toLocaleString("he-IL")}.
                                                 </p>
                                             )}
                                         </div>
@@ -609,21 +683,20 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
 
                     <Card className="lg:col-span-2">
                         <CardHeader>
-                            <CardTitle>Automated engagement</CardTitle>
+                            <CardTitle>מעורבות אוטומטית</CardTitle>
                             <CardDescription>
-                                Security gateways fetch the tracking pixel and walk every link
-                                when a message arrives, using an ordinary browser&apos;s user
-                                agent. An open or click landing inside these windows is recorded
-                                as automated: still kept as delivery evidence and still shown on
-                                the timeline, but it does not count as engagement, fire a branch
-                                or automation, or send a webhook. Nothing is discarded either way.
-                                The clock starts when the send is handed to a worker, so the
-                                window also covers the provider&apos;s queue and the transit to
-                                the recipient. A network that only ever filters mail is matched
-                                by name and is not bounded by time; one that can also carry a
-                                person gets the probable window below. A change applies within a
-                                minute and only to events recorded after it: opens and clicks
-                                already stored keep the label they were given when they arrived.
+                                שערי אבטחת דואר מושכים את פיקסל המעקב וסורקים כל קישור כאשר
+                                הודעה מגיעה, תוך שימוש בזיהוי דפדפן (User Agent) רגיל. פתיחה או
+                                לחיצה המתקבלות בתוך חלונות אלו נרשמות כאוטומטיות: הן עדיין
+                                נשמרות כראיית מסירה ומוצגות בציר הזמן, אך אינן נספרות כמעורבות,
+                                אינן מפעילות התפצלות או אוטומציה, ואינן שולחות Webhook. שום
+                                מידע אינו נזרק בשני המקרים. השעון מתחיל כאשר השליחה נמסרת
+                                לתהליך עבודה, כך שהחלון מכסה גם את התור אצל הספק ואת זמן
+                                ההעברה לנמען. רשת שעוסקת אך ורק בסינון דואר מזוהה לפי שם ואינה
+                                מוגבלת בזמן; רשת שעשויה לשמש גם גולש אנושי מקבלת את חלון הסורק
+                                המשוער למטה. שינוי נכנס לתוקף תוך דקה וחל רק על אירועים שנרשמו
+                                לאחריו: פתיחות ולחיצות שכבר נשמרו שומרות על הסיווג שניתן להן
+                                בעת הגעתן.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 gap-3 pt-0 md:grid-cols-2">
@@ -655,13 +728,13 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                                             className="mt-1"
                                         />
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            {f.help} Between {f.min} and{" "}
-                                            {f.max.toLocaleString()} seconds.
+                                            {f.help} בין {f.min} ל-
+                                            {f.max.toLocaleString("he-IL")} שניות.
                                         </p>
                                         {!valid && (
                                             <p className="mt-1 text-xs text-red-600">
-                                                Enter a whole number between {f.min} and{" "}
-                                                {f.max.toLocaleString()}.
+                                                הזן מספר שלם בין {f.min} ל-
+                                                {f.max.toLocaleString("he-IL")}.
                                             </p>
                                         )}
                                     </div>
@@ -672,25 +745,77 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
 
                     <Card className="lg:col-span-2">
                         <CardHeader>
-                            <CardTitle>Sending-domain authentication</CardTitle>
+                            <CardTitle>בדיקות מיקום בתיבת הדואר</CardTitle>
                             <CardDescription>
-                                Gmail, Yahoo, and Outlook reject or spam-filter mail from a domain
-                                without SPF and DMARC, and one unauthenticated sender damages the
-                                reputation of every mailbox in the shared warmup pool. Warmbly
-                                checks each sending domain daily and can stop cold sending and
-                                warmup from a domain that keeps failing. The grace period is how
-                                long a domain may keep failing first, so a DNS outage cannot stop
-                                a customer&apos;s campaigns and the owner is warned throughout it.
+                                בדיקת מיקום שולחת עותק אחד של תבנית לכל תיבת בדיקה בפאנל ומדווחת
+                                היכן הוא נחת. המכסות החודשיות סופרות בדיקות בפאנל המערכת
+                                וב-Warmbly Cloud; בדיקות על תיבות הבדיקה הפרטיות של סביבת עבודה
+                                לעולם אינן נספרות, ומופע באירוח עצמי אינו מגביל בדיקות כלל.
+                                השוואת מעקב נספרת כשתי בדיקות. תיבות הבדיקה עצמן מנוהלות בעמוד
+                                פאנל תיבות בדיקה.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 gap-3 pt-0 md:grid-cols-2">
+                            {PLACEMENT_FIELDS.map((f) => {
+                                const valid = syncFieldValid(form.placement[f.key], f.min, f.max);
+                                return (
+                                    <div key={f.key}>
+                                        <Label htmlFor={`placement-${f.key}`}>{f.label}</Label>
+                                        <Input
+                                            id={`placement-${f.key}`}
+                                            type="text"
+                                            inputMode="numeric"
+                                            autoComplete="off"
+                                            value={form.placement[f.key]}
+                                            onChange={(e) =>
+                                                setForm({
+                                                    ...form,
+                                                    placement: {
+                                                        ...form.placement,
+                                                        [f.key]: e.target.value,
+                                                    },
+                                                })
+                                            }
+                                            aria-invalid={!valid}
+                                            className="mt-1"
+                                        />
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {f.help} בין {f.min.toLocaleString("he-IL")} ל-
+                                            {f.max.toLocaleString("he-IL")}.
+                                        </p>
+                                        {!valid && (
+                                            <p className="mt-1 text-xs text-red-600">
+                                                הזן מספר שלם בין {f.min.toLocaleString("he-IL")}{" "}
+                                                ל-{f.max.toLocaleString("he-IL")}.
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="lg:col-span-2">
+                        <CardHeader>
+                            <CardTitle>אימות דומיין שולח</CardTitle>
+                            <CardDescription>
+                                Gmail,‏ Yahoo ו-Outlook דוחים או מסננים לספאם דואר מדומיין ללא
+                                SPF ו-DMARC, ושולח לא מאומת אחד פוגע במוניטין של כל תיבת דואר
+                                במאגר החימום המשותף. Warmbly בודקת כל דומיין שולח מדי יום ויכולה
+                                לעצור שליחת קמפיינים וחימום מדומיין שממשיך להיכשל. תקופת החסד
+                                קובעת למשך כמה זמן דומיין רשאי להיכשל תחילה, כך שתקלת DNS זמנית
+                                לא תעצור קמפיינים של לקוח, ובעל החשבון יקבל התראות לאורך כל
+                                התקופה.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4 pt-0">
                             <div className="flex items-start justify-between gap-4">
                                 <div className="space-y-0.5">
-                                    <Label>Stop sending from unauthenticated domains</Label>
+                                    <Label>עצור שליחה מדומיינים לא מאומתים</Label>
                                     <p className="text-xs text-muted-foreground">
-                                        Off keeps the check informational: domains are still
-                                        checked, shown on the mailbox, and raised by the advisor,
-                                        but nothing is ever blocked.
+                                        כאשר האפשרות כבויה, הבדיקה נשארת אינפורמטיבית בלבד:
+                                        הדומיינים עדיין נבדקים, מוצגים בתיבת הדואר ומועלים על
+                                        ידי יועץ העבירות, אך שום שליחה אינה נחסמת.
                                     </p>
                                 </div>
                                 <Switch
@@ -701,7 +826,7 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                                 />
                             </div>
                             <div className="md:max-w-sm">
-                                <Label htmlFor="auth-grace-hours">Grace period (hours)</Label>
+                                <Label htmlFor="auth-grace-hours">תקופת חסד (שעות)</Label>
                                 <Input
                                     id="auth-grace-hours"
                                     type="text"
@@ -716,14 +841,14 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                                     className="mt-1"
                                 />
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    How long a domain must stay failing before its mailboxes stop
-                                    sending. Between {AUTH_GRACE_MIN_HOURS} and{" "}
-                                    {AUTH_GRACE_MAX_HOURS.toLocaleString()}.
+                                    למשך כמה זמן דומיין חייב להמשיך להיכשל לפני שתיבות הדואר
+                                    שלו יפסיקו לשלוח. בין {AUTH_GRACE_MIN_HOURS} ל-
+                                    {AUTH_GRACE_MAX_HOURS.toLocaleString("he-IL")}.
                                 </p>
                                 {!authGraceValid && (
                                     <p className="mt-1 text-xs text-red-600">
-                                        Enter a whole number between {AUTH_GRACE_MIN_HOURS} and{" "}
-                                        {AUTH_GRACE_MAX_HOURS.toLocaleString()}.
+                                        הזן מספר שלם בין {AUTH_GRACE_MIN_HOURS} ל-
+                                        {AUTH_GRACE_MAX_HOURS.toLocaleString("he-IL")}.
                                     </p>
                                 )}
                             </div>
@@ -736,7 +861,7 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                 <div className="mt-4 flex items-center gap-2">
                     <Button size="sm" onClick={save} disabled={saveMut.isPending}>
                         <Save className="size-4" />
-                        {saveMut.isPending ? "Saving..." : "Save changes"}
+                        {saveMut.isPending ? "שומר..." : "שמירת שינויים"}
                     </Button>
                     <Button
                         size="sm"
@@ -744,10 +869,10 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                         onClick={() => server && setForm(toForm(server))}
                         disabled={saveMut.isPending}
                     >
-                        Discard
+                        ביטול שינויים
                     </Button>
                     <span className="text-xs text-muted-foreground">
-                        Saving records the change in the admin audit log.
+                        שמירה מתעדת את השינוי ביומן הביקורת של המערכת.
                     </span>
                 </div>
             )}

@@ -17,6 +17,7 @@ import {
     Flame,
     Gauge,
     HeartPulse,
+    Inbox,
     LayoutDashboard,
     Mailbox,
     Megaphone,
@@ -60,62 +61,63 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
     {
-        label: "Overview",
-        items: [{ to: "/", label: "Overview", icon: LayoutDashboard, end: true }],
+        label: "סקירה כללית",
+        items: [{ to: "/", label: "סקירה כללית", icon: LayoutDashboard, end: true }],
     },
     {
-        label: "Operations",
+        label: "תפעול",
         items: [
-            { to: "/workers", label: "Workers", icon: Server, end: true, perm: AdminPerm.ViewWorkers },
-            { to: "/fleet", label: "Fleet", icon: Network, perm: AdminPerm.ViewWorkers },
-            { to: "/mailboxes", label: "Mailboxes", icon: Mailbox, perm: AdminPerm.ViewUsers },
-            { to: "/sync", label: "Sync", icon: RefreshCw, perm: AdminPerm.ViewUsers },
-            { to: "/warmup", label: "Warmup", icon: Flame, end: true, perm: AdminPerm.ViewWarmupPool },
-            { to: "/warmup/appeals", label: "Warmup Appeals", icon: ShieldCheck, perm: AdminPerm.ReviewAppeals },
-            { to: "/warmup-content", label: "Warmup Content", icon: Sparkles, perm: AdminPerm.ViewWarmupPool },
-            { to: "/campaigns", label: "Campaigns", icon: Megaphone, perm: AdminPerm.ViewCampaigns },
-            { to: "/sends", label: "Sends", icon: SendHorizonal, perm: AdminPerm.ViewCampaigns },
+            { to: "/workers", label: "תהליכי עבודה (Workers)", icon: Server, end: true, perm: AdminPerm.ViewWorkers },
+            { to: "/fleet", label: "צי שרתים (Fleet)", icon: Network, perm: AdminPerm.ViewWorkers },
+            { to: "/mailboxes", label: "תיבות דואר", icon: Mailbox, perm: AdminPerm.ViewUsers },
+            { to: "/sync", label: "סנכרון", icon: RefreshCw, perm: AdminPerm.ViewUsers },
+            { to: "/warmup", label: "חימום", icon: Flame, end: true, perm: AdminPerm.ViewWarmupPool },
+            { to: "/warmup/appeals", label: "ערעורי חימום", icon: ShieldCheck, perm: AdminPerm.ReviewAppeals },
+            { to: "/warmup-content", label: "תוכן חימום", icon: Sparkles, perm: AdminPerm.ViewWarmupPool },
+            { to: "/placement", label: "פאנל תיבות בדיקה", icon: Inbox, perm: AdminPerm.ViewWarmupPool },
+            { to: "/campaigns", label: "קמפיינים", icon: Megaphone, perm: AdminPerm.ViewCampaigns },
+            { to: "/sends", label: "שליחות", icon: SendHorizonal, perm: AdminPerm.ViewCampaigns },
         ],
     },
     {
-        label: "Accounts",
+        label: "חשבונות",
         items: [
-            { to: "/users", label: "Users", icon: Users, perm: AdminPerm.ViewUsers },
-            { to: "/organizations", label: "Organizations", icon: Building2, perm: AdminPerm.ViewOrganizations },
-            { to: "/limit-requests", label: "Limit requests", icon: Gauge, perm: AdminPerm.ViewOrganizations },
-            { to: "/discounts", label: "Promo codes", icon: TicketPercent, perm: AdminPerm.ViewOrganizations },
-            { to: "/outreach", label: "Outreach", icon: Send, perm: AdminPerm.ViewOrganizations },
-            { to: "/admins", label: "Admins", icon: UserCog, perm: AdminPerm.GrantAdminAccess },
-            { to: "/testers", label: "Testers", icon: FlaskConical, perm: AdminPerm.ViewUsers },
+            { to: "/users", label: "משתמשים", icon: Users, perm: AdminPerm.ViewUsers },
+            { to: "/organizations", label: "ארגונים", icon: Building2, perm: AdminPerm.ViewOrganizations },
+            { to: "/limit-requests", label: "בקשות להגדלת מכסה", icon: Gauge, perm: AdminPerm.ViewOrganizations },
+            { to: "/discounts", label: "קודי קופון", icon: TicketPercent, perm: AdminPerm.ViewOrganizations },
+            { to: "/outreach", label: "דיוור יזום", icon: Send, perm: AdminPerm.ViewOrganizations },
+            { to: "/admins", label: "מנהלי מערכת", icon: UserCog, perm: AdminPerm.GrantAdminAccess },
+            { to: "/testers", label: "נסיינים", icon: FlaskConical, perm: AdminPerm.ViewUsers },
         ],
     },
     {
-        label: "Insight",
+        label: "תובנות ובקרה",
         items: [
-            { to: "/events", label: "Live Events", icon: Radio },
-            { to: "/audit", label: "Audit Log", icon: FileText, perm: AdminPerm.ViewAuditLogs },
-            { to: "/jobs", label: "Jobs", icon: CalendarClock, perm: AdminPerm.ViewAnalytics },
+            { to: "/events", label: "אירועים בזמן אמת", icon: Radio },
+            { to: "/audit", label: "יומן ביקורת", icon: FileText, perm: AdminPerm.ViewAuditLogs },
+            { to: "/jobs", label: "משימות רקע", icon: CalendarClock, perm: AdminPerm.ViewAnalytics },
         ],
     },
     {
-        label: "Instance",
+        label: "מופע מערכת",
         items: [
             {
                 to: "/health",
-                label: "Setup and health",
+                label: "הגדרה ותקינות",
                 icon: HeartPulse,
                 perm: AdminPerm.ViewAnalytics,
                 healthBadge: true,
             },
             {
                 to: "/configuration",
-                label: "Configuration",
+                label: "תצורה והגדרות",
                 icon: SlidersHorizontal,
                 perm: AdminPerm.ManageSettings,
             },
             {
                 to: "/transfers",
-                label: "Transfers",
+                label: "העברות נתונים",
                 icon: ArrowLeftRight,
                 perm: AdminPerm.ViewOrganizations,
             },
@@ -154,7 +156,7 @@ export function Sidebar() {
 
             <div className="px-4 py-3 border-t border-sidebar-border flex items-center gap-2 text-[11px] text-muted-foreground">
                 <Activity className="size-3" />
-                <span>Admin surface · do not share</span>
+                <span>ממשק ניהול מערכת · אין לשתף</span>
             </div>
         </aside>
     );
@@ -169,7 +171,7 @@ export function SidebarBrand() {
                     Warmbly
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-1">
-                    Control plane
+                    מישור בקרה
                 </div>
             </div>
         </div>
@@ -190,7 +192,7 @@ export function NavList({ onNavigate }: { onNavigate?: () => void }) {
         <>
             {visibleNavGroups(mask).map((group) => (
                 <div key={group.label}>
-                    {group.label !== "Overview" && (
+                    {group.label !== "סקירה כללית" && (
                         <div className="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                             {group.label}
                         </div>

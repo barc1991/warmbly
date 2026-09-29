@@ -488,7 +488,7 @@ function ValueInput({
                 />
             );
         case "enum":
-            return <EnumMultiPicker value={values} onChange={setValues} options={spec.options ?? []} />;
+            return <EnumMultiPicker value={values} onChange={setValues} options={spec.options ?? []} labels={spec.option_labels} />;
         case "category":
             return <CategoryPicker value={values} onChange={setValues} placeholder="בחר קטגוריות…" allowCreate={false} />;
         case "campaign":

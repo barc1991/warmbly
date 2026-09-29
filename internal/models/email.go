@@ -19,15 +19,17 @@ const (
 	InboxProviderSMTPIMAP InboxProvider = "smtp_imap"
 )
 
-type WarmupPlacement string
-
-const (
-	WarmupPlacementFolder  = "folder"
-	WarmupPlacementArchive = "archive"
-	WarmupPlacementInbox   = "inbox"
-)
+type WarmupPlacement = string
 
 const DefaultWarmupFolder = "Warmbly"
+
+// How a mailbox signs in, mirroring the email_accounts.auth_method CHECK.
+const (
+	MailAuthPassword    = "password"
+	MailAuthAppPassword = "app_password"
+	MailAuthOAuth       = "oauth"
+	MailAuthDelegated   = "delegated"
+)
 
 // Sending-domain authentication states, mirroring the email_accounts.auth_state
 // CHECK constraint. "unknown" is deliberately distinct from "failing": it means
@@ -61,6 +63,18 @@ type Email struct {
 	Status   string `json:"status"`
 
 	OAuthSlotID *uuid.UUID `json:"oauth_slot_id,omitempty"`
+
+	// MailHost is who hosts the mailbox (google_workspace, microsoft365, ...)
+	// and AuthMethod how it signs in; both "" until known. See mailhost.Host.
+	MailHost   string `json:"mail_host"`
+	AuthMethod string `json:"auth_method"`
+	// DomainGrantID is the administrator's grant a delegated mailbox connects through.
+	DomainGrantID *uuid.UUID `json:"domain_grant_id,omitempty"`
+	// VendorConnectionID and Vendor name the inbox vendor account a mailbox was imported from.
+	VendorConnectionID *uuid.UUID `json:"vendor_connection_id,omitempty"`
+	Vendor             string     `json:"vendor,omitempty"`
+	// AvatarURL is the mailbox's own profile photo, empty when its provider or vendor has none we can read.
+	AvatarURL string `json:"avatar_url"`
 
 	LastSyncedAt time.Time `json:"last_synced_at"`
 	LastID       *int64    `json:"last_id"`
@@ -100,19 +114,23 @@ type Email struct {
 	// cannot stop sending immediately.
 	AuthFailingSince *time.Time `json:"auth_failing_since,omitempty"`
 
-	Warmup          *time.Time      `json:"warmup"`
-	WarmupPausedAt  *time.Time      `json:"warmup_paused_at"`
-	WarmupBase      int             `json:"warmup_base"`
-	WarmupMax       int             `json:"warmup_max"`
-	WarmupIncrease  int             `json:"warmup_increase"`
-	WarmupReplyRate int             `json:"warmup_reply_rate"`
-	WarmupTag       string          `json:"warmup_tag"`
-	WarmupPoolType  string          `json:"warmup_pool_type"`
-	WarmupStartTime string          `json:"warmup_start_time"`
-	WarmupEndTime   string          `json:"warmup_end_time"`
-	WarmupDays      int             `json:"warmup_days"`
-	WarmupPlacement WarmupPlacement `json:"warmup_placement"`
-	WarmupFolder    string          `json:"warmup_folder"`
+	Warmup          *time.Time `json:"warmup"`
+	WarmupPausedAt  *time.Time `json:"warmup_paused_at"`
+	WarmupBase      int        `json:"warmup_base"`
+	WarmupMax       int        `json:"warmup_max"`
+	WarmupIncrease  int        `json:"warmup_increase"`
+	WarmupReplyRate int        `json:"warmup_reply_rate"`
+	WarmupTag       string     `json:"warmup_tag"`
+	WarmupPoolType  string     `json:"warmup_pool_type"`
+	WarmupStartTime string     `json:"warmup_start_time"`
+	WarmupEndTime   string     `json:"warmup_end_time"`
+	WarmupDays      int        `json:"warmup_days"`
+
+	// WarmupPlacement and WarmupFolder decide where warmup mail ends up in the
+	// customer's real mail client: see WarmupFiling. An empty WarmupFolder
+	// means the instance default rather than "no folder".
+	WarmupPlacement string `json:"warmup_placement"`
+	WarmupFolder    string `json:"warmup_folder"`
 	// WarmupRetentionDays is how long warmup mail stays in this mailbox before
 	// the platform deletes it. Zero means the instance setting: see
 	// WarmupMailRetentionDays.
@@ -134,6 +152,11 @@ type Email struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// IsWarmingActive reports whether the mailbox is actively warming up: warmup
+// has been enabled (anchor set) and is not currently paused. The scheduler,
+// task runner, and analytics all key off this rather than the raw Warmup
+// pointer so a paused mailbox is treated as "not sending normal warmup" while
+// still preserving its ramp progress.
 // ClockTimezone is the zone the mailbox's own hours (warmup window, sending
 // behaviour workday, business-hours band) are read in: its own timezone, else
 // the workspace's. Empty means UTC. Campaign windows are not read here; a
@@ -145,11 +168,6 @@ func (e *Email) ClockTimezone() string {
 	return e.OrgTimezone
 }
 
-// IsWarmingActive reports whether the mailbox is actively warming up: warmup
-// has been enabled (anchor set) and is not currently paused. The scheduler,
-// task runner, and analytics all key off this rather than the raw Warmup
-// pointer so a paused mailbox is treated as "not sending normal warmup" while
-// still preserving its ramp progress.
 func (e *Email) IsWarmingActive() bool {
 	return e.Warmup != nil && e.WarmupPausedAt == nil
 }
@@ -171,9 +189,24 @@ func (e *Email) IsWarmupPaused() bool {
 	return e.Warmup != nil && e.WarmupPausedAt != nil
 }
 
+// Where warmup mail is filed in the customer's own mail client. The platform
+// hides warmup from the unibox on its own; these decide what the mailbox owner
+// sees in Gmail, Outlook or their IMAP client.
+const (
+	// WarmupPlacementFolder moves warmup mail out of the inbox (and out of
+	// Sent, where the provider filed our own copy) into one named folder.
+	WarmupPlacementFolder = "folder"
+	// WarmupPlacementInbox leaves warmup mail where the provider put it. Mail
+	// that landed in spam is still rescued into the inbox.
+	WarmupPlacementInbox = "inbox"
+	// WarmupPlacementArchive takes warmup mail out of the inbox without giving
+	// it a folder of its own: the provider's archive.
+	WarmupPlacementArchive = "archive"
+)
+
 // ValidWarmupPlacement reports whether p is one of the placement modes.
 func ValidWarmupPlacement(p string) bool {
-	switch WarmupPlacement(p) {
+	switch p {
 	case WarmupPlacementFolder, WarmupPlacementInbox, WarmupPlacementArchive:
 		return true
 	}
@@ -185,15 +218,15 @@ func ValidWarmupPlacement(p string) bool {
 // before the columns existed carries neither, and filing into the default
 // folder is the behaviour every mailbox already had.
 func (e *Email) WarmupFiling() (placement, folder string) {
-	p := string(e.WarmupPlacement)
-	if !ValidWarmupPlacement(p) {
-		p = string(WarmupPlacementFolder)
+	placement = e.WarmupPlacement
+	if !ValidWarmupPlacement(placement) {
+		placement = WarmupPlacementFolder
 	}
 	folder = strings.TrimSpace(e.WarmupFolder)
 	if folder == "" {
 		folder = config.WarmupFolderDefault
 	}
-	return p, folder
+	return placement, folder
 }
 
 // ValidWarmupRetentionDays reports whether d is an accepted per-mailbox
@@ -491,7 +524,54 @@ type NewOauthAccount struct {
 	AccessToken  string
 	RefreshToken string
 	ExpiresAt    time.Time
-	OAuthSlotID  *uuid.UUID
+	// MailHost is stored as given; "" when unknown.
+	MailHost    string
+	OAuthSlotID *uuid.UUID
+}
+
+// NewDelegatedAccount is a Gmail or Outlook mailbox reached through an
+// administrator's grant: no credential is stored, tokens are minted per use.
+type NewDelegatedAccount struct {
+	OrganizationID *uuid.UUID
+	Allowance      *MailboxAllowance
+	Provider       InboxProvider
+	Name           string
+	Email          string
+	MailHost       string
+	GrantID        uuid.UUID
+	// Subject is who tokens are minted for: the address (Google) or the Graph user id (Microsoft).
+	Subject string
+}
+
+// DelegatedMailbox is what minting a token for a delegated mailbox needs.
+type DelegatedMailbox struct {
+	AccountID      uuid.UUID
+	OrganizationID uuid.UUID
+	Provider       InboxProvider
+	Email          string
+	GrantID        uuid.UUID
+	Subject        string
+	Status         string
+}
+
+// EmailRef is the little of a mailbox a duplicate check needs.
+type EmailRef struct {
+	ID         uuid.UUID `json:"id"`
+	Provider   string    `json:"provider"`
+	Status     string    `json:"status"`
+	AuthMethod string    `json:"auth_method"`
+	// Managed is a mailbox whose tokens Warmbly Cloud holds.
+	Managed bool `json:"managed"`
+}
+
+// SigninRetiring is false in our fork because per-mailbox Google OAuth slots are supported.
+func (r EmailRef) SigninRetiring() bool {
+	return false
+}
+
+// Movable is a per-mailbox sign-in an administrator's grant for provider can take over in place.
+func (r EmailRef) Movable(provider InboxProvider) bool {
+	return InboxProvider(r.Provider) == provider && r.AuthMethod == MailAuthOAuth && !r.Managed
 }
 
 type NewSMTPIMAPAccount struct {
@@ -502,6 +582,9 @@ type NewSMTPIMAPAccount struct {
 	Email     string
 	SMTP      *Service
 	IMAP      *Service
+	// MailHost and AuthMethod are stored as given; "" when the caller did not detect them.
+	MailHost   string
+	AuthMethod string
 }
 
 // EmailOnboardingState is stored in Redis for the lifetime of an OAuth round trip.
@@ -616,17 +699,21 @@ type UpdateEmail struct {
 	MinWaitTime   *int    `json:"min_wait_time"`
 	ReplyTo       *string `json:"reply_to"`
 
-	Warmup          *bool            `json:"warmup"`
-	WarmupBase      *int             `json:"warmup_base"`
-	WarmupMax       *int             `json:"warmup_max"`
-	WarmupIncrease  *int             `json:"warmup_increase"`
-	WarmupReplyRate *int             `json:"warmup_reply_rate"`
-	WarmupTag       *string          `json:"warmup_tag"`
-	WarmupStartTime *string          `json:"warmup_start_time"`
-	WarmupEndTime   *string          `json:"warmup_end_time"`
-	WarmupDays      *int             `json:"warmup_days"`
-	WarmupPlacement *WarmupPlacement `json:"warmup_placement"`
-	WarmupFolder    *string          `json:"warmup_folder"`
+	Warmup          *bool   `json:"warmup"`
+	WarmupBase      *int    `json:"warmup_base"`
+	WarmupMax       *int    `json:"warmup_max"`
+	WarmupIncrease  *int    `json:"warmup_increase"`
+	WarmupReplyRate *int    `json:"warmup_reply_rate"`
+	WarmupTag       *string `json:"warmup_tag"`
+	WarmupStartTime *string `json:"warmup_start_time"`
+	WarmupEndTime   *string `json:"warmup_end_time"`
+	WarmupDays      *int    `json:"warmup_days"`
+
+	// WarmupPlacement is "folder", "inbox" or "archive"; WarmupFolder names the
+	// destination for "folder" and is cleared back to the instance default by
+	// an empty string.
+	WarmupPlacement *string `json:"warmup_placement"`
+	WarmupFolder    *string `json:"warmup_folder"`
 	// WarmupRetentionDays is how long warmup mail is kept in the mailbox; 0
 	// goes back to the instance setting.
 	WarmupRetentionDays *int `json:"warmup_retention_days"`

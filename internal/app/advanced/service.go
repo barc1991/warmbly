@@ -186,6 +186,12 @@ type Service interface {
 
 	// DLQ auto-retry
 	ProcessRetryableDeadLetters(ctx context.Context) (int, *errx.Error)
+
+	// RecheckReplyOptOuts re-reads one page of reply opt-outs under the
+	// current rules, lifting the ones no message from the sender supports.
+	RecheckReplyOptOuts(ctx context.Context, afterID uuid.UUID, limit int) (uuid.UUID, bool, error)
+	// WireAudit attaches the audit trail a lifted reply opt-out is recorded in.
+	WireAudit(a AuditLogger)
 }
 
 type service struct {
@@ -218,6 +224,8 @@ type service struct {
 	inboxTags repository.InboxTagRepository
 	// bounceJudge classifies ambiguous bounce reasons. Optional; nil-safe.
 	bounceJudge typesafe.Asker
+	// audit records what the reply opt-out recheck lifts. Optional; nil-safe.
+	audit AuditLogger
 }
 
 // WireBounceJudge attaches the bounce classifier after construction. Pass a
@@ -282,6 +290,13 @@ func (s *service) UpdateOrganizationSettings(ctx context.Context, organizationID
 	if err := settings.Validate(); err != nil {
 		return errx.NewWithIdentifier(errx.BadRequest, "invalid_setting", err.Error())
 	}
+	var saved []models.InboxTagQuestion
+	if current, err := s.repo.GetOutreachSettings(ctx, organizationID); err == nil && current != nil {
+		saved = current.InboxTagging.Questions
+	}
+	if err := inboxtag.ValidateQuestions(settings.InboxTagging.Questions, saved); err != nil {
+		return errx.NewWithIdentifier(errx.BadRequest, "invalid_setting", err.Error())
+	}
 	if err := s.repo.UpsertOutreachSettings(ctx, organizationID, updatedBy, settings); err != nil {
 		return toErrx(err)
 	}
@@ -307,6 +322,10 @@ func (s *service) UpdateCampaignSettings(ctx context.Context, campaignID uuid.UU
 	if settings == nil {
 		return errx.New(errx.BadRequest, "settings are required")
 	}
+	// Tagging questions and languages are the workspace's; a campaign cannot
+	// carry its own.
+	settings.InboxTagging.Questions = nil
+	settings.InboxTagging.Languages = nil
 	settings.Normalize()
 	if err := settings.Validate(); err != nil {
 		return errx.NewWithIdentifier(errx.BadRequest, "invalid_setting", err.Error())
@@ -957,7 +976,9 @@ func buildReplyHeaders(msg *models.EmailMessageStoreData) map[string][]string {
 	if msg == nil {
 		return nil
 	}
-	h := map[string][]string{}
+	// Custom headers the worker stored as "Header-Name:value" flags (auto-reply
+	// markers, Precedence, etc.).
+	h := replyclassify.FlagHeaders(msg.Flags)
 	if len(msg.FromAddr) > 0 {
 		h["From"] = msg.FromAddr
 	}
@@ -967,19 +988,22 @@ func buildReplyHeaders(msg *models.EmailMessageStoreData) map[string][]string {
 	if msg.Subject != "" {
 		h["Subject"] = []string{msg.Subject}
 	}
-	// Custom headers the worker stored as "Header-Name:value" flags (auto-reply
-	// markers, Precedence, etc.). Split on the FIRST colon so header values that
-	// contain ':' survive intact.
-	for _, flag := range msg.Flags {
-		if i := strings.Index(flag, ":"); i > 0 {
-			name := strings.TrimSpace(flag[:i])
-			val := strings.TrimSpace(flag[i+1:])
-			if name != "" && !strings.HasPrefix(name, "\\") {
-				h[name] = append(h[name], val)
-			}
-		}
-	}
 	return h
+}
+
+// replyOptOutEligible decides whether an inbound message may be read as a
+// person asking us to stop. Only a person answering our outreach can: a bounce
+// or an auto-reply asks nothing, and a newsletter's footer "unsubscribe" is its
+// own sender's, so mail that is neither in one of our threads nor from a
+// contact, or that was sent to a list, is never an opt-out.
+func replyOptOutEligible(verdict replyclassify.Result, inOurThread, fromContact bool, headers map[string][]string) bool {
+	if replyclassify.IsAutomated(verdict.Class) {
+		return false
+	}
+	if inOurThread {
+		return true
+	}
+	return fromContact && !replyclassify.IsBulkMail(headers)
 }
 
 // replyTaskTitle words the follow-up the way it is read in a task list, rather
@@ -1406,6 +1430,7 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	// line a real mechanism. The check ignores the quoted history (which
 	// carries our own opt-out wording) and matches whole phrases only.
 	if settings.ReplyIntent.AutoSuppressOnUnsubWord &&
+		replyOptOutEligible(verdict, referencesCampaignThread, contactID != nil, buildReplyHeaders(msg)) &&
 		replyclassify.IsOptOut(msg.Subject, firstNonEmpty(msg.BodyText, msg.Snippet)) {
 		_ = s.repo.UpsertSuppressedRecipient(ctx, &models.SuppressedRecipient{
 			OrganizationID: *account.OrganizationID,
@@ -1546,7 +1571,11 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 				body = "Held until " + held.Format("2 Jan") + " · " + msg.Subject
 			}
 		}
-		s.notify(uid, account.OrganizationID, cat, title, body, "/app/unibox", map[string]any{"intent": string(intent)})
+		s.notifyAboutMessage(uid, account.OrganizationID, msg.ID, cat, title, body, UniboxThreadLink(msg.ThreadID), map[string]any{
+			"intent":           string(intent),
+			"email_account_id": emailAccountID.String(),
+			"thread_id":        msg.ThreadID,
+		})
 	}
 
 	return nil
@@ -2077,6 +2106,15 @@ func (s *service) ReplayDeadLetter(ctx context.Context, organizationID, deadLett
 	if task == nil {
 		return errx.ErrNotFound
 	}
+	if _, handled, rerr := s.replayCampaignPass(ctx, task); handled {
+		if rerr != nil {
+			return toErrx(rerr)
+		}
+		if err := s.repo.MarkTaskDeadLetterReplayed(ctx, deadLetterID); err != nil {
+			return toErrx(err)
+		}
+		return nil
+	}
 
 	scheduleAt := time.Now().UTC().Add(10 * time.Second)
 	cloudTaskName, err := s.tasksClient.CreateTask(ctx, &proto.ProcessTask{TaskId: task.ID.String()}, scheduleAt)
@@ -2093,6 +2131,49 @@ func (s *service) ReplayDeadLetter(ctx context.Context, organizationID, deadLett
 		return toErrx(err)
 	}
 	return nil
+}
+
+// replayCampaignPass replays a dead-lettered campaign pass as a fresh pass,
+// through the per-campaign lock every chain uses, so a campaign whose chain
+// already moved on keeps one. Putting the old pass back to pending would skip
+// that lock and could run a second chain beside the first. handled reports a
+// campaign pass; replayed, that a new pass was queued. An error means nothing
+// was queued and the dead letter stays for another try.
+func (s *service) replayCampaignPass(ctx context.Context, task *repository.Task) (replayed, handled bool, err error) {
+	if task == nil || task.TaskType != "campaign" {
+		return false, false, nil
+	}
+	ct, err := s.taskRepo.GetCampaignTask(ctx, task.ID)
+	if err != nil {
+		return false, true, err
+	}
+	if ct == nil || ct.CampaignID == nil {
+		// The campaign is gone; there is nothing to replay into.
+		return false, true, nil
+	}
+	at := time.Now().UTC().Add(10 * time.Second)
+	id := uuid.New()
+	created, err := s.taskRepo.CreateTaskWithLock(ctx,
+		&repository.Task{ID: id, TaskType: "campaign", EmailAccountID: task.EmailAccountID, Status: "pending", ScheduledAt: &at},
+		&repository.CampaignTask{TaskID: id, CampaignID: ct.CampaignID})
+	if err != nil {
+		return false, true, err
+	}
+	if !created {
+		// The chain already has its next pass.
+		return false, true, nil
+	}
+	name, err := s.tasksClient.CreateTask(ctx, &proto.ProcessTask{TaskId: id.String()}, at)
+	if err != nil {
+		// Nothing will fire the row, and while it is pending the chain can
+		// seed no other pass: take it back and keep the dead letter.
+		if derr := s.taskRepo.DeleteTask(ctx, id); derr != nil {
+			log.Warn().Err(derr).Str("task_id", id.String()).Msg("dead-letter replay: could not remove a pass that was never queued; overdue reconciliation will")
+		}
+		return false, true, err
+	}
+	_ = s.taskRepo.UpdateTaskScheduledAt(ctx, id, at, name)
+	return true, true, nil
 }
 
 // capitalize upper-cases the first rune of a validator message for display.
@@ -2420,6 +2501,20 @@ func (s *service) ProcessRetryableDeadLetters(ctx context.Context) (int, *errx.E
 		task, err := s.taskRepo.GetTask(ctx, dlq.TaskID)
 		if err != nil || task == nil {
 			// Mark as exhausted if the task no longer exists
+			_ = s.repo.MarkTaskDeadLetterReplayed(ctx, dlq.ID)
+			continue
+		}
+
+		if replayed, handled, rerr := s.replayCampaignPass(ctx, task); handled {
+			if rerr != nil {
+				backoff := time.Duration(30*(1<<uint(dlq.Attempts+1))) * time.Second
+				nextRetry := time.Now().UTC().Add(backoff)
+				_ = s.repo.IncrementDeadLetterAttempt(ctx, dlq.ID, &nextRetry)
+				continue
+			}
+			if replayed {
+				retried++
+			}
 			_ = s.repo.MarkTaskDeadLetterReplayed(ctx, dlq.ID)
 			continue
 		}

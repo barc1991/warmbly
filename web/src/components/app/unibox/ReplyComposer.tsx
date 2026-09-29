@@ -8,7 +8,10 @@
 // Layout: a one-line target strip at the top (Reply/Forward to name and
 // subject, plus dismiss), then plain header rows (To with Cc/Bcc toggles,
 // From, unlabelled Subject), the body textarea, the optional signature
-// preview, and the action bar (Send / Schedule / Template / Discard).
+// preview, the forwarded message when forwarding, and the action bar
+// (Send / Schedule / Pause follow-ups / Template / Discard).
+//
+// A forward sends only its message's id; the server attaches the message, so the note is optional.
 //
 // ⌘+Enter sends instantly. Each schedule preset calls /unibox/reply
 // with send_mode="scheduled" plus the concrete scheduled_at.
@@ -34,6 +37,12 @@ import useTemplates from "@/lib/api/hooks/app/templates/useTemplates";
 import TemplatePickerContent from "./TemplatePicker";
 import InsertBookingLink from "./InsertBookingLink";
 import ContactRecipientField from "./compose/ContactRecipientField";
+import ForwardedMessage from "./ForwardedMessage";
+import MailboxPicker from "./compose/MailboxPicker";
+import useComposeCandidates from "@/lib/api/hooks/app/unibox/useComposeCandidates";
+import usePauseFollowUps, { type FollowUpTargets } from "@/lib/api/hooks/app/campaigns/usePauseFollowUps";
+import PauseFollowUpsMenu from "./PauseFollowUpsMenu";
+import { followUpPauseUntil, tickedCampaigns, type FollowUpPause } from "@/lib/leadHold";
 import useUniboxOverview from "@/lib/api/hooks/app/unibox/useUniboxOverview";
 import { resolveSendAt, useOutboxStore } from "@/hooks/useOutboxStore";
 import { useUserProfile } from "@/hooks/context/user";
@@ -76,9 +85,9 @@ interface ReplyComposerProps {
 const SCHEDULE_PRESETS: { label: string; at: () => Date }[] = [
     { label: "בעוד שעה", at: () => offsetHours(1) },
     { label: "בעוד 3 שעות", at: () => offsetHours(3) },
-    { label: "מחר 9:00", at: () => atHour(1, 9) },
+    { label: "מחר 09:00", at: () => atHour(1, 9) },
     { label: "מחר 17:00", at: () => atHour(1, 17) },
-    { label: "יום שני 9:00", at: () => nextMonday9() },
+    { label: "יום ראשון 09:00", at: () => nextSunday9() },
 ];
 
 // Body length cap. Generous; real replies rarely come close.
@@ -100,10 +109,10 @@ function atHour(dayOffset: number, hour: number): Date {
     d.setHours(hour, 0, 0, 0);
     return d;
 }
-function nextMonday9(): Date {
+function nextSunday9(): Date {
     const d = new Date();
     const dow = d.getDay();
-    const delta = ((1 - dow + 7) % 7) || 7;
+    const delta = ((0 - dow + 7) % 7) || 7;
     d.setDate(d.getDate() + delta);
     d.setHours(9, 0, 0, 0);
     return d;
@@ -123,13 +132,14 @@ function formatFriendly(d: Date): string {
         d.getFullYear() === now.getFullYear() &&
         d.getMonth() === now.getMonth() &&
         d.getDate() === now.getDate();
-    const time = d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const time = d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
     if (sameDay) return `היום, ${time}`;
     return d.toLocaleString("he-IL", {
         month: "short",
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        hourCycle: "h23",
     });
 }
 
@@ -145,9 +155,9 @@ function deriveDefaults(replyTo: UniboxEmail, mode: ReplyMode) {
     const subjectBase = replyTo.subject?.trim() || "";
     let subject: string;
     if (mode === "forward") {
-        subject = /^fwd:/i.test(subjectBase) ? subjectBase : `Fwd: ${subjectBase || "(no subject)"}`;
+        subject = /^fwd:/i.test(subjectBase) ? subjectBase : `Fwd: ${subjectBase || "(ללא נושא)"}`;
     } else {
-        subject = /^re:/i.test(subjectBase) ? subjectBase : `Re: ${subjectBase || "(no subject)"}`;
+        subject = /^re:/i.test(subjectBase) ? subjectBase : `Re: ${subjectBase || "(ללא נושא)"}`;
     }
     const fromAddr = replyTo.from ? bareEmail(replyTo.from) : "";
     const to = mode === "reply" && fromAddr ? [fromAddr] : [];
@@ -177,9 +187,23 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const [bcc, setBcc] = React.useState<string[]>(restored?.bcc ?? []);
     const [showCc, setShowCc] = React.useState((restored?.cc.length ?? 0) > 0);
     const [showBcc, setShowBcc] = React.useState((restored?.bcc.length ?? 0) > 0);
+    // The mailbox holding the message is the default sender; picking another
+    // one is a per-draft override.
+    const threadAccountId = replyTo.account_id ?? "";
+    // A saved pick whose mailbox has since gone falls back to the thread's own.
+    const accountsRef = React.useRef(accounts);
+    accountsRef.current = accounts;
+    const resolveSender = React.useCallback(
+        (id: string | undefined) =>
+            id && (accountsRef.current.length === 0 || accountsRef.current.some((a) => a.id === id))
+                ? id
+                : threadAccountId,
+        [threadAccountId],
+    );
+    const [accountId, setAccountId] = React.useState(() => resolveSender(restored?.email_account_id));
     const [isSending, setIsSending] = React.useState(false);
-    const draft = useReplyDraft(draftKey, { to, cc, bcc, subject, body }, {
-        to: initial.to, cc: [], bcc: [], subject: initial.subject, body: "",
+    const draft = useReplyDraft(draftKey, { to, cc, bcc, subject, body, email_account_id: accountId }, {
+        to: initial.to, cc: [], bcc: [], subject: initial.subject, body: "", email_account_id: threadAccountId,
     });
     const closeKeepingDraft = () => {
         if (!draft.flush()) {
@@ -218,6 +242,13 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     // the thread keys this component on both, so one arrives as a fresh mount
     // with fresh initial state. The only thing that changes in place is `seed`:
     // a cancelled undo-send puts the draft back while the composer stays open.
+    //
+    // Nothing derived from `replyTo` belongs in these dependencies. The thread
+    // rebuilds its message objects on every render, so `initial` is a new value
+    // each time, and the thread re-renders constantly while it is open (a
+    // teammate's presence diff, an arriving mail, a mark-seen, any realtime
+    // invalidation). Depending on it cleared the body between keystrokes, which
+    // made a reply impossible to type.
     const resumeDraft = draft.resume;
     React.useEffect(() => {
         if (!seed) return;
@@ -229,30 +260,68 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
         setShowCc(seed.cc.length > 0);
         setShowBcc(seed.bcc.length > 0);
         setBody(seed.body);
-    }, [seed, resumeDraft]);
+        setAccountId(resolveSender(seed.email_account_id));
+    }, [seed, resumeDraft, resolveSender]);
 
-    // Resolve the sending mailbox from the target message's
-    // account_id. We look it up in the global emails store so we have
-    // the full Inbox record (signature_html, signature_plain, etc).
-    const accountId = replyTo.account_id ?? "";
+    // The full Inbox record (signature_html, signature_plain, etc) of the
+    // chosen sender, from the global emails store.
     const mailbox = accounts.find((a) => a.id === accountId);
+    const switchedMailbox = !!threadAccountId && accountId !== threadAccountId;
+    // A queued send from an inactive or removed mailbox cannot leave, so Send
+    // waits for a sender that can.
+    const senderProblem = !accountId
+        ? null
+        : mailbox
+          ? mailbox.status !== "active"
+              ? `${mailbox.email} אינה פעילה ולכן אינה יכולה לשלוח. בחר תיבת דואר אחרת בשדה "מאת" או חבר אותה מחדש תחת תיבות דואר.`
+              : null
+          : accounts.length > 0
+            ? "תיבת דואר זו כבר אינה מחוברת. בחר תיבת דואר אחרת בשדה 'מאת'."
+            : null;
+    const threadMailbox = accounts.find((a) => a.id === threadAccountId);
+
+    // Scored like compose (history with the recipient, today's budget, auth),
+    // fetched once From is opened: most replies keep the default mailbox.
+    const [wantCandidates, setWantCandidates] = React.useState(false);
+    const primary = to.length > 0 ? bareEmail(to[0]) : "";
+    const candidatesQ = useComposeCandidates(primary, wantCandidates);
+
+    // Holds the recipient's follow-ups once a reply is accepted; a forward goes to someone else.
+    const followUps = usePauseFollowUps(mode === "reply" && primary ? primary : undefined);
+    const [followUpPause, setFollowUpPause] = React.useState<FollowUpPause | null>(null);
+    // Unticked rather than ticked, so a campaign that appears later is included.
+    const [followUpSkip, setFollowUpSkip] = React.useState<string[]>([]);
+    const { pauseAll } = followUps;
+    const applyFollowUpPause = async (p: FollowUpPause, t: FollowUpTargets, sendsAt?: Date) => {
+        const { paused, failed } = await pauseAll(t, followUpPauseUntil(p, sendsAt));
+        if (failed > 0) {
+            toast.error(
+                paused > 0
+                    ? `המשך המעקב הושהה ב-${paused} מתוך ${t.campaigns.length} קמפיינים. בדוק את פאנל איש הקשר.`
+                    : "התשובה הוזמנה, אך לא ניתן היה להשהות את המשך המעקב. בדוק את פאנל איש הקשר.",
+            );
+        } else if (paused === 0) {
+            toast.success("המשך המעקב שלהם כבר מושהה");
+        } else {
+            toast.success(p.days == null ? "המשך המעקב הושהה עד שתחדש אותו" : `המשך המעקב הושהה (${p.label})`);
+        }
+    };
 
     const templatesQuery = useTemplates();
 
-    // Scheduled-sends pending cap. Disable the Schedule button at 100%
-    // so users cannot queue a send that would 429 server-side. Cached
-    // read; the page already mounts useUniboxOverview.
-    const overview = useUniboxOverview();
-    const scheduledUsed = overview.data?.scheduled_pending ?? 0;
-    const scheduledCap = overview.data?.scheduled_pending_max ?? 0;
-    const scheduleAtCap = scheduledCap > 0 && scheduledUsed >= scheduledCap;
+    // Zero limits: never cap scheduled sends.
+    useUniboxOverview();
+    const scheduleAtCap = false;
 
     const trimmedBody = body.trim();
-    const canSend = !!trimmedBody && to.length > 0 && to.every(looksLikeEmail) && !!accountId && !isSending;
+    // A forward's note is optional: the forwarded message is the content.
+    const hasContent = !!trimmedBody || mode === "forward";
+    const canSend =
+        hasContent && to.length > 0 && to.every(looksLikeEmail) && !!accountId && !senderProblem && !isSending;
 
     const send = async (scheduledAt?: Date) => {
         if (!canSend && !isSending) {
-            if (!trimmedBody) {
+            if (!hasContent) {
                 toast.error("הגוף ריק");
                 return;
             }
@@ -268,9 +337,18 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 toast.error("לא זוהתה תיבת דואר לשליחה");
                 return;
             }
+            if (senderProblem) {
+                toast.error(senderProblem);
+                return;
+            }
         }
 
-        const submittedDraft = { to, cc, bcc, subject, body };
+        const submittedDraft = { to, cc, bcc, subject, body, email_account_id: accountId };
+        const pauseWith = mode === "reply" ? followUpPause : null;
+        const pauseTargets = {
+            ...followUps.targets,
+            campaigns: tickedCampaigns(followUps.targets.campaigns, followUpSkip),
+        };
         draft.flush();
         setIsSending(true);
         const sentSubject = subject.trim() || (mode === "forward" ? "Fwd:" : "Re:");
@@ -284,6 +362,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 body_plain: trimmedBody,
                 body_html: plainToHtml(trimmedBody),
                 thread_id: mode === "reply" ? threadId : undefined,
+                forward_message_id: mode === "forward" ? replyTo.id : undefined,
                 ...(scheduledAt
                     ? {
                           send_mode: "scheduled" as const,
@@ -308,6 +387,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         bcc,
                         subject: sentSubject,
                         body: trimmedBody,
+                        emailAccountId: accountId,
                     },
                 });
             } else {
@@ -321,6 +401,11 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             }
             setScheduleOpen(false);
             setCustomMode(false);
+            if (pauseWith && pauseTargets.campaigns.length > 0) {
+                void applyFollowUpPause(pauseWith, pauseTargets, scheduledAt);
+                setFollowUpPause(null);
+                setFollowUpSkip([]);
+            }
             const completed = draft.complete(submittedDraft);
             if (!completed.cleared) toast.error("תשובה הוזמנה, אך הטיוטה השמורה לא הוסרה. מחק אותה לפני שליחה נוספת.");
             if (completed.close) onClose();
@@ -380,9 +465,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const replyToAddr = replyTo.from ? bareEmail(replyTo.from) : "";
     const replyTargetSubject = replyTo.subject?.trim() || "(ללא נושא)";
 
-    const scheduleTooltip = scheduleAtCap
-        ? `תור התזמון מלא (${scheduledUsed}/${scheduledCap}). בטל פריטים מתצוגת המתוזמנים.`
-        : "שלח מאוחר יותר, עד 29 ימים קדימה";
+    const scheduleTooltip = "שלח מאוחר יותר, עד 29 ימים קדימה";
 
     return (
         <motion.div
@@ -410,7 +493,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <span className="font-semibold text-slate-800">
                         {mode === "forward" ? "העבר" : "השב"}
                     </span>{" "}
-                    אל {replyToName}
+                    {mode === "forward" ? "הודעה מאת" : "אל"} {replyToName}
                     <span className="text-slate-400"> · {replyTargetSubject}</span>
                 </span>
                 {draft.saved && (
@@ -501,21 +584,67 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 )}
 
                 <HeaderRow label="מאת">
-                    {mailbox ? (
-                        <div className="inline-flex items-center gap-2 min-w-0">
-                            <span className="text-[12.5px] text-slate-800 truncate">
-                                {mailbox.name || mailbox.email}
-                            </span>
-                            <span className="font-mono text-[10.5px] text-slate-400 min-w-0 truncate" title={mailbox.email}>
-                                {mailbox.email}
-                            </span>
-                        </div>
+                    {accountId ? (
+                        <MailboxPicker
+                            value={accountId}
+                            autoTag={null}
+                            allowAuto={false}
+                            onChange={(next) => setAccountId(next)}
+                            onOpen={() => setWantCandidates(true)}
+                            candidates={candidatesQ.data}
+                            loading={candidatesQ.isPending}
+                        />
                     ) : (
                         <span className="text-[12px] text-amber-700">
                             לא זוהתה תיבת דואר לשליחה
                         </span>
                     )}
                 </HeaderRow>
+                <AnimatePresence initial={false}>
+                    {senderProblem && (
+                        <motion.div
+                            key="inactive"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                            className="overflow-hidden"
+                        >
+                            <div
+                                role="status"
+                                className="px-4 py-1.5 flex items-start gap-1.5 border-b border-amber-100 bg-amber-50/60 text-[11px] text-amber-800"
+                            >
+                                <InfoIcon className="w-3 h-3 mt-px shrink-0 text-amber-600" />
+                                <span className="min-w-0 flex-1 leading-snug">{senderProblem}</span>
+                            </div>
+                        </motion.div>
+                    )}
+                    {!senderProblem && switchedMailbox && mode === "reply" && (
+                        <motion.div
+                            key="switched"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                            className="overflow-hidden"
+                        >
+                            <div className="px-4 py-1.5 flex items-start gap-1.5 border-b border-slate-100 bg-slate-50/60 text-[11px] text-slate-500">
+                                <InfoIcon className="w-3 h-3 mt-px shrink-0 text-slate-400" />
+                                <span className="min-w-0 flex-1 leading-snug">
+                                    משיב מתיבת דואר אחרת. השיחה נשארת באותו שרשור עבור הנמען, ותשובתו תגיע אל {mailbox?.email ?? "תיבה זו"}.
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setAccountId(threadAccountId)}
+                                    title={threadMailbox ? `השב מתוך ${threadMailbox.email}` : "השב מתיבת הדואר המקורית"}
+                                    className="shrink-0 text-[11px] font-medium text-sky-700 hover:text-sky-800 transition-colors"
+                                >
+                                    חזור למקורית
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 <div className="flex items-center gap-2 px-4 border-b border-slate-100">
                     <input
@@ -625,6 +754,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 </div>
             )}
 
+            {mode === "forward" && <ForwardedMessage email={replyTo} />}
+
             {/* Action bar. flex-wrap so the Send + Schedule + Template
                 + Discard chain doesn't overflow on a 360px-wide phone */}
             <div className="px-3 py-2 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5">
@@ -730,7 +861,22 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     </PopoverMenuContent>
                 </PopoverMenu>
 
-                {/* Template picker */}
+                {mode === "reply" && followUps.targets.campaigns.length > 0 && (
+                    <PauseFollowUpsMenu
+                        campaigns={followUps.targets.campaigns.map((c) => ({ id: c.campaign_id, name: c.campaign_name }))}
+                        skipped={followUpSkip}
+                        onToggleCampaign={(id) =>
+                            setFollowUpSkip((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
+                        }
+                        value={followUpPause}
+                        onChange={setFollowUpPause}
+                        disabled={isSending}
+                    />
+                )}
+
+                {/* Template picker. Custom rich rows (not
+                    PopoverMenuItem) so each row can run two lines
+                    without the wrapper truncating them. */}
                 <PopoverMenu
                     align="start"
                     side="top"
@@ -796,6 +942,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     );
 }
 
+// HeaderRow : one plain labelled line in the composer header, matching the
+// compose window: quiet inline label, hairline underneath, nothing else.
 function HeaderRow({
     label,
     onRemove,
@@ -822,4 +970,3 @@ function HeaderRow({
         </div>
     );
 }
-

@@ -62,13 +62,13 @@ func TestUnsubscribeHonoursBothTokenShapes(t *testing.T) {
 	}}
 	h := &Handler{UnsubscribeLinks: signer, UnsubscribeTickets: tickets}
 
-	if w := getUnsub(h, "tickettoken00000000000"); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Unsubscribe from these emails?") {
+	if w := getUnsub(h, "tickettoken00000000000"); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "להסיר את כתובתך מרשימת התפוצה?") {
 		t.Errorf("a stored ticket should open the confirm page: %d %s", w.Code, w.Body.String())
 	}
 
 	signed := signer.Token(uuid.New(), uuid.New(), uuid.New(), time.Now())
 	before := tickets.lookups
-	if w := getUnsub(h, signed); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Unsubscribe from these emails?") {
+	if w := getUnsub(h, signed); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "להסיר את כתובתך מרשימת התפוצה?") {
 		t.Errorf("a signed link should still open the confirm page: %d %s", w.Code, w.Body.String())
 	}
 	if tickets.lookups != before {
@@ -90,7 +90,7 @@ func TestUnsubscribeTicketThatIsUnknownOrExpired(t *testing.T) {
 		UnsubscribeLinks:   unsublink.New("secret", "https://api.example.com"),
 		UnsubscribeTickets: &stubUnsubTickets{},
 	}
-	if w := getUnsub(h, "unknowntoken0000000000"); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "invalid") {
+	if w := getUnsub(h, "unknowntoken0000000000"); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "אינו תקין") {
 		t.Errorf("unknown ticket: %d %s", w.Code, w.Body.String())
 	}
 
@@ -100,7 +100,7 @@ func TestUnsubscribeTicketThatIsUnknownOrExpired(t *testing.T) {
 		ExpiresAt: time.Now().Add(-time.Hour),
 	}}
 	w := getUnsub(h, "expiredtok000000000000")
-	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "expired") {
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "פג תוקפו") {
 		t.Errorf("expired ticket should say so, not 'invalid': %d %s", w.Code, w.Body.String())
 	}
 }
@@ -118,7 +118,7 @@ func TestUnsubscribeStoreFailureIsNotAnInvalidLink(t *testing.T) {
 	if w.Code != http.StatusServiceUnavailable {
 		t.Errorf("status %d, want 503", w.Code)
 	}
-	if body := w.Body.String(); strings.Contains(body, "invalid") || !strings.Contains(body, "Try again shortly") {
+	if body := w.Body.String(); strings.Contains(body, "אינו תקין") || !strings.Contains(body, "נא לנסות שוב") {
 		t.Errorf("wrong page for a failed lookup: %s", body)
 	}
 }

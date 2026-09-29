@@ -36,6 +36,7 @@ import {
     PopoverMenuContent,
     PopoverMenuTrigger,
 } from "@/components/ui/popover-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // htmlToPlain renders the HTML signature down to a plain-text equivalent,
 // turning block elements and <br> into line breaks. Used to keep the plain
@@ -283,15 +284,13 @@ export default function EmailEditor({
                         className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none ps-1"
                         title="יצירת גרסת טקסט פשוט מ-HTML ושמירה על התאמה ביניהן"
                     >
-                        <input
-                            type="checkbox"
+                        <Checkbox size="xs"
                             checked={sync}
                             onChange={(e) => {
                                 const on = e.target.checked;
                                 setSync(on);
                                 if (on) setPlainText(htmlToPlain(htmlText));
                             }}
-                            className="w-3 h-3 rounded accent-sky-600"
                         />
                         <span className="hidden sm:inline">סנכרן HTML וטקסט פשוט</span>
                         <span className="sm:hidden">סנכרון</span>

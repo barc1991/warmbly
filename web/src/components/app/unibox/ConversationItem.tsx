@@ -34,6 +34,7 @@ import type { ConversationActions } from "@/hooks/useConversationActions";
 import { SNOOZE_PRESETS } from "@/lib/unibox/snooze";
 import { cn } from "@/lib/utils";
 import { nameFromAddr } from "@/lib/helper/emailAddress";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function relative(d: Date): string {
   const diff = Date.now() - d.getTime();
@@ -117,8 +118,7 @@ export function ConversationItem({
       {/* Gutter: checkbox on hover or in select mode, unread dot when unread */}
       <span className="w-3.5 shrink-0 flex items-center justify-center h-[18px]">
         {onToggleSelect && (
-          <input
-            type="checkbox"
+          <Checkbox
             checked={selected}
             aria-label={`בחר שיחה מאת ${sender}`}
             onClick={(e) => {
@@ -127,10 +127,10 @@ export function ConversationItem({
             }}
             onChange={() => {}}
             className={cn(
-              "w-3.5 h-3.5 rounded accent-sky-600 cursor-pointer",
+              "cursor-pointer",
               selected || selecting
-                ? "block"
-                : "hidden md:group-hover:block md:group-focus-within:block",
+                ? "flex"
+                : "hidden md:group-hover:flex md:group-focus-within:flex",
             )}
           />
         )}

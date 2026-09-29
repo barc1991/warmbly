@@ -43,7 +43,7 @@ func (s *JobsService) HandleEmailSent(ctx context.Context, result models.SendEma
 		return nil
 	}
 	// The worker reports the Message-ID the provider put on the wire, which is
-	// not always the one the control plane minted: Graph re-stamps it. Take the
+	// not always the one the control plane minted: Graph and Gmail re-stamp it. Take the
 	// worker's answer whenever it differs, because everything that matches a
 	// send back to us later (campaign reply threading, warmup reply candidates)
 	// keys on what the recipient actually received.
@@ -72,6 +72,13 @@ func (s *JobsService) HandleEmailSent(ctx context.Context, result models.SendEma
 		if s.WarmupRepo != nil {
 			if err := s.WarmupRepo.StampColdRampStart(ctx, task.EmailAccountID); err != nil {
 				log.Warn().Err(err).Str("email_account_id", task.EmailAccountID.String()).Msg("could not anchor the cold ramp")
+			}
+		}
+	case "placement":
+		// The seed is searched for the Message-ID the provider actually sent.
+		if s.PlacementRepo != nil && result.MessageID != "" {
+			if err := s.PlacementRepo.SetProbeMessageIDByTask(ctx, task.ID, result.MessageID); err != nil {
+				log.Warn().Err(err).Str("task_id", task.ID.String()).Msg("could not record a placement probe's message id")
 			}
 		}
 	case "warmup":
@@ -163,6 +170,10 @@ func (s *JobsService) HandleEmailFailed(ctx context.Context, result models.SendE
 		return s.failCampaignSend(ctx, task, reason, code, nil)
 	case "email":
 		s.notifyUserSendFailed(ctx, task, reason)
+	case "placement":
+		if s.PlacementRepo != nil {
+			return s.PlacementRepo.FailProbeByTask(ctx, task.ID, reason)
+		}
 	}
 	return nil
 }

@@ -96,6 +96,8 @@ type PoolLinkPlan struct {
 	// MailboxLimit is nil when unlimited.
 	MailboxLimit *int `json:"mailbox_limit"`
 	Enrolled     int  `json:"enrolled"`
+	// Warming is how many of them have warmup on and not paused; connected is not warming.
+	Warming int `json:"warming"`
 	// PriceUSD is the monthly price of the paid tier, for the upgrade card.
 	PriceUSD int `json:"price_usd"`
 	// UpgradeURL is empty when billing is off or the plan has no price.
@@ -217,6 +219,13 @@ type PoolLinkMailboxState struct {
 	Settings       PoolLinkWarmupSettings `json:"settings"`
 }
 
+// PoolLinkMailboxStanding is one enrolled mailbox's warmup standing, the
+// cheap read an instance polls so its own send gates follow the cloud's.
+type PoolLinkMailboxStanding struct {
+	RemoteID uuid.UUID         `json:"remote_id"`
+	Health   *WarmupHealthInfo `json:"health,omitempty"`
+}
+
 // PoolLinkMailboxPatch updates a mailbox's ramp or lifecycle on the cloud.
 type PoolLinkMailboxPatch struct {
 	// Lifecycle is "pause", "resume" or empty.
@@ -245,6 +254,17 @@ type CloudLinkMailbox struct {
 	EnrolledAt     time.Time `json:"enrolled_at"`
 	// Managed: no local credential; the worker sends with tokens brokered by the cloud.
 	Managed bool `json:"managed"`
+	// Standing is the warmup health the cloud last reported; nil until it has.
+	Standing *WarmupHealthInfo `json:"-"`
+}
+
+// CloudLinkStandingChange is a cloud-reported health transition the
+// instance recorded, for the same realtime and webhook fan-out as a local one.
+type CloudLinkStandingChange struct {
+	EmailAccountID uuid.UUID
+	Previous       WarmupHealthState
+	Current        WarmupHealthState
+	Reason         string
 }
 
 // CloudLinkOAuthStart is the instance dashboard's handle on a cloud-brokered consent.

@@ -102,6 +102,31 @@ const (
 	// window keeps double coverage. Operator-editable under Instance settings.
 	FormEventsRetentionDaysDefault = 180
 
+	// Inbox placement tests. The monthly allowance covers tests on the
+	// instance and cloud seed panels only; a workspace's own seeds cost the
+	// operator nothing. Operator-editable under Instance settings.
+	PlacementTestsPerMonthTrialDefault = 3
+	PlacementTestsPerMonthPaidDefault  = 40
+	PlacementTestsPerMonthMax          = 100_000
+	PlacementSeedsPerTestDefault       = 20
+	PlacementSeedsPerTestMax           = 100
+	PlacementSeedsPerTestMin           = 5  // below this a test is noise, so it is refused rather than shrunk
+	PlacementSpacingSecondsDefault     = 60 // gap between two probes from one sender
+	PlacementSpacingSecondsMin         = 5
+	PlacementSpacingSecondsMax         = 600
+	PlacementQuickSpacingSeconds       = 8  // the gap in a quick test, so it sends in minutes
+	PlacementCreditsPerTestDefault     = 25 // price of a test past the free allowance
+	PlacementCreditsPerTestMax         = 10_000
+	PlacementFamiliesMax               = 32  // provider families one test may name
+	PlacementClassifyTimeoutMinutes    = 120 // after the send, a copy not seen in the seed is missing
+	PlacementRunningPerOrgMax          = 3   // tests one workspace may have in flight at once
+	PlacementSeedsPerWorkspaceMax      = 500 // a workspace's own seed mailboxes
+	PlacementSeedDailySyncMessages     = 50_000
+	PlacementMonitorIntervalDaysMin    = 1
+	PlacementMonitorIntervalDaysMax    = 30
+	PlacementMonitorIntervalDaysDef    = 7
+	PlacementMonitorAlertBelowDefault  = 70 // inbox rate, percent
+
 	// Sequences. Empty by default so the editor shows a smart, position-based
 	// label (e.g. "Email 1") until the user names the step themselves.
 	SequenceDefaultName  = ""
@@ -131,11 +156,11 @@ const (
 	// lead's (ESP-strict has no mailbox for their provider, their own mailbox
 	// is busy, their preferred hours are hours away); the leads behind them are
 	// still sendable, so the pass moves on instead of parking the campaign on
-	// the first refusal (issue #437). Every extra candidate costs a handful of
-	// reads and only on a pass that is being refused, so this is deliberately
-	// generous — but bounded, because a campaign whose every lead is refused
-	// must still end the pass rather than walk a million-row list.
-	CampaignPlacementCandidates = 25
+	// the first refusal (issue #437). The leads at the head of the queue are
+	// the same on every pass, so this reaches well past them; it is bounded
+	// because a campaign whose every lead is refused must still end the pass
+	// rather than walk a million-row list.
+	CampaignPlacementCandidates = 200
 
 	// WarmupReputationLedgerDays is how long the standing of a removed mailbox
 	// is held against its address, counted from the later of its removal and
@@ -158,6 +183,12 @@ const (
 	// tick that actually sent parks its successor at the paced interval, which
 	// is the send spacing and must not be shortened.
 	CampaignMaxDeferMinutes = 15
+
+	// CampaignTickRetrySeconds is how far a campaign pass that failed is moved
+	// before it runs again, and how soon the next pass follows one that could
+	// not hand its send to a worker. The in-process dispatcher fires a due
+	// task every second, so a retry kept at its old slot would run in a loop.
+	CampaignTickRetrySeconds = 60
 
 	// CampaignStaleParkHours is when the reconciler starts distrusting a parked
 	// wakeup. Even-distribution can only push a successor to the end of the
@@ -313,6 +344,24 @@ const (
 	UniboxLimitMax     = 1000
 	UniboxLimitDefault = 50
 
+	// ContactMailHostBatchSize is how many contacts one provider sweep pass
+	// reads; lookups are per distinct domain, so a pass costs far fewer.
+	ContactMailHostBatchSize = 2000
+	// ContactMailHostIntervalSeconds is how often the provider sweep passes. A
+	// full batch runs again immediately, so an import drains without waiting.
+	ContactMailHostIntervalSeconds = 60
+	// ContactMailHostConcurrency bounds parallel domain lookups in one pass.
+	ContactMailHostConcurrency = 16
+	// ContactMailHostRecheckDays is how long a domain with no known host waits
+	// before it is looked up again.
+	ContactMailHostRecheckDays = 7
+	// ContactMailHostRetryMinutes is how soon a lookup that failed transiently
+	// is tried again.
+	ContactMailHostRetryMinutes = 60
+	// ContactMailHostCacheHours is how long a domain's host is cached across
+	// sweeps and backend replicas.
+	ContactMailHostCacheHours = 24
+
 	// VerificationRecheckDays is how long a verification verdict is trusted
 	// before the address is checked again. Mailboxes get created and closed;
 	// a verdict from last quarter is a guess.
@@ -402,6 +451,29 @@ const (
 	MailboxBulkBatchMax    = 5000
 	MailboxBulkConcurrency = 32
 
+	// Mailbox import (background job): rows per file, upload size, how many
+	// rows connect at once overall and per mail host (a burst of sign-ins to
+	// one provider from one address earns an auth throttle), how long a row
+	// may run before another pass takes it back, how long failed rows keep
+	// their sealed credentials for a retry, and when a finished import goes.
+	MailboxImportMaxRows            = 10000
+	MailboxImportMaxBytes           = 10 << 20
+	MailboxImportConcurrency        = 8
+	MailboxImportPerHostConcurrency = 3
+	MailboxImportLeaseSeconds       = 120
+	MailboxImportCredentialDays     = 7
+	MailboxImportRetentionDays      = 30
+
+	// Contact import (background job): uploads still waiting on a mapping are
+	// dropped after ContactImportDraftHours, finished imports and their rows
+	// after ContactImportRetentionDays. A run renews its lease every chunk, and
+	// a workspace may hold ContactImportMaxActive drafts and runs at once.
+	ContactImportDraftHours    = 24
+	ContactImportRetentionDays = 30
+	ContactImportLeaseSeconds  = 120
+	ContactImportMaxAttempts   = 3
+	ContactImportMaxActive     = 10
+
 	// Daily creation throttles. The total caps above stop "you have
 	// 5000 campaigns on this org" — the throttles below stop "you
 	// created 1000 campaigns today on a fresh unlimited account."
@@ -421,6 +493,7 @@ const (
 	PoolLinkPlanID               = "00000000-0000-0000-0000-000000000002"
 	PoolLinkPlanPriceUSD         = 15
 	WarmupPoolTierFallbackFloor  = 10_000 // always borrow fallback recipients
+	WarmupPoolBorrowSeasonedDays = 14     // a borrowed free mailbox this long in the pool ranks ahead of a newer one
 	WarmupPoolFallbackMinAgeDays = 0      // immediately fill in
 	WarmupPoolReturnVisitDays    = 14     // a proven free mailbox may write back to a paying mailbox that wrote to it this recently
 	// What one inbox may receive from the pool in a day: WarmupInboundDailyMultiple
@@ -431,7 +504,10 @@ const (
 	WarmupInboundDailyFloor    = 10
 	WarmupInboundDailyCeiling  = 60
 	WarmupInboundDailyMultiple = 2
-	DailyThrottleNewOrgs       = 1_000 // new workspaces per owner per day
+	// A free sender stops at this share of an inbox's daily cap, so the rest
+	// of every inbox's day is left for premium senders.
+	WarmupFreeInboundSharePercent = 75
+	DailyThrottleNewOrgs          = 1_000 // new workspaces per owner per day
 
 	// CLI sign-in handshake (`warmbly auth login`). Shorter-lived than the pool
 	// link handshake because a person is watching the terminal while it runs.
@@ -442,8 +518,10 @@ const (
 	// schedules a single user can create in a rolling 24h window.
 	DailyThrottleNewScheduledSends = 100_000
 
-	// MaxPendingScheduledSendsPerUser caps how many pending scheduled
-	// email sends one user can have queued at once.
+	// MaxPendingScheduledSendsPerOrg caps how many pending scheduled
+	// email sends one workspace can have queued at once, across all of
+	// its mailboxes.
+	MaxPendingScheduledSendsPerOrg  = 1_000_000
 	MaxPendingScheduledSendsPerUser = 1_000_000
 
 	// Undo send: instant sends are queued this many seconds in the
@@ -477,4 +555,9 @@ var InboundClassificationHeaders = []string{
 	"X-Autoreply",
 	"X-Autorespond",
 	"X-Auto-Response-Suppress",
+	// A failure notice with no RFC 3464 status part names its recipient here.
+	"X-Failed-Recipients",
+	// List mail (newsletters, notifications): never a person answering us.
+	"List-Unsubscribe",
+	"List-Id",
 }

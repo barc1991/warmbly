@@ -20,6 +20,7 @@ import SendPlanCard from "@/components/app/campaigns/SendPlanCard";
 import CampaignFormsPanel from "@/components/app/campaigns/CampaignFormsPanel";
 import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import AdvisorStrip from "@/components/app/advisor/AdvisorStrip";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 const AUTO_OPENS_TIP = "פתיחות אוטומטיות: משיכות פיקסל מפרוקסי פרטיות (כגון Apple Mail) או תוך שניות מהשליחה, לא קריאה אנושית. נרשם כהוכחת מסירה, לא נספר כפתיחה";
 const AUTO_CLICKS_TIP = "לחיצות אוטומטיות: קישורים שנבדקו על ידי מערכות אבטחה הסורקות את האימייל, ולא אדם; לא נספר כלחיצות";
@@ -29,11 +30,27 @@ const pctFmt = (v: number) => `${v.toFixed(1)}%`;
 type Metric = "sent" | "opens" | "clicks" | "replies";
 
 const METRICS: { key: Metric; label: string; tone: DitherTone }[] = [
-    { key: "sent", label: "Sent", tone: "sky" },
-    { key: "opens", label: "Opens", tone: "emerald" },
-    { key: "clicks", label: "Clicks", tone: "violet" },
-    { key: "replies", label: "Replies", tone: "amber" },
+    { key: "sent", label: "נשלחו", tone: "sky" },
+    { key: "opens", label: "פתיחות", tone: "emerald" },
+    { key: "clicks", label: "לחיצות", tone: "violet" },
+    { key: "replies", label: "תשובות", tone: "amber" },
 ];
+
+type DatePreset = "all" | "7d" | "30d" | "90d" | "custom";
+
+const DATE_PRESETS: { key: DatePreset; label: string }[] = [
+    { key: "all", label: "כל הזמנים" },
+    { key: "7d", label: "7 ימים" },
+    { key: "30d", label: "30 ימים" },
+    { key: "90d", label: "90 ימים" },
+    { key: "custom", label: "מותאם אישית" },
+];
+
+function isoDayOffset(daysAgo: number): string {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - daysAgo);
+    return d.toISOString().slice(0, 10);
+}
 
 function pct(v: number | undefined): string {
     return v == null ? "—" : `${v.toFixed(1)}%`;
@@ -46,8 +63,31 @@ export default function CampaignOverview() {
     const campaign = useCampaign();
     const id = campaign?.id ?? "";
 
-    const analytics = useCampaignAnalytics(id);
-    const daily = useCampaignDailyStats(id);
+    const [datePreset, setDatePreset] = useState<DatePreset>("all");
+    const [customFrom, setCustomFrom] = useState<string>(() => isoDayOffset(29));
+    const [customTo, setCustomTo] = useState<string>(() => isoDayOffset(0));
+
+    const rangeParams = useMemo(() => {
+        if (datePreset === "all") return undefined;
+        if (datePreset === "7d") return { from: isoDayOffset(6), to: isoDayOffset(0) };
+        if (datePreset === "30d") return { from: isoDayOffset(29), to: isoDayOffset(0) };
+        if (datePreset === "90d") return { from: isoDayOffset(89), to: isoDayOffset(0) };
+        return {
+            from: customFrom || undefined,
+            to: customTo || undefined,
+        };
+    }, [datePreset, customFrom, customTo]);
+
+    const dailyRange = useMemo(() => {
+        if (datePreset === "7d") return 7;
+        if (datePreset === "30d") return 30;
+        if (datePreset === "90d") return 90;
+        if (datePreset === "custom") return { from: customFrom, to: customTo };
+        return 30;
+    }, [datePreset, customFrom, customTo]);
+
+    const analytics = useCampaignAnalytics(id, rangeParams);
+    const daily = useCampaignDailyStats(id, dailyRange);
 
     // Legend toggles: every metric charts together; hidden ones drop out.
     const [hiddenMetrics, setHiddenMetrics] = useState<Metric[]>([]);
@@ -78,13 +118,13 @@ export default function CampaignOverview() {
     const hasSends = (summary?.emails_sent ?? 0) > 0;
 
     const shareData = {
-        title: campaign?.name ?? "Campaign",
-        subtitle: "Campaign",
+        title: campaign?.name ?? "קמפיין",
+        subtitle: "קמפיין",
         metrics: [
-            { label: "Sent", value: num(summary?.emails_sent), sub: "emails" },
-            { label: "Open rate", value: pct(summary?.open_rate) },
-            { label: "Reply rate", value: pct(summary?.reply_rate) },
-            { label: "Bounce rate", value: pct(summary?.bounce_rate) },
+            { label: "נשלחו", value: num(summary?.emails_sent), sub: "אימיילים" },
+            { label: "אחוז פתיחות", value: pct(summary?.open_rate) },
+            { label: "אחוז תשובות", value: pct(summary?.reply_rate) },
+            { label: "אחוז חזרות", value: pct(summary?.bounce_rate) },
         ],
         daily: dailyStats.map((d) => ({ label: d.date, value: d.sent })),
     };
@@ -103,11 +143,11 @@ export default function CampaignOverview() {
     }
 
     const breakdown = [
-        { label: "Sent", value: summary?.emails_sent, icon: SendIcon, dot: "bg-slate-400" },
-        { label: "Opens", value: summary?.unique_opens, icon: MailCheckIcon, dot: "bg-emerald-500", note: summary?.machine_opens ? `${summary.machine_opens} auto` : undefined, noteTitle: AUTO_OPENS_TIP },
-        { label: "Clicks", value: summary?.unique_clicks, icon: MousePointerClickIcon, dot: "bg-violet-500", note: summary?.machine_clicks ? `${summary.machine_clicks} auto` : undefined, noteTitle: AUTO_CLICKS_TIP },
-        { label: "Replies", value: summary?.replies, icon: ReplyIcon, dot: "bg-amber-500" },
-        { label: "Bounces", value: summary?.bounces, icon: TriangleAlertIcon, dot: "bg-rose-500" },
+        { label: "נשלחו", value: summary?.emails_sent, icon: SendIcon, dot: "bg-slate-400" },
+        { label: "פתיחות", value: summary?.unique_opens, icon: MailCheckIcon, dot: "bg-emerald-500", note: summary?.machine_opens ? `${summary.machine_opens} אוט׳` : undefined, noteTitle: AUTO_OPENS_TIP },
+        { label: "לחיצות", value: summary?.unique_clicks, icon: MousePointerClickIcon, dot: "bg-violet-500", note: summary?.machine_clicks ? `${summary.machine_clicks} אוט׳` : undefined, noteTitle: AUTO_CLICKS_TIP },
+        { label: "תשובות", value: summary?.replies, icon: ReplyIcon, dot: "bg-amber-500" },
+        { label: "חזרות", value: summary?.bounces, icon: TriangleAlertIcon, dot: "bg-rose-500" },
     ];
 
     return (
@@ -126,7 +166,7 @@ export default function CampaignOverview() {
                     <div className="rounded-md border border-slate-200 overflow-hidden bg-white">
                         <SectionBar label="ביצועים">
                             {campaign.status === "active" && (
-                                <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-600 mr-1">
+                                <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-emerald-600 me-1">
                                     <span className="relative flex size-1.5">
                                         <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60 animate-ping" />
                                         <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
@@ -134,11 +174,50 @@ export default function CampaignOverview() {
                                     פעיל
                                 </span>
                             )}
+                            <div className="inline-flex items-center gap-0.5 rounded-md bg-slate-100 p-0.5">
+                                {DATE_PRESETS.map((p) => {
+                                    const active = datePreset === p.key;
+                                    return (
+                                        <button
+                                            key={p.key}
+                                            type="button"
+                                            onClick={() => setDatePreset(p.key)}
+                                            className={`h-6 px-2 rounded text-[11px] font-medium transition-colors ${
+                                                active
+                                                    ? "bg-white text-slate-900 shadow-sm"
+                                                    : "text-slate-500 hover:text-slate-700"
+                                            }`}
+                                        >
+                                            {p.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                             <AnalyticsShareButton
                                 data={shareData}
                                 filename={`warmbly-${campaign.id}.png`}
                             />
                         </SectionBar>
+                        {datePreset === "custom" && (
+                            <div className="px-5 py-2.5 border-b border-slate-200/80 bg-slate-50/50 flex flex-wrap items-center gap-2 text-[11.5px] text-slate-600">
+                                <span className="text-slate-500">מתאריך</span>
+                                <DatePicker
+                                    value={customFrom}
+                                    onChange={setCustomFrom}
+                                    placeholder="תאריך התחלה"
+                                    clearable={false}
+                                    className="w-36"
+                                />
+                                <span className="text-slate-500">עד תאריך</span>
+                                <DatePicker
+                                    value={customTo}
+                                    onChange={setCustomTo}
+                                    placeholder="תאריך סיום"
+                                    clearable={false}
+                                    className="w-36"
+                                />
+                            </div>
+                        )}
                         <StatStrip cols={5}>
                             <Stat
                                 label="נשלחו"
@@ -209,8 +288,8 @@ export default function CampaignOverview() {
                                         height={280}
                                         emptyLabel={
                                             hasSends
-                                                ? "No activity in this window yet"
-                                                : "No sends yet — start the campaign to see performance"
+                                                ? "אין עדיין פעילות בחלון זמן זה"
+                                                : "עדיין לא בוצעו שליחות, הפעל את הקמפיין כדי לראות ביצועים"
                                         }
                                     />
                                 )}
@@ -219,9 +298,9 @@ export default function CampaignOverview() {
                     )}
 
                     <div className="rounded-md border border-slate-200 overflow-hidden bg-white">
-                        <SectionBar label="Step performance" count={sequences.length || undefined}>
-                            <span className="ml-auto hidden md:inline text-[10px] text-slate-400">
-                                count and % of that step's sends
+                        <SectionBar label="ביצועי שלבים" count={sequences.length || undefined}>
+                            <span className="ms-auto hidden md:inline text-[10px] text-slate-400">
+                                כמות ו-‎%‎ מתוך השליחות של אותו שלב
                             </span>
                         </SectionBar>
                         {loading ? (
@@ -230,7 +309,7 @@ export default function CampaignOverview() {
                                     <div key={i} className="h-12 px-5 flex items-center gap-3">
                                         <div className="size-1.5 rounded-full bg-slate-200" />
                                         <div className="h-3 w-40 bg-slate-100 rounded animate-pulse" />
-                                        <div className="ml-auto h-3 w-48 bg-slate-100 rounded animate-pulse" />
+                                        <div className="ms-auto h-3 w-48 bg-slate-100 rounded animate-pulse" />
                                     </div>
                                 ))}
                             </div>
@@ -246,11 +325,11 @@ export default function CampaignOverview() {
                                 {/* header row */}
                                 <div className="h-8 px-5 flex items-center gap-3 text-[10px] uppercase tracking-[0.12em] text-slate-400 font-medium">
                                     <span className="flex-1 min-w-0">שלב</span>
-                                    <span className="w-14 text-right">נשלחו</span>
-                                    <span className="w-16 text-right">פתיחות</span>
-                                    <span className="w-16 text-right hidden md:block">לחיצות</span>
-                                    <span className="w-16 text-right">תשובות</span>
-                                    <span className="w-16 text-right hidden md:block">חזרות</span>
+                                    <span className="w-14 text-end">נשלחו</span>
+                                    <span className="w-16 text-end">פתיחות</span>
+                                    <span className="w-16 text-end hidden md:block">לחיצות</span>
+                                    <span className="w-16 text-end">תשובות</span>
+                                    <span className="w-16 text-end hidden md:block">חזרות</span>
                                 </div>
                                 {sequences.map((s) => (
                                     <div key={s.step_id} className="h-12 px-5 flex items-center gap-3">
@@ -258,13 +337,15 @@ export default function CampaignOverview() {
                                             <span className="font-mono text-[10.5px] text-slate-400 tabular-nums shrink-0">
                                                 {s.position}
                                             </span>
-                                            <span className="text-[12.5px] text-slate-900 truncate">{s.name}</span>
+                                            <span className="text-[12.5px] text-slate-900 truncate">
+                                                {s.name?.trim() || `אימייל ${s.position}`}
+                                            </span>
                                         </span>
-                                        <span className="w-14 text-right font-mono text-[11.5px] text-slate-700 tabular-nums">
+                                        <span className="w-14 text-end font-mono text-[11.5px] text-slate-700 tabular-nums">
                                             <AnimatedNumber value={s.emails_sent ?? 0} />
                                         </span>
                                         <StepMetric
-                                            label="Opens"
+                                            label="פתיחות"
                                             count={s.opens ?? 0}
                                             rate={s.open_rate}
                                             sent={s.emails_sent ?? 0}
@@ -273,7 +354,7 @@ export default function CampaignOverview() {
                                             autoTip={AUTO_OPENS_TIP}
                                         />
                                         <StepMetric
-                                            label="Clicks"
+                                            label="לחיצות"
                                             count={s.clicks ?? 0}
                                             rate={s.click_rate}
                                             sent={s.emails_sent ?? 0}
@@ -283,14 +364,14 @@ export default function CampaignOverview() {
                                             desktopOnly
                                         />
                                         <StepMetric
-                                            label="Replies"
+                                            label="תשובות"
                                             count={s.replies ?? 0}
                                             rate={s.reply_rate}
                                             sent={s.emails_sent ?? 0}
                                             tone="text-amber-600"
                                         />
                                         <StepMetric
-                                            label="Bounces"
+                                            label="חזרות"
                                             count={s.bounces ?? 0}
                                             rate={s.bounce_rate}
                                             sent={s.emails_sent ?? 0}
@@ -309,7 +390,7 @@ export default function CampaignOverview() {
 
                     {/* quick breakdown strip below sequence table, mobile-friendly summary */}
                     <div className="rounded-md border border-slate-200 overflow-hidden bg-white lg:hidden">
-                        <SectionBar label="Totals" />
+                        <SectionBar label="סיכומים" />
                         <div className="divide-y divide-slate-200/60">
                             {breakdown.map((q) => (
                                 <div key={q.label} className="h-9 px-5 flex items-center gap-2">
@@ -323,7 +404,7 @@ export default function CampaignOverview() {
                                             {q.note}
                                         </span>
                                     )}
-                                    <span className="ml-auto font-mono text-[11px] text-slate-500 tabular-nums">
+                                    <span className="ms-auto font-mono text-[11px] text-slate-500 tabular-nums">
                                         {loading ? "—" : <AnimatedNumber value={q.value ?? 0} />}
                                     </span>
                                 </div>
@@ -337,7 +418,7 @@ export default function CampaignOverview() {
                     <TaskPreview campaignId={campaign.id} campaignStatus={campaign.status} idle={!!campaign.idle_since} />
 
                     <div className="rounded-md border border-slate-200 overflow-hidden bg-white hidden lg:block">
-                        <SectionBar label="Totals" />
+                        <SectionBar label="סיכומים" />
                         <div className="divide-y divide-slate-200/60">
                             {breakdown.map((q) => (
                                 <div key={q.label} className="h-9 px-5 flex items-center gap-2">
@@ -351,7 +432,7 @@ export default function CampaignOverview() {
                                             {q.note}
                                         </span>
                                     )}
-                                    <span className="ml-auto font-mono text-[11px] text-slate-500 tabular-nums">
+                                    <span className="ms-auto font-mono text-[11px] text-slate-500 tabular-nums">
                                         {loading ? "—" : <AnimatedNumber value={q.value ?? 0} />}
                                     </span>
                                 </div>
@@ -391,14 +472,14 @@ function StepMetric({
     const flagged = !!auto && !!autoTip;
     const title = [
         `${label}: ${count.toLocaleString()}`,
-        sent > 0 ? `${share} of ${sent.toLocaleString()} sent` : "nothing sent yet",
-        flagged ? `${auto} automated. ${autoTip}` : null,
+        sent > 0 ? `${share} מתוך ${sent.toLocaleString()} שנשלחו` : "טרם נשלח",
+        flagged ? `${auto} אוטומטיים. ${autoTip}` : null,
     ]
         .filter(Boolean)
         .join(" · ");
     return (
         <span
-            className={`w-16 text-right font-mono text-[11.5px] tabular-nums ${desktopOnly ? "hidden md:block" : ""}`}
+            className={`w-16 text-end font-mono text-[11.5px] tabular-nums ${desktopOnly ? "hidden md:block" : ""}`}
             title={title}
         >
             <span className={`block leading-none ${tone}`}>
@@ -419,14 +500,14 @@ function StepMetric({
 // fallback for anything it does not know.
 const REGION_NAMES = (() => {
     try {
-        return new Intl.DisplayNames(undefined, { type: "region" });
+        return new Intl.DisplayNames(["he", "en"], { type: "region" });
     } catch {
         return null;
     }
 })();
 
 function countryName(code: string): string {
-    if (!code) return "Unknown";
+    if (!code) return "לא ידוע";
     try {
         return REGION_NAMES?.of(code.toUpperCase()) ?? code;
     } catch {
@@ -434,10 +515,25 @@ function countryName(code: string): string {
     }
 }
 
+const SURFACE_LABELS: Record<string, string> = {
+    mobile_app: "אפליקציית מובייל",
+    desktop_app: "תוכנת שולחן עבודה",
+    tablet_app: "אפליקציית טאבלט",
+    webmail: "דואר רשת (Webmail)",
+    mobile: "נייד",
+    desktop: "מחשב",
+    tablet: "טאבלט",
+    hidden: "מוסתר על ידי פרוקסי תמונות",
+};
+
+const SURFACE_HINTS: Record<string, string> = {
+    hidden: "Gmail,‏ Yahoo Mail,‏ Apple Mail Privacy Protection ומספר ספקים נוספים טוענים תמונות דרך השרתים שלהם, מה שמסתיר את מכשיר הקורא.",
+};
+
 function bucketLabel(kind: "countries" | "clients" | "devices", key: string): string {
     if (kind === "countries") return countryName(key);
-    if (!key) return "Unknown";
-    if (kind === "devices") return key.charAt(0).toUpperCase() + key.slice(1);
+    if (!key) return "לא ידוע";
+    if (kind === "devices") return SURFACE_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
     return key;
 }
 
@@ -452,9 +548,9 @@ function EngagementAudience({
     loading: boolean;
 }) {
     const columns: { kind: "countries" | "clients" | "devices"; label: string; rows: EngagementBucket[] }[] = [
-        { kind: "countries", label: "Country", rows: breakdown?.countries ?? [] },
-        { kind: "clients", label: "Mail client", rows: breakdown?.clients ?? [] },
-        { kind: "devices", label: "Device", rows: breakdown?.devices ?? [] },
+        { kind: "countries", label: "מדינה", rows: breakdown?.countries ?? [] },
+        { kind: "clients", label: "תוכנת דואר", rows: breakdown?.clients ?? [] },
+        { kind: "devices", label: "מכשיר", rows: breakdown?.surfaces ?? breakdown?.devices ?? [] },
     ];
     const empty = columns.every((c) => c.rows.length === 0);
     return (
@@ -484,7 +580,10 @@ function EngagementAudience({
                                 <div className="divide-y divide-slate-200/60">
                                     {c.rows.map((r) => (
                                         <div key={r.key || "unknown"} className="h-9 px-5 flex items-center gap-3">
-                                            <span className="flex-1 min-w-0 text-[12px] text-slate-700 truncate" title={r.key || undefined}>
+                                            <span
+                                                className="flex-1 min-w-0 text-[12px] text-slate-700 truncate"
+                                                title={(c.kind === "devices" && SURFACE_HINTS[r.key]) || r.key || undefined}
+                                            >
                                                 {bucketLabel(c.kind, r.key)}
                                             </span>
                                             <span className="w-12 text-end font-mono text-[11.5px] text-emerald-600 tabular-nums">

@@ -78,6 +78,7 @@ func (r *pgEmailSyncStateRepository) Put(ctx context.Context, userID, emailID uu
 		state.BackfillSince, state.BackfillStartedAt, state.BackfillCompletedAt,
 		state.ThrottledUntil, state.ThrottleReason, state.Deferred, state.LastSyncedAt,
 	); err != nil {
+		// A deleted mailbox refuses this as a foreign-key violation; the consumer evicts it.
 		return fmt.Errorf("email_sync_state: put: %w", err)
 	}
 	if state.LastSyncedAt != nil {

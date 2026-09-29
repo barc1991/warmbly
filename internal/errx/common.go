@@ -58,6 +58,9 @@ var (
 	// operator sets DISABLE_REGISTRATION=true, and no invitation overrides it.
 	ErrRegistrationClosed = NewWithIdentifier(Forbidden, "registration_closed",
 		"This server is not accepting new accounts. See https://docs.warmbly.com/development/accounts-and-access/")
+	// ErrAccountExists answers a signup for an address that already has an account.
+	ErrAccountExists = New(Conflict, "An account with this email address already exists. Sign in, or reset your password if you have forgotten it.")
+
 	ErrInvitationInvalid = NewWithIdentifier(Forbidden, "invitation_invalid",
 		"That invitation link is invalid, expired, or was issued for a different email address. Ask for a fresh one.")
 
@@ -146,6 +149,7 @@ var (
 	ErrEmailReauthOAuthOnly      = New(BadRequest, "This mailbox signs in with OAuth. Re-authorize it instead of entering credentials.")
 	ErrEmailReauthWrongAccount   = New(Conflict, "The account you signed in with is not this mailbox's address. Sign in with the mailbox's own account and try again.")
 	ErrEmailReauthCloudManaged   = New(Conflict, "Warmbly Cloud holds this mailbox's sign-in. Reconnect it from your cloud workspace instead.")
+	ErrEmailReauthDelegated      = NewWithIdentifier(Conflict, "mailbox_reauth_delegated", "An administrator's grant for this domain connects this mailbox, so it has nothing to sign in to. Check the grant from Add account > Google or Microsoft > Whole domain.")
 	ErrEmailReauthNoRefreshToken = New(BadRequest, "The provider did not return a refresh token and none is stored. Please try re-authorizing again.")
 	ErrEmailSMTPHost             = New(BadRequest, "SMTP host is required.")
 	ErrEmailSMTPPort             = New(BadRequest, "SMTP port must be between 1 and 65535.")

@@ -12,6 +12,7 @@ import "@fontsource/poppins/600.css";
 import "@fontsource/poppins/700.css";
 import RootAppLayout from './app/app/layout';
 import AddressesPage from './app/app/emails/page';
+import SendingDomainsPage from './app/app/emails/domains/page';
 import ContactsPage from './app/app/contacts/page';
 import FormsPage from './app/app/forms/page';
 import FormBuilderPage from './app/app/forms/[id]/page';
@@ -29,6 +30,8 @@ import CampaignSchedule from './app/app/campaigns/[id]/schedule/page';
 import CampaignSteps from './app/app/campaigns/[id]/steps/page';
 import AnalyticsPage from './app/app/analytics/page';
 import DeliverabilityPage from './app/app/deliverability/page';
+import PlacementPage from './app/app/placement/page';
+import PlacementTestPage from './app/app/placement/[id]/page';
 import PipelinesPage from './app/app/crm/pipelines/page';
 import DealsPage from './app/app/crm/deals/page';
 import TasksPage from './app/app/crm/tasks/page';
@@ -286,7 +289,10 @@ const router = createBrowserRouter([
           },
           {
             path: "emails",
-            element: <AddressesPage />,
+            children: [
+              { index: true, element: <AddressesPage /> },
+              { path: "domains", element: <SendingDomainsPage /> },
+            ],
           },
           {
             path: "contacts",
@@ -353,6 +359,13 @@ const router = createBrowserRouter([
           {
             path: "deliverability",
             element: <DeliverabilityPage />,
+          },
+          {
+            path: "placement",
+            children: [
+              { index: true, element: <PlacementPage /> },
+              { path: ":id", element: <PlacementTestPage /> },
+            ],
           },
           {
             path: "crm",

@@ -50,6 +50,10 @@ type FeatureGateService interface {
 	// IsPaidOrganization checks if the organization has an active paid subscription
 	IsPaidOrganization(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error)
 
+	// HasPremiumWarmup reports whether the organization pays for any plan,
+	// so its mailboxes warm in the premium pool.
+	HasPremiumWarmup(ctx context.Context, orgID uuid.UUID) (bool, *errx.Error)
+
 	// GetStorageLimitBytes returns the org's total attachment storage quota in
 	// bytes (generous; larger for paid orgs).
 	GetStorageLimitBytes(ctx context.Context, orgID uuid.UUID) (int64, *errx.Error)
@@ -168,5 +172,10 @@ func (s *featureGateService) CanUseInboxAgent(_ context.Context, _ uuid.UUID) (b
 
 // IsPaidOrganization checks if the organization has an active paid subscription (always true).
 func (s *featureGateService) IsPaidOrganization(_ context.Context, _ uuid.UUID) (bool, *errx.Error) {
+	return true, nil
+}
+
+// HasPremiumWarmup reports whether the organization pays for any plan (always true in self-host/unlocked fork).
+func (s *featureGateService) HasPremiumWarmup(_ context.Context, _ uuid.UUID) (bool, *errx.Error) {
 	return true, nil
 }

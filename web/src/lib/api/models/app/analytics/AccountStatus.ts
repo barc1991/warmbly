@@ -2,6 +2,8 @@
 // models.EmailAccountStatus). Rich shape: health band, today's usage,
 // warmup status, and any active errors.
 
+import type { PlacementRate } from "./WarmupPlacement";
+
 export interface AccountHealth {
     status: "healthy" | "warning" | "error";
     score: number; // 0-100
@@ -39,6 +41,15 @@ export interface WarmupStatusInfo {
     days_active: number;
     /** Present while a recent junk placement is holding the ramp. */
     ramp_hold?: WarmupRampHold;
+    /** Present while today's target is capped by the partners the mailbox can still reach. */
+    partner_limit?: WarmupPartnerLimit;
+}
+
+// A target held below the ramp because a mailbox never writes to the same
+// partner twice in a day.
+export interface WarmupPartnerLimit {
+    reachable: number;
+    ramp_target: number;
 }
 
 // Why the warmup ramp is not climbing. Present for the whole freeze;
@@ -53,6 +64,8 @@ export interface WarmupRampHold {
 // Warmup-pool reputation for this mailbox. Folded into health.score and also
 // surfaced in detail. Present only when the mailbox is in a warmup pool.
 export interface WarmupHealthInfo {
+    /** The pool the mailbox warms in. */
+    pool_type?: "premium" | "free";
     state: "healthy" | "watch" | "throttled" | "quarantined" | "blocked";
     score: number;
     /** @deprecated Always 0 since the warmup spam score was retired; read score and reason. */
@@ -64,6 +77,9 @@ export interface WarmupHealthInfo {
     partner_mailboxes_7d: number;
     partner_domains_7d: number;
     partner_organizations_7d: number;
+    /** The receiving side over the same window: verified warmup arrivals and the distinct partners they came from. */
+    received_7d: number;
+    senders_7d: number;
 }
 
 export default interface AccountStatus {
@@ -81,6 +97,8 @@ export default interface AccountStatus {
     /** Present only when the mailbox is NOT in cold rotation. */
     send_lifecycle?: SendLifecycleState;
     warmup_health?: WarmupHealthInfo;
+    /** Where warmup mail landed over the trailing week; also caps health.score. Absent with no deliveries. */
+    warmup_placement?: PlacementRate;
     // True when the mailbox backs a live campaign — a low-volume health-check
     // warmup keeps running even if the user has warmup paused/off.
     in_campaign: boolean;

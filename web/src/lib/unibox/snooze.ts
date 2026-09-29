@@ -23,6 +23,15 @@ export function atHour(dayOffset: number, hour: number): Date {
     return d;
 }
 
+export function nextSunday9(): Date {
+    const d = new Date();
+    const dow = d.getDay();
+    const delta = (0 - dow + 7) % 7 || 7;
+    d.setDate(d.getDate() + delta);
+    d.setHours(9, 0, 0, 0);
+    return d;
+}
+
 export function nextMonday9(): Date {
     const d = new Date();
     const dow = d.getDay();
@@ -36,6 +45,6 @@ export const SNOOZE_PRESETS: { label: string; until: () => Date }[] = [
     { label: "בעוד שעה", until: () => offsetHours(1) },
     { label: "בעוד 3 שעות", until: () => offsetHours(3) },
     { label: "מחר ב-09:00", until: () => atHour(1, 9) },
-    { label: "יום שני ב-09:00", until: () => nextMonday9() },
+    { label: "יום ראשון ב-09:00", until: () => nextSunday9() },
     { label: "בשבוע הבא", until: () => offsetDays(7) },
 ];

@@ -21,11 +21,12 @@ import {
 } from "@/components/ui/popover-menu";
 import useDeliverability from "@/lib/api/hooks/app/analytics/useDeliverability";
 import AdvisorSummaryBar from "@/components/app/advisor/AdvisorSummaryBar";
-import type { DeliverabilityBand, ProviderPlacement, WarmupDomainPlacement } from "@/lib/api/models/app/analytics/Deliverability";
+import WarmupPlacementSection from "@/components/app/placement/WarmupPlacementSection";
+import type { DeliverabilityBand, ProviderPlacement } from "@/lib/api/models/app/analytics/Deliverability";
 
 type Range = "7d" | "30d" | "90d";
 type Metric = "bounces" | "complaints" | "opens" | "replies" | "sent";
-type SectionKey = "chart" | "totals" | "providers" | "warmup" | "mailboxes" | "campaigns";
+type SectionKey = "chart" | "totals" | "placement" | "providers" | "mailboxes" | "campaigns";
 
 const RANGE_LABEL: Record<Range, string> = {
     "7d": "7 הימים האחרונים",
@@ -44,8 +45,8 @@ const METRICS: { key: Metric; label: string; tone: DitherTone }[] = [
 const SECTIONS: { key: SectionKey; label: string }[] = [
     { key: "chart", label: "לאורך זמן" },
     { key: "totals", label: "סיכום לתקופה" },
-    { key: "providers", label: "מיקום לפי ספק" },
-    { key: "warmup", label: "מיקום חימום לפי דומיין" },
+    { key: "placement", label: "מיקום חימום בתיבת הדואר הנכנס" },
+    { key: "providers", label: "מיקום בדיקות לפי ספק" },
     { key: "mailboxes", label: "תיבות דואר בסיכון" },
     { key: "campaigns", label: "קמפיינים בסיכון" },
 ];
@@ -291,15 +292,35 @@ export default function DeliverabilityPage() {
                         </div>
                     )}
 
+                    {show("placement") && (
+                        <>
+                            <SectionBar label="מיקום חימום בתיבת הדואר הנכנס" />
+                            <WarmupPlacementSection days={view.range === "90d" ? 90 : view.range === "30d" ? 30 : 7} />
+                        </>
+                    )}
+
                     {show("providers") && (
                         <>
-                            <SectionBar label="מיקום לפי ספק" count={d?.by_provider?.length || undefined} />
+                            <SectionBar label="מיקום בדיקות לפי ספק" count={d?.by_provider?.length || undefined}>
+                                <Link to="/app/placement" className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-900 transition-colors">
+                                    הפעל בדיקת מיקום
+                                    <ArrowUpRightIcon className="w-3 h-3 rtl:rotate-[-90deg]" />
+                                </Link>
+                            </SectionBar>
                             {q.isPending ? (
                                 <SkeletonRows />
                             ) : (d?.by_provider?.length ?? 0) === 0 ? (
                                 <EmptyBlock
                                     title="אין דגימות בדיקת מיקום בטווח זמנים זה"
-                                    body="הפעל בדיקת מיקום כדי לראות היכן הדוא״ל שלך נוחת (דואר נכנס, קידומי מכירות או ספאם) בכל ספק."
+                                    body="הפעל בדיקת מיקום כדי לראות היכן הדוא״ל שלך נוחת (דואר נכנס, כרטיסייה בג׳ימייל, ספאם או שלא הגיע) בכל ספק."
+                                    cta={
+                                        <Link
+                                            to="/app/placement"
+                                            className="h-7 px-2.5 rounded-md inline-flex items-center gap-1.5 text-[12px] font-medium bg-sky-600 hover:bg-sky-700 text-white transition-colors"
+                                        >
+                                            הפעל בדיקת מיקום
+                                        </Link>
+                                    }
                                 />
                             ) : (
                                 <div className="divide-y divide-slate-200/60">
@@ -307,31 +328,6 @@ export default function DeliverabilityPage() {
                                         <ProviderRow key={p.provider} p={p} />
                                     ))}
                                 </div>
-                            )}
-                        </>
-                    )}
-
-                    {show("warmup") && (
-                        <>
-                            <SectionBar label="מיקום חימום לפי דומיין" count={d?.warmup_placement?.length || undefined} />
-                            {q.isPending ? (
-                                <SkeletonRows />
-                            ) : (d?.warmup_placement?.length ?? 0) === 0 ? (
-                                <EmptyBlock
-                                    title="אין מסירות חימום בטווח זמנים זה"
-                                    body="כאשר החימום פעיל, כל מסירה מאומתת מדווחת האם הגיעה לדואר הנכנס או לתיקיית הספאם, בפילוח לפי דומיין הנמען."
-                                />
-                            ) : (
-                                <>
-                                    <div className="divide-y divide-slate-200/60">
-                                        {d!.warmup_placement.map((w) => (
-                                            <WarmupDomainRow key={w.domain} w={w} />
-                                        ))}
-                                    </div>
-                                    <p className="px-4 py-3 text-[11.5px] text-slate-500 leading-relaxed">
-                                        בחירת שותפי החימום מתבססת על נתונים אלו: תיבת דואר הנוחתת בספאם אצל ספק מסוים תקבל פחות שותפים מאותו ספק כל עוד השיעור נשאר גבוה, ויותר שותפים ברגע שהיא מתאוששת. היא לעולם אינה מנותקת לחלוטין, מכיוון ששולח שמפסיק לשלוח לספק מסוים לא יוכל לעולם לגלות שהמוניטין שלו התאושש.
-                                    </p>
-                                </>
                             )}
                         </>
                     )}
@@ -410,11 +406,12 @@ function ProviderRow({ p }: { p: ProviderPlacement }) {
         { n: p.inbox, tone: "emerald" as DitherTone, label: "דואר נכנס" },
         { n: p.promotions, tone: "violet" as DitherTone, label: "קידומי מכירות" },
         { n: p.spam, tone: "rose" as DitherTone, label: "ספאם" },
-        { n: p.other, tone: "slate" as DitherTone, label: "אחר" },
+        { n: p.other, tone: "sky" as DitherTone, label: "כרטיסיות אחרות" },
+        { n: p.missing ?? 0, tone: "slate" as DitherTone, label: "לא הגיע" },
     ].filter((s) => s.n > 0);
     return (
         <div className="h-11 px-5 flex items-center gap-3">
-            <span className="text-[12.5px] font-medium text-slate-900 w-28 shrink-0 truncate">{providerLabel(p.provider)}</span>
+            <span className="text-[12.5px] font-medium text-slate-900 w-28 shrink-0 truncate">{p.label || providerLabel(p.provider)}</span>
             <div className="flex-1 min-w-16" title={segments.map((s) => `${s.label} ${s.n}`).join(" · ")}>
                 <DitherStack
                     segments={segments.map((s) => ({ frac: s.n / Math.max(1, p.samples), tone: s.tone }))}
@@ -424,23 +421,10 @@ function ProviderRow({ p }: { p: ProviderPlacement }) {
             <span className="flex items-center gap-2 md:gap-4 font-mono text-[11px] tabular-nums shrink-0">
                 <span title="שיעור דואר נכנס" className="text-emerald-600">{pct(p.inbox_rate)} נכנס</span>
                 <span title="שיעור ספאם" className="text-rose-600">{pct(p.spam_rate)} ספאם</span>
+                {(p.missing ?? 0) > 0 && (
+                    <span title="עותקים שלא הגיעו" className="hidden sm:inline text-slate-500">{num(p.missing)} חסרים</span>
+                )}
                 <span title="דגימות" className="hidden md:inline text-slate-500">{num(p.samples)} דגימות</span>
-            </span>
-        </div>
-    );
-}
-
-// One recipient domain's continuous warmup placement signal.
-function WarmupDomainRow({ w }: { w: WarmupDomainPlacement }) {
-    return (
-        <div className="h-11 px-5 flex items-center gap-3">
-            <span className={`size-1.5 rounded-full shrink-0 ${w.spam_rate >= 20 ? "bg-rose-500" : w.spam_rate >= 10 ? "bg-amber-500" : "bg-emerald-500"}`} />
-            <span className="text-[12.5px] font-medium text-slate-900 truncate max-w-[36%]">{w.domain}</span>
-            <span className="hidden md:inline text-[11px] text-slate-400">{providerLabel(w.provider)}</span>
-            <span className="ms-auto flex items-center gap-2 md:gap-4 font-mono text-[11px] tabular-nums shrink-0">
-                <span title="מסירות חימום" className="hidden md:inline text-slate-500">{num(w.delivered)} נמסרו</span>
-                <span title="שיעור דואר נכנס" className="text-emerald-600">{pct(w.inbox_rate)} נכנס</span>
-                <span title="שיעור ספאם" className="text-rose-600">{pct(w.spam_rate)} ספאם</span>
             </span>
         </div>
     );

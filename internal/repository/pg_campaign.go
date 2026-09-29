@@ -17,6 +17,7 @@ import (
 	"github.com/warmbly/warmbly/internal/infrastructure/db"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
+	"github.com/warmbly/warmbly/internal/utils"
 	"github.com/warmbly/warmbly/internal/utils/paging"
 	"github.com/warmbly/warmbly/internal/utils/validate"
 )
@@ -60,6 +61,9 @@ type CampaignRepository interface {
 	StopCampaign(ctx context.Context, campaignID uuid.UUID) error
 	ValidateCampaignReady(ctx context.Context, campaignID uuid.UUID) error
 	GetPendingCampaignTasks(ctx context.Context, campaignID uuid.UUID) ([]Task, error)
+	// IsPacedSuccessor reports whether a pending wakeup was parked by a tick
+	// that sent, so it is send spacing rather than a deferral recheck.
+	IsPacedSuccessor(ctx context.Context, campaignID uuid.UUID, pending Task) (bool, error)
 	// ListCampaignScheduleCandidates returns active campaigns that have NO pending
 	// task — their self-perpetuating chain died and needs re-seeding. Used by the
 	// campaign reconciler.
@@ -801,9 +805,9 @@ func (r *campaignRepository) Search(ctx context.Context, orgID, query string, cu
 		 AND ($5 = '' OR CASE WHEN $5 = 'paused' THEN c.status::text LIKE 'paused%%' ELSE c.status::text = $5 END)
 		 AND ($6 = '' OR c.kind = $6)
 		GROUP BY c.id
-		ORDER BY created_at DESC
+		ORDER BY c.created_at DESC, c.id DESC
 		LIMIT %d`,
-		CAMPAIGN_SELECT_FULL, limit,
+		CAMPAIGN_SELECT_FULL, limit+1,
 	)
 
 	var countSQL string
@@ -861,7 +865,8 @@ func (r *campaignRepository) Search(ctx context.Context, orgID, query string, cu
 	var hasMore bool
 	if len(campaigns) > int(limit) {
 		hasMore = true
-		nextCursor = paging.EncodeUUID(campaigns[limit].ID)
+		// The last row returned: the next page starts strictly below it.
+		nextCursor = paging.EncodeUUID(campaigns[limit-1].ID)
 		campaigns = campaigns[:limit]
 	}
 
@@ -1123,8 +1128,16 @@ func (r *campaignRepository) Update(ctx context.Context, orgID, campaignID strin
 		argPos++
 	}
 	if data.ContactOrderField != nil {
+		// This is the order field that reaches an ORDER BY expression, so it is
+		// validated on the way in like the two allowlisted ones above. It is a
+		// custom-field key, so it answers to the same rule as every other
+		// custom-field key in the product.
+		field := utils.NormalizeJSONKey(*data.ContactOrderField)
+		if field != "" && !utils.IsValidJSONKey(field) {
+			return nil, errx.ErrInvalid
+		}
 		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", "contact_order_field", argPos))
-		args = append(args, *data.ContactOrderField)
+		args = append(args, field)
 		argPos++
 	}
 
@@ -1646,7 +1659,7 @@ func (r *campaignRepository) ValidateCampaignReady(ctx context.Context, campaign
 
 	// Sender pool (unified): valid if it has any enabled explicit sender OR any
 	// email tag OR — when neither is selected ("all") — at least one active
-	// mailbox for the owner to fall back to.
+	// mailbox in the campaign's organization to fall back to.
 	var senderCount int
 	if err := r.DB.QueryRow(ctx, `SELECT COUNT(*) FROM campaign_senders WHERE campaign_id = $1 AND enabled`, campaignID).Scan(&senderCount); err != nil {
 		return err
@@ -1674,7 +1687,7 @@ func (r *campaignRepository) ValidateCampaignReady(ctx context.Context, campaign
 	var activeMailboxes int
 	if err := r.DB.QueryRow(ctx, `
 		SELECT COUNT(*) FROM email_accounts
-		WHERE user_id = (SELECT user_id FROM campaigns WHERE id = $1) AND status = 'active'
+		WHERE organization_id = (SELECT organization_id FROM campaigns WHERE id = $1) AND status = 'active'
 	`, campaignID).Scan(&activeMailboxes); err != nil {
 		return err
 	}
@@ -1682,6 +1695,26 @@ func (r *campaignRepository) ValidateCampaignReady(ctx context.Context, campaign
 		return errx.New(errx.BadRequest, "campaign must have at least one active sending mailbox")
 	}
 	return nil
+}
+
+// IsPacedSuccessor implements the interface comment on CampaignRepository. A
+// sending tick completes and parks its successor in the same call, so a wakeup
+// created later than that (a reconciler re-seed) is not its successor.
+func (r *campaignRepository) IsPacedSuccessor(ctx context.Context, campaignID uuid.UUID, pending Task) (bool, error) {
+	var paced bool
+	err := r.DB.QueryRow(ctx, `
+		SELECT `+taskDispatchedEmail+` AND t.completed_at >= $2::timestamptz - interval '1 minute'
+		FROM tasks t
+		JOIN campaign_tasks ct ON ct.task_id = t.id
+		WHERE ct.campaign_id = $1 AND t.task_type = 'campaign'
+		  AND t.status NOT IN ('pending', 'cancelled') AND t.created_at < $2
+		ORDER BY t.created_at DESC
+		LIMIT 1
+	`, campaignID, pending.CreatedAt).Scan(&paced)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return paced, err
 }
 
 // GetPendingCampaignTasks returns all pending tasks for a campaign

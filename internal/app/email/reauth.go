@@ -39,6 +39,9 @@ func (s *emailService) OAuthReauth(ctx context.Context, userID string, orgID *uu
 	if provider == models.InboxProviderSMTPIMAP {
 		return nil, errx.ErrEmailReauthProvider
 	}
+	if account.AuthMethod == models.MailAuthDelegated {
+		return nil, errx.ErrEmailReauthDelegated
+	}
 	// A cloud-managed mailbox has no local token row to renew; its sign-in
 	// lives on Warmbly Cloud.
 	if s.cloudLink != nil {
@@ -126,6 +129,8 @@ func (s *emailService) finishReauth(ctx context.Context, sess *models.EmailOnboa
 // validate the replacement credentials against a live worker, store them, and
 // put the mailbox back to work.
 func (s *emailService) UpdateSMTPIMAPCredentials(ctx context.Context, orgID *uuid.UUID, accountID uuid.UUID, creds *models.SmtpImap) (*models.Email, *errx.Error) {
+	ctx, cancel := detach(ctx, connectBudget)
+	defer cancel()
 	if orgID == nil {
 		return nil, errx.ErrNoOrganization
 	}
@@ -150,13 +155,7 @@ func (s *emailService) UpdateSMTPIMAPCredentials(ctx context.Context, orgID *uui
 	if s.workerAssignment == nil {
 		return nil, errx.ErrEmailOnboardNoWorker
 	}
-	// Any live worker can run the one-shot validation handshake, same as at
-	// connect time.
-	w, werr := s.workerAssignment.SelectValidationWorker(ctx)
-	if werr != nil || w == nil {
-		return nil, errx.ErrEmailOnboardNoWorker
-	}
-	if xerr := s.ValidateCredentials(ctx, *orgID, w.ID.String(), creds); xerr != nil {
+	if xerr := s.checkCredentials(ctx, *orgID, account.WorkerID, creds); xerr != nil {
 		return nil, xerr
 	}
 

@@ -29,6 +29,8 @@ import type { DitherTone } from "@/components/ui/dither";
 import AnalyticsShareButton from "@/components/app/analytics/AnalyticsShareButton";
 import useDashboard from "@/lib/api/hooks/app/analytics/useDashboard";
 import DirectMailSection from "@/components/app/analytics/DirectMailSection";
+import OriginBadge from "@/components/app/engagement/OriginBadge";
+import type { RecentActivityItem } from "@/lib/api/models/app/analytics/DashboardOverview";
 
 const AUTO_OPENS_TIP = "פתיחות אוטומטיות: טעינת פיקסל משרתי פרוקסי של פרטיות (כגון Apple Mail) או שניות ספורות לאחר השליחה, לא קריאה אנושית";
 const AUTO_CLICKS_TIP = "לחיצות אוטומטיות: קישורים שנפתחו על ידי שער אבטחה הסורק את הדוא״ל, לא אדם; לא נספרות כלחיצות";
@@ -288,7 +290,7 @@ const ACTIVITY_TONE: Record<string, { tone: string; verb: string }> = {
     bounced: { tone: "text-rose-600", verb: "הוחזר (Bounced)" },
 };
 
-function ActivityRow({ a }: { a: { type: string; campaign_name: string; contact_email: string; timestamp: string } }) {
+function ActivityRow({ a }: { a: RecentActivityItem }) {
     const meta = ACTIVITY_TONE[a.type] ?? { tone: "text-slate-500", verb: a.type };
     return (
         <div className="h-10 px-5 flex items-center gap-3">
@@ -296,6 +298,15 @@ function ActivityRow({ a }: { a: { type: string; campaign_name: string; contact_
             <span className="text-[12.5px] text-slate-900 truncate">
                 <span className={meta.tone}>{meta.verb}</span> {a.contact_email}
             </span>
+            {a.origin && (
+                <span className="hidden sm:inline-flex min-w-0 max-w-[16rem]">
+                    <OriginBadge
+                        origin={a.origin}
+                        kind={a.type === "clicked" ? "click" : "open"}
+                        className="text-[11.5px] text-slate-500"
+                    />
+                </span>
+            )}
             <span className="text-[11.5px] text-slate-400 truncate hidden md:inline">{a.campaign_name}</span>
             <span className="ms-auto font-mono text-[10.5px] text-slate-400 tabular-nums shrink-0">
                 <span className="md:hidden">

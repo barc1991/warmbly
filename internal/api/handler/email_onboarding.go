@@ -14,8 +14,10 @@ import (
 
 // OnboardingOAuthStartRequest starts an OAuth round trip for a Gmail or Outlook account.
 type OnboardingOAuthStartRequest struct {
-	Provider string     `json:"provider"`
-	SlotID   *uuid.UUID `json:"slot_id,omitempty"`
+	Provider string `json:"provider"`
+	// LoginHint preselects the mailbox in the provider's picker (an import's sign-in rows).
+	LoginHint string     `json:"login_hint"`
+	SlotID    *uuid.UUID `json:"slot_id,omitempty"`
 }
 
 // OnboardingOAuthFinishRequest carries the authorization code + state back from the provider.
@@ -42,11 +44,11 @@ func (h *Handler) StartEmailOAuth(c *gin.Context) {
 
 	var req OnboardingOAuthStartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errx.Handle(c, errx.ErrInvalid)
+		errx.Handle(c, errx.InvalidBody(err))
 		return
 	}
 
-	resp, xerr := h.EmailService.OAuthStart(c.Request.Context(), userID, orgID, models.InboxProvider(req.Provider), req.SlotID)
+	resp, xerr := h.EmailService.OAuthStart(c.Request.Context(), userID, orgID, models.InboxProvider(req.Provider), req.LoginHint, req.SlotID)
 	if xerr != nil {
 		errx.Handle(c, xerr)
 		return
@@ -60,7 +62,7 @@ func (h *Handler) FinishEmailOAuth(c *gin.Context) {
 
 	var req OnboardingOAuthFinishRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errx.Handle(c, errx.ErrInvalid)
+		errx.Handle(c, errx.InvalidBody(err))
 		return
 	}
 
@@ -133,7 +135,7 @@ func (h *Handler) UpdateEmailSMTPIMAP(c *gin.Context) {
 
 	var req OnboardingSMTPIMAPCredentials
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errx.Handle(c, errx.ErrInvalid)
+		errx.Handle(c, errx.InvalidBody(err))
 		return
 	}
 
@@ -164,7 +166,7 @@ func (h *Handler) ConnectEmailSMTPIMAP(c *gin.Context) {
 
 	var req OnboardingSMTPIMAPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errx.Handle(c, errx.ErrInvalid)
+		errx.Handle(c, errx.InvalidBody(err))
 		return
 	}
 
@@ -206,7 +208,7 @@ func (h *Handler) ConnectEmailSMTPIMAPBulk(c *gin.Context) {
 
 	var req OnboardingSMTPIMAPBulkRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errx.Handle(c, errx.ErrInvalid)
+		errx.Handle(c, errx.InvalidBody(err))
 		return
 	}
 	if len(req.Accounts) == 0 {
@@ -254,4 +256,37 @@ func (h *Handler) GetMailboxAllowance(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, a)
+}
+
+type appPasswordSwitchRequest struct {
+	AppPassword string `json:"app_password"`
+}
+
+// SwitchEmailToAppPassword moves a mailbox off per-mailbox Google sign-in onto
+// Gmail's IMAP and SMTP with an app password, checked live before it is stored.
+// A repeat is refused once the mailbox has switched, so a retry changes nothing.
+func (h *Handler) SwitchEmailToAppPassword(c *gin.Context) {
+	orgID := middleware.GetOrganizationID(c)
+	if orgID == nil {
+		errx.Handle(c, errx.ErrNoOrganization)
+		return
+	}
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		errx.Handle(c, errx.ErrUuid)
+		return
+	}
+	var req appPasswordSwitchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errx.Handle(c, errx.ErrInvalid)
+		return
+	}
+	acc, xerr := h.EmailService.SwitchToAppPassword(c.Request.Context(), orgID, id, req.AppPassword)
+	if xerr != nil {
+		errx.Handle(c, xerr)
+		return
+	}
+	h.auditOrg(c, models.AuditActionUpdate, models.AuditEntityEmailAccount, &acc.ID, map[string]string{"auth_method": models.MailAuthOAuth},
+		map[string]string{"auth_method": models.MailAuthAppPassword, "email": acc.Email})
+	c.JSON(http.StatusOK, acc)
 }

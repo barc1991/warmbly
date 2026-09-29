@@ -17,6 +17,7 @@ import (
 	awsconf "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/app/advanced"
+	"github.com/warmbly/warmbly/internal/app/audit"
 	"github.com/warmbly/warmbly/internal/app/cipher"
 	jobs "github.com/warmbly/warmbly/internal/app/consumer"
 	"github.com/warmbly/warmbly/internal/app/contact"
@@ -227,7 +228,7 @@ func main() {
 	// integration actions in-process (cipher + Postgres are available here; the
 	// consumer is control-plane, not a worker). Suppression already lives in the
 	// advanced repo, so no separate suppression repo is wired here.
-	webhookRepoC := repository.NewWebhookRepository(primaryDB.Pool)
+	webhookRepoC := repository.NewWebhookRepositorySealed(primaryDB.Pool, credEncrypter)
 	webhookService := webhook.NewService(webhookRepoC)
 	// The consumer dispatches lower-volume reply/warmup events (not per-contact
 	// campaign fan-out), so a generous static cap is enough here; the plan-based
@@ -392,6 +393,8 @@ func main() {
 	advancedService.WireNotifier(notificationService)
 	// Reply pulses fire in THIS process too (inbox ingest classifies replies).
 	advancedService.WireRealtime(streamingPublisher)
+	// A lifted reply opt-out is recorded like a member lifting one by hand.
+	advancedService.WireAudit(audit.NewService(repository.NewAuditRepository(primaryDB.Pool), streamingPublisher))
 	// Inbox agent (M10): inbound human replies are ingested + classified in THIS
 	// process, so the agent that drafts a suggested reply must be wired here. It
 	// is paid + opt-in (checked inside) and self-detaches, so a slow model never
@@ -442,6 +445,7 @@ func main() {
 		tagCategories,
 		classify,
 	)
+	inboxTagger.WireSettings(advancedRepo)
 	if typeSafeClient != nil {
 		// The reply classifier's model layer and the inbox agent's gate both
 		// read the verdict the tagger stored moments earlier, so a reply is
@@ -466,6 +470,8 @@ func main() {
 		CloudLink:                   cloudlink.NewService(repository.NewCloudLinkRepository(primaryDB.Pool, credEncrypter), emailRepo, nil),
 		WarmupContentRepo:           repository.NewWarmupContentRepository(primaryDB.Pool),
 		WarmupEngagementRepo:        repository.NewWarmupEngagementRepository(primaryDB.Pool),
+		WarmupPlacementRepo:         repository.NewWarmupPlacementRepository(primaryDB),
+		PlacementRepo:               repository.NewPlacementRepository(primaryDB),
 		WarmupService:               warmupService,
 		WorkerRepo:                  workerRepo,
 		FleetNodeRepo:               repository.NewFleetNodeRepository(primaryDB),
@@ -475,6 +481,7 @@ func main() {
 		AdvancedService:             advancedService,
 		InboxTagger:                 inboxTagger,
 		Cache:                       redisCache,
+		Retention:                   instancesettings.NewService(instancesettings.NewStore(primaryDB.Pool)),
 		AdminRepo:                   repository.NewAdminRepository(primaryDB.Pool),
 		AssignmentService:           workerAssignmentSvc,
 		Notifier:                    notificationService,
@@ -514,7 +521,15 @@ func main() {
 	// effective dwell close to the requested value.
 	go jobsService.StartWarmupEngagementPoller(ctx, 30*time.Second)
 	go jobsService.StartWarmupInboxCleanup(ctx)
+	// Deletes warmup mail past its retention window from the mailbox itself
+	// and prunes the per-message warmup records after theirs.
+	go jobsService.StartWarmupMailRetention(ctx)
+	go jobsService.StartWarmupPlacementSweep(ctx)
 	go jobsService.StartPendingWarmupVerification(ctx)
+	// Re-offers inbound mail that reply processing never claimed, so a
+	// reply refused by a since-fixed check is still attributed to its lead.
+	go jobsService.StartIncomingReplyRepair(ctx)
+	go jobsService.StartReplyOptOutRecheck(ctx)
 
 	// Start dead worker detection (every 5 minutes)
 	go jobsService.StartDeadWorkerDetection(ctx, 5*time.Minute)
@@ -553,17 +568,12 @@ func main() {
 	// (Avro on Kafka, JSON on NATS).
 	// GeoIP is optional here as on the backend: it only turns an open or
 	// click's source network into a country and city on the logs.
+	// Nothing waits for the database: opens and clicks are recorded either way
+	// and only their country and city label depends on it, so a mirror that is
+	// slow or gone must not delay this service coming up.
 	geoPath, _ := cfg.LoadGeoDBPath(ctx)
-	if fetched, ferr := geo.Ensure(ctx, geoPath, cfg.LoadGeoDBURL(ctx)); ferr != nil {
-		log.Printf("GeoIP download failed: %v", ferr)
-	} else if fetched {
-		log.Printf("GeoIP database downloaded to %s.", geoPath)
-	}
-	geoloc, gerr := geo.New(geoPath)
-	if gerr != nil {
-		log.Printf("GeoIP database not found at %s; engagement locations are disabled.", geoPath)
-		geoloc, _ = geo.New("")
-	}
+	geoloc, _ := geo.New("")
+	geo.Start(ctx, geoloc, geoPath, cfg.LoadGeoDBURL(ctx))
 	if trackingCfg, terr := cfg.LoadTrackingConsumerConfig(ctx); terr != nil {
 		log.Println("tracking consumer config unavailable; opens/clicks not consumed:", terr)
 	} else if trackingConsumer, terr := jobs.NewTrackingConsumer(

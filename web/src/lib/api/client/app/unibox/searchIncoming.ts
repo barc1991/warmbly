@@ -56,6 +56,7 @@ export default async function searchIncoming(
     usp.set("email_ids", p.accountIds.join(","));
   }
   if (p.folder) usp.set("folder", p.folder);
+  if (p.includeArchived) usp.set("include_archived", "true");
   if (p.unseen) usp.set("unseen", "true");
   if (p.snoozed === true) usp.set("snoozed", "true");
   else if (p.snoozed === "any") usp.set("snoozed", "any");
@@ -64,6 +65,7 @@ export default async function searchIncoming(
   if (p.categoryIds && p.categoryIds.length > 0) {
     usp.set("category_ids", p.categoryIds.join(","));
   }
+  if (p.automated !== undefined) usp.set("automated", String(p.automated));
   if (p.since) usp.set("since", isoDay(p.since));
   if (p.until) usp.set("until", isoDay(p.until));
   if (p.cursor) usp.set("cursor", p.cursor);

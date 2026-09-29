@@ -43,12 +43,12 @@ func (h *Handler) UnsubscribePage(c *gin.Context) {
 		return
 	}
 	if claims.ContactID == uuid.Nil {
-		renderUnsubPage(c, http.StatusOK, unsubView{Title: "This was a test email", Body: "Test sends carry a link that is not tied to anyone, so there is nothing to unsubscribe."})
+		renderUnsubPage(c, http.StatusOK, unsubView{Title: "זהו מייל בדיקה", Body: "מיילי בדיקה כוללים קישור שאינו משויך לאיש קשר, ולכן אין מה להסיר מרשימת התפוצה."})
 		return
 	}
 	renderUnsubPage(c, http.StatusOK, unsubView{
-		Title:   "Unsubscribe from these emails?",
-		Body:    "Confirm and you will not receive further emails from this sender.",
+		Title:   "להסיר את כתובתך מרשימת התפוצה?",
+		Body:    "לאחר האישור לא יישלחו אליך הודעות נוספות משולח זה.",
 		Confirm: c.Request.URL.Path,
 	})
 }
@@ -84,7 +84,7 @@ func (h *Handler) UnsubscribeSubmit(c *gin.Context) {
 			c.Status(http.StatusOK)
 			return
 		}
-		renderUnsubPage(c, http.StatusOK, unsubView{Title: "This was a test email", Body: "Test sends carry a link that is not tied to anyone, so there is nothing to unsubscribe."})
+		renderUnsubPage(c, http.StatusOK, unsubView{Title: "זהו מייל בדיקה", Body: "מיילי בדיקה כוללים קישור שאינו משויך לאיש קשר, ולכן אין מה להסיר מרשימת התפוצה."})
 		return
 	}
 
@@ -92,8 +92,8 @@ func (h *Handler) UnsubscribeSubmit(c *gin.Context) {
 	// confirm page again rather than act on it.
 	if !oneClick && !confirmed {
 		renderUnsubPage(c, http.StatusOK, unsubView{
-			Title:   "Unsubscribe from these emails?",
-			Body:    "Confirm and you will not receive further emails from this sender.",
+			Title:   "להסיר את כתובתך מרשימת התפוצה?",
+			Body:    "לאחר האישור לא יישלחו אליך הודעות נוספות משולח זה.",
 			Confirm: c.Request.URL.Path,
 		})
 		return
@@ -114,12 +114,12 @@ func (h *Handler) UnsubscribeSubmit(c *gin.Context) {
 		return
 	}
 	if xerr != nil {
-		renderUnsubPage(c, http.StatusOK, unsubView{Title: "We couldn't process that link", Body: "The link is no longer valid. Reply to the email instead and the sender will stop."})
+		renderUnsubPage(c, http.StatusOK, unsubView{Title: "לא הצלחנו לעבד את הקישור", Body: "הקישור אינו תקף עוד. ניתן להשיב למייל והשולח יפסיק לשלוח הודעות."})
 		return
 	}
 	renderUnsubPage(c, http.StatusOK, unsubView{
-		Title:       "You've been unsubscribed",
-		Body:        "You will not receive further emails from this sender.",
+		Title:       "כתובתך הוסרה מרשימת התפוצה",
+		Body:        "לא יישלחו אליך הודעות נוספות משולח זה.",
 		Resubscribe: c.Request.URL.Path + "/resubscribe",
 	})
 }
@@ -135,10 +135,10 @@ func (h *Handler) UnsubscribeUndo(c *gin.Context) {
 		return
 	}
 	if xerr := h.AdvancedService.Resubscribe(c.Request.Context(), claims.OrgID, claims.ContactID); xerr != nil {
-		renderUnsubPage(c, http.StatusOK, unsubView{Title: "We couldn't process that link", Body: "The link is no longer valid. Reply to the email and the sender can add you back."})
+		renderUnsubPage(c, http.StatusOK, unsubView{Title: "לא הצלחנו לעבד את הקישור", Body: "הקישור אינו תקף עוד. ניתן להשיב למייל והשולח יוכל להחזיר אותך לרשימה."})
 		return
 	}
-	renderUnsubPage(c, http.StatusOK, unsubView{Title: "You're subscribed again", Body: "The sender can email you as before. You can unsubscribe from any later email."})
+	renderUnsubPage(c, http.StatusOK, unsubView{Title: "נרשמת מחדש בהצלחה", Body: "השולח יוכל לשלוח אליך מיילים כרגיל. ניתן להסיר את עצמך בכל מייל עתידי."})
 }
 
 // errUnsubUnavailable is a ticket lookup that failed rather than a link that
@@ -198,11 +198,11 @@ func unsubStatus(err error) int {
 func unsubInvalid(err error) unsubView {
 	switch err {
 	case errUnsubUnavailable:
-		return unsubView{Title: "Try again shortly", Body: "We could not check this link just now. Open it again in a few minutes, or reply to the email and the sender will stop."}
+		return unsubView{Title: "נא לנסות שוב בעוד מספר דקות", Body: "לא הצלחנו לאמת את הקישור כעת. נא לפתוח אותו שוב בעוד מספר דקות, או להשיב למייל והשולח יפסיק לשלוח הודעות."}
 	case unsublink.ErrExpired:
-		return unsubView{Title: "This link has expired", Body: "Reply to the email instead and the sender will stop."}
+		return unsubView{Title: "פג תוקפו של הקישור", Body: "ניתן להשיב למייל במקום זאת והשולח יפסיק לשלוח הודעות."}
 	}
-	return unsubView{Title: "This unsubscribe link is invalid", Body: "Reply to the email instead and the sender will stop."}
+	return unsubView{Title: "קישור ההסרה אינו תקין", Body: "ניתן להשיב למייל במקום זאת והשולח יפסיק לשלוח הודעות."}
 }
 
 type unsubView struct {
@@ -214,15 +214,15 @@ type unsubView struct {
 
 // A neutral page: the email came from the customer's mailbox, so the page
 // names no brand and carries no scripts or external assets.
-var unsubTemplate = template.Must(template.New("unsubscribe").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8">
+var unsubTemplate = template.Must(template.New("unsubscribe").Parse(`<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>{{.Title}}</title>
-<style>body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:32rem;margin:4rem auto;padding:0 1.25rem;color:#0f172a;line-height:1.5}
+<style>body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:32rem;margin:4rem auto;padding:0 1.25rem;color:#0f172a;line-height:1.5;text-align:right}
 h1{font-size:1.25rem;margin:0 0 .5rem}p{color:#475569;margin:0 0 1.25rem}
 button{font:inherit;padding:.55rem 1rem;border-radius:.375rem;border:1px solid #0284c7;background:#0284c7;color:#fff;cursor:pointer}
 button.secondary{background:#fff;color:#0f172a;border-color:#cbd5e1}</style></head>
 <body><h1>{{.Title}}</h1><p>{{.Body}}</p>
-{{if .Confirm}}<form method="post" action="{{.Confirm}}"><input type="hidden" name="confirm" value="1"><button type="submit">Unsubscribe</button></form>{{end}}
-{{if .Resubscribe}}<form method="post" action="{{.Resubscribe}}"><button type="submit" class="secondary">Unsubscribed by mistake? Resubscribe</button></form>{{end}}
+{{if .Confirm}}<form method="post" action="{{.Confirm}}"><input type="hidden" name="confirm" value="1"><button type="submit">הסרה מרשימת התפוצה</button></form>{{end}}
+{{if .Resubscribe}}<form method="post" action="{{.Resubscribe}}"><button type="submit" class="secondary">הוסרת בטעות? הרשמה מחדש</button></form>{{end}}
 </body></html>`))
 
 func renderUnsubPage(c *gin.Context, status int, v unsubView) {

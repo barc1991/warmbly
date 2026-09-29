@@ -18,6 +18,7 @@ import {
 import CampaignContactOrder from "@/components/app/campaigns/preferences/CampaignContactOrder";
 import { GuardrailsSection } from "@/components/app/campaigns/preferences/CampaignGuardrails";
 import { FirstEmailSection } from "@/components/app/campaigns/preferences/CampaignFirstEmail";
+import { PlacementMonitorSection } from "@/components/app/campaigns/preferences/CampaignPlacementMonitor";
 import { guardrailValidationError } from "@/lib/helper/guardrail";
 import CampaignFolderField from "@/components/app/campaigns/CampaignFolderField";
 import CampaignDangerZone from "@/components/app/campaigns/preferences/CampaignDangerZone";
@@ -60,6 +61,11 @@ const SECTIONS = [
         id: "guardrails",
         label: "השהיה אוטומטית",
         description: "עצירת הקמפיין באופן אוטומטי כאשר שיעור החזרות (Bounce), תלונות הספאם או המענה חורגים מהטווח שהוגדר.",
+    },
+    {
+        id: "placement",
+        label: "ניטור מיקום בתיבה",
+        description: "בדיקה מחזורית היכן נוחת האימייל הראשון של קמפיין זה וקבלת התראה במקרה של ירידה בשיעור ההגעה לתיבה הראשית.",
     },
     {
         id: "first-email",
@@ -382,6 +388,8 @@ export default function CampaignPreferences() {
                         explicitAccounts={explicitAccounts}
                     />
                 );
+            case "placement":
+                return <PlacementMonitorSection campaignId={campaign.id} />;
             case "first-email":
                 return <FirstEmailSection newCampaign={newData} setNewCampaign={setNewData} />;
             case "leadflow":

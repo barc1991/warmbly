@@ -40,6 +40,7 @@ import WarmupContentLayout from "@/app/dashboard/warmup-content/WarmupContentLay
 import WarmupContentOverviewPage from "@/app/dashboard/warmup-content/OverviewPage";
 import WarmupContentLibraryPage from "@/app/dashboard/warmup-content/LibraryPage";
 import WarmupContentJobsPage from "@/app/dashboard/warmup-content/JobsPage";
+import PlacementPage from "@/app/dashboard/PlacementPage";
 import CampaignsPage from "@/app/dashboard/CampaignsPage";
 import SendsPage from "@/app/dashboard/SendsPage";
 import LimitRequestsPage from "@/app/dashboard/LimitRequestsPage";
@@ -80,21 +81,21 @@ const queryClient = new QueryClient({
 // Every gated route carries the same permission bit the backend gates its
 // endpoint on, with the human name RequirePermission shows on denial.
 const PERM_LABELS: Record<number, string> = {
-    [AdminPerm.ViewUsers]: "View users",
-    [AdminPerm.ViewWorkers]: "View workers",
-    [AdminPerm.ViewWarmupPool]: "View warmup pool",
-    [AdminPerm.ReviewAppeals]: "Review appeals",
-    [AdminPerm.ViewCampaigns]: "View campaigns",
-    [AdminPerm.ViewAnalytics]: "View analytics",
-    [AdminPerm.ViewAuditLogs]: "View audit logs",
-    [AdminPerm.ManageSettings]: "Manage settings",
-    [AdminPerm.GrantAdminAccess]: "Grant admin access",
-    [AdminPerm.ViewOrganizations]: "View organizations",
+    [AdminPerm.ViewUsers]: "צפייה במשתמשים",
+    [AdminPerm.ViewWorkers]: "צפייה בתהליכי עבודה",
+    [AdminPerm.ViewWarmupPool]: "צפייה במאגר החימום",
+    [AdminPerm.ReviewAppeals]: "בדיקת ערעורים",
+    [AdminPerm.ViewCampaigns]: "צפייה בקמפיינים",
+    [AdminPerm.ViewAnalytics]: "צפייה באנליטיקה",
+    [AdminPerm.ViewAuditLogs]: "צפייה ביומני ביקורת",
+    [AdminPerm.ManageSettings]: "ניהול הגדרות",
+    [AdminPerm.GrantAdminAccess]: "הענקת הרשאות מנהל",
+    [AdminPerm.ViewOrganizations]: "צפייה בארגונים",
 };
 
 function gated(perm: number, page: ReactNode) {
     return (
-        <RequirePermission perm={perm} permissionLabel={PERM_LABELS[perm] ?? "required"}>
+        <RequirePermission perm={perm} permissionLabel={PERM_LABELS[perm] ?? "נדרשת הרשאה"}>
             {page}
         </RequirePermission>
     );
@@ -150,6 +151,7 @@ const router = createBrowserRouter([
                                     { path: "jobs", element: <WarmupContentJobsPage /> },
                                 ],
                             },
+                            { path: "placement", element: gated(AdminPerm.ViewWarmupPool, <PlacementPage />) },
                             { path: "campaigns", element: gated(AdminPerm.ViewCampaigns, <CampaignsPage />) },
                             { path: "sends", element: gated(AdminPerm.ViewCampaigns, <SendsPage />) },
 
@@ -210,7 +212,7 @@ export { Outlet };
 initErrorReporting();
 
 // Initialize direction and language based on shared warmbly_locale
-const savedLocale = typeof localStorage !== "undefined" ? (localStorage.getItem("warmbly_locale") || "en") : "en";
+const savedLocale = typeof localStorage !== "undefined" ? (localStorage.getItem("warmbly_locale") || "he") : "he";
 const isRtl = savedLocale === "he";
 document.documentElement.dir = isRtl ? "rtl" : "ltr";
 document.documentElement.lang = savedLocale;

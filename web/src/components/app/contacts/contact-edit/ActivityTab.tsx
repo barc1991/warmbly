@@ -61,8 +61,11 @@ import type {
     ContactNextAction,
 } from "@/lib/api/models/app/contacts/ContactCampaignState";
 import { holdSummary } from "@/lib/api/models/app/contacts/Contact";
-import type { LeadHold, LeadStatus } from "@/lib/api/models/app/contacts/Contact";
-import { usePauseLead, useResumeLead } from "@/lib/api/hooks/app/campaigns/useLeadHold";
+import type { LeadHold } from "@/lib/api/models/app/contacts/Contact";
+import LeadStatusPill from "@/components/app/contacts/LeadStatusPill";
+import { usePauseLead } from "@/lib/api/hooks/app/campaigns/useLeadHold";
+import { leadCanBePaused } from "@/lib/leadHold";
+import { PauseLeadButton, ResumeLeadButton } from "@/components/app/contacts/LeadHoldButtons";
 import toast from "react-hot-toast";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
@@ -120,7 +123,7 @@ const LIFECYCLE_TYPES: ContactTimelineEventType[] = [
     ...CAMPAIGN_TYPES,
 ];
 
-export default function ActivityTab({ contactId }: { contactId: string }) {
+export default function ActivityTab({ contactId, contactName }: { contactId: string; contactName: string }) {
     const {
         events,
         isLoading,
@@ -192,7 +195,7 @@ export default function ActivityTab({ contactId }: { contactId: string }) {
 
     return (
         <div className="space-y-3">
-            <CampaignPanel contactId={contactId} />
+            <CampaignPanel contactId={contactId} contactName={contactName} />
 
             <SearchBar value={query} onChange={setQuery} />
 
@@ -263,7 +266,7 @@ export default function ActivityTab({ contactId }: { contactId: string }) {
 // Campaign panel
 // ---------------------------------------------------------------------------
 
-function CampaignPanel({ contactId }: { contactId: string }) {
+function CampaignPanel({ contactId, contactName }: { contactId: string; contactName: string }) {
     const { data, isLoading, error } = useContactCampaignStates(contactId);
     const states = data?.data ?? [];
 
@@ -284,14 +287,22 @@ function CampaignPanel({ contactId }: { contactId: string }) {
             </h2>
             <div className="space-y-2">
                 {states.map((s) => (
-                    <CampaignCard key={s.campaign_id} state={s} contactId={contactId} />
+                    <CampaignCard key={s.campaign_id} state={s} contactId={contactId} contactName={contactName} />
                 ))}
             </div>
         </section>
     );
 }
 
-function CampaignCard({ state, contactId }: { state: ContactCampaignState; contactId: string }) {
+function CampaignCard({
+    state,
+    contactId,
+    contactName,
+}: {
+    state: ContactCampaignState;
+    contactId: string;
+    contactName: string;
+}) {
     const [open, setOpen] = React.useState(false);
     const current = state.current_step;
 
@@ -367,7 +378,11 @@ function CampaignCard({ state, contactId }: { state: ContactCampaignState; conta
                 </div>
             </button>
 
-            {state.hold && <HoldBar campaignId={state.campaign_id} contactId={contactId} hold={state.hold} />}
+            {state.hold ? (
+                <HoldBar campaignId={state.campaign_id} contactId={contactId} hold={state.hold} />
+            ) : (
+                leadCanBePaused(state) && <PauseBar state={state} contactId={contactId} contactName={contactName} />
+            )}
 
             <AnimatePresence initial={false}>
                 {open && (
@@ -406,9 +421,8 @@ function HoldBar({
     hold: LeadHold;
 }) {
     const write = useWriteGuard("MANAGE_CAMPAIGNS");
-    const resume = useResumeLead();
     const pause = usePauseLead();
-    const busy = resume.isPending || pause.isPending;
+    const [resuming, setResuming] = React.useState(false);
 
     async function run(p: Promise<unknown>, loading: string, success: string) {
         try {
@@ -425,27 +439,21 @@ function HoldBar({
                 {holdSummary(hold)}
             </span>
             <div className="ms-auto flex items-center gap-1 shrink-0">
-                <button
-                    type="button"
-                    disabled={busy}
-                    onClick={write.guard(() =>
-                        run(
-                            resume.mutateAsync({ campaignId, contactId }),
-                            "מחדש ליד…",
-                            "הליד חודש בהצלחה",
-                        ),
-                    )}
-                    className="h-6 px-2 rounded-md bg-white border border-violet-200 text-[11px] font-medium text-violet-700 hover:bg-violet-100 inline-flex items-center gap-1 transition-colors disabled:opacity-60"
-                >
-                    <PlayIcon className="w-2.5 h-2.5" />
-                    חדש כעת
-                </button>
-                {hold.until && (
+                {write.allowed && (
+                    <ResumeLeadButton
+                        campaignId={campaignId}
+                        contactId={contactId}
+                        label="חדש כעת"
+                        disabled={pause.isPending}
+                        onBusyChange={setResuming}
+                    />
+                )}
+                {write.allowed && hold.until && (
                     <button
                         type="button"
-                        disabled={busy}
+                        disabled={pause.isPending || resuming}
                         title="השהה ליד זה ללא תאריך סיום. הוא יישאר רשום ובתוך הקמפיין."
-                        onClick={write.guard(() =>
+                        onClick={() =>
                             run(
                                 pause.mutateAsync({
                                     campaignId,
@@ -455,14 +463,37 @@ function HoldBar({
                                 }),
                                 "עוצר ליד זה…",
                                 "מושהה עד שתחדש אותו",
-                            ),
-                        )}
+                            )
+                        }
                         className="h-6 px-2 rounded-md border border-violet-200 text-[11px] text-violet-700 hover:bg-violet-100 transition-colors disabled:opacity-60"
                     >
                         עצור
                     </button>
                 )}
             </div>
+        </div>
+    );
+}
+
+// The strip a lead with a step still to send gets in place of the HoldBar.
+function PauseBar({
+    state,
+    contactId,
+    contactName,
+}: {
+    state: ContactCampaignState;
+    contactId: string;
+    contactName: string;
+}) {
+    const write = useWriteGuard("MANAGE_CAMPAIGNS");
+    if (!write.allowed) return null;
+    return (
+        <div className="px-3 py-1.5 border-t border-slate-100 flex items-center justify-end">
+            <PauseLeadButton
+                campaign={{ id: state.campaign_id, name: state.campaign_name }}
+                lead={{ id: contactId, name: contactName }}
+                label="השהה ליד"
+            />
         </div>
     );
 }
@@ -653,28 +684,6 @@ function StepRow({ step, isNext }: { step: ContactCampaignStep; isNext: boolean 
                 {facts.join(" · ")}
             </span>
         </div>
-    );
-}
-
-function LeadStatusPill({ status }: { status: LeadStatus }) {
-    const map: Record<LeadStatus, { label: string; cls: string }> = {
-        pending: { label: "בתור", cls: "bg-slate-100 text-slate-600" },
-        active: { label: "בעיבוד", cls: "bg-sky-50 text-sky-700" },
-        completed: { label: "הושלם", cls: "bg-emerald-50 text-emerald-700" },
-        replied: { label: "נענה", cls: "bg-emerald-50 text-emerald-700" },
-        bounced: { label: "נדחה", cls: "bg-red-50 text-red-700" },
-        failed: { label: "נכשל", cls: "bg-red-50 text-red-700" },
-        unsubscribed: { label: "הסיר הרשמה", cls: "bg-slate-100 text-slate-600" },
-        paused: { label: "מושהה", cls: "bg-violet-50 text-violet-700" },
-        undeliverable: { label: "לא בר-מסירה", cls: "bg-amber-50 text-amber-700" },
-    };
-    const m = map[status] ?? { label: status, cls: "bg-slate-100 text-slate-600" };
-    return (
-        <span
-            className={`inline-flex h-4 items-center px-1.5 rounded text-[10.5px] font-medium shrink-0 ${m.cls}`}
-        >
-            {m.label}
-        </span>
     );
 }
 

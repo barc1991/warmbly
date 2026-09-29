@@ -15,13 +15,20 @@ import (
 type AnalyticsService interface {
 	// Warmup analytics
 	GetWarmupAnalytics(ctx context.Context, orgID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) (*models.WarmupAnalytics, *errx.Error)
+	// GetWarmupPlacement is where warmup mail landed, for one mailbox or the workspace.
+	GetWarmupPlacement(ctx context.Context, orgID uuid.UUID, emailAccountID *uuid.UUID, from, to time.Time) (*models.WarmupPlacementReport, *errx.Error)
 
 	// Campaign analytics
-	GetCampaignAnalytics(ctx context.Context, orgID, campaignID uuid.UUID) (*models.CampaignAnalytics, *errx.Error)
+	// GetCampaignAnalytics reads the performance of the sends inside period,
+	// whole UTC days with To included, or of every send when period is nil.
+	GetCampaignAnalytics(ctx context.Context, orgID, campaignID uuid.UUID, period *models.DateRange) (*models.CampaignAnalytics, *errx.Error)
 	GetCampaignDailyStats(ctx context.Context, orgID, campaignID uuid.UUID, from, to time.Time) ([]models.CampaignDailyStats, *errx.Error)
 
 	// Email account status
 	GetAccountStatus(ctx context.Context, orgID, accountID uuid.UUID) (*models.EmailAccountStatus, *errx.Error)
+	// GetAccountStatusDetail adds what is too costly to read per mailbox on a
+	// list: the partner cap on today's warmup target.
+	GetAccountStatusDetail(ctx context.Context, orgID, accountID uuid.UUID) (*models.EmailAccountStatus, *errx.Error)
 	GetAllAccountStatuses(ctx context.Context, orgID uuid.UUID) ([]models.EmailAccountStatus, *errx.Error)
 
 	// Usage overview
@@ -43,6 +50,8 @@ type analyticsService struct {
 	// lifecycleRepo reads whether the mailbox is in cold rotation.
 	// Optional/nil-safe.
 	lifecycleRepo repository.SendLifecycleRepository
+	// placementRepo reads warmup placement history. Optional/nil-safe.
+	placementRepo repository.WarmupPlacementRepository
 }
 
 func NewService(
@@ -73,14 +82,16 @@ func (s *analyticsService) GetWarmupAnalytics(ctx context.Context, orgID uuid.UU
 	}
 
 	// Calculate summary
-	var totalSent, totalReplied, totalTarget int
+	var totalSent, totalReplied, totalReceived, totalTarget, daysActive int
 	for _, day := range dailyStats {
 		totalSent += day.EmailsSent
 		totalReplied += day.EmailsReplied
+		totalReceived += day.EmailsReceived
 		totalTarget += day.TargetVolume
+		if day.Active {
+			daysActive++
+		}
 	}
-
-	daysActive := len(dailyStats)
 	var averageDaily, replyRate, targetProgress float64
 	if daysActive > 0 {
 		averageDaily = float64(totalSent) / float64(daysActive)
@@ -100,6 +111,7 @@ func (s *analyticsService) GetWarmupAnalytics(ctx context.Context, orgID uuid.UU
 		Summary: models.WarmupSummary{
 			TotalSent:      totalSent,
 			TotalReplied:   totalReplied,
+			TotalReceived:  totalReceived,
 			AverageDaily:   averageDaily,
 			ReplyRate:      replyRate,
 			TargetProgress: targetProgress,
@@ -115,7 +127,7 @@ func (s *analyticsService) GetWarmupAnalytics(ctx context.Context, orgID uuid.UU
 	return analytics, nil
 }
 
-func (s *analyticsService) GetCampaignAnalytics(ctx context.Context, orgID, campaignID uuid.UUID) (*models.CampaignAnalytics, *errx.Error) {
+func (s *analyticsService) GetCampaignAnalytics(ctx context.Context, orgID, campaignID uuid.UUID, period *models.DateRange) (*models.CampaignAnalytics, *errx.Error) {
 	// Get campaign details
 	campaign, err := s.campaignForOrg(ctx, orgID, campaignID)
 	if err != nil {
@@ -123,19 +135,19 @@ func (s *analyticsService) GetCampaignAnalytics(ctx context.Context, orgID, camp
 	}
 
 	// Get summary
-	summary, xerr := s.analyticsRepo.GetCampaignSummary(ctx, orgID, campaignID)
+	summary, xerr := s.analyticsRepo.GetCampaignSummary(ctx, orgID, campaignID, period)
 	if xerr != nil {
 		return nil, xerr
 	}
 
 	// Get sequence stats
-	sequences, xerr := s.analyticsRepo.GetSequenceStats(ctx, campaignID)
+	sequences, xerr := s.analyticsRepo.GetSequenceStats(ctx, campaignID, period)
 	if xerr != nil {
 		return nil, xerr
 	}
 
 	// Where and on what people engaged; best-effort, the totals stand alone.
-	engagement, xerr := s.analyticsRepo.GetCampaignEngagementBreakdown(ctx, campaignID, 8)
+	engagement, xerr := s.analyticsRepo.GetCampaignEngagementBreakdown(ctx, campaignID, period, 8)
 	if xerr != nil {
 		engagement = nil
 	}
@@ -144,10 +156,34 @@ func (s *analyticsService) GetCampaignAnalytics(ctx context.Context, orgID, camp
 		CampaignID: campaignID,
 		Name:       campaign.Name,
 		Status:     campaign.Status,
+		DateRange:  campaignPeriod(campaign, summary.FirstSentAt, period, time.Now()),
 		Summary:    *summary,
 		Sequences:  sequences,
 		Engagement: engagement,
 	}, nil
+}
+
+// campaignPeriod is the window the figures cover: the one asked for, or for
+// all time the first send's UTC day (creation before one) through today.
+func campaignPeriod(campaign *models.Campaign, firstSent *time.Time, period *models.DateRange, now time.Time) models.DateRange {
+	if period != nil {
+		return *period
+	}
+	start := campaign.CreatedAt
+	if firstSent != nil {
+		start = *firstSent
+	}
+	today := utcDay(now)
+	from := utcDay(start)
+	if from.After(today) {
+		from = today
+	}
+	return models.DateRange{From: from, To: today}
+}
+
+func utcDay(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 func (s *analyticsService) GetCampaignDailyStats(ctx context.Context, orgID, campaignID uuid.UUID, from, to time.Time) ([]models.CampaignDailyStats, *errx.Error) {
@@ -161,6 +197,17 @@ func (s *analyticsService) GetCampaignDailyStats(ctx context.Context, orgID, cam
 }
 
 func (s *analyticsService) GetAccountStatus(ctx context.Context, orgID, accountID uuid.UUID) (*models.EmailAccountStatus, *errx.Error) {
+	return s.accountStatus(ctx, orgID, accountID, s.placementRates(ctx, orgID, &accountID), false)
+}
+
+func (s *analyticsService) GetAccountStatusDetail(ctx context.Context, orgID, accountID uuid.UUID) (*models.EmailAccountStatus, *errx.Error) {
+	return s.accountStatus(ctx, orgID, accountID, s.placementRates(ctx, orgID, &accountID), true)
+}
+
+// accountStatus builds one mailbox's status; rates is the org's rolling
+// placement, read once by the caller. withPartners adds the partner cap, a
+// pool-wide read that lists must not repeat per mailbox.
+func (s *analyticsService) accountStatus(ctx context.Context, orgID, accountID uuid.UUID, rates map[uuid.UUID]models.WarmupPlacementRate, withPartners bool) (*models.EmailAccountStatus, *errx.Error) {
 	// Get email account (org-scoped lookup)
 	email, xerr := s.emailRepo.Get(ctx, orgID.String(), accountID.String())
 	if xerr != nil {
@@ -201,6 +248,11 @@ func (s *analyticsService) GetAccountStatus(ctx context.Context, orgID, accountI
 	health := calculateAccountHealth(email, errors)
 	warmupHealth := s.buildWarmupHealth(ctx, accountID)
 	applyWarmupHealth(&health, warmupHealth)
+	var placement *models.WarmupPlacementRate
+	if r, ok := rates[accountID]; ok {
+		placement = &r
+	}
+	applyWarmupPlacement(&health, placement)
 
 	inCampaign := false
 	if s.campaignRepo != nil {
@@ -213,6 +265,13 @@ func (s *analyticsService) GetAccountStatus(ctx context.Context, orgID, accountI
 	var warmupStatus *models.WarmupStatusInfo
 	if email.Warmup != nil {
 		target, hold := s.warmupTargetAndHold(ctx, email, warmupHealthState(warmupHealth), inCampaign)
+		var limit *models.WarmupPartnerLimit
+		if withPartners {
+			limit = s.warmupPartnerLimit(ctx, email, warmupHealth, target)
+		}
+		if limit != nil {
+			target = max(limit.Reachable, usage.WarmupSent)
+		}
 		warmupStatus = &models.WarmupStatusInfo{
 			Enabled:       true,
 			Paused:        email.WarmupPausedAt != nil,
@@ -224,6 +283,7 @@ func (s *analyticsService) GetAccountStatus(ctx context.Context, orgID, accountI
 			ReplyRate:     email.WarmupReplyRate,
 			DaysActive:    int(time.Since(*email.Warmup).Hours() / 24),
 			RampHold:      hold,
+			PartnerLimit:  limit,
 		}
 	}
 
@@ -241,6 +301,7 @@ func (s *analyticsService) GetAccountStatus(ctx context.Context, orgID, accountI
 		DailyUsage:    *usage,
 		WarmupStatus:  warmupStatus,
 		WarmupHealth:  warmupHealth,
+		Placement:     placement,
 		InCampaign:    inCampaign,
 		ColdRamp:      coldRamp,
 		SendLifecycle: lifecycle,
@@ -256,9 +317,13 @@ func warmupHealthState(h *models.WarmupHealthInfo) models.WarmupHealthState {
 	return models.WarmupHealthState(h.State)
 }
 
+// warmupDiversityWindow matches the selector's domain-history window.
+const warmupDiversityWindow = 7 * 24 * time.Hour
+
 // buildWarmupHealth looks up the mailbox's warmup-pool health (premium pool
-// first) and maps it into the API shape. Returns nil when the mailbox is not
-// in a pool or the lookup fails — health surfacing must never break status.
+// first), or the standing Warmbly Cloud reported, and maps it into the API
+// shape. Returns nil when there is neither or the lookup fails; health
+// surfacing must never break status.
 func (s *analyticsService) buildWarmupHealth(ctx context.Context, accountID uuid.UUID) *models.WarmupHealthInfo {
 	if s.warmupRepo == nil {
 		return nil
@@ -269,6 +334,7 @@ func (s *analyticsService) buildWarmupHealth(ctx context.Context, accountID uuid
 			continue
 		}
 		info := &models.WarmupHealthInfo{
+			PoolType:     poolType,
 			State:        string(h.HealthState),
 			Score:        h.LastHealthScore,
 			BlockedUntil: h.BlockedUntil,
@@ -277,7 +343,19 @@ func (s *analyticsService) buildWarmupHealth(ctx context.Context, accountID uuid
 		if h.LastHealthReason != nil {
 			info.Reason = *h.LastHealthReason
 		}
+		// Best-effort: the counts are a read-out, never a reason to fail status.
+		if d, derr := s.warmupRepo.GetPartnerDiversity(ctx, accountID, time.Now().Add(-warmupDiversityWindow)); derr == nil {
+			info.PartnerMailboxes7d = d.Mailboxes
+			info.PartnerDomains7d = d.Domains
+			info.PartnerOrganizations7d = d.Organizations
+			info.Received7d = d.Received
+			info.Senders7d = d.Senders
+		}
 		return info
+	}
+	// A mailbox Warmbly Cloud warms has no pool row here; its standing is the cloud's.
+	if cloud, err := s.warmupRepo.GetCloudStanding(ctx, accountID); err == nil && cloud != nil {
+		return cloud
 	}
 	return nil
 }
@@ -333,9 +411,10 @@ func (s *analyticsService) GetAllAccountStatuses(ctx context.Context, orgID uuid
 		return nil, xerr
 	}
 
+	rates := s.placementRates(ctx, orgID, nil)
 	statuses := make([]models.EmailAccountStatus, 0, len(emailsResult.Data))
 	for _, email := range emailsResult.Data {
-		status, xerr := s.GetAccountStatus(ctx, orgID, email.ID)
+		status, xerr := s.accountStatus(ctx, orgID, email.ID, rates, false)
 		if xerr != nil {
 			return nil, xerr
 		}
@@ -465,6 +544,20 @@ func (s *analyticsService) warmupTargetAndHold(ctx context.Context, email *model
 	}
 }
 
+// warmupPartnerLimit applies the scheduler's partner cap to the drawer's
+// target: a mailbox never writes to one partner twice in a day, so it cannot
+// send more than the partners it can still reach.
+func (s *analyticsService) warmupPartnerLimit(ctx context.Context, email *models.Email, wh *models.WarmupHealthInfo, target int) *models.WarmupPartnerLimit {
+	if s.warmupRepo == nil || wh == nil || wh.PoolType == "" || target <= 0 || !email.IsWarmingActive() {
+		return nil
+	}
+	cands, err := s.warmupRepo.WarmupPartnerCandidates(ctx, wh.PoolType, email.ID)
+	if err != nil || len(cands) >= target {
+		return nil
+	}
+	return &models.WarmupPartnerLimit{Reachable: len(cands), RampTarget: target}
+}
+
 // Dashboard Analytics implementations
 
 func (s *analyticsService) GetDashboardAnalytics(ctx context.Context, orgID uuid.UUID, period string) (*models.DashboardAnalytics, *errx.Error) {
@@ -559,36 +652,14 @@ func (s *analyticsService) coldRampInfo(ctx context.Context, email *models.Email
 		return nil
 	}
 	state, ok := states[email.ID]
-	if !ok || state.WarmupStartedAt == nil {
+	if !ok {
 		return nil
 	}
-
-	now := time.Now()
-	warmupDays := int(now.Sub(*state.WarmupStartedAt).Hours() / 24)
-	if warmupDays < 0 {
-		warmupDays = 0
-	}
-	var rampStart time.Time
-	if state.ColdRampStartedAt != nil {
-		rampStart = *state.ColdRampStartedAt
-	}
-
-	ceiling := warmupramp.ColdCeiling(warmupDays, rampStart, state.Placements, now, email.CampaignLimit)
-	if ceiling >= email.CampaignLimit {
+	info := warmupramp.Notice(state.WarmupStartedAt, state.ColdRampStartedAt, state.Placements, email.CampaignLimit, time.Now())
+	if info == nil || info.Ceiling >= email.CampaignLimit {
 		return nil
 	}
-
-	remaining := email.CampaignLimit - ceiling
-	days := remaining / warmupramp.ColdRampIncrement
-	if remaining%warmupramp.ColdRampIncrement != 0 {
-		days++
-	}
-	return &models.ColdRampInfo{
-		Ceiling:       ceiling,
-		MailboxCap:    email.CampaignLimit,
-		DaysToFullCap: days,
-		Held:          warmupramp.ColdHeldUntil(rampStart, state.Placements, now, warmupramp.FreezeWindow) != nil,
-	}
+	return info
 }
 
 // sendLifecycleInfo reports the mailbox's cold-rotation state, but only when

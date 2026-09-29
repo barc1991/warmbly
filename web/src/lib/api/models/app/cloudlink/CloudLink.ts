@@ -28,8 +28,13 @@ export interface PoolLinkPlan {
     /** null when unlimited */
     mailbox_limit: number | null;
     enrolled: number;
+    /** Mailboxes with warmup on and not paused; older servers do not send it. */
+    warming?: number;
     price_usd: number;
+    /** The cloud's billing page with the warmup plan checkout open; only on the free tier. */
     upgrade_url?: string;
+    /** The cloud's billing page; absent when the cloud runs without billing. */
+    manage_url?: string;
     warmup_entitled: boolean;
 }
 
@@ -93,6 +98,11 @@ export interface PoolLinkWarmupHealth {
     spam_score: number;
     blocked_until?: Date | null;
     evaluated_at?: Date | null;
+    partner_mailboxes_7d?: number;
+    partner_domains_7d?: number;
+    partner_organizations_7d?: number;
+    received_7d?: number;
+    senders_7d?: number;
 }
 
 export interface PoolLinkMailboxError {

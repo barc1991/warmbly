@@ -91,7 +91,7 @@ const (
 	orgMailboxes   = `(SELECT id FROM email_accounts WHERE organization_id = $1)`
 	orgCampaigns   = `(SELECT id FROM campaigns WHERE organization_id = $1)`
 	orgContacts    = `(SELECT id FROM contacts WHERE organization_id = $1)`
-	orgTasks       = `(SELECT id FROM tasks WHERE email_account_id IN ` + orgMailboxes + `)`
+	orgTasks       = `(SELECT id FROM tasks WHERE email_account_id IN ` + orgMailboxes + ` AND task_type <> 'placement')`
 	orgThreads     = `(SELECT DISTINCT thread_id FROM unibox_emails WHERE email_id IN ` + orgMailboxes + `)`
 	orgPipelines   = `(SELECT id FROM pipelines WHERE organization_id = $1)`
 	orgInvitations = `(SELECT id FROM organization_invitations WHERE organization_id = $1)`
@@ -118,6 +118,11 @@ var Tables = []Table{
 	{
 		Name: "organization_roles", Group: models.OrgDataGroupCore,
 		Scope: scopeOrg,
+	},
+	{
+		Name: "mailbox_import_mappings", Group: models.OrgDataGroupCore,
+		Scope: scopeOrg,
+		Note:  "Column mappings the workspace confirmed for its mailbox imports, keyed by header set, so the same file maps itself on the destination too.",
 	},
 	{
 		Name: "organization_members", Group: models.OrgDataGroupCore,
@@ -153,6 +158,30 @@ var Tables = []Table{
 		Note: "Dynamic OAuth client slots for Google and Microsoft mailboxes.",
 	},
 	{
+		Name: "mailbox_vendor_connections", Group: models.OrgDataGroupCore,
+		Scope: scopeOrg,
+		Secrets: []SecretColumn{
+			{Column: "credentials", Domain: KeyDomainOrgDEK},
+		},
+		Note: "Inbox vendor accounts (InboxKit, Zapmail, ...) the workspace imports from. Above email_accounts, whose vendor_connection_id names them.",
+	},
+	{
+		Name: "mailbox_domain_grants", Group: models.OrgDataGroupCore,
+		Scope: scopeOrg,
+		// A grant is recorded only after the workspace proves the domain or
+		// tenant on this instance; a row from an archive proves nothing.
+		ImportSkip: true,
+		Note:       "Google Workspace and Microsoft 365 administrator grants. Made again on the destination, where connecting the domain's users relinks the mailboxes that arrived.",
+	},
+	{
+		Name: "domain_redirects", Group: models.OrgDataGroupCore,
+		Scope: scopeOrg,
+		// DNS points at the source instance until the customer moves it, so the
+		// destination serves nothing until its own check sees the records.
+		ResetOnImport: []string{"verified", "verified_at", "last_checked_at", "last_error"},
+		Note:          "Sending domains whose root redirects to the workspace's website. The destination lists its own TXT value, derived from its secret and the new workspace, and verifies once it is published.",
+	},
+	{
 		Name: "email_accounts", Group: models.OrgDataGroupCore,
 		Scope: scopeOrg,
 		// Worker placement is a property of the instance the mailbox runs on,
@@ -174,10 +203,16 @@ var Tables = []Table{
 		// mailbox it watched send. Importing "resting" would silence a mailbox
 		// on the destination for a reason nothing there observed; importing
 		// "active" would assert readiness the destination has not seen.
+		// seed_scope is the operator's choice of test inboxes on this
+		// instance; an archive must not add mailboxes to another instance's
+		// seed panel.
+		// avatar_checked_at is this instance's photo sweep checkpoint; the photo travels.
 		ResetOnImport: []string{
 			"worker_id", "auth_checked_at", "auth_failing_since", "cold_ramp_started_at",
-			"send_lifecycle", "send_lifecycle_since", "send_lifecycle_reason",
+			"send_lifecycle", "send_lifecycle_since", "send_lifecycle_reason", "seed_scope",
+			"avatar_checked_at",
 		},
+		Blobs: []BlobColumn{{Column: "avatar_url", Kind: BlobKindPublicURL}},
 	},
 	{
 		Name: "email_accounts_smtp_imap", Group: models.OrgDataGroupCore,
@@ -235,6 +270,12 @@ var Tables = []Table{
 		Name: "webhook_endpoints", Group: models.OrgDataGroupCore,
 		Scope:         scopeOrg,
 		ResetOnImport: []string{"last_success_at", "last_failure_at", "last_failure_reason", "consecutive_failures", "first_failure_at", "auto_disabled_at", "disabled_reason"},
+		// The signing secret is sealed under the instance key, so it has to be
+		// re-sealed on the way across or the destination hands the receiver
+		// signatures computed from ciphertext it could not read.
+		Secrets: []SecretColumn{
+			{Column: "secret", Domain: KeyDomainInstance},
+		},
 	},
 	{
 		Name: "outreach_settings", Group: models.OrgDataGroupCore,
@@ -258,6 +299,11 @@ var Tables = []Table{
 	{
 		Name: "contacts", Group: models.OrgDataGroupContacts,
 		Scope: scopeOrg,
+	},
+	{
+		Name: "contact_import_mappings", Group: models.OrgDataGroupContacts,
+		Scope: scopeOrg,
+		Note:  "Column mappings the workspace confirmed for its contact imports, keyed by header set, so the same export maps itself on the destination too.",
 	},
 	{
 		Name: "contact_categories", Group: models.OrgDataGroupContacts,
@@ -398,6 +444,13 @@ var Tables = []Table{
 	{
 		Name: "campaign_leads", Group: models.OrgDataGroupCampaigns,
 		Scope: `campaign_id IN ` + orgCampaigns,
+	},
+	{
+		// A campaign's scheduled placement test. Its run history names this
+		// instance's tests, which import later in the list.
+		Name: "placement_monitors", Group: models.OrgDataGroupCampaigns,
+		Scope:         scopeOrg,
+		ResetOnImport: []string{"last_test_id", "last_run_at", "last_alert_at", "last_error"},
 	},
 	{
 		// The recipient's opt-out address. It travels because an unsubscribe
@@ -579,6 +632,11 @@ var Tables = []Table{
 		Note:  "Warmup volume history travels so the destination resumes the ramp instead of restarting at the floor.",
 	},
 	{
+		Name: "warmup_placement_daily", Group: models.OrgDataGroupWarmup,
+		Scope: `sender_account_id IN ` + orgMailboxes,
+		Note:  "Where each mailbox's warmup mail landed, day by day, so its deliverability history arrives with it.",
+	},
+	{
 		Name: "warmup_appeals", Group: models.OrgDataGroupWarmup,
 		Scope: `email_account_id IN ` + orgMailboxes,
 	},
@@ -650,7 +708,9 @@ var Tables = []Table{
 	// ---------- send pipeline ----------
 	{
 		Name: "tasks", Group: models.OrgDataGroupSending,
-		Scope: `email_account_id IN ` + orgMailboxes,
+		// A placement probe's task stays behind: a pending one would send from
+		// the destination to the source instance's seeds.
+		Scope: `email_account_id IN ` + orgMailboxes + ` AND task_type <> 'placement'`,
 		// The handle belongs to the source instance's queue.
 		ResetOnImport: []string{"cloud_task_name"},
 	},
@@ -669,6 +729,8 @@ var Tables = []Table{
 			{Column: "body", Domain: KeyDomainOrgDEK, Guard: "encrypted"},
 			{Column: "body_html", Domain: KeyDomainOrgDEK, Guard: "encrypted"},
 			{Column: "body_plain", Domain: KeyDomainOrgDEK, Guard: "encrypted"},
+			{Column: "forwarded_html", Domain: KeyDomainOrgDEK, Guard: "encrypted"},
+			{Column: "forwarded_plain", Domain: KeyDomainOrgDEK, Guard: "encrypted"},
 		},
 	},
 	{
@@ -734,12 +796,17 @@ var Tables = []Table{
 		Scope: scopeOrg,
 	},
 	{
+		// The results travel as a record. The link to a cloud-run test and the
+		// seeds on the source instance's panel do not, and neither does a
+		// credit charge, whose ledger stays behind.
 		Name: "placement_tests", Group: models.OrgDataGroupEvents,
-		Scope: scopeOrg,
+		Scope:         scopeOrg,
+		ResetOnImport: []string{"remote_instance_id", "remote_test_id", "credits_charged", "credits_refunded", "credits_settled_at"},
 	},
 	{
 		Name: "placement_results", Group: models.OrgDataGroupEvents,
-		Scope: `test_id IN ` + orgPlacements,
+		Scope:         `test_id IN ` + orgPlacements,
+		ResetOnImport: []string{"seed_account_id", "remote_seed_id", "task_id", "remote_synced_at"},
 	},
 	{
 		Name: "webhook_deliveries", Group: models.OrgDataGroupEvents,
@@ -862,6 +929,10 @@ var ExcludedTables = map[string]string{
 	"sessions":                     "Live login sessions. They are bound to the source instance's signing key and must not survive a move.",
 	"mailbox_erasures":             "Erasure still owed for a mailbox this instance deleted: a grant to revoke at the provider, and message bodies to remove from this instance's blob store. Both name work on the instance that wrote the row, and the mailboxes are already gone.",
 	"login_history":                "Where people signed in from, kept only to compare a new sign-in against recent ones. It belongs to the person rather than the workspace, and a destination must build its own baseline before it can call anything anomalous.",
+	"mailbox_imports":              "Mailbox imports in progress or recently finished. They are work this instance is doing, and their rows hold credentials in flight, which live on only as the mailboxes they created.",
+	"mailbox_import_rows":          "The rows of a mailbox import, with credentials sealed until each row is connected. They follow mailbox_imports, which does not travel.",
+	"contact_imports":              "Contact imports in progress or recently finished. They are work this instance is doing; the contacts they created travel with the contacts group.",
+	"contact_import_rows":          "The uploaded rows of a contact import and what became of each. They follow contact_imports, which does not travel.",
 	"user_view_preferences":        "Each member's own column layout and sort for the dashboard's lists. It belongs to the person rather than the workspace: members are matched by account on import and a layout names custom fields the destination may not hold yet, so everyone starts from the default view and picks their columns again.",
 }
 

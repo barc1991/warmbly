@@ -83,7 +83,7 @@ import useMailboxAllowance from "@/lib/api/hooks/app/emails/useMailboxAllowance"
 import { allowanceFull } from "@/lib/api/models/app/emails/MailboxAllowance";
 import type MailboxAllowance from "@/lib/api/models/app/emails/MailboxAllowance";
 import MailboxAllowanceDialog from "@/components/app/emails/MailboxAllowanceDialog";
-import BulkConnectPanel from "@/components/app/emails/BulkConnectPanel";
+import MailboxImportWizard from "@/components/app/emails/import/MailboxImportWizard";
 import GmailAppPasswordPanel from "@/components/app/emails/GmailAppPasswordPanel";
 import { DitherMeter, type DitherTone } from "@/components/ui/dither";
 
@@ -411,7 +411,7 @@ export default function AddEmailModal() {
                                         />
                                     )}
                                     {view === "bulk" && (
-                                        <BulkConnectPanel
+                                        <MailboxImportWizard
                                             onDone={() => {
                                                 qc.invalidateQueries({ queryKey: ["emails", "list"] });
                                                 user.setAddEmail(false);

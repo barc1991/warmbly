@@ -24,7 +24,6 @@ import {
   MoonIcon,
   MoreHorizontalIcon,
   OctagonAlertIcon,
-  PenLineIcon,
   ReplyIcon,
   SearchIcon,
   SendIcon,
@@ -35,13 +34,12 @@ import {
   MessageSquareReplyIcon,
   BanIcon,
   BotIcon,
+  TriangleAlertIcon,
 } from "lucide-react";
 import useUniboxOverview from "@/lib/api/hooks/app/unibox/useUniboxOverview";
 import useMarkSeen from "@/lib/api/hooks/app/unibox/useMarkSeen";
-import ShortcutTooltip from "@/components/ui/shortcut-tooltip";
 import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import ComposeDraftsItem from "@/components/app/unibox/compose/ComposeDraftsItem";
-import { useComposeStore } from "@/hooks/useComposeStore";
 import { cn } from "@/lib/utils";
 import { DitherMeter } from "@/components/ui/dither";
 import {
@@ -103,6 +101,7 @@ const MAIL_FOLDERS: {
 ];
 
 const VIEW_ICONS: Record<UniboxViewId, React.ReactNode> = {
+  action_required: <TriangleAlertIcon className={ICON} />,
   hot: <FlameIcon className={ICON} />,
   needs_reply: <MessageSquareReplyIcon className={ICON} />,
   follow_up: <ClockIcon className={ICON} />,
@@ -156,17 +155,8 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
 
   return (
     <nav className="h-full w-full bg-white border-r border-slate-200 overflow-y-auto py-3">
-      <div className="px-3 pb-3">
-        <ShortcutTooltip label="אימייל חדש" combo="n" side="bottom">
-          <button
-            type="button"
-            onClick={() => useComposeStore.getState().openCompose()}
-            className="w-full h-8 rounded-md bg-sky-600 text-white text-[12.5px] font-medium inline-flex items-center justify-center gap-1.5 hover:bg-sky-700 active:bg-sky-800 transition-colors"
-          >
-            <PenLineIcon className="w-3.5 h-3.5" />
-            חדש
-          </button>
-        </ShortcutTooltip>
+      {/* Collapses when there are no drafts. */}
+      <div className="px-3 pb-2 empty:hidden">
         <ComposeDraftsItem />
       </div>
 

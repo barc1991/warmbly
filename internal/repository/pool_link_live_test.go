@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -126,13 +127,18 @@ func TestLivePoolLinkWarmupDeliveryMatchesAndRefuses(t *testing.T) {
 	ctx := context.Background()
 
 	// Pending token, matched on the sender/subject pair rather than the id.
-	f.token(t, "", "Following up", false)
+	pending := f.token(t, "", "Following up", false)
 	ok, err := f.warmup.IsWarmupDelivery(ctx, f.recipient, f.senderTo, "", "Following up")
 	if err != nil {
 		t.Fatalf("IsWarmupDelivery pair: %v", err)
 	}
 	if !ok {
 		t.Fatal("a pending token for this sender and subject should match")
+	}
+	// Its send confirmed, as HandleEmailSent does, so the cases below are not
+	// held behind it.
+	if _, err := f.pool.Exec(ctx, `UPDATE warmup_tokens SET sent_message_id = '<warm-1@test.local>' WHERE token = $1`, pending); err != nil {
+		t.Fatal(err)
 	}
 
 	// A delivery already recorded, whose token has since been cleaned up.
@@ -198,6 +204,52 @@ func TestLivePoolLinkWarmupDeliveryRecognizesSentAndOldCopies(t *testing.T) {
 	}
 }
 
+// A reply typed by hand in a warmup thread names the send it answers and
+// nothing else; the turn after it names that reply. Both have to resolve, from
+// either mailbox in the pair.
+func TestLivePoolLinkWarmupThreadReplyByAncestry(t *testing.T) {
+	f := newPoolLinkFixture(t)
+	requireSchemaVersion(t, f.pool, 180)
+	ctx := context.Background()
+	const sent = "<warm-thread@test.local>"
+	f.token(t, sent, "Quick question", true)
+
+	for _, tc := range []struct {
+		name    string
+		account uuid.UUID
+		parents []string
+		want    bool
+	}{
+		{"the recipient's copy of the reply", f.recipient, []string{sent}, true},
+		{"the sender's copy of the reply", f.sender, []string{sent}, true},
+		{"bare id, several parents", f.recipient, []string{"unrelated@test.local", "warm-thread@test.local"}, true},
+		{"a mailbox outside the pair", uuid.New(), []string{sent}, false},
+		{"a reply to ordinary mail", f.recipient, []string{"<real@prospect.test>"}, false},
+		{"nothing to answer", f.recipient, nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := f.warmup.IsWarmupThreadReply(ctx, tc.account, tc.parents)
+			if err != nil || got != tc.want {
+				t.Fatalf("thread reply = %v, error = %v; want %v", got, err, tc.want)
+			}
+		})
+	}
+
+	// The next turn answers the reply, and is asked about from the other
+	// mailbox in the pair, whose own record of the reply is its Sent copy that
+	// may never have synced.
+	if err := f.warmup.RecordWarmupThreadMessage(ctx, f.recipient, "<reply-1@gmail.test>"); err != nil {
+		t.Fatalf("RecordWarmupThreadMessage: %v", err)
+	}
+	if err := f.warmup.RecordWarmupThreadMessage(ctx, f.recipient, "<reply-1@gmail.test>"); err != nil {
+		t.Fatalf("a re-synced turn must record idempotently: %v", err)
+	}
+	got, err := f.warmup.IsWarmupThreadReply(ctx, f.sender, []string{"<reply-1@gmail.test>"})
+	if err != nil || !got {
+		t.Fatalf("second turn = %v, error = %v; want it recognised through the recorded reply", got, err)
+	}
+}
+
 // An approved code the instance never came back for must not keep a usable
 // bearer token in plaintext once it expires.
 func TestLivePoolLinkExpiredCodeLosesItsToken(t *testing.T) {
@@ -228,5 +280,44 @@ func TestLivePoolLinkExpiredCodeLosesItsToken(t *testing.T) {
 	}
 	if token != nil {
 		t.Fatalf("expired code kept its plaintext instance token: %q", *token)
+	}
+}
+
+// Until a warmup send is confirmed, a copy of it whose subject did not survive
+// delivery cannot be told apart from ordinary mail by that sender. It is held
+// for the confirmed id rather than stored and announced (#659).
+func TestLivePoolLinkUnconfirmedSendHoldsThatSendersMail(t *testing.T) {
+	f := newPoolLinkFixture(t)
+	ctx := context.Background()
+	token := f.token(t, "", "Following up", false)
+
+	_, err := f.warmup.IsWarmupDelivery(ctx, f.recipient, f.senderTo, "<exchange-1@test.local>", "[EXTERNAL] Following up")
+	if !errors.Is(err, ErrWarmupDeliveryPending) {
+		t.Fatalf("error = %v, want the arrival held until the send is confirmed", err)
+	}
+
+	// Someone else's mail is never held behind it.
+	ok, err := f.warmup.IsWarmupDelivery(ctx, f.recipient, "prospect@elsewhere.test", "<real@elsewhere.test>", "Following up")
+	if err != nil || ok {
+		t.Fatalf("stranger: warmup = %v, error = %v; want ordinary mail", ok, err)
+	}
+
+	// Confirmed: the id decides, both ways.
+	if _, err := f.pool.Exec(ctx, `UPDATE warmup_tokens SET sent_message_id = '<exchange-1@test.local>' WHERE token = $1`, token); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := f.warmup.IsWarmupDelivery(ctx, f.recipient, f.senderTo, "<exchange-1@test.local>", "[EXTERNAL] Following up"); err != nil || !ok {
+		t.Fatalf("confirmed copy: warmup = %v, error = %v; want warmup", ok, err)
+	}
+	if ok, err := f.warmup.IsWarmupDelivery(ctx, f.recipient, f.senderTo, "<human@test.local>", "Lunch?"); err != nil || ok {
+		t.Fatalf("real mail after confirmation: warmup = %v, error = %v; want ordinary mail", ok, err)
+	}
+
+	// A send never confirmed stops holding anything after half an hour.
+	if _, err := f.pool.Exec(ctx, `UPDATE warmup_tokens SET sent_message_id = '', created_at = NOW() - INTERVAL '31 minutes' WHERE token = $1`, token); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := f.warmup.IsWarmupDelivery(ctx, f.recipient, f.senderTo, "<human@test.local>", "Lunch?"); err != nil || ok {
+		t.Fatalf("stale send: warmup = %v, error = %v; want ordinary mail", ok, err)
 	}
 }

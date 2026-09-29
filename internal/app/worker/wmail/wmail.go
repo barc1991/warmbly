@@ -240,6 +240,7 @@ func NewWMail(
 				FirstName: data.FirstName,
 				LastName:  data.LastName,
 
+				User:       data.Graph.User,
 				Cache:      mail.Cache,
 				DeltaLinks: cloneStringMap(deltaLinks),
 
@@ -319,4 +320,17 @@ func (w *WMail) ApplySyncPolicy(data *models.AddWorkerEmailSyncData) {
 		return
 	}
 	w.gov.SetPolicy(data.Policy)
+}
+
+// Discard releases a WMail that was built but never put to work.
+func (w *WMail) Discard() {
+	if w.Cancel != nil {
+		w.Cancel()
+	}
+	if w.SmtpImapData == nil || w.SmtpImapData.ImapClient == nil {
+		return
+	}
+	if c, ok := w.SmtpImapData.ImapClient.(interface{ Close() error }); ok {
+		_ = c.Close()
+	}
 }

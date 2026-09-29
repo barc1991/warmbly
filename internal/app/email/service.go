@@ -8,15 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/warmbly/warmbly/internal/app/instancesettings"
+	"github.com/warmbly/warmbly/internal/client/smtpimap/imap"
+	"golang.org/x/oauth2"
+
+	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/app/cipher"
 	"github.com/warmbly/warmbly/internal/app/feature"
-	"github.com/warmbly/warmbly/internal/app/instancesettings"
 	warmupapp "github.com/warmbly/warmbly/internal/app/warmup"
 	"github.com/warmbly/warmbly/internal/app/webhook"
 	"github.com/warmbly/warmbly/internal/app/worker"
-	"github.com/warmbly/warmbly/internal/client/smtpimap/imap"
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/events"
@@ -25,7 +27,6 @@ import (
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/dnsauth"
 	"github.com/warmbly/warmbly/internal/repository"
-	"golang.org/x/oauth2"
 )
 
 type EmailService interface {
@@ -80,7 +81,8 @@ type EmailService interface {
 	// Onboarding flow. OAuthFinish's second return is true when the round
 	// trip renewed an existing mailbox (OAuthReauth) rather than connecting
 	// a new one, so the handler can audit and answer accordingly.
-	OAuthStart(ctx context.Context, userID string, orgID *uuid.UUID, provider models.InboxProvider, slotID *uuid.UUID) (*models.EmailOnboardingStartResponse, *errx.Error)
+	// loginHint preselects an address in the provider's picker; "" for none.
+	OAuthStart(ctx context.Context, userID string, orgID *uuid.UUID, provider models.InboxProvider, loginHint string, slotID ...*uuid.UUID) (*models.EmailOnboardingStartResponse, *errx.Error)
 	OAuthFinish(ctx context.Context, userID, code, state string) (*models.Email, bool, *errx.Error)
 	WireOAuthSlots(repo repository.OAuthSlotRepository)
 	OnboardSMTPIMAP(ctx context.Context, userID string, orgID *uuid.UUID, data *models.NewSMTPIMAPAccount) (*models.Email, *errx.Error)
@@ -115,11 +117,26 @@ type EmailService interface {
 	WireMailboxes(repo repository.MailboxRepository)
 	WireUnibox(repo repository.UniboxRepository)
 	WireSyncBudget(src SyncBudgetSource)
+	// WireSeedScope lets the loader give a placement seed mailbox the sync
+	// allowance a whole instance's test traffic needs.
+	WireSeedScope(src SeedScopeSource)
 	WirePoolLink(repo repository.PoolLinkRepository)
 	// WireCloudLink marks managed mailboxes, which ship to the worker without a credential.
 	WireCloudLink(repo repository.CloudLinkRepository)
 	// WireCloudUnenroll attaches cloud credential revocation to mailbox deletion.
 	WireCloudUnenroll(u CloudUnenroller)
+	// ConnectDelegated stores a Gmail or Outlook mailbox reached through an
+	// administrator's grant and loads it; tokens are minted per use.
+	ConnectDelegated(ctx context.Context, userID string, orgID *uuid.UUID, data models.NewDelegatedAccount) (*models.Email, *errx.Error)
+	// SwitchToAppPassword moves a per-mailbox Google sign-in onto an app password in place.
+	SwitchToAppPassword(ctx context.Context, orgID *uuid.UUID, accountID uuid.UUID, appPassword string) (*models.Email, *errx.Error)
+	// ReactivateDelegated puts a delegated mailbox back to work after its grant recovered.
+	ReactivateDelegated(ctx context.Context, accountID uuid.UUID) (*models.Email, *errx.Error)
+	// WireImportSignin lets an OAuth connect close the import rows that were
+	// waiting for someone to sign in as that mailbox.
+	WireImportSignin(r ImportSigninResolver)
+	// WireAvatars lets a connect keep the profile photo its provider returns.
+	WireAvatars(a AvatarSaver)
 	// WireAccountErrors lets a successful reconnect resolve the credential
 	// errors it just fixed, which is what clears the mailbox's error banner.
 	WireAccountErrors(repo repository.EmailAccountErrorRepository)
@@ -167,6 +184,7 @@ type emailService struct {
 	syncState          repository.EmailSyncStateRepository
 	mailboxes          repository.MailboxRepository
 	syncBudget         SyncBudgetSource
+	seedScope          SeedScopeSource
 	// poolLink marks linked warmup-only mailboxes, which sync with no history.
 	poolLink repository.PoolLinkRepository
 	// cloudLink marks managed mailboxes whose credential the cloud holds.
@@ -189,6 +207,10 @@ type emailService struct {
 	// unibox is where a skipped folder's already-stored mail is dropped from.
 	// Optional: without it the worker's retirement of the folder does it.
 	unibox repository.UniboxRepository
+	// importSignin closes import rows waiting on a sign-in. Optional.
+	importSignin ImportSigninResolver
+	// avatars keeps the photo a connect handshake returns. Optional.
+	avatars AvatarSaver
 }
 
 // WireUnibox attaches the unified inbox store, for the purge that follows a
@@ -253,6 +275,16 @@ func (s *emailService) WireMailboxes(repo repository.MailboxRepository) {
 // WireSyncBudget attaches the instance settings the sync policy is read from.
 func (s *emailService) WireSyncBudget(src SyncBudgetSource) {
 	s.syncBudget = src
+}
+
+// SeedScopeSource reports whether a mailbox is a placement seed.
+type SeedScopeSource interface {
+	SeedScope(ctx context.Context, accountID uuid.UUID) (string, error)
+}
+
+// WireSeedScope attaches the seed lookup the loader reads.
+func (s *emailService) WireSeedScope(src SeedScopeSource) {
+	s.seedScope = src
 }
 
 // WirePoolLink attaches the pool-link repository so linked mailboxes get the

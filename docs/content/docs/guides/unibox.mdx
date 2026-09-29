@@ -5,7 +5,7 @@ description: "A unified inbox across all connected mailboxes, with categories an
 
 One inbox for every connected mailbox. Read, sort, and reply from a single screen instead of logging into each account. Three columns: a **scope rail** for picking what to look at, a **conversation list**, and a **thread view** where you read and reply.
 
-Verified [warmup mail](/guides/warmup/) stays out of Unibox, including your mailbox's Sent copies and warmup run by [Warmbly Cloud](/guides/warmbly-cloud/). It does not create inbox notifications or trigger reply classification. After an upgrade, the consumer automatically checks existing messages in batches and removes confirmed warmup from Unibox. This leaves the messages in your email provider and keeps ordinary conversations intact.
+Verified [warmup mail](/guides/warmup/) stays out of Unibox, including your mailbox's Sent copies and warmup run by [Warmbly Cloud](/guides/warmbly-cloud/). It does not create inbox notifications, raise the unread count or trigger reply classification. The consumer also checks existing messages in batches (once a day and after every restart) and removes confirmed warmup from Unibox, and any reply notification it had raised goes with it. This leaves the messages in your email provider and keeps ordinary conversations intact.
 
 ## Layout
 
@@ -15,6 +15,7 @@ The columns are yours to size. Every choice here is remembered in the browser yo
 | --- | --- |
 | The divider between the list and the thread | Drag it to widen the conversation list so long subjects fit, or to give the space back to the thread. It also takes the keyboard once it has focus: arrow keys nudge it (hold `Shift` for a bigger step), `Home` and `End` go to the narrowest and widest the window allows, `Enter` (or a double-click) puts it back to the default. |
 | **Collapse** at the bottom of the left navigation, or `b` | Shrinks Warmbly's own navigation to an icon rail and gives the width to the page. Row labels become tooltips; unread mail keeps its count badge and an open [Advisor](/guides/advisor/) finding shows as a coloured dot on the icon. The same control expands it again. |
+| The section headers in the left navigation (Email, CRM, Resources) | Click one to fold its section away. Like the other layout choices, it is remembered in this browser. While a section is folded and you are on one of its pages, a small dot beside the header shows where you are. In the icon rail, folded sections stay hidden except the page you are on. |
 | The contact button in the thread header | Shows or hides the contact panel on the right. It starts closed when no preference is saved. Opening or closing it sticks across conversations, and existing preferences are preserved. |
 
 How wide the list can get depends on the window: the thread always keeps enough room to read a message, and the contact panel counts toward that when it is open, so the widest setting is narrower on a laptop than on a large monitor.
@@ -30,7 +31,9 @@ The conversation list takes the keyboard, so a triage pass never needs the mouse
 | `j` / `k` | Move down and up the list. From no selection, `j` takes the first conversation and `k` the last, whichever way the list is sorted. |
 | `g g` / `G` | Jump to the first or last conversation. |
 | `Enter` | Open the top conversation when nothing is selected yet. |
-| `Escape` | Clear the selection. Inside the search box it gives the keyboard back to the list. |
+| `x` | Tick or untick the row you are on, to build a selection. |
+| `e` | Archive the selection, or the row you are on when nothing is ticked. |
+| `Escape` | Clear the ticked rows, then the open conversation. Inside the search box it gives the keyboard back to the list. |
 | `/` | Put the caret in the list's search box. |
 | `c` | Label the open conversation. |
 
@@ -42,20 +45,20 @@ The rail is two short groups and then your mailboxes. The first group is where y
 
 | Folder | Group | Shows |
 | --- | --- | --- |
-| Inbox | First | Inbound mail, plus anything filed in a custom folder at the provider |
+| Inbox | First | Inbound mail, plus anything filed in a custom folder at the provider, unless that folder is [excluded from sync](/guides/mailboxes/#folders-you-do-not-want-synced) |
 | Drafts | Second | Messages sitting in a mailbox's drafts folder |
 | Sent | Second | Outbound mail, campaign and manual |
 | Archive | Second | Archived (Gmail's All Mail, the Archive folder elsewhere) |
 | Spam | Second | Junked at the provider |
 | Trash | Second | Deleted |
 
-**Scheduled** sits between Sent and Archive. It is a view rather than a folder, listing replies queued to send later, and it reads naturally next to Sent.
+**Scheduled** sits between Sent and Archive. It is a view rather than a folder, listing every send queued from the workspace's mailboxes, whichever teammate queued it, and it reads naturally next to Sent.
 
 Opening **Inbox** from the main navigation starts in the Inbox folder. Sent messages live in **Sent**; choose **All mail** when you want inbound and outbound messages together. An Inbox conversation still shows its complete history, including your replies, when you open it.
 
 Each message starts in the folder the provider has it in: IMAP special-use folder attributes, Gmail labels, and Outlook well-known folders all map to the same six. Moves at the provider (junking a message, clearing it out of spam) follow on the next sync. Drafts are also reconciled: a draft the mailbox no longer holds is removed here too, so the fresh copy Gmail saves on every autosave does not leave the previous ones behind. You can also file a conversation yourself, which moves it here without moving it at the provider; see [filing a conversation](#filing-a-conversation). The active row is highlighted grey, unread counts sit on the right in blue, and hovering a folder reveals a three-dot menu with **Mark all as read**.
 
-Spam and Trash stay out of every other view: the **All mail** view and the unread badge only count the folders you actually work.
+Spam and Trash stay out of every other view, and so does Archive: filing a conversation is how you take it out of the way, so it leaves Unread, Awaiting reply, every mailbox, label and tag view, and the unread badge. **All mail** and the **Archive** folder are the two places it stays, which is where you go to find it again.
 
 <Callout type="info" title="Spam and Trash start from when you connect">
 The initial import that runs when a mailbox is first connected covers Inbox, Sent, Archive, and Drafts. It deliberately skips the existing contents of Spam and Trash, whose history would consume the import budget that belongs to real conversations. Both folders fill normally from the moment the mailbox is connected, so they show what arrives from then on rather than what was already there.
@@ -65,14 +68,29 @@ The initial import that runs when a mailbox is first connected covers Inbox, Sen
 
 | View | Shows |
 | --- | --- |
-| All mail | Every conversation across every mailbox (except Spam and Trash) |
+| All mail | Every conversation across every mailbox, archived ones included (except Spam and Trash) |
 | Unread | At least one unread message |
-| Awaiting reply | The other side is waiting on you |
+| Awaiting reply | You wrote last and they have not answered |
 | Agent drafts | Conversations where the [inbox agent](/guides/inbox-agent/) has a reply waiting for review |
 | Snoozed | Snoozed for later |
-| Scheduled | Replies queued to send later |
+| Scheduled | Sends queued from the workspace's mailboxes |
 
-Below those, the rail lists each mailbox with its unread count, plus your **Labels** and **Tags**. Long lists collapse to the first few with a `Show all` toggle and an inline filter. For a slice of time (today, the last week), use the date range in the filters rather than a view; the list's title shows which view you are in, with how many conversations are loaded.
+Below those sit the premade **Views**, which answer the questions a pipeline turns on. They are built on the labels [automatic inbox tagging](/guides/inbox-tagging/) writes, exist from the moment the workspace is created, and need nothing set up:
+
+| View | Shows |
+| --- | --- |
+| Action required | Automated mail that needs someone to act: a failed payment, a suspended account, a suspicious sign-in, a sending limit, a service about to expire |
+| Hot leads | Replies labelled Interested, Meeting or Pricing |
+| Needs a reply | They wrote last and nobody has answered for two days or more |
+| Follow up | You wrote last and heard nothing, or an interested thread went quiet |
+| Declined | Not interested, wrong person, or asked to unsubscribe |
+| Automated | Mail nobody wrote: sign-in codes, receipts, notifications, newsletters, bounces and auto-replies |
+
+A view is a filter over its labels, so a conversation appears in it as soon as a label lands and leaves it when the label does. Without a classifier key on the instance only the two follow-up views fill, from sent-message dates alone.
+
+**Automated** is different: it is where machine mail lives instead of the inbox. When automatic tagging judges that nobody wrote a conversation, it leaves **Inbox**, Unread, every mailbox and tag view, and the unread badge, and shows only under Automated (and in All mail). A message the classifier was not sure about stays in the inbox. A reply from a person brings the conversation straight back, before it is even classified. Automated mail that needs your action, such as a failed payment for a mailbox's subscription or a suspended account, never goes to Automated: it stays in the inbox labelled **Action required**, and the **Action required** view lists it with its unread count (see [Mail that needs your action](/guides/inbox-tagging/#mail-that-needs-your-action)).
+
+Below the views, the rail lists each mailbox with its unread count, plus your **Labels** and **Tags**. Long lists collapse to the first few with a `Show all` toggle and an inline filter. For a slice of time (today, the last week), use the date range in the filters rather than a view; the list's title shows which view you are in, with how many conversations are loaded.
 
 Counts come from the server in one request, so they always match the rows. The current view and open conversation live in the URL (`/app/unibox/unread`), so refreshing, bookmarking, and sharing all land in the same place.
 
@@ -88,7 +106,7 @@ Each row is a conversation, not a message, with a count next to the sender when 
 
 The list loads more conversations as you reach the end of it, and it keeps its place: opening a conversation, or leaving the inbox and coming back, returns you to the row you were on rather than the top of the list.
 
-Threading applies on both sides. A reply you send carries the provider's thread id, which nests it in your own mailbox, and an `In-Reply-To` header naming the last message in the conversation, which is what nests it for the recipient. Their mail client only ever sees the header: a thread id means nothing outside the mailbox that issued it.
+Threading applies on both sides. A reply carries an `In-Reply-To` header naming the last message in the conversation, which is what nests it for the recipient. From a Gmail mailbox that holds the conversation it also carries Gmail's thread id, which nests it in your own mailbox. The recipient's mail client only ever sees the header: a thread id means nothing outside the mailbox that issued it, so a reply sent [from another mailbox](#choosing-the-sending-mailbox) goes without one.
 
 <Callout type="info" title="Keyboard navigation">
 `j` / `k` move between rows, `Enter` opens, `Esc` closes, `/` focuses search, `c` labels. Press `?` for the full list.
@@ -106,11 +124,15 @@ Warmbly removes its open-tracking pixels from the displayed copy, including quot
 
 Recognized quoted history collapses behind **Show quoted text**. Click it to read the full chain. Messages made entirely of quoted content and ambiguous inline replies stay visible. Outgoing messages from the connected mailbox have a blue left border and an **Outgoing** badge.
 
+### Message details
+
+Every open message has a details toggle on its recipient line, the `to` under the sender's name, and the sender's name and address open the same panel. It shows the message envelope in place: every From, Reply-To, To, Cc and Bcc address, when it was sent and, if that differs, when the mailbox received it, both in your own time zone, the mailbox and folder it lives in, its size, and the Message-ID and In-Reply-To headers. Click any address or identifier to copy it. The info icon next to Reply and Forward opens the same panel, including on a message that is still collapsed.
+
 ## Categories and labels
 
 Categories are the workspace's conversation labels, shared with the rest of Warmbly, so `Interested` means the same thing on a contact as it does here. They are shared with the rest of the team too: a category anyone creates is available to everyone, and a conversation one member labels shows that label to the next. Label with the tag button in the conversation header or `c`: search existing categories, tick what applies, or type a name and **Create**. A conversation can carry several.
 
-Labeled conversations show colored chips on the row and in the header, and each category appears in the rail with its own count for one-click filtering. **Labels are manual**; Warmbly never auto-tags.
+Labeled conversations show colored chips on the row and in the header, and each category appears in the rail with its own count for one-click filtering. Labels you apply are never touched by the system. [Automatic inbox tagging](/guides/inbox-tagging/) adds its own labels alongside them, additively, and never removes one a person applied.
 
 <Callout type="info" title="Categories vs tags">
 Categories label conversations. Tags label the mailboxes themselves (grouping accounts by client or domain). Both filter from the rail, but they describe different things.
@@ -118,7 +140,7 @@ Categories label conversations. Tags label the mailboxes themselves (grouping ac
 
 ## Read state
 
-A conversation is unread when any message inside is unseen, marked by a blue dot in the margin, bolder text, and a blue timestamp. Opening it marks its messages seen and updates the counts.
+A conversation is unread when any message inside is unseen, marked by a blue dot in the margin, bolder text, and a blue timestamp. Opening it marks its messages seen and updates the counts, and so does **Mark as read** on the row or on a selection, without opening anything.
 
 Read state travels both ways. A message arriving already read is stored that way, and reading a conversation here marks it read in the mailbox itself, so Gmail, Outlook and any IMAP mailbox stop showing it bold too. **Mark as unread** does the same in reverse, and **Mark all as read** on a folder carries the whole sweep across. Only a real change travels: opening a conversation you have already read costs nothing at the provider.
 
@@ -136,15 +158,47 @@ The thread header carries three filing actions, on the row above the message on 
 
 Archive and Delete both offer **Undo** on the confirmation toast. Open the Trash or Archive folder and the same header offers **Move to inbox**, so nothing filed by accident is stuck.
 
+### From the list, without opening anything
+
+You do not have to open a conversation to deal with it. Hover a row (or just look at it on a phone, where they are always shown) and the right of the first line carries **Archive** and a three-dot menu with **Mark as read / unread**, **Snooze**, **Archive** or **Move to inbox**, and **Delete**. In Archive and Trash the same controls offer the way back rather than the way out.
+
+Archiving from a row files the whole conversation, not the message the row is showing, so it really does leave the view you filed it from.
+
+### Working on several at once
+
+Each row has a tick box in its left gutter, in place of the unread dot. Hover a row to see it, or press **Select** in the list header, which shows every box at once and adds an **All** box that takes everything currently loaded. `x` ticks the row you are on from the keyboard, and holding `Shift` while ticking takes the whole run between that row and the last one you ticked.
+
+With anything ticked, a bar appears along the bottom of the screen with the count and the actions that apply to all of them: **Mark read**, **Mark unread**, **Snooze**, **Archive** (or **Move to inbox**) and **Delete**. Each one is a single request, so filing a screenful is as quick as filing one. **Clear** drops the selection, and so does `Escape`; changing view drops it too, since the rows it applied to are no longer the rows on screen.
+
 <Callout type="info" title="Filing here does not move the message at the provider">
 Unlike read state, Archive and Delete are Warmbly's own filing. The message keeps its place in Gmail, Outlook, or whatever mail client the mailbox belongs to, and deleting a conversation here never deletes mail there. The next sync will not undo your filing either: Warmbly records where the provider has each message separately from where you filed it, and follows the provider only when the provider itself moves the message. So junking a message in Gmail still reaches Warmbly, and an ordinary sync pass does not.
 </Callout>
 
 ## Replying
 
-Reply, forward, or hover any single message to reply to it specifically. The composer appears when you ask for it or return to a conversation with a saved reply or forward. Replies go from the mailbox that owns the thread, so conversations stay on one account. You can apply a saved **template** or **Insert booking link**.
+Reply, forward, or hover any single message to reply to it specifically. The composer appears when you ask for it or return to a conversation with a saved reply or forward. You can apply a saved **template** or **Insert booking link**.
 
-Replies and forwards save after a short typing pause, and save the latest edits when you close the composer, leave the conversation, or reload. Returning to the thread reopens a saved draft, including one addressed to an older message. **Discard** removes it; successfully queuing a send removes it too. Undoing a send restores the message for editing.
+### Choosing the sending mailbox
+
+**From** starts on the mailbox that holds the message, so a reply you do not touch goes out exactly as before. Click it to send from any other active mailbox in the workspace: the same searchable picker as [Compose](#composing), with each mailbox's budget for today, auth health and history with the recipient. There is no Auto here; a reply always names its mailbox. The signature preview follows the mailbox you pick. When the mailbox holding the message is no longer active, the composer says so and **Send** stays off until you pick one that is.
+
+A reply from a different mailbox keeps the conversation's subject and its In-Reply-To and References headers, so the recipient sees it in the same conversation. A provider thread belongs to the mailbox that holds it, so unless the mailbox you pick already has a message in this conversation, the first such reply starts a conversation of its own there (later replies from it continue that one), and the recipient's answer arrives in that mailbox. A note under **From** says so, with **Switch back** to return to the original mailbox. A forward has no thread to keep, so it simply leaves from the mailbox you pick.
+
+### Forwarding
+
+**Forward** sends the message you picked to someone new. The subject gets `Fwd:` and the To line starts empty. What you type is an optional note; you can send a forward without one. The recipient gets your note, then the sending mailbox's signature (when signature sync is on), then a `Forwarded message` block with the original From, Date, Subject, To and Cc lines and the original message underneath, formatting included. The Date line uses the sending mailbox's time zone.
+
+The composer shows the message it will forward under your note; expand **Forwarded message** to read it before you send. Attachments on the original are not forwarded. If only a preview of the original is stored (the thread shows "Only a preview of this message is stored"), the composer says so, and the forward carries that preview. Forwarding one of your own tracked sends puts its links back to their real destinations, so the new recipient's clicks do not count against the original send.
+
+### Pausing their follow-ups
+
+The contact panel lists every campaign the sender is a lead of, with their status in it and what happens next: the next step and when, the hold and when it lifts, or why the flow ended. A campaign with a step still to send has **Pause**, which opens the same dialog as the campaign's Leads list (until a date, or until you resume them, with an optional note). A held lead has **Resume** instead. Neither appears on a lead whose flow has ended, and both need the **Manage campaigns** permission. See [Out of office and pausing one lead](/guides/campaigns/#out-of-office-and-pausing-one-lead).
+
+The reply composer offers the same thing for the moment you answer. When the recipient still has a follow-up queued, **Pause follow-ups** next to **Schedule** holds them for 3 days, 1 week, 2 weeks, 30 days or until you resume them. When they are a lead of more than one such campaign, the menu lists each one, all ticked, and you untick the ones to leave running (at least one stays ticked). Nothing is paused until the reply is accepted, and a send that fails pauses nothing. A scheduled reply pauses the follow-ups straight away and counts the length from when the reply goes out, so a follow-up cannot overtake it. Undoing or cancelling the reply does not lift the pause, so use **Resume** in the contact panel if you change your mind. A lead already on hold, for example after an away message arrived while you were writing, keeps that hold.
+
+### Reply drafts
+
+Replies and forwards save after a short typing pause, and save the latest edits when you close the composer, leave the conversation, or reload. Returning to the thread reopens a saved draft, including one addressed to an older message, with the mailbox you picked. **Discard** removes it; successfully queuing a send removes it too. Undoing a send restores the message for editing, from the same mailbox.
 
 These reply drafts are personal to your signed-in user and workspace in this browser. They do not sync to other devices, appear in the mailbox's **Drafts** folder, or travel in a [workspace export](/guides/workspace-export-import/). Clearing browser data removes them. **Draft saved** confirms browser storage succeeded; **Draft not saved** means you should copy your text before leaving.
 
@@ -164,7 +218,7 @@ For drafts written automatically on every inbound reply and held for approval, t
 
 ## Composing
 
-**Compose** in the header, the `n` key anywhere, or the **Email** action on a contact opens a docked window so you can keep browsing while writing.
+**Compose** at the top of the conversation list, the `n` key anywhere, or the **Email** action on a contact opens a docked window so you can keep browsing while writing.
 
 The window title bar carries **Full screen**, which lifts the same composer to the centre of the screen over a dimmed backdrop for writing something longer. Click the button again, click the backdrop, or press **Escape** to drop it back to the corner with the draft intact. A second **Escape** closes the window, saving to Drafts as usual. **Minimize** always docks to the bottom right.
 
@@ -178,7 +232,7 @@ The picker shows the pick and its reason before sending. Opening it reveals ever
 
 ### Drafts and history
 
-Typing autosaves to **Drafts** after a pause. Closing keeps the draft; sending or emptying removes it. Drafts sit under the Compose button, resume on any device, and are personal rather than shared.
+Typing autosaves to **Drafts** after a pause. Closing keeps the draft; sending or emptying removes it. Drafts sit at the top of the inbox's left rail, resume on any device, and are personal rather than shared.
 
 With a recipient set, **History** slides out every conversation you have had with them: tabs split the full thread from just your sent mail, search narrows by subject, rows open the real thread, and the panel notes which mailbox you usually use.
 
@@ -189,14 +243,14 @@ With a recipient set, **History** slides out every conversation you have had wit
 | Control | Behavior |
 |---------|----------|
 | **Undo send** | Instant sends wait 30s by default (adjustable 5 to 120s under Settings, Profile). A header countdown offers **Cancel**, which returns the email to the composer intact. Applies to API sends with `send_mode: instant` too. |
-| **Schedule** | Queue a send for later. It appears inline in the thread as a dashed card and in the **Scheduled** view, cancellable any time. A usage meter warns as you approach the queued-send cap. |
+| **Schedule** | Queue a send for later. It appears inline in the thread as a dashed card and in the **Scheduled** view, where anyone in the workspace with Unibox access can cancel it. A usage meter warns as the workspace approaches its queued-send cap. |
 | **Snooze** | Clears a conversation until a time you pick, up to 90 days out, with presets or a custom time. **Un-snooze now** brings it back immediately. |
 
 Scheduled and smart-queued sends skip the undo window, since they already wait. Cancel them from the **Scheduled** view, or via `DELETE /unibox/scheduled/:task_id`.
 
 ## Realtime
 
-Nothing needs refreshing. New mail appears in the list, updates the open thread, and raises the unread count on its own. Read-state changes, replies, scheduled sends, snoozes, and label changes all refresh the affected views, keeping rail counts, the list, and the open thread consistent.
+Nothing needs refreshing. New mail appears in the list, updates the open thread, and raises the unread count on its own. The count on **Unibox** in the navigation (and in the browser tab) is the number of unread conversations in **Inbox**, the view it opens, so it never points at mail that view does not list: sent mail, drafts, archived, snoozed and automated conversations are left out. Read-state changes, replies, scheduled sends, snoozes, and label changes all refresh the affected views, keeping rail counts, the list, and the open thread consistent.
 
 <Callout type="info" title="Keeping inboxes healthy">
 Replying promptly supports sender reputation, which warmup and good deliverability practice protect. See [Deliverability](/guides/deliverability/).

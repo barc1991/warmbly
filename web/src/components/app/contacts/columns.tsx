@@ -13,7 +13,10 @@ import {
     PhoneIcon,
     type LucideIcon,
 } from "lucide-react";
+import ProviderLogo from "@/components/app/emails/ProviderLogo";
+import { companyDomainOf } from "@/lib/companyLogo";
 import clippedTitle from "@/lib/helper/clippedTitle";
+import { mailHostLabel } from "@/lib/mailHost";
 import type { ContactCampaignProgress, VerificationSource, VerificationStatus } from "@/lib/api/models/app/contacts/Contact";
 import type { SearchContactsSortBy } from "@/lib/api/models/app/contacts/search-contacts.types";
 import type { ViewName } from "@/lib/api/models/app/views/ViewPreferences";
@@ -40,6 +43,7 @@ export interface ContactRow {
     verification_checked_at?: string | null;
     verification_confidence?: number;
     verification_requested_at?: string | null;
+    mail_host?: string;
     created_at: Date;
     updated_at?: Date;
 }
@@ -66,6 +70,7 @@ export interface ContactColumn {
     cell: (ctx: CellContext) => React.ReactNode;
     locked?: boolean;
     custom?: string;
+    hasValue?: (c: ContactRow) => boolean;
 }
 
 const HIDE: Record<Breakpoint, string> = {
@@ -145,7 +150,10 @@ function companyColumn(view: ViewName): ContactColumn {
         label: "חברה",
         width: view === "campaign_leads" ? "w-40" : "w-36",
         hideBelow: view === "campaign_leads" ? "xl" : "lg",
+        sortKey: "company",
+        sortAsc: true,
         cellClassName: "text-[12px] text-slate-600",
+        hasValue: (c) => !!c.company || !!companyDomainOf(c.email, c.mail_host),
         cell: ({ c }) =>
             c.company ? (
                 <div className="flex items-center gap-1.5 min-w-0">
@@ -158,12 +166,38 @@ function companyColumn(view: ViewName): ContactColumn {
     };
 }
 
+// Who hosts the contact's inbox. Empty until the backend's DNS check reaches
+// the contact, a minute or so after it is added.
+function mailHostColumn(view: ViewName): ContactColumn {
+    return {
+        id: "mail_host",
+        label: "ספק דוא״ל",
+        width: "w-40",
+        hideBelow: view === "campaign_leads" ? "2xl" : "xl",
+        sortKey: "mail_host",
+        sortAsc: true,
+        cellClassName: "text-[12px] text-slate-600",
+        cell: ({ c }) =>
+            c.mail_host ? (
+                <div className="flex items-center gap-1.5 min-w-0">
+                    <ProviderLogo id={c.mail_host} size="xs" framed={false} />
+                    <span className="truncate" {...clippedTitle}>{mailHostLabel(c.mail_host)}</span>
+                </div>
+            ) : (
+                <Dash />
+            ),
+    };
+}
+
 const phoneColumn: ContactColumn = {
     id: "phone",
     label: "טלפון",
     width: "w-36",
     hideBelow: "xl",
+    sortKey: "phone",
+    sortAsc: true,
     cellClassName: "text-[12px] text-slate-600 font-mono",
+    hasValue: (c) => !!c.phone,
     cell: ({ c }) =>
         c.phone ? (
             <div className="flex items-center gap-1.5 min-w-0" dir="ltr">
@@ -323,6 +357,7 @@ export function customColumn(key: string): ContactColumn {
         sortAsc: true,
         custom: key,
         cellClassName: "text-[12px] text-slate-600",
+        hasValue: (c) => !!c.custom_fields?.[key],
         cell: ({ c }) => {
             const v = c.custom_fields?.[key];
             return v ? <span className="block truncate" {...clippedTitle}>{v}</span> : <Dash />;
@@ -335,6 +370,7 @@ export function builtinColumns(view: ViewName): ContactColumn[] {
         return [
             nameColumn,
             companyColumn(view),
+            mailHostColumn(view),
             phoneColumn,
             progressColumn,
             engagement(
@@ -356,11 +392,22 @@ export function builtinColumns(view: ViewName): ContactColumn[] {
             updatedColumn,
         ];
     }
-    return [nameColumn, companyColumn(view), phoneColumn, statusColumn, campaignsColumn, addedColumn(view), updatedColumn];
+    return [nameColumn, companyColumn(view), mailHostColumn(view), phoneColumn, statusColumn, campaignsColumn, addedColumn(view), updatedColumn];
+}
+
+// emptyColumnIds names the optional-data columns no loaded row has a value
+// for. An empty list hides nothing, so a loading table keeps its header.
+export function emptyColumnIds(columns: ContactColumn[], rows: ContactRow[]): Set<string> {
+    const out = new Set<string>();
+    if (rows.length === 0) return out;
+    for (const col of columns) {
+        if (col.hasValue && !rows.some(col.hasValue)) out.add(col.id);
+    }
+    return out;
 }
 
 export const DEFAULT_COLUMNS: Record<ViewName, string[]> = {
-    contacts: ["name", "company", "phone", "status", "campaigns", "created_at"],
+    contacts: ["name", "company", "mail_host", "phone", "status", "campaigns", "created_at"],
     campaign_leads: ["name", "company", "progress", "opened", "clicked", "replied", "current_step", "sender", "last_activity"],
 };
 
@@ -402,6 +449,9 @@ export function sortOptions(view: ViewName): SortOption[] {
         { key: "first_name", label: "שם פרטי", asc: true },
         { key: "last_name", label: "שם משפחה", asc: true },
         { key: "email", label: "אימייל", asc: true },
+        { key: "company", label: "חברה", asc: true },
+        { key: "phone", label: "טלפון", asc: true },
+        { key: "mail_host", label: "ספק דוא״ל", asc: true },
     ];
     if (view === "contacts") base.push({ key: "campaign_count", label: "קמפיינים", asc: false });
     return base;

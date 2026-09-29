@@ -19,6 +19,8 @@
 import React from "react";
 import { useUserProfile } from "@/hooks/context/user";
 import useEmails from "@/lib/api/hooks/app/emails/useEmails";
+import useSearchContacts from "@/lib/api/hooks/app/contacts/useSearchContacts";
+import { mailHostLogo } from "@/lib/mailHost";
 import ProviderLogo from "./ProviderLogo";
 
 type Mode = "off" | "prefer" | "strict";
@@ -26,23 +28,41 @@ type Status = "ok" | "warn" | "blocked" | "any";
 
 const LABEL: Record<string, string> = {
     gmail: "Google",
-    outlook: "Outlook",
+    outlook: "Microsoft",
     smtp_imap: "אחר / SMTP",
-    other: "דומיינים אחרים",
+    other: "ספקים אחרים",
 };
+
+// The family the scheduler matches a mailbox by (senderESP in the scheduler).
+function mailboxFamily(e: { provider: string; mail_host?: string }): "gmail" | "outlook" | "smtp_imap" {
+    if (e.provider === "gmail" || e.provider === "outlook") return e.provider;
+    const host = mailHostLogo(e.mail_host);
+    return host === "google" ? "gmail" : host === "microsoft" ? "outlook" : "smtp_imap";
+}
 
 export default function EspCoveragePanel({
     mode,
     emailTags,
     explicitAccounts,
+    campaignId,
 }: {
     mode: Mode;
     emailTags: string[];
     explicitAccounts: string[];
+    // The campaign whose leads are counted by provider; none on a draft.
+    campaignId?: string;
 }) {
     const profile = useUserProfile();
     const tags = profile?.user.tags ?? [];
     const { emails, isLoading } = useEmails({ query: "", tag: "", limit: 200 });
+    const leadSearch = useSearchContacts({
+        options: { query: "", custom_field_filters: [], campaign_ids: campaignId ? [campaignId] : [], sort_by: "created_at", reverse: false },
+        limit: 1,
+        enabled: !!campaignId,
+    });
+    const leads = leadSearch.data?.pages[0]?.lead_counts?.providers;
+    const leadCount = (n: number | undefined) =>
+        leads && n !== undefined ? <span className="ms-1.5 text-[11px] font-normal text-slate-400 tabular-nums">{n.toLocaleString()} {n === 1 ? "ליד" : "לידים"}</span> : null;
 
     const pool = React.useMemo(() => {
         const nonWarmup = emails.filter((e) => {
@@ -68,8 +88,9 @@ export default function EspCoveragePanel({
         let outlook = 0;
         let smtp = 0;
         for (const e of pool) {
-            if (e.provider === "gmail") gmail++;
-            else if (e.provider === "outlook") outlook++;
+            const family = mailboxFamily(e);
+            if (family === "gmail") gmail++;
+            else if (family === "outlook") outlook++;
             else smtp++;
         }
         return { gmail, outlook, smtp, total: pool.length };
@@ -131,7 +152,7 @@ export default function EspCoveragePanel({
                 {(["gmail", "outlook"] as const).map((r) => {
                     const sameCount = r === "gmail" ? counts.gmail : counts.outlook;
                     const hasSame = sameCount > 0;
-                    // SMTP/IMAP is a wildcard for Gmail/Outlook recipients only OUTSIDE
+                    // SMTP/IMAP is a wildcard for Google/Microsoft recipients only OUTSIDE
                     // strict — under strict, "same provider" excludes unknown-ESP SMTP.
                     const wildServes = counts.smtp > 0 && mode !== "strict";
                     // prefer falls back cross-provider when no same + no wildcard.
@@ -156,6 +177,7 @@ export default function EspCoveragePanel({
                             <div className="min-w-0 flex-1">
                                 <div className="text-[12.5px] font-medium text-slate-800 leading-tight">
                                     נמעני {LABEL[r]}
+                                    {leadCount(leads?.[r])}
                                 </div>
                                 <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                                     <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400">באמצעות</span>
@@ -194,7 +216,10 @@ export default function EspCoveragePanel({
                 <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
                     <ProviderLogo provider="other" className="size-8" />
                     <div className="min-w-0 flex-1">
-                        <div className="text-[12.5px] font-medium text-slate-800 leading-tight">דומיינים אחרים</div>
+                        <div className="text-[12.5px] font-medium text-slate-800 leading-tight">
+                            ספקים אחרים
+                            {leadCount(leads?.other)}
+                        </div>
                         <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] uppercase tracking-[0.1em] text-slate-400">באמצעות</span>
                             <AnyMailbox />
@@ -207,7 +232,13 @@ export default function EspCoveragePanel({
             {mode === "strict" && onlyWildcard && (
                 <p className="rounded-md bg-amber-50 border border-amber-200 px-2.5 py-2 text-[11px] text-amber-700 leading-relaxed">
                     כל תיבות הדואר שלך הן מסוג SMTP/IMAP, שיכולות לשלוח לכל ספק — לכן מצב קפדני אינו יכול לצמצם
-                    כאן לפי ספק ומתנהג כמו מצב כבוי. חבר תיבת Google או Outlook כדי להגביל באמת שליחה מאותו ספק.
+                    כאן לפי ספק ומתנהג כמו מצב כבוי. חבר תיבת Google או Microsoft כדי להגביל באמת שליחה מאותו ספק.
+                </p>
+            )}
+
+            {leads && leads.undetected > 0 && (
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                    ספק הדואר של {leads.undetected.toLocaleString()} {leads.undetected === 1 ? "ליד" : "לידים"} עדיין נקרא מרשומות הדומיין שלהם. עד להשלמת הקריאה נעשה שימוש בכתובת הדוא״ל בלבד, כך שכתובת gmail.com או outlook.com עדיין מותאמת.
                 </p>
             )}
 
@@ -215,7 +246,7 @@ export default function EspCoveragePanel({
                 {mode === "off"
                     ? "התאמת ספקים כבויה — כל נמען יכול להישלח מכל תיבת דואר במאגר."
                     : mode === "strict"
-                      ? "מצב קפדני שולח לנמעני Google ו-Outlook אך ורק מתיבת דואר של אותו ספק — נמען שאין עבורו תיבה מאותו ספק מושהה עד שתיבה מתאימה תתפנה, ולעולם אינו נשלח מספק שונה. תיבות SMTP/IMAP משרתות רק דומיינים אחרים במצב זה."
+                      ? "מצב קפדני שולח לנמעני Google ו-Microsoft אך ורק מתיבת דואר של אותו ספק. נמען שאין עבורו תיבה מאותו ספק מושהה עד שתיבה מתאימה תתפנה, ולעולם אינו נשלח מספק שונה. תיבות SMTP/IMAP אחרות משרתות רק נמענים בספקים אחרים במצב זה."
                       : "מצב העדפה משתמש בתיבה מאותו ספק כאשר יש לה קיבולת פנויה, ואם לא — משתמש בתיבה מספק אחר. הוא לעולם אינו משהה נמען. תיבות SMTP/IMAP יכולות לשלוח לכל ספק."}
             </p>
         </div>

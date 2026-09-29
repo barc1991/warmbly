@@ -43,6 +43,10 @@ export function filtersToSegment(f: SearchContacts, campaignID?: string): Segmen
         conditions.push({ field: "subscribed", operator: f.subscribed ? "is_true" : "is_false" });
     }
     if (f.verification_status) conditions.push({ field: "verification_status", operator: "in", values: [f.verification_status] });
+    // A segment enum has no empty value, so "unknown" is reported rather than lost.
+    const hosts = (f.mail_hosts ?? []).filter(Boolean);
+    if (hosts.length > 0) conditions.push({ field: "mail_host", operator: "in", values: hosts });
+    if (f.mail_hosts?.includes("")) dropped.push("ספק אימייל לא ידוע");
     if (f.min_campaigns !== undefined) conditions.push({ field: "campaign_count", operator: "gte", value: String(f.min_campaigns) });
     if (f.max_campaigns !== undefined) conditions.push({ field: "campaign_count", operator: "lte", value: String(f.max_campaigns) });
     if (f.created_after) conditions.push({ field: "created_at", operator: "after", value: isoDate(f.created_after) });
@@ -64,8 +68,8 @@ export function filtersToSegment(f: SearchContacts, campaignID?: string): Segmen
         }
     }
 
-    if (f.query.trim()) dropped.push("search text");
-    if (f.lead_status) dropped.push("lead status");
+    if (f.query.trim()) dropped.push("טקסט חיפוש");
+    if (f.lead_status) dropped.push("סטטוס ליד");
 
     return { conditions, dropped };
 }

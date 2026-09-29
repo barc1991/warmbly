@@ -428,7 +428,7 @@ func (d Deps) getCampaignStats(ctx context.Context, inv Invocation, args json.Ra
 	if err != nil {
 		return "", err
 	}
-	a, xerr := d.Analytics.GetCampaignAnalytics(ctx, inv.OrgID, cid)
+	a, xerr := d.Analytics.GetCampaignAnalytics(ctx, inv.OrgID, cid, nil)
 	if xerr != nil {
 		return "", fromErrx(xerr)
 	}

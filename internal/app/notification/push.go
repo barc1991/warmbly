@@ -227,6 +227,12 @@ func digestTitle(category models.NotificationCategory, n int) string {
 		return fmt.Sprintf("%d קמפיינים הושהו אוטומטית", n)
 	case models.NotifDomainAuth:
 		return fmt.Sprintf("%d דומיינים ללא אימות תקין", n)
+	case models.NotifPlacementFinished:
+		return fmt.Sprintf("%d בדיקות מיקום הסתיימו", n)
+	case models.NotifPlacementAlert:
+		return fmt.Sprintf("%d התראות מיקום בתיבה", n)
+	case models.NotifInboxActionRequired:
+		return fmt.Sprintf("%d הודעות דורשות טיפול", n)
 	default:
 		return fmt.Sprintf("%d התראות חדשות", n)
 	}

@@ -21,7 +21,7 @@ func TestFollowUp(t *testing.T) {
 		{
 			"they replied and we have not answered for days",
 			ThreadState{LastOutboundAt: ago(6), LastInboundAt: ago(3), BestIntent: IntentWantsInfo, LastKind: KindHumanReply},
-			LabelBallInOurCourt,
+			LabelNeedsReply,
 		},
 		{
 			"they replied yesterday, which is not yet a delay worth flagging",
@@ -34,25 +34,25 @@ func TestFollowUp(t *testing.T) {
 			"",
 		},
 		{
-			"we sent recently and are simply waiting",
+			"we sent recently and are simply waiting, which wears nothing",
 			ThreadState{LastOutboundAt: ago(1)},
-			LabelAwaitingReply,
+			"",
 		},
 		{
 			"we sent a week ago and never heard back",
 			ThreadState{LastOutboundAt: ago(7)},
-			LabelFollowUpDue,
+			LabelFollowUp,
 		},
 		{
 			// The one this whole feature is for.
 			"they were interested, then went quiet",
 			ThreadState{LastOutboundAt: ago(12), LastInboundAt: ago(14), BestIntent: IntentAgreed},
-			LabelGoingCold,
+			LabelGoneQuiet,
 		},
 		{
 			"an interested thread still inside its longer fuse",
 			ThreadState{LastOutboundAt: ago(6), LastInboundAt: ago(8), BestIntent: IntentAgreed},
-			LabelAwaitingReply,
+			"",
 		},
 		{
 			// Chasing somebody who declined is rude; chasing somebody who asked
@@ -112,8 +112,8 @@ func TestFollowUp(t *testing.T) {
 func TestFollowUpToleratesFutureTimestamps(t *testing.T) {
 	now := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
 	got := FollowUp(ThreadState{LastOutboundAt: now.AddDate(0, 0, 3)}, now)
-	if got != LabelAwaitingReply {
-		t.Fatalf("FollowUp with a future send = %q, want %q", got, LabelAwaitingReply)
+	if got != "" {
+		t.Fatalf("FollowUp with a future send = %q, want none", got)
 	}
 }
 
@@ -135,8 +135,9 @@ func TestFollowUpLabelsAreAllCreated(t *testing.T) {
 
 type fakeCategories struct {
 	// labels[threadID] is what the thread currently wears.
-	labels map[string]map[string]bool
-	seeded []string
+	labels  map[string]map[string]bool
+	seeded  []string
+	removed map[string][]string
 }
 
 func (f *fakeCategories) EnsureCategory(_ context.Context, _ uuid.UUID, slug string) (uuid.UUID, error) {
@@ -175,6 +176,13 @@ func (f *fakeCategories) SyncExclusiveLabels(ctx context.Context, orgID uuid.UUI
 	}
 	return nil
 }
+func (f *fakeCategories) RemoveAutoLabels(_ context.Context, _ uuid.UUID, threadID string, slugs []string) error {
+	if f.removed == nil {
+		f.removed = map[string][]string{}
+	}
+	f.removed[threadID] = append(f.removed[threadID], slugs...)
+	return nil
+}
 func (f *fakeCategories) has(threadID, label string) bool { return f.labels[threadID][label] }
 
 // The sweep reuses stored classifications and makes no model calls of its own.
@@ -202,9 +210,9 @@ func TestSweepNeedsNoModel(t *testing.T) {
 	}
 
 	for _, tc := range []struct{ thread, label string }{
-		{"t-ours", LabelBallInOurCourt},
-		{"t-chase", LabelFollowUpDue},
-		{"t-cold", LabelGoingCold},
+		{"t-ours", LabelNeedsReply},
+		{"t-chase", LabelFollowUp},
+		{"t-cold", LabelGoneQuiet},
 	} {
 		if !cats.has(tc.thread, tc.label) {
 			t.Errorf("%s did not get %q", tc.thread, tc.label)
@@ -216,13 +224,13 @@ func TestSweepNeedsNoModel(t *testing.T) {
 }
 
 // The states move with the calendar, so a re-sweep has to REPLACE the label.
-// A thread wearing both awaiting-reply and follow-up-due is wearing its history
+// A thread wearing both Follow up and Needs reply is wearing its history
 // rather than its state.
 func TestSweepReplacesRatherThanAccumulates(t *testing.T) {
 	now := time.Now()
 	cats := &fakeCategories{}
 	repo := &fakeRepo{states: []repository.ThreadFollowUpState{
-		{ThreadID: "t-1", LastOutboundAt: now.AddDate(0, 0, -1)},
+		{ThreadID: "t-1", LastOutboundAt: now.AddDate(0, 0, -9)},
 	}}
 	svc := NewService(&countingAsker{}, repo, cats, nil, true)
 	orgID := uuid.New()
@@ -230,29 +238,30 @@ func TestSweepReplacesRatherThanAccumulates(t *testing.T) {
 	if _, err := svc.SweepFollowUps(context.Background(), orgID, now.AddDate(0, 0, -90), 0); err != nil {
 		t.Fatalf("first sweep: %v", err)
 	}
-	if !cats.has("t-1", LabelAwaitingReply) {
-		t.Fatal("expected awaiting-reply on a fresh send")
+	if !cats.has("t-1", LabelFollowUp) {
+		t.Fatal("expected Follow up on a send nobody answered")
 	}
 
-	// Time passes and nobody answers.
-	repo.states[0].LastOutboundAt = now.AddDate(0, 0, -9)
+	// They answer, and we sit on it.
+	repo.states[0].LastInboundAt = now.AddDate(0, 0, -3)
+	repo.states[0].LastKind = KindHumanReply
+	repo.states[0].BestIntent = IntentWantsInfo
 	if _, err := svc.SweepFollowUps(context.Background(), orgID, now.AddDate(0, 0, -90), 0); err != nil {
 		t.Fatalf("second sweep: %v", err)
 	}
-	if !cats.has("t-1", LabelFollowUpDue) {
-		t.Error("did not move to follow-up-due")
+	if !cats.has("t-1", LabelNeedsReply) {
+		t.Error("did not move to Needs reply")
 	}
-	if cats.has("t-1", LabelAwaitingReply) {
-		t.Error("kept awaiting-reply alongside follow-up-due; the thread now wears its history")
+	if cats.has("t-1", LabelFollowUp) {
+		t.Error("kept Follow up alongside Needs reply; the thread now wears its history")
 	}
 
-	// They finally answer, so nothing is owed by them any more.
-	repo.states[0].LastInboundAt = now
-	repo.states[0].LastKind = KindHumanReply
+	// We answer, so nothing is owed either way yet.
+	repo.states[0].LastOutboundAt = now
 	if _, err := svc.SweepFollowUps(context.Background(), orgID, now.AddDate(0, 0, -90), 0); err != nil {
 		t.Fatalf("third sweep: %v", err)
 	}
-	if cats.has("t-1", LabelFollowUpDue) {
-		t.Error("still asking us to chase somebody who replied")
+	if cats.has("t-1", LabelNeedsReply) {
+		t.Error("still asking us to reply after we did")
 	}
 }

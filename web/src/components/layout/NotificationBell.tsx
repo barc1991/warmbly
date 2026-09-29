@@ -9,7 +9,10 @@ import {
     BellIcon,
     ClockIcon,
     CreditCardIcon,
+    InboxIcon,
     KeyRoundIcon,
+    MailCheckIcon,
+    MailWarningIcon,
     ReplyIcon,
     ServerCrashIcon,
     PauseCircleIcon,
@@ -40,6 +43,9 @@ const CATEGORY_META: Record<string, { icon: LucideIcon; tone: string }> = {
     team_activity: { icon: UsersIcon, tone: "bg-emerald-50 text-emerald-600" },
     campaign_paused: { icon: PauseCircleIcon, tone: "bg-rose-50 text-rose-600" },
     health_domain_auth: { icon: ShieldOffIcon, tone: "bg-rose-50 text-rose-600" },
+    placement_finished: { icon: MailCheckIcon, tone: "bg-sky-50 text-sky-600" },
+    placement_alert: { icon: MailWarningIcon, tone: "bg-rose-50 text-rose-600" },
+    inbox_action_required: { icon: InboxIcon, tone: "bg-rose-50 text-rose-600" },
 };
 
 const FALLBACK_META = { icon: BellIcon, tone: "bg-slate-100 text-slate-500" };
