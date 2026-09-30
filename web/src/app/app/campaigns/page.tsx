@@ -36,7 +36,6 @@ import {
     PlayIcon,
     PlusIcon,
     RefreshCcwIcon,
-    SendIcon,
     Settings2Icon,
 } from "lucide-react";
 import {
@@ -57,7 +56,6 @@ import {
     campaignStatusBucket as statusBucket,
     campaignStatusTone as statusTone,
     isIdleCampaign,
-    isOneTimeCampaign,
 } from "@/components/app/campaigns/status";
 import {
     PopoverMenu,
@@ -70,20 +68,7 @@ import {
 } from "@/components/ui/popover-menu";
 
 type StatusFilter = "all" | "active" | "paused" | "draft" | "completed";
-type KindFilter = "all" | "sequence" | "one_time";
 type SortMode = "newest" | "oldest" | "name";
-
-const KIND_LABEL: Record<KindFilter, string> = {
-    all: "All types",
-    sequence: "Sequences",
-    one_time: "One-time emails",
-};
-
-const KIND_LABEL_HE: Record<KindFilter, string> = {
-    all: "כל הסוגים",
-    sequence: "רצפי הודעות",
-    one_time: "אימיילים חד-פעמיים",
-};
 
 // Per-state label + leading mark for a campaign row. "active" renders the
 // animated dot-grid loader; every other state is a 14px lucide icon so the
@@ -256,18 +241,19 @@ function CampaignFolderMenu({ campaign, folders }: { campaign: Campaign; folders
 }
 
 export default function CampaignsPage() {
-    const { t, i18n } = useTranslation(["campaigns", "common"]);
+    const { t } = useTranslation(["campaigns", "common"]);
     const p = useUserProfile();
     const confirm = useConfirm();
     const canView = usePermission("VIEW_CAMPAIGNS");
+    const canManage = usePermission("MANAGE_CAMPAIGNS");
     const startCampaign = useStartCampaign();
     const stopCampaign = useStopCampaign();
     const [folder, setFolder] = useState<string>("");
     const [query, setQuery] = useState<string>("");
     const [status, setStatus] = useState<StatusFilter>("all");
-    const [kind, setKind] = useState<KindFilter>("all");
     const [sort, setSort] = useState<SortMode>("newest");
     const [newOpen, setNewOpen] = useState<boolean>(false);
+    const [draftId, setDraftId] = useState<string | null>(null);
     const [launchTarget, setLaunchTarget] = useState<Campaign | null>(null);
 
     async function toggleCampaign(id: string, currentStatus: string) {
@@ -311,9 +297,7 @@ export default function CampaignsPage() {
 
     const filtered = useMemo(() => {
         const base = campaigns.filter(
-            (c) =>
-                (status === "all" || statusBucket(c.status) === status) &&
-                (kind === "all" || (c.kind ?? "sequence") === kind),
+            (c) => status === "all" || statusBucket(c.status) === status,
         );
         const sorted = [...base];
         if (sort === "newest") {
@@ -324,7 +308,7 @@ export default function CampaignsPage() {
             sorted.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
         }
         return sorted;
-    }, [campaigns, status, kind, sort]);
+    }, [campaigns, status, sort]);
 
     const counts = useMemo(() => {
         const stats = { total: campaigns.length, active: 0, paused: 0, draft: 0, completed: 0 };
@@ -334,18 +318,18 @@ export default function CampaignsPage() {
         return stats;
     }, [campaigns]);
 
-    if (!canView) return <NoAccess feature={i18n.language === "he" ? "קמפיינים" : "campaigns"} permissionLabel={i18n.language === "he" ? "צפייה בקמפיינים" : "View campaigns"} />;
+    if (!canView) return <NoAccess feature="קמפיינים" permissionLabel="צפייה בקמפיינים" />;
 
     return (
         <Page>
             <PageTopbar
-                eyebrow={t("campaigns:title", "Campaigns")}
+                eyebrow={t("campaigns:title", "קמפיינים")}
                 subtitle={
                     campaignsData.isPending
-                        ? t("common:states.loading", i18n.language === "he" ? "טוען..." : "Loading…")
+                        ? "טוען..."
                         : campaignsData.isError
-                            ? t("common:states.error", i18n.language === "he" ? "שגיאה בטעינה" : "Failed to load")
-                            : `${campaigns.length} ${campaigns.length === 1 ? (i18n.language === "he" ? "קמפיין" : "campaign") : (i18n.language === "he" ? "קמפיינים" : "campaigns")}`
+                            ? "שגיאה בטעינה"
+                            : `${campaigns.length} ${campaigns.length === 1 ? "קמפיין" : "קמפיינים"}`
                 }
             >
                 <TopbarAction
@@ -353,46 +337,46 @@ export default function CampaignsPage() {
                     icon={<Settings2Icon className="w-3 h-3" />}
                     onClick={() => p.setFoldersEdit(true)}
                 >
-                    {i18n.language === "he" ? "תיקיות" : "Folders"}
+                    תיקיות
                 </TopbarAction>
                 <TopbarAction
                     icon={<PlusIcon className="w-3 h-3" />}
                     onClick={() => setNewOpen(true)}
                 >
-                    {t("campaigns:newCampaign", "New campaign")}
+                    קמפיין חדש
                 </TopbarAction>
             </PageTopbar>
 
             <StatStrip cols={5}>
                 <Stat
-                    label={t("common:states.all", i18n.language === "he" ? "הכל" : "All")}
+                    label="הכל"
                     value={counts.total}
-                    sub={i18n.language === "he" ? "קמפיינים" : "campaigns"}
+                    sub="קמפיינים"
                     onClick={() => setStatus("all")}
                 />
                 <Stat
-                    label={t("common:states.active", i18n.language === "he" ? "פעילים" : "Active")}
+                    label="פעילים"
                     value={counts.active}
-                    sub={i18n.language === "he" ? "שולחים כעת" : "sending now"}
+                    sub="שולחים כעת"
                     accent={counts.active > 0}
                     onClick={() => setStatus("active")}
                 />
                 <Stat
-                    label={t("common:states.paused", i18n.language === "he" ? "מושהים" : "Paused")}
+                    label="מושהים"
                     value={counts.paused}
-                    sub={i18n.language === "he" ? "ניתנים לחידוש" : "resumable"}
+                    sub="ניתנים לחידוש"
                     onClick={() => setStatus("paused")}
                 />
                 <Stat
-                    label={t("common:states.draft", i18n.language === "he" ? "טיוטות" : "Draft")}
+                    label="טיוטות"
                     value={counts.draft}
-                    sub={i18n.language === "he" ? "טרם הופעלו" : "not started"}
+                    sub="טרם הופעלו"
                     onClick={() => setStatus("draft")}
                 />
                 <Stat
-                    label={t("common:states.done", i18n.language === "he" ? "הושלמו" : "Done")}
+                    label="הושלמו"
                     value={counts.completed}
-                    sub={i18n.language === "he" ? "הסתיימו" : "finished"}
+                    sub="הסתיימו"
                     last
                     onClick={() => setStatus("completed")}
                 />
@@ -400,24 +384,22 @@ export default function CampaignsPage() {
 
             <SectionBar
                 label={
-                    i18n.language === "he"
-                        ? (status === "all"
-                            ? "כל הקמפיינים"
-                            : status === "active"
-                            ? "קמפיינים פעילים"
-                            : status === "paused"
-                            ? "קמפיינים מושהים"
-                            : status === "draft"
-                            ? "טיוטות"
-                            : "קמפיינים שהסתיימו")
-                        : (status === "all" ? "All campaigns" : `${status[0].toUpperCase()}${status.slice(1)}`)
+                    status === "all"
+                        ? "כל הקמפיינים"
+                        : status === "active"
+                        ? "קמפיינים פעילים"
+                        : status === "paused"
+                        ? "קמפיינים מושהים"
+                        : status === "draft"
+                        ? "טיוטות"
+                        : "קמפיינים שהסתיימו"
                 }
                 count={filtered.length}
             >
                 <SearchInput
                     value={query}
                     onChange={setQuery}
-                    placeholder={i18n.language === "he" ? "חיפוש קמפיינים…" : "Search campaigns…"}
+                    placeholder="חיפוש קמפיינים…"
                     className="w-full sm:w-56"
                 />
 
@@ -425,16 +407,16 @@ export default function CampaignsPage() {
                     <PopoverMenuTrigger asChild>
                         <SelectButton
                             icon={<FolderIcon className="w-3.5 h-3.5" />}
-                            label={activeFolder?.title ?? (i18n.language === "he" ? "כל התיקיות" : "All folders")}
+                            label={activeFolder?.title ?? "כל התיקיות"}
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent minWidth={200}>
-                        <PopoverMenuLabel>{i18n.language === "he" ? "תיקיות" : "Folders"}</PopoverMenuLabel>
+                        <PopoverMenuLabel>תיקיות</PopoverMenuLabel>
                         <PopoverMenuItem
                             onSelect={() => setFolder("")}
                             selected={!folder}
                         >
-                            {i18n.language === "he" ? "כל התיקיות" : "All folders"}
+                            כל התיקיות
                         </PopoverMenuItem>
                         {folders.map((f) => (
                             <PopoverMenuItem
@@ -451,25 +433,8 @@ export default function CampaignsPage() {
                             onSelect={() => p.setFoldersEdit(true)}
                             icon={<Settings2Icon className="w-3 h-3" />}
                         >
-                            {i18n.language === "he" ? "ניהול תיקיות" : "Manage folders"}
+                            ניהול תיקיות
                         </PopoverMenuItem>
-                    </PopoverMenuContent>
-                </PopoverMenu>
-
-                <PopoverMenu align="end">
-                    <PopoverMenuTrigger asChild>
-                        <SelectButton
-                            icon={<SendIcon className="w-3.5 h-3.5" />}
-                            label={i18n.language === "he" ? KIND_LABEL_HE[kind] : KIND_LABEL[kind]}
-                        />
-                    </PopoverMenuTrigger>
-                    <PopoverMenuContent minWidth={180}>
-                        <PopoverMenuLabel>{i18n.language === "he" ? "סוג" : "Type"}</PopoverMenuLabel>
-                        {(Object.keys(KIND_LABEL) as KindFilter[]).map((k) => (
-                            <PopoverMenuItem key={k} selected={kind === k} onSelect={() => setKind(k)}>
-                                {i18n.language === "he" ? KIND_LABEL_HE[k] : KIND_LABEL[k]}
-                            </PopoverMenuItem>
-                        ))}
                     </PopoverMenuContent>
                 </PopoverMenu>
 
@@ -477,32 +442,28 @@ export default function CampaignsPage() {
                     <PopoverMenuTrigger asChild>
                         <SelectButton
                             icon={<FilterIcon className="w-3.5 h-3.5" />}
-                            label={
-                                i18n.language === "he"
-                                    ? (sort === "newest" ? "הכי חדש" : sort === "oldest" ? "הכי ישן" : "לפי שם")
-                                    : (sort === "newest" ? "Newest" : sort === "oldest" ? "Oldest" : "Name")
-                            }
+                            label={sort === "newest" ? "הכי חדש" : sort === "oldest" ? "הכי ישן" : "לפי שם"}
                         />
                     </PopoverMenuTrigger>
                     <PopoverMenuContent>
-                        <PopoverMenuLabel>{i18n.language === "he" ? "מיון" : "Sort"}</PopoverMenuLabel>
+                        <PopoverMenuLabel>מיון</PopoverMenuLabel>
                         <PopoverMenuItem
                             selected={sort === "newest"}
                             onSelect={() => setSort("newest")}
                         >
-                            {i18n.language === "he" ? "הכי חדש תחילה" : "Newest first"}
+                            הכי חדש תחילה
                         </PopoverMenuItem>
                         <PopoverMenuItem
                             selected={sort === "oldest"}
                             onSelect={() => setSort("oldest")}
                         >
-                            {i18n.language === "he" ? "הכי ישן תחילה" : "Oldest first"}
+                            הכי ישן תחילה
                         </PopoverMenuItem>
                         <PopoverMenuItem
                             selected={sort === "name"}
                             onSelect={() => setSort("name")}
                         >
-                            {i18n.language === "he" ? "לפי שם (א–ת)" : "Name (A–Z)"}
+                            לפי שם (א–ת)
                         </PopoverMenuItem>
                     </PopoverMenuContent>
                 </PopoverMenu>
@@ -521,9 +482,7 @@ export default function CampaignsPage() {
                     <ErrorState
                         message={
                             campaignsData.error?.message ||
-                            (i18n.language === "he"
-                                ? "הבקשה נכשלה. ייתכן שהשרת אינו זמין או שהחזיר שגיאה."
-                                : "The request failed. The backend may be down or returning an error.")
+                            "הבקשה נכשלה. ייתכן שהשרת אינו זמין או שהחזיר שגיאה."
                         }
                         onRetry={() => campaignsData.refetch()}
                         isRefetching={campaignsData.isFetching}
@@ -531,32 +490,24 @@ export default function CampaignsPage() {
                 ) : filtered.length === 0 ? (
                     campaigns.length === 0 ? (
                         <EmptyBlock
-                            title={i18n.language === "he" ? "אין קמפיינים עדיין" : "No campaigns yet"}
-                            body={i18n.language === "he" ? "צור את הרצף הראשון שלך כדי להתחיל להגיע לנמענים." : "Create your first sequence to start reaching prospects."}
+                            title="אין קמפיינים עדיין"
+                            body="צור את הקמפיין הראשון שלך כדי להתחיל להגיע לנמענים."
                             cta={
                                 <TopbarAction
                                     icon={<PlusIcon className="w-3 h-3" />}
                                     onClick={() => setNewOpen(true)}
                                 >
-                                    {t("campaigns:newCampaign", "קמפיין חדש")}
+                                    קמפיין חדש
                                 </TopbarAction>
                             }
                         />
                     ) : (
                         <EmptyBlock
-                            title={
-                                i18n.language === "he"
-                                    ? `אין קמפיינים ${status === "active" ? "פעילים" : status === "paused" ? "מושהים" : status === "draft" ? "בטיוטה" : "שהסתיימו"}`
-                                    : `No ${status} campaigns`
-                            }
-                            body={
-                                i18n.language === "he"
-                                    ? "עבור למצב \"הכל\" כדי לצפות בכל הרצפים."
-                                    : "Switch to “All” to see every sequence."
-                            }
+                            title={`אין קמפיינים ${status === "active" ? "פעילים" : status === "paused" ? "מושהים" : status === "draft" ? "בטיוטה" : "שהסתיימו"}`}
+                            body='עבור למצב "הכל" כדי לצפות בכל הקמפיינים.'
                             cta={
                                 <TopbarAction onClick={() => setStatus("all")} variant="ghost">
-                                    {i18n.language === "he" ? "הצג הכל" : "Show all"}
+                                    הצג הכל
                                 </TopbarAction>
                             }
                         />
@@ -572,6 +523,12 @@ export default function CampaignsPage() {
                                 <Link
                                     key={c.id}
                                     to={`/app/campaigns/${c.id}`}
+                                    onClick={(e) => {
+                                        // A modified click still opens the page, in a new tab or not.
+                                        if (!canManage || cstatus !== "draft" || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                                        e.preventDefault();
+                                        setDraftId(c.id);
+                                    }}
                                     className="group h-11 px-5 flex items-center gap-3 hover:bg-slate-50 transition-colors"
                                 >
                                     {/* Fixed-width leading slot so every row's name aligns,
@@ -579,25 +536,16 @@ export default function CampaignsPage() {
                                     <span className="shrink-0 w-3.5 flex items-center justify-center">
                                         <CampaignStatusMark status={cstatus} idle={isIdleCampaign(c)} />
                                     </span>
-                                    <span className="text-[12.5px] text-slate-900 font-medium truncate max-w-[40%]">
+                                    <span className="text-[12.5px] text-slate-900 font-medium truncate max-w-[40%] text-start">
                                         {c.name}
                                     </span>
                                     <span className="font-mono text-[10.5px] text-slate-400 tabular-nums shrink-0 hidden sm:inline">
                                         {c.id.slice(0, 8)}
                                     </span>
-                                    {isOneTimeCampaign(c) && (
-                                        <span
-                                            title="אימייל חד-פעמי: הודעה בודדת, ללא מעקב המשך"
-                                            className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded-full bg-sky-50 text-sky-700 text-[10px] font-medium uppercase tracking-[0.1em] shrink-0"
-                                        >
-                                            <SendIcon className="w-2.5 h-2.5 rtl:rotate-180" />
-                                            חד-פעמי
-                                        </span>
-                                    )}
                                     <AdvisorRowFlag findings={advisor.get(c.id)} subject={c.name} />
                                     <CampaignFolderChips campaign={c} folders={folders} />
                                     {c.description && (
-                                        <span className="text-[11.5px] text-slate-400 truncate hidden md:inline">
+                                        <span className="text-[11.5px] text-slate-400 truncate hidden md:inline text-start">
                                             {c.description}
                                         </span>
                                     )}
@@ -607,7 +555,7 @@ export default function CampaignsPage() {
                                     <span className="font-mono text-[10.5px] text-slate-400 tabular-nums items-center gap-1 shrink-0 hidden sm:flex">
                                         <CalendarIcon className="w-3 h-3" />
                                         {c.created_at
-                                            ? new Date(c.created_at).toLocaleDateString(i18n.language === "he" ? "he-IL" : "en-US", {
+                                            ? new Date(c.created_at).toLocaleDateString("he-IL", {
                                                 month: "short",
                                                 day: "numeric",
                                             })
@@ -644,7 +592,14 @@ export default function CampaignsPage() {
                 )}
             </PageBody>
 
-            <NewCampaignDialog open={newOpen} onClose={() => setNewOpen(false)} />
+            <NewCampaignDialog
+                open={newOpen || draftId !== null}
+                draftId={draftId}
+                onClose={() => {
+                    setNewOpen(false);
+                    setDraftId(null);
+                }}
+            />
             <LaunchCampaignDialog
                 campaign={launchTarget}
                 onClose={() => setLaunchTarget(null)}

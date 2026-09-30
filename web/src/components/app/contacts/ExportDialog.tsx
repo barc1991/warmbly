@@ -69,7 +69,7 @@ const STANDARD_FIELDS: { id: string; label: string; preset: "basic" | "full" | "
     { id: "company",      label: "חברה",           preset: "basic" },
     { id: "phone",        label: "טלפון",          preset: "basic" },
     { id: "subscribed",   label: "רשום לדיוור",    preset: "basic" },
-    { id: "categories",   label: "קטגוריות",       preset: "full" },
+    { id: "categories",   label: "תוויות",         preset: "full" },
     { id: "campaigns",    label: "קמפיינים",       preset: "full" },
     { id: "created_at",   label: "נוצר בתאריך",    preset: "full" },
     { id: "updated_at",   label: "עודכן בתאריך",   preset: "full" },
@@ -87,7 +87,7 @@ const CAMPAIGN_FIELDS: { id: string; label: string }[] = [
 
 const PRESETS: { id: "basic" | "full" | "campaign-ready" | "custom"; label: string; hint: string }[] = [
     { id: "basic",          label: "בסיסי",          hint: "פרטי איש קשר עיקריים: מה שרוב מערכות ה-CRM דורשות." },
-    { id: "full",           label: "מלא",           hint: "כל העמודות הסטנדרטיות כולל קטגוריות וקמפיינים." },
+    { id: "full",           label: "מלא",           hint: "כל העמודות הסטנדרטיות כולל תוויות וקמפיינים." },
     { id: "campaign-ready", label: "מותאם לקמפיין", hint: "אימייל, שמות וחברה, בתוספת סטטוס ליד ומעורבות בקמפיין." },
     { id: "custom",         label: "מותאם אישית",   hint: "בחירת העמודות המדויקות שדרושות לך." },
 ];

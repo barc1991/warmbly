@@ -86,13 +86,13 @@ export default function SettingsPanel({
                 description="היכן איש קשר שהוגש נקלט בסביבת העבודה שלך."
             >
                 <div>
-                    <Label>הוסף לקטגוריות</Label>
+                    <Label>הוסף לתוויות</Label>
                     <CategoryPicker
                         value={draft.category_ids}
                         onChange={(next) => onChange({ category_ids: next })}
-                        placeholder="בחר קטגוריות, למשל לידים מהאתר"
+                        placeholder="בחר תוויות, למשל לידים מהאתר"
                     />
-                    <p className="text-[11px] text-slate-500 mt-1">כל איש קשר שמוגש יתוייג תחת קטגוריות אלו.</p>
+                    <p className="text-[11px] text-slate-500 mt-1">כל איש קשר שמוגש יתוייג תחת תוויות אלו.</p>
                 </div>
                 <div>
                     <Label>הוסף לקמפיין</Label>

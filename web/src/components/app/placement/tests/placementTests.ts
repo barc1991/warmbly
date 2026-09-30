@@ -110,12 +110,17 @@ export function usageLabel(o: PlacementOverview | undefined): string {
     return `${used} מתוך ${limit} בדיקות החודש`;
 }
 
+// Unmetered and free: tests never require credits or paywalls in this edition.
+export function testCost(usage: PlacementOverview["usage"] | undefined, metered: boolean, tests: number) {
+    return { paid: 0, credits: 0, payable: true, canPay: true };
+}
+
 // Which part of the new-test form a refusal is about, so it shows beside it.
 export type PlacementErrorField = "sender" | "source" | "tracking" | "panel" | "general";
 
 export function placementErrorMessage(
     err: AppError,
-    ctx: { resetsOn?: Date | null; panel?: PlacementPanel } = {},
+    ctx: { resetsOn?: Date | null; panel?: PlacementPanel; chosen?: boolean } = {},
 ): { field: PlacementErrorField; message: string } {
     switch (err?.code) {
         case "placement_not_entitled":

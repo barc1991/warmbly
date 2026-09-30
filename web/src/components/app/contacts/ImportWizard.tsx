@@ -998,10 +998,10 @@ function OptionsStep({
 
             <section>
                 <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                    החלת קטגוריות
+                    החלת תוויות
                 </h2>
                 <p className="text-[11px] text-slate-400 leading-tight mb-2">
-                    כל איש קשר שיובא יקבל קטגוריות אלו. דלג אם אין ברצונך לתייג את כל הקבוצה.
+                    כל איש קשר שיובא יקבל תוויות אלו. דלג אם אין ברצונך לתייג את כל הקבוצה.
                 </p>
                 <CategoryPicker value={categoryIds} onChange={setCategoryIds} />
             </section>

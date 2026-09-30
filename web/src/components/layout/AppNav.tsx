@@ -189,13 +189,14 @@ function NavTip({
     children: ReactElement;
 }) {
     if (!collapsed) return children;
+    const isRtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
     return (
         // The shared Tooltip mounts its own provider per instance, so there is
         // no shared skip-delay across the rail: without a delay every row the
         // cursor crosses on its way down pops one.
         <Tooltip delayDuration={300}>
             <TooltipTrigger asChild>{children}</TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
+            <TooltipContent side={isRtl ? "left" : "right"} sideOffset={8}>
                 {label}
             </TooltipContent>
         </Tooltip>
@@ -235,7 +236,7 @@ function NavRow({ item, collapsed = false }: { item: NavItem; collapsed?: boolea
     if (accessDenied) {
         return (
             <>
-                <NavTip collapsed={collapsed} label={`${item.title} · no access`}>
+                <NavTip collapsed={collapsed} label={`${item.title} · אין גישה`}>
                 <button
                     type="button"
                     onClick={() => setDeniedOpen(true)}
@@ -249,8 +250,8 @@ function NavRow({ item, collapsed = false }: { item: NavItem; collapsed?: boolea
                         comes from a visually hidden span. NOT aria-label: that
                         would override the whole subtree, silencing the badges
                         the collapsed rail exists to keep. */}
-                    <span className={collapsed ? "sr-only" : "truncate flex-1 min-w-0 text-left"}>
-                        {collapsed ? `${item.title} · no access` : item.title}
+                    <span className={collapsed ? "sr-only" : "truncate flex-1 min-w-0 text-start"}>
+                        {collapsed ? `${item.title} · אין גישה` : item.title}
                     </span>
                 </button>
                 </NavTip>
@@ -258,7 +259,7 @@ function NavRow({ item, collapsed = false }: { item: NavItem; collapsed?: boolea
                     open={deniedOpen}
                     onClose={() => setDeniedOpen(false)}
                     feature={item.title}
-                    permissionLabel={item.permissionLabel ?? "the required"}
+                    permissionLabel={item.permissionLabel ?? "הנדרשת"}
                 />
             </>
         );
@@ -281,7 +282,7 @@ function NavRow({ item, collapsed = false }: { item: NavItem; collapsed?: boolea
     // checkout), instead of routing to a teasing empty page.
     if (locked && minPlan && planBadge) {
         return (
-            <NavTip collapsed={collapsed} label={`${item.title} · ${planBadge.label} plan`}>
+            <NavTip collapsed={collapsed} label={`${item.title} · תוכנית ${planBadge.label}`}>
             <button
                 type="button"
                 onClick={() => upgradeDialog.open({ feature: item.title, minPlan })}
@@ -291,8 +292,8 @@ function NavRow({ item, collapsed = false }: { item: NavItem; collapsed?: boolea
                 )}
             >
                 <LockIcon className="w-[13px] h-[13px] shrink-0 text-slate-300 group-hover:text-slate-500" strokeWidth={1.8} />
-                <span className={collapsed ? "sr-only" : "truncate flex-1 min-w-0 text-left"}>
-                    {collapsed ? `${item.title} · ${planBadge.label} plan` : item.title}
+                <span className={collapsed ? "sr-only" : "truncate flex-1 min-w-0 text-start"}>
+                    {collapsed ? `${item.title} · תוכנית ${planBadge.label}` : item.title}
                 </span>
                 {!collapsed && (
                     <span
@@ -351,7 +352,7 @@ function NavRow({ item, collapsed = false }: { item: NavItem; collapsed?: boolea
                     )}
                     {badge != null && badge > 0 && (
                         <span className="absolute -right-0.5 -top-0.5 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white text-[9px] font-medium leading-none flex items-center justify-center tabular-nums ring-2 ring-white">
-                            <span className="sr-only">{badge} unread</span>
+                            <span className="sr-only">{badge} שלא נקראו</span>
                             <span aria-hidden>{badge > 9 ? "9+" : badge}</span>
                         </span>
                     )}
@@ -837,7 +838,7 @@ function LivePanel({ collapsed = false }: { collapsed?: boolean }) {
                         </span>
                     </Link>
                 </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
+                <TooltipContent side={typeof document !== "undefined" && document.documentElement.dir === "rtl" ? "left" : "right"} sideOffset={8}>
                     {summary}
                 </TooltipContent>
             </Tooltip>

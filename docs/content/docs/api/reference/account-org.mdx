@@ -123,7 +123,7 @@ Same shape as `/auth/login`: `email`, `password`, `turnstile`.
 
 `POST /auth/register/confirm`
 
-Confirms the emailed code, creates the account and signs it in: the response is the same shape as a completed `/auth/login` (a `token` pair, or a `two_fa_required` challenge), so the client lands in the dashboard without a second sign-in. `/auth/register` itself returns that shape directly when the deployment does not require email verification.
+Confirms the emailed code, creates the account and signs it in: the response is the same shape as a completed `/auth/login` (a `token` pair, or a `two_fa_required` challenge), so the client lands in the dashboard without a second sign-in. `/auth/register` itself returns that shape directly when the deployment does not require email verification. An address that already has an account is refused with `409` `conflict` (see [error codes](/api/error-codes/#409-conflict)).
 
 Auth: public (not available to API keys).
 
@@ -375,9 +375,9 @@ Auth: Session only (not available to API keys).
 
 `GET /auth/me`
 
-Returns the signed-in user, including admin flags and the label registries (folders, tags, categories) the dashboard needs on initial load.
+Returns the signed-in user, including admin flags and the label registries (folders, tags, and the workspace labels returned as `categories`) the dashboard needs on initial load.
 
-The registries belong to the workspace, not to the caller: every member of an organization sees the same folders, tags and categories, whoever created them. They are read for the session's currently selected workspace, so switching workspaces changes what comes back.
+The registries belong to the workspace, not to the caller: every member of an organization sees the same folders, tags and labels, whoever created them. They are read for the session's currently selected workspace, so switching workspaces changes what comes back.
 
 Auth: Session only (not available to API keys).
 
@@ -1577,6 +1577,8 @@ Auth: Session only (not available to API keys). Requires a selected organization
 `POST /organization/:orgId/limit-requests`
 
 Submits a request to raise one of the organization's limits. The current effective value is captured server-side at submission time. Returns `201 Created`.
+
+A workspace without a plan that sends (a free workspace, or one on the Warmup plan) can only request `max_email_accounts`; any other field returns `400 bad_request`, because none of those limits applies until the workspace sends. A `daily_campaign_limit` request from a workspace whose daily sends are already unlimited also returns `400 bad_request`, since an approved value would impose a cap rather than raise one.
 
 Auth: Session only (not available to API keys).
 

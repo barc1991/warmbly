@@ -29,7 +29,7 @@ func (d Deps) registerContactTools(r *Registry) {
 
 	r.Register(Tool{
 		Name:        "get_contact",
-		Description: "Get one contact by id, including custom fields, categories, subscription state, and engagement summary.",
+		Description: "Get one contact by id, including custom fields, labels (categories), subscription state, and engagement summary.",
 		InputSchema: objectSchema(map[string]any{
 			"contact_id": strProp("The contact's UUID."),
 		}, "contact_id"),
@@ -122,8 +122,8 @@ func (d Deps) registerContactTools(r *Registry) {
 		Description: "Apply the same change (add/remove tags, set subscription) to many contacts at once.",
 		InputSchema: objectSchema(map[string]any{
 			"contact_ids":       arrProp("Contact UUIDs to edit (required).", strProp("Contact UUID.")),
-			"add_categories":    arrProp("Category (tag) UUIDs to add to each contact.", strProp("Category UUID.")),
-			"remove_categories": arrProp("Category (tag) UUIDs to remove from each contact.", strProp("Category UUID.")),
+			"add_categories":    arrProp("Label (category) UUIDs to add to each contact.", strProp("Label UUID.")),
+			"remove_categories": arrProp("Label (category) UUIDs to remove from each contact.", strProp("Label UUID.")),
 			"subscribe":         boolProp("Set subscription state on each contact."),
 		}, "contact_ids"),
 		Risk:            generation.RiskWrite,

@@ -471,6 +471,12 @@ var Tables = []Table{
 		Scope: `campaign_id IN ` + orgCampaigns,
 	},
 	{
+		// Both contacts are in the contacts group, which campaigns require.
+		Name: "campaign_lead_cc", Group: models.OrgDataGroupCampaigns,
+		Scope: `campaign_id IN ` + orgCampaigns,
+		Note:  "Must travel with the leads, or a copied contact held on their own lead is released into a second sequence.",
+	},
+	{
 		Name: "campaign_lead_removals", Group: models.OrgDataGroupCampaigns,
 		Scope: `campaign_id IN ` + orgCampaigns,
 		Note:  "Must travel, or linked segments on the destination re-add every lead the user removed by hand.",
@@ -796,6 +802,17 @@ var Tables = []Table{
 		Scope: scopeOrg,
 	},
 	{
+		// A batch travels as a record of its senders and results. It lands
+		// inactive, so the destination never resumes sending it.
+		Name: "placement_batches", Group: models.OrgDataGroupEvents,
+		Scope:         scopeOrg,
+		ResetOnImport: []string{"active", "lease_until", "last_tick_at"},
+	},
+	{
+		Name: "placement_batch_senders", Group: models.OrgDataGroupEvents,
+		Scope: `batch_id IN (SELECT id FROM placement_batches WHERE organization_id = $1)`,
+	},
+	{
 		// The results travel as a record. The link to a cloud-run test and the
 		// seeds on the source instance's panel do not, and neither does a
 		// credit charge, whose ledger stays behind.
@@ -916,6 +933,8 @@ var ExcludedTables = map[string]string{
 	"oauth_authorization_codes":    "Single-use authorization codes, valid for seconds.",
 	"scheduled_deletions":          "Instance lifecycle state. Importing a pending deletion would schedule the destination workspace for destruction.",
 	"dedicated_worker_assignments": "Worker topology, which is a property of the instance rather than the workspace.",
+	"warmup_spam_moves":            "Per-message attribution evidence for warmup mail this instance synced, kept only to decide recent tampering; the destination judges its own.",
+	"mailbox_owner_activity":       "Five-minute buckets of sync-observed owner activity on this instance, read only to attribute recent spam moves.",
 	"warmup_pools":                 "Instance-global pool definitions shared by every workspace on the instance.",
 	"pool_link_codes":              "In-flight link handshakes between a self-hosted instance and this cloud, valid for minutes.",
 	"cli_auth_codes":               "In-flight `warmbly auth login` handshakes, valid for minutes. The API key an approval mints does travel, with the api_keys rows.",
@@ -933,6 +952,7 @@ var ExcludedTables = map[string]string{
 	"mailbox_import_rows":          "The rows of a mailbox import, with credentials sealed until each row is connected. They follow mailbox_imports, which does not travel.",
 	"contact_imports":              "Contact imports in progress or recently finished. They are work this instance is doing; the contacts they created travel with the contacts group.",
 	"contact_import_rows":          "The uploaded rows of a contact import and what became of each. They follow contact_imports, which does not travel.",
+	"placement_renders":            "The copy a tracking comparison is sending to each seed, sealed so both halves send the same words. It lives only while the comparison runs, and a copy that had not been sent stays behind with its task.",
 	"user_view_preferences":        "Each member's own column layout and sort for the dashboard's lists. It belongs to the person rather than the workspace: members are matched by account on import and a layout names custom fields the destination may not hold yet, so everyone starts from the default view and picks their columns again.",
 }
 

@@ -211,7 +211,7 @@ export default function OverviewTab({
                         }
                     />
                     <ProfileRow
-                        label="קטגוריות"
+                        label="תוויות"
                         value={
                             contact.categories.length > 0 ? (
                                 <span className="flex flex-wrap gap-1 justify-end">

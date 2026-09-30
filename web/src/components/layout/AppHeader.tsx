@@ -38,7 +38,8 @@ const labelMap: Record<string, string> = {
     unibox: "תיבת דואר מאוחדת",
     contacts: "אנשי קשר",
     segments: "סגמנטים",
-    categories: "קטגוריות",
+    labels: "תוויות",
+    categories: "תוויות",
     campaigns: "קמפיינים",
     analytics: "אנליטיקה",
     crm: "ניהול לקוחות",
@@ -112,7 +113,8 @@ const labelMap: Record<string, string> = {
     awaiting_reply: "ממתין לתשובה",
     awaiting_agent_draft: "טיוטות סוכן",
     tag: "תגית",
-    category: "קטגוריה",
+    label: "תווית",
+    category: "תווית",
     followup: "מעקב",
 };
 

@@ -7,7 +7,7 @@ A campaign sends a sequence of steps to each contact: the first email, then foll
 
 ## The flow canvas
 
-Steps lay out top to bottom, the first marked `Start`. Above it sits the **Trigger** card, `Contact enters`: every contact starts there, and it carries how long their first email waits after they entered. Click its control to change that (the same setting as **Schedule** > **Before the first email**; see [the campaign guide](/guides/campaigns/#delay-before-the-first-email)). The trigger card is not a step: it cannot be moved, deleted or connected from.
+Steps lay out top to bottom, the first marked `Start`. Above it sits the **Trigger** card, `Contact enters`: every contact starts there, and it carries how long their first email waits after they entered. Click its control to change that (the same setting as the campaign's **Settings** > **First email**; see [the campaign guide](/guides/campaigns/#delay-before-the-first-email)). The trigger card is not a step: it cannot be moved, deleted or connected from.
 
 - Steps never connect themselves on the canvas. You drag a connector dot from one card to another. The only exception is the campaign wizard: follow-ups written there arrive already connected in order, with their waits set.
 - A step with no outgoing line ends the sequence for that contact (`Ends here`; unconnected paths show `Stop`).
@@ -127,10 +127,10 @@ Upload attachments for a step below its composer by dragging and dropping files 
 
 ### Action steps
 
-A step can perform an action instead of sending: add or remove a tag, label email, create a task, create a deal or move its stage, unsubscribe the contact, notify (fires your webhooks and integrations), run an automation, or switch. They connect like email steps and work best at the end of a reply branch, for example creating a deal and notifying your team on a positive reply.
+A step can perform an action instead of sending: add or remove a label, label the conversation, create a task, create a deal or move its stage, unsubscribe the contact, notify (fires your webhooks and integrations), run an automation, or switch. They connect like email steps and work best at the end of a reply branch, for example creating a deal and notifying your team on a positive reply.
 
 <Callout type="info">
-**Label email** is reply-only. It labels the conversation the contact replied on, so place it on a reply branch; anywhere else it is a no-op because there is no thread to label.
+**Label conversation** is reply-only. It labels the conversation the contact replied on, so place it on a reply branch; anywhere else it is a no-op because there is no thread to label.
 </Callout>
 
 ### Switch steps
@@ -157,7 +157,7 @@ Because the wait belongs to the target, every path into that step uses the same 
 Waits are per contact. A contact waiting three days for a follow-up does not hold up anyone else: other contacts' first emails and due follow-ups keep sending in the meantime, and the campaign only pauses when nothing is due for anyone.
 
 <Callout type="info" title="Instant branches skip the wait">
-A path that runs instantly fires the moment the event happens, so the target's wait does not apply and the control is hidden.
+A path that runs instantly fires the moment the event happens, so the target's wait does not apply and the control is hidden. Action steps run right away. An email step is due immediately and goes out on the campaign's next scheduling pass, usually within 15 minutes, still inside your sending hours and the mailbox's spacing between sends. A path that is not instant, including one you toggled off, keeps the target's wait.
 </Callout>
 
 ## Follow-ups and threading
@@ -199,12 +199,13 @@ A branch routes contacts by condition. Drag the right amber dot from a step to c
 | `if didn't open` / `didn't click` / `didn't reply` | Warmbly waits the full window, then takes the path only if it still hasn't happened |
 | `if replied: positive` / `negative` / `neutral` | Reply intent, checked once, no day window |
 | `if auto-reply / out of office` | Reply was automated, not human |
+| `if reply intent is…` | The intent [automatic inbox tagging](/guides/inbox-tagging/) read from the human reply: agreed, wants info, wants pricing, not now, not interested, wrong person, opt out, scheduling, in progress, question answered, or unclear. Set only when inbox tagging is on and the classifier was at least 70% sure; an untagged reply takes the otherwise path. Checked once, no day window |
 | `random split` | A random share of contacts (1 to 99%) |
 | Switch case paths | Each case's own dot on the Switch node, not chosen here. Uses the stored case, so routing spends no credits |
 
 ### Instant vs at-the-next-step
 
-Reply intent, `opened`, and `clicked` can fire **instantly**, the moment the event lands rather than at the next scheduled step. These show a violet `instant` badge, and you can toggle it off per connection to check at the next boundary instead. Instant still respects the window: it runs when they open or click within the N days, and never runs if they don't.
+Reply intent, `opened`, and `clicked` can fire **instantly**, the moment the event lands rather than at the next scheduled step. A `reply intent is` path fires the moment the tagged reply lands, with no model call at routing time. These show a violet `instant` badge, and you can toggle it off per connection to check at the next boundary instead. Instant still respects the window: it runs when they open or click within the N days, and never runs if they don't.
 
 ## Reply branches
 

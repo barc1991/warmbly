@@ -64,8 +64,9 @@ import { holdSummary } from "@/lib/api/models/app/contacts/Contact";
 import type { LeadHold } from "@/lib/api/models/app/contacts/Contact";
 import LeadStatusPill from "@/components/app/contacts/LeadStatusPill";
 import { usePauseLead } from "@/lib/api/hooks/app/campaigns/useLeadHold";
-import { leadCanBePaused } from "@/lib/leadHold";
+import { CC_RESUME_CONFIRM, leadCanBePaused } from "@/lib/leadHold";
 import { PauseLeadButton, ResumeLeadButton } from "@/components/app/contacts/LeadHoldButtons";
+import LeadCCBar from "./LeadCCBar";
 import toast from "react-hot-toast";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import buildError from "@/lib/helper/buildError";
@@ -384,6 +385,17 @@ function CampaignCard({
                 leadCanBePaused(state) && <PauseBar state={state} contactId={contactId} contactName={contactName} />
             )}
 
+            {/* A lead reached in someone else's thread sends nothing to copy anyone on. */}
+            {state.hold?.source !== "cc" && (
+                <LeadCCBar
+                    campaignId={state.campaign_id}
+                    contactId={contactId}
+                    contactName={contactName}
+                    cc={state.cc ?? []}
+                    sending={!state.ended_reason && state.campaign_status !== "completed"}
+                />
+            )}
+
             <AnimatePresence initial={false}>
                 {open && (
                     <motion.div
@@ -443,7 +455,8 @@ function HoldBar({
                     <ResumeLeadButton
                         campaignId={campaignId}
                         contactId={contactId}
-                        label="חדש כעת"
+                        label={hold.source === "cc" ? "שלח גם את שלהם" : "חדש כעת"}
+                        confirmText={hold.source === "cc" ? CC_RESUME_CONFIRM : undefined}
                         disabled={pause.isPending}
                         onBusyChange={setResuming}
                     />
@@ -1146,7 +1159,7 @@ function detailsFor(e: ContactTimelineEvent): [string, React.ReactNode][] {
                 : e.email_account_email,
         );
     }
-    add("קטגוריה", e.category_title);
+    add("תווית", e.category_title);
     add("כוונת מענה", e.intent);
     if (e.type === "deliverability" || e.type === "suppressed") {
         add("סוג", e.source);
@@ -1590,9 +1603,9 @@ function visualFor(e: ContactTimelineEvent): {
         case "campaign_removed":
             return { Icon: MegaphoneIcon, label: "הוסר מקמפיין" };
         case "category_added":
-            return { Icon: TagIcon, label: "נוסף לקטגוריה" };
+            return { Icon: TagIcon, label: "נוספה תווית" };
         case "category_removed":
-            return { Icon: TagIcon, label: "הוסר מקטגוריה" };
+            return { Icon: TagIcon, label: "הוסרה תווית" };
         case "form_submitted":
             return { Icon: ClipboardListIcon, label: "טופס הוגש" };
         case "page_hit":

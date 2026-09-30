@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/pkg/mailhdr"
 )
 
 // RecordInboundBounce turns a permanent NDR the worker parsed into a bounce
@@ -22,8 +23,17 @@ func (s *service) RecordInboundBounce(ctx context.Context, emailAccountID uuid.U
 
 	task, err := s.taskRepo.GetTaskByMessageID(ctx, originalMessageID)
 	if err != nil || task == nil {
-		// Unknown message id (warmup mail, non-campaign send, or already
-		// pruned) — nothing to attribute the bounce to.
+		// Unknown message id (a non-Warmbly send, or already pruned) — nothing
+		// to attribute the bounce to.
+		return nil
+	}
+
+	// A warmup send's NDR is warmup's business and nobody else's. Warmup tasks
+	// carry a message_id exactly like campaign tasks, so this used to resolve
+	// and then suppress a POOL PARTNER'S address in the customer's suppression
+	// list and record the bounce against their deliverability, where it fed the
+	// breaker. Warmup bounce rate is already a band in the warmup health model.
+	if task.TaskType == models.TaskTypeWarmup {
 		return nil
 	}
 
@@ -51,9 +61,19 @@ func (s *service) RecordInboundBounce(ctx context.Context, emailAccountID uuid.U
 	if ct, cerr := s.taskRepo.GetCampaignTask(ctx, task.ID); cerr == nil && ct != nil {
 		req.CampaignID = ct.CampaignID
 		req.ContactID = ct.ContactID
-		if req.RecipientEmail == "" && ct.ContactID != nil {
+		if ct.ContactID != nil {
 			if contact, cerr := s.contactRepo.GetByID(ctx, *ct.ContactID); cerr == nil && contact != nil {
-				req.RecipientEmail = contact.Email
+				switch {
+				case req.RecipientEmail == "":
+					req.RecipientEmail = contact.Email
+				case ct.CampaignID != nil && !strings.EqualFold(mailhdr.Bare(req.RecipientEmail), strings.TrimSpace(contact.Email)):
+					if owner, isCopy := s.copyBounceOwner(ctx, *ct.CampaignID, *ct.ContactID, req.RecipientEmail); isCopy {
+						// A copy bounced, not the lead: the lead keeps its
+						// sequence, and the copy's own NDR is its own event.
+						req.ContactID = owner
+						req.IdempotencyKey += ":" + strings.ToLower(mailhdr.Bare(req.RecipientEmail))
+					}
+				}
 			}
 		}
 	}
@@ -78,7 +98,12 @@ func (s *service) RecordInboundComplaint(ctx context.Context, emailAccountID uui
 
 	task, err := s.taskRepo.GetTaskByMessageID(ctx, originalMessageID)
 	if err != nil || task == nil {
-		// Warmup mail, a non-campaign send, or already pruned.
+		// A non-Warmbly send, or already pruned.
+		return nil
+	}
+	// Warmup never reaches the customer's deliverability record. The campaign
+	// task below would refuse it anyway; refusing it here says so once.
+	if task.TaskType == models.TaskTypeWarmup {
 		return nil
 	}
 	if task.EmailAccountID != emailAccountID {
@@ -129,4 +154,27 @@ func (s *service) RecordInboundComplaint(ctx context.Context, emailAccountID uui
 	}
 
 	return s.IngestDeliverabilityEvent(ctx, *account.OrganizationID, req)
+}
+
+// copyBounceOwner tells a bounced copy apart from the lead. A contact copied on
+// the lead is marked bounced there and owns the event; an address from the
+// campaign's own CC or BCC owns it with no contact. Any other address (a
+// forward, an alias) stays the lead's, as before.
+func (s *service) copyBounceOwner(ctx context.Context, campaignID, leadID uuid.UUID, address string) (*uuid.UUID, bool) {
+	bare := mailhdr.Bare(address)
+	if s.campaignProgressRepo != nil {
+		if id, err := s.campaignProgressRepo.MarkLeadCCBounced(ctx, campaignID, leadID, bare); err == nil && id != nil {
+			return id, true
+		}
+	}
+	if campaign, err := s.campaignRepo.GetByID(ctx, campaignID); err == nil && campaign != nil {
+		for _, list := range [][]string{campaign.CC, campaign.BCC} {
+			for _, a := range list {
+				if strings.EqualFold(mailhdr.Bare(a), bare) {
+					return nil, true
+				}
+			}
+		}
+	}
+	return &leadID, false
 }

@@ -3,7 +3,14 @@ import { devtools, persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { createUserSlice, type UserSlice } from './slices/userSlice'
 import { createOrganizationSlice, type OrganizationSlice } from './slices/organizationSlice'
-import { createUISlice, clampUniboxListWidth, type UISlice } from './slices/uiSlice'
+import {
+  createUISlice,
+  clampUniboxListWidth,
+  sanitizeNavCollapsedSections,
+  sanitizeUniboxRailHidden,
+  sanitizeUniboxRailOrder,
+  type UISlice,
+} from './slices/uiSlice'
 import { createShortcutSlice, type ShortcutSlice } from './slices/shortcutSlice'
 import { createDataSlice, type DataSlice } from './slices/dataSlice'
 import { createRealtimeSlice, type RealtimeSlice } from './slices/realtimeSlice'
@@ -47,12 +54,18 @@ export const useAppStore = create<AppStore>()(
             ...current,
             ...p,
             uniboxListWidth: clampUniboxListWidth(p.uniboxListWidth),
+            navCollapsedSections: sanitizeNavCollapsedSections(p.navCollapsedSections),
+            uniboxRailFolded: sanitizeNavCollapsedSections(p.uniboxRailFolded),
+            uniboxRailHidden: sanitizeUniboxRailHidden(p.uniboxRailHidden),
+            uniboxRailOrder: sanitizeUniboxRailOrder(p.uniboxRailOrder),
+            uniboxRailSectionOrder: sanitizeUniboxRailHidden(p.uniboxRailSectionOrder),
           }
         },
         partialize: (state) => ({
           // Only persist UI preferences
           theme: state.theme,
           navCollapsed: state.navCollapsed,
+          navCollapsedSections: state.navCollapsedSections,
           // Assistant panel layout (edge + width + floating window geometry)
           agentSide: state.agentSide,
           agentWidth: state.agentWidth,
@@ -61,6 +74,11 @@ export const useAppStore = create<AppStore>()(
           // Unibox layout (list column width + CRM rail default)
           uniboxListWidth: state.uniboxListWidth,
           uniboxContactRailOpen: state.uniboxContactRailOpen,
+          // Unibox scope rail (folds, hidden rows, row and section order)
+          uniboxRailFolded: state.uniboxRailFolded,
+          uniboxRailHidden: state.uniboxRailHidden,
+          uniboxRailOrder: state.uniboxRailOrder,
+          uniboxRailSectionOrder: state.uniboxRailSectionOrder,
           // Persist current organization selection
           currentOrganization: state.currentOrganization,
         }),

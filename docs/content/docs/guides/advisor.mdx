@@ -49,7 +49,7 @@ Only the first two badge a nav tab.
 
 ## What it checks
 
-**Deliverability**: complaint rate per mailbox (warns `0.03%`, critical `0.10%`, matching Google's bulk-sender ceiling); bounce rate (warns `3%`, critical `5%`, where SES opens a review); spam placement on warmup mail (warns `10%`, escalates `20%`, critical `40%`); SPF and DMARC per sending domain (critical while sending cold, since Google requires them; an unchecked domain is never called failing, and DKIM is never reported missing because its selector is not discoverable from DNS); and whether a mailbox has its own verified tracking domain.
+**Deliverability**: complaint rate per mailbox (warns `0.03%`, critical `0.10%`, matching Google's bulk-sender ceiling); bounce rate (warns `3%`, critical `5%`, where SES opens a review); spam placement on warmup mail at Google, Microsoft and Yahoo (warns `10%`, escalates `20%`, critical `50%`; other mail hosts are not counted, see [how spam placement is judged](/guides/warmup/#how-spam-placement-is-judged)); SPF and DMARC per sending domain (critical while sending cold, since Google requires them; an unchecked domain is never called failing, and DKIM is never reported missing because its selector is not discoverable from DNS); and whether a mailbox has its own verified tracking domain.
 
 **Mailbox configuration**: daily cap above the `50`/day safe band (gently with clean numbers, firmly without); a mailbox under `30` days old sending above `20`/day; a send gap under `5` minutes; unresolved errors on a mailbox campaigns still use; too few mailboxes carrying total volume; an inactive mailbox attached to a running campaign.
 
@@ -58,6 +58,8 @@ Only the first two badge a nav tab.
 **Campaigns**: no follow-ups; reply rate under `1%` at volume, escalating under `0.3%`; one step replying below a quarter of the campaign's best (compared only against siblings, which share an audience); one-click unsubscribe off; a daily limit above what its mailboxes can send; no active sender; follow-up spacing outside `2` to `14` days; under `7` days of leads left; no A/B test at high volume; a sending window too narrow for the volume; contacts enrolled in several running campaigns.
 
 **Copy** (conservative, and drafts are skipped): a merge variable that will not resolve, shipping a literal `{{token}}`; two or more bulk-mail phrases (one is never flagged); over `200` words; a subject over `60` characters; more than two links in a first touch; a shouting subject.
+
+Two more copy findings run only when the operator has configured TypeSafe (`TYPESAFE_API_KEY`), a calibrated reader model rather than a language model: a step that **reads as bulk mail** to its recipient, or makes a claim a spam filter objects to (guaranteed results, free money, a prize, pressure to act now); and a step with **no clear ask**, either asking for nothing or for several things. Each step's subject and body are sent to TypeSafe for this, once per version of the copy; the verdict is cached and an unchanged step is never sent again. At most `40` steps are judged per evaluation, and the rest wait for the next run.
 
 **List quality**: shared inboxes (`info@`, `sales@`) above `15%`; consumer domains above `40%` of a B2B list; suppressed contacts above `10%`; missing first names above `10%` when copy personalizes on them; unsubscribed contacts still enrolled.
 
@@ -110,7 +112,7 @@ Under **Settings > Workspace**, off by default. It only takes fixes that are bou
 
 Under **Settings > Workspace** you can switch the Advisor off, enable autopilot, mute whole categories, or raise the minimum severity. Changing these needs the manage-settings permission and applies workspace-wide.
 
-Findings refresh in the background and when you open a page whose advice went stale. Updates are live, so a teammate applying a fix clears the card on your screen.
+Findings refresh in the background and when you open a page whose advice went stale. Adding, changing or removing a mailbox re-checks them right away, and removing a mailbox, campaign or step closes the advice about it in the same action. Updates are live, so a teammate applying a fix clears the card on your screen.
 
 ## See also
 

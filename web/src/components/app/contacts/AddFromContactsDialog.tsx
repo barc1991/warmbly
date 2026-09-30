@@ -234,7 +234,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                 <CategoryPicker
                                     value={categoryIds}
                                     onChange={setCategoryIds}
-                                    placeholder="סינון לפי קטגוריה..."
+                                    placeholder="סינון לפי תווית..."
                                     allowCreate={false}
                                 />
                             </div>
@@ -290,7 +290,7 @@ export default function AddFromContactsDialog({ open, onClose, campaign: campaig
                                     </p>
                                     <p className="text-[11.5px] text-slate-400 mt-0.5">
                                         {debounced || categoryIds.length > 0
-                                            ? "נסה חיפוש או קטגוריה אחרת."
+                                            ? "נסה חיפוש או תווית אחרת."
                                             : "ייבא קובץ או הוסף אנשי קשר תחילה."}
                                     </p>
                                 </div>

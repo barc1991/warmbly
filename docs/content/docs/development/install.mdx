@@ -176,8 +176,10 @@ Two groups, both editable afterwards in **Instance > Configuration > Settings**:
 | Opens and clicks | 365 days | Per-event logs, with the client, device and approximate location of each |
 | Form funnel events | 180 days | Views, starts, field-level drop-off |
 | Audit log | 90 days | Who did what, from which IP address and user agent |
+| Warmup mail in mailboxes | 30 days | Warmup mail is deleted from each mailbox once older than this, wherever it is filed |
+| Warmup records | 365 days | Per-message warmup tokens, receipts, tampering events and spam reports |
 
-The last three are also how long that personal data is held. A "minimal retention" preset sets every event window to 30 days.
+The opens, forms and audit windows are also how long that personal data is held. A "minimal retention" preset sets those three to 30 days, warmup mail to 7 and warmup records to 30.
 
 </Step>
 
@@ -298,6 +300,8 @@ By hand, from the install directory:
 docker compose -p warmbly pull && docker compose -p warmbly up -d
 ```
 
+An update does not cut off work in progress. The generated stack gives each application container 60 seconds to stop (`stop_grace_period`), and in that time the backend finishes a mailbox connect already under way and the import rows it is connecting, and a worker finishes the send it is on. Anything still unfinished after that is picked up again by the new containers: a mailbox a worker was loading on its first heartbeat, and an import row once its 2-minute lease runs out. See [updates without lost work](/development/deployment-guide/#updates-without-lost-work).
+
 ## Removing it
 
 ```bash
@@ -332,4 +336,5 @@ The worker has to be the one on that machine. A `docker compose` install puts it
 - [First run](/development/first-run/): claiming the instance, the first owner, demo data
 - [Data control](/development/data-control/): where every store lives, what each retention window governs, backups, and moving an instance
 - [Configuration](/development/configuration/): every environment variable and every database-backed setting
+- [Whole-domain mailbox connects](/development/whole-domain-connect/): the Google service account and Microsoft app that let a workspace connect a whole Google Workspace domain or Microsoft 365 organization
 - [Self-hosting](/development/deployment-guide/): the full guide, including building from source

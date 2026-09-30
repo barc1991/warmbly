@@ -76,6 +76,8 @@ import type { UniboxThreadMessage } from "@/lib/api/models/app/unibox/UniboxThre
 interface ThreadViewProps {
   threadId: string;
   emailId?: string;
+  // Closes the reader. Shown from md up; below it the page has its own back.
+  onClose?: () => void;
 }
 
 function toUniboxEmail(m: UniboxThreadMessage): UniboxEmail {
@@ -144,7 +146,7 @@ function defaultCustomSnoozeValue(): string {
   return toLocalInput(offsetHours(2));
 }
 
-export function ThreadView({ threadId, emailId }: ThreadViewProps) {
+export function ThreadView({ threadId, emailId, onClose }: ThreadViewProps) {
   const q = useThread(threadId, emailId);
   const scheduledQ = useThreadScheduled(threadId);
   const accounts = useAppStore((s) => s.emails);
@@ -348,18 +350,29 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
         <div className="text-center max-w-sm">
           <AlertCircleIcon className="w-5 h-5 text-rose-500 mx-auto mb-2" />
           <p className="text-[12.5px] font-medium text-slate-900 mb-1">
-            Couldn't load this conversation
+            לא ניתן לטעון שיחה זו
           </p>
           <p className="text-[11.5px] text-slate-500 mb-3">
             {q.error?.message ?? "הבקשה נכשלה"}
           </p>
-          <button
-            type="button"
-            onClick={() => q.refetch()}
-            className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
-          >
-            Try again
-          </button>
+          <div className="flex items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => q.refetch()}
+              className="h-7 px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors"
+            >
+              נסה שוב
+            </button>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="hidden md:inline-flex h-7 px-2.5 items-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
+              >
+                סגור
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -367,8 +380,17 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
 
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-[12px] text-slate-400">
-        This conversation is empty.
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-[12px] text-slate-400">
+        שיחה זו ריקה.
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="hidden md:inline-flex h-7 px-2.5 items-center rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[12px] font-medium transition-colors"
+          >
+            סגור
+          </button>
+        )}
       </div>
     );
   }
@@ -636,6 +658,17 @@ export function ThreadView({ threadId, emailId }: ThreadViewProps) {
               )}
             </PopoverMenuContent>
           </PopoverMenu>
+          {onClose && (
+            <>
+              <span aria-hidden className="hidden md:block h-4 w-px bg-slate-200 mx-1" />
+              <IconAction
+                label="סגור שיחה"
+                className="hidden md:inline-flex"
+                icon={<XIcon className="w-[15px] h-[15px]" />}
+                onClick={onClose}
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -789,12 +822,14 @@ function IconAction({
   icon,
   danger,
   disabled,
+  className,
   onClick,
 }: {
   label: string;
   icon: React.ReactNode;
   danger?: boolean;
   disabled?: boolean;
+  className?: string;
   onClick?: () => void;
 }) {
   return (
@@ -805,12 +840,13 @@ function IconAction({
           onClick={onClick}
           disabled={disabled}
           aria-label={label}
-          className={
-            "size-7 rounded-md inline-flex items-center justify-center transition-colors disabled:opacity-40 disabled:pointer-events-none " +
-            (danger
+          className={cn(
+            "size-7 rounded-md inline-flex items-center justify-center transition-colors disabled:opacity-40 disabled:pointer-events-none",
+            danger
               ? "text-slate-500 hover:text-red-600 hover:bg-red-50"
-              : "text-slate-500 hover:text-slate-900 hover:bg-slate-100")
-          }
+              : "text-slate-500 hover:text-slate-900 hover:bg-slate-100",
+            className,
+          )}
         >
           {icon}
         </button>

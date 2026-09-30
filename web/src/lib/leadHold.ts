@@ -44,3 +44,9 @@ export function tickedCampaigns<T extends { campaign_id: string }>(campaigns: T[
     const ticked = campaigns.filter((c) => !skipped.includes(c.campaign_id));
     return ticked.length > 0 ? ticked : campaigns;
 }
+
+// Resuming a lead held because it is copied on another lead's thread starts a
+// second sequence to the same person, which the hold exists to prevent.
+export const CC_RESUME_CONFIRM =
+    "להפעיל גם את הרצף של איש קשר זה? הוא יקבל שני שרשורים מקמפיין זה: את השרשור שלו, ואת זה שהוא מועתק אליו (CC).";
+

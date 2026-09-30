@@ -109,9 +109,9 @@ export default function ContactsEditBulk({
         if (campaignsRemove.length > 0)
             out.push({ key: "cr", label: `הסרה מ-${campaignsRemove.length} קמפיינים`, clear: () => setCampaignsRemove([]) });
         if (categoriesAdd.length > 0)
-            out.push({ key: "ka", label: `הוספת ${categoriesAdd.length} קטגוריות`, clear: () => setCategoriesAdd([]) });
+            out.push({ key: "ka", label: `הוספת ${categoriesAdd.length} תוויות`, clear: () => setCategoriesAdd([]) });
         if (categoriesRemove.length > 0)
-            out.push({ key: "kr", label: `הסרת ${categoriesRemove.length} קטגוריות`, clear: () => setCategoriesRemove([]) });
+            out.push({ key: "kr", label: `הסרת ${categoriesRemove.length} תוויות`, clear: () => setCategoriesRemove([]) });
         if (subscribeMode !== "unchanged")
             out.push({ key: "s", label: subscribeMode === "subscribe" ? "רישום" : "ביטול רישום", clear: () => setSubscribeMode("unchanged") });
         if (readyFields.length > 0)
@@ -230,7 +230,7 @@ export default function ContactsEditBulk({
                                 </PickerRow>
                             </Section>
 
-                            <Section title="קטגוריות" subtitle="תגיות המוצמדות לאנשי הקשר עצמם.">
+                            <Section title="תוויות" subtitle="תוויות המוצמדות לאנשי הקשר עצמם.">
                                 <PickerRow direction="add" label="הוספה">
                                     <CategoryPicker value={categoriesAdd} onChange={setCategoriesAdd} />
                                 </PickerRow>
@@ -239,7 +239,7 @@ export default function ContactsEditBulk({
                                         value={categoriesRemove}
                                         onChange={setCategoriesRemove}
                                         allowCreate={false}
-                                        placeholder="בחר קטגוריות להסרה..."
+                                        placeholder="בחר תוויות להסרה..."
                                     />
                                 </PickerRow>
                             </Section>

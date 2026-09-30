@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import PermissionButton from "@/components/ui/PermissionButton";
-import { Link, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import {
@@ -11,16 +11,16 @@ import {
     Loader2Icon,
     PauseIcon,
     PlayIcon,
-    SendIcon,
     Settings2Icon,
     UsersIcon,
 } from "lucide-react";
-import { campaignDisplayLabel, isIdleCampaign, isOneTimeCampaign } from "@/components/app/campaigns/status";
+import { campaignDisplayLabel, isIdleCampaign } from "@/components/app/campaigns/status";
 import useCampaign from "@/lib/api/hooks/app/campaigns/useCampaign";
 import useStartCampaign from "@/lib/api/hooks/app/campaigns/useStartCampaign";
 import useStopCampaign from "@/lib/api/hooks/app/campaigns/useStopCampaign";
 import { CampaignContext } from "@/hooks/context/campaign";
 import { useConfirm } from "@/hooks/context/confirm";
+import { usePermission } from "@/hooks/usePermission";
 import LaunchCampaignDialog from "@/components/app/campaigns/LaunchCampaignDialog";
 import CampaignActionsMenu from "@/components/app/campaigns/CampaignActionsMenu";
 import UndeliverableBanner from "@/components/app/campaigns/UndeliverableBanner";
@@ -66,6 +66,25 @@ export default function CampaignLayout() {
     const startCampaign = useStartCampaign();
     const stopCampaign = useStopCampaign();
     const [launchOpen, setLaunchOpen] = useState(false);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const canSend = usePermission("SEND_CAMPAIGNS");
+    const launchRequested = searchParams.get("launch") === "1";
+    const loadedStatus = campaignData.data?.status;
+
+    // ?launch=1 (the new-campaign flow's hand-off, the draft checklist) opens
+    // the launch dialog once the campaign has loaded, then leaves the URL clean.
+    useEffect(() => {
+        if (!launchRequested || !loadedStatus) return;
+        if (canSend && canStartCampaign(loadedStatus)) setLaunchOpen(true);
+        setSearchParams(
+            (prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete("launch");
+                return next;
+            },
+            { replace: true },
+        );
+    }, [launchRequested, loadedStatus, canSend, setSearchParams]);
 
     // Collaboration: claim this campaign while it's open so teammates see
     // who's already in here (header pill + the org-wide presence stack).
@@ -139,12 +158,12 @@ export default function CampaignLayout() {
 
     return (
         <CampaignContext.Provider value={campaign}>
-            <div className="flex flex-col min-h-full bg-white">
+            <div className="flex flex-col min-h-full bg-white text-start">
                 <div className="px-3 sm:px-5 pt-3 sm:pt-4 pb-3 flex items-start gap-3">
                     <div className="min-w-0">
                         <Link
                             to="/app/campaigns"
-                            className="inline-flex items-center gap-1 h-6 -ml-1.5 rtl:-mr-1.5 rtl:ml-0 px-1.5 mb-1 rounded-md text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            className="inline-flex items-center gap-1 h-6 -ms-1.5 px-1.5 mb-1 rounded-md text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                         >
                             <ArrowLeftIcon className="w-3 h-3 rtl:rotate-180" />
                             {isHe ? "קמפיינים" : "Campaigns"}
@@ -158,15 +177,6 @@ export default function CampaignLayout() {
                             >
                                 {campaignDisplayLabel(campaign)}
                             </span>
-                            {isOneTimeCampaign(campaign) && (
-                                <span
-                                    title={isHe ? "אימייל חד-פעמי: הודעה בודדת, ללא מעקבים" : "One-time email: a single message, no follow-ups"}
-                                    className="shrink-0 inline-flex items-center gap-1 h-5 px-2 rounded-md bg-sky-50 text-sky-700 text-[10px] uppercase tracking-[0.12em] font-medium"
-                                >
-                                    <SendIcon className="w-2.5 h-2.5" />
-                                    {isHe ? "חד-פעמי" : "One-time"}
-                                </span>
-                            )}
                             <ResourceViewers resource={`campaign:${campaign.id}`} className="shrink-0" />
                         </div>
                         <p className="text-[11px] text-slate-400 font-mono mt-1 truncate">{campaign.id}</p>

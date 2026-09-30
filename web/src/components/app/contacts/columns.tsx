@@ -17,7 +17,7 @@ import ProviderLogo from "@/components/app/emails/ProviderLogo";
 import { companyDomainOf } from "@/lib/companyLogo";
 import clippedTitle from "@/lib/helper/clippedTitle";
 import { mailHostLabel } from "@/lib/mailHost";
-import type { ContactCampaignProgress, VerificationSource, VerificationStatus } from "@/lib/api/models/app/contacts/Contact";
+import type { ContactCampaignProgress, LeadCC, VerificationSource, VerificationStatus } from "@/lib/api/models/app/contacts/Contact";
 import type { SearchContactsSortBy } from "@/lib/api/models/app/contacts/search-contacts.types";
 import type { ViewName } from "@/lib/api/models/app/views/ViewPreferences";
 import { CategoryChip } from "./CategoryPicker";
@@ -137,6 +137,16 @@ const nameColumn: ContactColumn = {
                         <MailIcon className="w-2.5 h-2.5 shrink-0" />
                         <span className="truncate" {...clippedTitle}>{c.email}</span>
                         <VerificationBadge contact={c} />
+                        {!!c.campaign_lead?.cc?.length && (
+                            <span
+                                className="inline-flex items-center h-3.5 px-1 shrink-0 rounded bg-sky-50 text-sky-700 font-sans text-[9.5px] font-medium"
+                                title={`עותק (CC): ${c.campaign_lead.cc
+                                    .map((x) => (x.status === "active" ? x.email : `${x.email} (${x.status === "unsubscribed" ? "ביטל הרשמה" : x.status === "bounced" ? "חזר" : "לא נמסר"}, הוסר)`))
+                                    .join(", ")}`}
+                            >
+                                CC {c.campaign_lead.cc.length}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>

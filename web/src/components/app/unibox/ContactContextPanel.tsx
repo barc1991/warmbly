@@ -21,12 +21,16 @@ import {
     MegaphoneIcon,
     PlusIcon,
     StickyNoteIcon,
+    TagIcon,
     UserIcon,
     UserXIcon,
     CheckSquareIcon,
     XIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import CategoryPicker, { CategoryChip } from "@/components/app/contacts/CategoryPicker";
+import useUpdateContact from "@/lib/api/hooks/app/contacts/useUpdateContact";
+import type MiniCategory from "@/lib/api/models/app/contacts/MiniCategory";
 import { TextInput } from "@/components/ui/field";
 import NewMeetingDialog from "@/components/app/meetings/NewMeetingDialog";
 import BookACallButton from "@/components/app/integrations/BookACallButton";
@@ -214,6 +218,12 @@ export default function ContactContextPanel({
                         {/* Campaigns, with pause / resume so a reply can hold follow-ups in place. */}
                         <CampaignsSection contactId={contact.id} contactName={name} fallback={campaigns} />
 
+                        {/* Labels */}
+                        <LabelsSection
+                            contactId={contact.id}
+                            categories={detail?.categories ?? contact.categories ?? []}
+                        />
+
                         {/* Engagement */}
                         {eng && (
                             <Section label="מעורבות">
@@ -345,6 +355,56 @@ function CampaignsSection({
                     );
                 })}
             </div>
+        </Section>
+    );
+}
+
+function LabelsSection({
+    contactId,
+    categories,
+}: {
+    contactId: string;
+    categories: MiniCategory[];
+}) {
+    const update = useUpdateContact(contactId);
+    const [open, setOpen] = React.useState(false);
+    const categoryIds = React.useMemo(() => categories.map((c) => c.id), [categories]);
+
+    async function onChange(nextIds: string[]) {
+        try {
+            await update.mutateAsync({ categories: nextIds });
+        } catch (e) {
+            toast.error(buildError(e as AppError));
+        }
+    }
+
+    return (
+        <Section
+            label="תוויות"
+            action={<AddButton open={open} onClick={() => setOpen((o) => !o)} />}
+        >
+            {open && (
+                <div className="mb-2">
+                    <CategoryPicker
+                        value={categoryIds}
+                        onChange={onChange}
+                        placeholder="בחר תוויות…"
+                    />
+                </div>
+            )}
+            {categories.length === 0 && !open ? (
+                <Empty icon={<TagIcon className="w-3.5 h-3.5" />} text="אין תוויות עדיין" />
+            ) : (
+                <div className="flex flex-wrap gap-1">
+                    {categories.map((c) => (
+                        <CategoryChip
+                            key={c.id}
+                            category={c}
+                            onRemove={() => onChange(categoryIds.filter((id) => id !== c.id))}
+                        />
+                    ))}
+                </div>
+            )}
         </Section>
     );
 }

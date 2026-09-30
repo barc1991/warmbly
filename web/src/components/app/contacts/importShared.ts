@@ -19,7 +19,7 @@ export const STANDARD_TARGETS: { id: string; label: string }[] = [
     { id: "company", label: "חברה" },
     { id: "phone", label: "טלפון" },
     { id: "subscribed", label: "רשום לדיוור" },
-    { id: "categories", label: "קטגוריות" },
+    { id: "categories", label: "תוויות" },
     { id: "verification_status", label: "סטטוס אימות" },
 ];
 

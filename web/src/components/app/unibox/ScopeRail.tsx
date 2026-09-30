@@ -154,7 +154,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
   };
 
   return (
-    <nav className="h-full w-full bg-white border-r border-slate-200 overflow-y-auto py-3">
+    <nav className="h-full w-full bg-white border-e border-slate-200 overflow-y-auto py-3">
       {/* Collapses when there are no drafts. */}
       <div className="px-3 pb-2 empty:hidden">
         <ComposeDraftsItem />
@@ -377,7 +377,7 @@ function CollapsibleSection<T extends { id: string }>({
       <button
         type="button"
         onClick={() => setSectionOpen((v) => !v)}
-        className="group/section w-full h-7 px-4 flex items-center gap-1.5 text-left"
+        className="group/section w-full h-7 px-4 flex items-center gap-1.5 text-start"
         aria-expanded={sectionOpen}
       >
         <span className="text-[10.5px] uppercase tracking-[0.12em] text-slate-400 font-medium group-hover/section:text-slate-600 transition-colors">
@@ -386,9 +386,9 @@ function CollapsibleSection<T extends { id: string }>({
         {sectionOpen ? (
           <ChevronDownIcon className="w-3 h-3 text-slate-300 group-hover/section:text-slate-500 transition-colors" />
         ) : (
-          <ChevronRightIcon className="w-3 h-3 text-slate-300 group-hover/section:text-slate-500 transition-colors" />
+          <ChevronRightIcon className="w-3 h-3 text-slate-300 group-hover/section:text-slate-500 transition-colors rtl:rotate-180" />
         )}
-        <span className="ml-auto text-[10.5px] text-slate-300 tabular-nums">
+        <span className="ms-auto text-[10.5px] text-slate-300 tabular-nums">
           {items.length}
         </span>
       </button>
@@ -423,7 +423,7 @@ function CollapsibleSection<T extends { id: string }>({
             </div>
           ) : filtered.length === 0 ? (
             <div className="px-2 py-1.5 text-[11.5px] text-slate-400">
-              No matches.
+              אין תוצאות תואמות.
             </div>
           ) : (
             <div className="space-y-px">{visible.map(renderItem)}</div>
@@ -433,18 +433,18 @@ function CollapsibleSection<T extends { id: string }>({
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="w-full h-7 px-2 rounded-md text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors text-left"
+              className="w-full h-7 px-2 rounded-md text-[11.5px] text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors text-start"
             >
-              Show all ({hidden} more)
+              הצג הכל (עוד {hidden})
             </button>
           )}
           {expanded && filtered.length > COLLAPSED_VISIBLE && (
             <button
               type="button"
               onClick={() => setExpanded(false)}
-              className="w-full h-7 px-2 rounded-md text-[11.5px] text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors text-left"
+              className="w-full h-7 px-2 rounded-md text-[11.5px] text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors text-start"
             >
-              Show less
+              הצג פחות
             </button>
           )}
         </div>
@@ -474,7 +474,7 @@ function ScheduledMeter({ used, cap }: { used: number; cap: number }) {
           textClasses,
         )}
       >
-        <span className="uppercase tracking-[0.12em] font-medium">Queue</span>
+        <span className="uppercase tracking-[0.12em] font-medium">תור שליחה</span>
         <span className="tabular-nums">
           {used}/{cap}
         </span>
@@ -482,7 +482,7 @@ function ScheduledMeter({ used, cap }: { used: number; cap: number }) {
       <DitherMeter frac={ratio} tone={tone} height={4} />
       {ratio >= 0.95 && (
         <p className="mt-1 text-[10px] text-rose-600 leading-snug">
-          Near the limit. Cancel a few sends to free up space.
+          קרוב למגבלה. בטל מספר שליחות כדי לפנות מקום בתור.
         </p>
       )}
     </div>
@@ -490,7 +490,7 @@ function ScheduledMeter({ used, cap }: { used: number; cap: number }) {
 }
 
 const ROW =
-  "w-full h-7 pl-2 pr-2 rounded-md flex items-center gap-2.5 transition-colors text-left";
+  "w-full h-7 px-2 rounded-md flex items-center gap-2.5 transition-colors text-start";
 const ROW_ACTIVE = "bg-slate-100 text-slate-900";
 const ROW_IDLE = "text-slate-600 hover:bg-slate-50 hover:text-slate-900";
 
@@ -546,7 +546,7 @@ function FolderItem({
           onOpen();
         }
       }}
-      className={cn("group/folder relative cursor-pointer pr-7 md:pr-2", ROW, active ? ROW_ACTIVE : ROW_IDLE)}
+      className={cn("group/folder relative cursor-pointer pe-7 md:pe-2", ROW, active ? ROW_ACTIVE : ROW_IDLE)}
       title={label}
     >
       <span className={cn("shrink-0", active ? "text-slate-800" : "text-slate-400 group-hover/folder:text-slate-600")}>
@@ -567,7 +567,7 @@ function FolderItem({
           <button
             type="button"
             aria-label={`${label} folder actions`}
-            className="absolute right-1 top-1 size-5 rounded inline-flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors opacity-100 md:opacity-0 md:group-hover/folder:opacity-100 md:group-focus-within/folder:opacity-100"
+            className="absolute end-1 top-1 size-5 rounded inline-flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200/70 transition-colors opacity-100 md:opacity-0 md:group-hover/folder:opacity-100 md:group-focus-within/folder:opacity-100"
           >
             <MoreHorizontalIcon className="w-3.5 h-3.5" />
           </button>
@@ -577,7 +577,7 @@ function FolderItem({
             icon={<MailOpenIcon className="w-3 h-3" />}
             onSelect={onMarkAllRead}
           >
-            Mark all as read
+            סמן הכל כנקרא
           </PopoverMenuItem>
         </PopoverMenuContent>
       </PopoverMenu>

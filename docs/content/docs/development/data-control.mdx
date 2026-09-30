@@ -98,7 +98,7 @@ See [Automatic inbox tagging](/guides/inbox-tagging/), [Advisor](/guides/advisor
 | `retention.form_event_days` | 180 | Form funnel events: views, starts, field-level drop-off |
 | `retention.audit_log_days` | 90 | The audit trail: actor, IP address, user agent, change payload |
 | `retention.warmup_mail_days` | 30 | Warmup mail in the mailboxes themselves, and the stored copy of each message's body. Deleted by the platform once older than this, wherever the mailbox files it; a mailbox can set its own window |
-| `retention.warmup_event_days` | 365 | Per-message warmup records: tokens, receipts, tampering events, spam reports. The daily sent and received counts behind the analytics are kept |
+| `retention.warmup_event_days` | 365 | Per-message warmup records: tokens, receipts, tampering events, spam moves and their attribution, spam reports. The daily sent and received counts behind the analytics are kept. When each mailbox's owner last acted in it (five-minute marks, no message content) is kept 30 days whatever this is set to |
 
 The first three are between 1 and 3,650 days, and they are the settings a retention or privacy policy applies to, because each window is also how long the personal data in that log is held. The warmup mail window starts at 3 days and the warmup records window at 30, the least the engagement legs and the pool health bands need.
 
@@ -122,11 +122,21 @@ Warmup keeps the standing of every penalised mailbox (score, state, and any bloc
 
 Mail whose warmup verification is temporarily unavailable waits in the `unibox_pending_emails` Postgres table. It holds the sync event, including message metadata and bounded searchable body text, until verification succeeds or the mailbox is deleted. The consumer retries it automatically after restarts. Full bodies remain in blob storage. This pending queue is included in instance backups but excluded from workspace exports, whose destination re-syncs provider mail.
 
+### Placement comparison copies
+
+A [tracking comparison](/guides/placement-tests/#tracking) renders each seed's copy once and sends it from both halves, so while it runs it keeps that rendered copy, with merge fields and AI blocks filled in for the chosen contact, in the `placement_renders` Postgres table, sealed with the workspace's data key. The placement poller deletes it once neither half of the comparison is running. It is included in instance backups and excluded from workspace exports.
+
 ### Mailbox import files
 
 A [mailbox import](/guides/mailbox-import/) keeps each row's credentials in `mailbox_import_rows`, sealed with the workspace's own data key, until the row is connected. The credentials of rows that did not connect are kept for 7 days after the import finishes, so a failed row can be fixed and retried, and are then deleted. A finished import and its rows (address, status, cause, and the uploaded cells that are not passwords, which feed the failed-rows download) are deleted 30 days after it finished. Both windows are fixed rather than settings, and the sweep that applies them runs every minute. A connected mailbox's credentials are stored like any other mailbox's.
 
 The column mappings an import saves (`mailbox_import_mappings`: which field each header of a file means, no values) are kept until the workspace is deleted, and travel in a [workspace export](/guides/workspace-export-import/). Imports themselves do not.
+
+### Contact import files
+
+A [contact import](/guides/contacts-crm/#importing) keeps every row of the uploaded file, as uploaded, in `contact_import_rows`, with what became of it (the address, whether it was imported, updated, skipped or failed, and why). Contact data is stored the same way the contacts themselves are. A file uploaded but never started is deleted 24 hours after the upload, or after it was discarded; a finished or stopped import and its rows, which feed the failed-rows download, are deleted 30 days after it finished. Both windows are fixed rather than settings, and the sweep that applies them runs every hour. The contacts an import created are ordinary contacts and are not affected.
+
+The column mappings contact imports save (`contact_import_mappings`: which field each header of a file means, no values) are kept until the workspace is deleted, and travel in a [workspace export](/guides/workspace-export-import/). Imports themselves do not.
 
 ### Mailbox sources and redirects
 
@@ -267,11 +277,12 @@ The `rsync` alternative works too and is sometimes simpler, as long as the stack
 
 ## Outbound calls
 
-A self-hosted Warmbly makes no outbound call of its own except the one below, which is off with a single setting. The mail host lookup is listed too: it is off on a self-host unless you turn it on.
+A self-hosted Warmbly makes no outbound call of its own except the one below, which is off with a single setting. The mail host lookup and company logos are listed too: both are off on a self-host unless you turn them on.
 
 | Call | When | Turn it off |
 |---|---|---|
 | GitHub releases API | Every 30 minutes, to tell the admin panel a newer version exists | `UPDATE_CHECK_ENABLED=false` |
+| Company logos | While the contact list is on screen, the browser (not the server) asks DuckDuckGo's favicon service (`icons.duckduckgo.com`) for the logo of each contact's company domain, once per domain. Only the domain is sent, never the address or anything else about the contact, and personal inboxes (Gmail, Outlook.com and the like) are never looked up. Without it, contacts show their initials | Off by default on a self-host; `WARMBLY_COMPANY_LOGOS=on` on the web container turns it on (it is on for Warmbly Cloud) |
 | Mail host lookup | When a [mailbox import](/guides/mailbox-import/) meets a domain whose MX records do not name a known provider, and once for each domain of a mailbox whose host is not recorded yet (one connected before hosts were recorded, or one connected by hand over SMTP and IMAP). Mozilla's Thunderbird ISPDB (`autoconfig.thunderbird.net`) is asked for the settings of that domain (or of its MX host's domain), after the domain's own autoconfig file. Only the domain name is sent, and the answer is cached for 6 hours. Without it, detection uses the domain's DNS and its own autoconfig file only | Off by default on a self-host; `MAILHOST_ISPDB=true` turns it on (it is on for Warmbly Cloud) |
 
 These are made only when a workspace uses the feature behind them, so an instance where nobody does makes none of them:

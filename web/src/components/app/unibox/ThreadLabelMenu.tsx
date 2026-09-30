@@ -76,7 +76,7 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
       setQuery("");
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Failed to create category",
+        err instanceof Error ? err.message : "יצירת התווית נכשלה",
       );
     }
   };
@@ -201,13 +201,13 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
                 ) : (
                   <PlusIcon className="w-3 h-3 text-sky-600" />
                 )}
-                צור "{query.trim()}"
+                צור תווית "{query.trim()}"
               </button>
             )}
           </div>
 
           <div className="px-2.5 h-7 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-            <span>תוויות משותפות עם קטגוריות אנשי קשר</span>
+            <span>תוויות משותפות עם אנשי קשר</span>
             <kbd className="h-4 px-1 rounded border border-slate-200 bg-slate-50 font-mono inline-flex items-center">
               c
             </kbd>

@@ -191,7 +191,7 @@ export function NewContactDialog({ open, onClose, campaign, segment }: Props) {
                                 />
                             </div>
                             <div>
-                                <Label>קטגוריות</Label>
+                                <Label>תוויות</Label>
                                 <CategoryPicker value={categories} onChange={setCategories} />
                             </div>
                             <div>

@@ -43,6 +43,7 @@ export const ORIGIN_LABEL: Record<string, string> = {
     monitor: "ניטור אוטומטי",
     admin: "מנהל מערכת",
     remote: "מופע מקושר",
+    batch: "אצווה (מרובה תיבות)",
 };
 
 // The backend's `error` field is the HTTP status text; the sentence worth

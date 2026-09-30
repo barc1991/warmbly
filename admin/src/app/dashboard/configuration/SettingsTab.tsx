@@ -193,6 +193,46 @@ const PLACEMENT_FIELDS = [
         max: 600,
         help: "פער הזמן בין שני עותקים הנשלחים מאותה תיבת דואר (עם אקראיות קלה), כך שהבדיקה לעולם אינה יוצאת כפרץ שליחות פתאומי.",
     },
+    {
+        key: "creditsPerTest",
+        setting: "credits_per_test",
+        label: "עלות בדיקה בקרדיטים (מעבר למכסה)",
+        min: 0,
+        max: 10000,
+        help: "עלות בדיקה בקרדיטים לאחר ניצול הבדיקות החינמיות לחודש. 0 מבטל בדיקות בתשלום.",
+    },
+    {
+        key: "batchSendersMax",
+        setting: "batch_senders_max",
+        label: "מספר שולחים מרבי באצווה אחת",
+        min: 1,
+        max: 100000,
+        help: "רשימת השולחים הגדולה ביותר שאצווה אחת לבדיקת מיקום יכולה להכיל. מגבלה זו קובעת את גודל האצווה הכולל ולא את כמות השולחים בו-זמנית, ולכן יכולה להיות גבוהה בהרבה מצי התיבות של סביבת העבודה.",
+    },
+    {
+        key: "batchSenderConcurrency",
+        setting: "batch_sender_concurrency",
+        label: "שולחים באצווה הפועלים בו-זמנית",
+        min: 1,
+        max: 500,
+        help: "כמה תיבות שולחות של סביבת עבודה אחת יכולות לשלוח עותקים במקביל, בכל האצוות שלה. השולח הבא יתחיל כאשר שולח קודם סיים את כל שליחותיו. כל תיבה עדיין שומרת על המגבלה והמרווחים היומיים שלה.",
+    },
+    {
+        key: "batchInstanceConcurrency",
+        setting: "batch_instance_concurrency",
+        label: "שולחים באצווה בו-זמנית בכל המופע",
+        min: 1,
+        max: 5000,
+        help: "אותה מגבלה במצטבר על פני כל סביבות העבודה יחד. מגבלה זו שומרת על עומס סביר בפאנל תיבות הבדיקה של המופע, כדי שתיבת בדיקה לא תגיע לרף הצפה המשהה תיבות.",
+    },
+    {
+        key: "batchStartsPerMinute",
+        setting: "batch_starts_per_minute",
+        label: "שולחי אצווה המופעלים לדקה",
+        min: 1,
+        max: 600,
+        help: "קצב ההפעלה של שולחים באצווה חדשה, כדי שאצווה גדולה תעלה בהדרגה במקום להפעיל את מלוא המקביליות בבת אחת.",
+    },
 ] as const;
 
 type PlacementFieldKey = (typeof PLACEMENT_FIELDS)[number]["key"];
@@ -203,6 +243,11 @@ const PLACEMENT_DEFAULTS: InstanceSettings["placement"] = {
     tests_per_month_paid: 40,
     seeds_per_test: 20,
     spacing_seconds: 60,
+    credits_per_test: 25,
+    batch_senders_max: 10000,
+    batch_sender_concurrency: 20,
+    batch_instance_concurrency: 200,
+    batch_starts_per_minute: 10,
 };
 
 interface FormState {
@@ -244,6 +289,11 @@ function toForm(s: InstanceSettings): FormState {
             testsPaid: String(placement.tests_per_month_paid),
             seedsPerTest: String(placement.seeds_per_test),
             spacingSeconds: String(placement.spacing_seconds),
+            creditsPerTest: String(placement.credits_per_test ?? PLACEMENT_DEFAULTS.credits_per_test),
+            batchSendersMax: String(placement.batch_senders_max ?? PLACEMENT_DEFAULTS.batch_senders_max),
+            batchSenderConcurrency: String(placement.batch_sender_concurrency ?? PLACEMENT_DEFAULTS.batch_sender_concurrency),
+            batchInstanceConcurrency: String(placement.batch_instance_concurrency ?? PLACEMENT_DEFAULTS.batch_instance_concurrency),
+            batchStartsPerMinute: String(placement.batch_starts_per_minute ?? PLACEMENT_DEFAULTS.batch_starts_per_minute),
         },
         enforceDomainAuth: s.deliverability.enforce_domain_auth,
         authGraceHours: String(s.deliverability.auth_grace_hours),
@@ -308,7 +358,7 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
         !!form &&
         PLACEMENT_FIELDS.some(
             (f) =>
-                form.placement[f.key] !== String((server.placement ?? PLACEMENT_DEFAULTS)[f.setting]),
+                form.placement[f.key] !== String(server.placement?.[f.setting] ?? PLACEMENT_DEFAULTS[f.setting]),
         );
     const dirty =
         !!server &&
@@ -421,6 +471,11 @@ export function SettingsTab({ onDirtyChange, onSwitchTab }: SettingsTabProps) {
                 tests_per_month_paid: Number(form.placement.testsPaid),
                 seeds_per_test: Number(form.placement.seedsPerTest),
                 spacing_seconds: Number(form.placement.spacingSeconds),
+                credits_per_test: Number(form.placement.creditsPerTest),
+                batch_senders_max: Number(form.placement.batchSendersMax),
+                batch_sender_concurrency: Number(form.placement.batchSenderConcurrency),
+                batch_instance_concurrency: Number(form.placement.batchInstanceConcurrency),
+                batch_starts_per_minute: Number(form.placement.batchStartsPerMinute),
             },
         });
     }

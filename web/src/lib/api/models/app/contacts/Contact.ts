@@ -27,13 +27,39 @@ export interface LeadHold {
     since: string;
     until?: string | null;
     reason?: string;
-    source: "manual" | "out_of_office" | string;
+    source: "manual" | "out_of_office" | "inbox_tagging" | "cc" | string;
+}
+
+// Why a copied contact is or is not on the next email to the lead.
+export type LeadCCStatus = "active" | "unsubscribed" | "bounced" | "undeliverable";
+
+// A contact copied on every email one campaign sends one lead.
+export interface LeadCC {
+    contact_id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    company?: string;
+    status: LeadCCStatus;
+    bounced_at?: string | null;
+}
+
+// The most contacts one lead can copy; mirrors config.CampaignLeadMaxCC.
+export const LEAD_CC_MAX = 2;
+
+export function leadCCName(cc: Pick<LeadCC, "first_name" | "last_name" | "email">): string {
+    return `${cc.first_name ?? ""} ${cc.last_name ?? ""}`.trim() || cc.email;
 }
 
 // holdSummary is the one sentence a held lead gets, wherever it is shown: why
 // the flow is parked and when it lifts. One function so the Leads row and the
 // contact drawer cannot word the same hold two different ways.
 export function holdSummary(hold: LeadHold): string {
+    if (hold.source === "cc") {
+        return hold.reason
+            ? `מכותב/ת במיילים אל ${hold.reason} · מיילים אישיים לא נשלחים`
+            : "מכותב/ת במיילים של ליד אחר · מיילים אישיים לא נשלחים";
+    }
     const what = hold.source === "out_of_office" ? "מחוץ למשרד" : "מושהה";
     const why = hold.reason ? ` · ${hold.reason}` : "";
     if (!hold.until) return `${what}${why} · עד להמשך ידני`;
@@ -42,6 +68,7 @@ export function holdSummary(hold: LeadHold): string {
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
+        hour12: false,
     });
     return `${what}${why} · עד ${until}`;
 }
@@ -83,6 +110,8 @@ export interface ContactCampaignProgress {
     // The live hold, when the lead's flow is parked. Present on any status: a
     // held lead that also replied still reads "replied".
     hold?: LeadHold | null;
+    // Contacts copied on every email to this lead in this campaign.
+    cc?: LeadCC[];
 }
 
 // VerificationStatus mirrors emailverify.Status: the pre-send verdict on the

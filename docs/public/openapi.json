@@ -5823,6 +5823,295 @@
         }
       }
     },
+    "/campaigns/{id}/leads/{contactId}/cc": {
+      "get": {
+        "operationId": "campaigns_get_lead_cc",
+        "summary": "Get a lead's CC",
+        "description": "List the contacts copied on every email this campaign sends one lead. Scope READ_CAMPAIGNS and READ_CONTACTS, org permission view_campaigns and view_contacts.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "contactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignLeadCCResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The campaign is not the caller's organization's, or the contact is not a lead of it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "campaigns_set_lead_cc",
+        "summary": "Set a lead's CC",
+        "description": "Replace the contacts copied on every email this campaign sends one lead, follow-ups included. An empty list removes them all. A copied contact who is also a lead of the campaign has their own sequence held (source cc) while any lead copies them. The body is the whole list, so retries are safe without an Idempotency-Key. Scope WRITE_CAMPAIGNS and READ_CONTACTS, org permission manage_campaigns and view_contacts.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "contactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignLeadCCRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignLeadCCResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bad_request: a contact_ids entry is not a uuid; lead_cc_limit: more than 2 contacts; lead_cc_self: the lead is in its own list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "not_found: the campaign is not the caller's organization's, or the contact is not a lead of it; lead_cc_contact_not_found: a contact to copy is not in the workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "lead_cc_lead_is_copied: the lead is copied on another lead in this campaign; lead_cc_has_copies: a contact to copy has copies of their own in this campaign.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/campaigns/{id}/leads/{contactId}/cc/suggestions": {
+      "get": {
+        "operationId": "campaigns_suggest_lead_cc",
+        "summary": "Suggest colleagues to CC",
+        "description": "Up to eight contacts who look like the lead's colleagues: the same company name, or the same email domain when it belongs to a company rather than a personal mail service. Unsubscribed contacts and ones already copied are left out. Scope READ_CAMPAIGNS and READ_CONTACTS, org permission view_campaigns and view_contacts.",
+        "tags": [
+          "campaigns"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "contactId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignLeadCCSuggestions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The campaign is not the caller's organization's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/campaigns/{id}/logs": {
       "get": {
         "operationId": "campaigns_list_logs",
@@ -6967,7 +7256,7 @@
         ],
         "operationId": "contacts_bulk_update",
         "summary": "Bulk update contacts",
-        "description": "Applies one set of edits across a selection of contacts (up to 1000 by ID, or everything a filter matches, up to 50000): add/remove campaigns and categories, custom-field operations, and subscription. Scope `BULK_CONTACTS`.",
+        "description": "Applies one set of edits across a selection of contacts (up to 10000 by ID, or everything a filter matches, up to 250000): add/remove campaigns and categories, custom-field operations, and subscription. Scope `BULK_CONTACTS`.",
         "security": [
           {
             "bearerAuth": []
@@ -7003,7 +7292,7 @@
             }
           },
           "400": {
-            "description": "A selection that names nothing, an explicit list over 1000 or an exclusion list over 50000 (`too_many_contacts`), a select-all with no filters, a filter matching no contacts, or a filter matching more than 50000 (`selection_too_large`).",
+            "description": "A selection that names nothing, an explicit list over 10000 or an exclusion list over 250000 (`too_many_contacts`), a select-all with no filters, a filter matching no contacts, or a filter matching more than 250000 (`selection_too_large`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7050,7 +7339,7 @@
         ],
         "operationId": "contacts_bulk_delete",
         "summary": "Bulk delete contacts",
-        "description": "Deletes a selection of contacts: up to 1000 by ID, or everything a filter matches (up to 50000). Scope `BULK_CONTACTS`.",
+        "description": "Deletes a selection of contacts: up to 10000 by ID, or everything a filter matches (up to 250000). Scope `BULK_CONTACTS`.",
         "security": [
           {
             "bearerAuth": []
@@ -7063,7 +7352,7 @@
         ],
         "requestBody": {
           "required": true,
-          "description": "A JSON array of contact ID strings (1 to 1000), or a ContactSelection object naming a filter.",
+          "description": "A JSON array of contact ID strings (1 to 10000), or a ContactSelection object naming a filter.",
           "content": {
             "application/json": {
               "schema": {
@@ -7071,7 +7360,7 @@
                   {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 1000,
+                    "maxItems": 10000,
                     "items": {
                       "type": "string",
                       "format": "uuid"
@@ -7090,7 +7379,7 @@
             "description": "Contacts deleted."
           },
           "400": {
-            "description": "A selection that names nothing, an explicit list over 1000 or an exclusion list over 50000 (`too_many_contacts`), a select-all with no filters, a filter matching no contacts, or a filter matching more than 50000 (`selection_too_large`).",
+            "description": "A selection that names nothing, an explicit list over 10000 or an exclusion list over 250000 (`too_many_contacts`), a select-all with no filters, a filter matching no contacts, or a filter matching more than 250000 (`selection_too_large`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -7420,14 +7709,14 @@
         }
       }
     },
-    "/contacts/lookup": {
-      "get": {
+    "/contacts/imports": {
+      "post": {
         "tags": [
           "contacts"
         ],
-        "operationId": "contacts_lookup",
-        "summary": "Look up a contact by email",
-        "description": "Resolves a sender address to a contact. Returns 200 with {\"contact\": null} when nothing matches. A display-name wrapped address (`Name <addr@example.com>`) is accepted and unwrapped. Scope `READ_CONTACTS`.",
+        "operationId": "contacts_imports_create",
+        "summary": "Create a background import",
+        "description": "Uploads a CSV, TSV or XLSX file once and returns a draft with its preview, including every column's fill over the whole file. Nothing is written to contacts until the import is started. Max 50 MB and 50,000 rows; a workspace holds at most 10 drafts and running imports at once. Scope `WRITE_CONTACTS`.",
         "security": [
           {
             "bearerAuth": []
@@ -7435,28 +7724,137 @@
         ],
         "parameters": [
           {
-            "name": "email",
-            "in": "query",
-            "required": true,
-            "description": "The email address to resolve.",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/IdempotencyKey"
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The CSV/TSV/XLSX upload."
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
-            "description": "The resolved contact, or null.",
+          "201": {
+            "description": "The draft import, with preview.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ContactLookupResult"
+                  "$ref": "#/components/schemas/ContactImport"
                 }
               }
             }
           },
           "400": {
-            "description": "Missing or malformed email.",
+            "description": "Missing file, unsupported format, empty, or over a cap.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks WRITE_CONTACTS or caller lacks manage_contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The workspace already holds 10 drafts and running imports.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "contacts_imports_list",
+        "summary": "List imports",
+        "description": "The organization's background imports, newest first. Scope `READ_CONTACTS`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "pagination.next_cursor from the previous page."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of imports.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactImportList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cursor or limit.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7477,6 +7875,677 @@
           },
           "403": {
             "description": "API key lacks READ_CONTACTS or caller lacks view_contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/imports/{id}": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "contacts_imports_get",
+        "summary": "Get an import",
+        "description": "An import with its progress. Once finished it carries its first 200 failed rows. Scope `READ_CONTACTS`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Import id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The import.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactImport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks READ_CONTACTS or caller lacks view_contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import in this organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "contacts_imports_save_draft",
+        "summary": "Save a draft",
+        "description": "Stores a draft's in-progress mapping and options without checking them, so a client can autosave and resume it. They are checked on start. Scope `WRITE_CONTACTS`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Import id."
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactImportOptions"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The draft with its saved options.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks WRITE_CONTACTS or caller lacks manage_contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import in this organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The import has already started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/imports/{id}/analyze": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "contacts_imports_analyze",
+        "summary": "Analyze an import",
+        "description": "Reports what a draft would do under a mapping, over the whole file, writing nothing. Scope `WRITE_CONTACTS`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Import id."
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactImportAnalyzeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "What the import would do.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactImportAnalysis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid mapping.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks WRITE_CONTACTS or caller lacks manage_contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import in this organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The import has already started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/imports/{id}/start": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "contacts_imports_start",
+        "summary": "Start an import",
+        "description": "Queues a draft with its mapping and options; the server applies it in chunks. Starting an import that has already started returns it unchanged. Scope `BULK_CONTACTS`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Import id."
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactImportOptions"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The queued import.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactImport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid mapping, dedup, or target.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks BULK_CONTACTS or caller lacks manage_contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import in this organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The import was cancelled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/imports/{id}/cancel": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "contacts_imports_cancel",
+        "summary": "Cancel an import",
+        "description": "Stops a draft, queued or running import. Rows already imported stay imported. Scope `BULK_CONTACTS`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Import id."
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The import.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactImport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks BULK_CONTACTS or caller lacks manage_contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import in this organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/imports/{id}/failed.csv": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "contacts_imports_failed_csv",
+        "summary": "Download failed rows",
+        "description": "Every failed row as uploaded, under the file's own headers, followed by Line and Error columns. Scope `READ_CONTACTS`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Import id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The failed rows.",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks READ_CONTACTS or caller lacks view_contacts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such import in this organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/contacts/lookup": {
+      "get": {
+        "tags": [
+          "contacts"
+        ],
+        "operationId": "contacts_lookup",
+        "summary": "Look up a contact by email",
+        "description": "Resolves a sender address to a contact. Returns 200 with {\"contact\": null} when nothing matches. A display-name wrapped address (`Name <addr@example.com>`) is accepted and unwrapped. With `thread_id`, a sender whose address is not a contact resolves to the lead of the campaign send the thread answers; `match` says which one answered. Scope `READ_CONTACTS`, plus `READ_UNIBOX` with `thread_id`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "description": "The email address to resolve. Required unless thread_id is given.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "thread_id",
+            "in": "query",
+            "required": false,
+            "description": "A unibox thread id. Used when the address is not a contact.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "query",
+            "required": false,
+            "description": "The mailbox holding the thread, to limit the thread match to it.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resolved contact, or null.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactLookupResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing email and thread_id, or a malformed account_id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "API key lacks READ_CONTACTS (or READ_UNIBOX with thread_id), caller lacks view_contacts (or access_unibox), or account_id is outside the key's email account allowlist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14656,7 +15725,7 @@
             }
           },
           "400": {
-            "description": "Invalid body, panel or tracking; a sequence_id without campaign_id; no subject or body; or placement_invalid_tracking.",
+            "description": "Invalid body, panel or tracking; a sequence_id without campaign_id; seed_ids without panel workspace; no subject or body; placement_invalid_tracking; or placement_invalid_seeds.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14676,7 +15745,7 @@
             }
           },
           "402": {
-            "description": "placement_not_entitled (no active trial or subscription) or placement_quota_exceeded (monthly allowance used).",
+            "description": "placement_not_entitled (no active trial or subscription), placement_quota_exceeded (the month's free tests are used and max_credits is missing or below the price, or the test cannot be paid for), or insufficient_credits.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14716,7 +15785,7 @@
             }
           },
           "429": {
-            "description": "placement_too_many_running (3 tests in flight per workspace), or rate limited.",
+            "description": "placement_too_many_running (3 tests in flight per workspace), usage_cap_exceeded (a paid test past a credit spend limit), or rate limited.",
             "content": {
               "application/json": {
                 "schema": {
@@ -14924,6 +15993,785 @@
           },
           "409": {
             "description": "placement_not_running: the test already finished.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/placement/batches": {
+      "get": {
+        "operationId": "placement_batches_list",
+        "tags": [
+          "placement"
+        ],
+        "summary": "List placement batches",
+        "description": "The workspace's placement batches, newest first, with progress and headline placement. Scope READ_ANALYTICS, org permission view_analytics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 100. Default 25.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor from a previous pagination.next_cursor.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of batches.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "pagination"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PlacementBatch"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid cursor or limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "placement_batches_create",
+        "tags": [
+          "placement"
+        ],
+        "summary": "Start a placement batch",
+        "description": "Run the same placement test from many sending mailboxes, chosen by id or resolved on the server from a campaign or the whole workspace, optionally sampled. The senders are written down and the batch is answered queued; the backend starts them a few at a time, checking each mailbox's daily limit, connection and worker when its turn comes. Nothing is sent by the request. Scope SEND_CAMPAIGNS, org permission send_campaigns.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The queued batch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlacementBatch"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request, placement_batch_empty, placement_batch_too_large, placement_invalid_seeds or placement_invalid_tracking.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "placement_not_entitled, placement_quota_exceeded or insufficient_credits.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions, or an API key naming a mailbox it may not use.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A sending mailbox, campaign, step or contact is not in the workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "placement_no_seeds or placement_panel_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited, or placement_too_many_batches.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/placement/batches/preview": {
+      "post": {
+        "operationId": "placement_batches_preview",
+        "tags": [
+          "placement"
+        ],
+        "summary": "Preview a placement batch",
+        "description": "What a batch request would come to: senders matched and selected, tests, the most copies sent, free and paid tests and credits. Writes and sends nothing. Scope SEND_CAMPAIGNS, org permission send_campaigns.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlacementBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The counts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlacementBatchPreview"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "placement_not_entitled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A sending mailbox, campaign, step or contact is not in the workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "placement_no_seeds or placement_panel_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/placement/batches/{id}": {
+      "get": {
+        "operationId": "placement_batches_get",
+        "tags": [
+          "placement"
+        ],
+        "summary": "Get a placement batch",
+        "description": "One batch with its placement overall and grouped by sending domain, sending provider and recipient provider, worst first. Scope READ_ANALYTICS, org permission view_analytics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Placement batch id.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The batch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlacementBatchDetail"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/placement/batches/{id}/senders": {
+      "get": {
+        "operationId": "placement_batches_senders",
+        "tags": [
+          "placement"
+        ],
+        "summary": "List a placement batch's senders",
+        "description": "The batch's mailboxes with where each one's copies landed and why any was deferred, skipped or failed. Scope READ_ANALYTICS, org permission view_analytics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Placement batch id.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1 to 100. Default 25.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor from a previous pagination.next_cursor.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "worst (default, lowest inbox rate first), best, email or status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "worst",
+                "best",
+                "email",
+                "status"
+              ],
+              "default": "worst"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Only mailboxes in this status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "deferred",
+                "running",
+                "completed",
+                "skipped",
+                "failed",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Only addresses containing this text.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of senders.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "pagination"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PlacementBatchSender"
+                      }
+                    },
+                    "pagination": {
+                      "$ref": "#/components/schemas/Pagination"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id, cursor, limit, sort or status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/placement/batches/{id}/cancel": {
+      "post": {
+        "operationId": "placement_batches_cancel",
+        "tags": [
+          "placement"
+        ],
+        "summary": "Cancel a placement batch",
+        "description": "Stop the batch: no mailbox starts again, copies not sent yet are cancelled, copies already sent keep being classified. Scope SEND_CAMPAIGNS, org permission send_campaigns.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Placement batch id.",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The cancelled batch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlacementBatch"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "placement_batch_not_running.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/placement/coverage": {
+      "get": {
+        "operationId": "placement_coverage",
+        "tags": [
+          "placement"
+        ],
+        "summary": "Get placement fleet coverage",
+        "description": "How many of the workspace's connected sending mailboxes finished a placement test in the last 7 and 30 days, and how many never did. Scope READ_ANALYTICS, org permission view_analytics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The coverage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlacementCoverage"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15157,7 +17005,7 @@
             "name": "from",
             "in": "query",
             "required": true,
-            "description": "Range start (YYYY-MM-DD).",
+            "description": "First day (YYYY-MM-DD, UTC).",
             "schema": {
               "type": "string",
               "format": "date"
@@ -15167,7 +17015,7 @@
             "name": "to",
             "in": "query",
             "required": true,
-            "description": "Range end (YYYY-MM-DD).",
+            "description": "Last day (YYYY-MM-DD, UTC), included.",
             "schema": {
               "type": "string",
               "format": "date"
@@ -15245,7 +17093,7 @@
           "analytics"
         ],
         "summary": "Get campaign analytics",
-        "description": "A single campaign's performance summary plus per-step stats. The campaign must belong to the caller.",
+        "description": "A single campaign's performance summary plus per-step stats, for its whole history or for the emails sent from `from` to `to`. A period is a send cohort: the emails sent on its UTC days, with every open, click, reply and bounce they earned whenever it arrived. total_contacts and emails_pending are the campaign's current state whatever the period. The campaign must belong to the caller.",
         "security": [
           {
             "bearerAuth": []
@@ -15261,6 +17109,26 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "First day of the period (YYYY-MM-DD, UTC). Requires to; omit both for all time.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "Last day of the period (YYYY-MM-DD, UTC), included. Requires from.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
           }
         ],
         "responses": {
@@ -15275,7 +17143,7 @@
             }
           },
           "400": {
-            "description": "Invalid request.",
+            "description": "Only one of from and to, a malformed date, or from after to.",
             "content": {
               "application/json": {
                 "schema": {
@@ -15355,7 +17223,7 @@
             "name": "from",
             "in": "query",
             "required": true,
-            "description": "Range start (YYYY-MM-DD).",
+            "description": "First day (YYYY-MM-DD, UTC).",
             "schema": {
               "type": "string",
               "format": "date"
@@ -15365,7 +17233,7 @@
             "name": "to",
             "in": "query",
             "required": true,
-            "description": "Range end (YYYY-MM-DD).",
+            "description": "Last day (YYYY-MM-DD, UTC), included.",
             "schema": {
               "type": "string",
               "format": "date"
@@ -17222,7 +19090,7 @@
             }
           },
           "400": {
-            "description": "A selection that names nothing, an exclusion list over 50000 or one resolving to more than 500 contacts (`too_many_contacts`), a select-all with no filters, a filter matching no contacts, or a filter matching more than 50000 (`selection_too_large`).",
+            "description": "A selection that names nothing, an exclusion list over 250000 or one resolving to more than 500 contacts (`too_many_contacts`), a select-all with no filters, a filter matching no contacts, or a filter matching more than 250000 (`selection_too_large`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -26429,6 +28297,10 @@
               "oauth",
               "delegated"
             ]
+          },
+          "avatar_url": {
+            "type": "string",
+            "description": "The mailbox's own profile photo, read from a Microsoft connect, an administrator grant, or the inbox vendor it was imported from. Empty when none can be read, which includes every Google mailbox signed in on its own and every SMTP mailbox."
           }
         },
         "required": [
@@ -29283,6 +31155,13 @@
             ],
             "nullable": true,
             "description": "The live per-lead hold: an out-of-office auto-reply parked the contact, or a member paused them. Absent when the lead is not held."
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampaignLeadCC"
+            },
+            "description": "Contacts copied on every email to this lead in this campaign. Absent when none."
           }
         }
       },
@@ -29793,7 +31672,7 @@
       },
       "ContactSelection": {
         "type": "object",
-        "description": "Names the contacts a bulk action applies to: either an explicit id list, or every contact matching a search (all + filters) minus the ids in exclude. The filter form lets one call cover far more contacts than a page, and is refused with selection_too_large past 50000 matches.",
+        "description": "Names the contacts a bulk action applies to: either an explicit id list, or every contact matching a search (all + filters) minus the ids in exclude. The filter form lets one call cover far more contacts than a page, and is refused with selection_too_large past 250000 matches.",
         "oneOf": [
           {
             "required": [
@@ -29825,12 +31704,12 @@
           "contacts": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 1000,
+            "maxItems": 10000,
             "items": {
               "type": "string",
               "format": "uuid"
             },
-            "description": "Contact ids (1 to 1000). Required unless all is set."
+            "description": "Contact ids (1 to 10000). Required unless all is set."
           },
           "all": {
             "type": "boolean",
@@ -29850,7 +31729,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "maxItems": 50000,
+            "maxItems": 250000,
             "description": "Contact ids to drop from the resolved set. Ignored unless all is set."
           }
         }
@@ -29889,12 +31768,12 @@
           "contacts": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 1000,
+            "maxItems": 10000,
             "items": {
               "type": "string",
               "format": "uuid"
             },
-            "description": "Contact IDs to edit (1 to 1000). Required unless all is set."
+            "description": "Contact IDs to edit (1 to 10000). Required unless all is set."
           },
           "all": {
             "type": "boolean",
@@ -29914,7 +31793,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "maxItems": 50000,
+            "maxItems": 250000,
             "description": "Contact ids to drop from the resolved set. Ignored unless all is set."
           },
           "add_campaigns": {
@@ -30122,6 +32001,21 @@
             "items": {
               "type": "integer"
             }
+          },
+          "column_stats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactImportColumnStats"
+            },
+            "description": "Every column's fill over the whole file. Sent by background imports."
+          },
+          "mapping_source": {
+            "type": "string",
+            "enum": [
+              "suggested",
+              "saved"
+            ],
+            "description": "saved when this organization confirmed a mapping for these exact headers before."
           }
         }
       },
@@ -30191,6 +32085,335 @@
             "items": {
               "$ref": "#/components/schemas/ContactImportRowError"
             }
+          },
+          "quality": {
+            "$ref": "#/components/schemas/ContactImportQuality"
+          }
+        }
+      },
+      "ContactImportColumnStats": {
+        "type": "object",
+        "description": "One column's fill over the whole file.",
+        "required": [
+          "filled",
+          "distinct",
+          "samples"
+        ],
+        "properties": {
+          "filled": {
+            "type": "integer",
+            "description": "Non-empty cells."
+          },
+          "distinct": {
+            "type": "integer",
+            "description": "Different values, counted up to 1,000."
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Up to three distinct values, in file order."
+          }
+        }
+      },
+      "ContactImportOptions": {
+        "type": "object",
+        "description": "How an import maps columns and treats rows. The same fields as the commit's options.",
+        "required": [
+          "mapping",
+          "dedup",
+          "has_header"
+        ],
+        "properties": {
+          "mapping": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactImportColumnMapping"
+            }
+          },
+          "dedup": {
+            "type": "string",
+            "enum": [
+              "skip",
+              "update",
+              "create_duplicate"
+            ]
+          },
+          "has_header": {
+            "type": "boolean"
+          },
+          "category_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "campaign_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "segment_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "subscribed_default": {
+            "type": "boolean",
+            "description": "Subscription state for new contacts when no subscribed column is mapped. Defaults to true."
+          }
+        }
+      },
+      "ContactImportAnalyzeRequest": {
+        "type": "object",
+        "required": [
+          "mapping",
+          "has_header"
+        ],
+        "properties": {
+          "mapping": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactImportColumnMapping"
+            }
+          },
+          "has_header": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ContactImportAnalysis": {
+        "type": "object",
+        "description": "What an import would do, read over the whole file before anything is written. Every row lands in exactly one of new, existing, duplicates_in_file, invalid or conflicts.",
+        "required": [
+          "rows",
+          "new",
+          "existing",
+          "duplicates_in_file",
+          "invalid",
+          "conflicts",
+          "invalid_samples"
+        ],
+        "properties": {
+          "rows": {
+            "type": "integer"
+          },
+          "new": {
+            "type": "integer"
+          },
+          "existing": {
+            "type": "integer",
+            "description": "Addresses the organization already has a contact for."
+          },
+          "duplicates_in_file": {
+            "type": "integer"
+          },
+          "invalid": {
+            "type": "integer"
+          },
+          "conflicts": {
+            "type": "integer",
+            "description": "Addresses the caller holds as a contact in another organization, which cannot be created here."
+          },
+          "invalid_samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactImportRowError"
+            },
+            "description": "Up to 25 invalid or conflicting rows."
+          },
+          "quality": {
+            "$ref": "#/components/schemas/ContactImportQuality"
+          },
+          "problem": {
+            "type": "string",
+            "description": "Why starting would be refused as a whole. Omitted when it would run."
+          }
+        }
+      },
+      "ContactImport": {
+        "type": "object",
+        "description": "A background contact import.",
+        "required": [
+          "id",
+          "organization_id",
+          "filename",
+          "format",
+          "status",
+          "has_header",
+          "columns",
+          "total",
+          "processed",
+          "imported",
+          "updated",
+          "skipped",
+          "failed",
+          "notes",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organization_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "has_header": {
+            "type": "boolean"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "Data rows in the file."
+          },
+          "processed": {
+            "type": "integer",
+            "description": "Rows settled so far; imported + updated + skipped + failed."
+          },
+          "imported": {
+            "type": "integer"
+          },
+          "updated": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "options": {
+            "$ref": "#/components/schemas/ContactImportOptions"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/ContactImportQuality"
+          },
+          "segments_pinned": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Messages about the import as a whole."
+          },
+          "error": {
+            "type": "string",
+            "description": "Why a failed import stopped."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/ContactImportPreview"
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactImportRowError"
+            },
+            "description": "The first 200 failed rows, once finished."
+          }
+        }
+      },
+      "ContactImportList": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactImport"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "ContactImportQuality": {
+        "type": "object",
+        "description": "What an import's addresses look like. Advisory: a flagged list still imports.",
+        "required": [
+          "malformed",
+          "disposable",
+          "role",
+          "bad_share_pct",
+          "flagged"
+        ],
+        "properties": {
+          "malformed": {
+            "type": "integer"
+          },
+          "disposable": {
+            "type": "integer"
+          },
+          "role": {
+            "type": "integer",
+            "description": "Shared inboxes such as info@; not counted against the list."
+          },
+          "bad_share_pct": {
+            "type": "number",
+            "description": "Malformed plus disposable, as a percentage of the file."
+          },
+          "flagged": {
+            "type": "boolean",
+            "description": "Set above 25% on files of at least 20 rows."
+          },
+          "summary": {
+            "type": "string"
           }
         }
       },
@@ -30207,6 +32430,14 @@
                 "$ref": "#/components/schemas/Contact"
               }
             ]
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "email",
+              "thread"
+            ],
+            "description": "What resolved the contact: the sender's address, or the campaign send the thread answers. Absent when contact is null."
           }
         }
       },
@@ -34219,7 +36450,8 @@
             "type": "string"
           },
           "date_range": {
-            "$ref": "#/components/schemas/DateRange"
+            "$ref": "#/components/schemas/DateRange",
+            "description": "The UTC days the figures cover, as midnight on the first and last: the requested from and to, or for all time the first send's day (creation day before one) through today."
           },
           "summary": {
             "$ref": "#/components/schemas/CampaignAnalyticsSummary"
@@ -34728,6 +36960,13 @@
               "free"
             ],
             "description": "The warmup pool the mailbox warms in."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "cloud"
+            ],
+            "description": "Present as cloud when Warmbly Cloud warms the mailbox for a linked self-hosted instance and reported this standing."
           },
           "state": {
             "type": "string",
@@ -35671,7 +37910,7 @@
               "type": "string",
               "format": "uuid"
             },
-            "maxItems": 50000,
+            "maxItems": 250000,
             "description": "Contact ids to drop from the resolved set. Ignored unless all is set."
           }
         },
@@ -37711,9 +39950,11 @@
             "type": "string",
             "enum": [
               "manual",
-              "out_of_office"
+              "out_of_office",
+              "inbox_tagging",
+              "cc"
             ],
-            "description": "What wrote it."
+            "description": "What wrote it. cc holds a contact's own lead while they are copied on another lead's emails in the campaign; its reason is that lead's address."
           }
         },
         "required": [
@@ -37762,6 +40003,140 @@
             "description": "Optional note shown next to the hold."
           }
         }
+      },
+      "CampaignLeadCC": {
+        "type": "object",
+        "description": "A contact copied on every email one campaign sends one lead.",
+        "properties": {
+          "contact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "company": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "unsubscribed",
+              "bounced",
+              "undeliverable"
+            ],
+            "description": "Whether the next email copies them: only active does."
+          },
+          "bounced_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Set when a bounce was attributed to this copy on this lead's thread."
+          }
+        },
+        "required": [
+          "contact_id",
+          "email",
+          "first_name",
+          "last_name",
+          "status"
+        ]
+      },
+      "CampaignLeadCCResult": {
+        "type": "object",
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampaignLeadCC"
+            }
+          }
+        },
+        "required": [
+          "campaign_id",
+          "contact_id",
+          "cc"
+        ]
+      },
+      "CampaignLeadCCRequest": {
+        "type": "object",
+        "properties": {
+          "contact_ids": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Contacts of the workspace to copy, at most 2. Duplicates are ignored; an empty list removes every copy."
+          }
+        },
+        "required": [
+          "contact_ids"
+        ]
+      },
+      "CampaignLeadCCSuggestions": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "contact_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email"
+                },
+                "first_name": {
+                  "type": "string"
+                },
+                "last_name": {
+                  "type": "string"
+                },
+                "company": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "company",
+                    "domain"
+                  ]
+                }
+              },
+              "required": [
+                "contact_id",
+                "email",
+                "first_name",
+                "last_name",
+                "reason"
+              ]
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
       },
       "MailboxSendAsIdentity": {
         "type": "object",
@@ -39031,7 +41406,7 @@
       },
       "PlacementUsage": {
         "type": "object",
-        "description": "Metered tests this calendar month (UTC).",
+        "description": "Free tests used this calendar month (UTC). A test paid in credits, or one that finished without delivering a copy, is not counted.",
         "properties": {
           "used": {
             "type": "integer"
@@ -39042,6 +41417,17 @@
               "null"
             ],
             "description": "Null when the instance does not meter tests (self-hosted)."
+          },
+          "credits_per_test": {
+            "type": "integer",
+            "description": "What a test on the instance panel costs in credits once the free tests are used up; 0 when tests cannot be paid for."
+          },
+          "credit_balance": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The workspace's spendable credits, null when credits are off."
           },
           "period_start": {
             "type": "string",
@@ -39213,6 +41599,14 @@
             ],
             "format": "uuid"
           },
+          "batch_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The placement batch that started the test."
+          },
           "subject": {
             "type": "string"
           },
@@ -39244,7 +41638,8 @@
               "manual",
               "monitor",
               "admin",
-              "remote"
+              "remote",
+              "batch"
             ]
           },
           "panel": {
@@ -39267,6 +41662,29 @@
           "error": {
             "type": "string",
             "description": "Why a test failed. Absent otherwise."
+          },
+          "pace": {
+            "type": "string",
+            "enum": [
+              "spaced",
+              "quick"
+            ]
+          },
+          "credits_charged": {
+            "type": "integer",
+            "description": "Credits the test cost past the month's free tests; 0 for a free test."
+          },
+          "credits_refunded": {
+            "type": "integer",
+            "description": "Credits a paid test that delivered no copy got back; can be less than credits_charged when the monthly allowance reset since the charge."
+          },
+          "credits_settled_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When a paid test's charge was settled after it finished: refunded if it delivered nothing, kept otherwise."
           },
           "created_at": {
             "type": "string",
@@ -39439,6 +41857,35 @@
               "cloud"
             ],
             "default": "instance"
+          },
+          "seed_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Only with panel workspace: send to these seed inboxes of the workspace and no others. Each must be connected and running, and each gets a copy; seeds_per_test does not cap the list, and a sender whose daily limit cannot pay for all of them is refused with placement_daily_budget. Omit to let the test pick."
+          },
+          "families": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only seeds at these provider families, as the overview's panels[].families[].family lists them. The way to narrow a test on the instance and cloud panels, whose addresses are masked."
+          },
+          "pace": {
+            "type": "string",
+            "enum": [
+              "spaced",
+              "quick"
+            ],
+            "default": "spaced",
+            "description": "spaced sends about 60 seconds apart; quick about 8 seconds apart, so a test sends in minutes."
+          },
+          "max_credits": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The most credits you agree to pay when the month's free tests on the instance panel are used up. A higher price, or none sent, is refused with placement_quota_exceeded, whose message names the price, and nothing is charged."
           }
         }
       },
@@ -39605,6 +42052,660 @@
           }
         }
       },
+      "PlacementSenderScope": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "description": "Mailboxes resolved on the server.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "campaign",
+              "workspace"
+            ]
+          },
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Required with type campaign."
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only mailboxes hosted by these families, such as google_workspace or microsoft365."
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only mailboxes sending from these domains."
+          },
+          "tag_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Only mailboxes carrying one of these tags."
+          },
+          "include_inactive": {
+            "type": "boolean",
+            "default": false,
+            "description": "Keep disconnected mailboxes."
+          },
+          "untested_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365,
+            "description": "Only mailboxes with no finished placement test in this many days."
+          }
+        }
+      },
+      "PlacementSample": {
+        "type": "object",
+        "description": "Which resolved mailboxes to keep.",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "all",
+              "random",
+              "percent",
+              "per_domain",
+              "per_provider"
+            ],
+            "default": "all"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Mailboxes for random; per group for per_domain and per_provider."
+          },
+          "percent": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "Share for percent, rounded up."
+          },
+          "stratify": {
+            "type": "string",
+            "enum": [
+              "provider",
+              "domain"
+            ],
+            "description": "With random or percent only: split the sample in proportion to each group's share."
+          }
+        }
+      },
+      "PlacementBatchRequest": {
+        "type": "object",
+        "description": "A placement batch: the copy fields of a single test, and the senders by id or by scope.",
+        "properties": {
+          "sender_account_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "These mailboxes. Exactly one of sender_account_ids and sender_scope. Duplicates are dropped."
+          },
+          "sender_scope": {
+            "$ref": "#/components/schemas/PlacementSenderScope"
+          },
+          "sample": {
+            "$ref": "#/components/schemas/PlacementSample"
+          },
+          "campaign_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Render with this campaign's opt-out line, tracking and attachments."
+          },
+          "sequence_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "A step of campaign_id; its subject and body are used when the request carries neither."
+          },
+          "contact_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The contact to render merge fields and AI blocks for. Defaults to the campaign's first lead."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Required when there is no step to take it from."
+          },
+          "body_html": {
+            "type": "string"
+          },
+          "body_plain": {
+            "type": "string"
+          },
+          "tracking": {
+            "type": "string",
+            "enum": [
+              "campaign",
+              "on",
+              "off",
+              "compare"
+            ],
+            "default": "campaign"
+          },
+          "panel": {
+            "type": "string",
+            "enum": [
+              "instance",
+              "workspace",
+              "cloud"
+            ],
+            "default": "instance"
+          },
+          "seed_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Only with panel workspace: send to these seed inboxes of the workspace and no others. Each must be connected and running, and each gets a copy; seeds_per_test does not cap the list, and a sender whose daily limit cannot pay for all of them is refused with placement_daily_budget. Omit to let the test pick."
+          },
+          "families": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only seeds at these provider families, as the overview's panels[].families[].family lists them. The way to narrow a test on the instance and cloud panels, whose addresses are masked."
+          },
+          "pace": {
+            "type": "string",
+            "enum": [
+              "spaced",
+              "quick"
+            ],
+            "default": "spaced",
+            "description": "A batch always sends spaced; quick is refused with a 400."
+          },
+          "on_unavailable": {
+            "type": "string",
+            "enum": [
+              "defer",
+              "skip"
+            ],
+            "default": "defer",
+            "description": "defer retries a mailbox that cannot send when its turn comes, for up to seven days; skip skips it."
+          },
+          "max_credits": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The most credits you agree to pay across the whole batch for tests past the month's free ones. Needed only when the batch needs more tests than are free; the batch never spends more."
+          }
+        }
+      },
+      "PlacementBatch": {
+        "type": "object",
+        "description": "One placement batch with its progress and headline placement.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "campaign_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "sequence_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "tracking": {
+            "type": "string",
+            "enum": [
+              "campaign",
+              "on",
+              "off",
+              "compare"
+            ]
+          },
+          "panel": {
+            "type": "string",
+            "enum": [
+              "instance",
+              "workspace",
+              "cloud"
+            ]
+          },
+          "pace": {
+            "type": "string",
+            "enum": [
+              "spaced",
+              "quick"
+            ]
+          },
+          "families": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "seed_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "on_unavailable": {
+            "type": "string",
+            "enum": [
+              "defer",
+              "skip"
+            ]
+          },
+          "selection": {
+            "type": "object",
+            "description": "How the mailboxes were chosen.",
+            "properties": {
+              "sender_account_ids": {
+                "type": "integer",
+                "description": "How many ids were named."
+              },
+              "sender_scope": {
+                "$ref": "#/components/schemas/PlacementSenderScope"
+              },
+              "sample": {
+                "$ref": "#/components/schemas/PlacementSample"
+              },
+              "matched": {
+                "type": "integer",
+                "description": "Mailboxes the scope resolved to before sampling."
+              }
+            }
+          },
+          "sender_count": {
+            "type": "integer"
+          },
+          "max_credits": {
+            "type": "integer"
+          },
+          "credits_spent": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "completed_with_warnings",
+              "cancelled",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "retry_until": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Deferred mailboxes are retried until then, then skipped."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "progress": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "queued": {
+                "type": "integer"
+              },
+              "deferred": {
+                "type": "integer"
+              },
+              "running": {
+                "type": "integer"
+              },
+              "completed": {
+                "type": "integer"
+              },
+              "skipped": {
+                "type": "integer"
+              },
+              "failed": {
+                "type": "integer"
+              },
+              "cancelled": {
+                "type": "integer"
+              }
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/PlacementCounts",
+            "description": "The headline copy: the tracked half of a tracking comparison."
+          }
+        }
+      },
+      "PlacementBatchDetail": {
+        "description": "A placement batch with its placement grouped across the fleet.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PlacementBatch"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "untracked": {
+                "$ref": "#/components/schemas/PlacementCounts",
+                "description": "The untracked half of a tracking comparison."
+              },
+              "domains": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "senders": {
+                      "type": "integer"
+                    },
+                    "tested": {
+                      "type": "integer",
+                      "description": "Senders that finished a test."
+                    },
+                    "counts": {
+                      "$ref": "#/components/schemas/PlacementCounts"
+                    }
+                  }
+                },
+                "description": "Per sending domain, worst inbox rate first."
+              },
+              "providers": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "senders": {
+                      "type": "integer"
+                    },
+                    "tested": {
+                      "type": "integer",
+                      "description": "Senders that finished a test."
+                    },
+                    "counts": {
+                      "$ref": "#/components/schemas/PlacementCounts"
+                    }
+                  }
+                },
+                "description": "Per sending provider, worst inbox rate first."
+              },
+              "recipients": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PlacementFamilyCounts"
+                }
+              },
+              "matrix": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "domain": {
+                      "type": "string"
+                    },
+                    "recipients": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PlacementFamilyCounts"
+                      }
+                    }
+                  }
+                }
+              },
+              "content": {
+                "type": "object",
+                "properties": {
+                  "score": {
+                    "type": "integer"
+                  },
+                  "issues": {
+                    "type": [
+                      "array",
+                      "null"
+                    ],
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "PlacementBatchSender": {
+        "type": "object",
+        "description": "One mailbox of a batch.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "batch_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email_account_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "sender_email": {
+            "type": "string"
+          },
+          "sender_domain": {
+            "type": "string"
+          },
+          "sender_family": {
+            "type": "string"
+          },
+          "sender_family_label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "deferred",
+              "running",
+              "completed",
+              "skipped",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the mailbox was deferred, skipped or failed, as an error code."
+          },
+          "detail": {
+            "type": "string"
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "next_attempt_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/PlacementCounts"
+          },
+          "test_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "The mailbox's tests, the untracked half first on a comparison."
+          }
+        }
+      },
+      "PlacementBatchPreview": {
+        "type": "object",
+        "description": "What a batch request comes to.",
+        "properties": {
+          "matched": {
+            "type": "integer"
+          },
+          "selected": {
+            "type": "integer"
+          },
+          "inactive": {
+            "type": "integer"
+          },
+          "domains": {
+            "type": "integer"
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "senders": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "variants": {
+            "type": "integer",
+            "description": "2 for a tracking comparison."
+          },
+          "tests": {
+            "type": "integer"
+          },
+          "seeds_per_test": {
+            "type": "integer"
+          },
+          "max_sends": {
+            "type": "integer",
+            "description": "The most copies the batch sends; daily limits only make it fewer."
+          },
+          "metered": {
+            "type": "boolean"
+          },
+          "free_tests": {
+            "type": "integer"
+          },
+          "paid_tests": {
+            "type": "integer"
+          },
+          "credits": {
+            "type": "integer"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/PlacementUsage"
+          },
+          "senders_max": {
+            "type": "integer"
+          },
+          "concurrency": {
+            "type": "integer"
+          }
+        }
+      },
+      "PlacementCoverage": {
+        "type": "object",
+        "properties": {
+          "mailboxes": {
+            "type": "integer"
+          },
+          "tested_7d": {
+            "type": "integer"
+          },
+          "tested_30d": {
+            "type": "integer"
+          },
+          "never_tested": {
+            "type": "integer"
+          }
+        }
+      },
       "WarmupPlacementCounts": {
         "type": "object",
         "description": "Where a set of verified warmup deliveries landed.",
@@ -39661,6 +42762,13 @@
           "min_sample": {
             "type": "integer"
           },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "major"
+            ],
+            "description": "Always major: the rate is taken over Google, Microsoft and Yahoo recipients only."
+          },
           "delivered": {
             "type": "integer"
           },
@@ -39688,6 +42796,17 @@
               "collecting",
               "none"
             ]
+          },
+          "other_delivered": {
+            "type": "integer",
+            "description": "Deliveries at other mail hosts, left out of the rate."
+          },
+          "other_inbox_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Inbox rate at those other hosts, shown beside the rate and never counted; null with none."
           }
         }
       },

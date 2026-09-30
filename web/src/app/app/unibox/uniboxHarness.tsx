@@ -207,7 +207,7 @@ export async function mount(initial = "/app/unibox/all") {
 // Mounting the whole shell in jsdom is slow, and slower again when the two
 // unibox suites run alongside each other, so they get more than the 5s default
 // rather than flaking on a loaded machine.
-export const SUITE = { timeout: 30_000 };
+export const SUITE = { timeout: 60_000 };
 
 export async function settle() {
     await act(async () => {

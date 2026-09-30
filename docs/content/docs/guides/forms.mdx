@@ -3,7 +3,7 @@ title: "Forms"
 description: "Build a hosted lead-capture form, style it to match your site, embed it anywhere, and turn every submission into a contact."
 ---
 
-Forms turn website visitors into contacts. You build a form in the dashboard, publish it to a hosted page, and either share the link or embed the form on any website. Every submission is stored, and when it carries an email address it creates or updates a contact, files it under the categories you chose, and can drop it straight into a campaign.
+Forms turn website visitors into contacts. You build a form in the dashboard, publish it to a hosted page, and either share the link or embed the form on any website. Every submission is stored, and when it carries an email address it creates or updates a contact, applies the labels you chose, and can drop it straight into a campaign.
 
 Open **Forms** in the sidebar. Viewing takes the same permission as viewing contacts; building and publishing take the manage-contacts permission.
 
@@ -58,7 +58,7 @@ The **Design** tab styles the form while the canvas updates live. The defaults a
 The **Settings** tab controls what a submission does:
 
 - **Success message** is shown after submitting, or set a **redirect URL** to send the visitor to your own thank-you page instead.
-- **Add to categories** files every submitted contact under the categories you pick, for example "Website leads".
+- **Add to labels** puts the labels you pick on every submitted contact, for example "Website leads".
 - **Add to campaign** enrolls new contacts as leads in the campaign you pick. Sending still follows the campaign's own schedule, limits and windows; a form never causes immediate mail. Picking a campaign turns on its **Keep running for new leads** setting, so it waits between submissions instead of finishing; a campaign that had already finished restarts when a lead arrives, through the usual launch checks, and a refused restart is noted in its activity log while the lead waits.
 - **Spam protection** and **allowed embed domains** are covered below.
 
@@ -139,10 +139,13 @@ Every published form has layered protection with nothing to configure:
 - a size cap on every submission
 - a render token: the form's data and submit endpoints only answer requests carrying a token minted when the page was served, so scripts cannot scrape form definitions or spray submissions without loading the page. A tab left open for more than 12 hours shows a refresh prompt instead of failing silently
 
-Two more controls are yours:
+Three more controls are yours:
 
 - **Captcha challenge** adds a Cloudflare Turnstile check to the form. The toggle appears once the operator has configured Turnstile for the instance.
+- **Triage** classifies every submission as a **buyer** (a prospective customer or someone asking about what you offer), a **vendor** (someone pitching you), a **job seeker**, **other**, or **junk** (spam, gibberish, a test entry, or an unsolicited pitch). The verdict shows as a chip on the submissions list and can be filtered on. Junk is stored and flagged but creates no contact and joins no campaign, so a bot cannot put itself in your outreach. Everything else is handled exactly as before. Triage is off for each form until you switch it on, and the toggle appears once the operator has configured a `TYPESAFE_API_KEY` for the instance. The answers the visitor typed (and nothing about their connection) are sent to TypeSafe for the judgment; a slow or failed call leaves the submission untriaged rather than delaying the visitor.
 - **Allowed embed domains** limits which sites may embed the form. With domains listed, browsers refuse to frame the page anywhere else (a domain covers its subdomains); empty allows any site. The hosted link keeps working either way.
+
+  Worth listing your domains even if you only embed on one site. A form left open to any origin can be framed invisibly under someone else's page and used to collect leads that look like yours, and the browser is the only thing that can prevent it.
 
 ## Data and portability
 

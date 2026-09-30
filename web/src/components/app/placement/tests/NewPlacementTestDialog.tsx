@@ -8,19 +8,15 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import {
-    AlertCircleIcon,
     Loader2Icon,
     MailCheckIcon,
     MailIcon,
-    MegaphoneIcon,
     PlayIcon,
-    UserRoundIcon,
     XIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { Label, SearchInput, TextInput } from "@/components/ui/field";
+import { Label, SearchInput } from "@/components/ui/field";
 import {
     PopoverMenu,
     PopoverMenuContent,
@@ -30,51 +26,45 @@ import {
     PopoverMenuTrigger,
     SelectButton,
 } from "@/components/ui/popover-menu";
-import { SelectMenu } from "@/components/ui/select-menu";
-import { OptionSelect, Segmented } from "@/components/app/campaigns/preferences/components/CampaignPreferenceBoolBox";
-import RichTextEditor from "@/components/app/campaigns/sequences/RichTextEditor";
-import { VARIABLES, htmlToPlain } from "@/components/app/campaigns/sequences/emailPreview";
-import { contactLabel } from "@/components/app/campaigns/sequences/previewContext";
-import { LINK_VARIABLES } from "@/lib/templateVars";
 import { useConfirm } from "@/hooks/context/confirm";
-import useDebouncedValue from "@/hooks/useDebouncedValue";
-import useCampaigns from "@/lib/api/hooks/app/campaigns/useCampaigns";
 import useCampaign from "@/lib/api/hooks/app/campaigns/useCampaign";
 import useCampaignSenders from "@/lib/api/hooks/app/campaigns/useCampaignSenders";
-import useSearchContacts from "@/lib/api/hooks/app/contacts/useSearchContacts";
-import getSequences from "@/lib/api/client/app/campaigns/sequences/getSequences";
 import { useCreatePlacementTest, usePlacementOverview, usePlacementSeeds } from "@/lib/api/hooks/app/placement/usePlacement";
 import {
-    PANEL_LABEL,
     type CreatePlacementTestRequest,
     type PlacementPace,
     type PlacementPanel,
-    type PlacementPanelFamily,
     type PlacementTracking,
 } from "@/lib/api/models/app/placement/Placement";
-import type Contact from "@/lib/api/models/app/contacts/Contact";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import { cn } from "@/lib/utils";
+import {
+    CopySourceFields,
+    FamilyChips,
+    InlineError,
+    PaceChoice,
+    PanelChoice,
+    TrackingChoice,
+} from "./PlacementFormParts";
+import {
+    copyBody,
+    copyIssue,
+    newIdempotencyKey,
+    useCampaignEmailSteps,
+    QUICK_SPACING_SECONDS,
+    type CopyDraft,
+    type CopySource as Source,
+} from "./placementCopy";
 import SeedChooser from "./SeedChooser";
 import { placementErrorMessage, seedBlocker, type PlacementErrorField } from "./placementTests";
 
-const QUICK_SPACING_SECONDS = 5;
-
-type Source = "step" | "custom";
-
-interface Draft {
+interface Draft extends CopyDraft {
     senderId: string;
-    source: Source;
-    campaignId: string;
-    stepId: string;
-    subject: string;
-    bodyHtml: string;
-    bodyPlain: string;
-    bodyCode: boolean;
-    contact: Contact | null;
     tracking: PlacementTracking;
     panel: PlacementPanel;
+    // Own seed inboxes to send to; empty means the usual pick.
     seedIds: string[];
+    // Provider families on a shared panel; empty means every provider.
     families: string[];
     pace: PlacementPace;
 }
@@ -104,6 +94,7 @@ function emptyDraft(prefill?: NewPlacementTestPrefill): Draft {
     };
 }
 
+// What the user typed or picked, for the discard prompt.
 function draftKey(d: Draft): string {
     return JSON.stringify([
         d.source,
@@ -117,12 +108,6 @@ function draftKey(d: Draft): string {
         d.families,
         d.pace,
     ]);
-}
-
-function newKey(): string {
-    return typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export default function NewPlacementTestDialog({
@@ -153,25 +138,19 @@ function DialogBody({ onClose, prefill }: { onClose: () => void; prefill?: NewPl
     const [error, setError] = React.useState<{ field: PlacementErrorField; message: string } | null>(null);
     const [nudged, setNudged] = React.useState(false);
 
-    const idemKey = React.useRef(newKey());
+    const idemKey = React.useRef(newIdempotencyKey());
     const patch = (p: Partial<Draft>) => {
-        idemKey.current = newKey();
+        idemKey.current = newIdempotencyKey();
         setError(null);
         setDraft((d) => ({ ...d, ...p }));
     };
 
     const campaign = useCampaign(draft.source === "step" ? draft.campaignId : "");
     const campaignSenders = useCampaignSenders(draft.campaignId, draft.source === "step" && !!draft.campaignId);
-    const steps = useQuery({
-        queryKey: ["campaigns", draft.campaignId, "sequences"],
-        queryFn: () => getSequences(draft.campaignId),
-        enabled: draft.source === "step" && !!draft.campaignId,
-    });
-    const emailSteps = React.useMemo(
-        () => (steps.data ?? []).filter((s) => (s.kind ?? "email") === "email"),
-        [steps.data],
-    );
+    const steps = useCampaignEmailSteps(draft.campaignId, draft.source === "step");
+    const emailSteps = steps.emailSteps;
 
+    // Senders: connected mailboxes that are not seeds, the campaign's own first.
     const inCampaign = React.useMemo(
         () => new Set((campaignSenders.data ?? []).filter((s) => s.enabled).map((s) => s.email_account_id)),
         [campaignSenders.data],
@@ -182,18 +161,21 @@ function DialogBody({ onClose, prefill }: { onClose: () => void; prefill?: NewPl
     }, [seeds.data, inCampaign]);
     const sender = senders.find((s) => s.email_account_id === draft.senderId) ?? null;
 
+    // Default the sender to the campaign's first usable mailbox, else the first.
     React.useEffect(() => {
         if (sender || senders.length === 0) return;
         const pick = senders.find((s) => inCampaign.has(s.email_account_id)) ?? senders[0];
         setDraft((d) => ({ ...d, senderId: pick.email_account_id }));
     }, [sender, senders, inCampaign]);
 
+    // Default the step to the campaign's first email step.
     React.useEffect(() => {
         if (draft.source !== "step" || !draft.campaignId || emailSteps.length === 0) return;
         if (emailSteps.some((s) => s.id === draft.stepId)) return;
         setDraft((d) => ({ ...d, stepId: emailSteps[0].id }));
     }, [draft.source, draft.campaignId, draft.stepId, emailSteps]);
 
+    // Default the panel to the first one that can run a test.
     const panels = React.useMemo(() => overview.data?.panels ?? [], [overview.data]);
     const panel = panels.find((p) => p.panel === draft.panel);
     React.useEffect(() => {
@@ -230,31 +212,25 @@ function DialogBody({ onClose, prefill }: { onClose: () => void; prefill?: NewPl
     const sendSeconds = copies * spacing;
     const sendTime = sendSeconds < 90 ? "פחות מ-2 דקות" : `כ-${Math.round(sendSeconds / 60)} דקות`;
 
+    // Unmetered and free in this self-hosted edition
+    const usage = overview.data?.usage;
+
     const issue: string | null = !sender
         ? senders.length === 0 && !seeds.isLoading
-            ? "חבר תיבת דואר תחילה. תיבות סיד אינן יכולות לשלוח בדיקה."
-            : "בחר את תיבת הדואר שממנה תתבצע השליחה."
-        : draft.source === "step" && !draft.campaignId
-          ? "בחר קמפיין."
-          : draft.source === "step" && !draft.stepId
-            ? emailSteps.length === 0 && !steps.isLoading
-                ? "בקמפיין זה אין שלבי דוא״ל לבדיקה."
-                : "בחר שלב."
-            : draft.source === "custom" && !draft.subject.trim()
-              ? "הזן נושא להודעה."
-              : draft.source === "custom" && !(draft.bodyPlain.trim() || (draft.bodyCode && draft.bodyHtml.trim()))
-                ? "הזן את תוכן ההודעה."
-                : !panel || !panel.available
-                  ? "בחר מאגר שיכול להריץ בדיקה."
-                  : panel.seeds === 0
-                    ? panel.panel === "workspace"
-                        ? "אין לך עדיין תיבות סיד. סמן תיבות בלשונית תיבות סיד."
-                        : "במאגר זה אין עדיין תיבות סיד."
-                    : draft.panel === "workspace" && draft.seedIds.length > 0 && chosenSeeds.length === 0
-                      ? "אף אחת מתיבות הסיד שנבחרו אינה יכולה לקבל בדיקה משולח זה. בחר תיבות אחרות או נקה את הבחירה."
-                      : chosenFamilies.length > 0 && familySeeds === 0
-                        ? "במאגר זה אין תיבות סיד בספקים שנבחרו."
-                        : null;
+            ? "חבר תיבת דואר תחילה. תיבות בדיקה (Seeds) אינן יכולות לשלוח בדיקה."
+            : "בחר תיבת דואר שממנה תתבצע השליחה."
+        : copyIssue(draft, steps) ??
+          (!panel || !panel.available
+              ? "בחר פאנל שיכול להריץ בדיקה."
+              : panel.seeds === 0
+                ? panel.panel === "workspace"
+                    ? "אין לך עדיין תיבות בדיקה. סמן תיבות בלשונית תיבות בדיקה."
+                    : "בפאנל זה אין עדיין תיבות בדיקה."
+                : draft.panel === "workspace" && draft.seedIds.length > 0 && chosenSeeds.length === 0
+                  ? "אף אחת מתיבות הבדיקה שנבחרו אינה מחוברת. בחר תיבות אחרות או נקה את הבחירה."
+                  : chosenFamilies.length > 0 && familySeeds === 0
+                    ? "בפאנל זה אין תיבות בדיקה בספקים שנבחרו."
+                    : null);
 
     const dirty = draftKey(draft) !== initialKey.current;
     const pending = create.isPending;
@@ -289,26 +265,25 @@ function DialogBody({ onClose, prefill }: { onClose: () => void; prefill?: NewPl
             sender_account_id: draft.senderId,
             tracking: draft.tracking,
             panel: draft.panel,
-            ...(draft.contact ? { contact_id: draft.contact.id } : {}),
+            ...copyBody(draft),
             ...(chosenSeeds.length > 0 ? { seed_ids: chosenSeeds.map((m) => m.email_account_id) } : {}),
             ...(chosenFamilies.length > 0 ? { families: chosenFamilies } : {}),
             ...(draft.pace !== "spaced" ? { pace: draft.pace } : {}),
         };
-        if (draft.source === "step") {
-            body.campaign_id = draft.campaignId;
-            body.sequence_id = draft.stepId;
-        } else {
-            body.subject = draft.subject.trim();
-            body.body_html = draft.bodyHtml;
-            body.body_plain = draft.bodyCode ? htmlToPlain(draft.bodyHtml) : draft.bodyPlain;
-        }
+
         try {
             const tests = await create.mutateAsync({ body, idempotencyKey: idemKey.current });
             toast.success(tests.length > 1 ? "ההשוואה הופעלה בהצלחה." : "בדיקת המיקום הופעלה בהצלחה.");
             onClose();
             if (tests[0]) navigate(`/app/placement/${tests[0].id}`);
         } catch (err) {
-            setError(placementErrorMessage(err as AppError, { resetsOn: overview.data?.usage?.period_end, panel: draft.panel }));
+            setError(
+                placementErrorMessage(err as AppError, {
+                    resetsOn: overview.data?.usage?.period_end,
+                    panel: draft.panel,
+                    chosen: chosenSeeds.length > 0,
+                }),
+            );
         }
     }
 
@@ -363,209 +338,49 @@ function DialogBody({ onClose, prefill }: { onClose: () => void; prefill?: NewPl
                             loading={seeds.isLoading}
                             onChange={(id) => patch({ senderId: id })}
                         />
-                        <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed">
-                            רק תיבות דואר מחוברות יכולות לשלוח. תיבות סיד אינן שולחות בדיקות.
+                        <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed text-start">
+                            רק תיבות דואר מחוברות יכולות לשלוח. תיבות בדיקה (Seeds) מדולגות.
                         </p>
                         {fieldError("sender")}
                     </section>
 
                     {/* What to test */}
-                    <section className="space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">מה לבדוק</span>
-                            <Segmented<Source>
-                                value={draft.source}
-                                onChange={(v) =>
-                                    patch({
-                                        source: v,
-                                        tracking: v === "step" ? "campaign" : draft.tracking === "campaign" ? "off" : draft.tracking,
-                                    })
-                                }
-                                options={[
-                                    { value: "step", label: "שלב בקמפיין" },
-                                    { value: "custom", label: "טיוטה מותאמת אישית" },
-                                ]}
-                            />
-                        </div>
-
-                        {draft.source === "step" ? (
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="min-w-0">
-                                    <Label>קמפיין</Label>
-                                    <CampaignPicker
-                                        value={draft.campaignId}
-                                        name={campaign.data?.name}
-                                        onChange={(id) => patch({ campaignId: id, stepId: "", contact: null })}
-                                    />
-                                </div>
-                                <div className="min-w-0">
-                                    <Label>שלב</Label>
-                                    <SelectMenu
-                                        value={draft.stepId}
-                                        onChange={(v) => patch({ stepId: v })}
-                                        disabled={!draft.campaignId || steps.isLoading}
-                                        fullWidth
-                                        placeholder={
-                                            !draft.campaignId
-                                                ? "בחר קמפיין תחילה"
-                                                : steps.isLoading
-                                                  ? "טוען שלבים…"
-                                                  : emailSteps.length === 0
-                                                    ? "אין שלבי דוא״ל"
-                                                    : "בחר שלב"
-                                        }
-                                        options={emailSteps.map((s, i) => ({
-                                            value: s.id,
-                                            label: `${s.name || `שלב ${i + 1}`}${s.subject ? `: ${s.subject}` : ""}`,
-                                        }))}
-                                        aria-label="שלב"
-                                    />
-                                </div>
-                                <p className="sm:col-span-2 text-[11px] text-slate-400 leading-relaxed">
-                                    השלב נשלח בדיוק כפי שהקמפיין שולח אותו: שדות מיזוג, Spintax, חתימה, קישור להסרה וכותרת Unsubscribe.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                <div>
-                                    <Label>נושא</Label>
-                                    <TextInput
-                                        value={draft.subject}
-                                        onChange={(v) => patch({ subject: v })}
-                                        placeholder="שאלה קצרה, {{.FirstName}}"
-                                    />
-                                </div>
-                                <div>
-                                    <Label>תוכן ההודעה</Label>
-                                    <RichTextEditor
-                                        html={draft.bodyHtml}
-                                        onChange={(html) =>
-                                            patch({ bodyHtml: html, bodyPlain: draft.bodyCode ? "" : htmlToPlain(html) })
-                                        }
-                                        code={draft.bodyCode}
-                                        onCodeChange={(c) => patch({ bodyCode: c })}
-                                        variables={VARIABLES}
-                                        links={LINK_VARIABLES}
-                                        placeholder="היי {{.FirstName}}, …"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                        {fieldError("source")}
-
-                        <div>
-                            <Label>מיזוג נתונים עבור איש קשר</Label>
-                            <ContactPicker
-                                campaignId={draft.source === "step" ? draft.campaignId : ""}
-                                value={draft.contact}
-                                onChange={(c) => patch({ contact: c })}
-                            />
-                            <p className="mt-1.5 text-[11px] text-slate-400 leading-relaxed">
-                                ממלא את שדות המיזוג. רק תיבות הסיד מקבלות את עותקי הבדיקה.
-                            </p>
-                        </div>
-                    </section>
+                    <CopySourceFields
+                        value={draft}
+                        patch={patch}
+                        onSource={(v) =>
+                            patch({
+                                source: v,
+                                tracking: v === "step" ? "campaign" : draft.tracking === "campaign" ? "off" : draft.tracking,
+                            })
+                        }
+                        campaignName={campaign.data?.name}
+                        steps={steps}
+                        error={fieldError("source")}
+                    />
 
                     {/* Tracking */}
-                    <section>
-                        <span className="block mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">מעקב</span>
-                        <OptionSelect<PlacementTracking>
-                            value={draft.tracking}
-                            onChange={(v) => patch({ tracking: v })}
-                            cols={2}
-                            aria-label="מעקב"
-                            options={[
-                                ...(draft.source === "step"
-                                    ? [{ value: "campaign" as const, label: "לפי הקמפיין", hint: "משתמש במעקב פתיחות והקלקות של הקמפיין." }]
-                                    : []),
-                                ...(textOnly
-                                    ? []
-                                    : [{ value: "on" as const, label: "פעיל", hint: "פיקסל פתיחה וקישורים מנוטרים." }]),
-                                { value: "off" as const, label: "כבוי", hint: "ללא פיקסל, קישורים נשארים כמו שנכתבו." },
-                                ...(textOnly
-                                    ? []
-                                    : [
-                                          {
-                                              value: "compare" as const,
-                                              label: "השוואה עם וללא מעקב",
-                                              hint: "שתי בדיקות מקבילות לאותן תיבות סיד.",
-                                          },
-                                      ]),
-                            ]}
-                        />
-                        {textOnly && (
-                            <p className="mt-1.5 text-[11px] text-slate-400">קמפיין זה שולח טקסט רגיל בלבד, ללא מעקב.</p>
-                        )}
-                        {fieldError("tracking")}
-                    </section>
+                    <TrackingChoice
+                        value={draft.tracking}
+                        onChange={(v) => patch({ tracking: v })}
+                        source={draft.source}
+                        textOnly={textOnly}
+                        error={fieldError("tracking")}
+                    />
 
                     {/* Pace */}
-                    <section>
-                        <span className="block mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">קצב שליחה</span>
-                        <OptionSelect<PlacementPace>
-                            value={draft.pace}
-                            onChange={(v) => patch({ pace: v })}
-                            cols={2}
-                            aria-label="קצב שליחה"
-                            options={[
-                                { value: "spaced", label: "רגיל", hint: `עותק כל ~${baseSpacing} שניות. שומר על מרווח טבעי בין השליחות.` },
-                                { value: "quick", label: "מהיר", hint: `עותק כל ~${QUICK_SPACING_SECONDS} שניות. תוצאות בדיקה מהירות יותר.` },
-                            ]}
-                        />
-                    </section>
+                    <PaceChoice value={draft.pace} onChange={(v) => patch({ pace: v })} />
 
                     {/* Panel */}
                     <section>
-                        <span className="block mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">מאגר תיבות סיד</span>
-                        {overview.isLoading ? (
-                            <div className="h-16 rounded-md bg-slate-50 animate-pulse" />
-                        ) : (
-                            <div role="radiogroup" aria-label="מאגר תיבות סיד" className="grid gap-1.5">
-                                {panels.map((p) => {
-                                    const active = p.panel === draft.panel;
-                                    return (
-                                        <button
-                                            key={p.panel}
-                                            type="button"
-                                            role="radio"
-                                            aria-checked={active}
-                                            disabled={!p.available}
-                                            onClick={() => patch({ panel: p.panel })}
-                                            className={cn(
-                                                "flex w-full items-start gap-2.5 rounded-md border px-3 py-2 text-start transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sky-100",
-                                                active && p.available
-                                                    ? "border-sky-300 bg-sky-50"
-                                                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
-                                                !p.available && "opacity-60 cursor-not-allowed hover:bg-white hover:border-slate-200",
-                                            )}
-                                        >
-                                            <span className="min-w-0 flex-1">
-                                                <span className="flex items-center gap-2">
-                                                    <span className={cn("text-[12px] font-medium", active && p.available ? "text-sky-700" : "text-slate-700")}>
-                                                        {PANEL_LABEL[p.panel]}
-                                                    </span>
-                                                    <span className="font-mono text-[10.5px] text-slate-400 tabular-nums">
-                                                        {p.seeds} תיבות סיד
-                                                    </span>
-                                                </span>
-                                                <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">
-                                                    {!p.available
-                                                        ? p.reason || "אינו זמין בסביבת עבודה זו."
-                                                        : "זמין לשימוש ללא הגבלה."}
-                                                </span>
-                                            </span>
-                                            <span
-                                                className={cn(
-                                                    "mt-0.5 size-4 shrink-0 rounded-full border transition-colors",
-                                                    active && p.available ? "border-sky-600 bg-sky-600 ring-2 ring-inset ring-white" : "border-slate-300 bg-white",
-                                                )}
-                                                aria-hidden="true"
-                                            />
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
+                        <span className="block mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-400 font-medium">פאנל תיבות בדיקה</span>
+                        <PanelChoice
+                            panels={panels}
+                            loading={overview.isLoading}
+                            value={draft.panel}
+                            onChange={(p) => patch({ panel: p })}
+                            usage={usage}
+                        />
                         {draft.panel !== "workspace" && panel?.available && panelFamilies.length > 1 && (
                             <FamilyChips
                                 families={panelFamilies}
@@ -585,17 +400,17 @@ function DialogBody({ onClose, prefill }: { onClose: () => void; prefill?: NewPl
                         {fieldError("panel")}
                     </section>
 
-                    {/* Summary Info */}
+                    {/* Workload / Details */}
                     {sender && panel?.available && copies > 0 && (
-                        <div className="rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-[11.5px] leading-relaxed text-slate-600">
-                            שולח עד <b className="font-medium text-slate-900">{copies}</b> הודעות מ-{" "}
-                            <b dir="ltr" className="font-medium text-slate-900">{sender.email}</b>, אחת לכל ~{spacing} שניות, הנספרות במכסת השליחה היומית של התיבה. זמן השליחה הכולל {sendTime}. עותק שלא זוהה בתוך שעתיים נחשב כאילו לא הגיע. תיבות סיד באותו דומיין כמו השולח מדולגות אוטומטית.
+                        <div className="rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-[11.5px] leading-relaxed text-slate-600 text-start">
+                            שולח עד <b className="font-medium text-slate-900">{copies}</b> עותקים מ-{" "}
+                            <b dir="ltr" className="font-medium text-slate-900">{sender.email}</b>, אחד לכל ~{spacing} שניות, הנספרים במכסת השליחה היומית של התיבה. זמן השליחה הכולל {sendTime}. עותק שלא זוהה בתוך שעתיים נחשב כאילו לא הגיע. תיבות בדיקה באותו דומיין של השולח מדולגות אוטומטית.
                         </div>
                     )}
                 </div>
 
                 <div className="shrink-0 border-t border-slate-200 px-4 py-3 flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 text-start">
                         {error?.field === "general" ? (
                             <InlineError message={error.message} compact />
                         ) : nudged && issue ? (
@@ -626,56 +441,6 @@ function DialogBody({ onClose, prefill }: { onClose: () => void; prefill?: NewPl
                 </div>
             </motion.div>
         </motion.div>
-    );
-}
-
-function FamilyChips({
-    families,
-    value,
-    onChange,
-}: {
-    families: PlacementPanelFamily[];
-    value: string[];
-    onChange: (families: string[]) => void;
-}) {
-    const chip = (active: boolean) =>
-        cn(
-            "h-6 px-2 rounded-md border text-[11px] font-medium inline-flex items-center gap-1 transition-colors",
-            active ? "border-sky-200 bg-sky-50 text-sky-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300",
-        );
-    return (
-        <div className="mt-2 text-start">
-            <span className="block mb-1.5 text-[11px] text-slate-500">ספקים</span>
-            <div className="flex flex-wrap gap-1">
-                <button type="button" aria-pressed={value.length === 0} onClick={() => onChange([])} className={chip(value.length === 0)}>
-                    הכל
-                </button>
-                {families.map((f) => {
-                    const active = value.includes(f.family);
-                    return (
-                        <button
-                            key={f.family}
-                            type="button"
-                            aria-pressed={active}
-                            onClick={() => onChange(active ? value.filter((v) => v !== f.family) : [...value, f.family])}
-                            className={chip(active)}
-                        >
-                            {f.label}
-                            <span className="font-mono tabular-nums text-slate-400">{f.seeds}</span>
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-function InlineError({ message, compact = false }: { message: string; compact?: boolean }) {
-    return (
-        <p className={cn("flex items-start gap-1.5 text-[11.5px] leading-snug text-rose-600", !compact && "mt-1.5")}>
-            <AlertCircleIcon className="w-3.5 h-3.5 shrink-0 mt-px" />
-            <span>{message}</span>
-        </p>
     );
 }
 
@@ -718,7 +483,7 @@ function SenderPicker({
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={300} matchTriggerWidth className="p-1 max-h-80 text-start">
                 <div className="p-1.5">
-                    <SearchInput value={q} onChange={setQ} placeholder="חפש תיבות דואר…" autoFocus />
+                    <SearchInput value={q} onChange={setQ} placeholder="חיפוש תיבות דואר…" autoFocus />
                 </div>
                 {shown.length === 0 ? (
                     <div className="px-3 py-2 text-[11.5px] text-slate-400">
@@ -741,110 +506,6 @@ function SenderPicker({
                         )}
                     </>
                 )}
-            </PopoverMenuContent>
-        </PopoverMenu>
-    );
-}
-
-function CampaignPicker({ value, name, onChange }: { value: string; name?: string; onChange: (id: string) => void }) {
-    const [open, setOpen] = React.useState(false);
-    const [q, setQ] = React.useState("");
-    const debounced = useDebouncedValue(q.trim(), 250);
-    const list = useCampaigns({ query: debounced, folder: "", limit: 20, enabled: open });
-    return (
-        <PopoverMenu open={open} onOpenChange={setOpen}>
-            <PopoverMenuTrigger asChild>
-                <SelectButton
-                    icon={<MegaphoneIcon className="w-3.5 h-3.5" />}
-                    label={value ? (name ?? "טוען…") : "בחר קמפיין"}
-                    className="w-full [&>span:nth-child(2)]:max-w-none [&>span:nth-child(2)]:flex-1 [&>span:nth-child(2)]:text-start"
-                />
-            </PopoverMenuTrigger>
-            <PopoverMenuContent minWidth={280} className="p-1 max-h-80 text-start">
-                <div className="p-1.5">
-                    <SearchInput value={q} onChange={setQ} placeholder="חפש קמפיינים…" autoFocus />
-                </div>
-                {list.isLoading && list.campaigns.length === 0 ? (
-                    <div className="px-3 py-2 text-[11.5px] text-slate-400 inline-flex items-center gap-1.5">
-                        <Loader2Icon className="w-3 h-3 animate-spin" /> טוען…
-                    </div>
-                ) : list.campaigns.length === 0 ? (
-                    <div className="px-3 py-2 text-[11.5px] text-slate-400">לא נמצאו קמפיינים תואמים.</div>
-                ) : (
-                    list.campaigns.map((c) => (
-                        <PopoverMenuItem key={c.id} selected={c.id === value} onSelect={() => onChange(c.id)}>
-                            {c.name}
-                        </PopoverMenuItem>
-                    ))
-                )}
-            </PopoverMenuContent>
-        </PopoverMenu>
-    );
-}
-
-function ContactPicker({
-    campaignId,
-    value,
-    onChange,
-}: {
-    campaignId: string;
-    value: Contact | null;
-    onChange: (c: Contact | null) => void;
-}) {
-    const [open, setOpen] = React.useState(false);
-    const [q, setQ] = React.useState("");
-    const debounced = useDebouncedValue(q.trim(), 250);
-    const searching = debounced.length > 0;
-    const search = useSearchContacts({
-        options: {
-            query: debounced,
-            custom_field_filters: [],
-            campaign_ids: searching || !campaignId ? [] : [campaignId],
-            sort_by: "updated_at",
-            reverse: false,
-        },
-        limit: 8,
-        enabled: open,
-        keepPrevious: true,
-    });
-    const contacts = search.contacts ?? [];
-    const fallback = campaignId ? "הליד הראשון בקמפיין" : "איש קשר לדוגמה";
-    return (
-        <PopoverMenu open={open} onOpenChange={setOpen}>
-            <PopoverMenuTrigger asChild>
-                <SelectButton
-                    icon={<UserRoundIcon className="w-3.5 h-3.5" />}
-                    label={value ? contactLabel(value) : fallback}
-                    className="w-full [&>span:nth-child(2)]:max-w-none [&>span:nth-child(2)]:flex-1 [&>span:nth-child(2)]:text-start"
-                />
-            </PopoverMenuTrigger>
-            <PopoverMenuContent minWidth={300} matchTriggerWidth className="p-1 text-start">
-                <div className="p-1.5">
-                    <SearchInput value={q} onChange={setQ} placeholder="חפש אנשי קשר…" autoFocus />
-                </div>
-                <PopoverMenuItem selected={value === null} onSelect={() => onChange(null)} icon={<UserRoundIcon className="w-3.5 h-3.5" />}>
-                    {fallback}
-                </PopoverMenuItem>
-                <PopoverMenuSeparator />
-                <PopoverMenuLabel>{searching || !campaignId ? "אנשי קשר" : "לידים בקמפיין זה"}</PopoverMenuLabel>
-                <div className="max-h-56 overflow-y-auto">
-                    {search.isLoading && contacts.length === 0 ? (
-                        <div className="px-3 py-2 text-[11.5px] text-slate-400 inline-flex items-center gap-1.5">
-                            <Loader2Icon className="w-3 h-3 animate-spin" /> טוען…
-                        </div>
-                    ) : contacts.length === 0 ? (
-                        <div className="px-3 py-2 text-[11.5px] text-slate-400">
-                            {searching ? "לא נמצא איש קשר תואם." : "אין עדיין אנשי קשר. הקלד כדי לחפש."}
-                        </div>
-                    ) : (
-                        contacts.map((c) => (
-                            <PopoverMenuItem key={c.id} selected={value?.id === c.id} onSelect={() => onChange(c)}>
-                                <span className="text-slate-800">{contactLabel(c)}</span>
-                                <span dir="ltr" className="ms-1.5 text-[11px] text-slate-400">{c.email}</span>
-                            </PopoverMenuItem>
-                        ))
-                    )}
-                </div>
             </PopoverMenuContent>
         </PopoverMenu>
     );

@@ -11,7 +11,7 @@ import { usePermission } from "@/hooks/usePermission";
 const TABS = [
     { label: "כל אנשי הקשר", path: "", Icon: UsersIcon },
     { label: "סגמנטים", path: "/segments", Icon: LayersIcon },
-    { label: "קטגוריות", path: "/categories", Icon: TagIcon },
+    { label: "תוויות", path: "/labels", Icon: TagIcon },
     { label: "רשימת חסימה", path: "/suppressions", Icon: BanIcon },
 ] as const;
 

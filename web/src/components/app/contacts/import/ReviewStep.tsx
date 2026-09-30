@@ -91,7 +91,7 @@ export default function ReviewStep({
                                     </p>
                                     <p className="text-[11.5px] text-slate-500 mt-0.5">
                                         {dedup === "skip"
-                                            ? "הפרטים שלהם יישארו כפי שהם. הם עדיין יתווספו לסגמנטים, לקטגוריות ולקמפיינים שלמטה."
+                                            ? "הפרטים שלהם יישארו כפי שהם. הם עדיין יתווספו לסגמנטים, לתוויות ולקמפיינים שלמטה."
                                             : "פרטים ריקים ימולאו מתוך הקובץ. שום מידע שכבר קיים אצלם לא יימחק."}
                                     </p>
                                 </div>
@@ -128,7 +128,7 @@ export default function ReviewStep({
                         exclude={lockedSegment?.id}
                     />
                 </Row>
-                <Row icon={TagsIcon} label="קטגוריות" hint="תוויות לסינון ופילוח">
+                <Row icon={TagsIcon} label="תוויות" hint="תוויות לסינון ופילוח">
                     <CategoryPicker value={categoryIds} onChange={setCategoryIds} />
                 </Row>
                 <Row icon={MegaphoneIcon} label="קמפיינים" hint="נרשמים כלידים; קמפיין פעיל יתחיל לשלוח אליהם מיילים">

@@ -103,8 +103,9 @@ async function drag(fromX: number, toX: number) {
 }
 
 async function openThread(subject: string) {
+    const el = await screen.findByText(subject);
     await act(async () => {
-        fireEvent.click(screen.getByText(subject).closest('button, [role="button"]')!);
+        fireEvent.click(el.closest('button, [role="button"]')!);
     });
     await settle();
 }
@@ -134,7 +135,7 @@ describe("unibox desktop layout (#473)", SUITE, () => {
         await mount("/app/unibox/all");
         await settle();
         await openThread("Subject 4");
-        expect(screen.getByPlaceholderText(/Write your reply|כתוב את תגובתך/i)).toHaveValue("My older reply");
+        expect(await screen.findByPlaceholderText(/Write your reply|כתוב את תגובתך/i)).toHaveValue("My older reply");
         await act(async () => fireEvent.click(screen.getByLabelText(/Close composer, keeping the draft|שמירת הטיוטה/i)));
         await settle();
         expect(screen.queryByPlaceholderText(/Write your reply|כתוב את תגובתך/i)).toBeNull();

@@ -686,10 +686,10 @@ function OptionsStep({
 
             <section>
                 <h2 className="text-[10px] uppercase tracking-[0.14em] font-semibold text-slate-500 mb-2">
-                    החלת קטגוריות
+                    החלת תוויות
                 </h2>
                 <p className="text-[11px] text-slate-400 leading-tight mb-2">
-                    כל איש קשר מסונכרן יקבל קטגוריות אלו. דלג כדי להשאירם ללא תיוג.
+                    כל איש קשר מסונכרן יקבל תוויות אלו. דלג כדי להשאירם ללא תיוג.
                 </p>
                 <CategoryPicker value={categoryIds} onChange={setCategoryIds} />
             </section>

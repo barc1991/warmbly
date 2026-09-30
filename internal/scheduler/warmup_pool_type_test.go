@@ -33,8 +33,8 @@ func TestWarmupPoolTypeForAccountFollowsTheOrganizationsPosture(t *testing.T) {
 		risk *poolTypeRiskRepo
 		want string
 	}{
-		{"restricted", &poolTypeRiskRepo{states: map[uuid.UUID]models.OrgRiskState{org: models.OrgRiskRestricted}}, "free"},
-		{"suspended", &poolTypeRiskRepo{states: map[uuid.UUID]models.OrgRiskState{org: models.OrgRiskSuspended}}, "free"},
+		{"restricted", &poolTypeRiskRepo{states: map[uuid.UUID]models.OrgRiskState{org: models.OrgRiskRestricted}}, "premium"},
+		{"suspended", &poolTypeRiskRepo{states: map[uuid.UUID]models.OrgRiskState{org: models.OrgRiskSuspended}}, "premium"},
 		{"watch", &poolTypeRiskRepo{states: map[uuid.UUID]models.OrgRiskState{org: models.OrgRiskWatch}}, "premium"},
 		{"trusted", &poolTypeRiskRepo{states: map[uuid.UUID]models.OrgRiskState{org: models.OrgRiskTrusted}}, "premium"},
 		{"lookup failure fails open", &poolTypeRiskRepo{err: errors.New("connection reset by peer")}, "premium"},
@@ -54,8 +54,8 @@ func TestWarmupPoolTypeForAccountWithoutRiskWired(t *testing.T) {
 	s := &schedulerService{}
 	org := uuid.New()
 
-	if got := s.warmupPoolTypeForAccount(context.Background(), &models.Email{OrganizationID: &org, WarmupPoolType: "free"}); got != "free" {
-		t.Fatalf("resolved %q, want free", got)
+	if got := s.warmupPoolTypeForAccount(context.Background(), &models.Email{OrganizationID: &org, WarmupPoolType: "free"}); got != "premium" {
+		t.Fatalf("resolved %q, want premium", got)
 	}
 	if got := s.warmupPoolTypeForAccount(context.Background(), &models.Email{OrganizationID: &org}); got != "premium" {
 		t.Fatalf("resolved %q, want premium", got)
