@@ -83,7 +83,7 @@ vi.mock("@/hooks/context/socket", async (orig) => {
 });
 
 function separator(): HTMLElement {
-    return screen.getByRole("separator", { name: /resize the conversation list/i });
+    return screen.getByRole("separator", { name: /resize the conversation list|שנה את רוחב רשימת השיחות/i });
 }
 
 function listColumn(): HTMLElement {

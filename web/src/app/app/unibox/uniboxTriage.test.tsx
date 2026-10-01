@@ -109,7 +109,7 @@ describe("unibox triage", SUITE, () => {
 
         const row = screen.getByText(ROWS[0].subject).closest('[role="button"]')!;
         await act(async () => {
-            const btn = row.querySelector('[aria-label="Archive"], [aria-label="ארכיון"]');
+            const btn = row.querySelector('[aria-label="Archive"], [aria-label="ארכיון"], [aria-label="העבר לארכיון"]');
             if (btn) fireEvent.click(btn);
         });
         await settle();

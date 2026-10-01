@@ -92,7 +92,7 @@ func (p *httpReach) fetch(ctx context.Context, raw, domain, target string) hit {
 		case certificateError(err):
 			out.hint, out.proxy = models.RedirectHintCertificate, proxyOfCertificate(err)
 		default:
-			out.hint, out.refused = models.RedirectHintNoListener, errors.Is(err, syscall.ECONNREFUSED)
+			out.hint, out.refused = models.RedirectHintNoListener, isRefused(err)
 		}
 		return out
 	}
@@ -151,11 +151,30 @@ func proxyOf(res *http.Response, body []byte) string {
 	return ""
 }
 
+func isRefused(err error) bool {
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		return true
+	}
+	var errno syscall.Errno
+	if errors.As(err, &errno) && (errno == syscall.ECONNREFUSED || errno == 10061) {
+		return true
+	}
+	return false
+}
+
 // proxyOfCertificate recognises the placeholder certificate Traefik serves for a name it has no route for.
 func proxyOfCertificate(err error) string {
 	var hostname x509.HostnameError
 	if errors.As(err, &hostname) && hostname.Certificate != nil && hostname.Certificate.Subject.CommonName == "TRAEFIK DEFAULT CERT" {
 		return "traefik"
+	}
+	var verify *tls.CertificateVerificationError
+	if errors.As(err, &verify) {
+		for _, cert := range verify.UnverifiedCertificates {
+			if cert.Subject.CommonName == "TRAEFIK DEFAULT CERT" {
+				return "traefik"
+			}
+		}
 	}
 	return ""
 }
