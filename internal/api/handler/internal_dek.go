@@ -89,18 +89,6 @@ func (h *Handler) InternalPutDEK(c *gin.Context) {
 	}
 }
 
-func (h *Handler) InternalDeleteDEK(c *gin.Context) {
-	id, ok := parseOrgID(c)
-	if !ok {
-		return
-	}
-	if err := h.EncryptedKeys.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.Status(http.StatusNoContent)
-}
-
 // InternalDecryptDEK opens a sealed data key for a node, so the node needs no
 // credential for the KMS behind it.
 //
@@ -130,9 +118,13 @@ func (h *Handler) InternalDecryptDEK(c *gin.Context) {
 	if err != nil {
 		// The reason is not echoed: this answers an unauthenticated-by-org
 		// caller, and KMS errors distinguish "not a key of ours" from "malformed",
-		// which is exactly what a prober wants to learn.
+		// which is exactly what a prober wants to learn. It is recorded, though:
+		// a run of failures here is the signal that someone holding the token is
+		// trying keys.
+		logBrokerAccess(c, "dek.decrypt", "", false, "kms refused the ciphertext")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "could not decrypt data key"})
 		return
 	}
+	logBrokerAccess(c, "dek.decrypt", "", true, "")
 	c.JSON(http.StatusOK, dekDecryptResponse{DataKey: base64.StdEncoding.EncodeToString(key)})
 }

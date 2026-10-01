@@ -242,21 +242,51 @@ func TestWarmupOffWhileSendingIsCriticalOnANewMailbox(t *testing.T) {
 
 func TestSpamPlacementRespectsItsSampleFloorAndBands(t *testing.T) {
 	m := healthyMailbox()
-	m.WarmupSent7d = minWarmupDeliveriesForPlacement - 1
-	m.WarmupSpam7d = 5
+	m.WarmupPlacement = models.WarmupPlacementEvidence{MajorDelivered: minWarmupDeliveriesForPlacement - 1, MajorSpam: 5}
 
 	if _, fired := findingsByKey(Detect(snapshotOf(m), defaults()))["mailbox_spam_placement"]; fired {
 		t.Fatal("placement detector fired below its delivery floor")
 	}
 
-	m.WarmupSent7d = 100
-	m.WarmupSpam7d = 45 // 45%: past the hard-block band.
+	m.WarmupPlacement = models.WarmupPlacementEvidence{MajorDelivered: 100, MajorSpam: 55} // past the quarantine line
 	f := findingsByKey(Detect(snapshotOf(m), defaults()))["mailbox_spam_placement"]
 	if f.Severity != models.AdvisorCritical {
-		t.Errorf("45%% spam placement should be critical, got %q", f.Severity)
+		t.Errorf("55%% spam placement should be critical, got %q", f.Severity)
 	}
 	if f.Action == nil {
-		t.Error("a mailbox this deep in spam while sending cold should offer to stop")
+		t.Fatal("a mailbox this deep in spam while sending cold should offer to stop")
+	}
+	// Stopping cold sending must leave warmup running, so the fix is the hold, never status.
+	if f.Action.Tool != "set_mailbox_send_hold" || f.Action.Undo == nil || f.Action.Undo.Tool != "set_mailbox_send_hold" {
+		t.Errorf("spam placement fix should hold the mailbox and undo by releasing it, got %q", f.Action.Tool)
+	}
+	if strings.Contains(string(f.Action.Args), "status") {
+		t.Errorf("spam placement fix must not switch the mailbox off: %s", f.Action.Args)
+	}
+}
+
+// A mailbox already out of rotation gets no hold, so Undo can never release a hold someone else set.
+func TestHoldFixIsOfferedOnlyWhileSendingCold(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		lifecycle string
+		status    string
+	}{
+		{"held by its owner", "reserve", "active"},
+		{"resting", "resting", "active"},
+		{"switched off", "active", "inactive"},
+	} {
+		m := healthyMailbox()
+		m.SendLifecycle = tc.lifecycle
+		m.Status = tc.status
+		m.WarmupPlacement = models.WarmupPlacementEvidence{MajorDelivered: 100, MajorSpam: 55}
+		m.PoolHealth = "quarantined"
+		found := findingsByKey(Detect(snapshotOf(m), defaults()))
+		for _, key := range []string{"mailbox_spam_placement", "warmup_pool_blocked"} {
+			if f, ok := found[key]; ok && f.Action != nil {
+				t.Errorf("%s: %s offered %q on a mailbox that is not sending cold", tc.name, key, f.Action.Label)
+			}
+		}
 	}
 }
 
@@ -464,8 +494,7 @@ func TestEveryFindingIsSelfContained(t *testing.T) {
 	m.AuthDMARC = false
 	m.AuthState = "failing"
 	m.Complaints30d = 5
-	m.WarmupSent7d = 60
-	m.WarmupSpam7d = 20
+	m.WarmupPlacement = models.WarmupPlacementEvidence{MajorDelivered: 60, MajorSpam: 20}
 
 	for _, f := range Detect(snapshotOf(m), defaults()) {
 		if f.Title == "" || f.Detail == "" || f.Remedy == "" {
@@ -589,8 +618,7 @@ func TestAutopilotOnlyGetsReversibleSafeFixes(t *testing.T) {
 	m.MinWaitTime = 30
 	m.Complaints30d = 5
 	m.ColdSent30d = 4000
-	m.WarmupSent7d = 60
-	m.WarmupSpam7d = 30
+	m.WarmupPlacement = models.WarmupPlacementEvidence{MajorDelivered: 60, MajorSpam: 30}
 	m.InActiveCampaign = true
 
 	// Detectors whose one-click fix is deliberately hand-only: each either
@@ -639,8 +667,7 @@ func TestEveryFindingOffersAWayForward(t *testing.T) {
 	m.Complaints30d = 5
 	m.ColdSent30d = 4000
 	m.Bounces30d = 300
-	m.WarmupSent7d = 60
-	m.WarmupSpam7d = 30
+	m.WarmupPlacement = models.WarmupPlacementEvidence{MajorDelivered: 60, MajorSpam: 30}
 	m.UnresolvedErrs = 5
 	m.TrackingDomain = ""
 	m.InActiveCampaign = true
@@ -1007,5 +1034,16 @@ func TestNoSendersNamesHowTheCampaignPicksMailboxes(t *testing.T) {
 				t.Fatalf("copy mentions tags = %v, want %v: %s", got, tc.mentionTag, copy)
 			}
 		})
+	}
+}
+
+// Everything junked at small hosts while Google and Microsoft inbox all of it
+// is not a mailbox landing in spam.
+func TestSpamPlacementAtSmallHostsAloneDoesNotAlarm(t *testing.T) {
+	m := healthyMailbox()
+	m.InActiveCampaign = true
+	m.WarmupPlacement = models.WarmupPlacementEvidence{MajorDelivered: 40, OtherDelivered: 40, OtherSpam: 40}
+	if f, fired := findingsByKey(Detect(snapshotOf(m), defaults()))["mailbox_spam_placement"]; fired {
+		t.Fatalf("small-host spam alone raised %q: %s", f.Severity, f.Title)
 	}
 }

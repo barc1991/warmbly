@@ -16,7 +16,7 @@ function draftTitle(d: ComposeDraft, isHe?: boolean): string {
     return d.subject.trim() || d.to[0] || (isHe ? "(ללא נושא)" : "(no subject)");
 }
 
-function formatWhen(iso: string, isHe?: boolean): string {
+function formatWhen(iso: Date | string, isHe?: boolean): string {
     const d = new Date(iso);
     const now = new Date();
     const sameDay =

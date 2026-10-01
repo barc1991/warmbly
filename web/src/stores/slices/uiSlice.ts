@@ -10,6 +10,24 @@ export const UNIBOX_LIST_MIN_WIDTH = 280
 export const UNIBOX_LIST_MAX_WIDTH = 620
 export const UNIBOX_LIST_DEFAULT_WIDTH = 360
 
+// A favorite's own name is a rail label, so it stays about as long as one.
+export const UNIBOX_RAIL_FAVORITE_NAME_MAX = 40
+
+// A scope pinned to the rail's Favorites section, with an optional name of its own.
+export interface UniboxRailFavorite {
+  key: string
+  name?: string
+}
+
+export const UNIBOX_RAIL_MIN_WIDTH = 180
+export const UNIBOX_RAIL_MAX_WIDTH = 360
+export const UNIBOX_RAIL_DEFAULT_WIDTH = 220
+
+export const clampUniboxRailWidth = (w: unknown): number => {
+  if (typeof w !== 'number' || !Number.isFinite(w)) return UNIBOX_RAIL_DEFAULT_WIDTH
+  return Math.round(Math.min(UNIBOX_RAIL_MAX_WIDTH, Math.max(UNIBOX_RAIL_MIN_WIDTH, w)))
+}
+
 // Exported because rehydration bypasses the setter: zustand's default merge
 // writes localStorage straight into state, so the clamp has to run there too or
 // a hand-edited (or newly out-of-range) value reaches the DOM unchecked.
@@ -30,6 +48,7 @@ export interface UISlice {
   // and every store written before this had no version field at all.
   navCollapsed: boolean
   sidebarMobileOpen: boolean
+  // Folded sidebar sections, keyed by the section's stable id (not its label).
   navCollapsedSections: Record<string, boolean>
 
   // Unibox scope rail: folded sections (stable ids, same shape as the nav map)
@@ -39,6 +58,8 @@ export interface UISlice {
   // Row order per section and the order of the sections; absent means default.
   uniboxRailOrder: Record<string, string[]>
   uniboxRailSectionOrder: string[]
+  // Favorites, in rail order; each key is a scopeKey from any section.
+  uniboxRailFavorites: UniboxRailFavorite[]
 
   // Theme
   theme: Theme
@@ -58,13 +79,14 @@ export interface UISlice {
   // against the thread pane; the CRM rail remembers the last explicit toggle
   // so closing it survives opening the next thread.
   uniboxListWidth: number
+  uniboxRailWidth: number
   uniboxContactRailOpen: boolean
 
   // Actions - Sidebar
   toggleSidebar: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
   setSidebarMobileOpen: (open: boolean) => void
-  toggleNavSection: (label: string) => void
+  toggleNavSection: (id: string) => void
 
   // Actions - Unibox scope rail
   toggleUniboxRailSection: (id: string) => void
@@ -73,6 +95,8 @@ export interface UISlice {
   setUniboxRailRowsHidden: (keys: string[], hidden: boolean) => void
   setUniboxRailOrder: (section: string, keys: string[] | null) => void
   setUniboxRailSectionOrder: (ids: string[]) => void
+  toggleUniboxRailFavorite: (key: string) => void
+  setUniboxRailFavorites: (favorites: UniboxRailFavorite[]) => void
 
   // Actions - Theme
   setTheme: (theme: Theme) => void
@@ -89,23 +113,13 @@ export interface UISlice {
 
   // Actions - Unibox layout
   setUniboxListWidth: (width: number) => void
+  setUniboxRailWidth: (width: number) => void
   setUniboxContactRailOpen: (open: boolean) => void
 }
 
 const getInitialTheme = (): Theme => {
   if (typeof window === 'undefined') return 'system'
   return (localStorage.getItem('theme') as Theme) || 'system'
-}
-
-const getInitialNavCollapsedSections = (): Record<string, boolean> => {
-  if (typeof window === 'undefined') return {}
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem('nav.collapsedSections') || '{}')
-    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {}
-    return Object.fromEntries(Object.entries(stored).filter(([, value]) => typeof value === 'boolean'))
-  } catch {
-    return {}
-  }
 }
 
 // Rehydration bypasses the setter, so a stored value that is not a map of
@@ -129,6 +143,27 @@ export const sanitizeUniboxRailOrder = (v: unknown): Record<string, string[]> =>
   return Object.fromEntries(
     Object.entries(v).flatMap(([id, keys]) => (Array.isArray(keys) ? [[id, sanitizeUniboxRailHidden(keys)]] : [])),
   )
+}
+
+// A blank name means "use the row's own label"; anything else is trimmed and capped by code point.
+export const cleanUniboxRailFavoriteName = (v: unknown): string | undefined => {
+  if (typeof v !== 'string') return undefined
+  const name = Array.from(v.replace(/\s+/g, ' ').trim()).slice(0, UNIBOX_RAIL_FAVORITE_NAME_MAX).join('').trim()
+  return name || undefined
+}
+
+// Favorites rehydrate as a list of entries with a string key, one per key.
+export const sanitizeUniboxRailFavorites = (v: unknown): UniboxRailFavorite[] => {
+  if (!Array.isArray(v)) return []
+  const seen = new Set<string>()
+  return v.flatMap((entry): UniboxRailFavorite[] => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+    const { key, name } = entry as { key?: unknown; name?: unknown }
+    if (typeof key !== 'string' || !key || seen.has(key)) return []
+    seen.add(key)
+    const clean = cleanUniboxRailFavoriteName(name)
+    return [clean ? { key, name: clean } : { key }]
+  })
 }
 
 // A stored order over keys that come and go: known keys keep the stored order,
@@ -159,11 +194,12 @@ export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set, get) 
   // Sidebar
   navCollapsed: false,
   sidebarMobileOpen: false,
-  navCollapsedSections: getInitialNavCollapsedSections(),
+  navCollapsedSections: {},
   uniboxRailFolded: {},
   uniboxRailHidden: [],
   uniboxRailOrder: {},
   uniboxRailSectionOrder: [],
+  uniboxRailFavorites: [],
 
   // Theme
   theme: getInitialTheme(),
@@ -179,6 +215,7 @@ export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set, get) 
 
   // Unibox layout
   uniboxListWidth: UNIBOX_LIST_DEFAULT_WIDTH,
+  uniboxRailWidth: UNIBOX_RAIL_DEFAULT_WIDTH,
   uniboxContactRailOpen: false,
 
   // Actions - Sidebar
@@ -188,20 +225,10 @@ export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set, get) 
   setSidebarMobileOpen: (sidebarMobileOpen) =>
     set((state) => (state.sidebarMobileOpen === sidebarMobileOpen ? state : { sidebarMobileOpen })),
 
-  toggleNavSection: (label) => {
-    const navCollapsedSections = {
-      ...get().navCollapsedSections,
-      [label]: !get().navCollapsedSections[label],
-    }
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('nav.collapsedSections', JSON.stringify(navCollapsedSections))
-      } catch {
-        // Keep toggling available when browser storage is unavailable.
-      }
-    }
-    set({ navCollapsedSections })
-  },
+  toggleNavSection: (id) =>
+    set((state) => ({
+      navCollapsedSections: { ...state.navCollapsedSections, [id]: !state.navCollapsedSections[id] },
+    })),
 
   // Actions - Unibox scope rail
   toggleUniboxRailSection: (id) =>
@@ -229,6 +256,13 @@ export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set, get) 
       return { uniboxRailOrder: next }
     }),
   setUniboxRailSectionOrder: (ids) => set({ uniboxRailSectionOrder: ids }),
+  toggleUniboxRailFavorite: (key) =>
+    set((state) => ({
+      uniboxRailFavorites: state.uniboxRailFavorites.some((f) => f.key === key)
+        ? state.uniboxRailFavorites.filter((f) => f.key !== key)
+        : [...state.uniboxRailFavorites, { key }],
+    })),
+  setUniboxRailFavorites: (favorites) => set({ uniboxRailFavorites: sanitizeUniboxRailFavorites(favorites) }),
 
   // Actions - Theme
   setTheme: (theme) => {
@@ -257,6 +291,10 @@ export const createUISlice: StateCreator<UISlice, [], [], UISlice> = (set, get) 
   toggleAIAssistant: () => set((state) => ({ aiAssistantOpen: !state.aiAssistantOpen })),
 
   // Actions - Unibox layout
+  setUniboxRailWidth: (width) => {
+    const uniboxRailWidth = clampUniboxRailWidth(width)
+    set((state) => (state.uniboxRailWidth === uniboxRailWidth ? state : { uniboxRailWidth }))
+  },
   setUniboxListWidth: (width) => {
     const uniboxListWidth = clampUniboxListWidth(width)
     set((state) => (state.uniboxListWidth === uniboxListWidth ? state : { uniboxListWidth }))

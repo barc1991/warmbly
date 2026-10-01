@@ -33,6 +33,8 @@ import type Tag from "@/lib/api/models/app/Tag";
 import type Inbox from "@/lib/api/models/app/emails/Inbox";
 import mailboxDisplayStatus from "@/lib/mailboxStatus";
 import type AccountStatus from "@/lib/api/models/app/analytics/AccountStatus";
+import updateEmail from "@/lib/api/client/app/emails/updateEmail";
+import useMailboxSwitch, { switchOffPrompt } from "@/components/app/emails/useMailboxSwitch";
 import {
     ActivityIcon,
     CheckIcon,
@@ -41,6 +43,8 @@ import {
     PauseIcon,
     PlayIcon,
     PlusIcon,
+    PowerIcon,
+    PowerOffIcon,
     RotateCcwIcon,
     Settings2Icon,
     Trash2Icon,
@@ -206,6 +210,47 @@ export default function AddressesPage() {
         } else if (failed > 0) toast.error(`${failed} mailbox${failed > 1 ? "es" : ""} couldn't be updated`);
         else toast.success(`Warmup ${verb} for ${n} mailbox${n > 1 ? "es" : ""}`);
     };
+
+    const boxStatusById = useMemo(() => {
+        const m = new Map<string, string>();
+        for (const e of emailsData.emails ?? []) m.set(e.id, e.status);
+        return m;
+    }, [emailsData.emails]);
+
+    // The whole mailbox on or off; warmup and the campaign hold are separate switches.
+    // Only rows whose state is known are switched; the rest stay selected.
+    const [switching, setSwitching] = React.useState(false);
+    const bulkSwitch = (on: boolean) => {
+        if (switching) return;
+        const ids = selected.filter((id) => boxStatusById.get(id) === (on ? "inactive" : "active"));
+        if (ids.length === 0) return;
+        const n = ids.length;
+        const apply = async () => {
+            setSwitching(true);
+            try {
+                const results = await Promise.allSettled(ids.map((id) => updateEmail(id, { status: on ? "active" : "inactive" })));
+                const failed = results.filter((r) => r.status === "rejected").length;
+                await queryClient.invalidateQueries({ queryKey: ["emails", "list"] });
+                await queryClient.invalidateQueries({ queryKey: ["analytics", "accounts"] });
+                setSelected((prev) => prev.filter((id) => !ids.includes(id)));
+                if (failed > 0) toast.error(`לא ניתן היה ${on ? "להפעיל" : "לכבות"} ${failed} ${failed === 1 ? "תיבת דואר" : "תיבות דואר"}`);
+                else toast.success(`${n} ${n === 1 ? "תיבת דואר" : "תיבות דואר"} ${on ? "הופעלה מחדש" : "כובתה"}`);
+            } finally {
+                setSwitching(false);
+            }
+        };
+        if (on) void apply();
+        else confirm.show(switchOffPrompt(n > 1 ? `${n} תיבות דואר` : "תיבת דואר זו"), apply);
+    };
+    const selectedStatuses = useMemo(() => {
+        const out = { on: 0, off: 0 };
+        for (const id of selected) {
+            const st = boxStatusById.get(id);
+            if (st === "active") out.on++;
+            else if (st === "inactive") out.off++;
+        }
+        return out;
+    }, [selected, boxStatusById]);
 
     const openDetail = (id: string, tab: string = "overview") => {
         setViewTab(tab);
@@ -462,6 +507,28 @@ export default function AddressesPage() {
                             <PauseIcon className="w-3.5 h-3.5" />
                             השהה
                         </button>
+                        {selectedStatuses.off > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => bulkSwitch(true)}
+                                disabled={switching}
+                                className="disabled:opacity-50 inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-sky-700 hover:bg-sky-50 transition-colors"
+                            >
+                                <PowerIcon className="w-3.5 h-3.5" />
+                                הפעל מחדש
+                            </button>
+                        )}
+                        {selectedStatuses.on > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => bulkSwitch(false)}
+                                disabled={switching}
+                                className="disabled:opacity-50 inline-flex items-center gap-1.5 h-7 px-2.5 rounded text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                            >
+                                <PowerOffIcon className="w-3.5 h-3.5" />
+                                כבה
+                            </button>
+                        )}
                         <BulkTagPopover ids={selected} />
                         <div className="w-px h-4 bg-slate-200 mx-0.5" />
                         <button
@@ -558,6 +625,9 @@ function MailboxRow({
     const life = useWarmupLifecycle(box.id);
     const confirm = useConfirm();
     const remove = useRemoveEmail(box.id);
+    const power = useMailboxSwitch(box.id, box.email);
+    // Switched off by its owner or the platform; a revoked one needs a reconnect instead.
+    const switchedOff = box.status === "inactive";
 
     // Disconnecting is unrecoverable and takes the mailbox's stored mail with
     // it, so the prompt says that rather than "are you sure". What happens to
@@ -566,13 +636,13 @@ function MailboxRow({
     // one app, so promising it for Outlook would be a promise we cannot keep.
     const askDisconnect = () =>
         confirm.show(
-            `Disconnect ${box.email}? This deletes its imported mail, warmup history and credentials. ${revocationNote(box.provider)} It cannot be undone — switch the mailbox off instead to just stop sending.`,
+            `האם לנתק את ${box.email}? פעולה זו מוחקת את הדואר המיובא, היסטוריית החימום ופרטי ההתחברות. ${revocationNote(box.provider)} פעולה זו אינה ניתנת לביטול — כבה את תיבת הדואר במקום זאת כדי לעצור את השליחה בלבד.`,
             async () => {
                 try {
                     await remove.mutateAsync();
-                    toast.success(`${box.email} disconnected`);
+                    toast.success(`${box.email} נותקה בהצלחה`);
                 } catch (e) {
-                    toast.error(removeErrorMessage(e) ?? "The mailbox couldn't be disconnected");
+                    toast.error(removeErrorMessage(e) ?? "לא ניתן היה לנתק את תיבת הדואר");
                 }
             },
         );
@@ -595,6 +665,8 @@ function MailboxRow({
     const off = !box.warmup;
     const paused = !!box.warmup && !!box.warmup_paused_at;
     const active = !!box.warmup && !box.warmup_paused_at;
+    // Warmup only runs on a mailbox that is on, whatever its warmup setting says.
+    const warming = active && box.status === "active";
 
     const tone = healthTone(status);
     const ws = status?.warmup_status;
@@ -771,7 +843,15 @@ function MailboxRow({
                             </button>
                         </PopoverMenuTrigger>
                         <PopoverMenuContent minWidth={208}>
-                            <PopoverMenuLabel>חימום · {inCloud ? (cloudPaused ? "מושהה בענן" : "ענן Warmbly") : active ? "פעיל" : paused ? "מושהה" : "כבוי"}</PopoverMenuLabel>
+                            <PopoverMenuLabel>חימום · {inCloud ? (cloudPaused ? "מושהה בענן" : "ענן Warmbly") : box.status === "revoked" && !off ? "נדרש חיבור מחדש" : switchedOff && !off ? "תיבה כבויה" : active ? "פעיל" : paused ? "מושהה" : "כבוי"}</PopoverMenuLabel>
+                            {switchedOff && (
+                                <>
+                                    <PopoverMenuItem onSelect={power.switchOn} icon={<PowerIcon className="w-3 h-3" />}>
+                                        הפעל את תיבת הדואר מחדש
+                                    </PopoverMenuItem>
+                                    <PopoverMenuSeparator />
+                                </>
+                            )}
                             {inCloud && (
                                 <>
                                     <PopoverMenuItem
@@ -850,15 +930,25 @@ function MailboxRow({
                             {/* Health is a click on the row itself, which opens
                                 the overview, so it is not repeated here. */}
                             <PopoverMenuItem onSelect={() => onOpen(box.id, "settings")} icon={<Settings2Icon className="w-3 h-3" />}>
-                                Mailbox settings
+                                הגדרות תיבת דואר
                             </PopoverMenuItem>
+                            {switchedOff && (
+                                <PopoverMenuItem onSelect={power.switchOn} icon={<PowerIcon className="w-3 h-3" />}>
+                                    הפעל מחדש
+                                </PopoverMenuItem>
+                            )}
+                            {box.status === "active" && (
+                                <PopoverMenuItem onSelect={power.switchOff} icon={<PowerOffIcon className="w-3 h-3" />}>
+                                    כבה תיבה
+                                </PopoverMenuItem>
+                            )}
                             <PopoverMenuSeparator />
                             {/* The one obvious way to remove a single mailbox. It
                                 used to exist only behind the row checkboxes and the
                                 selection bar, which nobody finds when they want to
                                 delete one thing. */}
                             <PopoverMenuItem danger onSelect={askDisconnect} icon={<Trash2Icon className="w-3 h-3" />}>
-                                Disconnect mailbox
+                                נתק תיבת דואר
                             </PopoverMenuItem>
                         </PopoverMenuContent>
                     </PopoverMenu>

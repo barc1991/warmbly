@@ -75,6 +75,8 @@ func RegisterPlacementTools(r *Registry, svc PlacementTests, auditSvc audit.Audi
 			"body_plain":        strProp("Plain-text body of an ad-hoc template."),
 			"tracking":          enumProp("Open and click tracking on the copies (default campaign).", "campaign", "on", "off", "compare"),
 			"panel":             enumProp("Which seed inboxes to test on (default instance).", "instance", "workspace", "cloud"),
+			"pace":              enumProp("spaced (default, about a minute between copies) or quick (a few seconds apart, results in minutes).", "spaced", "quick"),
+			"families":          arrProp("Only seeds at these providers, as family ids: gmail, google_workspace, outlook, microsoft365, yahoo and the others a test's by_provider lists.", map[string]any{"type": "string"}),
 		}, "sender_account_id"),
 		Risk:            generation.RiskSend,
 		RequiredOrgPerm: models.PermSendCampaigns,
@@ -363,13 +365,15 @@ func (p placementTools) get(ctx context.Context, inv Invocation, args json.RawMe
 
 func (p placementTools) run(ctx context.Context, inv Invocation, args json.RawMessage) (string, error) {
 	in, err := decodeArgs[struct {
-		SenderAccountID string `json:"sender_account_id"`
-		CampaignID      string `json:"campaign_id"`
-		SequenceID      string `json:"sequence_id"`
-		Subject         string `json:"subject"`
-		BodyPlain       string `json:"body_plain"`
-		Tracking        string `json:"tracking"`
-		Panel           string `json:"panel"`
+		SenderAccountID string   `json:"sender_account_id"`
+		CampaignID      string   `json:"campaign_id"`
+		SequenceID      string   `json:"sequence_id"`
+		Subject         string   `json:"subject"`
+		BodyPlain       string   `json:"body_plain"`
+		Tracking        string   `json:"tracking"`
+		Panel           string   `json:"panel"`
+		Pace            string   `json:"pace"`
+		Families        []string `json:"families"`
 	}](args)
 	if err != nil {
 		return "", err
@@ -408,6 +412,8 @@ func (p placementTools) run(ctx context.Context, inv Invocation, args json.RawMe
 		BodyPlain:       in.BodyPlain,
 		Tracking:        in.Tracking,
 		Panel:           in.Panel,
+		Pace:            in.Pace,
+		Families:        in.Families,
 		Origin:          models.PlacementOriginManual,
 	})
 	if xerr != nil {

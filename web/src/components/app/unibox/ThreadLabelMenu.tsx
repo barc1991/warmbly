@@ -8,6 +8,7 @@
 import React from "react";
 import { CheckIcon, Loader2Icon, PlusIcon, TagIcon } from "lucide-react";
 import toast from "react-hot-toast";
+import { useIsMutating } from "@tanstack/react-query";
 
 import {
   PopoverMenu,
@@ -18,7 +19,9 @@ import { CategoryChip } from "@/components/app/contacts/CategoryPicker";
 import { useUserProfile } from "@/hooks/context/user";
 import useCreateCategory from "@/lib/api/hooks/app/categories/useCreateCategory";
 import useThreadLabels from "@/lib/api/hooks/app/unibox/useThreadLabels";
-import useSetThreadLabels from "@/lib/api/hooks/app/unibox/useSetThreadLabels";
+import useSetThreadLabels, {
+  setThreadLabelsKey,
+} from "@/lib/api/hooks/app/unibox/useSetThreadLabels";
 import { TagMeaningTooltip } from "@/components/ui/tag-meaning-tooltip";
 
 interface Props {
@@ -28,6 +31,52 @@ interface Props {
 }
 
 export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
+  const labelsQ = useThreadLabels(threadId);
+  const saving = useIsMutating({ mutationKey: setThreadLabelsKey(threadId) }) > 0;
+  const assigned = (labelsQ.data ?? []).length > 0;
+
+  return (
+    <PopoverMenu
+      align="end"
+      side="bottom"
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <PopoverMenuTrigger asChild>
+        <button
+          aria-label="תייג שיחה זו (לחץ c)"
+          title="תיוג (c)"
+          className={`size-7 rounded-md inline-flex items-center justify-center transition-colors ${
+            open || assigned
+              ? open
+                ? "bg-slate-100 text-slate-900"
+                : "text-sky-700 hover:bg-slate-100"
+              : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+          }`}
+        >
+          {saving ? (
+            <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <TagIcon className="w-[15px] h-[15px]" />
+          )}
+        </button>
+      </PopoverMenuTrigger>
+      <PopoverMenuContent className="p-0">
+        <ThreadLabelPanel threadId={threadId} />
+      </PopoverMenuContent>
+    </PopoverMenu>
+  );
+}
+
+// The search-or-create box and the label rows, mounted only while shown.
+export function ThreadLabelPanel({
+  threadId,
+  shortcutHint = true,
+}: {
+  threadId: string;
+  /** The `c` hint names the open conversation, so a list row leaves it out. */
+  shortcutHint?: boolean;
+}) {
   const { user } = useUserProfile();
   const categories = React.useMemo(
     () => user.categories ?? [],
@@ -37,10 +86,6 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
   const setLabels = useSetThreadLabels(threadId);
   const createCategory = useCreateCategory();
   const [query, setQuery] = React.useState("");
-
-  React.useEffect(() => {
-    if (!open) setQuery("");
-  }, [open]);
 
   const current = React.useMemo(() => labelsQ.data ?? [], [labelsQ.data]);
   const currentIds = React.useMemo(
@@ -82,138 +127,112 @@ export function ThreadLabelMenu({ threadId, open, onOpenChange }: Props) {
   };
 
   return (
-    <PopoverMenu
-      align="end"
-      side="bottom"
-      open={open}
-      onOpenChange={onOpenChange}
-    >
-      <PopoverMenuTrigger asChild>
-        <button
-          aria-label="תייג שיחה זו (לחץ c)"
-          title="תיוג (c)"
-          className={`size-7 rounded-md inline-flex items-center justify-center transition-colors ${
-            open || current.length > 0
-              ? open
-                ? "bg-slate-100 text-slate-900"
-                : "text-sky-700 hover:bg-slate-100"
-              : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-          }`}
-        >
-          {setLabels.isPending ? (
-            <Loader2Icon className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <TagIcon className="w-[15px] h-[15px]" />
-          )}
-        </button>
-      </PopoverMenuTrigger>
-      <PopoverMenuContent className="p-0">
-        <div className="w-[260px]">
-          {/* Search-or-create header. */}
-          <div className="px-2.5 py-2 border-b border-slate-200 flex items-center gap-1.5">
-            <TagIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && query.trim() && !queryMatchesExisting) {
-                  e.preventDefault();
-                  void createAndAdd();
-                }
-              }}
-              placeholder="הוסף תווית לשיחה…"
-              autoFocus
-              className="flex-1 min-w-0 h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
+    <div className="w-[260px]">
+      {/* Search-or-create header. */}
+      <div className="px-2.5 py-2 border-b border-slate-200 flex items-center gap-1.5">
+        <TagIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && query.trim() && !queryMatchesExisting) {
+              e.preventDefault();
+              void createAndAdd();
+            }
+          }}
+          placeholder="הוסף תווית לשיחה…"
+          autoFocus
+          className="flex-1 min-w-0 h-5 bg-transparent text-[12.5px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
+        />
+        {setLabels.isPending && (
+          <Loader2Icon className="w-3 h-3 animate-spin text-slate-300 shrink-0" />
+        )}
+      </div>
+
+      {/* Assigned chips, removable in place. */}
+      {current.length > 0 && (
+        <div className="px-2.5 py-2 border-b border-slate-100 flex flex-wrap gap-1">
+          {current.map((c) => (
+            <CategoryChip
+              key={c.id}
+              category={c}
+              onRemove={() => toggle(c.id)}
             />
-            {setLabels.isPending && (
-              <Loader2Icon className="w-3 h-3 animate-spin text-slate-300 shrink-0" />
-            )}
-          </div>
-
-          {/* Assigned chips, removable in place. */}
-          {current.length > 0 && (
-            <div className="px-2.5 py-2 border-b border-slate-100 flex flex-wrap gap-1">
-              {current.map((c) => (
-                <CategoryChip
-                  key={c.id}
-                  category={c}
-                  onRemove={() => toggle(c.id)}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="max-h-56 overflow-y-auto py-1">
-            {categories.length === 0 && !query.trim() && (
-              <div className="px-3 py-4 text-center">
-                <div className="text-[12px] text-slate-500">אין תוויות עדיין</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
-                  הקלד שם למעלה כדי ליצור את התווית הראשונה.
-                </div>
-              </div>
-            )}
-            {filtered.length === 0 && categories.length > 0 && queryMatchesExisting && (
-              <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
-                אין תוצאות תואמות.
-              </div>
-            )}
-            {filtered.map((c) => {
-              const checked = currentIds.has(c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => toggle(c.id)}
-                  disabled={setLabels.isPending}
-                  className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-60 text-start"
-                >
-                  <span
-                    className={`size-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                      checked
-                        ? "border-slate-900 bg-slate-900"
-                        : "border-slate-300 bg-white"
-                    }`}
-                  >
-                    {checked && <CheckIcon className="w-2 h-2 text-white" />}
-                  </span>
-                  <span
-                    className="size-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: c.color }}
-                  />
-                  <TagMeaningTooltip title={c.title}>
-                    <span className="truncate">{c.title}</span>
-                  </TagMeaningTooltip>
-                  {checked && (
-                    <span className="ms-auto text-[10px] text-slate-400 font-medium">משויך</span>
-                  )}
-                </button>
-              );
-            })}
-            {query.trim() && !queryMatchesExisting && (
-              <button
-                type="button"
-                onClick={createAndAdd}
-                disabled={createCategory.isPending}
-                className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-900 font-medium hover:bg-sky-50 border-t border-slate-100 transition-colors text-start"
-              >
-                {createCategory.isPending ? (
-                  <Loader2Icon className="w-3 h-3 animate-spin text-slate-400" />
-                ) : (
-                  <PlusIcon className="w-3 h-3 text-sky-600" />
-                )}
-                צור תווית "{query.trim()}"
-              </button>
-            )}
-          </div>
-
-          <div className="px-2.5 h-7 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-            <span>תוויות משותפות עם אנשי קשר</span>
-            <kbd className="h-4 px-1 rounded border border-slate-200 bg-slate-50 font-mono inline-flex items-center">
-              c
-            </kbd>
-          </div>
+          ))}
         </div>
-      </PopoverMenuContent>
-    </PopoverMenu>
+      )}
+
+      <div className="max-h-56 overflow-y-auto py-1">
+        {categories.length === 0 && !query.trim() && (
+          <div className="px-3 py-4 text-center">
+            <div className="text-[12px] text-slate-500">אין תוויות עדיין</div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              הקלד שם למעלה כדי ליצור את התווית הראשונה.
+            </div>
+          </div>
+        )}
+        {filtered.length === 0 && categories.length > 0 && queryMatchesExisting && (
+          <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">
+            אין תוצאות תואמות.
+          </div>
+        )}
+        {filtered.map((c) => {
+          const checked = currentIds.has(c.id);
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => toggle(c.id)}
+              disabled={setLabels.isPending}
+              className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-60 text-start"
+            >
+              <span
+                className={`size-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                  checked
+                    ? "border-slate-900 bg-slate-900"
+                    : "border-slate-300 bg-white"
+                }`}
+              >
+                {checked && <CheckIcon className="w-2 h-2 text-white" />}
+              </span>
+              <span
+                className="size-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: c.color }}
+              />
+              <TagMeaningTooltip title={c.title}>
+                <span className="truncate">{c.title}</span>
+              </TagMeaningTooltip>
+              {checked && (
+                <span className="ms-auto text-[10px] text-slate-400 font-medium">משויך</span>
+              )}
+            </button>
+          );
+        })}
+        {query.trim() && !queryMatchesExisting && (
+          <button
+            type="button"
+            onClick={createAndAdd}
+            disabled={createCategory.isPending}
+            className="w-full px-2.5 h-7 flex items-center gap-2 text-[12px] text-slate-900 font-medium hover:bg-sky-50 border-t border-slate-100 transition-colors text-start"
+          >
+            {createCategory.isPending ? (
+              <Loader2Icon className="w-3 h-3 animate-spin text-slate-400" />
+            ) : (
+              <PlusIcon className="w-3 h-3 text-sky-600" />
+            )}
+            צור תווית "{query.trim()}"
+          </button>
+        )}
+      </div>
+
+      <div className="px-2.5 h-7 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+        <span>תוויות משותפות עם אנשי קשר</span>
+        {shortcutHint && (
+          <kbd className="h-4 px-1 rounded border border-slate-200 bg-slate-50 font-mono inline-flex items-center">
+            c
+          </kbd>
+        )}
+      </div>
+    </div>
   );
 }

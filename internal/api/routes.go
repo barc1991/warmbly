@@ -162,7 +162,7 @@ func Run(
 	{
 		internal.GET("/dek/:orgID", h.InternalGetDEK)
 		internal.PUT("/dek/:orgID", h.InternalPutDEK)
-		internal.DELETE("/dek/:orgID", h.InternalDeleteDEK)
+		// No DELETE: a lost DEK is unrecoverable, so nothing holding this token may remove one.
 
 		// Click-link tickets: the tracking service resolves /c/<id> redirects
 		// here instead of touching Postgres (read-only, heavily cached there).
@@ -267,9 +267,12 @@ func Run(
 
 	r.Use(cors.New(corsConfig))
 
-	// Limit request body size to 10MB to prevent OOM
+	// Limit request body size to 10MB to prevent OOM. The contact file uploads
+	// apply their own, larger cap in the handler before reading.
 	r.Use(func(c *gin.Context) {
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 10<<20)
+		if !largeUploadRoute(c.Request) {
+			c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 10<<20)
+		}
 		c.Next()
 	})
 
@@ -629,8 +632,9 @@ func Run(
 
 			// Integration OAuth handshake is JWT-only — it writes user-encrypted
 			// provider tokens via the SPA popup flow, same as mailbox onboarding.
+			// Connecting is a settings change, the same bar as POST /integrations/connections.
 			integrationsOAuth := jwtOnly.Group("/integrations/oauth")
-			integrationsOAuth.Use(m.RequireOrganization(), m.RateLimitMiddleware(models.RateLimitWrite))
+			integrationsOAuth.Use(m.RequireOrganization(), m.RequirePermission(models.PermManageSettings), m.RateLimitMiddleware(models.RateLimitWrite))
 			{
 				integrationsOAuth.POST("/start", h.StartIntegrationOAuth)
 				integrationsOAuth.POST("/finish", h.FinishIntegrationOAuth)
@@ -816,7 +820,9 @@ func Run(
 
 				// Resolve a sender address to a contact (unibox CRM panel).
 				// Registered before /:id so the fixed path wins over the catch-all.
-				contacts.GET("/lookup", m.RequireAccess(models.PermViewContacts, models.APIPermReadContacts), h.LookupContactByEmail)
+				// A thread_id reads the unibox, so it needs unibox access as well.
+				contacts.GET("/lookup", m.RequireAccess(models.PermViewContacts, models.APIPermReadContacts),
+					m.RequireAccessWithQuery("thread_id", models.PermAccessUnibox, models.APIPermReadUnibox), h.LookupContactByEmail)
 
 				// Distinct custom-field keys across the org's contacts, for the
 				// dashboard variable picker. Fixed path, so before /:id.
@@ -1122,6 +1128,8 @@ func Run(
 				integrations.PUT("/connections/:id/field-mappings", write, h.ReplaceConnectionFieldMappings)
 				integrations.GET("/connections/:id/runs", read, h.ListConnectionSyncRuns)
 				integrations.GET("/connections/:id/webhook-secret", write, h.GetConnectionWebhookSecret)
+				integrations.PUT("/connections/:id/signing-key", write, h.SetConnectionSigningKey)
+				integrations.POST("/connections/:id/rotate-inbound-url", write, h.RotateConnectionInboundURL)
 				integrations.POST("/connections/:id/test", write, h.TestConnection)
 				integrations.POST("/connections/:id/push", operate, h.PushContactsToIntegration)
 				integrations.GET("/bookings", read, h.ListMeetingBookings)
@@ -1545,6 +1553,7 @@ func Run(
 				poolLinkInstance.GET("", h.PoolLinkInstanceInfo)
 				poolLinkInstance.DELETE("", h.PoolLinkInstanceDisconnect)
 				poolLinkInstance.GET("/mailboxes", h.PoolLinkInstanceMailboxes)
+				poolLinkInstance.GET("/standing", h.PoolLinkInstanceStanding)
 				poolLinkInstance.POST("/mailboxes", h.PoolLinkEnroll)
 				poolLinkInstance.GET("/mailboxes/:remoteId", h.PoolLinkGetMailbox)
 				poolLinkInstance.PATCH("/mailboxes/:remoteId", h.PoolLinkPatchMailbox)
@@ -1562,6 +1571,12 @@ func Run(
 				poolLinkInstance.POST("/placement/tests", h.PoolLinkStartPlacement)
 				poolLinkInstance.GET("/placement/tests/:testId", h.PoolLinkPlacementVerdicts)
 				poolLinkInstance.POST("/placement/tests/:testId/sends", h.PoolLinkPlacementSends)
+				// Root redirects served here for the linked instance.
+				poolLinkInstance.GET("/redirects", h.PoolLinkListRedirects)
+				poolLinkInstance.GET("/redirects/:domain", h.PoolLinkGetRedirect)
+				poolLinkInstance.PUT("/redirects/:domain", h.PoolLinkPutRedirect)
+				poolLinkInstance.POST("/redirects/:domain/verify", h.PoolLinkVerifyRedirect)
+				poolLinkInstance.DELETE("/redirects/:domain", h.PoolLinkDeleteRedirect)
 			}
 
 			// Self-hosted side: Settings > Warmbly Cloud.
@@ -1889,4 +1904,17 @@ func Run(
 	r.POST("/webhook/stripe", h.HandleStripeWebhook)
 
 	return r
+}
+
+// largeUploadRoute reports the routes whose handlers cap the body themselves
+// (maxImportUploadBytes), so the global cap does not cut them short.
+func largeUploadRoute(r *http.Request) bool {
+	if r.Method != http.MethodPost {
+		return false
+	}
+	switch r.URL.Path {
+	case "/v1/contacts/imports", "/v1/contacts/import/preview", "/v1/contacts/import/commit":
+		return true
+	}
+	return false
 }

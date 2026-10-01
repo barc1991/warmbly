@@ -22,6 +22,8 @@ export default interface Inbox {
     vendor_connection_id?: string | null;
     /** That vendor's id (inboxkit, zapmail, ...); absent when none. */
     vendor?: string;
+    /** The mailbox's own profile photo from its provider or vendor; "" when none can be read. */
+    avatar_url?: string;
     status: string;
     oauth_slot_id?: string | null;
     last_synced_at: Date;
@@ -31,6 +33,8 @@ export default interface Inbox {
     reply_to: string;
     /** SMTP/IMAP only: file a copy of each sent message in the mailbox Sent folder. */
     save_to_sent: boolean;
+    /** Archive, Delete and Move to inbox in the unibox move the message in the mailbox too. */
+    relay_folder_moves?: boolean;
     tracking_domain: string;
     tracking_domain_verified: boolean;
     tracking_domain_verified_at?: Date | null;

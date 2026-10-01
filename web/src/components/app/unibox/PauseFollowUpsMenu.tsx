@@ -43,8 +43,8 @@ export default function PauseFollowUpsMenu({
                     disabled={disabled}
                     title={
                         armed
-                            ? `Pauses this contact in ${ticked.map((c) => c.name).join(", ")} when the reply goes out`
-                            : "This contact still has follow-ups queued. Pause them when the reply goes out."
+                            ? `משהה איש קשר זה ב-${ticked.map((c) => c.name).join(", ")} בעת שליחת התשובה`
+                            : "לאיש קשר זה עדיין יש הודעות המשך מעקב בתור. השהה אותן בעת שליחת התשובה."
                     }
                     className={cn(
                         "h-7 px-2 rounded-md border text-[12px] inline-flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
@@ -54,15 +54,15 @@ export default function PauseFollowUpsMenu({
                     )}
                 >
                     <PauseIcon className="w-3 h-3" />
-                    {armed ? `Pause follow-ups: ${value.short}` : "Pause follow-ups"}
+                    {armed ? `השהה המשך מעקב: ${value.short}` : "השהה המשך מעקב"}
                     <ChevronDownIcon className={cn("w-3 h-3", armed ? "text-violet-400" : "text-slate-400")} />
                 </button>
             </PopoverMenuTrigger>
             <PopoverMenuContent minWidth={240} className="max-w-[min(20rem,92vw)]">
-                <PopoverMenuLabel>Pause follow-ups</PopoverMenuLabel>
+                <PopoverMenuLabel>השהה המשך מעקב</PopoverMenuLabel>
                 {campaigns.length === 1 && (
                     <div className="px-3 pb-1 text-[11.5px] text-slate-500 truncate" title={campaigns[0].name}>
-                        In {campaigns[0].name}
+                        ב-{campaigns[0].name}
                     </div>
                 )}
                 {FOLLOW_UP_PAUSES.map((p) => (
@@ -78,7 +78,7 @@ export default function PauseFollowUpsMenu({
                 {campaigns.length > 1 && (
                     <>
                         <PopoverMenuSeparator />
-                        <PopoverMenuLabel>In</PopoverMenuLabel>
+                        <PopoverMenuLabel>ב-</PopoverMenuLabel>
                         {campaigns.map((c) => {
                             const on = isTicked(c.id);
                             return (
@@ -98,7 +98,7 @@ export default function PauseFollowUpsMenu({
                 {value && (
                     <>
                         <PopoverMenuSeparator />
-                        <PopoverMenuItem onSelect={() => onChange(null)}>Don't pause</PopoverMenuItem>
+                        <PopoverMenuItem onSelect={() => onChange(null)}>אל תשהה</PopoverMenuItem>
                     </>
                 )}
             </PopoverMenuContent>

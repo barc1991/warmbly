@@ -2,6 +2,7 @@ package emailsend
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
 	"github.com/warmbly/warmbly/internal/repository"
 	"github.com/warmbly/warmbly/internal/scheduler"
 	"github.com/warmbly/warmbly/internal/tasks"
@@ -236,6 +238,10 @@ func (s *emailSendService) SendEmail(ctx context.Context, userID, orgID, account
 	}
 
 	bodyHTML, bodyPlain := req.BodyHTML, req.BodyPlain
+	// An HTML-only body still ships a text part, rendered from the HTML.
+	if strings.TrimSpace(bodyPlain) == "" && mailhtml.HasContent(bodyHTML) {
+		bodyPlain = mailhtml.ToPlainText(bodyHTML)
+	}
 	var forwardedHTML, forwardedPlain string
 	if req.Forward != nil {
 		forwardedHTML, forwardedPlain = renderForwarded(req.Forward, mailboxLocation(account))

@@ -12,8 +12,10 @@ export interface ComposeDraft {
     bcc: string[];
     subject: string;
     body: string;
-    updated_at: string;
-    created_at: string;
+    /** Empty while the draft is plain text only. */
+    body_html?: string;
+    updated_at: Date;
+    created_at: Date;
 }
 
 export interface ComposeDraftSaveInput {
@@ -23,6 +25,7 @@ export interface ComposeDraftSaveInput {
     bcc: string[];
     subject: string;
     body: string;
+    body_html?: string;
 }
 
 export async function listComposeDrafts(): Promise<ComposeDraft[]> {

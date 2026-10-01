@@ -38,12 +38,17 @@ import {
     HelpCircleIcon,
     RefreshCwIcon,
     TrashIcon,
+    PowerIcon,
+    PowerOffIcon,
     type LucideIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useUserProfile } from "@/hooks/context/user";
 import useCurrentOrganization from "@/lib/api/hooks/app/organizations/useCurrentOrganization";
 import { timezoneOptions } from "@/lib/timezone";
+import { useAppStore } from "@/stores";
+import useMailboxSwitch from "@/components/app/emails/useMailboxSwitch";
+import { repliesGoTo } from "@/lib/unibox/replyInbox";
 
 import type Inbox from "@/lib/api/models/app/emails/Inbox";
 import type AccountStatusModel from "@/lib/api/models/app/analytics/AccountStatus";
@@ -372,7 +377,7 @@ export default function InboxDetails({
 const EDITABLE: (keyof Inbox)[] = [
     "name", "signature_html", "signature_plain", "signature_sync", "signature_code",
     "send_as_email",
-    "tags", "campaign_limit", "min_wait_time", "reply_to", "save_to_sent", "timezone",
+    "tags", "campaign_limit", "min_wait_time", "reply_to", "save_to_sent", "relay_folder_moves", "timezone",
     "warmup_base", "warmup_max", "warmup_increase", "warmup_reply_rate",
     "warmup_tag", "warmup_start_time", "warmup_end_time", "warmup_days",
     "warmup_placement", "warmup_folder",
@@ -607,6 +612,7 @@ function OverviewTab({ status, loading, mailbox }: { status?: import("@/lib/api/
 
     return (
         <div className="divide-y divide-slate-200/60">
+            {mailbox.status === "inactive" && <SwitchedOffNotice mailbox={mailbox} />}
             {/* Whatever the Advisor has on this mailbox, above the numbers that
                 produced it. This is where a row flag and a deep link both land. */}
             <AdvisorStrip
@@ -1855,18 +1861,62 @@ function SendIdentityCard({
 
 /* ── Settings (editable) ─────────────────────── */
 
-/* ── disconnect ───────────────────────────────────────────────────── */
+// Off stops everything, so the way back sits where the drawer opens.
+function SwitchedOffNotice({ mailbox }: { mailbox: Inbox }) {
+    const power = useMailboxSwitch(mailbox.id, mailbox.email);
+    return (
+        <div className="px-5 py-4">
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 flex items-start gap-2">
+                <PowerOffIcon className="w-3.5 h-3.5 mt-px shrink-0 text-slate-500" />
+                <div className="min-w-0 flex-1">
+                    <p className="text-[12.5px] font-medium text-slate-900">תיבת דואר זו כבויה</p>
+                    <p className="text-[11.5px] text-slate-600 leading-relaxed mt-0.5">
+                        היא אינה שולחת קמפיינים, אינה מתחממת ואינה מסנכרנת דואר, ללא קשר להגדרות החימום שלה. ההגדרות, ההיסטוריה וה-Worker שלה נשמרים, כך שהפעלתה מחדש תמשיך בדיוק מהנקודה שבה עצרה.
+                        כדי להשאיר אותה מחוץ לקמפיינים בזמן שהיא מתחממת, הפעל תחילה השהיה מקמפיינים בלשונית הסקירה למטה, ולאחר מכן הפעל אותה מחדש.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={power.switchOn}
+                        disabled={power.pending}
+                        className="mt-2 h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium disabled:opacity-60 transition-colors"
+                    >
+                        <PowerIcon className="w-3.5 h-3.5" />
+                        {power.pending ? "מפעיל…" : "הפעל מחדש"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
-/**
- * The only per-mailbox delete in the product, at the bottom of the tab the
- * row's "More" button opens.
- *
- * It was previously reachable only by ticking a row's checkbox in the list and
- * finding the selection bar, which nobody looks for when they want to remove
- * one mailbox. The action is destructive and unrecoverable, so it says what it
- * takes before asking, and the copy differs by provider because what happens to
- * the connection does: Google accepts a revocation and Microsoft does not.
- */
+// The mailbox's own on/off switch; a revoked mailbox is turned back on by reconnecting.
+function MailboxPowerCard({ mailbox }: { mailbox: Inbox }) {
+    const power = useMailboxSwitch(mailbox.id, mailbox.email);
+    if (mailbox.status !== "active" && mailbox.status !== "inactive") return null;
+    const on = mailbox.status === "active";
+    return (
+        <div className="px-5 py-5 space-y-3">
+            <Eyebrow>תיבת דואר</Eyebrow>
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <div className="text-[12.5px] font-medium text-slate-900">תיבת דואר פעילה</div>
+                    <div className="text-[11px] text-slate-400">
+                        כאשר היא כבויה, היא אינה שולחת, אינה מתחממת ואינה מסנכרנת, אך שומרת על הגדרותיה וההיסטוריה שלה. כדי לעצור
+                        שליחת קמפיינים בלבד ולהמשיך בחימום, השתמש בהשהיה מקמפיינים בלשונית הסקירה.
+                        עבור תיבה כבויה, הפעל את ההשהיה לפני הפעלתה מחדש.
+                    </div>
+                </div>
+                <Toggle
+                    value={on}
+                    onChange={(v) => (v ? power.switchOn() : power.switchOff())}
+                    disabled={power.pending}
+                    ariaLabel="תיבת דואר פעילה"
+                />
+            </div>
+        </div>
+    );
+}
+
 function DisconnectCard({ mailbox, onDisconnected }: { mailbox: Inbox; onDisconnected: () => void }) {
     const confirm = useConfirm();
     const remove = useRemoveEmail(mailbox.id);
@@ -1880,11 +1930,11 @@ function DisconnectCard({ mailbox, onDisconnected }: { mailbox: Inbox; onDisconn
 
     const ask = () =>
         confirm.show(
-            `Disconnect ${mailbox.email}? This deletes its imported mail, warmup history and credentials, and cannot be undone. Set the mailbox inactive instead if you only want it to stop sending.`,
+            `האם לנתק את ${mailbox.email}? פעולה זו מוחקת את הדואר המיובא, היסטוריית החימום ופרטי ההתחברות, ואינה ניתנת לביטול. כבה את תיבת הדואר במקום זאת אם ברצונך רק לעצור את פעילותה.`,
             async () => {
                 try {
                     await remove.mutateAsync();
-                    toast.success(`${mailbox.email} disconnected`);
+                    toast.success(`${mailbox.email} נותקה בהצלחה`);
                     // The drawer is showing a mailbox that no longer exists.
                     onDisconnected();
                 } catch (e) {
@@ -1923,6 +1973,27 @@ function DisconnectCard({ mailbox, onDisconnected }: { mailbox: Inbox; onDisconn
     );
 }
 
+// Where a reply-to sends replies, and whether Warmbly still sees them there.
+function ReplyToNote({ mailbox, value }: { mailbox: Inbox; value: string }) {
+    const accounts = useAppStore((s) => s.emails);
+    const address = value.trim();
+    const own = [mailbox.email, mailbox.send_as_email].some((a) => !!a && a.toLowerCase() === address.toLowerCase());
+    if (!address || own) return null;
+    const inbox = accounts.find((a) => repliesGoTo({ ...mailbox, reply_to: address }, a));
+    if (inbox) {
+        return (
+            <p className="text-[10.5px] text-slate-500 mt-1 leading-relaxed">
+                תשובות מגיעות אל {inbox.email} ועדיין נספרות עבור הקמפיינים של תיבה זו. הודעות חימום שומרות את התשובות שלהן כאן.
+            </p>
+        );
+    }
+    return (
+        <p className="text-[10.5px] text-amber-700 mt-1 leading-relaxed">
+            {address} אינה תיבת דואר בסביבת עבודה זו, ולכן תשובות הנשלחות אליה אינן במעקב. חבר אותה כדי לעקוב אחריהן.
+        </p>
+    );
+}
+
 function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; update: (p: Partial<Inbox>) => void; mailbox: Inbox; onDisconnected: () => void }) {
     const { timezones } = useUserProfile();
     const org = useCurrentOrganization();
@@ -1934,6 +2005,7 @@ function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; u
         ],
         [timezones, workspaceZone, form.timezone],
     );
+    const mirrorTarget = mailbox.provider === "gmail" ? "Gmail" : mailbox.provider === "outlook" ? "Outlook" : "תיבת הדואר";
     return (
         <div className="divide-y divide-slate-200/60">
             <div className="px-5 py-5 space-y-4">
@@ -1943,7 +2015,7 @@ function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; u
                 </FieldShell>
                 <FieldShell
                     label="כתובת למענה (Reply-to)"
-                    hint={`Where replies land. Leave empty to use ${mailbox.email}.`}
+                    hint={`היכן שתשובות יתקבלו. השאר ריק כדי להשתמש ב-${mailbox.email}. הפנה מספר תיבות דואר לתיבה מחוברת אחת כדי לקרוא את כל התשובות במקום אחד.`}
                 >
                     <div className="flex items-center gap-1.5">
                         <TextInput
@@ -1962,6 +2034,7 @@ function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; u
                             </button>
                         )}
                     </div>
+                    <ReplyToNote mailbox={mailbox} value={form.reply_to ?? ""} />
                 </FieldShell>
             </div>
 
@@ -1984,6 +2057,26 @@ function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; u
                     </div>
                 </div>
             )}
+
+            <div className="px-5 py-5 space-y-3">
+                <Eyebrow>Unibox</Eyebrow>
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <div className="text-[12.5px] font-medium text-slate-900">
+                            שקף העברה לארכיון ומחיקה ל-{mirrorTarget}
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                            העברה לארכיון, מחיקה והעברה לדואר נכנס ב-Unibox מזיזים את ההודעה גם בתיבת הדואר עצמה, כך ששיחה מנוהלת במקום אחד בלבד. מחיקה
+                            מעבירה אותה לאשפה של תיבת הדואר ולעולם אינה מוחקת לצמיתות. כבה אפשרות זו כדי לשמור את הסידור בתוך Warmbly בלבד.
+                        </div>
+                    </div>
+                    <Toggle
+                        value={form.relay_folder_moves ?? true}
+                        onChange={(v) => update({ relay_folder_moves: v })}
+                        ariaLabel={`שקף העברה לארכיון ומחיקה ל-${mirrorTarget}`}
+                    />
+                </div>
+            </div>
 
             <SendIdentityCard
                 mailbox={mailbox}
@@ -2055,6 +2148,8 @@ function SettingsTab({ form, update, mailbox, onDisconnected }: { form: Inbox; u
             <TrackingDomainCard mailbox={mailbox} />
 
             <DirectMailTrackingControl mailbox={mailbox} />
+
+            <MailboxPowerCard mailbox={mailbox} />
 
             <DisconnectCard mailbox={mailbox} onDisconnected={onDisconnected} />
 

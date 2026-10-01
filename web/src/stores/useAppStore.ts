@@ -3,14 +3,7 @@ import { devtools, persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 import { createUserSlice, type UserSlice } from './slices/userSlice'
 import { createOrganizationSlice, type OrganizationSlice } from './slices/organizationSlice'
-import {
-  createUISlice,
-  clampUniboxListWidth,
-  sanitizeNavCollapsedSections,
-  sanitizeUniboxRailHidden,
-  sanitizeUniboxRailOrder,
-  type UISlice,
-} from './slices/uiSlice'
+import { createUISlice, clampUniboxListWidth, clampUniboxRailWidth, sanitizeNavCollapsedSections, sanitizeUniboxRailFavorites, sanitizeUniboxRailHidden, sanitizeUniboxRailOrder, type UISlice } from './slices/uiSlice'
 import { createShortcutSlice, type ShortcutSlice } from './slices/shortcutSlice'
 import { createDataSlice, type DataSlice } from './slices/dataSlice'
 import { createRealtimeSlice, type RealtimeSlice } from './slices/realtimeSlice'
@@ -45,8 +38,8 @@ export const useAppStore = create<AppStore>()(
       }),
       {
         name: 'warmbly-storage',
-        // Rehydration does not go through the slice setters, so re-clamp the one
-        // stored value that has bounds. Without this a value from an older build
+        // Rehydration does not go through the slice setters, so re-clamp the
+        // stored values that have bounds. Without this a value from an older build
         // (or a hand-edited one) renders as `width: NaNpx`.
         merge: (persisted, current) => {
           const p = (persisted ?? {}) as Partial<AppStore>
@@ -54,11 +47,13 @@ export const useAppStore = create<AppStore>()(
             ...current,
             ...p,
             uniboxListWidth: clampUniboxListWidth(p.uniboxListWidth),
+            uniboxRailWidth: clampUniboxRailWidth(p.uniboxRailWidth),
             navCollapsedSections: sanitizeNavCollapsedSections(p.navCollapsedSections),
             uniboxRailFolded: sanitizeNavCollapsedSections(p.uniboxRailFolded),
             uniboxRailHidden: sanitizeUniboxRailHidden(p.uniboxRailHidden),
             uniboxRailOrder: sanitizeUniboxRailOrder(p.uniboxRailOrder),
             uniboxRailSectionOrder: sanitizeUniboxRailHidden(p.uniboxRailSectionOrder),
+            uniboxRailFavorites: sanitizeUniboxRailFavorites(p.uniboxRailFavorites),
           }
         },
         partialize: (state) => ({
@@ -71,14 +66,16 @@ export const useAppStore = create<AppStore>()(
           agentWidth: state.agentWidth,
           agentFloating: state.agentFloating,
           agentFloatRect: state.agentFloatRect,
-          // Unibox layout (list column width + CRM rail default)
+          // Unibox layout (pane widths + CRM rail default)
           uniboxListWidth: state.uniboxListWidth,
+          uniboxRailWidth: state.uniboxRailWidth,
           uniboxContactRailOpen: state.uniboxContactRailOpen,
-          // Unibox scope rail (folds, hidden rows, row and section order)
+          // Unibox scope rail (folds, hidden rows, row and section order, favorites)
           uniboxRailFolded: state.uniboxRailFolded,
           uniboxRailHidden: state.uniboxRailHidden,
           uniboxRailOrder: state.uniboxRailOrder,
           uniboxRailSectionOrder: state.uniboxRailSectionOrder,
+          uniboxRailFavorites: state.uniboxRailFavorites,
           // Persist current organization selection
           currentOrganization: state.currentOrganization,
         }),

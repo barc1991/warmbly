@@ -19,6 +19,7 @@ import (
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/infrastructure/pubsub"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/repository"
 	"github.com/warmbly/warmbly/internal/utils/paging"
 )
 
@@ -118,7 +119,7 @@ func (h *Handler) ConnectIntegration(c *gin.Context) {
 	}
 	var p integrationConnectPayload
 	if err := c.ShouldBindJSON(&p); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	provider := models.IntegrationProvider(strings.TrimSpace(p.Provider))
@@ -172,7 +173,7 @@ func (h *Handler) StartIntegrationOAuth(c *gin.Context) {
 	}
 	var p oauthStartPayload
 	if err := c.ShouldBindJSON(&p); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	provider := models.IntegrationProvider(strings.TrimSpace(p.Provider))
@@ -206,11 +207,27 @@ func (h *Handler) FinishIntegrationOAuth(c *gin.Context) {
 	}
 	var p oauthFinishPayload
 	if err := c.ShouldBindJSON(&p); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
-	conn, xerr := h.IntegrationService.OAuthFinish(c.Request.Context(), userID, p.Code, p.State)
+	// The state may name another organization than the session's, so the
+	// settings bar is held again there.
+	authorize := func(ctx context.Context, orgID uuid.UUID) error {
+		if h.OrganizationService == nil {
+			return errx.ErrForbidden
+		}
+		if xerr := h.OrganizationService.RequirePermission(ctx, orgID, userID, models.PermManageSettings); xerr != nil {
+			return xerr
+		}
+		return nil
+	}
+	conn, xerr := h.IntegrationService.OAuthFinish(c.Request.Context(), userID, p.Code, p.State, authorize)
 	if xerr != nil {
+		var bizErr *errx.Error
+		if errors.As(xerr, &bizErr) {
+			errx.JSON(c, bizErr)
+			return
+		}
 		errx.JSON(c, errx.New(errx.BadRequest, xerr.Error()))
 		return
 	}
@@ -249,6 +266,12 @@ func (h *Handler) IntegrationOAuthCallback(c *gin.Context) {
 	}
 	// json.Marshal escapes <, >, & so the blob is safe to inline in <script>.
 	blob, _ := json.Marshal(payload)
+	// The message carries a live authorization code, so it is addressed to this
+	// instance's dashboard origin rather than "*": a page that opens this popup
+	// must not be able to read the code out of it. Falling back to "*" when the
+	// origin is unconfigured would reinstate exactly that, so an unconfigured
+	// origin delivers nothing instead.
+	originBlob, _ := json.Marshal(callbackTargetOrigin())
 	html := `<!doctype html><html><head><meta charset="utf-8"><title>Connecting…</title></head>
 <body style="font-family:system-ui;background:#f8fafc;color:#0f172a;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
 <div style="text-align:center">
@@ -257,11 +280,19 @@ func (h *Handler) IntegrationOAuthCallback(c *gin.Context) {
 <script>
 (function(){
   var msg = ` + string(blob) + `;
-  try { if (window.opener) { window.opener.postMessage(msg, "*"); } } catch (e) {}
+  var origin = ` + string(originBlob) + `;
+  try { if (window.opener && origin) { window.opener.postMessage(msg, origin); } } catch (e) {}
   setTimeout(function(){ window.close(); }, 300);
 })();
 </script>
 </body></html>`
+	// This page is one inline script that hands the code to the opener and
+	// closes. It loads nothing and submits nothing, so the policy says so;
+	// 'unsafe-inline' covers the script that is the page itself.
+	// Cross-Origin-Opener-Policy is relaxed here because talking to the
+	// opener is the whole job, and the message is addressed to one origin.
+	c.Header("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+	c.Header("Cross-Origin-Opener-Policy", "unsafe-none")
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.String(http.StatusOK, html)
 }
@@ -308,7 +339,7 @@ func (h *Handler) CreateConnectionEventSubscription(c *gin.Context) {
 	}
 	var p eventSubscriptionPayload
 	if err := c.ShouldBindJSON(&p); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	enabled := true
@@ -402,7 +433,7 @@ func (h *Handler) PushContactsToIntegration(c *gin.Context) {
 	}
 	var p pushContactsPayload
 	if err := c.ShouldBindJSON(&p); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 
@@ -535,7 +566,7 @@ func (h *Handler) ReplaceConnectionFieldMappings(c *gin.Context) {
 	}
 	var p replaceFieldMappingsPayload
 	if err := c.ShouldBindJSON(&p); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	mappings := make([]models.IntegrationFieldMapping, 0, len(p.Mappings))
@@ -599,7 +630,7 @@ func (h *Handler) UpdateConnectionConfig(c *gin.Context) {
 	}
 	var p updateConnectionConfigPayload
 	if err := c.ShouldBindJSON(&p); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	conn, err := h.IntegrationService.UpdateConnectionConfig(c.Request.Context(), orgID, connID, p.ConfigCapabilities, strings.TrimSpace(p.SyncDirection))
@@ -609,6 +640,71 @@ func (h *Handler) UpdateConnectionConfig(c *gin.Context) {
 	}
 	h.auditIntegration(c, userID, models.AuditActionUpdate, connID, "config")
 	c.JSON(http.StatusOK, gin.H{"connection": conn})
+}
+
+type inboundSigningKeyPayload struct {
+	SigningKey string `json:"signing_key"`
+}
+
+// SetConnectionSigningKey sets the key a Calendly or Cal.com connection's
+// deliveries must be signed with; an empty key goes back to the URL secret alone.
+func (h *Handler) SetConnectionSigningKey(c *gin.Context) {
+	orgID, userID, ok := h.requireIntegrationActor(c, true)
+	if !ok {
+		return
+	}
+	connID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		errx.JSON(c, errx.New(errx.BadRequest, "invalid id"))
+		return
+	}
+	var p inboundSigningKeyPayload
+	if err := c.ShouldBindJSON(&p); err != nil {
+		errx.JSON(c, errx.InvalidBody(err))
+		return
+	}
+	conn, err := h.IntegrationService.SetInboundSigningKey(c.Request.Context(), orgID, connID, p.SigningKey)
+	switch {
+	case errors.Is(err, repository.ErrInboundConnectionNotFound):
+		errx.JSON(c, errx.ErrNotFound)
+		return
+	case errors.Is(err, integration.ErrNotInboundProvider), errors.Is(err, integration.ErrInboundSigningKeyLength):
+		errx.JSON(c, errx.New(errx.BadRequest, err.Error()))
+		return
+	case err != nil:
+		errx.JSON(c, errx.InternalError())
+		return
+	}
+	h.auditIntegration(c, userID, models.AuditActionUpdate, connID, "signing_key")
+	c.JSON(http.StatusOK, gin.H{"connection": conn})
+}
+
+// RotateConnectionInboundURL mints a new inbound URL for a Calendly or Cal.com
+// connection; the previous one stops working immediately.
+func (h *Handler) RotateConnectionInboundURL(c *gin.Context) {
+	orgID, userID, ok := h.requireIntegrationActor(c, true)
+	if !ok {
+		return
+	}
+	connID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		errx.JSON(c, errx.New(errx.BadRequest, "invalid id"))
+		return
+	}
+	url, err := h.IntegrationService.RotateInboundSecret(c.Request.Context(), orgID, connID)
+	switch {
+	case errors.Is(err, repository.ErrInboundConnectionNotFound):
+		errx.JSON(c, errx.ErrNotFound)
+		return
+	case errors.Is(err, integration.ErrNotInboundProvider):
+		errx.JSON(c, errx.New(errx.BadRequest, err.Error()))
+		return
+	case err != nil:
+		errx.JSON(c, errx.InternalError())
+		return
+	}
+	h.auditIntegration(c, userID, models.AuditActionUpdate, connID, "inbound_url")
+	c.JSON(http.StatusOK, gin.H{"inbound_webhook_url": url})
 }
 
 // GetConnectionWebhookSecret returns (generating on first call) the HMAC signing
@@ -701,7 +797,7 @@ func (h *Handler) CreateAutomation(c *gin.Context) {
 	}
 	var w models.AutomationWrite
 	if err := c.ShouldBindJSON(&w); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	a, err := h.IntegrationService.CreateAutomation(c.Request.Context(), orgID, w)
@@ -726,7 +822,7 @@ func (h *Handler) UpdateAutomation(c *gin.Context) {
 	}
 	var w models.AutomationWrite
 	if err := c.ShouldBindJSON(&w); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	a, err := h.IntegrationService.UpdateAutomation(c.Request.Context(), orgID, id, w)
@@ -758,7 +854,7 @@ func (h *Handler) PatchAutomationLayout(c *gin.Context) {
 	}
 	var w models.AutomationLayout
 	if err := c.ShouldBindJSON(&w); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	if len(w.Positions) > 1000 {
@@ -890,6 +986,17 @@ func (h *Handler) handleInboundBooking(c *gin.Context, provider models.Integrati
 	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "read body failed"})
+		return
+	}
+
+	// With a signing key set, the URL secret alone is not enough.
+	key, err := h.IntegrationService.InboundSigningKey(c.Request.Context(), conn)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "signature check failed"})
+		return
+	}
+	if key != "" && !integration.VerifyInboundSignature(provider, key, c.GetHeader, body, time.Now()) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid signature"})
 		return
 	}
 
@@ -1091,7 +1198,7 @@ func (h *Handler) CreateMeeting(c *gin.Context) {
 	}
 	var p createMeetingPayload
 	if err := c.ShouldBindJSON(&p); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid payload"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	p.InviteeName = strings.TrimSpace(p.InviteeName)

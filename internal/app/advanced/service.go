@@ -1235,6 +1235,11 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	var sequenceID *uuid.UUID
 	var contactID *uuid.UUID
 	var taskID *uuid.UUID
+	// senderAccountID is the mailbox that sent the email this answers, which a
+	// shared reply inbox is not; viaReplyTo is a reply that landed here only
+	// because that send's Reply-To named this mailbox.
+	var senderAccountID *uuid.UUID
+	var viaReplyTo bool
 	var referencesCampaignThread bool
 	// contactEmail is the address we mailed, which is not always the one
 	// that answered; an opt-out has to reach both.
@@ -1265,14 +1270,18 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 				*campaign.OrganizationID != *account.OrganizationID {
 				continue
 			}
-			sentFromReceivingAccount, err := s.campaignProgressRepo.CampaignContactSentFromAccount(
-				ctx, *ct.CampaignID, *ct.ContactID, emailAccountID,
-			)
-			if err != nil {
-				return toErrx(err)
-			}
-			if !sentFromReceivingAccount {
-				continue
+			// The send pointing its Reply-To here is as good as having sent
+			// from here: a shared reply inbox never writes to anyone.
+			if !account.ReceivesAt(task.ReplyTo) {
+				sentFromReceivingAccount, err := s.campaignProgressRepo.CampaignContactSentFromAccount(
+					ctx, *ct.CampaignID, *ct.ContactID, emailAccountID,
+				)
+				if err != nil {
+					return toErrx(err)
+				}
+				if !sentFromReceivingAccount {
+					continue
+				}
 			}
 		}
 		// The thread is the evidence; the From address does not have to be
@@ -1290,6 +1299,8 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		}
 		contactEmail = strings.TrimSpace(contact.Email)
 		taskID = &task.ID
+		senderAccountID = &task.EmailAccountID
+		viaReplyTo = task.EmailAccountID != emailAccountID && account.ReceivesAt(task.ReplyTo)
 		campaignID = ct.CampaignID
 		contactID = ct.ContactID
 		sequenceID = ct.SequenceID
@@ -1322,7 +1333,8 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 
 	// A copied contact answering further down the thread (to the lead's own
 	// reply, say) names no message of ours; the mailbox that wrote to the
-	// lead is the evidence, and the reply is the lead's. A fresh message with
+	// lead, or the one its Reply-To named, is the evidence, and the reply is
+	// the lead's. A fresh message with
 	// no parent is not a reply to anything and credits nobody.
 	if campaignID == nil && contactID != nil && !referencesCampaignThread && len(msg.InReplyTo) > 0 {
 		ref, err := s.campaignProgressRepo.LeadForCopiedReply(ctx, *contactID, emailAccountID)
@@ -1438,9 +1450,15 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 			// unibox. Self-detaches, so it never blocks reply ingest.
 			if s.inboxAgent != nil && account.OrganizationID != nil {
 				ownerID, _ := uuid.Parse(account.UserID)
+				// An answer from a shared reply inbox leaves from the mailbox
+				// the contact wrote to, as the composer's does.
+				draftFrom := emailAccountID
+				if viaReplyTo && senderAccountID != nil {
+					draftFrom = *senderAccountID
+				}
 				s.inboxAgent.DraftForReply(ctx, models.InboxAgentReply{
 					OrganizationID:  *account.OrganizationID,
-					EmailAccountID:  emailAccountID,
+					EmailAccountID:  draftFrom,
 					OwnerUserID:     ownerID,
 					SourceMessageID: msg.ID,
 					ThreadID:        msg.ThreadID,
@@ -1515,7 +1533,7 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 
 	var held *time.Time
 	if campaignID != nil && contactID != nil && !senderIsCopy && verdict.Class == replyclassify.ClassOutOfOffice && settings.ReplyIntent.HoldOnOutOfOffice {
-		held = s.holdForOutOfOffice(ctx, *contactID, settings.ReplyIntent, msg)
+		held = s.holdForOutOfOffice(ctx, *account.OrganizationID, *contactID, settings.ReplyIntent, msg)
 	}
 
 	actionTaken := ""
@@ -1633,8 +1651,12 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		// user); the leading underscore keeps it out of outbound customer webhook
 		// bodies (publicEventData strips _-prefixed keys) while staying available
 		// to native actions, which read the raw event data.
-		"thread_id": msg.ThreadID,
-		"_user_id":  account.UserID,
+		"thread_id":        msg.ThreadID,
+		"email_account_id": emailAccountID.String(),
+		"_user_id":         account.UserID,
+	}
+	if senderAccountID != nil {
+		payload["sender_email_account_id"] = senderAccountID.String()
 	}
 	if campaignID != nil {
 		payload["campaign_id"] = campaignID.String()
@@ -1682,14 +1704,16 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 
 // holdForOutOfOffice parks the contact's next step until they are back: the
 // return date the auto-reply names plus a business day, else the workspace's
-// fallback. Best-effort; a hold that cannot be written must never fail the
-// reply ingest behind it. Returns when the hold lifts, or nil if none was set.
+// fallback. With inbox tagging on, a date the model read as not the return
+// takes the fallback too. Best-effort; a hold that cannot be written must never
+// fail the reply ingest behind it. Returns when the hold lifts, or nil if none
+// was set.
 //
 // The hold covers every campaign the contact is still a lead of, not only the
 // one this reply was attributed to. An empty desk is an empty desk: holding
 // one sequence while a second kept mailing them was issue #470 again, narrowed
 // to the second campaign (issue #518).
-func (s *service) holdForOutOfOffice(ctx context.Context, contactID uuid.UUID, cfg models.ReplyIntentSettings, msg *models.EmailMessageStoreData) *time.Time {
+func (s *service) holdForOutOfOffice(ctx context.Context, orgID, contactID uuid.UUID, cfg models.ReplyIntentSettings, msg *models.EmailMessageStoreData) *time.Time {
 	if s.campaignProgressRepo == nil {
 		return nil
 	}
@@ -1704,7 +1728,11 @@ func (s *service) holdForOutOfOffice(ctx context.Context, contactID uuid.UUID, c
 	}
 	until, reason := fallback()
 	if back, ok := replyclassify.ParseReturnDate(msg.Subject, body, now); ok {
-		until, reason = replyclassify.NextBusinessDay(back), "back "+back.Format("2 Jan 2006")
+		if s.returnDateDoubted(ctx, orgID, msg.MessageID, back) {
+			until, reason = now.AddDate(0, 0, days), "auto-reply, return date unclear"
+		} else {
+			until, reason = replyclassify.NextBusinessDay(back), "back "+back.Format("2 Jan 2006")
+		}
 	}
 	// A return date already behind us (a stale auto-reply, a clock skew) would
 	// hold nothing; the fallback is the honest answer.

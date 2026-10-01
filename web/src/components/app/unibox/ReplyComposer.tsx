@@ -61,7 +61,19 @@ import {
     PopoverMenuSeparator,
 } from "@/components/ui/popover-menu";
 import { cn } from "@/lib/utils";
-import { plainToHtml } from "@/lib/email/body";
+import {
+    bodyHasContent,
+    bodyTooLong,
+    capPlain,
+    htmlHasContent,
+    outgoingParts,
+    restoreBody,
+    withTemplate,
+    withText,
+} from "@/lib/email/composerBody";
+import { useComposerBody } from "@/lib/email/useComposerBody";
+import { HtmlBody, HtmlModeToggle } from "./compose/HtmlBody";
+import type Template from "@/lib/api/models/app/templates/Template";
 import { bareEmail, nameFromAddr } from "@/lib/helper/emailAddress";
 import {
     loadReplyDraft,
@@ -69,8 +81,8 @@ import {
     type ReplyMode,
     type ReplySeed,
 } from "@/lib/unibox/replyDraft";
-
 import { useReplyDraft } from "@/lib/unibox/useReplyDraft";
+import { answerAddress, replyInboxSender } from "@/lib/unibox/replyInbox";
 
 export type { ReplyMode, ReplySeed } from "@/lib/unibox/replyDraft";
 
@@ -178,7 +190,9 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
         () => seed ?? (draftKey ? loadReplyDraft(draftKey) : null),
     );
 
-    const [body, setBody] = React.useState(restored?.body ?? "");
+    const bodyState = useComposerBody(restored?.body ?? "", restored?.body_html);
+    const { body, setBody, html } = bodyState;
+    const setBodyValue = bodyState.setValue;
     const [subject, setSubject] = React.useState(restored?.subject ?? initial.subject);
     const [to, setTo] = React.useState<string[]>(
         restored?.to ?? initial.to,
@@ -187,23 +201,39 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     const [bcc, setBcc] = React.useState<string[]>(restored?.bcc ?? []);
     const [showCc, setShowCc] = React.useState((restored?.cc.length ?? 0) > 0);
     const [showBcc, setShowBcc] = React.useState((restored?.bcc.length ?? 0) > 0);
-    // The mailbox holding the message is the default sender; picking another
-    // one is a per-draft override.
+    // The mailbox holding the message is the default sender, unless it is a
+    // shared reply inbox: then the mailbox that emailed them answers, so they
+    // keep hearing from one address. Picking another is a per-draft override.
     const threadAccountId = replyTo.account_id ?? "";
-    // A saved pick whose mailbox has since gone falls back to the thread's own.
+    const answersMailboxId = mode === "reply" ? replyTo.answers_mailbox_id : undefined;
+    const defaultAccountId = React.useMemo(
+        () => replyInboxSender(accounts, threadAccountId, answersMailboxId) ?? threadAccountId,
+        [accounts, threadAccountId, answersMailboxId],
+    );
+    // A saved pick whose mailbox has since gone falls back to the default.
     const accountsRef = React.useRef(accounts);
     accountsRef.current = accounts;
     const resolveSender = React.useCallback(
         (id: string | undefined) =>
-            id && (accountsRef.current.length === 0 || accountsRef.current.some((a) => a.id === id))
-                ? id
-                : threadAccountId,
-        [threadAccountId],
+            id && (accountsRef.current.length === 0 || accountsRef.current.some((a) => a.id === id)) ? id : null,
+        [],
     );
-    const [accountId, setAccountId] = React.useState(() => resolveSender(restored?.email_account_id));
+    // Until someone chooses, From is the default, so it follows the mailbox list as it loads.
+    const [chosenSender, chooseSender] = React.useState<string | null>(() => resolveSender(restored?.email_account_id));
+    const accountId = chosenSender ?? defaultAccountId;
     const [isSending, setIsSending] = React.useState(false);
-    const draft = useReplyDraft(draftKey, { to, cc, bcc, subject, body, email_account_id: accountId }, {
-        to: initial.to, cc: [], bcc: [], subject: initial.subject, body: "", email_account_id: threadAccountId,
+    // body_html only when there is HTML, so a plain or empty draft serializes as it always has.
+    const draftValue: ReplySeed = {
+        to,
+        cc,
+        bcc,
+        subject,
+        body,
+        ...(html ? { body_html: html } : {}),
+        email_account_id: accountId,
+    };
+    const draft = useReplyDraft(draftKey, draftValue, {
+        to: initial.to, cc: [], bcc: [], subject: initial.subject, body: "", email_account_id: defaultAccountId,
     });
     const closeKeepingDraft = () => {
         if (!draft.flush()) {
@@ -259,14 +289,16 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
         setBcc(seed.bcc);
         setShowCc(seed.cc.length > 0);
         setShowBcc(seed.bcc.length > 0);
-        setBody(seed.body);
-        setAccountId(resolveSender(seed.email_account_id));
-    }, [seed, resumeDraft, resolveSender]);
+        setBodyValue(restoreBody(seed.body, seed.body_html));
+        chooseSender(resolveSender(seed.email_account_id));
+    }, [seed, resumeDraft, resolveSender, setBodyValue]);
 
     // The full Inbox record (signature_html, signature_plain, etc) of the
     // chosen sender, from the global emails store.
     const mailbox = accounts.find((a) => a.id === accountId);
-    const switchedMailbox = !!threadAccountId && accountId !== threadAccountId;
+    const switchedMailbox = !!defaultAccountId && accountId !== defaultAccountId;
+    // From is the mailbox that emailed them rather than the reply inbox holding the message.
+    const answeringFromSender = !switchedMailbox && defaultAccountId !== threadAccountId;
     // A queued send from an inactive or removed mailbox cannot leave, so Send
     // waits for a sender that can.
     const senderProblem = !accountId
@@ -279,6 +311,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
             ? "תיבת דואר זו כבר אינה מחוברת. בחר תיבת דואר אחרת בשדה 'מאת'."
             : null;
     const threadMailbox = accounts.find((a) => a.id === threadAccountId);
+    const defaultMailbox = accounts.find((a) => a.id === defaultAccountId);
 
     // Scored like compose (history with the recipient, today's budget, auth),
     // fetched once From is opened: most replies keep the default mailbox.
@@ -313,11 +346,18 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
     useUniboxOverview();
     const scheduleAtCap = false;
 
-    const trimmedBody = body.trim();
+    const htmlTooLong = React.useMemo(() => bodyTooLong(bodyState.value), [bodyState.value]);
     // A forward's note is optional: the forwarded message is the content.
-    const hasContent = !!trimmedBody || mode === "forward";
+    const hasBody = React.useMemo(() => bodyHasContent(bodyState.value), [bodyState.value]);
+    const hasContent = hasBody || mode === "forward";
     const canSend =
-        hasContent && to.length > 0 && to.every(looksLikeEmail) && !!accountId && !senderProblem && !isSending;
+        hasContent &&
+        !htmlTooLong &&
+        to.length > 0 &&
+        to.every(looksLikeEmail) &&
+        !!accountId &&
+        !senderProblem &&
+        !isSending;
 
     const send = async (scheduledAt?: Date) => {
         if (!canSend && !isSending) {
@@ -341,9 +381,14 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 toast.error(senderProblem);
                 return;
             }
+            if (htmlTooLong) {
+                toast.error("קוד ה-HTML של אימייל זה ארוך מדי לשליחה");
+                return;
+            }
         }
 
-        const submittedDraft = { to, cc, bcc, subject, body, email_account_id: accountId };
+        const submittedDraft = draftValue;
+        const parts = outgoingParts(bodyState.value);
         const pauseWith = mode === "reply" ? followUpPause : null;
         const pauseTargets = {
             ...followUps.targets,
@@ -359,8 +404,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 cc: cc.length ? cc : undefined,
                 bcc: bcc.length ? bcc : undefined,
                 subject: sentSubject,
-                body_plain: trimmedBody,
-                body_html: plainToHtml(trimmedBody),
+                ...parts,
                 thread_id: mode === "reply" ? threadId : undefined,
                 forward_message_id: mode === "forward" ? replyTo.id : undefined,
                 ...(scheduledAt
@@ -386,7 +430,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                         cc,
                         bcc,
                         subject: sentSubject,
-                        body: trimmedBody,
+                        body: html === null ? parts.body_plain : body,
+                        ...(html !== null ? { bodyHtml: html } : {}),
                         emailAccountId: accountId,
                     },
                 });
@@ -436,18 +481,23 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
         handleSchedule(new Date(customValue));
     };
 
-    const applyTemplate = (name: string, plain: string, subj: string) => {
-        if (!body.trim()) {
-            setBody(plain);
-        } else {
-            setBody((b) => `${b.trimEnd()}\n\n${plain}`);
+    const applyTemplate = (t: Template) => {
+        if (aiDraft.phase !== "idle" && htmlHasContent(t.body_html ?? "")) {
+            toast.error("שמור או בטל את טיוטת ה-AI לפני הוספת תבנית HTML");
+            return;
         }
+        const next = capPlain(withTemplate(bodyState.value, t));
+        if (bodyTooLong(next)) {
+            toast.error(`"${t.name}" ארוכה מדי להוספה לאימייל זה`);
+            return;
+        }
+        setBodyValue(next);
         const subj0 = subject.trim();
-        if (subj && (/^re:\s*$/i.test(subj0) || /^fwd:\s*$/i.test(subj0))) {
-            setSubject(subj);
+        if (t.subject && (/^re:\s*$/i.test(subj0) || /^fwd:\s*$/i.test(subj0))) {
+            setSubject(t.subject);
         }
         setTemplateOpen(false);
-        toast.success(`הוכנסה תבנית "${name}"`);
+        toast.success(`הוכנסה תבנית "${t.name}"`);
     };
 
     type SignatureState =
@@ -589,7 +639,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             value={accountId}
                             autoTag={null}
                             allowAuto={false}
-                            onChange={(next) => setAccountId(next)}
+                            onChange={chooseSender}
                             onOpen={() => setWantCandidates(true)}
                             candidates={candidatesQ.data}
                             loading={candidatesQ.isPending}
@@ -631,16 +681,43 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                             <div className="px-4 py-1.5 flex items-start gap-1.5 border-b border-slate-100 bg-slate-50/60 text-[11px] text-slate-500">
                                 <InfoIcon className="w-3 h-3 mt-px shrink-0 text-slate-400" />
                                 <span className="min-w-0 flex-1 leading-snug">
-                                    משיב מתיבת דואר אחרת. השיחה נשארת באותו שרשור עבור הנמען, ותשובתו תגיע אל {mailbox?.email ?? "תיבה זו"}.
+                                    מענה מתיבת דואר אחרת. השיחה תישמר באותו שרשור עבור הנמען, ותשובתו תחזור אל {mailbox ? answerAddress(mailbox) : "תיבת דואר זו"}.
                                 </span>
                                 <button
                                     type="button"
-                                    onClick={() => setAccountId(threadAccountId)}
-                                    title={threadMailbox ? `השב מתוך ${threadMailbox.email}` : "השב מתיבת הדואר המקורית"}
+                                    onClick={() => chooseSender(defaultAccountId)}
+                                    title={defaultMailbox ? `השב מתוך ${defaultMailbox.email}` : "השב מתיבת הדואר המקורית"}
                                     className="shrink-0 text-[11px] font-medium text-sky-700 hover:text-sky-800 transition-colors"
                                 >
                                     חזור למקורית
                                 </button>
+                            </div>
+                        </motion.div>
+                    )}
+                    {!senderProblem && answeringFromSender && mode === "reply" && (
+                        <motion.div
+                            key="reply-inbox"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                            className="overflow-hidden"
+                        >
+                            <div className="px-4 py-1.5 flex items-start gap-1.5 border-b border-slate-100 bg-slate-50/60 text-[11px] text-slate-500">
+                                <InfoIcon className="w-3 h-3 mt-px shrink-0 text-slate-400" />
+                                <span className="min-w-0 flex-1 leading-snug">
+                                    מענה מ-{mailbox?.email ?? "תיבת הדואר"}, ששלחה את האימייל שעליו הם ענו, כדי שהם ימשיכו לתקשר עם אותה כתובת. תשובתם תחזור אל {mailbox ? answerAddress(mailbox) : "תיבת דואר זו"}.
+                                </span>
+                                {threadMailbox && (
+                                    <button
+                                        type="button"
+                                        onClick={() => chooseSender(threadAccountId)}
+                                        title={`השב מתוך ${threadMailbox.email}`}
+                                        className="shrink-0 max-w-[40%] truncate text-[11px] font-medium text-sky-700 hover:text-sky-800 transition-colors"
+                                    >
+                                        השתמש ב-{threadMailbox.email}
+                                    </button>
+                                )}
                             </div>
                         </motion.div>
                     )}
@@ -661,6 +738,17 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 light sheen sweeps the textarea while generating and the
                 status/review card floats over the bottom edge. */}
             <div className="relative">
+            {html !== null ? (
+                <HtmlBody
+                    id="reply-body"
+                    state={bodyState}
+                    onSend={() => {
+                        if (canSend) handleInstant();
+                    }}
+                    onEscape={closeKeepingDraft}
+                    className="max-h-[28rem] px-4 py-2.5"
+                />
+            ) : (
             <textarea
                 ref={bodyRef}
                 value={body}
@@ -682,6 +770,7 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 }}
                 className="w-full min-h-[120px] max-h-72 px-4 py-3 text-[13px] text-slate-800 placeholder:text-slate-400 bg-transparent resize-y focus:outline-none"
             />
+            )}
             {aiDraft.phase === "busy" && (
                 <div className="ai-sheen pointer-events-none absolute inset-0" aria-hidden />
             )}
@@ -700,6 +789,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 sparkle rides the current line (or ⌘J) and opens the write
                 menu at the cursor — ask AI to write, draft a full reply from
                 the thread, or continue the draft. */}
+            {html === null && (
+            <>
             <TextareaAIEdit
                 textareaRef={bodyRef}
                 value={body}
@@ -715,6 +806,8 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                 contextHint={`It is a ${mode === "forward" ? "forward note" : "reply"} with the subject "${subject}".`}
                 maxLen={MAX_BODY_LEN}
             />
+            </>
+            )}
 
             {/* Signature preview / status. Three branches so the user
                 always knows what will (or will not) appear at the
@@ -897,17 +990,17 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     <PopoverMenuContent minWidth={340} className="max-w-[92vw]">
                         <TemplatePickerContent
                             query={templatesQuery}
-                            onPick={(t) => applyTemplate(t.name, t.body_plain, t.subject)}
+                            onPick={applyTemplate}
                             onClose={() => setTemplateOpen(false)}
                         />
                     </PopoverMenuContent>
                 </PopoverMenu>
 
+                <HtmlModeToggle state={bodyState} disabled={aiDraft.phase !== "idle"} />
+
                 <InsertBookingLink
                     email={to[0]}
-                    onInsert={(text) =>
-                        setBody((b) => (b.trim() ? `${b.trimEnd()}\n\n${text}` : text).slice(0, MAX_BODY_LEN))
-                    }
+                    onInsert={(text) => setBodyValue((b) => capPlain(withText(b, text)))}
                 />
 
                 <span
@@ -934,9 +1027,11 @@ export function ReplyComposer({ threadId, replyTo, mode, seed, onClose }: ReplyC
                     {signatureState.kind === "none" && "ללא חתימה"}
                 </span>
 
-                <span className="font-mono text-[10px] text-slate-400 tabular-nums">
-                    {body.length}/{MAX_BODY_LEN}
-                </span>
+                {html === null && (
+                    <span className="font-mono text-[10px] text-slate-400 tabular-nums">
+                        {body.length}/{MAX_BODY_LEN}
+                    </span>
+                )}
             </div>
         </motion.div>
     );

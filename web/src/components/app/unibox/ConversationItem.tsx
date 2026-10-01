@@ -6,19 +6,36 @@
 // the room without a coloured bar. Labels sit at the end of the subject line
 // as small tinted chips; the owning mailbox shows only when the workspace
 // has more than one, quietly at the end of the preview.
+//
+// Triage happens on the row: Archive and a three-dot menu sit where the
+// timestamp is, and a right-click opens the same menu at the pointer, so
+// clearing a conversation never means opening it first. The row is a div
+// rather than a button because those controls nest inside it and nested
+// buttons are invalid HTML; each of them stops propagation so acting on a row
+// never also opens it.
 
 import React from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArchiveIcon,
+  ExternalLinkIcon,
   InboxIcon,
   MailCheckIcon,
   MailOpenIcon,
   MoonIcon,
   MoreHorizontalIcon,
+  TagIcon,
   TrashIcon,
 } from "lucide-react";
 
+import type UniboxEmail from "@/lib/api/models/app/unibox/UniboxEmail";
+import { useAppStore } from "@/stores";
+import { useResourceViewers } from "@/hooks/PresenceProvider";
+import type { ConversationActions } from "@/hooks/useConversationActions";
+import { SNOOZE_PRESETS } from "@/lib/unibox/snooze";
+import { useAnchoredMenu } from "@/hooks/useAnchoredMenu";
+import { ThreadLabelPanel } from "./ThreadLabelMenu";
 import {
   PopoverMenu,
   PopoverMenuContent,
@@ -27,11 +44,6 @@ import {
   PopoverMenuSeparator,
   PopoverMenuTrigger,
 } from "@/components/ui/popover-menu";
-import type UniboxEmail from "@/lib/api/models/app/unibox/UniboxEmail";
-import { useAppStore } from "@/stores";
-import { useResourceViewers } from "@/hooks/PresenceProvider";
-import type { ConversationActions } from "@/hooks/useConversationActions";
-import { SNOOZE_PRESETS } from "@/lib/unibox/snooze";
 import { cn } from "@/lib/utils";
 import { nameFromAddr } from "@/lib/helper/emailAddress";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -55,19 +67,42 @@ function fromName(s: string): string {
 
 interface ConversationItemProps {
   email: UniboxEmail;
-  selected?: boolean;
-  selecting?: boolean;
-  onToggleSelect?: (threadId: string, checked: boolean, shiftKey: boolean) => void;
+  /**
+   * The scope the row is being listed in. Archive and Trash offer the way
+   * back instead of the way out, and Trash has nowhere further to file to.
+   */
   scope?: string;
+  /** Ticked. */
+  selected?: boolean;
+  /**
+   * Show the checkbox regardless of hover. The list turns this on while
+   * anything is selected, and on touch, where there is no hover to reveal it.
+   */
+  selecting?: boolean;
+  /** Shift extends from the last row ticked, the way a file list does. */
+  onToggleSelect?: (threadId: string, next: boolean, extend: boolean) => void;
+  /**
+   * Every ticked conversation, set while this row is one of several ticked.
+   * A right-click on it then acts on all of them, as a file list does.
+   */
+  selection?: string[];
+  /** Called once a right-click acted on `selection`. */
+  onSelectionDone?: () => void;
+  /**
+   * Filing, read state and snooze. Passed in rather than taken from the hook
+   * here so a long list holds one set of mutations, not one per row.
+   */
   actions: ConversationActions;
 }
 
 export function ConversationItem({
   email,
+  scope,
   selected = false,
   selecting = false,
   onToggleSelect,
-  scope,
+  selection,
+  onSelectionDone,
   actions,
 }: ConversationItemProps) {
   const selectedThreadId = useAppStore((s) => s.selectedThreadId);
@@ -102,11 +137,22 @@ export function ConversationItem({
     setSelectedAccountId(email.account_id ?? null);
   };
 
+  const menu = useAnchoredMenu();
+
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={open}
+      onContextMenu={(e) => {
+        // React bubbles a right-click inside the portaled menu up to here;
+        // that one should leave the menu where it is.
+        if (!e.currentTarget.contains(e.target as Node)) {
+          e.preventDefault();
+          return;
+        }
+        menu.onContextMenu(e);
+      }}
       onKeyDown={(e) => {
         // Only the row itself activates: keydown from a nested control bubbles
         // here, and Enter on the three-dot button must open its menu.
@@ -119,20 +165,31 @@ export function ConversationItem({
       aria-current={isSelected ? "true" : undefined}
       aria-selected={onToggleSelect ? selected : undefined}
       className={cn(
-        "group relative w-full text-start ps-3 pe-4 py-2.5 flex items-start gap-2 transition-colors cursor-pointer select-none",
+        // The actions overlay the timestamp on a pointer device; on touch they
+        // are always shown, so the row reserves the width instead.
+        "group relative w-full cursor-pointer text-start ps-3 pe-11 md:pe-4 py-2.5 flex items-start gap-2 transition-colors select-none",
         selected
           ? "bg-sky-100/60"
           : isSelected
             ? "bg-sky-50"
-            : "hover:bg-slate-50",
+            : menu.open
+              ? "bg-slate-50"
+              : "hover:bg-slate-50",
       )}
     >
-      {/* Gutter: checkbox on hover or in select mode, unread dot when unread */}
-      <span className="w-3.5 shrink-0 flex items-center justify-center h-[18px]">
+      {/* Gutter: the tick box, or the unread dot when nothing is being
+          selected. One fixed width, so turning selection on never shifts the
+          column of names sideways. */}
+      <span className="w-4 shrink-0 flex items-center justify-center h-[18px]">
         {onToggleSelect && (
           <Checkbox
             checked={selected}
             aria-label={`בחר שיחה מאת ${sender}`}
+            // The click does the work, not the change: only the click carries
+            // shiftKey, and a checkbox has already flipped its own `checked`
+            // by the time it is dispatched. Space on a focused box dispatches
+            // one too, so the keyboard is covered. onChange is React's price
+            // for a controlled input and has nothing to do.
             onClick={(e) => {
               e.stopPropagation();
               onToggleSelect(threadId, e.currentTarget.checked, e.shiftKey);
@@ -197,9 +254,12 @@ export function ConversationItem({
               />
             </span>
           )}
+          {/* The actions take this corner on hover, so the time steps aside
+              there. On touch they sit in the width the row reserved and the
+              time keeps its place. */}
           <span
             className={cn(
-              "text-[11px] tabular-nums shrink-0 mr-auto",
+              "text-[11px] tabular-nums shrink-0 ms-auto",
               "md:group-hover:invisible md:group-focus-within:invisible",
               unread ? "text-sky-700 font-medium" : "text-slate-400",
             )}
@@ -214,10 +274,10 @@ export function ConversationItem({
               unread ? "text-slate-900 font-medium" : "text-slate-600",
             )}
           >
-            {email.subject || ("(ללא נושא)")}
+            {email.subject || "(ללא נושא)"}
           </span>
           {labels.length > 0 && (
-            <span className="mr-auto shrink-0 inline-flex items-center gap-1">
+            <span className="ms-auto shrink-0 inline-flex items-center gap-1">
               {labels.slice(0, 2).map((l) => (
                 <LabelChip key={l.id} title={l.title} color={l.color} />
               ))}
@@ -237,12 +297,13 @@ export function ConversationItem({
         </div>
         <div className="flex items-center gap-2 min-w-0 mt-0.5">
           <span className="text-[11.5px] text-slate-400 truncate min-w-0">
-            {preview || ("(אין תצוגה מקדימה)")}
+            {preview || "(אין תצוגה מקדימה)"}
           </span>
           {showMailbox && (
             <span
-              className="mr-auto shrink-0 max-w-[40%] truncate text-[10.5px] text-slate-300 group-hover:text-slate-400 transition-colors"
+              className="ms-auto shrink-0 max-w-[40%] truncate text-[10.5px] text-slate-300 group-hover:text-slate-400 transition-colors"
               title={mailbox.email}
+              dir="ltr"
             >
               {mailbox.email}
             </span>
@@ -255,6 +316,9 @@ export function ConversationItem({
         unread={unread}
         scope={scope}
         actions={actions}
+        menu={menu}
+        selection={selection}
+        onSelectionDone={onSelectionDone}
       />
     </div>
   );
@@ -262,37 +326,85 @@ export function ConversationItem({
 
 // The row's own triage controls: Archive inline, everything else one click
 // deeper. Shown on hover from md up and always on touch, where there is no
-// hover to reveal them with.
+// hover to reveal them with. The menu is also the row's right-click menu.
 function RowActions({
   threadId,
   unread,
   scope,
   actions,
+  menu,
+  selection,
+  onSelectionDone,
 }: {
   threadId: string;
   unread: boolean;
   scope?: string;
   actions: ConversationActions;
+  menu: ReturnType<typeof useAnchoredMenu>;
+  selection?: string[];
+  onSelectionDone?: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const [snoozeMode, setSnoozeMode] = React.useState(false);
+  const [mode, setMode] = React.useState<"actions" | "snooze" | "labels">("actions");
+  const openThreadId = useAppStore((s) => s.selectedThreadId);
+  const setSelectedThreadId = useAppStore((s) => s.setSelectedThreadId);
+  const setSelectedAccountId = useAppStore((s) => s.setSelectedAccountId);
+  const { scope: urlScope } = useParams<{ scope?: string }>();
+  const [searchParams] = useSearchParams();
 
   const filed = scope === "archive" || scope === "trash";
   const snoozedScope = scope === "snoozed";
 
+  // The "…" button acts on its own row; a right-click on a ticked row acts on
+  // the whole selection.
+  const bulk = menu.fromPointer && selection && selection.length > 1 ? selection : null;
+  const targets = bulk ?? [threadId];
+
+  // Anything that takes the conversation out of the list closes it in the
+  // reader too, as the reader's own buttons do. Marking it unread has to as
+  // well, or the open reader marks it read again straight away.
+  const run = (fn: () => void | Promise<void>, closesReader = true) => {
+    if (closesReader && openThreadId && targets.includes(openThreadId)) {
+      setSelectedThreadId(null);
+      setSelectedAccountId(null);
+    }
+    const done = Promise.resolve(fn());
+    if (bulk) void done.finally(() => onSelectionDone?.());
+  };
+
+  const openInNewTab = () => {
+    const ref = searchParams.get("ref");
+    let href = `/app/unibox/${urlScope ?? "inbox"}/${encodeURIComponent(threadId)}`;
+    if (ref) href += `?ref=${encodeURIComponent(ref)}`;
+    window.open(href, "_blank", "noopener");
+  };
+
+  // A submenu replaces the item that opened it, so hand the keyboard to its
+  // first item immediately; otherwise focus lands on the document body and
+  // arrows do nothing until a click.
+  const focusFirstItem = React.useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    el.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
+  }, []);
+
   const stop = (e: React.MouseEvent) => e.stopPropagation();
+  const fade = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: 0.12, ease: [0.16, 1, 0.3, 1] as const },
+  };
 
   return (
     <div
       onClick={stop}
       className={cn(
-        "absolute left-2 top-1.5 flex items-center gap-0.5 rounded-md bg-inherit",
+        "absolute end-2 top-1.5 flex items-center gap-0.5 rounded-md bg-inherit",
         "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100",
       )}
     >
       <RowButton
-        label={filed ? "העבר לדואר נכנס" : "ארכיון"}
-        onClick={() => actions.file([threadId], filed ? "inbox" : "archive")}
+        label={filed ? "העבר לדואר נכנס" : "העבר לארכיון"}
+        onClick={() => run(() => actions.file([threadId], filed ? "inbox" : "archive"))}
         disabled={actions.filing}
         // Touch gets the menu only: two always-on buttons would crowd the row
         // at the width a phone has.
@@ -306,11 +418,11 @@ function RowActions({
       </RowButton>
 
       <PopoverMenu
-        align="start"
-        open={menuOpen}
+        align="end"
+        {...menu.menuProps}
         onOpenChange={(o) => {
-          setMenuOpen(o);
-          if (!o) setSnoozeMode(false);
+          menu.menuProps.onOpenChange(o);
+          if (!o) setMode("actions");
         }}
       >
         <PopoverMenuTrigger asChild>
@@ -322,67 +434,97 @@ function RowActions({
             <MoreHorizontalIcon className="w-3.5 h-3.5" />
           </button>
         </PopoverMenuTrigger>
-        <PopoverMenuContent>
+        <PopoverMenuContent className={mode === "labels" ? "p-0" : undefined}>
           <AnimatePresence mode="wait" initial={false}>
-            {snoozeMode ? (
-              <motion.div
-                key="snooze"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
-              >
+            {mode === "snooze" ? (
+              <motion.div key="snooze" ref={focusFirstItem} {...fade}>
                 <PopoverMenuLabel>השהה עד</PopoverMenuLabel>
                 {SNOOZE_PRESETS.map((p) => (
                   <PopoverMenuItem
                     key={p.label}
-                    onSelect={() => actions.snooze([threadId], p.until())}
+                    onSelect={() => run(() => actions.snooze(targets, p.until()))}
                   >
                     {p.label}
                   </PopoverMenuItem>
                 ))}
                 <PopoverMenuSeparator />
                 <PopoverMenuItem
-                  onSelect={() => setSnoozeMode(false)}
+                  onSelect={() => setMode("actions")}
                   closeOnSelect={false}
                 >
                   חזרה
                 </PopoverMenuItem>
               </motion.div>
+            ) : mode === "labels" ? (
+              <motion.div key="labels" {...fade}>
+                <ThreadLabelPanel threadId={threadId} shortcutHint={false} />
+              </motion.div>
             ) : (
-              <motion.div
-                key="actions"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <PopoverMenuItem
-                  icon={
-                    unread ? (
-                      <MailOpenIcon className="w-3.5 h-3.5" />
-                    ) : (
-                      <MailCheckIcon className="w-3.5 h-3.5" />
-                    )
-                  }
-                  onSelect={() => actions.setSeen([threadId], unread)}
-                >
-                  {unread ? "סמן כנקרא" : "סמן כלא נקרא"}
-                </PopoverMenuItem>
+              <motion.div key="actions" {...fade}>
+                {bulk ? (
+                  <>
+                    <PopoverMenuLabel>
+                      {bulk.length.toLocaleString()} שיחות
+                    </PopoverMenuLabel>
+                    <PopoverMenuItem
+                      icon={<MailOpenIcon className="w-3.5 h-3.5" />}
+                      onSelect={() => run(() => actions.setSeen(targets, true), false)}
+                    >
+                      סמן כנקרא
+                    </PopoverMenuItem>
+                    <PopoverMenuItem
+                      icon={<MailCheckIcon className="w-3.5 h-3.5" />}
+                      onSelect={() => run(() => actions.setSeen(targets, false))}
+                    >
+                      סמן כלא נקרא
+                    </PopoverMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <PopoverMenuItem
+                      icon={<ExternalLinkIcon className="w-3.5 h-3.5" />}
+                      onSelect={openInNewTab}
+                    >
+                      פתח בכרטיסייה חדשה
+                    </PopoverMenuItem>
+                    <PopoverMenuSeparator />
+                    <PopoverMenuItem
+                      icon={
+                        unread ? (
+                          <MailOpenIcon className="w-3.5 h-3.5" />
+                        ) : (
+                          <MailCheckIcon className="w-3.5 h-3.5" />
+                        )
+                      }
+                      onSelect={() => run(() => actions.setSeen(targets, unread), !unread)}
+                    >
+                      {unread ? "סמן כנקרא" : "סמן כלא נקרא"}
+                    </PopoverMenuItem>
+                  </>
+                )}
                 {snoozedScope ? (
                   <PopoverMenuItem
                     icon={<MoonIcon className="w-3.5 h-3.5" />}
-                    onSelect={() => actions.unsnooze([threadId])}
+                    onSelect={() => run(() => actions.unsnooze(targets))}
                   >
                     בטל השהיה כעת
                   </PopoverMenuItem>
                 ) : (
                   <PopoverMenuItem
                     icon={<MoonIcon className="w-3.5 h-3.5" />}
-                    onSelect={() => setSnoozeMode(true)}
+                    onSelect={() => setMode("snooze")}
                     closeOnSelect={false}
                   >
                     השהה…
+                  </PopoverMenuItem>
+                )}
+                {!bulk && (
+                  <PopoverMenuItem
+                    icon={<TagIcon className="w-3.5 h-3.5" />}
+                    onSelect={() => setMode("labels")}
+                    closeOnSelect={false}
+                  >
+                    תוויות…
                   </PopoverMenuItem>
                 )}
                 <PopoverMenuSeparator />
@@ -390,7 +532,7 @@ function RowActions({
                   <PopoverMenuItem
                     icon={<InboxIcon className="w-3.5 h-3.5" />}
                     disabled={actions.filing}
-                    onSelect={() => actions.file([threadId], "inbox")}
+                    onSelect={() => run(() => actions.file(targets, "inbox"))}
                   >
                     העבר לדואר נכנס
                   </PopoverMenuItem>
@@ -398,9 +540,9 @@ function RowActions({
                   <PopoverMenuItem
                     icon={<ArchiveIcon className="w-3.5 h-3.5" />}
                     disabled={actions.filing}
-                    onSelect={() => actions.file([threadId], "archive")}
+                    onSelect={() => run(() => actions.file(targets, "archive"))}
                   >
-                    ארכיון
+                    העבר לארכיון
                   </PopoverMenuItem>
                 )}
                 {scope !== "trash" && (
@@ -408,9 +550,9 @@ function RowActions({
                     danger
                     icon={<TrashIcon className="w-3.5 h-3.5" />}
                     disabled={actions.filing}
-                    onSelect={() => actions.file([threadId], "trash")}
+                    onSelect={() => run(() => actions.file(targets, "trash"))}
                   >
-                    העבר לאשפה
+                    מחק
                   </PopoverMenuItem>
                 )}
               </motion.div>

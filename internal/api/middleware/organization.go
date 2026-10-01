@@ -166,21 +166,6 @@ func (h *Handler) RequireOrganization() gin.HandlerFunc {
 			return
 		}
 
-		// A session names its organization; API keys and OAuth tokens are issued for one.
-		if session := GetSession(c); session != nil {
-			member, xerr := h.OrganizationService.GetMembership(c.Request.Context(), *orgID, session.UserID)
-			if xerr != nil {
-				errx.JSON(c, xerr)
-				c.Abort()
-				return
-			}
-			if member == nil {
-				errx.JSON(c, errx.New(errx.Forbidden, "not a member of this organization"))
-				c.Abort()
-				return
-			}
-		}
-
 		c.Next()
 	}
 }

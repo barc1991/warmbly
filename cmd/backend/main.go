@@ -172,6 +172,7 @@ func main() {
 
 	var serviceAccount string
 	var keySet keyfunc.Keyfunc
+	var tasksWebhookURL string
 
 	var tokenService token.TokenService
 	var authService auth.AuthService
@@ -1343,6 +1344,7 @@ func main() {
 				errs.CaptureFatal(err)
 				log.Fatal(err)
 			}
+			tasksWebhookURL = cloudTasksCfg.WebhookURL
 			gclient, err := gtasks.NewClient(ctx, cloudTasksCfg.QueueName, cloudTasksCfg.WebhookURL, serviceAccount, cloudTasksCfg.EmulatorHost)
 			if err != nil {
 				errs.CaptureFatal(err)
@@ -1523,6 +1525,13 @@ func main() {
 			FeatureGate:  featureGateService,
 			Skills:       skillsService,
 			AppBaseURL:   cfg.GetStringOptional(ctx, "APP_BASE_URL", "app_base_url", ""),
+			// tasksService is built later in boot, so it is read at call time.
+			WarmupScheduler: func(ctx context.Context, accountID uuid.UUID) error {
+				if tasksService == nil {
+					return nil
+				}
+				return tasksService.EnsureWarmupScheduled(ctx, accountID)
+			},
 		})
 
 		// Connected MCP servers (client direction): their enabled tools are
@@ -1753,6 +1762,9 @@ func main() {
 		// Sending domains: tracking host per domain and the bare-domain redirect.
 		sendingDomainService = sendingdomain.NewService(repository.NewDomainRedirectRepository(primaryDB), emailRepostory, nil, domainProver)
 		sendingDomainService.WireAuditor(auditService)
+		// A linked self-hosted instance can have Warmbly Cloud serve a redirect instead.
+		sendingDomainService.WireCloud(cloudLinkService)
+		cloudLinkService.OnDisconnect(sendingDomainService.MarkCloudUnlinked)
 		go sendingDomainService.StartSweep(ctx)
 
 		mailhostDetector := mailhost.NewDetector(nil, nil, mailboximport.NewRedisDetectionCache(cache))
@@ -2329,6 +2341,7 @@ func main() {
 		ServiceAccount: serviceAccount,
 		KeySet:         keySet,
 		AppEnv:         os.Getenv("APP_ENV"),
+		Audience:       tasksWebhookURL,
 	}
 
 	log.Printf("Starting the backend on %s", addr)

@@ -545,6 +545,7 @@ const (
 	PoolLinkPollIntervalSeconds  = 3
 	PoolLinkPlanID               = "00000000-0000-0000-0000-000000000002"
 	PoolLinkPlanPriceUSD         = 15
+	PoolLinkRedirectLimit        = 200    // root redirects Warmbly Cloud serves for one linked instance
 	WarmupPoolTierFallbackFloor  = 10_000 // always borrow fallback recipients
 	WarmupPoolBorrowSeasonedDays = 14     // a borrowed free mailbox this long in the pool ranks ahead of a newer one
 	WarmupPoolFallbackMinAgeDays = 0      // immediately fill in
