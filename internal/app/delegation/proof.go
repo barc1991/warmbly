@@ -3,6 +3,7 @@ package delegation
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 
+	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/domainproof"
@@ -25,7 +27,7 @@ import (
 // nothing about which workspace asked.
 const (
 	googleStatePrefix    = GoogleStatePrefix
-	microsoftStatePrefix = "mac_"
+	microsoftStatePrefix = MicrosoftStatePrefix
 	stateTTL             = 15 * time.Minute
 )
 
@@ -35,6 +37,24 @@ type ConsentState struct {
 	UserID uuid.UUID `json:"user_id"`
 	Domain string    `json:"domain,omitempty"`
 	Admin  string    `json:"admin,omitempty"`
+	// Verifier is the sign-in's PKCE verifier and Nonce the ID token must echo; neither leaves the server.
+	Verifier     string `json:"verifier,omitempty"`
+	Nonce        string `json:"nonce,omitempty"`
+	ReturnOrigin string `json:"return_origin,omitempty"`
+}
+
+func (s *Service) OAuthReturnOrigin(ctx context.Context, state string) string {
+	if s.states == nil || (!strings.HasPrefix(state, googleStatePrefix) && !strings.HasPrefix(state, microsoftStatePrefix)) {
+		return ""
+	}
+	st, ok := s.states.Peek(ctx, "mailbox_grant_state:"+state)
+	if !ok {
+		return ""
+	}
+	if st.ReturnOrigin == "" {
+		return config.PrimaryDashboardOrigin()
+	}
+	return config.DashboardOrigin(st.ReturnOrigin)
 }
 
 // TXTLookup reads a domain's TXT records, for the DNS proof.
@@ -48,6 +68,25 @@ func newState(prefix string) (string, error) {
 		return "", err
 	}
 	return prefix + base64.RawURLEncoding.EncodeToString(raw), nil
+}
+
+// newSigninState is a consent state carrying a fresh PKCE verifier and OIDC nonce.
+func newSigninState(orgID, userID uuid.UUID) (ConsentState, error) {
+	nonce, err := newState("")
+	if err != nil {
+		return ConsentState{}, err
+	}
+	return ConsentState{OrgID: orgID, UserID: userID, Verifier: oauth2.GenerateVerifier(), Nonce: nonce}, nil
+}
+
+// signinOptions adds the S256 challenge and nonce of a consent state to an authorization URL.
+func signinOptions(st ConsentState, extra ...oauth2.AuthCodeOption) []oauth2.AuthCodeOption {
+	return append(extra, oauth2.S256ChallengeOption(st.Verifier), oauth2.SetAuthURLParam("nonce", st.Nonce))
+}
+
+// nonceMatches holds an ID token to the nonce its sign-in was started with.
+func nonceMatches(claims map[string]any, st ConsentState) bool {
+	return st.Nonce != "" && subtle.ConstantTimeCompare([]byte(claimString(claims, "nonce")), []byte(st.Nonce)) == 1
 }
 
 func (s *Service) takeState(ctx context.Context, prefix, state string, orgID, userID uuid.UUID) (ConsentState, *errx.Error) {
@@ -68,6 +107,11 @@ func (s *Service) takeState(ctx context.Context, prefix, state string, orgID, us
 // signature is not checked a second time.
 func idTokenClaims(tok *oauth2.Token) (map[string]any, bool) {
 	raw, _ := tok.Extra("id_token").(string)
+	return jwtClaims(raw)
+}
+
+// jwtClaims reads a token the provider handed us directly over TLS; it verifies no signature.
+func jwtClaims(raw string) (map[string]any, bool) {
 	parts := strings.Split(raw, ".")
 	if len(parts) != 3 {
 		return nil, false
@@ -93,6 +137,9 @@ func claimString(c map[string]any, k string) string {
 // GoogleStatePrefix marks the state of an administrator's Google sign-in, so
 // the sign-in callback can hand it to the dashboard instead of logging in.
 const GoogleStatePrefix = "gac_"
+
+// MicrosoftStatePrefix marks a Microsoft 365 admin consent, which the callback chains into a sign-in.
+const MicrosoftStatePrefix = "mac_"
 
 // GoogleStart is how a workspace proves it controls a Workspace domain.
 type GoogleStart struct {
@@ -136,14 +183,20 @@ func (s *Service) StartGoogle(ctx context.Context, orgID, userID uuid.UUID, doma
 	if err != nil {
 		return nil, errx.InternalError()
 	}
-	if err := s.states.Put(ctx, "mailbox_grant_state:"+state, ConsentState{OrgID: orgID, UserID: userID, Domain: domain, Admin: admin}, stateTTL); err != nil {
+	st, err := newSigninState(orgID, userID)
+	if err != nil {
+		return nil, errx.InternalError()
+	}
+	st.Domain, st.Admin = domain, admin
+	st.ReturnOrigin = config.DashboardOriginFromContext(ctx)
+	if err := s.states.Put(ctx, "mailbox_grant_state:"+state, st, stateTTL); err != nil {
 		return nil, errx.InternalError()
 	}
 	out.Method, out.State = "signin", state
-	out.URL = s.googleSignin.AuthCodeURL(state,
+	out.URL = s.googleSignin.AuthCodeURL(state, signinOptions(st,
 		oauth2.SetAuthURLParam("hd", domain),
 		oauth2.SetAuthURLParam("login_hint", admin),
-		oauth2.SetAuthURLParam("prompt", "select_account"))
+		oauth2.SetAuthURLParam("prompt", "select_account"))...)
 	return out, nil
 }
 
@@ -168,14 +221,17 @@ func (s *Service) FinishGoogle(ctx context.Context, orgID, userID uuid.UUID, in 
 			return nil, xerr
 		}
 		domain, admin = st.Domain, st.Admin
-		if !s.googleSigninEnabled() || strings.TrimSpace(in.Code) == "" {
+		if !s.googleSigninEnabled() || strings.TrimSpace(in.Code) == "" || st.Verifier == "" {
 			return nil, errx.NewWithIdentifier(errx.BadRequest, ErrIDState, "The Google sign-in did not complete. Start again.")
 		}
-		tok, err := s.googleSignin.Exchange(ctx, in.Code)
+		tok, err := s.googleSignin.Exchange(ctx, in.Code, oauth2.VerifierOption(st.Verifier))
 		if err != nil {
 			return nil, errx.NewWithIdentifier(errx.BadRequest, ErrIDState, "Google did not accept the sign-in. Start again.")
 		}
 		claims, ok := idTokenClaims(tok)
+		if ok && !nonceMatches(claims, st) {
+			return nil, errx.NewWithIdentifier(errx.BadRequest, ErrIDState, "Google did not accept the sign-in. Start again.")
+		}
 		verified, _ := claims["email_verified"].(bool)
 		if !ok || !verified || !strings.EqualFold(claimString(claims, "email"), admin) || !strings.EqualFold(claimString(claims, "hd"), domain) {
 			return nil, errx.NewWithIdentifier(errx.BadRequest, ErrIDProof, "Sign in as "+admin+", the administrator you entered, on "+domain+".")
@@ -231,10 +287,12 @@ func (s *Service) googleRequireAdmin(ctx context.Context, admin string) *errx.Er
 
 // ---- Microsoft ----------------------------------------------------------
 
-func (s *Service) microsoftConsentConfig() *oauth2.Config {
+// microsoftSigninConfig is the sign-in that follows the consent; its tokens
+// name the tenant and the administrator's directory roles.
+func (s *Service) microsoftSigninConfig() *oauth2.Config {
 	return &oauth2.Config{
 		ClientID: s.msClientID, ClientSecret: s.msSecret, RedirectURL: s.msRedirect,
-		Scopes: []string{"openid", "https://graph.microsoft.com/.default"},
+		Scopes: []string{"openid", "https://graph.microsoft.com/User.Read"},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  s.msLoginBase + "/organizations/oauth2/v2.0/authorize",
 			TokenURL: s.msLoginBase + "/organizations/oauth2/v2.0/token",
@@ -242,7 +300,21 @@ func (s *Service) microsoftConsentConfig() *oauth2.Config {
 	}
 }
 
-// StartMicrosoft is the admin consent sign-in a Global Administrator completes.
+// MicrosoftSigninURL is where the callback sends an administrator once
+// Microsoft reports the consent; the sign-in carries the same state.
+func (s *Service) MicrosoftSigninURL(ctx context.Context, state string) string {
+	if !s.microsoftEnabled() || !strings.HasPrefix(state, microsoftStatePrefix) || s.states == nil {
+		return ""
+	}
+	st, ok := s.states.Peek(ctx, "mailbox_grant_state:"+state)
+	if !ok || st.Verifier == "" {
+		return ""
+	}
+	return s.microsoftSigninConfig().AuthCodeURL(state, signinOptions(st)...)
+}
+
+// StartMicrosoft opens Microsoft's admin consent page, the only v2.0 route
+// that grants application permissions; the callback chains the sign-in.
 func (s *Service) StartMicrosoft(ctx context.Context, orgID, userID uuid.UUID) (string, string, *errx.Error) {
 	if !s.microsoftEnabled() {
 		return "", "", notConfigured("Microsoft 365")
@@ -254,11 +326,20 @@ func (s *Service) StartMicrosoft(ctx context.Context, orgID, userID uuid.UUID) (
 	if err != nil {
 		return "", "", errx.InternalError()
 	}
-	if err := s.states.Put(ctx, "mailbox_grant_state:"+state, ConsentState{OrgID: orgID, UserID: userID}, stateTTL); err != nil {
+	st, err := newSigninState(orgID, userID)
+	if err != nil {
 		return "", "", errx.InternalError()
 	}
-	u := s.microsoftConsentConfig().AuthCodeURL(state, oauth2.SetAuthURLParam("prompt", "admin_consent"))
-	return u, state, nil
+	st.ReturnOrigin = config.DashboardOriginFromContext(ctx)
+	if err := s.states.Put(ctx, "mailbox_grant_state:"+state, st, stateTTL); err != nil {
+		return "", "", errx.InternalError()
+	}
+	q := url.Values{}
+	q.Set("client_id", s.msClientID)
+	q.Set("scope", "https://graph.microsoft.com/.default")
+	q.Set("redirect_uri", s.msRedirect)
+	q.Set("state", state)
+	return s.msLoginBase + "/organizations/v2.0/adminconsent?" + q.Encode(), state, nil
 }
 
 // FinishMicrosoft records the tenant the administrator consented for. The
@@ -268,24 +349,31 @@ func (s *Service) FinishMicrosoft(ctx context.Context, orgID, userID uuid.UUID, 
 	if !s.microsoftEnabled() {
 		return nil, notConfigured("Microsoft 365")
 	}
-	if _, xerr := s.takeState(ctx, microsoftStatePrefix, state, orgID, userID); xerr != nil {
+	st, xerr := s.takeState(ctx, microsoftStatePrefix, state, orgID, userID)
+	if xerr != nil {
 		return nil, xerr
 	}
-	if strings.TrimSpace(code) == "" {
+	if strings.TrimSpace(code) == "" || st.Verifier == "" {
 		return nil, errx.NewWithIdentifier(errx.BadRequest, ErrIDMicrosoftConsent, "Microsoft did not complete the consent. Start again as a Global Administrator.")
 	}
-	tok, err := s.microsoftConsentConfig().Exchange(context.WithValue(ctx, oauth2.HTTPClient, s.http), code)
+	tok, err := s.microsoftSigninConfig().Exchange(context.WithValue(ctx, oauth2.HTTPClient, s.http), code, oauth2.VerifierOption(st.Verifier))
 	if err != nil {
 		return nil, errx.NewWithIdentifier(errx.BadRequest, ErrIDMicrosoftConsent, "Microsoft did not accept the consent. Start again as a Global Administrator.")
 	}
 	claims, ok := idTokenClaims(tok)
+	if ok && !nonceMatches(claims, st) {
+		return nil, errx.NewWithIdentifier(errx.BadRequest, ErrIDMicrosoftConsent, "Microsoft did not accept the consent. Start again as a Global Administrator.")
+	}
 	tenant := claimString(claims, "tid")
 	if _, err := uuid.Parse(tenant); !ok || err != nil {
 		return nil, errx.NewWithIdentifier(errx.BadRequest, ErrIDMicrosoftConsent, "Microsoft did not say which organization consented. Start again.")
 	}
 	// The consent alone proves nothing once another workspace has consented for
 	// the tenant; the person signing in must hold a role that can grant it.
-	if !microsoftConsentAdmin(claims) {
+	// The ID token lists roles only when the app emits them; Graph's token does by default.
+	access, _ := jwtClaims(tok.AccessToken)
+	graphAdmin := strings.EqualFold(claimString(access, "tid"), tenant) && microsoftConsentAdmin(access)
+	if !microsoftConsentAdmin(claims) && !graphAdmin {
 		return nil, errx.NewWithIdentifier(errx.Forbidden, ErrIDProof,
 			"Sign in as a Global Administrator or Privileged Role Administrator of the organization to connect it.")
 	}

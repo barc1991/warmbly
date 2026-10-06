@@ -13,6 +13,13 @@ const (
 
 	CampaignDailyLimitMin = 3
 
+	// AppDirectoryPopularInstalls is how many workspaces must use a community
+	// app before it is listed in the directory without being featured. Only
+	// workspaces other than the publisher's, at least AppDirectoryInstallOrgMinAgeDays
+	// old, count toward it, so fresh throwaway workspaces cannot list an app.
+	AppDirectoryPopularInstalls      = 25
+	AppDirectoryInstallOrgMinAgeDays = 14
+
 	// SignatureHTMLMax/SignaturePlainMax bound a stored mailbox signature.
 	// The old ceiling was 1000 characters for both, which a real signature
 	// exceeds the moment it carries a logo or a table: Gmail itself allows
@@ -193,6 +200,15 @@ const (
 	// because a campaign whose every lead is refused must still end the pass
 	// rather than walk a million-row list.
 	CampaignPlacementCandidates = 200
+
+	// CampaignRoutedCandidateChunk is how many ordered candidate leads one
+	// FindRoutedPairs pass hydrates and routes at a time. The ordered candidate
+	// ids are enumerated cheaply up front; the expensive per-lead history and
+	// classification joins then run one chunk at a time, so a pass that fills
+	// its batch early stops instead of paying for the campaign's whole audience.
+	// Kept comfortably above CampaignPlacementCandidates so the common case
+	// (plenty sendable) finishes in a single chunk.
+	CampaignRoutedCandidateChunk = 1000
 
 	// WarmupReputationLedgerDays is how long the standing of a removed mailbox
 	// is held against its address, counted from the later of its removal and
@@ -396,6 +412,16 @@ const (
 	UniboxLimitMin     = 1
 	UniboxLimitMax     = 1000
 	UniboxLimitDefault = 50
+
+	// Account-status list paging (GET /analytics/accounts). The default and
+	// ceiling match the 1000-row cap this endpoint used to apply silently, so a
+	// caller with no more mailboxes than that sees the same page; beyond it the
+	// overflow is reachable through next_cursor instead of being dropped.
+	AccountStatusLimitDefault = 1000
+	AccountStatusLimitMax     = 1000
+	// AccountStatusMaxIDs bounds an email_ids request, so a page view asks only
+	// for the mailboxes it shows.
+	AccountStatusMaxIDs = 200
 
 	// ContactMailHostBatchSize is how many contacts one provider sweep pass
 	// reads; lookups are per distinct domain, so a pass costs far fewer.

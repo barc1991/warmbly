@@ -626,6 +626,8 @@ type EmailOnboardingState struct {
 	OrganizationID *uuid.UUID `json:"organization_id,omitempty"`
 	Provider       string     `json:"provider"`
 	Nonce          string     `json:"nonce"`
+	// ReturnOrigin binds the callback to the allowlisted dashboard that started it.
+	ReturnOrigin string `json:"return_origin,omitempty"`
 	// EmailAccountID marks a re-authorization round trip: the finish leg
 	// renews this mailbox's tokens instead of connecting a new one.
 	EmailAccountID *uuid.UUID `json:"email_account_id,omitempty"`
@@ -671,6 +673,8 @@ type UpdateOAuthConnectionSlot struct {
 type EmailOnboardingStartResponse struct {
 	URL   string `json:"url"`
 	State string `json:"state"`
+	// AdminConsentURL (Microsoft only) lets an administrator approve sign-in for their whole organization.
+	AdminConsentURL string `json:"admin_consent_url,omitempty"`
 }
 
 type EmailsResult struct {

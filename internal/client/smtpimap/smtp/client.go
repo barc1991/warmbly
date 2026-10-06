@@ -138,6 +138,12 @@ func (c *Client) Send(
 		}
 	}
 
+	for k, v := range headers {
+		if err := mailhdr.CheckHeader(k, v); err != nil {
+			return nil, errx.MError(errx.MailErrorWarning, errx.MailErrorCodeUnsupported, k+": "+err.Error(), errx.MailErrorResolveMethodNone)
+		}
+	}
+
 	var msg bytes.Buffer
 	if len(attachments) > 0 {
 		c.writeMixedBody(&msg, headers, bodyPlain, bodyHTML, attachments)
@@ -339,6 +345,9 @@ func (c *Client) sendRaw(ctx context.Context, from string, to []string, data []b
 	// The socket may be 587 with STARTTLS when the mailbox's 465 never
 	// answered; the mode to speak is the one the dial reports.
 	dialed, err := DialSubmission(ctx, c.BindIP, host, port, security)
+	if errors.Is(err, ErrSMTPSEgressBlocked) {
+		return errx.ErrMailSMTPSEgressBlocked(addr)
+	}
 	if err != nil || dialed.Conn == nil {
 		if err == nil {
 			err = errors.New("dial returned no connection")

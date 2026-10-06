@@ -52,12 +52,21 @@ type UniboxService interface {
 
 	// Snooze hides conversations until `until`. Unsnooze drops the rows. Both
 	// take a set so the list's selection bar is one call, not one per row.
-	Snooze(ctx context.Context, userID uuid.UUID, threadIDs []string, until time.Time) ([]models.UniboxSnooze, *errx.Error)
-	Unsnooze(ctx context.Context, userID uuid.UUID, threadIDs []string) *errx.Error
-	ListSnoozes(ctx context.Context, userID uuid.UUID) ([]models.UniboxSnooze, *errx.Error)
+	Snooze(ctx context.Context, orgID, userID uuid.UUID, threadIDs []string, until time.Time) ([]models.UniboxSnooze, *errx.Error)
+	Unsnooze(ctx context.Context, orgID, userID uuid.UUID, threadIDs []string) *errx.Error
+	ListSnoozes(ctx context.Context, orgID, userID uuid.UUID) ([]models.UniboxSnooze, *errx.Error)
 
 	// Overview powers the scope rail + top metric strip in one call.
 	Overview(ctx context.Context, orgID, userID uuid.UUID) (*models.UniboxOverview, *errx.Error)
+	// ForgetOverview makes the next Overview for the organization compute afresh.
+	ForgetOverview(orgID uuid.UUID)
+	// OverviewForMailboxes and UnseenCountForMailboxes count only the named
+	// mailboxes, for a credential limited to them.
+	OverviewForMailboxes(ctx context.Context, orgID uuid.UUID, accountIDs []uuid.UUID) (*models.UniboxOverview, *errx.Error)
+	UnseenCountForMailboxes(ctx context.Context, orgID uuid.UUID, accountIDs []uuid.UUID) (int64, *errx.Error)
+	// MessageMailboxes lists the mailboxes the named messages and
+	// conversations sit in, within the organization.
+	MessageMailboxes(ctx context.Context, orgID uuid.UUID, ids []uuid.UUID, threadIDs []string) ([]uuid.UUID, *errx.Error)
 
 	// Conversation labels. SetThreadLabels replaces a thread's full
 	// label set (idempotent); ListThreadLabels reads the current set.
@@ -102,6 +111,8 @@ type uniboxService struct {
 	// providers. Optional: without it the unibox still works and only
 	// Warmbly's own copy changes.
 	publisher events.Publisher
+	// overview shares one overview computation per organization between concurrent readers.
+	overview *overviewCache
 }
 
 // WireProviderRelay attaches the bus the unibox relays read state through.
@@ -119,11 +130,13 @@ func NewService(
 	taskRepo repository.TaskRepository,
 	tasksClient tasksched.Scheduler,
 ) UniboxService {
-	return &uniboxService{
+	s := &uniboxService{
 		uniboxRepository: uniboxRepository,
 		taskRepo:         taskRepo,
 		tasksClient:      tasksClient,
 		cache:            cache,
 		blob:             blob,
 	}
+	s.overview = newOverviewCache(s.computeOverview)
+	return s
 }

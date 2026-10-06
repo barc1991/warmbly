@@ -1,10 +1,13 @@
 package inboxtag
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -34,6 +37,17 @@ type fixture struct {
 	Language     string `json:"language,omitempty"`
 	ExpectKind   string `json:"expect_kind"`
 	ExpectIntent string `json:"expect_intent"`
+}
+
+func TestDeterministicKindSystemReportIsNotAnAutoresponder(t *testing.T) {
+	m := Message{
+		Subject:  "Report Domain: example.test Submitter: seznam.cz Report-ID: abc",
+		FromAddr: "abuse@seznam.cz", PreviousMessage: "Our campaign opener",
+		Headers: map[string][]string{"In-Reply-To": {"<opener@example.test>"}},
+	}
+	if got := DeterministicKind(m, nil); got != KindNotification {
+		t.Fatalf("deterministicKind = %s, want %s", got, KindNotification)
+	}
 }
 
 // loadFixtures reads every testdata/fixtures*.json and responses*.json, so a
@@ -231,6 +245,23 @@ type fakeRepo struct {
 	inReplyTo []string
 	reopened  []string
 	states    []repository.ThreadFollowUpState
+	cursor    *repository.FollowUpPosition
+	pages     int
+	base      time.Time
+	// The follow-up sweep's persisted state and lease.
+	fresh         *repository.FollowUpMark
+	pageFailures  int
+	freshFailures int
+	leaseOwner    uuid.UUID
+	leasedUntil   time.Time
+	changes       []repository.FollowUpChange
+	failPage      func(mailbox uuid.UUID, after *repository.FollowUpPosition) error
+	failChanges   error
+	failPositions error
+	second        []repository.ThreadFollowUpState
+	// pageFailingSince and freshFailingSince are when the current run of failures began.
+	pageFailingSince  *time.Time
+	freshFailingSince *time.Time
 }
 
 func (f *fakeRepo) Claim(_ context.Context, _, _ uuid.UUID, id, _ string) (bool, error) {
@@ -281,8 +312,130 @@ func (f *fakeRepo) Reopen(_ context.Context, _ uuid.UUID, id, _ string) ([]strin
 	return []string{"cold-inbound", "needs-review"}, nil
 }
 
-func (f *fakeRepo) ThreadStates(context.Context, uuid.UUID, time.Time, int) ([]repository.ThreadFollowUpState, error) {
-	return f.states, nil
+// fakeMailbox holds the fake threads in states, fakeMailbox2 those in second; each in walk order, one message each.
+var (
+	fakeMailbox  = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	fakeMailbox2 = uuid.MustParse("00000000-0000-0000-0000-000000000002")
+)
+
+// position puts thread i one minute older than thread i-1, counting back from base.
+func (f *fakeRepo) position(i int) repository.FollowUpPosition {
+	return f.positionIn(fakeMailbox, i)
+}
+
+func (f *fakeRepo) positionIn(mailbox uuid.UUID, i int) repository.FollowUpPosition {
+	base := f.base
+	if base.IsZero() {
+		base = time.Now()
+	}
+	return repository.FollowUpPosition{
+		MailboxID: mailbox,
+		At:        base.Add(-time.Duration(i) * time.Minute),
+		RowID:     uuid.NewSHA1(mailbox, []byte(strconv.Itoa(i))),
+	}
+}
+
+func (f *fakeRepo) FollowUpMailboxes(context.Context, uuid.UUID) ([]uuid.UUID, error) {
+	if len(f.second) > 0 {
+		return []uuid.UUID{fakeMailbox, fakeMailbox2}, nil
+	}
+	return []uuid.UUID{fakeMailbox}, nil
+}
+
+func (f *fakeRepo) FollowUpPage(_ context.Context, _, mailbox uuid.UUID, since time.Time, after *repository.FollowUpPosition, limit int) (repository.FollowUpPage, error) {
+	f.pages++
+	if f.failPage != nil {
+		if err := f.failPage(mailbox, after); err != nil {
+			return repository.FollowUpPage{}, err
+		}
+	}
+	return f.page(mailbox, since, after, limit), nil
+}
+
+func (f *fakeRepo) page(mailbox uuid.UUID, since time.Time, after *repository.FollowUpPosition, limit int) repository.FollowUpPage {
+	states := f.states
+	if mailbox == fakeMailbox2 {
+		states = f.second
+	}
+	start := 0
+	if after != nil {
+		for start < len(states) && f.positionIn(mailbox, start).RowID != after.RowID {
+			start++
+		}
+		start++
+	}
+	var page repository.FollowUpPage
+	for i := start; i < len(states) && i < start+limit && !f.positionIn(mailbox, i).At.Before(since); i++ {
+		st := states[i]
+		st.Position = f.positionIn(mailbox, i)
+		page.States = append(page.States, st)
+		page.Rows++
+		page.Last = &st.Position
+	}
+	return page
+}
+
+func (f *fakeRepo) FollowUpPagePositions(_ context.Context, _, mailbox uuid.UUID, since time.Time, after *repository.FollowUpPosition, limit int) (repository.FollowUpPage, error) {
+	if f.failPositions != nil {
+		return repository.FollowUpPage{}, f.failPositions
+	}
+	page := f.page(mailbox, since, after, limit)
+	page.States = nil
+	return page, nil
+}
+
+func (f *fakeRepo) FollowUpChanges(_ context.Context, _ uuid.UUID, after repository.FollowUpMark, until time.Time, limit int) ([]repository.FollowUpChange, error) {
+	if f.failChanges != nil {
+		return nil, f.failChanges
+	}
+	var out []repository.FollowUpChange
+	for _, c := range f.changes {
+		later := c.At.After(after.At) || (c.At.Equal(after.At) && bytes.Compare(c.RowID[:], after.RowID[:]) > 0)
+		if later && !c.At.After(until) && len(out) < limit {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) FollowUpThreadStates(_ context.Context, _ uuid.UUID, threads []string, _ time.Time) ([]repository.ThreadFollowUpState, error) {
+	var out []repository.ThreadFollowUpState
+	for _, st := range append(append([]repository.ThreadFollowUpState{}, f.states...), f.second...) {
+		if slices.Contains(threads, st.ThreadID) {
+			out = append(out, st)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) ClaimFollowUpSweep(_ context.Context, _, owner uuid.UUID, lease time.Duration) (*repository.FollowUpSweepState, error) {
+	now := time.Now()
+	if f.leaseOwner != uuid.Nil && f.leaseOwner != owner && f.leasedUntil.After(now) {
+		return nil, nil
+	}
+	f.leaseOwner, f.leasedUntil = owner, now.Add(lease)
+	return &repository.FollowUpSweepState{
+		Cursor: f.cursor, Fresh: f.fresh, PageFailures: f.pageFailures, FreshFailures: f.freshFailures,
+		PageFailingSince: f.pageFailingSince, FreshFailingSince: f.freshFailingSince, Now: now,
+	}, nil
+}
+
+func (f *fakeRepo) SaveFollowUpSweep(_ context.Context, _, owner uuid.UUID, lease time.Duration, st repository.FollowUpSweepState) (bool, error) {
+	now := time.Now()
+	if f.leaseOwner != owner {
+		return false, nil
+	}
+	f.cursor, f.fresh, f.pageFailures, f.freshFailures = st.Cursor, st.Fresh, st.PageFailures, st.FreshFailures
+	f.pageFailingSince, f.freshFailingSince = st.PageFailingSince, st.FreshFailingSince
+	f.leasedUntil = now.Add(lease)
+	return true, nil
+}
+
+func (f *fakeRepo) ReleaseFollowUpSweep(_ context.Context, _, owner uuid.UUID) error {
+	if f.leaseOwner == owner {
+		f.leasedUntil = time.Time{}
+	}
+	return nil
 }
 
 func (f *fakeRepo) GetByMessageID(_ context.Context, _ uuid.UUID, id string) (*repository.InboxTagResult, error) {
@@ -439,15 +592,15 @@ func TestDisabledMakesNoCalls(t *testing.T) {
 // a soft one. Decided from the headers, with no model call.
 func TestDeterministicKindReadsBounces(t *testing.T) {
 	daemon := map[string][]string{"From": {"Mail Delivery Subsystem <mailer-daemon@googlemail.com>"}}
-	hard := deterministicKind(Message{Headers: daemon, Subject: "Delivery Status Notification (Failure)", BodyText: "The group may not exist."}, nil)
+	hard := DeterministicKind(Message{Headers: daemon, Subject: "Delivery Status Notification (Failure)", BodyText: "The group may not exist."}, nil)
 	if hard != KindBounceHard {
 		t.Errorf("failure notice kind = %q, want %q", hard, KindBounceHard)
 	}
-	soft := deterministicKind(Message{Headers: daemon, Subject: "Delivery Status Notification (Delay)", BodyText: "Delivery is delayed; we will retry."}, nil)
+	soft := DeterministicKind(Message{Headers: daemon, Subject: "Delivery Status Notification (Delay)", BodyText: "Delivery is delayed; we will retry."}, nil)
 	if soft != KindBounceSoft {
 		t.Errorf("delay notice kind = %q, want %q", soft, KindBounceSoft)
 	}
-	if got := deterministicKind(Message{Headers: map[string][]string{"From": {"Jane <jane@example.org>"}}, Subject: "Re: Hi", BodyText: "Sounds good"}, nil); got != "" {
+	if got := DeterministicKind(Message{Headers: map[string][]string{"From": {"Jane <jane@example.org>"}}, Subject: "Re: Hi", BodyText: "Sounds good"}, nil); got != "" {
 		t.Errorf("a person's reply kind = %q, want it left to the model", got)
 	}
 }
@@ -462,8 +615,8 @@ func TestMessageFromReadsSyncedHeaders(t *testing.T) {
 		Flags:     []string{"\\Seen", "X-Failed-Recipients:info@example.org"},
 		InReplyTo: []string{"<a@example.test>"},
 	}, nil, "", "")
-	if deterministicKind(m, nil) != KindBounceHard {
-		t.Errorf("kind = %q, want %q from the synced header", deterministicKind(m, nil), KindBounceHard)
+	if DeterministicKind(m, nil) != KindBounceHard {
+		t.Errorf("kind = %q, want %q from the synced header", DeterministicKind(m, nil), KindBounceHard)
 	}
 	if len(m.InReplyTo) != 1 {
 		t.Errorf("InReplyTo not carried: %v", m.InReplyTo)
@@ -474,11 +627,11 @@ func TestMessageFromReadsSyncedHeaders(t *testing.T) {
 // answers something is an auto-reply. The sender alone decides it, which is
 // all the backfill has.
 func TestDeterministicKindTellsNoticesFromAutoReplies(t *testing.T) {
-	alert := deterministicKind(Message{FromAddr: "Google <no-reply@accounts.google.com>", Subject: "Security alert", BodyText: "2-Step Verification turned on"}, nil)
+	alert := DeterministicKind(Message{FromAddr: "Google <no-reply@accounts.google.com>", Subject: "Security alert", BodyText: "2-Step Verification turned on"}, nil)
 	if alert != KindNotification {
 		t.Errorf("security alert kind = %q, want %q", alert, KindNotification)
 	}
-	ack := deterministicKind(Message{
+	ack := DeterministicKind(Message{
 		FromAddr:  "Support <noreply@helpdesk.example>",
 		Subject:   "Re: Partnership",
 		BodyText:  "We received your request.",

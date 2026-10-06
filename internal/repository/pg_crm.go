@@ -57,6 +57,8 @@ type CRMRepository interface {
 	UpdateCRMTask(ctx context.Context, orgID, taskID uuid.UUID, data *models.UpdateCRMTask) (*models.CRMTask, error)
 	DeleteCRMTask(ctx context.Context, orgID, taskID uuid.UUID) error
 	BulkDeleteCRMTasks(ctx context.Context, orgID uuid.UUID, sel models.TaskSelection, cap int) (matched, affected int64, err error)
+	// SelectTaskIDs resolves a bulk selection to ids, at most cap+1 of them.
+	SelectTaskIDs(ctx context.Context, orgID uuid.UUID, sel models.TaskSelection, cap int) ([]uuid.UUID, error)
 	BulkUpdateCRMTasks(ctx context.Context, orgID uuid.UUID, userID *uuid.UUID, sel models.TaskSelection, data *models.BulkUpdateTasks, cap int) (matched, affected int64, err error)
 
 	// CRM Task Types (user-managed)
@@ -127,7 +129,7 @@ func (r *crmRepository) ListNotes(ctx context.Context, orgID, contactID uuid.UUI
 		WHERE cn.contact_id = $1
 		  AND cn.organization_id = $4
 		  AND ($2::uuid IS NULL OR (cn.created_at, cn.id) < (
-			SELECT created_at, id FROM contact_notes WHERE id = $2
+			SELECT created_at, id FROM contact_notes WHERE id = $2 AND organization_id = $4
 		  ))
 		ORDER BY cn.created_at DESC, cn.id DESC
 		LIMIT $3
@@ -220,7 +222,7 @@ func (r *crmRepository) ListActivities(ctx context.Context, orgID, contactID uui
 		WHERE contact_id = $1
 		  AND organization_id = $4
 		  AND ($2::uuid IS NULL OR (created_at, id) < (
-			SELECT created_at, id FROM contact_activities WHERE id = $2
+			SELECT created_at, id FROM contact_activities WHERE id = $2 AND organization_id = $4
 		  ))
 		ORDER BY created_at DESC, id DESC
 		LIMIT $3
@@ -623,6 +625,14 @@ func (r *crmRepository) CreateDeal(ctx context.Context, orgID uuid.UUID, data *m
 	}); err != nil {
 		return nil, err
 	}
+	var stageInPipeline bool
+	if err := r.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pipeline_stages WHERE id = $1 AND pipeline_id = $2)`,
+		data.StageID, data.PipelineID).Scan(&stageInPipeline); err != nil {
+		return nil, err
+	}
+	if !stageInPipeline {
+		return nil, errx.ErrNotFound
+	}
 
 	currency := data.Currency
 	if currency == "" {
@@ -697,7 +707,7 @@ func (r *crmRepository) ListDeals(ctx context.Context, orgID uuid.UUID, pipeline
 	}
 
 	if cursor != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("(created_at, id) < (SELECT created_at, id FROM deals WHERE id = $%d)", argPos))
+		whereClauses = append(whereClauses, fmt.Sprintf("(created_at, id) < (SELECT created_at, id FROM deals WHERE id = $%d AND organization_id = $1)", argPos))
 		args = append(args, *cursor)
 		argPos++
 	}
@@ -761,7 +771,8 @@ func (r *crmRepository) UpdateDeal(ctx context.Context, orgID, dealID uuid.UUID,
 	argPos := 3
 
 	if data.StageID != nil {
-		setClauses = append(setClauses, fmt.Sprintf("stage_id = $%d", argPos))
+		// A deal always sits in the pipeline its stage belongs to.
+		setClauses = append(setClauses, fmt.Sprintf("stage_id = $%d, pipeline_id = (SELECT pipeline_id FROM pipeline_stages WHERE id = $%d)", argPos, argPos))
 		args = append(args, *data.StageID)
 		argPos++
 	}
@@ -1231,7 +1242,7 @@ func (r *crmRepository) ListCRMTasks(ctx context.Context, orgID uuid.UUID, conta
 	}
 
 	if cursor != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("(created_at, id) < (SELECT created_at, id FROM crm_tasks WHERE id = $%d)", argPos))
+		whereClauses = append(whereClauses, fmt.Sprintf("(created_at, id) < (SELECT created_at, id FROM crm_tasks WHERE id = $%d AND organization_id = $1)", argPos))
 		args = append(args, *cursor)
 		argPos++
 	}
@@ -1512,6 +1523,30 @@ func parseUUIDs(raw []string) ([]uuid.UUID, error) {
 		out = append(out, id)
 	}
 	return out, nil
+}
+
+// SelectTaskIDs resolves a bulk selection to the task ids it names, stopping at
+// cap+1 so an over-cap selection is known without reading all of it.
+func (r *crmRepository) SelectTaskIDs(ctx context.Context, orgID uuid.UUID, sel models.TaskSelection, cap int) ([]uuid.UUID, error) {
+	where, args, err := taskSelectionWhere(orgID, sel)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, cap+1)
+	rows, err := r.db.Query(ctx, fmt.Sprintf(`SELECT t.id FROM crm_tasks t WHERE %s LIMIT $%d`, where, len(args)), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }
 
 // BulkDeleteCRMTasks deletes every task in the selection, returning how many

@@ -5,19 +5,23 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
-	"net/netip"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/warmbly/warmbly/internal/api/middleware"
 	"github.com/warmbly/warmbly/internal/app/fleetnode"
 	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/observability/errs"
+	"github.com/warmbly/warmbly/internal/pkg/publicip"
 )
 
 // The fleet is pull-based. A node joins with the instance token, gets the
@@ -71,7 +75,7 @@ func (h *Handler) FleetJoin(c *gin.Context) {
 	}
 	var req fleetJoinRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid request body"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 
@@ -82,6 +86,8 @@ func (h *Handler) FleetJoin(c *gin.Context) {
 			// Distinct from a wrong token on purpose: this is a setup problem,
 			// and telling the operator so saves a long hunt.
 			errx.JSON(c, errx.New(errx.BadRequest, "this instance has no join token yet; issue one from Fleet settings or with `warmblyctl fleet join-token`"))
+		case fleetnode.ErrJoinTokenExpired:
+			errx.JSON(c, errx.New(errx.Unauthorized, "join token has expired; issue a fresh one"))
 		default:
 			errx.JSON(c, errx.New(errx.Unauthorized, "join token is not valid"))
 		}
@@ -104,7 +110,7 @@ func (h *Handler) FleetJoin(c *gin.Context) {
 		nodeID = parsed
 	}
 
-	address := heartbeatAddress(req.Address, c.ClientIP())
+	address := heartbeatAddress(req.Address)
 
 	// Registering here rather than waiting for the first beat means the node
 	// shows up in the dashboard the moment it joins, even if it then fails to
@@ -140,8 +146,8 @@ func (h *Handler) FleetJoin(c *gin.Context) {
 }
 
 // FleetHeartbeat records a beat and answers with the version the node should
-// be running. Authenticated with INTERNAL_API_TOKEN, the same shared secret
-// the node already needs to read encrypted keys.
+// be running. Authenticated with the node token (NODE_BROKER_TOKEN, falling
+// back to INTERNAL_API_TOKEN), the one the node reads encrypted keys with.
 func (h *Handler) FleetHeartbeat(c *gin.Context) {
 	if h.FleetNodes == nil {
 		c.Status(http.StatusNoContent)
@@ -152,7 +158,11 @@ func (h *Handler) FleetHeartbeat(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "decode body"})
 		return
 	}
-	beat.Address = heartbeatAddress(beat.Address, c.ClientIP())
+	if middleware.IsNodeUpdateOnly(c) {
+		h.fleetUpdateOnlyHeartbeat(c, beat)
+		return
+	}
+	beat.Address = heartbeatAddress(beat.Address)
 	reply, err := h.FleetNodes.Heartbeat(c.Request.Context(), beat)
 	if err != nil {
 		switch {
@@ -161,7 +171,12 @@ func (h *Handler) FleetHeartbeat(c *gin.Context) {
 		case errors.Is(err, fleetnode.ErrRoleChanged):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			// The heartbeat is answered to a machine, not a person, and the
+			// caller authenticates with a node credential rather than an
+			// operator session. The detail goes to the log where an operator
+			// reads it; the node only needs to know to retry.
+			errs.CaptureException(err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "heartbeat could not be recorded"})
 		}
 		return
 	}
@@ -181,47 +196,28 @@ func (h *Handler) FleetHeartbeat(c *gin.Context) {
 	c.JSON(http.StatusOK, reply)
 }
 
-// heartbeatAddress prefers the public IPv4 observed by the trusted backend edge.
-func heartbeatAddress(reported, observed string) string {
-	reported = strings.TrimSpace(reported)
-	observed = strings.TrimSpace(observed)
-	if normalized, ok := normalizedPublicIPv4(observed); ok {
-		return normalized
-	}
-	if normalized, ok := normalizedPublicIPv4(reported); ok {
-		return normalized
-	}
-	if observed != "" {
-		return observed
-	}
-	return reported
-}
+// legacyTokenNodes remembers which nodes were already warned about, so the log says it once per process.
+var legacyTokenNodes sync.Map
 
-func normalizedPublicIPv4(raw string) (string, bool) {
-	ip, err := netip.ParseAddr(raw)
+// fleetUpdateOnlyHeartbeat answers a node still on INTERNAL_API_TOKEN with its version only.
+func (h *Handler) fleetUpdateOnlyHeartbeat(c *gin.Context, beat models.NodeHeartbeat) {
+	reply, err := h.FleetNodes.UpdateOnly(c.Request.Context(), beat)
 	if err != nil {
-		return "", false
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
-	ip = ip.Unmap()
-	if !ip.Is4() || !ip.IsGlobalUnicast() || ip.IsPrivate() {
-		return "", false
+	if _, seen := legacyTokenNodes.LoadOrStore(beat.NodeID, struct{}{}); !seen {
+		log.Printf("fleet: node %s heartbeats with INTERNAL_API_TOKEN; it is told its version (%q) but not recorded as live. A node that stays on this token after updating needs to join again to receive NODE_BROKER_TOKEN", beat.NodeID, reply.DesiredVersion)
 	}
-	for _, prefix := range nonPublicIPv4Prefixes {
-		if prefix.Contains(ip) {
-			return "", false
-		}
-	}
-	return ip.String(), true
+	c.JSON(http.StatusOK, reply)
 }
 
-var nonPublicIPv4Prefixes = []netip.Prefix{
-	netip.MustParsePrefix("100.64.0.0/10"),
-	netip.MustParsePrefix("192.0.0.0/24"),
-	netip.MustParsePrefix("192.0.2.0/24"),
-	netip.MustParsePrefix("198.18.0.0/15"),
-	netip.MustParsePrefix("198.51.100.0/24"),
-	netip.MustParsePrefix("203.0.113.0/24"),
-	netip.MustParsePrefix("240.0.0.0/4"),
+// A backend may see a reverse proxy rather than the worker's mail egress address.
+func heartbeatAddress(reported string) string {
+	if normalized, ok := publicip.IPv4(reported); ok {
+		return normalized
+	}
+	return ""
 }
 
 // nodeHeartbeatSeconds derives the beat interval from the server's liveness
@@ -291,6 +287,27 @@ var nodeEnvKeys = []string{
 	"SENTRY_DSN",
 }
 
+// consumerEnvKeys reach a consumer and never a worker. A consumer runs the
+// integration actions, refreshes their OAuth tokens and drains the CRM outbox,
+// so it reads the integration client credentials (integration.NewOAuthManager),
+// APP_URL (the "Open in Warmbly" link written to the CRM) and the backend's
+// public URL (where it registers Pipedrive's webhooks).
+var consumerEnvKeys = []string{
+	"APP_URL",
+	"BACKEND_PUBLIC_URL",
+	"API_PUBLIC_URL",
+	"HUBSPOT_OAUTH_CLIENT_ID",
+	"HUBSPOT_OAUTH_CLIENT_SECRET",
+	"SLACK_OAUTH_CLIENT_ID",
+	"SLACK_OAUTH_CLIENT_SECRET",
+	"GOOGLE_SHEETS_OAUTH_CLIENT_ID",
+	"GOOGLE_SHEETS_OAUTH_CLIENT_SECRET",
+	"PIPEDRIVE_OAUTH_CLIENT_ID",
+	"PIPEDRIVE_OAUTH_CLIENT_SECRET",
+	"SALESFORCE_OAUTH_CLIENT_ID",
+	"SALESFORCE_OAUTH_CLIENT_SECRET",
+}
+
 // nodeProviders translates the control plane's own crypto and blob providers
 // into the ones a node should run.
 //
@@ -352,21 +369,25 @@ func renderNodeEnv(nodeID uuid.UUID, role models.NodeRole, region string) string
 	fmt.Fprintf(&b, "WARMBLY_BACKEND_URL=%s\n", backend)
 	fmt.Fprintf(&b, "ENCRYPTED_KEYS_PROVIDER=%s\n", keysProvider)
 	fmt.Fprintf(&b, "ENCRYPTED_KEYS_BACKEND_URL=%s\n", backend)
-	fmt.Fprintf(&b, "ENCRYPTED_KEYS_WORKER_TOKEN=%s\n", os.Getenv("INTERNAL_API_TOKEN"))
-	fmt.Fprintf(&b, "INTERNAL_API_TOKEN=%s\n", os.Getenv("INTERNAL_API_TOKEN"))
+	// A node calls only the node-only internal routes. With a separate
+	// NODE_BROKER_TOKEN it is sent that alone and never the edge services' token.
+	if v := os.Getenv("NODE_BROKER_TOKEN"); v != "" {
+		fmt.Fprintf(&b, "ENCRYPTED_KEYS_WORKER_TOKEN=%s\n", v)
+		fmt.Fprintf(&b, "NODE_BROKER_TOKEN=%s\n", v)
+	} else {
+		fmt.Fprintf(&b, "ENCRYPTED_KEYS_WORKER_TOKEN=%s\n", os.Getenv("INTERNAL_API_TOKEN"))
+		fmt.Fprintf(&b, "INTERNAL_API_TOKEN=%s\n", os.Getenv("INTERNAL_API_TOKEN"))
+	}
 
 	kmsProvider, blobProvider := nodeProviders()
 	fmt.Fprintf(&b, "KMS_PROVIDER=%s\n", kmsProvider)
 	fmt.Fprintf(&b, "BLOB_PROVIDER=%s\n", blobProvider)
 
-	// The credential for the two endpoints that open a key and sign a blob
-	// operation. Sent only when the instance issues a separate one; otherwise
-	// the node falls back to the internal token it already has.
-	if v := os.Getenv("NODE_BROKER_TOKEN"); v != "" {
-		fmt.Fprintf(&b, "NODE_BROKER_TOKEN=%s\n", v)
+	keys := nodeEnvKeys
+	if role == models.NodeRoleConsumer {
+		keys = append(append([]string{}, nodeEnvKeys...), consumerEnvKeys...)
 	}
-
-	for _, k := range nodeEnvKeys {
+	for _, k := range keys {
 		if v := os.Getenv(k); v != "" {
 			fmt.Fprintf(&b, "%s=%s\n", k, v)
 		}
@@ -404,15 +425,16 @@ func (h *Handler) AdminFleetIssueJoinToken(c *gin.Context) {
 		errx.JSON(c, errx.New(errx.NotImplemented, "fleet enrolment is not available on this instance"))
 		return
 	}
-	token, err := h.FleetNodes.IssueJoinToken(c.Request.Context())
+	token, expiresAt, err := h.FleetNodes.IssueJoinToken(c.Request.Context(), fleetnode.DefaultJoinTokenTTL)
 	if err != nil {
 		errx.JSON(c, errx.New(errx.Internal, err.Error()))
 		return
 	}
-	h.audit(c, "fleet_join_token_issued", models.AuditEntityWorker, nil, nil)
+	h.audit(c, "fleet_join_token_issued", models.AuditEntityWorker, nil, map[string]string{"expires_at": expiresAt.Format(time.RFC3339)})
 	c.JSON(http.StatusOK, gin.H{
-		"token": token,
-		"note":  "Shown once. Issuing a new token revokes this one; nodes already enrolled are unaffected.",
+		"token":      token,
+		"expires_at": expiresAt,
+		"note":       "Shown once. It joins any number of machines until it expires; issuing a new token revokes this one. Nodes already enrolled are unaffected.",
 	})
 }
 
@@ -440,7 +462,7 @@ func (h *Handler) AdminSetWorkerTags(c *gin.Context) {
 	}
 	var body setTagsBody
 	if err := c.ShouldBindJSON(&body); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid request body"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	// Normalise: trim, lowercase, dedupe, drop empties. The DB constraint
@@ -459,7 +481,7 @@ func (h *Handler) AdminSetWorkerTags(c *gin.Context) {
 		tags = append(tags, t)
 	}
 	if err := h.WorkerRepo.SetWorkerTags(c.Request.Context(), id, tags); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, err.Error()))
+		errx.JSON(c, errx.New(errx.Internal, err.Error()))
 		return
 	}
 	h.audit(c, models.AuditActionUpdate, models.AuditEntityWorker, &id, map[string]string{
@@ -493,7 +515,7 @@ func (h *Handler) AdminFleetReserveWorker(c *gin.Context) {
 	}
 	var body reserveWorkerBody
 	if err := c.ShouldBindJSON(&body); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid request body"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 	orgID, err := uuid.Parse(body.OrganizationID)
@@ -587,7 +609,7 @@ func (h *Handler) AdminFleetPatchNode(c *gin.Context) {
 	}
 	var body patchNodeBody
 	if err := c.ShouldBindJSON(&body); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid request body"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 
@@ -661,7 +683,7 @@ func (h *Handler) AdminFleetSetRelease(c *gin.Context) {
 	}
 	var body setReleaseBody
 	if err := c.ShouldBindJSON(&body); err != nil {
-		errx.JSON(c, errx.New(errx.BadRequest, "invalid request body"))
+		errx.JSON(c, errx.InvalidBody(err))
 		return
 	}
 

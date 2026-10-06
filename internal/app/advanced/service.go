@@ -27,6 +27,7 @@ import (
 	warmupapp "github.com/warmbly/warmbly/internal/app/warmup"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/pkg/displayname"
 	"github.com/warmbly/warmbly/internal/pkg/mailhdr"
 	"github.com/warmbly/warmbly/internal/pkg/mailhtml"
 	"github.com/warmbly/warmbly/internal/pkg/warmlint"
@@ -67,7 +68,7 @@ type Service interface {
 	// Unsubscribe suppresses a contact in response to a List-Unsubscribe action
 	// (one-click POST or the manual link). Always suppresses — it's an explicit
 	// recipient request, independent of the auto-suppress settings.
-	Unsubscribe(ctx context.Context, campaignID, contactID uuid.UUID) *errx.Error
+	Unsubscribe(ctx context.Context, organizationID, campaignID, contactID uuid.UUID) *errx.Error
 	// UnsubscribeFromLink is Unsubscribe for a verified link token: the
 	// organization in the token must own the campaign, and via names the
 	// mechanism ("one_click" for the RFC 8058 POST, "link" for a click).
@@ -143,6 +144,8 @@ type Service interface {
 	WireDispatcher(d EventDispatcher)
 	// WireNotifier attaches the in-app notification gate (reply/bounce/complaint).
 	WireNotifier(n Notifier)
+	// WireCRMOutbox attaches the connected-CRM outbox.
+	WireCRMOutbox(o CRMOutbox)
 	// WireRealtime attaches the org-scoped EMAIL_REPLIED realtime pulse.
 	WireRealtime(p ReplyRealtimePublisher)
 	// WireAutomationRunner attaches the automation runner so instant
@@ -203,6 +206,7 @@ type service struct {
 	segmentRepo          repository.SegmentRepository
 	campaignProgressRepo repository.CampaignProgressRepository
 	crmRepo              repository.CRMRepository
+	crmOutbox            CRMOutbox
 	categoryRepo         repository.GroupRepository
 	uniboxRepo           repository.UniboxRepository
 	tasksClient          tasksched.Scheduler
@@ -473,6 +477,7 @@ func (s *service) CreateContactTask(ctx context.Context, orgID, createdBy uuid.U
 	if err != nil {
 		return nil, errx.InternalError()
 	}
+	s.pushCRM(ctx, orgID, models.CRMObjectTask, task.ID)
 	if task.ContactID != nil {
 		_ = s.crmRepo.RecordActivity(ctx, orgID, *task.ContactID, &createdBy, models.ActivityTaskCreated, map[string]interface{}{
 			"task_id":    task.ID.String(),
@@ -493,6 +498,7 @@ func (s *service) CreateContactDeal(ctx context.Context, orgID uuid.UUID, create
 	if err != nil {
 		return nil, toErrx(err)
 	}
+	s.pushCRM(ctx, orgID, models.CRMObjectDeal, deal.ID)
 	if deal.ContactID != nil {
 		_ = s.crmRepo.RecordActivity(ctx, orgID, *deal.ContactID, &createdBy, models.ActivityDealCreated, map[string]interface{}{
 			"deal_id":   deal.ID.String(),
@@ -536,6 +542,7 @@ func (s *service) MoveContactDealStage(ctx context.Context, orgID, contactID, pi
 	if uerr != nil {
 		return nil, toErrx(uerr)
 	}
+	s.pushCRM(ctx, orgID, models.CRMObjectDeal, updated.ID)
 	_ = s.crmRepo.RecordActivity(ctx, orgID, contactID, nil, models.ActivityDealStageChange, map[string]interface{}{
 		"deal_id": updated.ID.String(),
 		"from":    target.StageID.String(),
@@ -588,32 +595,31 @@ func (s *service) ListPipelines(ctx context.Context, orgID uuid.UUID) ([]models.
 	return s.crmRepo.ListPipelines(ctx, orgID)
 }
 
-func (s *service) Unsubscribe(ctx context.Context, campaignID, contactID uuid.UUID) *errx.Error {
-	return s.unsubscribe(ctx, nil, campaignID, contactID, "action")
+func (s *service) Unsubscribe(ctx context.Context, organizationID, campaignID, contactID uuid.UUID) *errx.Error {
+	return s.unsubscribe(ctx, organizationID, campaignID, contactID, "action")
 }
 
 func (s *service) UnsubscribeFromLink(ctx context.Context, organizationID, campaignID, contactID uuid.UUID, via string) *errx.Error {
 	if via != "one_click" {
 		via = "link"
 	}
-	return s.unsubscribe(ctx, &organizationID, campaignID, contactID, via)
+	return s.unsubscribe(ctx, organizationID, campaignID, contactID, via)
 }
 
 // unsubscribe records an explicit opt-out: the address goes on the workspace
 // suppression list and the contact's own subscription flag is cleared, so the
-// CRM and the send gate tell the same story.
-func (s *service) unsubscribe(ctx context.Context, expectOrg *uuid.UUID, campaignID, contactID uuid.UUID, via string) *errx.Error {
+// CRM and the send gate tell the same story. The campaign and the contact
+// must both belong to organizationID.
+func (s *service) unsubscribe(ctx context.Context, organizationID, campaignID, contactID uuid.UUID, via string) *errx.Error {
 	campaign, err := s.campaignRepo.GetByID(ctx, campaignID)
-	if err != nil || campaign == nil || campaign.OrganizationID == nil {
+	if err != nil || campaign == nil || campaign.OrganizationID == nil || *campaign.OrganizationID != organizationID {
 		return errx.New(errx.BadRequest, "invalid unsubscribe link")
 	}
-	if expectOrg != nil && *expectOrg != *campaign.OrganizationID {
+	found, cerr := s.contactRepo.GetByIDsAndOrganization(ctx, organizationID, []uuid.UUID{contactID})
+	if cerr != nil || len(found) != 1 || found[0].Email == "" {
 		return errx.New(errx.BadRequest, "invalid unsubscribe link")
 	}
-	contact, cerr := s.contactRepo.GetByID(ctx, contactID)
-	if cerr != nil || contact == nil || contact.Email == "" {
-		return errx.New(errx.BadRequest, "invalid unsubscribe link")
-	}
+	contact := &found[0]
 
 	reason := map[string]string{
 		"one_click": "one-click unsubscribe (mail client)",
@@ -1203,6 +1209,28 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		return nil
 	}
 
+	kind := inboxtag.DeterministicKind(inboxtag.Message{
+		Headers: buildReplyHeaders(msg), Subject: msg.Subject,
+		BodyText: firstNonEmpty(msg.BodyText, msg.Snippet), InReplyTo: msg.InReplyTo,
+	}, nil)
+	var verdict replyclassify.Result
+	if s.inboxTags != nil && msg.MessageID != "" {
+		stored, tagErr := s.inboxTags.GetByMessageID(ctx, *account.OrganizationID, msg.MessageID)
+		if tagErr == nil && stored != nil && stored.KindConfidence >= inboxtag.ConfFloor && stored.ReviewReason != "kind" {
+			if inboxtag.IsAutomatedKind(stored.Kind) {
+				kind = stored.Kind
+				verdict = replyclassify.Result{
+					Class:      inboxtag.ReplyClassFor(stored.Kind, stored.Intent),
+					Confidence: stored.KindConfidence, Source: replyclassify.SourceModel,
+				}
+			}
+		}
+	}
+	switch kind {
+	case inboxtag.KindNotification, inboxtag.KindBounceHard, inboxtag.KindBounceSoft:
+		return nil
+	}
+
 	settings, err := s.repo.GetOutreachSettings(ctx, *account.OrganizationID)
 	if err != nil {
 		return toErrx(err)
@@ -1227,7 +1255,6 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 	// only inside that block means a reply with no campaign match never spends a
 	// model call. verdict is what it decided, read after the block; held is
 	// when an out-of-office hold lifts, for the notification to name.
-	var verdict replyclassify.Result
 	replyClaimToken := uuid.Nil
 	replyClaimCompleted := false
 
@@ -1383,15 +1410,18 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		}
 		replyClaimToken = claimToken
 
-		replyResult := replyclassify.ClassifyGated(ctx, replyclassify.Input{
-			Headers:  buildReplyHeaders(msg),
-			Subject:  msg.Subject,
-			BodyText: msg.Snippet,
-			// The typed layer answers from the tagger's stored verdict for
-			// this message, so a reply is judged once.
-			OrganizationID: *account.OrganizationID,
-			MessageID:      msg.MessageID,
-		}, gate)
+		replyResult := verdict
+		if replyResult.Class == "" {
+			replyResult = replyclassify.ClassifyGated(ctx, replyclassify.Input{
+				Headers:  buildReplyHeaders(msg),
+				Subject:  msg.Subject,
+				BodyText: msg.Snippet,
+				// The typed layer answers from the tagger's stored verdict for
+				// this message, so a reply is judged once.
+				OrganizationID: *account.OrganizationID,
+				MessageID:      msg.MessageID,
+			}, gate)
+		}
 
 		// Always persist the classifier verdict so reply_* branches can route on
 		// it (including reply_automated for OOO / autoresponders). Layers 1-2 run
@@ -1602,13 +1632,15 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		owner, parseErr := uuid.Parse(account.UserID)
 		if parseErr == nil {
 			title := replyTaskTitle(intent, sender)
-			_, _ = s.crmRepo.CreateCRMTask(ctx, *account.OrganizationID, owner, &models.CreateCRMTask{
+			if task, terr := s.crmRepo.CreateCRMTask(ctx, *account.OrganizationID, owner, &models.CreateCRMTask{
 				ContactID:  contactID,
 				Title:      title,
 				Priority:   "high",
 				DueDate:    ptrTime(time.Now().UTC().Add(24 * time.Hour)),
 				AssignedTo: &owner,
-			})
+			}); terr == nil {
+				s.pushCRM(ctx, *account.OrganizationID, models.CRMObjectTask, task.ID)
+			}
 			if actionTaken == "" {
 				actionTaken = "created_crm_task"
 			} else {
@@ -1654,6 +1686,9 @@ func (s *service) ProcessIncomingReply(ctx context.Context, emailAccountID uuid.
 		"thread_id":        msg.ThreadID,
 		"email_account_id": emailAccountID.String(),
 		"_user_id":         account.UserID,
+		"_message_id":      msg.MessageID,
+		"_body_text":       msg.BodyText,
+		"_mailbox_email":   account.Email,
 	}
 	if senderAccountID != nil {
 		payload["sender_email_account_id"] = senderAccountID.String()
@@ -1994,6 +2029,9 @@ func (s *service) IngestDeliverabilityEvent(ctx context.Context, organizationID 
 	if req.ContactID != nil {
 		payload["contact_id"] = req.ContactID.String()
 	}
+	if req.TaskID != nil {
+		payload["_task_id"] = req.TaskID.String()
+	}
 	switch eventType {
 	case models.DeliverabilityEventBounce:
 		s.emit(ctx, organizationID, models.WebhookEventCampaignEmailBounced, payload)
@@ -2014,7 +2052,7 @@ func (s *service) IngestDeliverabilityEvent(ctx context.Context, organizationID 
 				// A reputation block is about the mailbox, not the lead, so
 				// the title says who refused rather than who bounced.
 				if addressFine && verdict.Cause == bounceclass.CauseReputationBlock {
-					title = "Provider refused mail from " + camp.Name
+					title = "Provider refused mail from " + displayname.DisplayableOr(camp.Name, "a campaign")
 				}
 				if eventType == models.DeliverabilityEventComplaint {
 					cat = models.NotifHealthComplaint

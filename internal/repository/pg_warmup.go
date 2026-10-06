@@ -147,6 +147,9 @@ type WarmupRepository interface {
 	GetParticipantHealth(ctx context.Context, accountID uuid.UUID, poolType string) (*models.WarmupParticipantHealth, error)
 	// GetParticipantHealthForAccount returns the participant row whatever pool it is in.
 	GetParticipantHealthForAccount(ctx context.Context, accountID uuid.UUID) (*models.WarmupParticipantHealth, error)
+	// GetParticipantHealthForAccounts is the batched form: one pool row per
+	// mailbox in the set, keyed by account id.
+	GetParticipantHealthForAccounts(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]*models.WarmupParticipantHealth, error)
 	// GetCloudStanding is the standing Warmbly Cloud last reported for a
 	// mailbox it warms; nil for any other mailbox.
 	GetCloudStanding(ctx context.Context, accountID uuid.UUID) (*models.WarmupHealthInfo, error)
@@ -187,6 +190,8 @@ type WarmupRepository interface {
 	IncrementReplyCount(ctx context.Context, accountID uuid.UUID, date time.Time) error
 	// FailWarmupSend atomically records the failure and refunds its daily counters.
 	FailWarmupSend(ctx context.Context, accountID, taskID uuid.UUID, date time.Time, title, message string) error
+	// LastWarmupSendFailure is the newest warmup send the worker could not deliver since `since`, when no later send was confirmed delivered.
+	LastWarmupSendFailure(ctx context.Context, accountID uuid.UUID, since time.Time) (*models.WarmupSendFailure, error)
 	GetWarmupStatistics(ctx context.Context, accountID uuid.UUID, from, to time.Time) ([]WarmupStatistic, error)
 	GetOrCreateDailyStats(ctx context.Context, accountID uuid.UUID, date time.Time, targetVolume int) (*WarmupStatistic, error)
 
@@ -651,6 +656,36 @@ func (r *warmupRepository) GetParticipantHealthForAccount(ctx context.Context, a
 	return r.scanParticipantHealth(r.db.QueryRow(ctx, participantHealthSelect, accountID))
 }
 
+// GetParticipantHealthForAccounts is the batched form of
+// GetParticipantHealthForAccount: the single pool row for each mailbox in the
+// set, keyed by account id, in one query. A mailbox in no pool is absent.
+func (r *warmupRepository) GetParticipantHealthForAccounts(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]*models.WarmupParticipantHealth, error) {
+	out := make(map[uuid.UUID]*models.WarmupParticipantHealth, len(accountIDs))
+	if len(accountIDs) == 0 {
+		return out, nil
+	}
+
+	query := participantHealthColumns + `
+			WHERE wpp.email_account_id = ANY($1::uuid[])`
+
+	rows, err := r.db.Query(ctx, query, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		h, err := r.scanParticipantHealth(rows)
+		if err != nil {
+			return nil, err
+		}
+		if h != nil {
+			out[h.EmailAccountID] = h
+		}
+	}
+	return out, rows.Err()
+}
+
 func (r *warmupRepository) GetParticipantHealth(ctx context.Context, accountID uuid.UUID, poolType string) (*models.WarmupParticipantHealth, error) {
 	query := participantHealthSelect + `
 		  AND wp.pool_type = $2
@@ -1019,6 +1054,38 @@ func (r *warmupRepository) FailWarmupSend(ctx context.Context, accountID, taskID
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (r *warmupRepository) LastWarmupSendFailure(ctx context.Context, accountID uuid.UUID, since time.Time) (*models.WarmupSendFailure, error) {
+	// Only failures the worker answered with (status failed); a dead-lettered
+	// dispatch is the platform's own problem and says nothing about the server.
+	f := &models.WarmupSendFailure{}
+	err := r.db.QueryRow(ctx, `
+		SELECT tf.message, t.updated_at
+		FROM tasks t
+		JOIN task_failures tf ON tf.task_id = t.id
+		WHERE t.email_account_id = $1
+		  AND t.task_type = 'warmup'
+		  AND t.status = 'failed'
+		  AND t.updated_at >= $2
+		  AND NOT EXISTS (
+		      SELECT 1 FROM tasks c
+		      JOIN warmup_tokens wt ON wt.task_id = c.id AND wt.sent_message_id <> ''
+		      WHERE c.email_account_id = $1
+		        AND c.task_type = 'warmup'
+		        AND c.status = 'completed'
+		        AND c.completed_at > t.updated_at
+		  )
+		ORDER BY t.updated_at DESC
+		LIMIT 1
+	`, accountID, since).Scan(&f.Message, &f.At)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 // PoolSpamPlacementRate returns the pool-wide warmup spam-placement rate (%)

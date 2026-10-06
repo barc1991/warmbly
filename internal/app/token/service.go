@@ -30,6 +30,8 @@ type TokenService interface {
 	// require it, which is what the admin panel does.
 	GenerateMFASession(ctx context.Context, userID uuid.UUID, email, ipaddr, userAgent, authProvider string) (*models.Token, *errx.Error)
 	WireSignInAlerter(a SignInAlerter)
+	WireSessionObserver(o SessionObserver)
+	WireRevocationPublisher(p RevocationPublisher)
 	GetSession(ctx context.Context, sessionID uuid.UUID) (*models.Session, *errx.Error)
 	ValidateAccessToken(ctx context.Context, accessToken string) (*models.Session, *errx.Error)
 	RefreshToken(ctx context.Context, refreshToken string) (*models.Token, *errx.Error)
@@ -65,6 +67,8 @@ type tokenService struct {
 	geo             *geo.Client
 	cache           *cache.Cache
 	signInAlert     SignInAlerter
+	sessionObserver SessionObserver
+	revocations     RevocationPublisher
 
 	AuthSecret string
 }
@@ -78,6 +82,37 @@ type SignInAlerter interface {
 
 // WireSignInAlerter attaches the new-device alerter after construction.
 func (s *tokenService) WireSignInAlerter(a SignInAlerter) { s.signInAlert = a }
+
+// SessionStart describes a completed sign-in. A session re-minted for an
+// already signed-in device (password change) is not one.
+type SessionStart struct {
+	UserID       uuid.UUID
+	IP           string
+	Browser      string
+	OS           string
+	City         string
+	Country      string
+	AuthProvider string
+	MFAVerified  bool
+	NewDevice    bool
+}
+
+// SessionObserver hears about every completed sign-in, off the request path.
+type SessionObserver interface {
+	SessionStarted(ctx context.Context, start SessionStart)
+}
+
+// WireSessionObserver attaches the sign-in observer after construction.
+func (s *tokenService) WireSessionObserver(o SessionObserver) { s.sessionObserver = o }
+
+// RevocationPublisher announces that a user's sessions were revoked, so the
+// realtime service drops their open sockets. Satisfied by the streaming publisher.
+type RevocationPublisher interface {
+	PublishSessionsRevoked(ctx context.Context, userID uuid.UUID)
+}
+
+// WireRevocationPublisher attaches the revocation announcer (nil = off).
+func (s *tokenService) WireRevocationPublisher(p RevocationPublisher) { s.revocations = p }
 
 func NewService(db *db.DB, tokenRepository repository.TokenRepository, cache *cache.Cache, geo *geo.Client, authSecret string) TokenService {
 	return &tokenService{

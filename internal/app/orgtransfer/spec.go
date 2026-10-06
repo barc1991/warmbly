@@ -51,6 +51,8 @@ type SecretColumn struct {
 	// column to hold ciphertext. email_tasks predates unconditional sealing,
 	// so its rows carry a flag rather than a format that can be sniffed.
 	Guard string
+	// PlaintextPrefix marks a value still stored in the clear from before sealing; it travels as is.
+	PlaintextPrefix string
 }
 
 // Table is one exported relation and the policy for moving it.
@@ -61,6 +63,15 @@ type Table struct {
 	// Scope is the WHERE fragment selecting this table's rows for one
 	// organization. $1 is the organization id.
 	Scope string
+
+	// Owner selects every row the organization owns, when that is wider than
+	// what Scope exports. Empty means Scope. $1 is the organization id.
+	Owner string
+
+	// PartnerRefs are columns that legitimately name another workspace's row: a
+	// warmup partner, a placement seed or a third-party app. The import's
+	// ownership check skips them.
+	PartnerRefs []string
 
 	// Secrets are columns holding ciphertext that must be re-keyed.
 	Secrets []SecretColumn
@@ -83,6 +94,15 @@ type Table struct {
 	Note string
 }
 
+// OwnerScope is the WHERE fragment deciding whether an existing row belongs to
+// the organization, which an import checks before writing or referencing it.
+func (t *Table) OwnerScope() string {
+	if t.Owner != "" {
+		return t.Owner
+	}
+	return t.Scope
+}
+
 // Scope fragments. Written as subqueries rather than joins so every scope is a
 // plain WHERE clause and the reader can stay a single generic SELECT.
 const (
@@ -92,7 +112,6 @@ const (
 	orgCampaigns   = `(SELECT id FROM campaigns WHERE organization_id = $1)`
 	orgContacts    = `(SELECT id FROM contacts WHERE organization_id = $1)`
 	orgTasks       = `(SELECT id FROM tasks WHERE email_account_id IN ` + orgMailboxes + ` AND task_type <> 'placement')`
-	orgThreads     = `(SELECT DISTINCT thread_id FROM unibox_emails WHERE email_id IN ` + orgMailboxes + `)`
 	orgPipelines   = `(SELECT id FROM pipelines WHERE organization_id = $1)`
 	orgInvitations = `(SELECT id FROM organization_invitations WHERE organization_id = $1)`
 	orgTeams       = `(SELECT id FROM teams WHERE organization_id = $1)`
@@ -177,6 +196,7 @@ var Tables = []Table{
 		Name: "domain_redirects", Group: models.OrgDataGroupCore,
 		// A row Cloud serves for a linked instance belongs to that link, which does not travel.
 		Scope: `organization_id = $1 AND linked_instance_id IS NULL`,
+		Owner: scopeOrg,
 		// DNS points at the source (or at Cloud for it) until moved, so the destination serves it itself once its own check passes.
 		ResetOnImport: []string{"verified", "verified_at", "last_checked_at", "last_error", "served_by", "remote_host", "remote_records",
 			"linked_instance_id", "reach_status", "reach_hint", "reach_detail", "reach_proxy", "reach_checked_at"},
@@ -208,10 +228,12 @@ var Tables = []Table{
 		// instance; an archive must not add mailboxes to another instance's
 		// seed panel.
 		// avatar_checked_at is this instance's photo sweep checkpoint; the photo travels.
+		// A tracking host is verified per instance and per workspace, so the
+		// destination's own sweep verifies it again.
 		ResetOnImport: []string{
 			"worker_id", "auth_checked_at", "auth_failing_since", "cold_ramp_started_at",
 			"send_lifecycle", "send_lifecycle_since", "send_lifecycle_reason", "seed_scope",
-			"avatar_checked_at",
+			"avatar_checked_at", "tracking_domain_verified", "tracking_domain_verified_at",
 		},
 		Blobs: []BlobColumn{{Column: "avatar_url", Kind: BlobKindPublicURL}},
 	},
@@ -259,9 +281,16 @@ var Tables = []Table{
 	{
 		Name: "oauth_applications", Group: models.OrgDataGroupCore,
 		Scope: scopeOrg,
+		// Never written, so an overwrite keeps a destination suspension; importRules re-applies a source one.
+		ResetOnImport: []string{"suspended_at", "suspended_reason", "suspended_by"},
+		// The app's webhook signing secret is sealed under the instance key, like each endpoint's copy.
+		Secrets: []SecretColumn{
+			{Column: "webhook_secret", Domain: KeyDomainInstance, PlaintextPrefix: "whsec_"},
+		},
 	},
 	{
 		Name: "oauth_access_grants", Group: models.OrgDataGroupCore,
+		PartnerRefs:   []string{"application_id"},
 		Scope:         scopeOrg,
 		ResetOnImport: []string{"last_used_at"},
 	},
@@ -269,13 +298,14 @@ var Tables = []Table{
 		// Below oauth_applications: an endpoint owned by an OAuth app carries
 		// oauth_application_id, so the app has to exist first.
 		Name: "webhook_endpoints", Group: models.OrgDataGroupCore,
+		PartnerRefs:   []string{"oauth_application_id"},
 		Scope:         scopeOrg,
 		ResetOnImport: []string{"last_success_at", "last_failure_at", "last_failure_reason", "consecutive_failures", "first_failure_at", "auto_disabled_at", "disabled_reason"},
 		// The signing secret is sealed under the instance key, so it has to be
 		// re-sealed on the way across or the destination hands the receiver
 		// signatures computed from ciphertext it could not read.
 		Secrets: []SecretColumn{
-			{Column: "secret", Domain: KeyDomainInstance},
+			{Column: "secret", Domain: KeyDomainInstance, PlaintextPrefix: "whsec_"},
 		},
 	},
 	{
@@ -295,7 +325,7 @@ var Tables = []Table{
 	{
 		Name: "categories", Group: models.OrgDataGroupContacts,
 		Scope: scopeOrg,
-		Note:  "The whole category registry travels, including ones no contact or conversation carries yet.",
+		Note:  "The whole label registry travels, including ones no contact or conversation carries yet.",
 	},
 	{
 		Name: "contacts", Group: models.OrgDataGroupContacts,
@@ -330,6 +360,12 @@ var Tables = []Table{
 		Scope: `segment_id IN (SELECT id FROM segments WHERE organization_id = $1)`,
 	},
 	{
+		Name: "crm_contact_records", Group: models.OrgDataGroupContacts,
+		Scope:         scopeOrg,
+		ResetOnImport: []string{"synced_at"},
+		Note:          "A connected CRM's view of each contact (record id, owner, lifecycle stage, lead status, company).",
+	},
+	{
 		Name: "contact_activities", Group: models.OrgDataGroupContacts,
 		Scope: scopeOrg,
 	},
@@ -361,6 +397,8 @@ var Tables = []Table{
 	{
 		Name: "campaigns", Group: models.OrgDataGroupCampaigns,
 		Scope: scopeOrg,
+		// The tracking override is verified again on the destination.
+		ResetOnImport: []string{"tracking_domain_verified", "tracking_domain_verified_at"},
 	},
 	{
 		// A contacts-group table, but it sits here because campaign_id points at
@@ -545,6 +583,21 @@ var Tables = []Table{
 		ResetOnImport: []string{"last_synced_at", "last_error", "last_error_at", "health_checked_at"},
 	},
 	{
+		Name: "crm_settings", Group: models.OrgDataGroupAutomations,
+		Scope: scopeOrg,
+		Note:  "Which CRM the workspace runs on and its setup choices. The connection travels with it, so HubSpot or Pipedrive mode resumes on the destination once its OAuth app is configured.",
+	},
+	{
+		Name: "crm_owners", Group: models.OrgDataGroupAutomations,
+		Scope: scopeOrg,
+		Note:  "The connected CRM's users and the member each one was matched to.",
+	},
+	{
+		Name: "crm_external_links", Group: models.OrgDataGroupAutomations,
+		Scope: scopeOrg,
+		Note:  "Which mirrored deal, task, note, pipeline or stage is which CRM record, so the destination updates the same records instead of creating duplicates.",
+	},
+	{
 		Name: "automations", Group: models.OrgDataGroupAutomations,
 		Scope: scopeOrg,
 	},
@@ -568,6 +621,17 @@ var Tables = []Table{
 		Name: "lead_sync_sources", Group: models.OrgDataGroupAutomations,
 		Scope:         scopeOrg,
 		ResetOnImport: []string{"last_synced_at", "last_result", "last_error"},
+	},
+	{
+		Name: "salesforce_import_sources", Group: models.OrgDataGroupAutomations,
+		Scope:         scopeOrg,
+		ResetOnImport: []string{"status", "last_run_at", "last_result", "last_error"},
+		Note:          "Saved Salesforce list view and Campaign imports. They point at the same org once the connection is reauthorized on the destination.",
+	},
+	{
+		Name: "salesforce_import_members", Group: models.OrgDataGroupAutomations,
+		Scope: `source_id IN (SELECT id FROM salesforce_import_sources WHERE organization_id = $1)`,
+		Note:  "Which records each import already brought in, so a recurring import on the destination does not import them again.",
 	},
 
 	// ---------- assistant ----------
@@ -649,7 +713,8 @@ var Tables = []Table{
 	},
 	{
 		Name: "warmup_spam_reports", Group: models.OrgDataGroupWarmup,
-		Scope: `reporter_account_id IN ` + orgMailboxes,
+		PartnerRefs: []string{"reported_account_id"},
+		Scope:       `reporter_account_id IN ` + orgMailboxes,
 	},
 	{
 		Name: "warmup_pool_participants", Group: models.OrgDataGroupWarmup,
@@ -685,11 +750,12 @@ var Tables = []Table{
 	},
 	{
 		Name: "unibox_snoozes", Group: models.OrgDataGroupInbox,
-		Scope: `thread_id IN ` + orgThreads,
+		Scope: scopeOrg,
 	},
 	{
 		Name: "inbox_tag_results", Group: models.OrgDataGroupInbox,
 		Scope: scopeOrg + ` AND status = 'complete'`,
+		Owner: scopeOrg,
 		Note: "Automatic tagging verdicts, including the raw probabilities. They travel because retuning the weights " +
 			"against stored answers is free while re-running the model over the history is not. Below email_accounts, " +
 			"which it references.",
@@ -718,6 +784,7 @@ var Tables = []Table{
 		// A placement probe's task stays behind: a pending one would send from
 		// the destination to the source instance's seeds.
 		Scope: `email_account_id IN ` + orgMailboxes + ` AND task_type <> 'placement'`,
+		Owner: `email_account_id IN ` + orgMailboxes,
 		// The handle belongs to the source instance's queue.
 		ResetOnImport: []string{"cloud_task_name"},
 	},
@@ -746,11 +813,17 @@ var Tables = []Table{
 	},
 	{
 		Name: "warmup_tasks", Group: models.OrgDataGroupSending,
-		Scope: `task_id IN ` + orgTasks,
+		PartnerRefs: []string{"target_account_id"},
+		Scope:       `task_id IN ` + orgTasks,
 	},
 	{
 		Name: "warmup_tokens", Group: models.OrgDataGroupSending,
-		Scope: `task_id IN ` + orgTasks,
+		PartnerRefs: []string{"recipient_account_id"},
+		Scope:       `task_id IN ` + orgTasks,
+	},
+	{
+		Name: "warmup_recovery_identifiers", Group: models.OrgDataGroupWarmup,
+		Scope: scopeOrg,
 	},
 	{
 		Name: "task_failures", Group: models.OrgDataGroupSending,
@@ -823,6 +896,7 @@ var Tables = []Table{
 	},
 	{
 		Name: "placement_results", Group: models.OrgDataGroupEvents,
+		PartnerRefs:   []string{"seed_account_id"},
 		Scope:         `test_id IN ` + orgPlacements,
 		ResetOnImport: []string{"seed_account_id", "remote_seed_id", "task_id", "remote_synced_at"},
 	},
@@ -926,12 +1000,20 @@ var Tables = []Table{
 // with the reason. Kept as data so the docs page and the coverage test both
 // read from one list instead of restating it.
 var ExcludedTables = map[string]string{
+	"warmup_pending_filings":       "Provider filing awaiting acknowledgement on this instance. The destination resyncs mailbox messages.",
 	"unibox_pending_emails":        "Unverified mailbox-sync events awaiting this instance's warmup checks. The destination resyncs provider mail with its own warmup and cloud-link state.",
 	"organization_encrypted_keys":  "The organization's data key, wrapped by the source instance's KMS. The destination cannot unwrap it, and shipping it would put every org secret behind one exported blob.",
 	"api_idempotency_keys":         "A short-lived replay cache for in-flight API requests.",
 	"realtime_events":              "The websocket outbox. Every row is already delivered or expired.",
 	"integration_oauth_states":     "In-flight OAuth handshakes, valid for minutes and bound to the source instance's redirect URL.",
+	"crm_sync_jobs":                "The outbox of pending CRM writes on this instance; the destination's own events feed its outbox.",
+	"crm_sync_cursors":             "Pull checkpoints for this instance; the destination starts its own pull.",
+	"salesforce_record_links":      "Which Salesforce record each contact is, with a cached copy of it. The destination links contacts again by address the first time it syncs or shows them, and reads the record fresh.",
+	"salesforce_activity_queue":    "Activity waiting to be logged in Salesforce, and the recent outcome of what was. What was logged is already in Salesforce; what was waiting belongs to this instance's drain.",
+	"salesforce_sync_state":        "Where this instance's pull loop got to in each Salesforce org, and the API calls it counted today. The destination starts its own cursor when the connection first syncs.",
 	"oauth_authorization_codes":    "Single-use authorization codes, valid for seconds.",
+	"oauth_developer_blocks":       "An operator's decision on the source instance about who may build apps there; the destination's operators decide for theirs.",
+	"app_directory_listings":       "A publication on the source instance's community directory, featured or hidden by its team. Publish again on the destination, where its own team decides.",
 	"scheduled_deletions":          "Instance lifecycle state. Importing a pending deletion would schedule the destination workspace for destruction.",
 	"dedicated_worker_assignments": "Worker topology, which is a property of the instance rather than the workspace.",
 	"warmup_spam_moves":            "Per-message attribution evidence for warmup mail this instance synced, kept only to decide recent tampering; the destination judges its own.",
@@ -954,7 +1036,13 @@ var ExcludedTables = map[string]string{
 	"contact_imports":              "Contact imports in progress or recently finished. They are work this instance is doing; the contacts they created travel with the contacts group.",
 	"contact_import_rows":          "The uploaded rows of a contact import and what became of each. They follow contact_imports, which does not travel.",
 	"placement_renders":            "The copy a tracking comparison is sending to each seed, sealed so both halves send the same words. It lives only while the comparison runs, and a copy that had not been sent stays behind with its task.",
-	"user_view_preferences":        "Each member's own column layout and sort for the dashboard's lists. It belongs to the person rather than the workspace: members are matched by account on import and a layout names custom fields the destination may not hold yet, so everyone starts from the default view and picks their columns again.",
+	"inbox_follow_up_sweeps":       "This instance's hourly follow-up sweep state for the workspace: where its cycle stopped (by this instance's mailbox and message row ids), how far it has checked changed conversations, and which walker holds it. The destination starts its own cycle at the newest conversation.",
+	"slack_user_links":             "Which Slack member speaks for which Warmbly member. Slack delivers that member's messages to the instance whose Slack app the workspace installed, so each member links again after the workspace reconnects Slack on the destination.",
+	"slack_link_codes":             "In-flight Slack account links, valid for minutes.",
+	"slack_agent_threads":          "Which Slack thread the assistant answers in for which conversation. The Slack install they belong to does not travel; the conversations themselves do, with agent_sessions.",
+	"slack_inbox_threads":          "Which Slack thread mirrors which inbox conversation. The Slack install and its channel do not travel; the conversations themselves do, with the unified inbox.",
+	"user_view_preferences":        "Each member's own column layout and sort for the dashboard's lists, and their unibox scope rail arrangement. It belongs to the person rather than the workspace: members are matched by account on import and a layout names custom fields the destination may not hold yet, so everyone starts from the default view and picks their columns again.",
+	"campaign_send_plan_snapshots": "Today's precomputed send plan for a campaign, derived from the campaign, its leads, its mailboxes and this instance's limits, which all travel. Keyed to this instance's budget day, and naming mailboxes and workers. The destination's own background snapshotter recomputes it.",
 }
 
 // TableByName indexes Tables for lookup during import.

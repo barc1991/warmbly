@@ -223,6 +223,14 @@ func detectSpamPlacement(s *repository.AdvisorSnapshot) []Finding {
 func detectDomainAuth(s *repository.AdvisorSnapshot) []Finding {
 	out := []Finding{}
 	for _, m := range s.Mailboxes {
+		// Warmup-only mailboxes (e.g. aged Gmail peer nodes) are used strictly
+		// for peer warmup exchanges and do not send cold outreach. Skip domain
+		// auth check so personal domains without custom DNS don't raise false alarms.
+		emailLower := strings.ToLower(strings.TrimSpace(m.Email))
+		if strings.HasSuffix(emailLower, "@gmail.com") || strings.HasSuffix(emailLower, "@googlemail.com") {
+			continue
+		}
+
 		// "unknown" means the sweep has not resolved this domain yet (or DNS
 		// failed transiently). Reporting it as failing would cry wolf on every
 		// freshly-connected mailbox.

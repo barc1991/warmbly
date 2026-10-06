@@ -12,17 +12,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/observability/errs"
-	"github.com/warmbly/warmbly/internal/pkg/crypt"
 	"golang.org/x/oauth2"
 )
 
 // OAuthReauth issues an authorization URL that renews an existing mailbox's
 // tokens. Same round trip as OAuthStart, but the state carries the account id
 // so the finish leg updates in place instead of connecting a duplicate.
-func (s *emailService) OAuthReauth(ctx context.Context, userID string, orgID *uuid.UUID, accountID uuid.UUID) (*models.EmailOnboardingStartResponse, *errx.Error) {
+func (s *emailService) OAuthReauth(ctx context.Context, userID string, orgID *uuid.UUID, accountID uuid.UUID, returnOrigin string) (*models.EmailOnboardingStartResponse, *errx.Error) {
 	if orgID == nil {
 		return nil, errx.ErrNoOrganization
 	}
@@ -36,6 +36,9 @@ func (s *emailService) OAuthReauth(ctx context.Context, userID string, orgID *uu
 	}
 
 	provider := models.InboxProvider(account.Provider)
+	if returnOrigin != "" && config.DashboardOrigin(returnOrigin) == "" {
+		return nil, errx.ErrEmailOnboardReturnOrigin
+	}
 	if provider == models.InboxProviderSMTPIMAP {
 		return nil, errx.ErrEmailReauthProvider
 	}
@@ -55,11 +58,16 @@ func (s *emailService) OAuthReauth(ctx context.Context, userID string, orgID *uu
 		return nil, xerr
 	}
 
-	state, err := crypt.Nonce()
+	// Only the dashboard renews a mailbox's sign-in.
+	state, err := newState(true)
 	if err != nil {
 		errs.CaptureException(err)
 		return nil, errx.InternalError()
 	}
+
+	// PKCE, same as the first-connect path: the verifier never leaves the
+	// server, so an intercepted code is not redeemable.
+	verifier := oauth2.GenerateVerifier()
 
 	if xerr := s.saveOnboardingState(ctx, state, &models.EmailOnboardingState{
 		UserID:         userID,
@@ -68,11 +76,14 @@ func (s *emailService) OAuthReauth(ctx context.Context, userID string, orgID *uu
 		Nonce:          state,
 		EmailAccountID: &accountID,
 		OAuthSlotID:    account.OAuthSlotID,
+		CodeVerifier:   verifier,
+		ReturnOrigin:   returnOrigin,
 	}); xerr != nil {
 		return nil, xerr
 	}
 
-	url := cfg.AuthCodeURL(state, authCodeOptions(provider, account.Email)...)
+	opts := append(authCodeOptions(provider, account.Email), oauth2.S256ChallengeOption(verifier))
+	url := cfg.AuthCodeURL(state, opts...)
 	return &models.EmailOnboardingStartResponse{URL: url, State: state}, nil
 }
 
@@ -163,7 +174,17 @@ func (s *emailService) UpdateSMTPIMAPCredentials(ctx context.Context, orgID *uui
 		return nil, errx.InternalError()
 	}
 
-	return s.reconnectAccount(ctx, accountID)
+	account, xerr = s.reconnectAccount(ctx, accountID)
+	if xerr != nil {
+		return nil, xerr
+	}
+	// Warmbly Cloud sends this mailbox's warmup with its own copy of the credential.
+	if s.cloudCredentials != nil {
+		if xerr := s.cloudCredentials.RefreshCredentials(ctx, *orgID, accountID); xerr != nil {
+			log.Warn().Str("account_id", accountID.String()).Str("code", xerr.Identifier).Msg("cloud link: new credential not handed to Warmbly Cloud; it keeps the old one until the mailbox is enrolled again")
+		}
+	}
+	return account, nil
 }
 
 // reconnectAccount is the shared tail of both reconnect flows: reactivate,

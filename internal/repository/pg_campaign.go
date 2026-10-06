@@ -78,6 +78,10 @@ type CampaignRepository interface {
 	CountActiveForOrganization(ctx context.Context, orgID uuid.UUID) (int, error)
 	// ListIDsByStatus lists the org's campaigns parked at one status.
 	ListIDsByStatus(ctx context.Context, orgID uuid.UUID, status string) ([]uuid.UUID, error)
+	// ListActiveCampaignIDs pages the ids of every active campaign on the
+	// instance, keyset-ordered by id from afterID (uuid.Nil for the first page),
+	// for the background send-plan snapshotter.
+	ListActiveCampaignIDs(ctx context.Context, afterID uuid.UUID, limit int) ([]uuid.UUID, error)
 	AccountHasActiveCampaign(ctx context.Context, accountID uuid.UUID) (bool, error)
 	// CountActiveCampaignsForAccount returns how many active campaigns send
 	// from the given mailbox (matched through the campaign's email tags OR an
@@ -85,6 +89,10 @@ type CampaignRepository interface {
 	// low-volume health-check warmup running whenever a mailbox is in use by a
 	// live campaign.
 	CountActiveCampaignsForAccount(ctx context.Context, accountID uuid.UUID) (int, error)
+	// CountActiveCampaignsForAccounts is the batched form, keyed by account id,
+	// so a status list resolves campaign membership for the whole page in one
+	// query. An account backing no active campaign maps to 0.
+	CountActiveCampaignsForAccounts(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]int, error)
 
 	// ── Explicit sender pool (feature 1) ────────────────────────────────
 	// GetCampaignSenders returns the campaign's explicit sender rows.
@@ -1330,7 +1338,7 @@ func (r *campaignRepository) Update(ctx context.Context, orgID, campaignID strin
 	}()
 
 	var query string
-	if argPos > 3 {
+	if argPos >= 3 {
 		query = fmt.Sprintf(`
 			UPDATE campaigns
 			SET %s
@@ -1761,6 +1769,33 @@ func (r *campaignRepository) ListCampaignScheduleCandidates(ctx context.Context,
 	return ids, rows.Err()
 }
 
+// ListActiveCampaignIDs pages active campaign ids keyset-ordered by id, so the
+// snapshotter walks the whole fleet one bounded batch at a time regardless of
+// how many campaigns are active.
+func (r *campaignRepository) ListActiveCampaignIDs(ctx context.Context, afterID uuid.UUID, limit int) ([]uuid.UUID, error) {
+	if limit <= 0 {
+		limit = 500
+	}
+	rows, err := r.DB.Query(ctx, `
+		SELECT id FROM campaigns
+		WHERE status = 'active' AND id > $1
+		ORDER BY id
+		LIMIT $2`, afterID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // ParkedCampaignTask is one active campaign together with the pending wakeup
 // task holding its chain, for the reconciler's stale-park check.
 type ParkedCampaignTask struct {
@@ -1920,6 +1955,61 @@ func (r *campaignRepository) CountActiveCampaignsForAccount(ctx context.Context,
 	var count int
 	err := r.DB.QueryRow(ctx, query, accountID).Scan(&count)
 	return count, err
+}
+
+// CountActiveCampaignsForAccounts counts, for each mailbox in the set, the
+// distinct active campaigns it backs. Same scope rule as the single-account
+// form: tag-resolved, explicit enabled sender, or an "all" campaign (no tags,
+// no enabled senders) in the mailbox's tenant when the mailbox is active.
+func (r *campaignRepository) CountActiveCampaignsForAccounts(ctx context.Context, accountIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	out := make(map[uuid.UUID]int, len(accountIDs))
+	if len(accountIDs) == 0 {
+		return out, nil
+	}
+	for _, id := range accountIDs {
+		out[id] = 0
+	}
+
+	query := `
+		SELECT a.id, COUNT(DISTINCT c.id)
+		FROM unnest($1::uuid[]) AS a(id)
+		JOIN email_accounts ea ON ea.id = a.id
+		LEFT JOIN campaigns c
+		  ON c.status = 'active'
+		 AND c.organization_id = ea.organization_id
+		 AND (
+			EXISTS (
+				SELECT 1 FROM campaign_email_tags cet
+				JOIN email_tags et ON et.tag_id = cet.tag_id
+				WHERE cet.campaign_id = c.id AND et.email_id = a.id
+			)
+			OR EXISTS (
+				SELECT 1 FROM campaign_senders cs
+				WHERE cs.campaign_id = c.id AND cs.email_account_id = a.id AND cs.enabled
+			)
+			OR (
+				ea.status = 'active'
+				AND NOT EXISTS (SELECT 1 FROM campaign_email_tags cet2 WHERE cet2.campaign_id = c.id)
+				AND NOT EXISTS (SELECT 1 FROM campaign_senders cs2 WHERE cs2.campaign_id = c.id AND cs2.enabled)
+			)
+		 )
+		GROUP BY a.id`
+
+	rows, err := r.DB.Query(ctx, query, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		var count int
+		if err := rows.Scan(&id, &count); err != nil {
+			return nil, err
+		}
+		out[id] = count
+	}
+	return out, rows.Err()
 }
 
 // syncCampaignSendersTx replaces the explicit sender pool inside an existing tx.
@@ -2093,6 +2183,12 @@ func (r *campaignRepository) ReplaceCampaignSenders(ctx context.Context, campaig
 		return nil, xerr
 	}
 
+	// The send-plan snapshot is keyed on updated_at, so a sender edit must move it.
+	if _, err := tx.Exec(ctx, `UPDATE campaigns SET updated_at = now() WHERE id = $1`, campaignID); err != nil {
+		db.CaptureError(err, "campaign updated_at", []any{campaignID}, "exec")
+		return nil, errx.InternalError()
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		db.CaptureError(err, "", nil, "commit")
 		return nil, errx.InternalError()
@@ -2231,6 +2327,9 @@ func (r *campaignRepository) SetCampaignTrackingDomainVerified(ctx context.Conte
 		SET tracking_domain_verified = $2, tracking_domain_verified_at = $3, updated_at = NOW()
 		WHERE id = $1
 	`, campaignID, verified, at)
+	if isTrackingDomainTaken(err) {
+		return ErrTrackingDomainTaken
+	}
 	return err
 }
 

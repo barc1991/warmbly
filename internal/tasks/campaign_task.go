@@ -600,7 +600,7 @@ func (s *tasksService) HandleCampaignTask(task *proto.ProcessTask) (result *errx
 		// in the email rather than naming the platform.
 		unsubscribeURL = s.mintUnsubscribeLink(ctx, resolveOptOutOrigin(account, campaign), orgID, campaign.ID, contact.ID)
 	}
-	extra := map[string]string{UnsubscribeLinkVar: unsubscribeURL}
+	extra := templateContext(account, unsubscribeURL)
 
 	// STEP 10: Render email template with contact variables, then expand any
 	// {a|b|c} spintax per-recipient (only real |-groups; literal braces/CSS are
@@ -608,6 +608,10 @@ func (s *tasksService) HandleCampaignTask(task *proto.ProcessTask) (result *errx
 	subject := expandSpintax(RenderTemplateWith(rawSubject, *contact, extra))
 	bodyHTML := expandSpintax(RenderTemplateWith(rawBodyHTML, *contact, extra))
 	bodyPlain := expandSpintax(RenderTemplateWith(rawBodyPlain, *contact, extra))
+	// A recorded conversation subject is already rendered: reuse it verbatim.
+	if threadParent != nil && threadParent.SubjectSent && threadSubject != "" {
+		subject = threadSubject
+	}
 
 	// If no plain text provided, extract from HTML
 	if bodyPlain == "" && bodyHTML != "" {
@@ -666,6 +670,12 @@ func (s *tasksService) HandleCampaignTask(task *proto.ProcessTask) (result *errx
 			executionStatus = "failed"
 			return errx.InternalError()
 		}
+	}
+
+	// Follow-ups thread on exactly this subject; a failed write falls back to the step's.
+	if err := s.taskRepo.UpdateCampaignTaskSubject(ctx, taskID, subject); err != nil {
+		log.Warn().Err(err).Str("campaign_id", campaign.ID.String()).Str("task_id", taskID.String()).
+			Msg("Could not record the subject this send carries")
 	}
 
 	// STEP 10.6: A plain-text campaign ships no HTML part at all. Tracking
@@ -1049,7 +1059,7 @@ func (s *tasksService) HandleCampaignTask(task *proto.ProcessTask) (result *errx
 	}
 
 	// STEP 19: Publish events to Kafka
-	s.publishEmailSentEvent(ctx, taskRecord, account, campaign, contact, sequence)
+	s.publishEmailSentEvent(ctx, taskRecord, account, campaign, contact, sequence, subject, bodyPlain)
 
 	// STEP 20: Create next campaign task. The successor serves whichever lead
 	// is due next, so it must never be shaped for the contact just emailed:
@@ -1418,7 +1428,10 @@ func (s *tasksService) executeActionNode(ctx context.Context, campaign *models.C
 		}
 		return nil
 	case "unsubscribe":
-		if xerr := s.advanced.Unsubscribe(ctx, campaign.ID, contact.ID); xerr != nil {
+		if campaign.OrganizationID == nil {
+			return nil
+		}
+		if xerr := s.advanced.Unsubscribe(ctx, *campaign.OrganizationID, campaign.ID, contact.ID); xerr != nil {
 			return xerr
 		}
 		return nil
@@ -1669,6 +1682,7 @@ func (s *tasksService) publishEmailSentEvent(
 	campaign *Campaign,
 	contact *Contact,
 	sequence *Sequence,
+	subject, bodyPlain string,
 ) {
 	if s.eventsPublisher == nil {
 		return
@@ -1690,7 +1704,13 @@ func (s *tasksService) publishEmailSentEvent(
 		}
 		if account != nil {
 			data["from_email"] = account.Email
+			data["_email_account_id"] = account.ID.String()
 		}
+		// Private (underscore) keys reach in-process sinks like a connected
+		// CRM's activity log, never a customer webhook body.
+		data["_task_id"] = task.ID.String()
+		data["_subject"] = subject
+		data["_body_text"] = bodyPlain
 		s.advanced.EmitCampaignEvent(ctx, *campaign.OrganizationID, models.WebhookEventCampaignEmailSent, data)
 	}
 }

@@ -18,6 +18,7 @@ package bootstrap
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -118,11 +119,21 @@ func (s *Service) createOwner(ctx context.Context, address string) error {
 			return fmt.Errorf("bootstrap: hashing the password: %w", herr)
 		}
 		hash = hashed
+	} else if herr := argon2.CheckParams(hash); herr != nil {
+		return fmt.Errorf("bootstrap: WARMBLY_BOOTSTRAP_PASSWORD_HASH is refused (%v); generate one with `warmblyctl hash-password`", herr)
 	}
 
 	u, uerr := s.users.CreateUser(ctx, parsed, hash)
 	if uerr != nil {
 		return fmt.Errorf("bootstrap: creating the owner: %w", uerr)
+	}
+	// Provisioned from the environment, so nobody is at a browser to answer the wizard.
+	// Not fatal: the user row now exists, so a later boot would never retry the
+	// org and admin steps below; the wizard showing once is the lesser cost.
+	if at, merr := s.users.MarkOnboarded(ctx, u.ID); merr != nil {
+		log.Printf("Warning: bootstrap could not mark %s onboarded, the dashboard will show the setup wizard first: %v", parsed.Address, merr)
+	} else {
+		u.OnboardingCompletedAt = &at
 	}
 	if err := s.userSvc.SaveUser(ctx, u); err != nil {
 		return fmt.Errorf("bootstrap: saving the owner: %w", err)
@@ -292,11 +303,12 @@ func (s *Service) Claim(ctx context.Context, token, address, password, firstName
 	remaining, _ := s.cache.PTTL(ctx, setupTokenKey).Result()
 
 	stored, gerr := s.cache.GetDel(ctx, setupTokenKey).Result()
-	if gerr != nil || stored == "" || stored != hashToken(token) {
+	matches := subtle.ConstantTimeCompare([]byte(stored), []byte(hashToken(token))) == 1
+	if gerr != nil || stored == "" || !matches {
 		// Put a valid-but-losing token back only when the value did not match,
 		// so a typo does not burn the real one, and only for the time it had
 		// left.
-		if gerr == nil && stored != "" && stored != hashToken(token) && remaining > 0 {
+		if gerr == nil && stored != "" && !matches && remaining > 0 {
 			_ = s.cache.SetEx(ctx, setupTokenKey, stored, remaining).Err()
 		}
 		return nil, errx.ErrSetupToken

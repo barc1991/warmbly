@@ -110,6 +110,12 @@ func truncateRunes(s string, max int) string {
 	return string(r[:max-1]) + "…"
 }
 
+// slackEscape escapes the characters Slack reserves for links and mentions, so
+// text from a contact or a reply renders as written.
+func slackEscape(s string) string {
+	return strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(s)
+}
+
 // notifyFields turns the message's contact/subject into structured key-value
 // fields shared by the Slack and Discord cards (omitted when empty).
 func (m eventMessage) notifyFields() (contact, subject string) {
@@ -127,28 +133,28 @@ func slackPostMessage(ctx context.Context, token, channel string, msg eventMessa
 	}
 	attachment := map[string]any{
 		"color":    notifyAccentHex,
-		"fallback": msg.plainText(),
-		"title":    truncateRunes(msg.Title, 256),
+		"fallback": slackEscape(msg.plainText()),
+		"title":    slackEscape(truncateRunes(msg.Title, 256)),
 		"footer":   "Warmbly",
 		"ts":       time.Now().Unix(),
 	}
 	if msg.Custom != "" {
-		attachment["text"] = truncateRunes(msg.Custom, 3000)
+		attachment["text"] = slackEscape(truncateRunes(msg.Custom, 3000))
 	}
 	contact, subject := msg.notifyFields()
 	var fields []map[string]any
 	if contact != "" {
-		fields = append(fields, map[string]any{"title": "Contact", "value": contact, "short": true})
+		fields = append(fields, map[string]any{"title": "Contact", "value": slackEscape(contact), "short": true})
 	}
 	if subject != "" {
-		fields = append(fields, map[string]any{"title": "Subject", "value": subject, "short": true})
+		fields = append(fields, map[string]any{"title": "Subject", "value": slackEscape(subject), "short": true})
 	}
 	if len(fields) > 0 {
 		attachment["fields"] = fields
 	}
 	body, _ := json.Marshal(map[string]any{
 		"channel":     channel,
-		"text":        msg.Title,
+		"text":        slackEscape(msg.Title),
 		"attachments": []map[string]any{attachment},
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://slack.com/api/chat.postMessage", bytes.NewReader(body))
@@ -554,17 +560,15 @@ func hubspotJSON(ctx context.Context, method, url, token string, body []byte, ds
 }
 
 // pipedriveUpsertPerson creates a Pipedrive person keyed by email using the
-// caller-projected props. Pipedrive's REST API has no true upsert, so we search
-// first and skip when the person already exists (keeping the action idempotent).
-// email/phone props are reshaped into Pipedrive's array form; other keys (name,
-// custom-field hashes) pass through as-is.
-func pipedriveUpsertPerson(ctx context.Context, token, email string, props map[string]any) error {
+// caller-projected props, through API v2 on the company's own host. Pipedrive
+// has no upsert, so it searches first and leaves an existing person alone,
+// which keeps the action idempotent. email/phone become Pipedrive's arrays;
+// other keys (name, 40-char custom field hashes) pass through.
+func pipedriveUpsertPerson(ctx context.Context, base, token, email string, props map[string]any) error {
 	if email == "" {
 		return nil
 	}
-
-	// Search for an existing person by email.
-	searchURL := "https://api.pipedrive.com/v1/persons/search?term=" + url.QueryEscape(email) + "&fields=email&exact_match=true"
+	searchURL := base + "/api/v2/persons/search?term=" + url.QueryEscape(email) + "&fields=email&exact_match=true&limit=1"
 	var search struct {
 		Data struct {
 			Items []struct {
@@ -578,28 +582,61 @@ func pipedriveUpsertPerson(ctx context.Context, token, email string, props map[s
 		return err
 	}
 	if len(search.Data.Items) > 0 {
-		return nil // already present; nothing to do
+		return nil
 	}
 
 	payload := map[string]any{}
+	custom := map[string]any{}
 	for k, v := range props {
-		switch k {
-		case "email":
-			payload["email"] = []string{toStr(v)}
-		case "phone":
-			payload["phone"] = []string{toStr(v)}
+		switch {
+		case k == "email":
+			payload["emails"] = []map[string]any{{"value": toStr(v), "primary": true, "label": "work"}}
+		case k == "phone":
+			payload["phones"] = []map[string]any{{"value": toStr(v), "primary": true, "label": "work"}}
+		case isPipedriveFieldHash(k):
+			custom[k] = v
 		default:
 			payload[k] = v
 		}
 	}
 	if strProp(payload, "name") == "" {
-		payload["name"] = email
+		name := strings.TrimSpace(strProp(payload, "first_name") + " " + strProp(payload, "last_name"))
+		if name == "" {
+			name = email
+		}
+		payload["name"] = name
 	}
-	if _, ok := payload["email"]; !ok {
-		payload["email"] = []string{email}
+	if _, ok := payload["emails"]; !ok {
+		payload["emails"] = []map[string]any{{"value": email, "primary": true, "label": "work"}}
+	}
+	if len(custom) > 0 {
+		payload["custom_fields"] = custom
 	}
 	create, _ := json.Marshal(payload)
-	return pipedriveJSON(ctx, http.MethodPost, "https://api.pipedrive.com/v1/persons", token, create, nil)
+	return pipedriveJSON(ctx, http.MethodPost, base+"/api/v2/persons", token, create, nil)
+}
+
+// isPipedriveFieldHash reports a custom field key (a 40-character hex hash).
+func isPipedriveFieldHash(k string) bool {
+	if len(k) != 40 {
+		return false
+	}
+	for _, r := range k {
+		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+
+// pipedriveBase is the company host a connection's calls go to.
+func pipedriveBase(conn *models.IntegrationConnection) string {
+	if conn != nil {
+		if d, err := PipedriveAPIDomain(configString(conn.DisplayFields, "api_domain")); err == nil {
+			return d
+		}
+	}
+	return "https://api.pipedrive.com"
 }
 
 func pipedriveJSON(ctx context.Context, method, url, token string, body []byte, dst any) error {
@@ -649,7 +686,7 @@ func closeUpsertLead(ctx context.Context, apiKey, email string, props map[string
 
 	// Idempotency guard: skip if a lead already has this email address.
 	searchURL := "https://api.close.com/api/v1/lead/?_fields=id&query=" +
-		url.QueryEscape("email_address:\""+email+"\"")
+		url.QueryEscape("email_address:\""+strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(email)+"\"")
 	var search struct {
 		Data []struct {
 			ID string `json:"id"`

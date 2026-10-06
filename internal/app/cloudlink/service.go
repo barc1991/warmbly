@@ -4,6 +4,7 @@ package cloudlink
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -30,20 +31,27 @@ var (
 	ErrNoCredentialKey = errx.NewWithIdentifier(errx.Conflict, "cloud_link_no_key", "This instance has no CREDENTIALS_ENCRYPTION_KEY, so it cannot store the Warmbly Cloud token. Set one and restart before connecting.")
 )
 
+// devMode is APP_ENV dev or unset, the only place a loopback cloud is reachable.
+func devMode() bool {
+	env := strings.TrimSpace(os.Getenv("APP_ENV"))
+	return env == "" || strings.EqualFold(env, "dev")
+}
+
 // cloudURLAllowed requires TLS: the token and mailbox passwords travel on
-// this URL. Loopback is exempt for local development.
-func cloudURLAllowed(u string) bool {
-	if strings.HasPrefix(u, "https://") {
-		return true
-	}
-	if !strings.HasPrefix(u, "http://") {
+// this URL. Plain-HTTP loopback is accepted only in development.
+func cloudURLAllowed(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return false
 	}
-	host := strings.TrimPrefix(u, "http://")
-	if i := strings.IndexAny(host, ":/"); i >= 0 {
-		host = host[:i]
+	switch u.Scheme {
+	case "https":
+		return true
+	case "http":
+		host := u.Hostname()
+		return devMode() && (host == "localhost" || host == "127.0.0.1" || host == "::1")
 	}
-	return host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]"
+	return false
 }
 
 // CloudURL is where the instance links to: WARMBLY_CLOUD_URL or the hosted API.
@@ -98,6 +106,8 @@ type Service interface {
 	ListMailboxes(ctx context.Context, orgID uuid.UUID) ([]models.CloudLinkMailboxRow, *errx.Error)
 	Enroll(ctx context.Context, orgID, accountID uuid.UUID) (*models.CloudLinkMailboxRow, *errx.Error)
 	Unenroll(ctx context.Context, orgID, accountID uuid.UUID) *errx.Error
+	// RefreshCredentials re-sends an enrolled mailbox's credential and ramp after they change here.
+	RefreshCredentials(ctx context.Context, orgID, accountID uuid.UUID) *errx.Error
 	// RevokeForDelete releases the mailbox on the cloud, credential and link
 	// alike, without ever calling back into the email service.
 	RevokeForDelete(ctx context.Context, orgID, accountID uuid.UUID) *errx.Error
@@ -488,7 +498,7 @@ func (s *service) Enroll(ctx context.Context, orgID, accountID uuid.UUID) (*mode
 		Provider: models.InboxProvider(acc.Provider),
 		Warmup: models.PoolLinkWarmupSettings{
 			Base: acc.WarmupBase, Max: acc.WarmupMax, Increase: acc.WarmupIncrease, ReplyRate: acc.WarmupReplyRate,
-			StartTime: acc.WarmupStartTime, EndTime: acc.WarmupEndTime, Days: acc.WarmupDays, Timezone: acc.ClockTimezone(),
+			StartTime: models.ClockHHMM(acc.WarmupStartTime), EndTime: models.ClockHHMM(acc.WarmupEndTime), Days: acc.WarmupDays, Timezone: acc.ClockTimezone(),
 		},
 	}
 	switch req.Provider {
@@ -519,6 +529,20 @@ func (s *service) Enroll(ctx context.Context, orgID, accountID uuid.UUID) (*mode
 	s.syncLocalPool(ctx, acc.ID)
 	s.recordStanding(ctx, acc.ID, state.Health, true)
 	return s.row(ctx, orgID, accountID)
+}
+
+func (s *service) RefreshCredentials(ctx context.Context, orgID, accountID uuid.UUID) *errx.Error {
+	m, err := s.repo.GetByAccount(ctx, accountID)
+	if err != nil {
+		return errx.InternalError()
+	}
+	// A managed mailbox's sign-in lives on the cloud; nothing here to hand over.
+	if m == nil || m.Managed {
+		return nil
+	}
+	// Enrolling again is how the cloud takes a new credential: it updates the mailbox it already holds.
+	_, xerr := s.Enroll(ctx, orgID, accountID)
+	return xerr
 }
 
 func (s *service) Unenroll(ctx context.Context, orgID, accountID uuid.UUID) *errx.Error {

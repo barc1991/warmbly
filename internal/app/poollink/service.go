@@ -21,6 +21,8 @@ import (
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/infrastructure/cache"
 	"github.com/warmbly/warmbly/internal/models"
+	"github.com/warmbly/warmbly/internal/pkg/crypt"
+	"github.com/warmbly/warmbly/internal/pkg/displayname"
 	"github.com/warmbly/warmbly/internal/repository"
 )
 
@@ -35,7 +37,18 @@ var (
 	ErrWarmupNotEntitled = errx.NewWithIdentifier(errx.Forbidden, "pool_link_warmup_unavailable", "Warmup is not available on this workspace.")
 	ErrBadCredential     = errx.NewWithIdentifier(errx.BadRequest, "pool_link_credential", "A credential matching the provider is required.")
 	ErrBadRequest        = errx.NewWithIdentifier(errx.BadRequest, "pool_link_request", "Instance name is required.")
+	ErrCleartextMailbox  = errx.NewWithIdentifier(errx.Unprocessable, "pool_link_cleartext_mailbox", "Warmbly Cloud reaches your mail server over the internet, so it needs TLS or STARTTLS on both SMTP and IMAP. This mailbox uses security \"none\", which only works for a mail server on your instance's own machine. Switch it to TLS, or keep warming it on your instance.")
 )
+
+// cloudReachable refuses an SMTP/IMAP credential this instance's workers cannot use, before anything is stored.
+func cloudReachable(c *models.SmtpImap) *errx.Error {
+	for _, svc := range []*models.Service{c.SMTP, c.IMAP} {
+		if svc != nil && svc.Security == models.MailSecurityNone && !models.CleartextMailAllowed(models.NormalizeMailHost(svc.Host)) {
+			return ErrCleartextMailbox
+		}
+	}
+	return nil
+}
 
 // WarmupScheduler seeds the first warmup task after enrollment.
 type WarmupScheduler interface {
@@ -70,8 +83,11 @@ type Service interface {
 
 	// Cloud-managed mailboxes for linked instances (oauth.go).
 	StartOAuth(ctx context.Context, inst *models.PoolLinkInstance, req models.PoolLinkOAuthStartRequest) (*models.PoolLinkOAuthStartResponse, *errx.Error)
-	// CompleteOAuthCallback finishes a brokered consent; returns "" when the state is not brokered.
-	CompleteOAuthCallback(ctx context.Context, provider, code, state, providerErr string) string
+	// DescribeOAuthConsent and ContinueOAuth back the cloud page shown before the provider opens.
+	DescribeOAuthConsent(ctx context.Context, state string) (*models.PoolLinkOAuthConsent, *errx.Error)
+	ContinueOAuth(ctx context.Context, state, binding string) (string, *errx.Error)
+	// CompleteOAuthCallback finishes a brokered consent and returns where to send the browser.
+	CompleteOAuthCallback(ctx context.Context, provider, code, state, providerErr, binding string) (string, *errx.Error)
 	FinishOAuth(ctx context.Context, inst *models.PoolLinkInstance, session string) (*models.PoolLinkMailboxState, *errx.Error)
 	AccessToken(ctx context.Context, inst *models.PoolLinkInstance, remoteID uuid.UUID) (*models.PoolLinkAccessToken, *errx.Error)
 	ListWorkspaceMailboxes(ctx context.Context, inst *models.PoolLinkInstance) ([]models.PoolLinkWorkspaceMailbox, *errx.Error)
@@ -119,18 +135,11 @@ func (s *service) WireScheduler(w WarmupScheduler) { s.scheduler = w }
 const userCodeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
 func randomUserCode() (string, error) {
-	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
+	s, err := crypt.RandomString(userCodeAlphabet, 8)
+	if err != nil {
 		return "", err
 	}
-	out := make([]byte, 0, 9)
-	for i, v := range b {
-		if i == 4 {
-			out = append(out, '-')
-		}
-		out = append(out, userCodeAlphabet[int(v)%len(userCodeAlphabet)])
-	}
-	return string(out), nil
+	return s[:4] + "-" + s[4:], nil
 }
 
 func randomToken(prefix string) (string, error) {
@@ -158,18 +167,16 @@ func NormalizeUserCode(raw string) string {
 }
 
 func (s *service) StartCode(ctx context.Context, req models.PoolLinkStartRequest) (*models.PoolLinkStartResponse, *errx.Error) {
-	req.InstanceName = strings.TrimSpace(req.InstanceName)
-	if req.InstanceName == "" {
+	if strings.TrimSpace(req.InstanceName) == "" {
 		return nil, ErrBadRequest
 	}
-	if len(req.InstanceName) > 80 {
-		req.InstanceName = req.InstanceName[:80]
-	}
+	// Shown to the approving workspace, so it follows the workspace naming rules.
+	req.InstanceName = displayname.CleanOr(req.InstanceName, displayname.Workspace, "Self-hosted instance")
 	if u, err := url.Parse(strings.TrimSpace(req.InstanceURL)); err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		req.InstanceURL = ""
 	}
-	if len(req.InstanceVersion) > 40 {
-		req.InstanceVersion = req.InstanceVersion[:40]
+	if r := []rune(req.InstanceVersion); len(r) > 40 {
+		req.InstanceVersion = string(r[:40])
 	}
 
 	deviceCode, err := randomToken("")
@@ -307,6 +314,8 @@ func (s *service) AuthenticateInstance(ctx context.Context, token, version strin
 }
 
 func (s *service) Plan(ctx context.Context, orgID uuid.UUID) (models.PoolLinkPlan, *errx.Error) {
+	// The free allowance is per workspace: mailboxes connected directly and
+	// through linked instances share it.
 	enrolled, xerr := s.emails.CountForOrganization(ctx, orgID)
 	if xerr != nil {
 		return models.PoolLinkPlan{}, xerr
@@ -315,13 +324,28 @@ func (s *service) Plan(ctx context.Context, orgID uuid.UUID) (models.PoolLinkPla
 	if xerr != nil {
 		return models.PoolLinkPlan{}, xerr
 	}
-	return models.PoolLinkPlan{
-		Tier:           "paid",
-		Enrolled:       enrolled,
-		Warming:        warming,
-		PriceUSD:       0,
-		WarmupEntitled: true,
-	}, nil
+	plan := models.PoolLinkPlan{Tier: "free", Enrolled: enrolled, Warming: warming, PriceUSD: config.PoolLinkPlanPriceUSD, WarmupEntitled: true}
+	if config.BillingProvider() == "none" {
+		plan.Tier = "paid"
+		return plan, nil
+	}
+	plan.ManageURL = config.AppBaseURL() + "/app/settings/billing"
+	paid, xerr := s.gate.HasPremiumWarmup(ctx, orgID)
+	if xerr != nil {
+		return plan, xerr
+	}
+	if paid {
+		plan.Tier = "paid"
+		return plan, nil
+	}
+	limit := models.FreeWorkspaceMailboxLimit
+	plan.MailboxLimit = &limit
+	if s.planRepo != nil {
+		if p, err := s.planRepo.GetByID(ctx, uuid.MustParse(config.PoolLinkPlanID)); err == nil && p != nil && p.StripePriceID != nil && *p.StripePriceID != "" {
+			plan.UpgradeURL = config.AppBaseURL() + "/app/settings/billing?pool=1"
+		}
+	}
+	return plan, nil
 }
 
 func (s *service) InstanceInfo(ctx context.Context, inst *models.PoolLinkInstance) (*models.PoolLinkInstanceInfo, *errx.Error) {
@@ -439,6 +463,9 @@ func (s *service) Enroll(ctx context.Context, inst *models.PoolLinkInstance, req
 		if req.SMTPIMAP == nil || req.SMTPIMAP.SMTP == nil || req.SMTPIMAP.IMAP == nil {
 			return nil, ErrBadCredential
 		}
+		if xerr := cloudReachable(req.SMTPIMAP); xerr != nil {
+			return nil, xerr
+		}
 		acc, xerr = s.emails.NewSMTPIMAPAccount(ctx, userID, models.NewSMTPIMAPAccount{
 			OrganizationID: &orgID,
 			Name:           name,
@@ -460,7 +487,7 @@ func (s *service) Enroll(ctx context.Context, inst *models.PoolLinkInstance, req
 
 	s.applyWarmupSettings(ctx, orgID, userID, acc.ID, req.Warmup)
 	if _, xerr := s.emailSvc.SetWarmupLifecycle(ctx, orgID.String(), acc.ID.String(), "start"); xerr != nil {
-		log.Warn().Str("account_id", acc.ID.String()).Msg("pool link: warmup start failed after enrollment")
+		log.Warn().Str("account_id", acc.ID.String()).Str("code", xerr.Identifier).Str("error", xerr.Message).Msg("pool link: warmup start failed after enrollment")
 	}
 	if err := s.emailSvc.LoadAccountOntoWorker(ctx, acc.ID); err != nil {
 		log.Warn().Err(err).Str("account_id", acc.ID.String()).Msg("pool link: worker load failed; reconciler will retry")
@@ -486,11 +513,12 @@ func (s *service) applyWarmupSettings(ctx context.Context, orgID uuid.UUID, user
 	if w.ReplyRate > 0 {
 		upd.WarmupReplyRate, set = &w.ReplyRate, true
 	}
-	if w.StartTime != "" {
-		upd.WarmupStartTime, set = &w.StartTime, true
+	// Instances send the column as read ("08:00:00.000000"); the write accepts "HH:MM" only.
+	if start := models.ClockHHMM(w.StartTime); start != "" {
+		upd.WarmupStartTime, set = &start, true
 	}
-	if w.EndTime != "" {
-		upd.WarmupEndTime, set = &w.EndTime, true
+	if end := models.ClockHHMM(w.EndTime); end != "" {
+		upd.WarmupEndTime, set = &end, true
 	}
 	if w.Days > 0 {
 		upd.WarmupDays, set = &w.Days, true
@@ -502,7 +530,7 @@ func (s *service) applyWarmupSettings(ctx context.Context, orgID uuid.UUID, user
 		return
 	}
 	if _, xerr := s.emailSvc.Update(ctx, orgID.String(), userID, accountID.String(), upd); xerr != nil {
-		log.Warn().Str("account_id", accountID.String()).Msg("pool link: warmup settings update failed")
+		log.Warn().Str("account_id", accountID.String()).Str("code", xerr.Identifier).Str("error", xerr.Message).Msg("pool link: warmup settings update failed")
 	}
 }
 
@@ -562,7 +590,8 @@ func (s *service) state(ctx context.Context, inst *models.PoolLinkInstance, m *m
 		},
 	}
 	if s.analytics != nil {
-		status, xerr := s.analytics.GetAccountStatus(ctx, inst.OrganizationID, acc.ID)
+		// Detail carries the partner cap, so a target no partner can meet is never shown as one.
+		status, xerr := s.analytics.GetAccountStatusDetail(ctx, inst.OrganizationID, acc.ID)
 		if xerr == nil && status != nil {
 			st.Warmup = status.WarmupStatus
 			st.Health = status.WarmupHealth
@@ -609,6 +638,9 @@ func (s *service) PatchMailbox(ctx context.Context, inst *models.PoolLinkInstanc
 		reload = true
 	}
 	if patch.SMTPIMAP != nil {
+		if xerr := cloudReachable(patch.SMTPIMAP); xerr != nil {
+			return nil, xerr
+		}
 		if err := s.emails.ReplaceSMTPIMAPCredentials(ctx, m.EmailAccountID, patch.SMTPIMAP); err != nil {
 			return nil, errx.InternalError()
 		}

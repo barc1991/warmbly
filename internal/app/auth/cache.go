@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,17 +14,9 @@ import (
 	"github.com/warmbly/warmbly/internal/pkg/crypt"
 )
 
-// Login and registration keep separate send budgets. They used to share one
-// key, which let anyone lock a known user out of login for the whole window by
-// POSTing /auth/register with that user's address.
+// Login and registration keep separate send budgets, so registering an address cannot spend its login budget.
 func getEmailVerificationKey(flow, email string) string {
 	return "email_verification:" + flow + ":" + crypt.SHA256(email)
-}
-
-// getKnownDeviceKey remembers a device that has already completed a full login,
-// so AUTH_LOGIN_CODE=new_device only challenges genuinely new ones.
-func getKnownDeviceKey(userID uuid.UUID, fingerprint string) string {
-	return "known_device:" + userID.String() + ":" + fingerprint
 }
 
 func getPasswordResetLimitKey(email string) string {
@@ -204,9 +195,7 @@ func (s *authService) refundPasswordResetLimit(ctx context.Context, email string
 }
 
 // saveResetPasswordSession binds the emailed reset JWT to a server-side nonce.
-// The TTL is PasswordResetTTL, the same lifetime the JWT carries and the same
-// one the email quotes: it used to be SessionTTL (10 minutes) against a 1-hour
-// token and a mail that promised 4 hours.
+// The TTL is PasswordResetTTL, the same lifetime the JWT carries and the email quotes.
 func (s *authService) saveResetPasswordSession(ctx context.Context, sessionID uuid.UUID, nonce string) *errx.Error {
 	if err := s.cache.SetEx(ctx, getResetPasswordSessionKey(sessionID), nonce, PasswordResetTTL).Err(); err != nil {
 		errs.CaptureException(err)
@@ -230,38 +219,6 @@ func (s *authService) getResetPasswordSession(ctx context.Context, sessionID uui
 	return val, nil
 }
 
-// rememberDevice marks this device as having completed a full login, so
-// AUTH_LOGIN_CODE=new_device stops challenging it.
-func (s *authService) rememberDevice(ctx context.Context, userID uuid.UUID, userAgent string) {
-	fp := deviceFingerprint(userAgent)
-	if fp == "" {
-		return
-	}
-	_ = s.cache.SetEx(ctx, getKnownDeviceKey(userID, fp), "1", KnownDeviceTTL).Err()
-}
-
-// isKnownDevice reports whether this device has completed a login inside the
-// retention window.
-func (s *authService) isKnownDevice(ctx context.Context, userID uuid.UUID, userAgent string) bool {
-	fp := deviceFingerprint(userAgent)
-	if fp == "" {
-		return false
-	}
-	n, err := s.cache.Exists(ctx, getKnownDeviceKey(userID, fp)).Result()
-	return err == nil && n > 0
-}
-
-// deviceFingerprint is deliberately weak: a user agent is trivially spoofable,
-// so this is a convenience signal for skipping a code on a device the user has
-// already used, never an authentication factor. An empty agent yields no
-// fingerprint, which fails closed into "new device".
-func deviceFingerprint(userAgent string) string {
-	if strings.TrimSpace(userAgent) == "" {
-		return ""
-	}
-	return crypt.SHA256(userAgent)
-}
-
 func (s *authService) deletePasswordResetSession(ctx context.Context, sessionID uuid.UUID) *errx.Error {
 	val, err := s.cache.Del(ctx, getResetPasswordSessionKey(sessionID)).Result()
 	if err != nil {
@@ -276,34 +233,53 @@ func (s *authService) deletePasswordResetSession(ctx context.Context, sessionID 
 	return nil
 }
 
-// loginFailureExceeded reports whether this address has spent its hourly budget
-// of wrong passwords. It fails OPEN on a cache error: the limiter is a brake on
-// guessing, and a Redis outage must not lock every customer out of their own
-// account.
-func (s *authService) loginFailureExceeded(ctx context.Context, email string) bool {
-	count, err := s.cache.Get(ctx, getLoginFailureKey(email)).Int64()
-	if err != nil {
-		if !errors.Is(err, redis.Nil) {
-			errs.CaptureException(err)
-		}
-		return false
-	}
-	return count >= LoginFailureLimit
-}
-
-// recordLoginFailure charges one wrong password to the address.
-func (s *authService) recordLoginFailure(ctx context.Context, email string) {
-	key := getLoginFailureKey(email)
-	count, err := s.cache.Incr(ctx, key).Result()
+// reserveAttempt charges one attempt before a credential is compared, so
+// concurrent guesses cannot all pass a read-only check. It fails OPEN on a
+// cache error: the budget is a brake on guessing, and a Redis outage must not
+// lock every customer out of their own account.
+func (s *authService) reserveAttempt(ctx context.Context, key string, limit int64, window time.Duration) bool {
+	ok, err := s.cache.ReserveAttempt(ctx, key, limit, window)
 	if err != nil {
 		errs.CaptureException(err)
-		return
+		return true
 	}
-	if count == 1 {
-		if err := s.cache.Expire(ctx, key, LoginFailureTTL).Err(); err != nil {
-			errs.CaptureException(err)
-		}
+	return ok
+}
+
+// releaseAttempt refunds a reserved attempt that ended before any credential
+// was compared.
+func (s *authService) releaseAttempt(ctx context.Context, key string) {
+	if err := s.cache.ReleaseAttempt(ctx, key); err != nil {
+		errs.CaptureException(err)
 	}
+}
+
+// reserveLoginAttempt charges one password attempt to the address.
+func (s *authService) reserveLoginAttempt(ctx context.Context, email string) bool {
+	return s.reserveAttempt(ctx, getLoginFailureKey(email), LoginFailureLimit, LoginFailureTTL)
+}
+
+// releaseLoginAttempt refunds a password attempt that compared nothing.
+func (s *authService) releaseLoginAttempt(ctx context.Context, email string) {
+	s.releaseAttempt(ctx, getLoginFailureKey(email))
+}
+
+// reserveCodeAttempt charges one try to an emailed-code session before the
+// code is compared; the counter lives no longer than the session.
+func (s *authService) reserveCodeAttempt(ctx context.Context, sessionKey string, ttl time.Duration) bool {
+	return s.reserveAttempt(ctx, sessionKey+":tries", AuthAttempts, ttl)
+}
+
+// consumeCodeSession deletes an emailed-code session and reports whether this
+// call was the one that removed it, so a code is accepted exactly once.
+func (s *authService) consumeCodeSession(ctx context.Context, sessionKey string) bool {
+	n, err := s.cache.Del(ctx, sessionKey).Result()
+	if err != nil {
+		errs.CaptureException(err)
+		return false
+	}
+	_ = s.cache.Del(ctx, sessionKey+":tries").Err()
+	return n == 1
 }
 
 // clearLoginFailures forgives the count once the right password arrives, so a
@@ -314,41 +290,16 @@ func (s *authService) clearLoginFailures(ctx context.Context, email string) {
 	}
 }
 
-// ReserveReauthAttempt charges one attempt before the proof is checked, so
-// concurrent guesses cannot all pass a read-only check. Fails open on a cache
-// error, like the login counter: the budget is a brake on guessing, and a
-// Redis outage must not stop someone confirming their own change.
+// ReserveReauthAttempt charges one attempt to the account before the proof is
+// checked. The signed-in password change spends the same budget.
 func (s *authService) ReserveReauthAttempt(ctx context.Context, userID uuid.UUID) bool {
-	key := getReauthFailureKey(userID)
-	count, err := s.cache.Incr(ctx, key).Result()
-	if err != nil {
-		errs.CaptureException(err)
-		return true
-	}
-	if count == 1 {
-		if err := s.cache.Expire(ctx, key, LoginFailureTTL).Err(); err != nil {
-			errs.CaptureException(err)
-		}
-	}
-	return count <= LoginFailureLimit
+	return s.reserveAttempt(ctx, getReauthFailureKey(userID), LoginFailureLimit, LoginFailureTTL)
 }
 
 // ReleaseReauthAttempt refunds a reserved attempt that ended before any
 // credential was compared.
 func (s *authService) ReleaseReauthAttempt(ctx context.Context, userID uuid.UUID) {
-	key := getReauthFailureKey(userID)
-	n, err := s.cache.Decr(ctx, key).Result()
-	if err != nil {
-		errs.CaptureException(err)
-		return
-	}
-	// A key that expired in between comes back from DECR with no TTL; drop it
-	// so the budget cannot be left without an expiry.
-	if n <= 0 {
-		if err := s.cache.Del(ctx, key).Err(); err != nil {
-			errs.CaptureException(err)
-		}
-	}
+	s.releaseAttempt(ctx, getReauthFailureKey(userID))
 }
 
 // ClearReauthFailures forgives the count once a confirmation succeeds.

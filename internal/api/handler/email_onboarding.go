@@ -18,8 +18,10 @@ import (
 type OnboardingOAuthStartRequest struct {
 	Provider string `json:"provider"`
 	// LoginHint preselects the mailbox in the provider's picker (an import's sign-in rows).
-	LoginHint string     `json:"login_hint"`
-	SlotID    *uuid.UUID `json:"slot_id,omitempty"`
+	LoginHint string `json:"login_hint"`
+	// Return is "web" when the dashboard starts the flow: a sign-in window without an opener then returns to it.
+	Return string     `json:"return"`
+	SlotID *uuid.UUID `json:"slot_id,omitempty"`
 }
 
 // OnboardingOAuthFinishRequest carries the authorization code + state back from the provider.
@@ -50,7 +52,12 @@ func (h *Handler) StartEmailOAuth(c *gin.Context) {
 		return
 	}
 
-	resp, xerr := h.EmailService.OAuthStart(c.Request.Context(), userID, orgID, models.InboxProvider(req.Provider), req.LoginHint, req.SlotID)
+	returnOrigin := ""
+	if req.Return == "web" {
+		returnOrigin = c.GetHeader("Origin")
+	}
+
+	resp, xerr := h.EmailService.OAuthStart(c.Request.Context(), userID, orgID, models.InboxProvider(req.Provider), req.LoginHint, req.Return == "web", returnOrigin, req.SlotID)
 	if xerr != nil {
 		errx.Handle(c, xerr)
 		return
@@ -129,7 +136,8 @@ func (h *Handler) ReauthEmailOAuth(c *gin.Context) {
 		return
 	}
 
-	resp, xerr := h.EmailService.OAuthReauth(c.Request.Context(), userID, orgID, id)
+	returnOrigin := c.GetHeader("Origin")
+	resp, xerr := h.EmailService.OAuthReauth(c.Request.Context(), userID, orgID, id, returnOrigin)
 	if xerr != nil {
 		errx.Handle(c, xerr)
 		return

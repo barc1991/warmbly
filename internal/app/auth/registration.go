@@ -140,7 +140,8 @@ func (s *authService) RegistrationConfirm(ctx context.Context, data *ConfirmData
 		return nil, errx.ErrSession
 	}
 
-	if sess.Tries >= AuthAttempts {
+	sessKey := getRegistrationSessionKey(claims.SessionID)
+	if !s.reserveCodeAttempt(ctx, sessKey, time.Until(claims.ExpiresAt.Time)) {
 		return nil, errx.ErrCodeLimit
 	}
 
@@ -151,8 +152,6 @@ func (s *authService) RegistrationConfirm(ctx context.Context, data *ConfirmData
 	}
 
 	if !v {
-		sess.Tries++
-		_ = s.saveRegistrationSession(ctx, claims.SessionID, sess, claims.ExpiresAt.Time)
 		return nil, errx.ErrCode
 	}
 
@@ -160,6 +159,11 @@ func (s *authService) RegistrationConfirm(ctx context.Context, data *ConfirmData
 	// outlive a lockdown applied before the code came back.
 	if err := s.signupAllowed(ctx, claims.Email, sess.Invite); err != nil {
 		return nil, err
+	}
+
+	// Single-use: only the request that consumes the session creates the account.
+	if !s.consumeCodeSession(ctx, sessKey) {
+		return nil, errx.ErrSession
 	}
 
 	attr := SignupAttribution{ReferralCode: sess.ReferralCode, Invite: sess.Invite}
@@ -173,15 +177,23 @@ func (s *authService) RegistrationConfirm(ctx context.Context, data *ConfirmData
 	return s.sessionForNewAccount(ctx, u, origin)
 }
 
+const newAccountSignInTimeout = 10 * time.Second
+
 // sessionForNewAccount signs the fresh account in, so registering lands in
 // the dashboard instead of on the sign-in form.
 func (s *authService) sessionForNewAccount(ctx context.Context, u *models.User, origin SignupOrigin) (*models.AuthSession, *errx.Error) {
 	if u == nil {
 		return &models.AuthSession{CodeRequired: false}, nil
 	}
-	result, xerr := s.finishLoginAs(ctx, u.ID, origin.IP, origin.UserAgent, "password")
+	// Detached from the request: provisioning the account can spend most of
+	// its deadline, and a sign-in that times out here sends a person who just
+	// signed up to the sign-in form.
+	signInCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), newAccountSignInTimeout)
+	defer cancel()
+	result, xerr := s.finishLoginAs(signInCtx, u.ID, origin.IP, origin.UserAgent, token.AuthProviderEmail)
 	if xerr != nil {
 		// The account exists; a sign-in hiccup must not read as a failed signup.
+		errs.CaptureException(xerr)
 		return &models.AuthSession{CodeRequired: false}, nil
 	}
 	return &models.AuthSession{CodeRequired: false, Token: result.Token, TwoFARequired: result.TwoFARequired, PendingToken: result.PendingToken, ExpiresIn: result.ExpiresIn}, nil

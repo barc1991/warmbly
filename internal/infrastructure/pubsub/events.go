@@ -105,6 +105,9 @@ const (
 	EventMailboxImportProgress EventType = "MAILBOX_IMPORT_PROGRESS"
 	// EventContactImportProgress: a contact import moved (a chunk settled, or it finished).
 	EventContactImportProgress EventType = "CONTACT_IMPORT_PROGRESS"
+	// EventCRMSynced: mirrored CRM records changed (a connected CRM pushed or
+	// pulled), so the deals, tasks and contact panels refetch.
+	EventCRMSynced EventType = "CRM_SYNCED"
 
 	// An AI-drafted unibox reply is ready for human review (org-scoped, gated on
 	// access_unibox). The web client invalidates the unibox + drafts queries.
@@ -133,6 +136,10 @@ const (
 	// this internally (re-track / untrack / strip activity) to apply the new
 	// policy live; it is not forwarded to web clients.
 	EventPresencePolicyUpdated EventType = "PRESENCE_POLICY_UPDATED"
+
+	// A user's sessions were revoked (sign out, password change, ban). The
+	// realtime service closes every socket the user holds; not forwarded.
+	EventSessionsRevoked EventType = "SESSIONS_REVOKED"
 )
 
 // BaseEvent contains common fields for all events
@@ -743,6 +750,30 @@ func (p *StreamingPublisher) PublishContactImportProgress(ctx context.Context, o
 	_ = p.client.Publish(ctx, TopicUserEvents, event, attrs)
 }
 
+// CRMSyncedEvent names what changed; ids only, the records stay behind their
+// list endpoints.
+type CRMSyncedEvent struct {
+	BaseEvent
+	OrgID     string   `json:"org_id"`
+	Objects   []string `json:"objects"`
+	ContactID string   `json:"contact_id,omitempty"`
+}
+
+// PublishCRMSynced tells the workspace its mirrored CRM data moved.
+func (p *StreamingPublisher) PublishCRMSynced(ctx context.Context, orgID uuid.UUID, objects []string, contactID string) {
+	if p == nil || p.client == nil || orgID == uuid.Nil || len(objects) == 0 {
+		return
+	}
+	event := &CRMSyncedEvent{
+		BaseEvent: BaseEvent{EventType: EventCRMSynced, Timestamp: time.Now()},
+		OrgID:     orgID.String(),
+		Objects:   objects,
+		ContactID: contactID,
+	}
+	attrs := map[string]string{"org_id": orgID.String(), "event_type": string(EventCRMSynced)}
+	_ = p.client.Publish(ctx, TopicUserEvents, event, attrs)
+}
+
 // PublishAIResearchProgress emits AI_RESEARCH_PROGRESS for one completed run.
 func (p *StreamingPublisher) PublishAIResearchProgress(ctx context.Context, orgID, actorID uuid.UUID, contactID, runID, status string) {
 	if p == nil || p.client == nil || orgID == uuid.Nil {
@@ -973,6 +1004,25 @@ func (p *StreamingPublisher) PublishPresencePolicy(ctx context.Context, orgID uu
 	}
 	if err := p.client.Publish(ctx, TopicUserEvents, event, attrs); err != nil {
 		// Best-effort: realtime is a nicety, not a requirement.
+	}
+}
+
+// PublishSessionsRevoked tells the realtime service to drop the user's sockets.
+func (p *StreamingPublisher) PublishSessionsRevoked(ctx context.Context, userID uuid.UUID) {
+	if p == nil || p.client == nil {
+		return
+	}
+	event := &BaseEvent{
+		EventType: EventSessionsRevoked,
+		UserID:    userID.String(),
+		Timestamp: time.Now(),
+	}
+	attrs := map[string]string{
+		"user_id":    userID.String(),
+		"event_type": string(EventSessionsRevoked),
+	}
+	if err := p.client.Publish(ctx, TopicUserEvents, event, attrs); err != nil {
+		// Best-effort: the sessions are already revoked, and every reconnect needs a live one.
 	}
 }
 

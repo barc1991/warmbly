@@ -204,6 +204,13 @@ type EmailAccountStatus struct {
 	ColdRamp *ColdRampInfo `json:"cold_ramp,omitempty"`
 }
 
+// EmailAccountStatusesResult is one page of account statuses. Data carries the
+// page; Pagination holds the opaque next_cursor for the rest of the inventory.
+type EmailAccountStatusesResult struct {
+	Data       []EmailAccountStatus `json:"data"`
+	Pagination Pagination           `json:"pagination"`
+}
+
 // ColdRampInfo explains a cold cap held below the mailbox's configured limit.
 type ColdRampInfo struct {
 	// Ceiling is today's allowance; MailboxCap is what the owner configured.
@@ -287,6 +294,14 @@ type WarmupStatusInfo struct {
 	// partners the mailbox can still reach, so a target below the ramp is
 	// never an unexplained drop.
 	PartnerLimit *WarmupPartnerLimit `json:"partner_limit,omitempty"`
+	// SendFailure is present while the newest warmup send failed and no later one was confirmed delivered.
+	SendFailure *WarmupSendFailure `json:"send_failure,omitempty"`
+}
+
+// WarmupSendFailure is why a warmup send failed: the server's answer when it gave one.
+type WarmupSendFailure struct {
+	Message string    `json:"message"`
+	At      time.Time `json:"at"`
 }
 
 // WarmupPartnerLimit explains a target held below the ramp because a mailbox

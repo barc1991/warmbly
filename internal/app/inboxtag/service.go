@@ -193,7 +193,7 @@ func (s *Service) Classify(ctx context.Context, m Message) (Decision, error) {
 	// 3. Check deterministic subject, sender, and any supplied header signals
 	// before spending a model call.
 	ws := s.workspace(ctx, m.OrganizationID)
-	facts := Facts{DeterministicKind: deterministicKind(m, ws.languages)}
+	facts := Facts{DeterministicKind: DeterministicKind(m, ws.languages)}
 
 	state := BuildState(m.Subject, m.BodyText, m.PreviousMessage, m.Campaign, ws.languages...)
 	var custom []models.InboxTagQuestion
@@ -297,10 +297,8 @@ func (s *Service) isOwn(ctx context.Context, m Message) bool {
 	return own
 }
 
-// deterministicKind maps the offline classifier's verdict onto this taxonomy.
-// Only the classes headers decide definitively are mapped; everything else
-// falls through to the model.
-func deterministicKind(m Message, langs []string) string {
+// DeterministicKind maps definite offline machine signals onto the inbox taxonomy.
+func DeterministicKind(m Message, langs []string) string {
 	headers := m.Headers
 	if len(headers["From"]) == 0 && m.FromAddr != "" {
 		headers = make(map[string][]string, len(m.Headers)+1)
@@ -314,6 +312,9 @@ func deterministicKind(m Message, langs []string) string {
 		Subject:   m.Subject,
 		BodyText:  m.BodyText,
 		Languages: langs,
+	}
+	if replyclassify.IsSystemReport(in) {
+		return KindNotification
 	}
 	if replyclassify.IsDeliveryFailure(in) {
 		if dsn.IsTransientNotice(m.Subject, m.BodyText) {
@@ -679,70 +680,4 @@ func (s *Service) PreviousContext(ctx context.Context, accountID uuid.UUID, thre
 		return "", ""
 	}
 	return body, campaign
-}
-
-// ── Follow-up sweep ────────────────────────────────────────────────────────
-
-// FollowUpProgress reports what one sweep changed.
-type FollowUpProgress struct {
-	Threads  int
-	Labelled map[string]int
-	Cleared  int
-}
-
-// SweepFollowUps recomputes the follow-up label on every recently active thread.
-//
-// The sweep makes no model calls. It runs when tagging is enabled and reuses
-// trusted classifications so automated mail is not treated as a human reply.
-func (s *Service) SweepFollowUps(ctx context.Context, orgID uuid.UUID, since time.Time, limit int) (FollowUpProgress, error) {
-	p := FollowUpProgress{Labelled: map[string]int{}}
-	if s == nil || s.repo == nil || s.categories == nil {
-		return p, nil
-	}
-	if limit <= 0 {
-		limit = 2000
-	}
-
-	states, err := s.repo.ThreadStates(ctx, orgID, since, limit)
-	if err != nil {
-		return p, err
-	}
-	// The hourly sweep is also how a workspace that predates the feature
-	// gets its labels: the whole taxonomy when classification is on, the
-	// follow-up labels otherwise. Idempotent and cached, so it costs nothing
-	// after the first pass.
-	seed := append([]string{}, SeedSet()...)
-	if s.Enabled() {
-		seed = append(seed, CustomLabels(s.workspace(ctx, orgID).questions)...)
-	}
-	if err := s.categories.EnsureAll(ctx, orgID, seed); err != nil {
-		log.Warn().Err(err).Msg("inbox tagging: could not seed labels")
-	}
-
-	now := time.Now()
-	for _, st := range states {
-		if err := ctx.Err(); err != nil {
-			return p, err
-		}
-		want := FollowUp(ThreadState{
-			ThreadID:       st.ThreadID,
-			LastInboundAt:  st.LastInboundAt,
-			LastOutboundAt: st.LastOutboundAt,
-			BestIntent:     st.BestIntent,
-			LastKind:       st.LastKind,
-		}, now)
-
-		if err := s.categories.SyncExclusiveLabels(ctx, orgID, st.ThreadID, FollowUpLabels, want); err != nil {
-			log.Warn().Err(err).Str("thread_id", st.ThreadID).Msg("inbox tagging: follow-up label not applied")
-			continue
-		}
-
-		p.Threads++
-		if want == "" {
-			p.Cleared++
-		} else {
-			p.Labelled[want]++
-		}
-	}
-	return p, nil
 }

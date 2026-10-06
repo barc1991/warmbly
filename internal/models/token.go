@@ -22,6 +22,10 @@ type LoginResult struct {
 	PendingToken  string `json:"pending_token,omitempty"`
 	ExpiresIn     int    `json:"expires_in,omitempty"`
 
+	// DeviceToken is set when a confirmed login code asked to remember the
+	// browser. The client sends it back with the next password sign-in.
+	DeviceToken string `json:"device_token,omitempty"`
+
 	// LinkRequired: a federated sign-in on an existing password account, which
 	// links and signs in only once that password reaches POST /auth/sso/link.
 	LinkRequired bool   `json:"link_required,omitempty"`
@@ -48,7 +52,6 @@ type SSOLinkPending struct {
 type TwoFAPending struct {
 	UserID uuid.UUID `json:"user_id"`
 	Nonce  string    `json:"nonce"`
-	Tries  int       `json:"tries"`
 	// LinkIdentity is attached to the account only once the code passes, so a
 	// federated sign-in on a 2FA account links after both factors, not one.
 	LinkIdentity *UserIdentity `json:"link_identity,omitempty"`
@@ -116,7 +119,6 @@ type AuthSession struct {
 
 type LoginSession struct {
 	CodeHash string `json:"code_hash"`
-	Tries    int    `json:"tries"`
 	Nonce    string `json:"nonce"`
 	// AnomalyReason carries the verdict that CAUSED this challenge, so the
 	// completed sign-in is recorded as the anomaly it was. Recomputing it at
@@ -129,7 +131,6 @@ type LoginSession struct {
 type RegistrationSession struct {
 	PasswordHash string `json:"password_hash"`
 	CodeHash     string `json:"code_hash"`
-	Tries        int    `json:"tries"`
 	Nonce        string `json:"nonce"`
 	// ReferralCode is the optional referral code captured at RegistrationStart,
 	// applied for attribution once the account + org are created at confirm.

@@ -32,16 +32,17 @@ func (s *authService) LoginStart(ctx context.Context, data *AuthData, ipaddr, us
 	// this string, so it is folded once here rather than at each of them.
 	data.Email = normalizeEmail(data.Email)
 
-	// Spent budgets are refused before the hash comparison, so a guesser past
-	// the limit cannot even measure argon2's timing.
-	if s.loginFailureExceeded(ctx, data.Email) {
+	// The attempt is charged before the hash comparison, so parallel guesses
+	// cannot share one slot and a guesser past the limit cannot even measure
+	// argon2's timing.
+	if !s.reserveLoginAttempt(ctx, data.Email) {
 		return nil, errx.ErrAuthLimit
 	}
 
 	uid, err := s.authRepository.IsValidCredentials(ctx, data.Email, data.Password)
 	if err != nil {
-		if errors.Is(err, errx.ErrCredentials) {
-			s.recordLoginFailure(ctx, data.Email)
+		if !errors.Is(err, errx.ErrCredentials) {
+			s.releaseLoginAttempt(ctx, data.Email)
 		}
 		return nil, err
 	}
@@ -54,7 +55,7 @@ func (s *authService) LoginStart(ctx context.Context, data *AuthData, ipaddr, us
 	// Assessed once here: the verdict that decides the challenge is the same
 	// one recorded when the sign-in completes.
 	verdict := s.assessLogin(ctx, uid, ipaddr)
-	if !s.loginCodeRequired(ctx, uid, userAgent, verdict) {
+	if !s.loginCodeRequired(ctx, uid, data.DeviceToken, verdict) {
 		result, ferr := s.finishLoginWith(ctx, uid, ipaddr, userAgent, &verdict)
 		if ferr != nil {
 			return nil, ferr
@@ -130,7 +131,7 @@ func (s *authService) LoginStart(ctx context.Context, data *AuthData, ipaddr, us
 
 // loginCodeRequired applies AUTH_LOGIN_CODE. A transport that cannot deliver
 // never demands a code, because there would be no way to complete the login.
-func (s *authService) loginCodeRequired(ctx context.Context, userID uuid.UUID, userAgent string, verdict authrisk.Verdict) bool {
+func (s *authService) loginCodeRequired(ctx context.Context, userID uuid.UUID, deviceToken string, verdict authrisk.Verdict) bool {
 	if !s.mailDelivers {
 		return false
 	}
@@ -151,9 +152,9 @@ func (s *authService) loginCodeRequired(ctx context.Context, userID uuid.UUID, u
 		// without mail. Anomalies are still recorded for review.
 		return false
 	case config.LoginCodeNewDevice:
-		// A familiar browser in an impossible place is exactly the case the
-		// device fingerprint cannot catch: the attacker has the cookie.
-		return !s.isKnownDevice(ctx, userID, userAgent) || verdict.Flagged
+		// A trusted browser in an impossible place is exactly the case the
+		// device token cannot catch: the attacker has the token.
+		return !s.isTrustedDevice(ctx, userID, deviceToken) || verdict.Flagged
 	default:
 		return true
 	}
@@ -175,7 +176,8 @@ func (s *authService) LoginConfirm(ctx context.Context, data *ConfirmData, sessi
 		return nil, errx.ErrSession
 	}
 
-	if sess.Tries >= AuthAttempts {
+	sessKey := getLoginSessionKey(atoken.SessionID)
+	if !s.reserveCodeAttempt(ctx, sessKey, time.Until(atoken.ExpiresAt.Time)) {
 		return nil, errx.ErrCodeLimit
 	}
 
@@ -186,17 +188,25 @@ func (s *authService) LoginConfirm(ctx context.Context, data *ConfirmData, sessi
 	}
 
 	if !v {
-		sess.Tries++
-		_ = s.saveLoginSession(ctx, atoken.SessionID, sess, atoken.ExpiresAt.Time)
 		return nil, errx.ErrCode
 	}
 
-	// Consume the session on success so it cannot be re-confirmed to mint fresh
-	// 2FA pending tokens, which would reset the per-pending attempt counter.
-	// One email confirmation means exactly one challenge.
-	_ = s.cache.Del(ctx, getLoginSessionKey(atoken.SessionID)).Err()
+	// Consumed on success, and only the request that deletes it may continue,
+	// so one emailed code completes exactly one sign-in.
+	if !s.consumeCodeSession(ctx, sessKey) {
+		return nil, errx.ErrSession
+	}
 
-	return s.finishLoginWith(ctx, atoken.UserID, ipaddr, userAgent, challengeVerdict(sess))
+	result, ferr := s.finishLoginWith(ctx, atoken.UserID, ipaddr, userAgent, challengeVerdict(sess))
+	if ferr != nil {
+		return nil, ferr
+	}
+	// Issued once the code is proved, even ahead of a TOTP step: the token
+	// stands in for this emailed code and never for the second factor.
+	if data.RememberDevice {
+		result.DeviceToken = s.trustDevice(ctx, atoken.UserID)
+	}
+	return result, nil
 }
 
 // challengeVerdict recovers the verdict that issued this challenge rather than
@@ -283,8 +293,6 @@ func (s *authService) completeLogin(ctx context.Context, userID uuid.UUID, ipadd
 	if err != nil {
 		return nil, err
 	}
-
-	s.rememberDevice(ctx, userID, userAgent)
 
 	return &models.LoginResult{Token: newToken}, nil
 }

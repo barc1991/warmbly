@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconf "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/google/uuid"
-	"github.com/meszmate/apple-go"
+	"github.com/redis/go-redis/v9"
 	"github.com/warmbly/warmbly/internal/api"
 	"github.com/warmbly/warmbly/internal/api/handler"
 	"github.com/warmbly/warmbly/internal/api/middleware"
@@ -35,6 +35,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/aitools"
 	"github.com/warmbly/warmbly/internal/app/analytics"
 	"github.com/warmbly/warmbly/internal/app/apikey"
+	"github.com/warmbly/warmbly/internal/app/appdirectory"
 	"github.com/warmbly/warmbly/internal/app/audit"
 	"github.com/warmbly/warmbly/internal/app/auth"
 	behaviorapp "github.com/warmbly/warmbly/internal/app/behavior"
@@ -45,9 +46,11 @@ import (
 	"github.com/warmbly/warmbly/internal/app/cloudlink"
 	"github.com/warmbly/warmbly/internal/app/compose"
 	"github.com/warmbly/warmbly/internal/app/contact"
+	"github.com/warmbly/warmbly/internal/app/contactimport"
 	"github.com/warmbly/warmbly/internal/app/credits"
 	"github.com/warmbly/warmbly/internal/app/creditwatch"
 	"github.com/warmbly/warmbly/internal/app/crm"
+	"github.com/warmbly/warmbly/internal/app/crmmode"
 	"github.com/warmbly/warmbly/internal/app/dailythrottle"
 	"github.com/warmbly/warmbly/internal/app/dangerzone"
 	"github.com/warmbly/warmbly/internal/app/delegation"
@@ -63,6 +66,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/geminikeys"
 	"github.com/warmbly/warmbly/internal/app/group"
 	"github.com/warmbly/warmbly/internal/app/guardrail"
+	"github.com/warmbly/warmbly/internal/app/hubspot"
 	idempotencyapp "github.com/warmbly/warmbly/internal/app/idempotency"
 	"github.com/warmbly/warmbly/internal/app/inboxagent"
 	"github.com/warmbly/warmbly/internal/app/inboxtag"
@@ -71,6 +75,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/instancesettings"
 	"github.com/warmbly/warmbly/internal/app/integration"
 	"github.com/warmbly/warmbly/internal/app/leadsync"
+	"github.com/warmbly/warmbly/internal/app/mailboxavatar"
 	"github.com/warmbly/warmbly/internal/app/mailboximport"
 	"github.com/warmbly/warmbly/internal/app/mcp"
 	"github.com/warmbly/warmbly/internal/app/nativeactions"
@@ -82,6 +87,7 @@ import (
 	orgrisk "github.com/warmbly/warmbly/internal/app/orgrisk"
 	"github.com/warmbly/warmbly/internal/app/orgtransfer"
 	"github.com/warmbly/warmbly/internal/app/passkey"
+	"github.com/warmbly/warmbly/internal/app/pipedrive"
 	"github.com/warmbly/warmbly/internal/app/placement"
 	"github.com/warmbly/warmbly/internal/app/poollink"
 	"github.com/warmbly/warmbly/internal/app/ratelimit"
@@ -89,12 +95,14 @@ import (
 	"github.com/warmbly/warmbly/internal/app/releases"
 	"github.com/warmbly/warmbly/internal/app/replyclassify"
 	"github.com/warmbly/warmbly/internal/app/research"
+	"github.com/warmbly/warmbly/internal/app/salesforce"
 	"github.com/warmbly/warmbly/internal/app/segment"
 	"github.com/warmbly/warmbly/internal/app/sendingdomain"
 	"github.com/warmbly/warmbly/internal/app/sequence"
 	"github.com/warmbly/warmbly/internal/app/serperkeys"
 	"github.com/warmbly/warmbly/internal/app/settings"
 	"github.com/warmbly/warmbly/internal/app/skills"
+	"github.com/warmbly/warmbly/internal/app/slackapp"
 	"github.com/warmbly/warmbly/internal/app/socialauth"
 	"github.com/warmbly/warmbly/internal/app/socket"
 	"github.com/warmbly/warmbly/internal/app/stripe"
@@ -135,6 +143,7 @@ import (
 	"github.com/warmbly/warmbly/internal/notify"
 	"github.com/warmbly/warmbly/internal/observability"
 	productanalytics "github.com/warmbly/warmbly/internal/observability/analytics"
+	"github.com/warmbly/warmbly/internal/pkg/appleauth"
 	"github.com/warmbly/warmbly/internal/pkg/captcha"
 	"github.com/warmbly/warmbly/internal/pkg/domainproof"
 	"github.com/warmbly/warmbly/internal/pkg/emailverify"
@@ -180,6 +189,10 @@ func main() {
 	var userService user.UserService
 	var emailService email.EmailService
 	var mailboxImportService *mailboximport.Service
+	var contactImportService *contactimport.Service
+	var hubspotService *hubspot.Service
+	var pipedriveService *pipedrive.Service
+	var crmModes *crmmode.Registry
 	var delegationService *delegation.Service
 	var vendorConnService *vendorconn.Service
 	var sendingDomainService *sendingdomain.Service
@@ -217,6 +230,7 @@ func main() {
 	var aiSearch generation.SearchClient
 	var aiToolRegistry *aitools.Registry
 	var aiAgentService aiagent.Service
+	var slackService *slackapp.Service
 	var researchService research.Service
 	var skillsService skills.Service
 	var mcpService mcp.Service
@@ -338,6 +352,7 @@ func main() {
 	var webhookServiceForHandler webhook.Service
 	var integrationServiceForHandler integration.Service
 	var oauthService *oauth.Service
+	var appDirectoryService *appdirectory.Service
 	var notificationService notification.Service
 	var viewPreferencesService viewprefs.Service
 	var twofaService twofa.Service
@@ -345,6 +360,7 @@ func main() {
 	var attachmentRepoForHandler repository.AttachmentRepository
 	var emailImageRepoForHandler repository.EmailImageRepository
 	var leadSyncServiceForHandler leadsync.Service
+	var salesforceServiceForHandler *salesforce.Service
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -572,9 +588,9 @@ func main() {
 		// Apple Sign in is optional. Skip it entirely when unconfigured (a
 		// self-host without Apple creds); only warn — never fatal — when creds
 		// are present but init fails, so Apple simply stays unavailable.
-		var appleAuthClient apple.AppleAuth
+		var appleAuthClient socialauth.AppleCodeExchanger
 		if authCfg.AppleAppID != "" || authCfg.AppleKeySecret != "" {
-			appleAuthInstance, appleErr := apple.NewB64(
+			appleAuthInstance, appleErr := appleauth.NewFromBase64(
 				authCfg.AppleAppID,
 				authCfg.AppleTeamID,
 				authCfg.AppleKeyID,
@@ -793,13 +809,19 @@ func main() {
 
 		integrationRepository := repository.NewIntegrationRepository(primaryDB.Pool)
 		// OAuth 2.1 authorization server (third-party app registration + token flow).
-		oauthService = oauth.NewService(repository.NewOAuthRepository(primaryDB.Pool), cache)
+		oauthRepository := repository.NewOAuthRepositorySealed(primaryDB.Pool, credEncrypter)
+		oauthService = oauth.NewService(oauthRepository, cache)
 		// Enforce the per-app webhook-domain allowlist on app-scoped endpoints (at
 		// write time, and re-checked at delivery time via the worker below).
 		webhookService.WireAppDomainResolver(oauthService.AllowedWebhookDomains)
 		// Materialize per-org webhook endpoints when an app is authorized/revoked or
 		// its webhook config changes (the app-level subscription model).
 		oauthService.WireWebhookSync(webhookRepository)
+		// Community app directory: published OAuth apps, reviewed before discovery.
+		appDirectoryRepo := repository.NewAppDirectoryRepository(primaryDB.Pool)
+		oauthService.WireListingGuard(appDirectoryRepo)
+		oauthService.WireAdmin(repository.NewOAuthAdminRepository(primaryDB.Pool))
+		appDirectoryService = appdirectory.NewService(appDirectoryRepo, oauthRepository)
 		// integrationServiceForHandler is constructed after cipherService below —
 		// OAuth/secret sealing depends on the envelope-encryption service.
 		contactRepoForHandler = contactRepostory
@@ -1591,6 +1613,26 @@ func main() {
 		// The AI switch's optional web search shares the same pluggable backend as
 		// the campaign switch and dashboard agent.
 		integrationServiceForHandler.SetAISearch(aiSearch)
+
+		// Native Salesforce sync: events are recorded ahead of the webhook
+		// throttle, and the loops log them as Tasks, pull changes back and run
+		// recurring list-view imports.
+		salesforceServiceForHandler = salesforce.NewService(salesforce.Deps{
+			Repo:         repository.NewSalesforceRepository(primaryDB.Pool),
+			Integrations: integrationServiceForHandler,
+			Cipher:       cipherService,
+			Contacts:     contactService,
+			Holds:        campaignProgressRepository,
+			Suppression:  advancedRepository,
+			Subscription: contactRepostory,
+		})
+		integrationServiceForHandler.SetSalesforce(salesforceServiceForHandler)
+		webhookService.WireRecordSink(salesforceServiceForHandler.Recorder().Record)
+		go jobrun.Loop(ctx, "salesforce_activity_drain", 30*time.Second, true, salesforceServiceForHandler.Drain)
+		go jobrun.Loop(ctx, "salesforce_pull", 5*time.Minute, false, salesforceServiceForHandler.Pull)
+		go jobrun.Loop(ctx, "salesforce_recurring_imports", 5*time.Minute, false, salesforceServiceForHandler.RunRecurring)
+		go jobrun.Loop(ctx, "salesforce_activity_prune", 24*time.Hour, false, salesforceServiceForHandler.Prune)
+
 		// Port reply-classifier Layer 3 onto the platform provider (OpenAI-first,
 		// self-hostable). Platform-paid, never charged to org credits. Nil provider
 		// leaves Layer 3 disabled (the ambiguous middle resolves to "unknown").
@@ -1614,7 +1656,6 @@ func main() {
 		notificationService = notification.NewService(repository.NewNotificationRepository(primaryDB.Pool), streamingPublisher)
 		// Saved list layouts: each member's columns and sort per dashboard list.
 		viewPreferencesService = viewprefs.NewService(repository.NewViewPreferencesRepository(primaryDB.Pool))
-		notificationService.WireDelivery(emailNotificationService, integrationServiceForHandler, userRepostory, organizationRepoForHandler)
 		// Mobile push (APNs): device registration always works; delivery only
 		// activates when the APNS_* env is configured. The Redis client backs
 		// the shared immediate-then-digest push window. The sender stays a nil
@@ -1646,6 +1687,28 @@ func main() {
 			inboxAgentSvc.WireDraftGate(inboxtag.NewDraftGate(inboxTagRepository))
 		}
 		advancedService.WireInboxAgent(inboxAgentSvc)
+		// Slack app: the assistant, the inbox mirror's actions and notifications.
+		// Built here because it needs the agent, the tool registry and the drafts.
+		var slackRedis *redis.Client
+		if authCache != nil {
+			slackRedis = authCache.Client
+		}
+		slackService = slackapp.New(slackapp.Deps{
+			Integrations: integrationServiceForHandler, Repo: repository.NewSlackRepository(primaryDB),
+			Orgs: organizationService, Agent: aiAgentService, Registry: aiToolRegistry,
+			Audit: auditService, Redis: slackRedis,
+			Threads: uniboxRepository, Labels: repository.NewTagCategoryStore(primaryDB.Pool),
+			Drafts: aiDraftRepo, Users: userRepostory, Bans: userRepostory, Tasks: taskRepository, Campaigns: campaignRepostory,
+			Cipher: cipherService,
+		})
+		notificationService.WireDelivery(emailNotificationService, slackService, userRepostory, organizationRepoForHandler)
+		if aware, ok := emailSendService.(emailsend.ReplyObserverAware); ok {
+			aware.WireReplyObserver(slackService)
+		}
+		organizationService.WireMemberRemoval(slackService.OnMemberRemoved)
+		integrationServiceForHandler.SetSlackInstallHook(slackService)
+		aitools.RegisterSlackTools(aiToolRegistry, slackService, auditService)
+		slackService.StartMaintenance(ctx)
 		// The classified intent lands on the contact's progress for the
 		// reply_intent branch condition.
 		advancedService.WireInboxTags(inboxTagRepository)
@@ -1792,6 +1855,12 @@ func main() {
 			},
 		})
 		emailService.WireImportSignin(mailboxImportService)
+		// Mailbox profile photos: read through grants and vendors here, and at a Microsoft connect.
+		if s3ForHandler != nil {
+			mailboxAvatars := mailboxavatar.New(repository.NewMailboxAvatarRepository(primaryDB), s3ForHandler, delegationService, vendorConnService)
+			emailService.WireAvatars(mailboxAvatars)
+			go mailboxAvatars.Start(ctx)
+		}
 		vendorConnService.SetImporter(mailboxImportService)
 		sendingDomainService.WireVendors(vendorConnService)
 		go vendorConnService.StartReconnect(ctx)
@@ -1872,6 +1941,14 @@ func main() {
 		// started, so without this a stranded campaign stops sending forever.
 		go tasksService.StartCampaignReconciler(ctx, 5*time.Minute)
 
+		// Send-plan snapshotter: walk every active campaign's send plan on an
+		// interval and store it, so GET /campaigns/:id/send-plan serves a stored
+		// snapshot instead of running the planner (lead supply, per-mailbox
+		// history) on the request. A no-op without the snapshot store or planner.
+		if campaignService != nil {
+			go campaignService.StartSendPlanSnapshotter(ctx, time.Minute)
+		}
+
 		// Segment-linked campaigns: enrol contacts that drifted into a linked
 		// segment (date windows, engagement counters, nested segments) that
 		// the write-path syncs cannot see.
@@ -1888,6 +1965,11 @@ func main() {
 		// before bodies were indexed, so search covers the whole archive and not
 		// just new mail. Walks the table once, then returns.
 		go uniboxService.StartBodyTextBackfill(ctx)
+
+		// Automation signing secrets live in each connection's sealed config.
+		if m, ok := integrationServiceForHandler.(interface{ StartSigningSecretMigration(context.Context) }); ok {
+			go m.StartSigningSecretMigration(ctx)
+		}
 
 		// Danger zone: schedule + execute delayed deletions (orgs, accounts).
 		dangerZoneRepository := repository.NewDangerZoneRepository(primaryDB.Pool)
@@ -1987,6 +2069,61 @@ func main() {
 			}
 		}
 		go jobs.NewDeliveryEvidenceJob(verificationEvidence, 15*time.Minute, 2000).Start(ctx)
+		if contactService != nil {
+			contactImportService = contactimport.NewService(contactimport.Deps{
+				Repo:      repository.NewContactImportRepository(primaryDB),
+				Contacts:  contactService,
+				Publisher: streamingPublisher,
+				// New addresses are checked right away rather than on the next tick.
+				Kicked: emailVerifyService.Kick,
+			})
+			go contactImportService.Run(ctx)
+		}
+
+		// HubSpot as the workspace CRM: write-through for the CRM service, the
+		// activity sink, and the outbox for automation-written records. The
+		// consumer drains the outbox and runs the pull.
+		hubspotService = hubspot.New(hubspot.Deps{
+			Repo:         repository.NewCRMProviderRepository(primaryDB.Pool),
+			CRM:          crmRepository,
+			Tokens:       integrationServiceForHandler,
+			Contacts:     contactRepostory,
+			Holds:        campaignProgressRepository,
+			Suppress:     advancedRepository,
+			Importer:     hubspotImporter(contactImportService),
+			Leads:        contactService,
+			Realtime:     streamingPublisher,
+			Cache:        cache,
+			AppURL:       os.Getenv("APP_URL"),
+			ClientSecret: strings.TrimSpace(os.Getenv("HUBSPOT_OAUTH_CLIENT_SECRET")),
+		})
+		// Pipedrive as the workspace CRM: the same shape on Pipedrive's records,
+		// plus per-connection webhooks registered when a workspace switches.
+		pipedriveService = pipedrive.New(pipedrive.Deps{
+			Repo:         repository.NewCRMProviderRepository(primaryDB.Pool),
+			CRM:          crmRepository,
+			Tokens:       integrationServiceForHandler,
+			Contacts:     contactRepostory,
+			Holds:        campaignProgressRepository,
+			Suppress:     advancedRepository,
+			Importer:     pipedriveImporter(contactImportService),
+			Leads:        contactService,
+			Realtime:     streamingPublisher,
+			Cache:        cache,
+			AppURL:       os.Getenv("APP_URL"),
+			PublicURL:    config.BackendPublicURL(),
+			ClientSecret: strings.TrimSpace(os.Getenv("PIPEDRIVE_OAUTH_CLIENT_SECRET")),
+		})
+		crmModes = crmmode.New(repository.NewCRMProviderRepository(primaryDB.Pool), integrationServiceForHandler,
+			hubspotService, pipedriveService)
+		crmService.AddExternal(hubspotService)
+		crmService.AddExternal(pipedriveService)
+		integrationServiceForHandler.SetCRMModeCheck(crmModes.Mode)
+		webhookServiceForHandler.WireRecordSink(hubspotService.OnEvent)
+		webhookServiceForHandler.WireRecordSink(pipedriveService.OnEvent)
+		if advancedService != nil {
+			advancedService.WireCRMOutbox(crmModes)
+		}
 		emailVerifyService.SetVerdictHook(func(ctx context.Context, orgID uuid.UUID) {
 			if campaignService != nil {
 				campaignService.ResumeVerificationPaused(ctx, orgID)
@@ -2168,6 +2305,7 @@ func main() {
 		UserService:          userService,
 		EmailService:         emailService,
 		MailboxImportService: mailboxImportService,
+		ContactImportService: contactImportService,
 		DelegationService:    delegationService,
 		VendorConnService:    vendorConnService,
 		SendingDomainService: sendingDomainService,
@@ -2211,6 +2349,9 @@ func main() {
 
 		// CRM
 		CRMService: crmService,
+		HubSpot:    hubspotService,
+		Pipedrive:  pipedriveService,
+		CRMModes:   crmModes,
 
 		// Teams
 		TeamService: teamService,
@@ -2252,6 +2393,7 @@ func main() {
 		AISearch:            aiSearch,
 		AITools:             aiToolRegistry,
 		AIAgentService:      aiAgentService,
+		SlackService:        slackService,
 		ResearchService:     researchService,
 		SkillsService:       skillsService,
 		MCPService:          mcpService,
@@ -2280,8 +2422,14 @@ func main() {
 		// OAuth 2.1 authorization server
 		OAuthService: oauthService,
 
+		// Community app directory
+		AppDirectoryService: appDirectoryService,
+
 		// On-demand Google Sheets -> leads sync
 		LeadSyncService: leadSyncServiceForHandler,
+
+		// Native Salesforce sync
+		SalesforceService: salesforceServiceForHandler,
 
 		WebsocketURI: websocketURI,
 
@@ -2534,4 +2682,21 @@ func typeSafeAsker(c *typesafe.Client) typesafe.Asker {
 		return nil
 	}
 	return c
+}
+
+// hubspotImporter keeps a missing import service a nil interface rather than
+// a typed nil, so HubSpot list import reports itself unavailable.
+func hubspotImporter(s *contactimport.Service) hubspot.Importer {
+	if s == nil {
+		return nil
+	}
+	return s
+}
+
+// pipedriveImporter is hubspotImporter for Pipedrive filter import.
+func pipedriveImporter(s *contactimport.Service) pipedrive.Importer {
+	if s == nil {
+		return nil
+	}
+	return s
 }

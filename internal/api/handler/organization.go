@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
+
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +14,7 @@ import (
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/notify/templates"
+	"github.com/warmbly/warmbly/internal/pkg/displayname"
 )
 
 // CreateOrganization creates a new organization
@@ -209,24 +210,23 @@ func (h *Handler) InviteMember(c *gin.Context) {
 	// Get organization name for email
 	org, _ := h.OrganizationService.Get(c.Request.Context(), *orgID)
 	orgName := "your organization"
-	if org != nil {
-		orgName = org.Name
+	if org != nil && displayname.Displayable(org.Name) != "" {
+		orgName = displayname.Displayable(org.Name)
 	}
 
-	// Get inviter name
+	// Names predating the display-name rules fall back rather than render.
 	inviter, _ := h.UserService.GetUser(c.Request.Context(), userID)
 	inviterName := "A team member"
-	if inviter != nil && inviter.FirstName != "" {
-		inviterName = inviter.FirstName
-		if inviter.LastName != "" {
-			inviterName += " " + inviter.LastName
+	if inviter != nil {
+		if name := displayname.FullName(inviter.FirstName, inviter.LastName); name != "" {
+			inviterName = name
 		}
 	}
 
 	// Send invitation email
 	if h.EmailNotificationService != nil {
 		subject := fmt.Sprintf("You've been invited to join %s on %s", orgName, templates.CompanyName())
-		acceptURL := config.GetInviteURL(inv.Token)
+		acceptURL := config.GetInviteURL(inv.Token, config.DashboardOriginFromContext(c.Request.Context()))
 		// GenerateInvitationHTML reports its own render errors.
 		if body, gerr := templates.GenerateInvitationHTML(inviterName, orgName, acceptURL); gerr == nil {
 			// Detached from the request context: the handler returns before the
@@ -298,7 +298,13 @@ func (h *Handler) RemoveMember(c *gin.Context) {
 		return
 	}
 
-	if xerr := h.OrganizationService.RemoveMember(c.Request.Context(), *orgID, memberUserID); xerr != nil {
+	actorID, err := middleware.GetUserUUID(c)
+	if err != nil {
+		errx.JSON(c, errx.ErrUser)
+		return
+	}
+
+	if xerr := h.OrganizationService.RemoveMember(c.Request.Context(), *orgID, actorID, memberUserID); xerr != nil {
 		errx.JSON(c, xerr)
 		return
 	}
@@ -456,7 +462,7 @@ func (h *Handler) AcceptInvitation(c *gin.Context) {
 	// joiner). Detached + best-effort: a notification hiccup must not fail
 	// the accept.
 	if h.NotificationService != nil {
-		joiner := strings.TrimSpace(strings.TrimSpace(user.FirstName) + " " + strings.TrimSpace(user.LastName))
+		joiner := displayname.FullName(user.FirstName, user.LastName)
 		if joiner == "" {
 			joiner = user.Email
 		}
