@@ -1,4 +1,4 @@
-ALTER TABLE organizations ADD COLUMN category text NOT NULL DEFAULT 'standard'
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'standard'
     CHECK (category IN ('standard', 'test'));
 
 INSERT INTO plans (id, name, max_contacts, daily_emails, ai_generation, account_limit,
@@ -6,7 +6,8 @@ INSERT INTO plans (id, name, max_contacts, daily_emails, ai_generation, account_
     max_campaigns, max_active_campaigns, max_team_members, max_email_accounts, daily_campaign_limit)
 VALUES ('00000000-0000-0000-0000-0000000000e1', 'Test', 10000, 1000, true, 10,
     0, 0, (SELECT id FROM durations WHERE title = 'month'), 0, false, 100,
-    100, 20, 10, 10, 100);
+    100, 20, 10, 10, 100)
+ON CONFLICT (id) DO NOTHING;
 
 UPDATE users u SET password_expires_at = a.created_at + interval '30 days', updated_at = now()
 FROM admin_audit_logs a
