@@ -75,6 +75,8 @@ import {
 } from "@/stores/slices/uiSlice";
 import useUniboxOverview from "@/lib/api/hooks/app/unibox/useUniboxOverview";
 import useMarkSeen from "@/lib/api/hooks/app/unibox/useMarkSeen";
+import useBrowseState from "@/hooks/useBrowseState";
+import { inboxBooleanSchema, inboxSearchSchema } from "@/lib/browse-inbox";
 import AnimatedNumber from "@/components/ui/AnimatedNumber";
 import ComposeDraftsItem from "@/components/app/unibox/compose/ComposeDraftsItem";
 import { cn } from "@/lib/utils";
@@ -182,6 +184,7 @@ function moveNextTo(order: string[], key: string, neighbour: string, delta: -1 |
 }
 
 interface ScopeRailProps {
+  browseKey?: string;
   scope: UniboxScope;
   onChange: (s: UniboxScope) => void;
 }
@@ -219,7 +222,7 @@ function undoToast(id: string, message: string, onUndo: () => void) {
   );
 }
 
-export function ScopeRail({ scope, onChange }: ScopeRailProps) {
+export function ScopeRail({ scope, onChange, browseKey = "desktop" }: ScopeRailProps) {
   const overview = useUniboxOverview();
   const data = overview.data;
   const markSeen = useMarkSeen();
@@ -619,6 +622,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
       case "mailboxes":
         return (
           <CollapsibleSection
+            browseKey={browseKey}
             id="mailboxes"
             label="תיבות דואר"
             controls={controls("mailboxes")}
@@ -632,6 +636,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
       case "labels":
         return (
           <CollapsibleSection
+            browseKey={browseKey}
             id="labels"
             label="תוויות"
             controls={controls("labels")}
@@ -645,6 +650,7 @@ export function ScopeRail({ scope, onChange }: ScopeRailProps) {
       case "tags":
         return (
           <CollapsibleSection
+            browseKey={browseKey}
             id="tags"
             label="תגיות"
             controls={controls("tags")}
@@ -1387,6 +1393,7 @@ function RailRowItem({
 }
 
 function CollapsibleSection({
+  browseKey,
   id,
   label,
   controls,
@@ -1396,6 +1403,7 @@ function CollapsibleSection({
   emptyText,
   searchPlaceholder,
 }: {
+  browseKey: string;
   id: string;
   label: string;
   controls: SectionControls;
@@ -1407,8 +1415,8 @@ function CollapsibleSection({
 }) {
   const panelId = React.useId();
   const transition = useRailTransition();
-  const [search, setSearch] = React.useState("");
-  const [expanded, setExpanded] = React.useState(false);
+  const [search, setSearch] = useBrowseState(`unibox.rail.${browseKey}.${id}.search`, "", inboxSearchSchema);
+  const [expanded, setExpanded] = useBrowseState(`unibox.rail.${browseKey}.${id}.expanded`, false, inboxBooleanSchema);
   const sectionOpen = useAppStore((s) => !(s.uniboxRailFolded[id] ?? false));
   const toggleSection = useAppStore((s) => s.toggleUniboxRailSection);
 

@@ -29,6 +29,7 @@ import buildError from "@/lib/helper/buildError";
 import type { AppError } from "@/lib/api/client/normalizeError";
 import BulkWarmupDialog from "@/components/app/emails/BulkWarmupDialog";
 import BulkTagPopover from "@/components/app/emails/BulkTagPopover";
+import type { MailboxTab } from "@/lib/browse-accounts-analytics";
 import type Tag from "@/lib/api/models/app/Tag";
 import type Inbox from "@/lib/api/models/app/emails/Inbox";
 import mailboxDisplayStatus from "@/lib/mailboxStatus";
@@ -106,7 +107,7 @@ export default function AddressesPage() {
     const emailsData = useEmails({ query, tag });
     const [selected, setSelected] = React.useState<string[]>([]);
     const [view, setView] = React.useState<string>("");
-    const [viewTab, setViewTab] = React.useState<string>("overview");
+    const [viewTab, setViewTab] = React.useState<MailboxTab>("overview");
     const [removing, setRemoving] = React.useState(false);
     const [bulkStart, setBulkStart] = React.useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -252,7 +253,7 @@ export default function AddressesPage() {
         return out;
     }, [selected, boxStatusById]);
 
-    const openDetail = (id: string, tab: string = "overview") => {
+    const openDetail = (id: string, tab: MailboxTab = "overview") => {
         setViewTab(tab);
         setView(id);
     };
@@ -263,7 +264,7 @@ export default function AddressesPage() {
     useEffect(() => {
         const id = searchParams.get("mailbox");
         if (!id) return;
-        openDetail(id, searchParams.get("tab") ?? "overview");
+        openDetail(id, (searchParams.get("tab") as MailboxTab) ?? "overview");
         // Consume it, or every later close would be undone by a re-render.
         setSearchParams(
             (prev) => {
@@ -620,7 +621,7 @@ function MailboxRow({
     cloudConnected: boolean;
     checked: boolean;
     onToggleSelect: () => void;
-    onOpen: (id: string, tab?: string) => void;
+    onOpen: (id: string, tab?: MailboxTab) => void;
 }) {
     const life = useWarmupLifecycle(box.id);
     const confirm = useConfirm();

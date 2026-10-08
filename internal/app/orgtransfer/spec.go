@@ -205,6 +205,7 @@ var Tables = []Table{
 	{
 		Name: "email_accounts", Group: models.OrgDataGroupCore,
 		Scope: scopeOrg,
+		// Send cooldowns and recovery holds travel as mailbox columns; never reset them.
 		// Worker placement is a property of the instance the mailbox runs on,
 		// never of the mailbox. The destination assigns its own.
 		//
@@ -260,6 +261,16 @@ var Tables = []Table{
 	{
 		Name: "email_account_behavior", Group: models.OrgDataGroupCore,
 		Scope: `email_account_id IN ` + orgMailboxes,
+	},
+	{
+		Name: "cloud_managed_consents", Group: models.OrgDataGroupCore, Scope: scopeOrg,
+		ResetOnImport: []string{"instance_id", "remote_id", "session_hash", "cloud_account_id", "planned_account_id"},
+		Note:          "Managed consent history and restrictions travel; process-local session and link handles reset and cannot authorize a destination.",
+	},
+	{
+		Name: "pool_link_managed_operations", Group: models.OrgDataGroupCore, Scope: scopeOrg,
+		ResetOnImport: []string{"instance_id", "remote_id", "session_hash", "planned_account_id", "activation_pending"},
+		Note:          "Cloud consent history travels without a live instance or resumable OAuth operation.",
 	},
 	{
 		// Below organization_members: user_id names the creator, and the
@@ -786,7 +797,17 @@ var Tables = []Table{
 		Scope: `email_account_id IN ` + orgMailboxes + ` AND task_type <> 'placement'`,
 		Owner: `email_account_id IN ` + orgMailboxes,
 		// The handle belongs to the source instance's queue.
-		ResetOnImport: []string{"cloud_task_name"},
+		ResetOnImport: []string{"cloud_task_name", "send_executor_nonce", "send_executor_worker", "send_executor_started_at", "send_executor_result"},
+	},
+	{
+		Name: "outbound_attempts", Group: models.OrgDataGroupSending,
+		Scope: `email_account_id IN (SELECT id FROM email_accounts WHERE organization_id = $1)`,
+	},
+	{
+		Name: "send_recovery_resolutions", Group: models.OrgDataGroupSending,
+		Scope: scopeOrg,
+		Owner: scopeOrg,
+		Note:  "Evidence and operator confirmation used to lift a durable mailbox send hold. Unknown sends cannot be resolved through this history and remain restrictive after import.",
 	},
 	{
 		// An AI-group table, but it sits here because task_id points at tasks.
@@ -813,8 +834,9 @@ var Tables = []Table{
 	},
 	{
 		Name: "warmup_tasks", Group: models.OrgDataGroupSending,
-		PartnerRefs: []string{"target_account_id"},
-		Scope:       `task_id IN ` + orgTasks,
+		PartnerRefs:   []string{"target_account_id"},
+		Scope:         `task_id IN ` + orgTasks,
+		ResetOnImport: []string{"parent_task_id", "parent_received_id", "parent_message_id", "lineage_version", "schedule_revision", "queued_revision", "dispatch_nonce", "dispatch_worker_id", "dispatch_started_at", "dispatch_result"},
 	},
 	{
 		Name: "warmup_tokens", Group: models.OrgDataGroupSending,
@@ -1023,7 +1045,7 @@ var ExcludedTables = map[string]string{
 	"cli_auth_codes":               "In-flight `warmbly auth login` handshakes, valid for minutes. The API key an approval mints does travel, with the api_keys rows.",
 	"pool_link_instances":          "Self-hosted instances linked to this workspace's pool allowance. The token hash only authenticates against this instance, and the enrolled mailboxes are mirrors of mailboxes that live elsewhere.",
 	"pool_link_mailboxes":          "Which mailbox rows are warmup-only mirrors for a linked instance. They follow pool_link_instances, which does not travel.",
-	"cloud_link":                   "This instance's own link to Warmbly Cloud: an instance property, not workspace data, and its token would be wrong on any other instance.",
+	"cloud_link":                   "Workspace connections to Warmbly Cloud and legacy instance links: their encrypted tokens only work on this installation and do not travel.",
 	"cloud_link_mailboxes":         "Which local mailboxes Warmbly Cloud warms for this instance. The enrollment belongs to the link, which does not travel.",
 	"warmup_conversations":         "The instance's shared warmup content library, not workspace data.",
 	"copy_judgments":               "A cache of copy judgments keyed by the hash of the words judged. The destination re-reads a step the first time its Advisor runs.",

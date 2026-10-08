@@ -98,6 +98,8 @@ import { Loading } from "@/components/loader";
 import { NumberInput, TextInput } from "@/components/ui/field";
 import { useConfirm } from "@/hooks/context/confirm";
 import { usePresenceResource } from "@/hooks/PresenceProvider";
+import useBrowseState from "@/hooks/useBrowseState";
+import { mailboxTab, type MailboxTab } from "@/lib/browse-accounts-analytics";
 import ResourceViewers from "@/components/app/presence/ResourceViewers";
 import { cn } from "@/lib/utils";
 
@@ -318,7 +320,7 @@ function statusTone(status: string) {
 
 /* ── tabs ─────────────────────── */
 
-const TABS: { key: string; label: string; icon: LucideIcon }[] = [
+const TABS: { key: MailboxTab; label: string; icon: LucideIcon }[] = [
     { key: "overview", label: "סקירה", icon: GaugeIcon },
     { key: "analytics", label: "ניתוחים", icon: BarChart3Icon },
     { key: "warmup", label: "חימום", icon: FlameIcon },
@@ -334,13 +336,17 @@ export default function InboxDetails({
     emails,
     view,
     setView,
-    initialTab = "overview",
+    initialTab,
+    tabIntentKey,
+    onTabIntentConsumed,
     canWarmup = true,
 }: {
     emails: Inbox[] | null;
     view: string;
     setView: React.Dispatch<React.SetStateAction<string>>;
-    initialTab?: string;
+    initialTab?: MailboxTab;
+    tabIntentKey?: number;
+    onTabIntentConsumed?: () => void;
     canWarmup?: boolean;
 }) {
     const mailbox = emails?.find((e) => e.id === view) ?? null;
@@ -365,7 +371,7 @@ export default function InboxDetails({
                         transition={{ type: "spring", damping: 32, stiffness: 320 }}
                         className="fixed right-0 top-0 z-50 h-full w-full sm:w-[600px] bg-white border-l border-slate-200 shadow-[0_0_60px_-12px_rgba(15,23,42,0.3)] flex flex-col"
                     >
-                        <Detail key={mailbox.id} mailbox={mailbox} onClose={close} initialTab={initialTab} canWarmup={canWarmup} />
+                        <Detail key={mailbox.id} mailbox={mailbox} onClose={close} initialTab={initialTab} tabIntentKey={tabIntentKey} onTabIntentConsumed={onTabIntentConsumed} canWarmup={canWarmup} />
                     </motion.aside>
                 </>
             )}
@@ -380,11 +386,37 @@ const EDITABLE: (keyof Inbox)[] = [
     "tags", "campaign_limit", "min_wait_time", "reply_to", "save_to_sent", "relay_folder_moves", "timezone",
     "warmup_base", "warmup_max", "warmup_increase", "warmup_reply_rate",
     "warmup_tag", "warmup_start_time", "warmup_end_time", "warmup_days",
-    "warmup_placement", "warmup_folder",
+    "warmup_placement", "warmup_folder", "warmup_retention_days",
+    "test_mode", "test_send_enabled", "test_receive_enabled", "shared_daily_limit", "rolling_recipient_limit",
 ];
 
-function Detail({ mailbox, onClose, initialTab = "overview", canWarmup = true }: { mailbox: Inbox; onClose: () => void; initialTab?: string; canWarmup?: boolean }) {
-    const [tab, setTab] = useState(initialTab);
+function Detail({
+    mailbox,
+    onClose,
+    initialTab,
+    tabIntentKey,
+    onTabIntentConsumed,
+    canWarmup = true,
+}: {
+    mailbox: Inbox;
+    onClose: () => void;
+    initialTab?: MailboxTab;
+    tabIntentKey?: number;
+    onTabIntentConsumed?: () => void;
+    canWarmup?: boolean;
+}) {
+    const [tab, setTab] = useBrowseState<MailboxTab>(
+        `emails.mailbox.${mailbox.id}.tab`,
+        "overview",
+        mailboxTab,
+        initialTab === undefined ? undefined : { initialOverride: initialTab },
+    );
+    React.useEffect(() => {
+        if (initialTab !== undefined) {
+            setTab(initialTab);
+            onTabIntentConsumed?.();
+        }
+    }, [initialTab, tabIntentKey, onTabIntentConsumed, setTab]);
     const [form, setForm] = useState<Inbox>(mailbox);
     const update = (patch: Partial<Inbox>) => setForm((f) => ({ ...f, ...patch }));
 

@@ -38,6 +38,7 @@ interface Props {
     // Disable inline category creation. Useful in contexts where the
     // user shouldn't be inventing tags (e.g. legacy import flows).
     allowCreate?: boolean;
+    showMissing?: boolean;
 }
 
 export default function CategoryPicker({
@@ -46,6 +47,7 @@ export default function CategoryPicker({
     placeholder = "לחץ להוספת תוויות…",
     className,
     allowCreate = true,
+    showMissing = false,
 }: Props) {
     const { user } = useUserProfile();
     const categories = user.categories ?? [];
@@ -69,7 +71,7 @@ export default function CategoryPicker({
     }, [categories]);
 
     const selectedChips = value
-        .map((id) => byId.get(id))
+        .map((id) => byId.get(id) ?? (showMissing ? { id, title: "Selected label", color: "#64748b" } : undefined))
         .filter((c): c is Category => !!c);
 
     const filtered = React.useMemo(() => {

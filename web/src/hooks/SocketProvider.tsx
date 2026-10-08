@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import type SocketProviderProps from "@/lib/socket/models/SocketProviderProps";
 import getSocket from '@/lib/api/client/app/socket/getSocket';
 import type { AppError } from '@/lib/api/client/normalizeError';
+import { AuthError } from '@/lib/errors/auth';
 import { useAppStore } from '@/stores';
 import {
     SocketContext,
@@ -88,7 +89,6 @@ export default function SocketProvider({
         });
     }, []);
     const pendingJoinsRef = useRef<Map<string, Record<string, unknown>>>(new Map());
-    const pendingPushesRef = useRef<Map<string, Array<{ event: string; payload: Record<string, unknown> }>>>(new Map());
     // Pending single-channel rejoin, plus how many consecutive attempts it has
     // taken and when the last one was scheduled. A successful join cancels the
     // timer; the attempt count decays on its own (CHANNEL_REJOIN_RESET_MS).
@@ -300,19 +300,6 @@ export default function SocketProvider({
                 if (reply.status === 'ok') {
                     channel.state = 'joined';
                     cancelRejoinTimer(topic);
-                    const pending = pendingPushesRef.current.get(topic);
-                    if (pending && pending.length > 0) {
-                        pendingPushesRef.current.delete(topic);
-                        for (const item of pending) {
-                            sendRaw({
-                                topic,
-                                event: item.event,
-                                payload: item.payload,
-                                ref: getRef(),
-                                join_ref: channel.joinRef,
-                            });
-                        }
-                    }
                 } else {
                     channel.state = 'errored';
                     // A throttled join is transient and the server says when
@@ -462,7 +449,6 @@ export default function SocketProvider({
         desiredTopicsRef.current.delete(topic);
         clearRejoin(topic);
         pendingJoinsRef.current.delete(topic);
-        pendingPushesRef.current.delete(topic);
 
         const channel = channelsRef.current.get(topic);
         if (!channel) return;
@@ -549,14 +535,7 @@ export default function SocketProvider({
     ) => {
         const channel = channelsRef.current.get(topic);
         if (!channel || channel.state !== 'joined') {
-            if (channel?.state === 'joining') {
-                let list = pendingPushesRef.current.get(topic);
-                if (!list) {
-                    list = [];
-                    pendingPushesRef.current.set(topic, list);
-                }
-                list.push({ event, payload });
-            }
+            console.warn('[WS] Cannot push to channel - not joined:', topic);
             return;
         }
 
@@ -647,7 +626,7 @@ export default function SocketProvider({
         }
 
         try {
-            const urlData = await getSocket();
+            const urlData = await getSocket(reconnectAttemptRef.current % 2 === 0);
             // Phoenix vsn=1.0.0 — our sendRaw / joinChannel paths emit the
             // V1 object format ({topic, event, payload, ref}), not the
             // V2 array format. Sending vsn=2.0.0 made the realtime server
@@ -661,6 +640,7 @@ export default function SocketProvider({
 
             wsRef.current.onopen = (ev) => {
                 setIsConnected(true);
+                reconnectAttemptRef.current = 0;
                 setReconnectAttempt(0);
                 startHeartbeat();
                 rejoinChannels();
@@ -705,7 +685,8 @@ export default function SocketProvider({
                     // ±25% jitter so clients don't reconnect in lockstep after an outage.
                     const delay = Math.round(base * (0.75 + Math.random() * 0.5));
                     reconnectTimerRef.current = setTimeout(() => {
-                        setReconnectAttempt((a) => a + 1);
+                        reconnectAttemptRef.current += 1;
+                        setReconnectAttempt(reconnectAttemptRef.current);
                         connect();
                     }, delay);
                 }
@@ -713,14 +694,12 @@ export default function SocketProvider({
 
             wsRef.current.onerror = (ev) => {
                 // A WebSocket error event carries no detail by spec, and onclose
-                // always follows it and drives the reconnect. Only warn on initial attempt
-                // to avoid flooding logs on repeated retries.
-                if (reconnectAttemptRef.current === 0) {
-                    console.warn('[WS] Connection error - reconnecting', {
-                        readyState: wsRef.current?.readyState,
-                        attempt: reconnectAttemptRef.current,
-                    });
-                }
+                // always follows it and drives the reconnect, so this is not an
+                // error: as one it reported every deploy and sleep to PostHog.
+                console.warn('[WS] Connection error - reconnecting', {
+                    readyState: wsRef.current?.readyState,
+                    attempt: reconnectAttemptRef.current,
+                });
                 onError?.(ev);
             };
         } catch (err) {
@@ -735,12 +714,28 @@ export default function SocketProvider({
             // is already gone (Request refreshes and retries once before it
             // throws). Both are expected and handled: the retry below, and the
             // app-wide auth redirect. Only an unexpected answer is an error.
+            //
+            // And only the FIRST of a streak. The retry below never gives up,
+            // so a backend that stays down reports once every few seconds for
+            // as long as the tab is open: one afternoon's outage filed 1158
+            // copies of the same failure from a single tab, which buries every
+            // other error in the project. The attempt counter resets on a
+            // successful open, so each outage still reports itself once.
+            // No credentials is not a network problem, and the backoff cannot
+            // mend it: the handshake needs a token the client no longer has,
+            // so every retry throws the same AuthError. Left running it filed
+            // one unhandled exception every few seconds for the life of the
+            // tab. Stand down and let the session-ended redirect take over.
+            if (err instanceof AuthError) {
+                console.warn('[WS] No session; stopping reconnects -', err.message);
+                return;
+            }
             if (!error.status || error.status === 401) {
-                if (reconnectAttemptRef.current === 0) {
-                    console.warn('[WS] Init failed, retrying -', detail);
-                }
-            } else {
+                console.warn('[WS] Init failed, retrying -', detail);
+            } else if (reconnectAttemptRef.current === 0) {
                 console.error('[WS] Init failed -', detail);
+            } else {
+                console.warn('[WS] Init failed, still retrying -', detail);
             }
             // Token fetch / handshake failed — retry on the same fast backoff
             // rather than a flat 15s wait.
@@ -749,7 +744,8 @@ export default function SocketProvider({
                 const base = RECONNECT_SCHEDULE[Math.min(attempt, RECONNECT_SCHEDULE.length - 1)];
                 const delay = Math.round(base * (0.75 + Math.random() * 0.5));
                 reconnectTimerRef.current = setTimeout(() => {
-                    setReconnectAttempt((a) => a + 1);
+                    reconnectAttemptRef.current += 1;
+                    setReconnectAttempt(reconnectAttemptRef.current);
                     connect();
                 }, delay);
             }

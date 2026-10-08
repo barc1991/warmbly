@@ -14,7 +14,7 @@ import (
 )
 
 // MaxWarmupPlacementDays bounds one placement report.
-const MaxWarmupPlacementDays = 366
+const MaxWarmupPlacementDays = models.WarmupReportMaxDays
 
 // WireWarmupPlacement attaches the placement history.
 func (s *analyticsService) WireWarmupPlacement(r repository.WarmupPlacementRepository) {
@@ -122,6 +122,15 @@ func (s *analyticsService) GetWarmupPlacement(ctx context.Context, orgID uuid.UU
 	if err != nil {
 		return nil, errx.InternalError()
 	}
+	if s.cloudReports != nil {
+		cloud, xerr := s.cloudReports.WarmupPlacementData(ctx, orgID, emailID, from, to)
+		if xerr != nil {
+			return nil, xerr
+		}
+		data := &models.WarmupPlacementData{Daily: dayRows, Hosts: hostRows, Sent: sentRows, Unconfirmed: unconfirmedRows, Windows: windows}
+		data.Add(cloud)
+		dayRows, hostRows, sentRows, unconfirmedRows, windows = data.Daily, data.Hosts, data.Sent, data.Unconfirmed, data.Windows
+	}
 	rates := headlineRates(windows)
 
 	b := newPlacementBuilder(from, to)
@@ -140,7 +149,14 @@ func (s *analyticsService) GetWarmupPlacement(ctx context.Context, orgID uuid.UU
 		report.Summary.Add(d.WarmupPlacementCounts)
 	}
 	report.Summary.Finish()
+	report.Summary.NonSpamMetric.WindowDays = len(b.dates)
 	report.Providers = placementProviders(hostRows)
+	for i := range report.Providers {
+		report.Providers[i].NonSpamMetric.WindowDays = len(b.dates)
+		for j := range report.Providers[i].Hosts {
+			report.Providers[i].Hosts[j].NonSpamMetric.WindowDays = len(b.dates)
+		}
+	}
 
 	var total models.WarmupPlacementWindow
 	for _, w := range windows {
@@ -226,6 +242,10 @@ func (b *placementBuilder) addDelivery(r repository.WarmupPlacementDayRow) {
 		c.Tabs += r.Tabs
 		c.Spam += r.Spam
 		c.Rescued += r.Rescued
+		c.Unknown += r.Unknown
+		c.Archived += r.Archived
+		c.Custom += r.Custom
+		c.Instrumented += r.Instrumented
 	}
 	add(&b.day[i])
 	sp := b.sender(r.SenderID)
@@ -244,6 +264,9 @@ func (b *placementBuilder) addDelivery(r repository.WarmupPlacementDayRow) {
 	g.Tabs += r.Tabs
 	g.Spam += r.Spam
 	g.Rescued += r.Rescued
+	g.Unknown += r.Unknown
+	g.Archived += r.Archived
+	g.Custom += r.Custom
 }
 
 func (b *placementBuilder) addCount(r repository.WarmupSenderDayCount, apply func(*models.WarmupPlacementCounts, int)) {
@@ -262,6 +285,7 @@ func (b *placementBuilder) days() []models.WarmupPlacementDay {
 	for i, date := range b.dates {
 		c := b.day[i]
 		c.Finish()
+		c.NonSpamMetric.WindowDays = 1
 		groups := make([]models.WarmupPlacementGroupCounts, 0, len(b.groups[i]))
 		for _, key := range models.WarmupRecipientGroups {
 			if g, ok := b.groups[i][key]; ok {
@@ -300,6 +324,7 @@ func (b *placementBuilder) mailboxes(names map[uuid.UUID]string, rates map[uuid.
 		}
 		total := sp.total
 		total.Finish()
+		total.NonSpamMetric.WindowDays = len(b.dates)
 		daily := make([]*float64, len(sp.days))
 		for i, d := range sp.days {
 			d.Finish()
@@ -336,14 +361,29 @@ func (b *placementBuilder) mailboxes(names map[uuid.UUID]string, rates map[uuid.
 // placementProviders groups the window's host rows by recipient group, in
 // display order, busiest host first.
 func placementProviders(rows []repository.WarmupPlacementHostRow) []models.WarmupPlacementProvider {
+	byHost := make(map[[2]string]repository.WarmupPlacementHostRow)
+	for _, row := range rows {
+		key := [2]string{row.Group, row.Host}
+		host := byHost[key]
+		host.Group, host.Host = row.Group, row.Host
+		host.Inbox += row.Inbox
+		host.Tabs += row.Tabs
+		host.Spam += row.Spam
+		host.Rescued += row.Rescued
+		host.Unknown += row.Unknown
+		host.Archived += row.Archived
+		host.Custom += row.Custom
+		host.Instrumented += row.Instrumented
+		byHost[key] = host
+	}
 	byGroup := make(map[string]*models.WarmupPlacementProvider)
-	for _, r := range rows {
+	for _, r := range byHost {
 		p, ok := byGroup[r.Group]
 		if !ok {
 			p = &models.WarmupPlacementProvider{Group: r.Group, Hosts: make([]models.WarmupPlacementHost, 0)}
 			byGroup[r.Group] = p
 		}
-		c := models.WarmupPlacementCounts{Inbox: r.Inbox, Tabs: r.Tabs, Spam: r.Spam, Rescued: r.Rescued}
+		c := models.WarmupPlacementCounts{Inbox: r.Inbox, Tabs: r.Tabs, Spam: r.Spam, Rescued: r.Rescued, Unknown: r.Unknown, Archived: r.Archived, Custom: r.Custom, Instrumented: r.Instrumented}
 		p.Add(c)
 		c.Finish()
 		p.Hosts = append(p.Hosts, models.WarmupPlacementHost{Host: r.Host, WarmupPlacementCounts: c})
@@ -355,7 +395,12 @@ func placementProviders(rows []repository.WarmupPlacementHostRow) []models.Warmu
 			continue
 		}
 		p.Finish()
-		sort.SliceStable(p.Hosts, func(i, j int) bool { return p.Hosts[i].Delivered > p.Hosts[j].Delivered })
+		sort.Slice(p.Hosts, func(i, j int) bool {
+			if p.Hosts[i].Delivered == p.Hosts[j].Delivered {
+				return p.Hosts[i].Host < p.Hosts[j].Host
+			}
+			return p.Hosts[i].Delivered > p.Hosts[j].Delivered
+		})
 		out = append(out, *p)
 	}
 	return out

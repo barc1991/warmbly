@@ -9,6 +9,8 @@ import ProviderLogo from "@/components/app/emails/ProviderLogo";
 import { mailHostLabel } from "@/lib/mailHost";
 import ScrollStrip from "@/components/ui/scroll-strip";
 import { cn } from "@/lib/utils";
+import useBrowseState from "@/hooks/useBrowseState";
+import { placementGroup } from "@/lib/browse-accounts-analytics";
 import type { PlacementGroup, PlacementProvider, PlacementRate } from "@/lib/api/models/app/analytics/WarmupPlacement";
 import {
     BAND,
@@ -19,6 +21,7 @@ import {
     bandForRate,
     fmtNum,
     fmtPct,
+    observedCount,
     rateSentence,
     shortDate,
     type DayView,
@@ -147,15 +150,15 @@ export function LandedLegend({ className }: { className?: string }) {
 // the pointer (or the whole range when nothing is hovered).
 export function PlacementColumns({ days, height = 140 }: { days: DayView[]; height?: number }) {
     const [hover, setHover] = useState<number | null>(null);
-    const data = React.useMemo(() => days.map((d) => ({ key: d.date, parts: [d.inbox, d.tabs, d.spam] })), [days]);
-    const any = days.some((d) => d.delivered > 0);
-    if (!any) return <EmptyChart height={height + 34} label="אין מסירות חימום בחלון זמן זה" />;
+    const data = React.useMemo(() => days.map((d) => ({ key: d.date, parts: [d.inbox, d.tabs, d.spam, d.unknown ?? 0, d.archived ?? 0, d.custom ?? 0] })), [days]);
+    const any = days.some((d) => observedCount(d) > 0);
+    if (!any) return <EmptyChart height={height + 34} label="אין קבלות שזוהו בחלון זמן זה" />;
 
     const d = hover != null ? days[hover] : null;
     return (
         <div>
             <div className="relative w-full" style={{ height: height + 16 }}>
-                <DitherColumns data={data} tones={["emerald", "violet", "rose"]} height={height} onHover={setHover} />
+                <DitherColumns data={data} tones={["emerald", "violet", "rose", "slate", "slate", "slate"]} height={height} onHover={setHover} />
                 <div className="absolute left-0 right-0 h-px bg-slate-200/80" style={{ top: height }} />
                 <div className="absolute left-0 right-0 bottom-0 flex justify-between font-mono text-[9.5px] text-slate-400">
                     <span>{shortDate(days[0].date)}</span>
@@ -164,14 +167,15 @@ export function PlacementColumns({ days, height = 140 }: { days: DayView[]; heig
             </div>
             <p className="mt-2 h-4 text-[11px] text-slate-500 font-mono tabular-nums truncate">
                 {d ? (
-                    d.delivered > 0 ? (
+                    observedCount(d) > 0 ? (
                         <>
                             {shortDate(d.date)}: <span className="text-emerald-600">{d.inbox} דואר נכנס</span>
                             {d.tabs > 0 && <> · <span className="text-violet-600">{d.tabs} לשוניות</span></>} · <span className="text-rose-600">{d.spam} ספאם</span>
-                            {d.rescued > 0 && <> ({d.rescued} חולצו)</>} · {fmtPct(((d.inbox + d.tabs) / d.delivered) * 100)} דואר נכנס
+                            {d.rescued > 0 && <> ({d.rescued} בקשות חילוץ)</>} · {fmtPct(d.delivered > 0 ? ((d.inbox + d.tabs) / d.delivered) * 100 : null)} ללא ספאם
+                            {d.unknown != null && <> · {d.unknown} לא ידוע · {d.archived} ארכיון · {d.custom} מותאם</>}
                         </>
                     ) : (
-                        <>{shortDate(d.date)}: אין מסירות</>
+                        <>{shortDate(d.date)}: אין קבלות שזוהו</>
                     )
                 ) : (
                     <span className="text-slate-400">הצבע על יום לפירוט</span>
@@ -303,8 +307,8 @@ export function RateSpark({ values, width = 96, height = 22 }: { values: (number
 
 // One row per recipient group; expanding it lists the hosts inside
 // (Gmail vs Google Workspace, Outlook.com vs Microsoft 365).
-export function ProviderBreakdown({ providers }: { providers: PlacementProvider[] }) {
-    const [open, setOpen] = useState<PlacementGroup | null>(null);
+export function ProviderBreakdown({ providers, browseScope }: { providers: PlacementProvider[]; browseScope: string }) {
+    const [open, setOpen] = useBrowseState<PlacementGroup | null>(`${browseScope}.providerExpanded`, null, placementGroup.nullable());
     if (providers.length === 0) {
         return <p className="px-5 py-6 text-[12px] text-slate-400 text-center">אין מסירות באף ספק בחלון זמן זה.</p>;
     }
@@ -312,7 +316,7 @@ export function ProviderBreakdown({ providers }: { providers: PlacementProvider[
         <div className="divide-y divide-slate-200/60">
             {providers.map((p) => {
                 const expanded = open === p.group;
-                const hosts = p.hosts.filter((h) => h.delivered > 0);
+                const hosts = p.hosts.filter((h) => observedCount(h) > 0);
                 const canExpand = hosts.length > 1 || (hosts.length === 1 && hosts[0].host !== "");
                 return (
                     <div key={p.group}>
@@ -327,7 +331,7 @@ export function ProviderBreakdown({ providers }: { providers: PlacementProvider[
                             <ChevronRightIcon className={cn("w-3 h-3 shrink-0 text-slate-300 transition-transform rtl:rotate-180", expanded && "rotate-90 rtl:rotate-90", !canExpand && "invisible")} />,
                             <ProviderLogo id={GROUP_LOGO[p.group]} size="sm" />,
                             <span className="text-[12.5px] font-medium text-slate-900 w-24 sm:w-32 shrink-0 truncate">{GROUP_LABEL[p.group]}</span>,
-                            <PlacementBar inbox={p.inbox} tabs={p.tabs} spam={p.spam} />,
+                            <PlacementBar inbox={p.inbox} tabs={p.tabs} spam={p.spam} unknown={p.unknown} archived={p.archived} custom={p.custom} />,
                             <RateCells inbox={p.inbox_rate} spam={p.spam_rate} delivered={p.delivered} />,
                         )}
                         {expanded && (
@@ -335,7 +339,7 @@ export function ProviderBreakdown({ providers }: { providers: PlacementProvider[
                                 {hosts.map((h) => (
                                     <div key={h.host || "unknown"} className="min-h-9 ps-14 pe-5 py-1.5 flex items-center gap-3">
                                         <span className="text-[11.5px] text-slate-600 w-24 sm:w-32 shrink-0 truncate">{mailHostLabel(h.host) || "שרת מארח לא זוהה"}</span>
-                                        <PlacementBar inbox={h.inbox} tabs={h.tabs} spam={h.spam} height={4} />
+                                        <PlacementBar inbox={h.inbox} tabs={h.tabs} spam={h.spam} unknown={h.unknown} archived={h.archived} custom={h.custom} height={4} />
                                         <RateCells inbox={h.inbox_rate} spam={h.spam_rate} delivered={h.delivered} />
                                     </div>
                                 ))}
@@ -348,9 +352,9 @@ export function ProviderBreakdown({ providers }: { providers: PlacementProvider[
     );
 }
 
-function PlacementBar({ inbox, tabs, spam, height = 6 }: { inbox: number; tabs: number; spam: number; height?: number }) {
-    const total = Math.max(1, inbox + tabs + spam);
-    const title = `${inbox} דואר נכנס · ${tabs} לשוניות אחרות · ${spam} ספאם`;
+function PlacementBar({ inbox, tabs, spam, unknown, archived, custom, height = 6 }: { inbox: number; tabs: number; spam: number; unknown?: number; archived?: number; custom?: number; height?: number }) {
+    const total = Math.max(1, inbox + tabs + spam + (unknown ?? 0) + (archived ?? 0) + (custom ?? 0));
+    const title = `${inbox} דואר נכנס · ${tabs} לשוניות אחרות · ${spam} ספאם` + (unknown != null ? ` · ${unknown} לא ידוע · ${archived} ארכיון · ${custom} מותאם` : " · ראיות לא מסווגות אינן זמינות");
     return (
         <div className="flex-1 min-w-12" title={title}>
             <DitherStack
@@ -359,6 +363,9 @@ function PlacementBar({ inbox, tabs, spam, height = 6 }: { inbox: number; tabs: 
                     { frac: inbox / total, tone: "emerald" },
                     { frac: tabs / total, tone: "violet" },
                     { frac: spam / total, tone: "rose" },
+                    { frac: (unknown ?? 0) / total, tone: "slate" },
+                    { frac: (archived ?? 0) / total, tone: "slate" },
+                    { frac: (custom ?? 0) / total, tone: "slate" },
                 ] satisfies { frac: number; tone: DitherTone }[]).filter((s) => s.frac > 0)}
             />
         </div>

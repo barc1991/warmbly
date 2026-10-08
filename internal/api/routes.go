@@ -12,6 +12,7 @@ import (
 	"github.com/warmbly/warmbly/internal/api/handler"
 	"github.com/warmbly/warmbly/internal/api/handler/grouph"
 	"github.com/warmbly/warmbly/internal/api/middleware"
+	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/models"
 )
 
@@ -141,6 +142,8 @@ func Run(
 	// split deployment keep the edge services off this credential.
 	broker := r.Group("/api/v1/internal")
 	broker.Use(m.NodeBrokerAuthMiddleware())
+	node := r.Group("/api/v1/internal")
+	node.Use(m.NodeAuthMiddleware())
 	{
 		// Opens a sealed data key for a node running KMS_PROVIDER=brokered, so
 		// a machine you own needs no cloud credential of its own.
@@ -155,6 +158,33 @@ func Run(
 		// manages, which is worth more than any record the rest of the
 		// internal API moves.
 		broker.GET("/cloud-link/token/:id", h.InternalCloudLinkToken)
+		node.GET("/dek/:orgID", h.InternalGetDEK)
+		node.PUT("/dek/:orgID", h.InternalPutDEK)
+		// No DELETE: a lost DEK is unrecoverable, so nothing holding this token may remove one.
+
+		// Worker mailbox-sync messageId -> internal email map.
+		node.GET("/email-message-map", h.InternalGetEmailMessageMap)
+		node.PUT("/email-message-map", h.InternalPutEmailMessageMap)
+		node.DELETE("/email-message-map", h.InternalDeleteEmailMessageMap)
+
+		// Sync governor priority lane: "is this new message a reply to
+		// something the mailbox sent?" (tasks, message map, unibox threads).
+		node.GET("/sync/own-conversation", h.InternalSyncOwnConversation)
+
+		// Expunge reconciliation: what the platform still holds for one IMAP
+		// folder, so the worker can drop the rows the server no longer reports.
+		node.GET("/sync/folder-messages", h.InternalSyncFolderMessages)
+
+		// Gmail folder reconciliation: the rows the platform believes Gmail
+		// has in a folder, so the worker can report the ones that moved.
+		node.GET("/sync/provider-folder-messages", h.InternalSyncProviderFolderMessages)
+		node.GET("/sync/provider-messages", h.InternalSyncProviderMessages)
+
+		// Worker runtime config.
+		node.GET("/worker/config", h.InternalWorkerConfig)
+		node.POST("/worker/warmup-dispatch", h.InternalWarmupDispatch)
+		node.POST("/worker/warmup-actions", h.InternalWarmupActions)
+		node.POST("/worker/diagnostic-auth", h.InternalDiagnosticAuth)
 	}
 
 	internal := r.Group("/api/v1/internal")
@@ -282,6 +312,9 @@ func Run(
 	// (health, signed webhooks, OAuth bouncers, worker enroll, the internal API,
 	// and /admin) are NOT versioned and stay at their bare paths.
 	v1 := r.Group("/v1")
+	v1.GET("/realtime/socket/websocket", m.PublicIPRateLimitMiddleware(), h.ProxyWebsocket)
+	v1.POST("/dashboard-image/public", m.PublicIPRateLimitMiddleware(), h.PublicDashboardImage)
+	v1.POST("/dashboard-image", m.AuthMiddleware(), m.RateLimitMiddleware(models.RateLimitRead), h.DashboardImage)
 
 	// Public invitation preview for the /invite landing page. Unauthenticated:
 	// the invite token in the query is the capability. Registered on /v1 (the
@@ -485,7 +518,7 @@ func Run(
 		protected.Use(m.CombinedAuthMiddleware(), m.APIKeyUsageMiddleware(), m.IdempotencyMiddleware())
 		{
 			emails := protected.Group("/emails")
-			emails.Use(m.RateLimitMiddleware(models.RateLimitWrite))
+			emails.Use(m.RateLimitMiddleware(models.RateLimitWrite), middleware.UUIDParams("id"))
 			{
 				emails.GET("", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadEmails), h.EmailsSearch)
 				emails.GET("/:id", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadEmails), middleware.RequireAPIKeyEmailAccountParam("id"), h.GetEmail)
@@ -656,7 +689,7 @@ func Run(
 			protected.POST("/campaigns-estimate", m.RateLimitMiddleware(models.RateLimitRead), m.RequireOrganization(), m.RequireAccess(models.PermViewCampaigns, models.APIPermReadCampaigns), h.EstimateCampaign)
 
 			campaigns := protected.Group("/campaigns")
-			campaigns.Use(m.RateLimitMiddleware(models.RateLimitWrite))
+			campaigns.Use(m.RateLimitMiddleware(models.RateLimitWrite), middleware.UUIDParams("id"))
 			{
 				campaigns.GET("", m.RequireAccess(models.PermViewCampaigns, models.APIPermReadCampaigns), h.SearchCampaigns)
 				campaigns.POST("", m.RequireAccess(models.PermManageCampaigns, models.APIPermWriteCampaigns), h.CreateCampaign)
@@ -798,7 +831,7 @@ func Run(
 			}
 
 			contacts := protected.Group("/contacts")
-			contacts.Use(m.RateLimitMiddleware(models.RateLimitWrite))
+			contacts.Use(m.RateLimitMiddleware(models.RateLimitWrite), middleware.UUIDParams("id"))
 			{
 				contacts.POST("/search", m.RequireAccess(models.PermViewContacts, models.APIPermReadContacts), h.SearchContacts)
 				contacts.POST("", m.RequireAccess(models.PermManageContacts, models.APIPermWriteContacts), h.AddContacts)
@@ -1554,13 +1587,19 @@ func Run(
 				poolLinkInstance.DELETE("", h.PoolLinkInstanceDisconnect)
 				poolLinkInstance.GET("/mailboxes", h.PoolLinkInstanceMailboxes)
 				poolLinkInstance.GET("/standing", h.PoolLinkInstanceStanding)
+				poolLinkInstance.POST("/analytics/warmup", h.PoolLinkWarmupStats)
+				poolLinkInstance.POST("/analytics/warmup/placement", h.PoolLinkWarmupPlacement)
 				poolLinkInstance.POST("/mailboxes", h.PoolLinkEnroll)
 				poolLinkInstance.GET("/mailboxes/:remoteId", h.PoolLinkGetMailbox)
 				poolLinkInstance.PATCH("/mailboxes/:remoteId", h.PoolLinkPatchMailbox)
+				poolLinkInstance.PATCH("/mailboxes/:remoteId/participation", h.PoolLinkPatchMailbox)
 				poolLinkInstance.DELETE("/mailboxes/:remoteId", h.PoolLinkUnenroll)
 				// Cloud-managed mailboxes: consent on this deployment's OAuth app, brokered tokens.
 				poolLinkInstance.POST("/oauth/start", h.PoolLinkOAuthStart)
 				poolLinkInstance.POST("/oauth/finish", h.PoolLinkOAuthFinish)
+				poolLinkInstance.POST("/oauth/start-correlated", h.PoolLinkOAuthStart)
+				poolLinkInstance.POST("/oauth/finish-correlated", h.PoolLinkOAuthFinish)
+				poolLinkInstance.POST("/mailboxes/adopt-correlated", h.PoolLinkAdopt)
 				poolLinkInstance.GET("/mailboxes/:remoteId/token", h.PoolLinkAccessToken)
 				poolLinkInstance.GET("/mailboxes/:remoteId/warmup-tokens/:token", h.PoolLinkVerifyWarmupToken)
 				poolLinkInstance.POST("/mailboxes/:remoteId/warmup-deliveries", h.PoolLinkVerifyWarmupDelivery)
@@ -1579,25 +1618,27 @@ func Run(
 				poolLinkInstance.DELETE("/redirects/:domain", h.PoolLinkDeleteRedirect)
 			}
 
-			// Self-hosted side: Settings > Warmbly Cloud.
-			// Reads are member-visible (no secrets travel); linking is a settings
-			// change and per-mailbox enrollment is a mailbox change.
-			cloudLink := jwtOnly.Group("/cloud-link")
-			cloudLink.Use(m.RateLimitMiddleware(models.RateLimitWrite), m.RequireOrganization())
-			{
-				cloudLink.GET("", h.CloudLinkStatus)
-				cloudLink.GET("/mailboxes", h.CloudLinkMailboxes)
-				cloudLink.POST("/connect", m.RequirePermission(models.PermManageSettings), h.CloudLinkConnectStart)
-				cloudLink.POST("/connect/poll", m.RequirePermission(models.PermManageSettings), h.CloudLinkConnectPoll)
-				cloudLink.DELETE("", m.RequirePermission(models.PermManageSettings), h.CloudLinkDisconnect)
-				cloudLink.POST("/mailboxes/:id/enroll", m.RequirePermission(models.PermManageEmails), h.CloudLinkEnroll)
-				cloudLink.DELETE("/mailboxes/:id/enroll", m.RequirePermission(models.PermManageEmails), h.CloudLinkUnenroll)
-				cloudLink.POST("/mailboxes/:id/pause", m.RequirePermission(models.PermManageEmails), h.CloudLinkPause)
-				cloudLink.POST("/mailboxes/:id/resume", m.RequirePermission(models.PermManageEmails), h.CloudLinkResume)
-				cloudLink.POST("/oauth/start", m.RequirePermission(models.PermManageEmails), h.CloudLinkOAuthStart)
-				cloudLink.POST("/oauth/finish", m.RequirePermission(models.PermManageEmails), h.CloudLinkOAuthFinish)
-				cloudLink.GET("/workspace-mailboxes", h.CloudLinkWorkspaceMailboxes)
-				cloudLink.POST("/workspace-mailboxes/:id/adopt", m.RequirePermission(models.PermManageEmails), h.CloudLinkAdopt)
+			// Self-hosted side: Settings > Warmbly Cloud, registered on a self-host only.
+			// Cloud connections are workspace-scoped; approving their credential sharing still requires an instance administrator.
+			if config.SelfHosted() {
+				cloudLink := jwtOnly.Group("/cloud-link")
+				cloudLink.Use(m.RateLimitMiddleware(models.RateLimitWrite), m.RequireOrganization())
+				members := cloudLink.Group("", m.RequirePermission(models.PermManageEmails))
+				members.GET("", h.CloudLinkStatus)
+				members.GET("/mailboxes", h.CloudLinkMailboxes)
+				members.POST("/mailboxes/:id/enroll", h.CloudLinkEnroll)
+				members.DELETE("/mailboxes/:id/enroll", h.CloudLinkUnenroll)
+				members.POST("/mailboxes/:id/pause", h.CloudLinkPause)
+				members.POST("/mailboxes/:id/resume", h.CloudLinkResume)
+				members.PATCH("/mailboxes/:id/participation", h.CloudLinkParticipation)
+				members.POST("/oauth/start", h.CloudLinkOAuthStart)
+				members.POST("/oauth/finish", h.CloudLinkOAuthFinish)
+				operator := cloudLink.Group("", m.AdminMiddleware(), middleware.RequireAdminPermission(models.AdminPermManageSettings))
+				operator.POST("/connect", h.CloudLinkConnectStart)
+				operator.POST("/connect/poll", h.CloudLinkConnectPoll)
+				operator.DELETE("", h.CloudLinkDisconnect)
+				operator.GET("/workspace-mailboxes", h.CloudLinkWorkspaceMailboxes)
+				operator.POST("/workspace-mailboxes/:id/adopt", m.RequirePermission(models.PermManageEmails), h.CloudLinkAdopt)
 			}
 
 			subscriptions := jwtOnly.Group("/subscription")
@@ -1765,6 +1806,7 @@ func Run(
 		// unsafe content or cancel a stuck provider job, but generation volume and
 		// scheduling are not manually controlled.
 		adminRoutes.GET("/warmup-content/overview", middleware.RequireAdminPermission(models.AdminPermViewWarmupPool), h.AdminWarmupContentOverview)
+		adminRoutes.PUT("/warmup-content/settings", middleware.RequireAdminPermission(models.AdminPermManageSettings), h.AdminPutWarmupContentSettings)
 		adminRoutes.GET("/warmup-content/conversations", middleware.RequireAdminPermission(models.AdminPermViewWarmupPool), h.AdminListWarmupConversations)
 		adminRoutes.GET("/warmup-content/conversations/:id", middleware.RequireAdminPermission(models.AdminPermViewWarmupPool), h.AdminGetWarmupConversation)
 		adminRoutes.POST("/warmup-content/conversations/:id/archive", middleware.RequireAdminPermission(models.AdminPermManageSettings), h.AdminArchiveWarmupConversation)

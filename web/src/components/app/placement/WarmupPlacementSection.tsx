@@ -114,7 +114,7 @@ export default function WarmupPlacementSection({ days }: { days: number }) {
             </div>
 
             <SectionBar label="מיקום חימום לפי ספק" count={report.providers.length || undefined} />
-            <ProviderBreakdown providers={report.providers} />
+            <ProviderBreakdown providers={report.providers} browseScope="workspace" />
             <p className="px-5 py-3 text-[11.5px] text-slate-500 leading-relaxed border-t border-slate-200/60">
                 בחירת שותפי החימום קוראת את הנתונים האלו לפי שרת דואר: תיבה שנוחתת בספאם אצל ספק מסוים נשלחת לפחות
                 שותפים שם כל עוד שיעור הספאם גבוה, וליותר שותפים ברגע שהיא מתאוששת. היא לעולם אינה מנותקת לחלוטין, משום

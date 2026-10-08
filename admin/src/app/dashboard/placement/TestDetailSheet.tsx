@@ -180,7 +180,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function SummaryGrid({ counts }: { counts: PlacementCounts }) {
     const tabs = counts.promotions + counts.other;
     const cells: { label: string; value: number; sub?: string; tone?: string }[] = [
-        { label: "נמסרו", value: counts.delivered, sub: `מתוך ${counts.total}` },
+        { label: "נפתרו (בסיס ישן)", value: counts.delivered, sub: `כולל השהיות, מתוך ${counts.total}` },
+        { label: "קבלות שנצפו", value: counts.observed_receipts ?? counts.inbox + counts.promotions + counts.other + counts.spam, sub: `${counts.unknown ?? 0} לא ידוע, ${counts.archive ?? 0} ארכיון, ${counts.custom ?? 0} מותאם` },
         { label: "תיבה ראשית", value: counts.inbox, sub: pct(counts.inbox_rate), tone: "text-emerald-700" },
         { label: "לשוניות Gmail", value: tabs, sub: pct(counts.tabs_rate), tone: "text-sky-700" },
         { label: "ספאם", value: counts.spam, sub: pct(counts.spam_rate), tone: counts.spam > 0 ? "text-red-700" : undefined },
@@ -221,7 +222,7 @@ function FamiliesTable({ families }: { families: { family: string; label: string
                 <thead className="bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
                     <tr>
                         <th className="px-2.5 py-1.5 text-start font-medium">ספק</th>
-                        <th className="px-2.5 py-1.5 text-end font-medium">נמסרו</th>
+                        <th className="px-2.5 py-1.5 text-end font-medium">נפתרו (בסיס ישן)</th>
                         <th className="px-2.5 py-1.5 text-end font-medium">תיבה ראשית</th>
                         <th className="px-2.5 py-1.5 text-end font-medium">לשוניות</th>
                         <th className="px-2.5 py-1.5 text-end font-medium">ספאם</th>

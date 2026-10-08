@@ -101,6 +101,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("Waiting for backend database migrations...")
+	if err := db.WaitForSchema(ctx, primaryDB); err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Database schema ready")
 
 	// Redis
 	primaryRedis, err := cfg.LoadPrimaryRedisEndpoint(ctx)
@@ -295,7 +300,7 @@ func main() {
 	// no key is configured, and every feature that reads it stays off.
 	var typeSafeClient *typesafe.Client
 	if key := config.TypeSafeAPIKey(); key != "" {
-		typeSafeClient = typesafe.NewClient(key)
+		typeSafeClient = typesafe.NewClient(key, typesafe.WithBillingRedis(redisCache.Client))
 	}
 	if aiProviderC != nil {
 		replyclassify.SetModelClassifier(func(ctx context.Context, system, user string) (string, error) {

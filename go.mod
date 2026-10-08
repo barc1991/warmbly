@@ -1,6 +1,6 @@
 module github.com/warmbly/warmbly
 
-go 1.25.0
+go 1.26.0
 
 require (
 	cloud.google.com/go/cloudtasks v1.13.7
@@ -19,6 +19,7 @@ require (
 	github.com/confluentinc/confluent-kafka-go/v2 v2.12.0
 	github.com/emersion/go-imap/v2 v2.0.0-beta.5
 	github.com/emersion/go-message v0.18.1
+	github.com/emersion/go-msgauth v0.7.0
 	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6
 	github.com/getsentry/sentry-go v0.36.2
 	github.com/gin-contrib/cors v1.7.6
@@ -33,7 +34,6 @@ require (
 	github.com/hamba/avro/v2 v2.24.0
 	github.com/invopop/jsonschema v0.13.0
 	github.com/jackc/pgx/v5 v5.9.0
-	github.com/meszmate/apple-go v0.0.0-20250828163208-7fea48c91b32
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/mileusna/useragent v1.3.5
 	github.com/nats-io/jwt/v2 v2.8.1
@@ -49,12 +49,14 @@ require (
 	github.com/stripe/stripe-go/v86 v86.4.2
 	github.com/xuri/excelize/v2 v2.11.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.55.0
-	golang.org/x/net v0.58.0
+	golang.org/x/crypto v0.57.0
+	golang.org/x/mod v0.41.0
+	golang.org/x/net v0.59.0
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/sys v0.47.0
-	golang.org/x/term v0.45.0
-	golang.org/x/text v0.41.0
+	golang.org/x/sync v0.23.0
+	golang.org/x/sys v0.48.0
+	golang.org/x/term v0.46.0
+	golang.org/x/text v0.42.0
 	google.golang.org/api v0.264.0
 	google.golang.org/genai v1.71.0
 	google.golang.org/grpc v1.83.2
@@ -130,7 +132,6 @@ require (
 	github.com/daixiang0/gci v0.13.5 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/denis-tingaikin/go-header v0.5.0 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/ettle/strcase v0.2.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
@@ -281,8 +282,6 @@ require (
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/tdakkota/asciicheck v0.4.1 // indirect
 	github.com/tetafro/godot v1.5.0 // indirect
-	github.com/tideland/golib v4.24.2+incompatible // indirect
-	github.com/tideland/gorest v2.15.5+incompatible // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
@@ -322,8 +321,6 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/arch v0.19.0 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20250210185358-939b2ce775ac // indirect
-	golang.org/x/mod v0.40.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect

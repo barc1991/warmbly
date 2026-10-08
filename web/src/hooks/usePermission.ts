@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useAppStore } from "@/stores";
 import { hasPermission, PERMISSION_BITS } from "@/lib/permissions";
+import useUser from "@/lib/api/hooks/auth/useUser";
 
 export type PermissionKey = keyof typeof PERMISSION_BITS;
 
@@ -98,4 +99,12 @@ export function useWriteGuard(key: PermissionKey): WriteGuard {
         [allowed, key],
     );
     return { allowed, locked: !allowed, guard };
+}
+
+const ADMIN_MANAGE_SETTINGS = 1 << 14;
+
+export function useInstanceAdmin(): { holdsAdmin: boolean; allowed: boolean } {
+    const { data: user } = useUser();
+    const holdsAdmin = ((user?.admin_permissions ?? 0) & ADMIN_MANAGE_SETTINGS) === ADMIN_MANAGE_SETTINGS;
+    return { holdsAdmin, allowed: holdsAdmin && user?.session_mfa_verified === true };
 }

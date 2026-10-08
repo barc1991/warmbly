@@ -13,6 +13,7 @@ import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AlertTriangleIcon, RefreshCcwIcon } from "lucide-react";
 import { captureException } from "@/lib/observability";
+import { isModuleLoadError } from "@/lib/moduleLoadError";
 
 interface State {
     error: Error | null;
@@ -62,8 +63,9 @@ export class ErrorBoundary extends React.Component<BoundaryProps, State> {
     }
 }
 
-function BoundaryFallback({ error, info, reset }: { error: Error; info: React.ErrorInfo | null; reset: () => void }) {
+export function BoundaryFallback({ error, info, reset }: { error: Error; info: React.ErrorInfo | null; reset: () => void }) {
     const navigate = useNavigate();
+    const reload = isModuleLoadError(error);
     return (
         <div className="flex flex-col min-h-full bg-white">
             <div className="min-h-12 md:h-12 px-5 py-1.5 md:py-0 border-b border-slate-200 flex flex-wrap md:flex-nowrap items-center gap-3 gap-y-1.5 shrink-0 bg-white">
@@ -82,11 +84,11 @@ function BoundaryFallback({ error, info, reset }: { error: Error; info: React.Er
                         חזור
                     </button>
                     <button
-                        onClick={reset}
+                        onClick={() => reload ? window.location.reload() : reset()}
                         className="h-7 px-2.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-[12px] font-medium inline-flex items-center gap-1.5 transition-colors"
                     >
                         <RefreshCcwIcon className="w-3 h-3" />
-                        נסה שוב
+                        {reload ? "רענן עמוד" : "נסה שוב"}
                     </button>
                 </div>
             </div>

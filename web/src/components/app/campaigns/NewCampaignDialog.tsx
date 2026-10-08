@@ -146,9 +146,12 @@ export function NewCampaignDialog({ open, onClose, draftId = null }: Props) {
         }
     }, [open, draftId, defaultTimezone]);
 
-    const patch = React.useCallback((p: Partial<Draft>) => {
-        if (p.timezone !== undefined) tzTouched.current = true;
-        setDraft((d) => ({ ...d, ...p }));
+    const patch = React.useCallback((p: Partial<Draft> | ((draft: Draft) => Partial<Draft>)) => {
+        setDraft((d) => {
+            const next = typeof p === "function" ? p(d) : p;
+            if (next.timezone !== undefined) tzTouched.current = true;
+            return { ...d, ...next };
+        });
     }, []);
 
     // Names for the auto name and the review.

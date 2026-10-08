@@ -11,6 +11,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type Contact from "@/lib/api/models/app/contacts/Contact";
+import { UserContext } from "@/hooks/context/user";
+import { useAppStore } from "@/stores/useAppStore";
+import type { ContactSlideTab } from "./contact-edit/tabs";
 
 const requested: { url?: string; data?: unknown }[] = [];
 vi.mock("@/lib/api/client/Request", () => ({
@@ -33,6 +36,10 @@ vi.mock("@/hooks/PresenceProvider", () => ({
 vi.mock("@/components/app/presence/ResourceViewers", () => ({ default: () => null }));
 vi.mock("@/components/app/integrations/BookACallButton", () => ({ default: () => null }));
 vi.mock("@/components/app/meetings/NewMeetingDialog", () => ({ default: () => null }));
+// jsdom has no layout, so the tab strip's scroll handling has nothing to measure.
+vi.mock("@/components/ui/scroll-strip", () => ({
+    default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
 
 // The tabs are covered separately; this is about the panel chrome. The Details
 // stand-in is the only way into the draft, so it exposes one edit.
@@ -111,25 +118,52 @@ function Panel({ contacts }: { contacts: Contact[] }) {
     );
 }
 
+function BrowsePanel({ initialTab, active = "contact-1" }: { initialTab?: ContactSlideTab; active?: string }) {
+    const client = React.useMemo(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }), []);
+    const value = { user: { id: "member" } } as React.ComponentProps<typeof UserContext.Provider>["value"];
+    return <UserContext.Provider value={value}>
+        <QueryClientProvider client={client}>
+            <ContactEdit contacts={[contact(), contact({ id: "contact-2" })]} active={active} setActive={() => {}} initialTab={initialTab} />
+        </QueryClientProvider>
+    </UserContext.Provider>;
+}
+
 function clickBackdrop(container: HTMLElement) {
     fireEvent.mouseDown(container.querySelector(".fixed.inset-0") as Element);
 }
 
 describe("the contact 360 panel", () => {
     beforeEach(() => {
+        sessionStorage.clear();
         confirmShow.mockClear();
         requested.length = 0;
     });
 
+    it("restores the contact tab, isolates other contacts, and lets explicit navigation beat the saved tab", () => {
+        useAppStore.setState({ currentOrganization: { id: "workspace", name: "Workspace", role: "owner" } });
+        const page = render(<BrowsePanel />);
+        fireEvent.click(screen.getByRole("button", { name: "Activity" }));
+        expect(screen.getByText("activity")).toBeInTheDocument();
+        page.unmount();
+        const refreshed = render(<BrowsePanel />);
+        expect(screen.getByText("activity")).toBeInTheDocument();
+        refreshed.rerender(<BrowsePanel active="contact-2" />);
+        expect(screen.getByText("overview")).toBeInTheDocument();
+        refreshed.unmount();
+        render(<BrowsePanel initialTab="details" />);
+        expect(screen.getByRole("button", { name: "rename" })).toBeInTheDocument();
+        expect(screen.queryByText("activity")).not.toBeInTheDocument();
+    });
+
     it("closes without asking when the contact was re-subscribed elsewhere", () => {
         const { rerender, container } = render(<Panel contacts={[contact()]} />);
-        expect(screen.getByText(/הסיר הרשמה|Unsubscribed/)).toBeTruthy();
+        expect(screen.getByText("Unsubscribed")).toBeTruthy();
 
         // The suppression lift lands: the list refetches and the panel is
         // handed a fresh record, subscribed again.
         rerender(<Panel contacts={[contact({ subscribed: true })]} />);
-        expect(screen.queryByText(/הסיר הרשמה|Unsubscribed/)).toBeNull();
-        expect(screen.queryByText(/לא נשמר|Unsaved/)).toBeNull();
+        expect(screen.queryByText("Unsubscribed")).toBeNull();
+        expect(screen.queryByText("Unsaved")).toBeNull();
 
         clickBackdrop(container);
         expect(confirmShow).not.toHaveBeenCalled();
@@ -138,11 +172,11 @@ describe("the contact 360 panel", () => {
     it("still asks before discarding an edit the user made", () => {
         const { container } = render(<Panel contacts={[contact()]} />);
         fireEvent.click(screen.getByText("rename"));
-        expect(screen.getByText(/לא נשמר|Unsaved/)).toBeTruthy();
+        expect(screen.getByText("Unsaved")).toBeTruthy();
 
         clickBackdrop(container);
         expect(confirmShow).toHaveBeenCalledTimes(1);
-        expect(confirmShow.mock.calls[0][0]).toMatch(/שינויים שלא נשמרו|Discard unsaved changes/);
+        expect(confirmShow.mock.calls[0][0]).toContain("Discard unsaved changes?");
     });
 
     it("keeps the user's edit when the server changes the same field", () => {
@@ -166,7 +200,7 @@ describe("the contact 360 panel", () => {
         rerender(<Panel contacts={[contact({ subscribed: true })]} />);
         // The name edit survives; the subscription follows the server.
         expect(screen.getByText("Edited Demo")).toBeTruthy();
-        expect(screen.queryByText(/הסיר הרשמה|Unsubscribed/)).toBeNull();
+        expect(screen.queryByText("Unsubscribed")).toBeNull();
     });
 
     it("asks before closing on a custom-field row that is typed but not named", () => {
@@ -174,8 +208,8 @@ describe("the contact 360 panel", () => {
         fireEvent.click(screen.getByText("add field"));
         // Nothing to save: the row has no name to save the value under. Still
         // the user's work, so leaving has to ask.
-        expect((screen.getByText(/שמור שינויים|Save changes/) as HTMLButtonElement).disabled).toBe(true);
-        expect(screen.getByText(/לא נשמר|Unsaved/)).toBeTruthy();
+        expect((screen.getByText("Save changes") as HTMLButtonElement).disabled).toBe(true);
+        expect(screen.getByText("Unsaved")).toBeTruthy();
 
         clickBackdrop(container);
         expect(confirmShow).toHaveBeenCalledTimes(1);
@@ -202,7 +236,7 @@ describe("saving the contact 360 panel", () => {
     it("sends only the fields the user changed", async () => {
         render(<Panel contacts={[contact({ categories: [{ id: "cat-1", title: "Agency", color: "#38bdf8" }] })]} />);
         fireEvent.click(screen.getByText("recategorise"));
-        fireEvent.click(screen.getByText(/שמור שינויים|Save changes/));
+        fireEvent.click(screen.getByText("Save changes"));
 
         await waitFor(() => expect(requested.length).toBe(1));
         expect(requested[0].url).toBe("/contacts/contact-1");
@@ -216,7 +250,7 @@ describe("saving the contact 360 panel", () => {
         const { rerender } = render(<Panel contacts={[first]} />);
         fireEvent.click(screen.getByText("drop industry"));
         rerender(<Panel contacts={[contact({ custom_fields: { industry: "Freight", tier: "A" } })]} />);
-        fireEvent.click(screen.getByText(/שמור שינויים|Save changes/));
+        fireEvent.click(screen.getByText("Save changes"));
 
         await waitFor(() => expect(requested.length).toBe(1));
         expect(requested[0].data).toEqual({ custom_fields: { industry: "" } });
@@ -227,7 +261,7 @@ describe("saving the contact 360 panel", () => {
     it("sends a removed custom field as empty so the server drops it", async () => {
         render(<Panel contacts={[contact({ custom_fields: { industry: "Freight", tier: "A" } })]} />);
         fireEvent.click(screen.getByText("drop industry"));
-        fireEvent.click(screen.getByText(/שמור שינויים|Save changes/));
+        fireEvent.click(screen.getByText("Save changes"));
 
         await waitFor(() => expect(requested.length).toBe(1));
         expect(requested[0].data).toEqual({ custom_fields: { industry: "" } });

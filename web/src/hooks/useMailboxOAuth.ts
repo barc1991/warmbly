@@ -87,7 +87,7 @@ export function openCentered(url: string, name: string): Window | null {
 export default function useMailboxOAuth(options: MailboxOAuthOptions = {}) {
     const qc = useQueryClient();
     const pool = useCloudPool();
-    const viaCloud = pool.connected;
+    const viaCloud = pool.workspaceConnected;
 
     const [busy, setBusy] = React.useState<MailboxOAuthProvider | null>(null);
     const pendingState = React.useRef<{ provider: MailboxOAuthProvider; state: string } | null>(null);

@@ -62,7 +62,7 @@ vi.mock("@/hooks/context/socket", async (orig) => {
 });
 
 function box(): HTMLInputElement {
-    return screen.getByPlaceholderText(/name, address, or any word|שם, כתובת או מילה/i) as HTMLInputElement;
+    return screen.getByPlaceholderText(/name, address, or any word/i) as HTMLInputElement;
 }
 
 async function type(value: string) {
@@ -86,6 +86,13 @@ describe("unibox search", SUITE, () => {
         useAppStore.setState({ selectedThreadId: null, navCollapsed: false });
     });
 
+    it("does not broaden an explicit tag with no matching mailboxes into an all-mail request", async () => {
+        await mount("/app/unibox/tag?ref=unassigned-tag");
+        await settle();
+        expect(searchRequests).toEqual([]);
+        expect(screen.queryByText("Subject 3")).toBeNull();
+    });
+
     it("sends what was typed as the free-text param", async () => {
         await mount("/app/unibox/all");
         await settle();
@@ -99,10 +106,10 @@ describe("unibox search", SUITE, () => {
         await settle();
 
         await type("nothing matches this");
-        await waitFor(() => expect(screen.getByText(/No matches|אין תוצאות/i)).toBeTruthy());
+        await waitFor(() => expect(screen.getByText("No matches")).toBeTruthy());
 
         // The offer only exists because the reader is not already in All mail.
-        const widen = screen.getByRole("button", { name: /search all mail|חפש בכל הדואר/i });
+        const widen = screen.getByRole("button", { name: /search all mail/i });
         searchRequests.length = 0;
         await act(async () => {
             fireEvent.click(widen);
@@ -126,8 +133,8 @@ describe("unibox search", SUITE, () => {
         await settle();
 
         await type("nothing matches this");
-        await waitFor(() => expect(screen.getByText(/No matches|אין תוצאות/i)).toBeTruthy());
-        expect(screen.queryByRole("button", { name: /search all mail|חפש בכל הדואר/i })).toBeNull();
+        await waitFor(() => expect(screen.getByText("No matches")).toBeTruthy());
+        expect(screen.queryByRole("button", { name: /search all mail/i })).toBeNull();
     });
 
     it("clears the query on a scope change the reader made", async () => {

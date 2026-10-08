@@ -129,6 +129,9 @@ func (s *service) ScheduleOrganizationDeletion(ctx context.Context, orgID, reque
 	}
 
 	if err := s.repo.CreatePending(ctx, d); err != nil {
+		if errors.Is(err, repository.ErrOrganizationCloudLinked) {
+			return nil, errx.NewWithIdentifier(errx.Conflict, "organization_cloud_connected", "Disconnect owned workspaces from Warmbly Cloud before scheduling deletion.")
+		}
 		if errors.Is(err, repository.ErrPendingDeletionExists) {
 			return nil, errx.New(errx.Conflict, "organization is already scheduled for deletion")
 		}
@@ -243,6 +246,9 @@ func (s *service) ScheduleUserDeletion(ctx context.Context, userID uuid.UUID, re
 	}
 
 	if err := s.repo.CreatePending(ctx, d); err != nil {
+		if errors.Is(err, repository.ErrOrganizationCloudLinked) {
+			return nil, errx.NewWithIdentifier(errx.Conflict, "organization_cloud_connected", "Disconnect owned workspaces from Warmbly Cloud before scheduling deletion.")
+		}
 		if errors.Is(err, repository.ErrPendingDeletionExists) {
 			return nil, errx.New(errx.Conflict, "account is already scheduled for deletion")
 		}

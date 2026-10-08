@@ -37,6 +37,9 @@ const FOLDER_LABEL: Record<PlacementFolder, string> = {
     other: "לשונית אחרת",
     spam: "ספאם",
     missing: "חסר",
+    unknown: "תיקייה לא ידועה",
+    archive: "ארכיון",
+    custom: "תיקייה מותאמת",
     failed: "נכשל",
     cancelled: "בוטל",
 };
@@ -48,6 +51,9 @@ const FOLDER_TONE: Record<PlacementFolder, string> = {
     other: "border-sky-300 bg-sky-50 text-sky-700",
     spam: "border-red-300 bg-red-50 text-red-700",
     missing: "border-amber-300 bg-amber-50 text-amber-700",
+    unknown: "border-zinc-300 bg-zinc-50 text-zinc-600",
+    archive: "border-zinc-300 bg-zinc-50 text-zinc-600",
+    custom: "border-zinc-300 bg-zinc-50 text-zinc-600",
     failed: "border-red-300 text-red-700",
     cancelled: "border-zinc-300 text-zinc-500",
 };

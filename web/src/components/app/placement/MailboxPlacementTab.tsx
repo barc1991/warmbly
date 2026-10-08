@@ -168,7 +168,7 @@ export default function MailboxPlacementTab({ mailboxId, poolHealth }: { mailbox
                         <div className="px-5 pt-4 pb-2">
                             <Eyebrow>לפי ספק נמען</Eyebrow>
                         </div>
-                        <ProviderBreakdown providers={report.providers} />
+                        <ProviderBreakdown providers={report.providers} browseScope={`mailbox.${mailboxId}`} />
                     </div>
                 </>
             )}

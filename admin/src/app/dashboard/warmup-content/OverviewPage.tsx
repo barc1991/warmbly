@@ -3,8 +3,13 @@
 // library stock vs the scheduler's targets, today's generation budget,
 // headline counts, and the content-source vs spam-placement A/B comparison.
 
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useAdminPerm } from "@/hooks/useAdminPerm";
+import { AdminPerm } from "@/lib/auth/permissions";
 import {
     Archive,
     CheckCircle2,
@@ -18,6 +23,8 @@ import { ErrorState } from "@/components/ErrorState";
 import {
     getWarmupContentAb,
     getWarmupContentOverview,
+    putWarmupGenerationSettings,
+    type WarmupGenerationSettings,
     type WarmupContentOverview,
 } from "@/lib/api/client/admin/warmupContent";
 import { StatCard } from "./components";
@@ -37,11 +44,13 @@ function pipelineSteps(d: WarmupContentOverview): PipelineStep[] {
     const stocked = totalTarget > 0 && totalStock >= totalTarget;
     return [
         {
-            label: "AI client configured",
-            ok: d.ai_configured,
-            detail: d.ai_configured
-                ? "OPENAI_API_KEY is set on the backend"
-                : "Set OPENAI_API_KEY on the backend, then restart it",
+            label: "ייצור תוכן מופעל",
+            ok: d.ai_configured && d.generation_enabled !== false,
+            detail: !d.ai_configured
+                ? "לא הוגדר לקוח ייצור תואם"
+                : d.generation_enabled === false
+                  ? "משימות חדשות נעצרו; אצוות קיימות מסתיימות"
+                  : "המודל המוגדר נבדק לפני הגשה",
         },
         {
             label: "AI content enabled",
@@ -80,24 +89,24 @@ function AutomationPanel({ data }: { data: WarmupContentOverview }) {
     const firstGap = steps.findIndex((s) => !s.ok);
     const capped = data.daily_generation_cap > 0;
     const budgetUsed = capped
-        ? Math.min(100, Math.round((data.generated_today / data.daily_generation_cap) * 100))
+        ? Math.min(100, Math.round(((data.reserved_today ?? data.generated_today) / data.daily_generation_cap) * 100))
         : 0;
 
     return (
         <section className="rounded-lg border border-border bg-card p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <h2 className="text-sm font-semibold">Automatic extension</h2>
+                    <h2 className="text-sm font-semibold">הרחבה אוטומטית</h2>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
                         {allOk
                             ? data.refresh_enabled
-                                ? "The library extends itself: every run generates new threads, humanizes and lints them, and recycles the most-used ones so fresh content keeps flowing indefinitely."
-                                : "The library tops itself up to the target. Continuous refresh is off, so generation pauses once the target is reached."
-                            : "Not fully automatic yet — fix the first amber step below and the library will keep itself stocked without manual runs."}
+                                ? "הספרייה מרחיבה את עצמה: כל ריצה מייצרת שרשורים חדשים, מאמתת אותם וממחזרת את הנפוצים ביותר כך שתוכן רענן זורם ברציפות."
+                                : "הספרייה מתמלאת עד ליעד. רענון רציף כבוי, כך שהייצור מושהה ברגע שהיעד מושג."
+                            : "טרם אוטומטי לחלוטין — תקן את השלב המסומן בצהוב והספרייה תמלא את עצמה ללא הפעלה ידנית."}
                     </p>
                 </div>
                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700">
-                    Autopilot
+                    {data.generation_enabled === false ? "ייצור נעצר" : "בקרת ייצור"}
                 </span>
             </div>
 
@@ -128,12 +137,12 @@ function AutomationPanel({ data }: { data: WarmupContentOverview }) {
 
             <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] text-muted-foreground">
                 <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">Today's budget:</span>
+                    <span className="font-medium text-foreground">תקציב היום:</span>
                     {capped ? (
                         <>
                             <span className="tabular-nums">
-                                {data.generated_today.toLocaleString()} /{" "}
-                                {data.daily_generation_cap.toLocaleString()} threads
+                                {(data.reserved_today ?? data.generated_today).toLocaleString("he-IL")} /{" "}
+                                {data.daily_generation_cap.toLocaleString("he-IL")} בקשות הוקצו היום
                             </span>
                             <span className="inline-block h-1.5 w-24 overflow-hidden rounded-full bg-muted">
                                 <span
@@ -146,7 +155,7 @@ function AutomationPanel({ data }: { data: WarmupContentOverview }) {
                         </>
                     ) : (
                         <span>
-                            uncapped ({data.generated_today.toLocaleString()} generated today)
+                            ללא מגבלה ({(data.reserved_today ?? data.generated_today).toLocaleString("he-IL")} יוצרו היום)
                         </span>
                     )}
                 </div>
@@ -161,11 +170,79 @@ function AutomationPanel({ data }: { data: WarmupContentOverview }) {
                     )}
                 </div>
                 <div>
-                    Generated threads are humanized, lint-gated, and any send that fails the
-                    gate falls back to the static library. Threads with a meaningful sample and
-                    unsafe spam placement are archived automatically.
+                    השרשורים המיוצרים עוברים תהליך התאמה, בדיקת תקינות, וכל שליחה שנכשלת
+                    חוזרת לספרייה הסטטית. שרשורים עם דירוג ספאם מסוכן מועברים לארכיון אוטומטית.
                 </div>
             </div>
+        </section>
+    );
+}
+
+function GenerationSettingsPanel({ data }: { data: WarmupContentOverview }) {
+    const canManage = useAdminPerm(AdminPerm.ManageSettings);
+    const qc = useQueryClient();
+    const [draft, setDraft] = useState<string | null>(null);
+    const save = useMutation({
+        mutationFn: putWarmupGenerationSettings,
+        onSuccess: () => {
+            setDraft(null);
+            void qc.invalidateQueries({ queryKey: ["admin", "warmup-content"] });
+            toast.success("הגדרות ייצור תוכן נשמרו בהצלחה");
+        },
+        onError: (err: Error) => toast.error(err.message || "שמירת הגדרות נכשלה"),
+    });
+    if (!data.effective_settings) return (
+        <section className="rounded-lg border border-border bg-card p-4">
+            <h2 className="text-sm font-semibold">הגדרות ייצור תוכן בפועל</h2>
+            <p className="mt-2 text-sm text-muted-foreground">השרת הנוכחי אינו חושף בקרות ייצור. שדרג את השרת כדי לשנות הגדרות.</p>
+        </section>
+    );
+    const text = draft ?? JSON.stringify(data.effective_settings, null, 2);
+    const submit = () => {
+        try {
+            const settings: WarmupGenerationSettings = JSON.parse(text);
+            if (!settings || typeof settings !== "object" || Array.isArray(settings)) throw new Error("Expected a settings object");
+            save.mutate(settings);
+        } catch {
+            toast.error("יש להזין אובייקט הגדרות JSON תקין");
+        }
+    };
+    return (
+        <section className="rounded-lg border border-border bg-card p-4">
+            <h2 className="text-sm font-semibold">הגדרות ייצור תוכן בפועל</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+                עצירת ייצור תוכן חוסמת יצירת משימות חדשות מבלי למחוק מפתחות. אצוות שכבר הוגשו ימשיכו בסנכרון בטוח; ניתן לבטלן ידנית בלשונית משימות.
+            </p>
+            {data.provider_capability && <p className="mb-2 text-xs text-muted-foreground">{data.provider_capability}</p>}
+            <Textarea
+                aria-label="הגדרות ייצור תוכן ב-JSON"
+                value={text}
+                onChange={(e) => setDraft(e.target.value)}
+                readOnly={!canManage}
+                className="min-h-64 font-mono text-xs mt-3"
+                dir="ltr"
+            />
+            {canManage && (
+                <div className="mt-3 flex gap-2">
+                    <Button disabled={save.isPending} onClick={submit}>
+                        שמור הגדרות
+                    </Button>
+                    <Button
+                        variant="outline"
+                        disabled={save.isPending}
+                        onClick={() => save.mutate({ generation_enabled: !data.generation_enabled })}
+                    >
+                        {data.generation_enabled ? "עצור ייצור תוכן חדש" : "חדש ייצור תוכן"}
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        disabled={save.isPending || draft === null}
+                        onClick={() => setDraft(null)}
+                    >
+                        בטל שינויים
+                    </Button>
+                </div>
+            )}
         </section>
     );
 }
@@ -309,6 +386,7 @@ export default function OverviewPage() {
     return (
         <div className="space-y-6">
             <AutomationPanel data={data} />
+            <GenerationSettingsPanel data={data} />
 
             <div className="grid gap-3 md:grid-cols-3">
                 <StatCard

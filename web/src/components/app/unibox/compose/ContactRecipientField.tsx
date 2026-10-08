@@ -25,6 +25,9 @@ import useSearchContacts from "@/lib/api/hooks/app/contacts/useSearchContacts";
 import { useUserProfile } from "@/hooks/context/user";
 import useClickOutside from "@/hooks/useClickOutside";
 import useDebouncedValue from "@/hooks/useDebouncedValue";
+import useBrowseState from "@/hooks/useBrowseState";
+import useBrowseDebouncedValue from "@/hooks/useBrowseDebouncedValue";
+import { inboxCategorySchema, inboxContactSortSchema, inboxNullableIdSchema, inboxSearchSchema } from "@/lib/browse-inbox";
 import type Contact from "@/lib/api/models/app/contacts/Contact";
 import type { SearchContactsSortBy } from "@/lib/api/models/app/contacts/search-contacts.types";
 import { cn } from "@/lib/utils";
@@ -55,6 +58,7 @@ const BROWSE_PANEL_WIDTH = 400;
 const BROWSE_PANEL_HEIGHT = 380;
 
 interface ContactRecipientFieldProps {
+    browseKey?: string;
     value: string[];
     onChange: (next: string[]) => void;
     placeholder: string;
@@ -62,6 +66,7 @@ interface ContactRecipientFieldProps {
 }
 
 export default function ContactRecipientField({
+    browseKey = "to",
     value,
     onChange,
     placeholder,
@@ -72,7 +77,7 @@ export default function ContactRecipientField({
     const [input, setInput] = React.useState("");
     const [focused, setFocused] = React.useState(false);
     const [highlight, setHighlight] = React.useState(0);
-    const [catFilter, setCatFilter] = React.useState<CategoryRef | null>(null);
+    const [savedCatFilter, setCatFilter] = useBrowseState<CategoryRef | null>(`unibox.recipients.${browseKey}.autocomplete-category`, null, inboxCategorySchema);
     const inputRef = React.useRef<HTMLInputElement>(null);
     const blurTimer = React.useRef<number | null>(null);
 
@@ -80,9 +85,9 @@ export default function ContactRecipientField({
     // category filter, sort, and multi-select, separate from the
     // type-ahead suggestions.
     const [browseOpen, setBrowseOpen] = React.useState(false);
-    const [browseQuery, setBrowseQuery] = React.useState("");
-    const [browseCat, setBrowseCat] = React.useState<string | null>(null);
-    const [browseSort, setBrowseSort] = React.useState<SearchContactsSortBy>("updated_at");
+    const [browseQuery, setBrowseQuery] = useBrowseState(`unibox.recipients.${browseKey}.search`, "", inboxSearchSchema);
+    const [browseCat, setBrowseCat] = useBrowseState<string | null>(`unibox.recipients.${browseKey}.category`, null, inboxNullableIdSchema);
+    const [browseSort, setBrowseSort] = useBrowseState(`unibox.recipients.${browseKey}.sort`, "updated_at", inboxContactSortSchema);
     const [browsePicked, setBrowsePicked] = React.useState<string[]>([]);
     // Viewport anchor for the portaled panel (the compose window clips
     // overflow, so the panel can't render inside it — same as MailboxPicker).
@@ -123,6 +128,7 @@ export default function ContactRecipientField({
         () => user.categories ?? [],
         [user.categories],
     );
+    const catFilter = savedCatFilter ? allCategories.find((category) => category.id === savedCatFilter.id) ?? savedCatFilter : null;
 
     const query = input.trim();
     // Only hit the API once typing pauses; keepPrevious holds the last
@@ -165,7 +171,7 @@ export default function ContactRecipientField({
         (query.length > 0 || !!catFilter) &&
         (suggestions.length > 0 || matchedCats.length > 0 || searching);
 
-    const debouncedBrowseQuery = useDebouncedValue(browseQuery.trim(), 300);
+    const debouncedBrowseQuery = useBrowseDebouncedValue(browseQuery.trim(), browseKey);
     const browseSearch = useSearchContacts({
         options: {
             query: debouncedBrowseQuery,
@@ -522,7 +528,7 @@ export default function ContactRecipientField({
                                 options={BROWSE_SORTS.map((s) => ({ id: s.key, label: isHe ? s.labelHe : s.label }))}
                                 value={browseSort}
                                 onChange={(id) => {
-                                    if (id) setBrowseSort(id as SearchContactsSortBy);
+                                    if (id) setBrowseSort(id as "updated_at" | "first_name" | "email");
                                 }}
                             />
                         </div>

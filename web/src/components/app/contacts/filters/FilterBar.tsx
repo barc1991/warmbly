@@ -3,6 +3,8 @@
 // change applied on the spot. Pills open a popover under themselves.
 
 import React from "react";
+import useBrowseState from "@/hooks/useBrowseState";
+import { contactExtrasSchema, contactGeneralExtrasSchema } from "@/lib/browse-contacts-campaigns";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckIcon, ChevronDownIcon, LayersIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 
@@ -90,6 +92,7 @@ function fromIso(s: string): Date | undefined {
 }
 
 export default function FilterBar({
+    browseName = "contacts",
     filters,
     setFilters,
     activeCampaign,
@@ -99,6 +102,7 @@ export default function FilterBar({
     loading,
     onSaveAsSegment,
 }: {
+    browseName?: string;
     filters: SearchContacts;
     setFilters: Setter;
     activeCampaign?: MiniCampaign;
@@ -116,7 +120,11 @@ export default function FilterBar({
     const campaignCtx = !!activeCampaign;
 
     // Pills added from the menu stay visible while empty so the user can fill them.
-    const [extras, setExtras] = React.useState<ExtraKey[]>([]);
+    const [extras, setExtras] = useBrowseState<ExtraKey[]>(
+        `${browseName}:extra-filters`,
+        [],
+        campaignCtx ? contactExtrasSchema : contactGeneralExtrasSchema,
+    );
     const [openKey, setOpenKey] = React.useState<string | null>(null);
 
     const shown = (k: ExtraKey) => {

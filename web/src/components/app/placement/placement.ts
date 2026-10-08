@@ -32,6 +32,9 @@ export const LANDED = [
     { key: "inbox", label: "דואר נכנס", tone: "emerald", dot: "bg-emerald-500" },
     { key: "tabs", label: "לשוניות אחרות", tone: "violet", dot: "bg-violet-500" },
     { key: "spam", label: "ספאם", tone: "rose", dot: "bg-rose-500" },
+    { key: "unknown", label: "תיקייה לא ידועה", tone: "slate", dot: "bg-slate-400" },
+    { key: "archived", label: "ארכיון", tone: "slate", dot: "bg-slate-300" },
+    { key: "custom", label: "תיקייה מותאמת", tone: "slate", dot: "bg-slate-500" },
 ] as const satisfies readonly { key: keyof PlacementCounts; label: string; tone: DitherTone; dot: string }[];
 
 export interface BandStyle {
@@ -92,6 +95,9 @@ export interface DayView {
     inbox: number;
     tabs: number;
     spam: number;
+    unknown?: number;
+    archived?: number;
+    custom?: number;
     rescued: number;
     delivered: number;
     /** Only meaningful unfiltered; a provider filter has no send-side split. */
@@ -110,6 +116,9 @@ export function viewDays(days: PlacementDay[], group: GroupFilter, minSample: nu
                 inbox: d.inbox,
                 tabs: d.tabs,
                 spam: d.spam,
+                unknown: d.unknown,
+                archived: d.archived,
+                custom: d.custom,
                 rescued: d.rescued,
                 delivered: d.delivered,
                 sent: d.sent,
@@ -121,7 +130,7 @@ export function viewDays(days: PlacementDay[], group: GroupFilter, minSample: nu
         const inbox = g?.inbox ?? 0;
         const tabs = g?.tabs ?? 0;
         const spam = g?.spam ?? 0;
-        return { date: d.date, inbox, tabs, spam, rescued: g?.rescued ?? 0, delivered: inbox + tabs + spam, sent: 0, unconfirmed: 0, rolling: null };
+        return { date: d.date, inbox, tabs, spam, unknown: g?.unknown, archived: g?.archived, custom: g?.custom, rescued: g?.rescued ?? 0, delivered: inbox + tabs + spam, sent: 0, unconfirmed: 0, rolling: null };
     });
     if (group === "all") return base;
     // Trailing rate inside the range, with the same floor the server applies.
@@ -158,12 +167,28 @@ export function totals(days: DayView[]) {
     };
 }
 
+export function observedCount(counts: { delivered: number; unknown?: number; archived?: number; custom?: number }) {
+    return counts.delivered + (counts.unknown ?? 0) + (counts.archived ?? 0) + (counts.custom ?? 0);
+}
+
+/** The other mail hosts left out of the major-provider rate, or null with none. */
+export function otherHostsNote(rate: PlacementRate, short = false): string | null {
+    if (!rate.other_delivered || rate.other_inbox_rate == null) return null;
+    if (short) return `Google, Microsoft, Yahoo · שרתים אחרים ${fmtPct(rate.other_inbox_rate)}`;
+    return `שרתי דואר אחרים: ${fmtPct(rate.other_inbox_rate)} ללא ספאם מתוך ${fmtNum(rate.other_delivered)} קבלות מסווגות, מוצגות אך לא נספרות`;
+}
+
 /** One line explaining a headline rate, for tooltips and captions. */
 export function rateSentence(rate: PlacementRate): string {
     const ok = rate.inbox + rate.tabs;
-    if (rate.delivered === 0) return `אין מסירות חימום ב-${rate.window_days} הימים האחרונים.`;
-    if (rate.inbox_rate == null) {
-        return `${rate.delivered} מתוך ${rate.min_sample} מסירות הנדרשות לפני הצגת שיעור (${rate.window_days} הימים האחרונים).`;
+    if (rate.delivered === 0) {
+        if (rate.other_delivered) {
+            return `אין קבלות חימום מסווגות ב-Google, Microsoft או Yahoo ב-${rate.window_days} הימים האחרונים. שרתי דואר אחרים אינם נספרים בשיעור זה.`;
+        }
+        return `אין מסירות חימום ב-${rate.window_days} הימים האחרונים.`;
     }
-    return `${fmtNum(ok)} מתוך ${fmtNum(rate.delivered)} מיילי חימום הגיעו לתיבת הדואר הנכנס ב-${rate.window_days} הימים האחרונים.`;
+    if (rate.inbox_rate == null) {
+        return `${rate.delivered} מתוך ${rate.min_sample} מסירות ב-Google, Microsoft ו-Yahoo הנדרשות לפני הצגת שיעור (${rate.window_days} הימים האחרונים).`;
+    }
+    return `${fmtNum(ok)} מתוך ${fmtNum(rate.delivered)} מיילי חימום ב-Google, Microsoft ו-Yahoo הגיעו לתיבת הדואר הנכנס ב-${rate.window_days} הימים האחרונים.`;
 }

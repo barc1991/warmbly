@@ -332,6 +332,7 @@ func main() {
 	var kmsForHandler kms.Provider
 	var emailMessageMapForHandler repository.EmailMessageMapRepository
 	var emailSyncStateRepository repository.EmailSyncStateRepository
+	var warmupDispatchRepository repository.WarmupDispatchRepository
 	var trackedLinkRepository repository.TrackedLinkRepository
 	var inboxTagRepository repository.InboxTagRepository
 	var typeSafeClient *typesafe.Client
@@ -692,7 +693,7 @@ func main() {
 		inboxTagRepository = repository.NewInboxTagRepository(primaryDB.Pool)
 		if key := config.TypeSafeAPIKey(); key != "" {
 			// One TypeSafe client for every typed judgment in this process.
-			typeSafeClient = typesafe.NewClient(key)
+			typeSafeClient = typesafe.NewClient(key, typesafe.WithBillingRedis(cache.Client))
 		}
 		unsubscribeLinkRepository = repository.NewUnsubscribeLinkRepository(primaryDB.Pool)
 		customDomainRepository = repository.NewCustomDomainRepository(primaryDB.Pool)
@@ -723,9 +724,11 @@ func main() {
 		discountRedemptionRepository := repository.NewDiscountRedemptionRepository(primaryDB.Pool)
 		discountService = discount.NewService(discountCodeRepository, discountRedemptionRepository, planRepository, adminService)
 		workerRepository := repository.NewWorkerRepository(primaryDB.Pool)
+
 		organizationRepository := repository.NewOrganizationRepository(primaryDB.Pool)
 		organizationRepoForHandler = organizationRepository
 		taskRepository := repository.NewTaskRepository(primaryDB.Pool)
+		warmupDispatchRepository = taskRepository.(repository.WarmupDispatchRepository)
 		apiKeyRepository := repository.NewAPIKeyRepository(primaryDB)
 		idempotencyService = idempotencyapp.NewService(primaryDB.Pool)
 		crmRepository := repository.NewCRMRepository(primaryDB.Pool)
@@ -1192,6 +1195,7 @@ func main() {
 		// point it at your own repo/registry.
 		releasesService = releases.New(
 			releases.Config{
+				BackendVersion:  version.String(),
 				Enabled:         getenvDefault("RELEASES_ENABLED", "false") == "true",
 				GithubRepo:      getenvDefault("RELEASES_GITHUB_REPO", "warmbly/warmbly"),
 				WorkerImageRepo: getenvDefault("RELEASES_WORKER_IMAGE_REPO", "ghcr.io/warmbly/warmbly/worker"),
@@ -1295,6 +1299,9 @@ func main() {
 		cloudLinkRepository := repository.NewCloudLinkRepository(primaryDB.Pool, credEncrypter)
 		emailService.WireCloudLink(cloudLinkRepository)
 		cloudLinkService = cloudlink.NewService(cloudLinkRepository, emailRepostory, emailService)
+		if reports, ok := analyticsService.(analytics.CloudWarmupReportsAware); ok {
+			reports.WireCloudWarmupReports(cloudLinkService)
+		}
 
 		rateLimitRepository := repository.NewRateLimitRepository(primaryDB)
 		rateLimitService = ratelimit.NewService(cache, rateLimitRepository)
@@ -1718,6 +1725,11 @@ func main() {
 			advancedService.WireBounceJudge(typeSafeClient)
 		}
 		emailSender := tasks.NewEmailSender(emailRepostory, eventsPublisher)
+		if aware, ok := emailSender.(interface {
+			WireSendAdmission(repository.OutboundAdmissionRepository)
+		}); ok {
+			aware.WireSendAdmission(taskRepository.(repository.OutboundAdmissionRepository))
+		}
 		// Never hand a send to a worker that stopped heartbeating: nothing
 		// would execute it and nothing would report it, so the step would
 		// look sent forever. The worker reconciler re-places the mailbox and
@@ -2440,6 +2452,7 @@ func main() {
 		KMS:                    kmsForHandler,
 		EmailMessageMap:        emailMessageMapForHandler,
 		EmailSyncState:         emailSyncStateRepository,
+		WarmupDispatch:         warmupDispatchRepository,
 		TrackedLinks:           trackedLinkRepository,
 		InboxTagRepo:           inboxTagRepository,
 		UnsubscribeTickets:     unsubscribeLinkRepository,

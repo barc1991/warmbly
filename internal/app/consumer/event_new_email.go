@@ -18,6 +18,7 @@ import (
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/mailhdr"
 	"github.com/warmbly/warmbly/internal/pkg/mailhost"
+	"github.com/warmbly/warmbly/internal/repository"
 )
 
 func (s *JobsService) HandleNewEmail(ctx context.Context, e *models.JobEventNewEmail) error {
@@ -46,6 +47,13 @@ func (s *JobsService) ingestNewEmail(ctx context.Context, e *models.JobEventNewE
 		return nil
 	}
 	e.Message.ValidText()
+	if recorder, ok := s.PlacementRepo.(interface {
+		RecordProbeObservation(context.Context, uuid.UUID, string, string, []string, time.Time) error
+	}); ok && !strings.EqualFold(e.Message.Folder, models.FolderSent) && e.Message.MessageID != "" {
+		if err := recorder.RecordProbeObservation(ctx, e.Message.EmailID, e.Message.MessageID, e.Message.Folder, e.Message.Flags, time.Now().UTC()); err != nil {
+			return fmt.Errorf("record seed observation: %w", err)
+		}
+	}
 	warmupToken := warmupTokenFromMessage(e.Message)
 	if warmupToken != "" {
 		handled, err := s.handleWarmupEmail(ctx, e, warmupToken)
@@ -242,10 +250,7 @@ func (s *JobsService) handleWarmupEmail(ctx context.Context, e *models.JobEventN
 		return token.SenderAccountID == e.Message.EmailID, nil
 	}
 
-	if token.ConsumedAt == nil && token.ExpiresAt.After(time.Now()) {
-		s.acceptWarmupEmail(ctx, e, token)
-	}
-	return true, nil
+	return s.processWarmupReceipt(ctx, e, token)
 }
 
 // handleUnmarkedWarmupEmail verifies warmup mail that arrived without its
@@ -274,7 +279,23 @@ func (s *JobsService) handleUnmarkedWarmupEmail(ctx context.Context, e *models.J
 		Str("token", token.Token.String()).
 		Str("email_account_id", e.Message.EmailID.String()).
 		Msg("verified warmup mail that arrived without its verify header")
-	s.acceptWarmupEmail(ctx, e, token)
+	return s.processWarmupReceipt(ctx, e, token)
+}
+
+func warmupReceiptProof(message *models.EmailMessageStoreData) repository.WarmupReceiptProof {
+	marker, _ := uuid.Parse(warmupTokenFromMessage(message))
+	return repository.WarmupReceiptProof{Token: marker, SenderAddress: firstSenderAddress(message.FromAddr), MessageID: message.MessageID}
+}
+
+func (s *JobsService) processWarmupReceipt(ctx context.Context, e *models.JobEventNewEmail, token *models.WarmupToken) (bool, error) {
+	if processor, ok := s.WarmupRepo.(repository.WarmupReceiptProcessor); ok {
+		return processor.ProcessWarmupReceipt(ctx, token.Token, e.Message.EmailID, warmupReceiptProof(e.Message), func(current *models.WarmupToken) error {
+			return s.acceptWarmupEmail(ctx, e, current)
+		})
+	}
+	if token.ConsumedAt == nil && token.ExpiresAt.After(time.Now()) {
+		return true, s.acceptWarmupEmail(ctx, e, token)
+	}
 	return true, nil
 }
 
@@ -473,9 +494,7 @@ func firstSenderAddress(from []string) string {
 // acceptWarmupEmail consumes a verified token and runs everything that follows
 // from a warmup email having arrived. Shared by both verification paths so the
 // header and the header-less route cannot drift apart.
-func (s *JobsService) acceptWarmupEmail(ctx context.Context, e *models.JobEventNewEmail, token *models.WarmupToken) {
-	s.WarmupRepo.ConsumeWarmupToken(ctx, token.Token)
-
+func (s *JobsService) acceptWarmupEmail(ctx context.Context, e *models.JobEventNewEmail, token *models.WarmupToken) error {
 	landed := models.ClassifyWarmupLanding(e.Message.Folder, e.Message.Flags)
 
 	// Record the receipt so a later deletion or spam-flag of THIS message can be
@@ -484,8 +503,26 @@ func (s *JobsService) acceptWarmupEmail(ctx context.Context, e *models.JobEventN
 	// warmup email.
 	if e.Message != nil {
 		if err := s.WarmupRepo.RecordWarmupReceived(ctx, e.Message.EmailID, e.Message.ID, e.Message.MessageID, token.SenderAccountID, landed == models.WarmupLandedSpam); err != nil {
-			log.Warn().Err(err).Str("email_id", e.Message.EmailID.String()).Msg("Failed to record warmup receipt")
+			return fmt.Errorf("record warmup receipt: %w", err)
 		}
+	}
+	if recorder, ok := s.WarmupPlacementRepo.(interface {
+		RecordReceiptObservation(context.Context, uuid.UUID, uuid.UUID, string, []string, time.Time) error
+	}); ok {
+		if err := recorder.RecordReceiptObservation(ctx, e.Message.EmailID, e.Message.ID, e.Message.Folder, e.Message.Flags, time.Now().UTC()); err != nil {
+			return fmt.Errorf("record warmup observation: %w", err)
+		}
+	}
+	if lineage, ok := s.TaskRepo.(repository.WarmupLineageRepository); ok {
+		if err := lineage.RecordVerifiedWarmupParent(ctx, token.TaskID, e.Message.EmailID, e.Message.ID, e.Message.ThreadID, warmupReceiptProof(e.Message)); err != nil {
+			return err
+		}
+	}
+	if err := s.scheduleWarmupReplyBack(ctx, token, e.Message.EmailID, e.Message.ID); err != nil {
+		return err
+	}
+	if err := s.WarmupRepo.ConsumeWarmupToken(ctx, token.Token); err != nil {
+		return err
 	}
 
 	recipient := s.recipientAccount(ctx, e.Message.EmailID)
@@ -503,13 +540,11 @@ func (s *JobsService) acceptWarmupEmail(ctx context.Context, e *models.JobEventN
 		s.markRiskBandFromWarmupHealth(ctx, token.SenderAccountID, health)
 	}
 
-	// Occasionally answer the sender, so the thread reads as a conversation.
-	s.scheduleWarmupReplyBack(ctx, token, e.Message.EmailID)
-
 	// Perform warmup actions
 	rescued := s.performWarmupActions(ctx, e, recipient)
 
 	s.recordWarmupPlacement(ctx, e, recipient, landed, rescued)
+	return nil
 }
 
 // recordWarmupPlacement adds the arrival to the sender's daily placement
@@ -573,6 +608,7 @@ func (s *JobsService) performWarmupActions(ctx context.Context, e *models.JobEve
 		workerID = recipient.WorkerID
 		recipientTZ = recipient.ClockTimezone()
 		base.Placement, base.TargetFolder = recipient.WarmupFiling()
+		actions = recipient.PermittedWarmupActions(actions)
 	}
 	// A mailbox whose owner wants warmup left in the inbox is not foldered.
 	// Spam-rescue still runs: that is the reputation signal warmup exists for,

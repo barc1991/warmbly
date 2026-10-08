@@ -166,6 +166,23 @@ export default function LibraryPage() {
                 csv: (c) => (c.lint_passed ? "pass" : "fail"),
             },
             {
+                id: "review",
+                header: "בדיקה סמנטית",
+                cell: (c) => (
+                    <Badge
+                        variant="outline"
+                        className={`text-[10px] ${
+                            c.semantic_review === "passed"
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                                : "border-zinc-300 text-zinc-600"
+                        }`}
+                    >
+                        {c.semantic_review === "passed" ? "עבר" : c.semantic_review ?? "מורשת"}
+                    </Badge>
+                ),
+                csv: (c) => c.semantic_review ?? "legacy_unknown",
+            },
+            {
                 id: "status",
                 header: "Status",
                 cell: (c) => (
@@ -205,9 +222,9 @@ export default function LibraryPage() {
                                 size="xs"
                                 variant="outline"
                                 onClick={() => unarchive.mutate(c.id)}
-                                disabled={unarchive.isPending}
+                                disabled={unarchive.isPending || (c.semantic_review !== undefined && !["passed", "legacy_unknown"].includes(c.semantic_review))}
                             >
-                                <ArchiveRestore className="size-3" /> Restore
+                                <ArchiveRestore className="size-3" /> שחזר
                             </Button>
                         ) : (
                             <Button
@@ -216,7 +233,7 @@ export default function LibraryPage() {
                                 onClick={() => archive.mutate(c.id)}
                                 disabled={archive.isPending}
                             >
-                                <Archive className="size-3" /> Archive
+                                <Archive className="size-3" /> העבר לארכיון
                             </Button>
                         )}
                         <Button
@@ -384,9 +401,32 @@ function ConversationDialog({
                 ) : (
                     <div className="space-y-4">
                         <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <Badge
+                                variant="outline"
+                                className={`text-[10px] ${
+                                    c.lint_passed
+                                        ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                                        : "border-red-300 bg-red-50 text-red-700"
+                                }`}
+                            >
+                                בדיקת תקינות: {c.lint_passed ? "עבר" : "נכשל"}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px]">
+                                בדיקה סמנטית: {c.semantic_review ?? "מורשת"}
+                            </Badge>
+                            {c.scenario_version && (
+                                <Badge variant="outline" className="text-[10px]">
+                                    תרחיש: {c.scenario_version}
+                                </Badge>
+                            )}
+                            {c.rendering_version && (
+                                <Badge variant="outline" className="text-[10px]">
+                                    עיבוד: {c.rendering_version}
+                                </Badge>
+                            )}
                             {c.segment && (
                                 <Badge variant="outline" className="text-[10px]">
-                                    segment: {c.segment}
+                                    מגזר: {c.segment}
                                 </Badge>
                             )}
                             <Badge variant="outline" className="text-[10px]">

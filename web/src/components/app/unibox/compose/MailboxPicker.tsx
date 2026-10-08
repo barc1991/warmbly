@@ -6,6 +6,8 @@
 // per-row detail lives in the title tooltip instead of bloating the rows.
 
 import React from "react";
+import useBrowseState from "@/hooks/useBrowseState";
+import { inboxNullableIdSchema, inboxSearchSchema } from "@/lib/browse-inbox";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -25,6 +27,7 @@ import { useAppStore } from "@/stores";
 import { cn } from "@/lib/utils";
 
 interface MailboxPickerProps {
+    browseKey?: string;
     // "auto" or an account id.
     value: string;
     /** Tag scoping the Auto pick ("Auto in Sales"); only meaningful with value "auto". */
@@ -42,6 +45,7 @@ interface MailboxPickerProps {
 const PANEL_WIDTH = 300;
 
 export default function MailboxPicker({
+    browseKey = "compose",
     value,
     autoTag,
     onChange,
@@ -51,8 +55,8 @@ export default function MailboxPicker({
     onOpen,
 }: MailboxPickerProps) {
     const [open, setOpen] = React.useState(false);
-    const [search, setSearch] = React.useState("");
-    const [tagFilter, setTagFilter] = React.useState<string | null>(null);
+    const [search, setSearch] = useBrowseState(`unibox.mailbox-picker.${browseKey}.search`, "", inboxSearchSchema);
+    const [tagFilter, setTagFilter] = useBrowseState<string | null>(`unibox.mailbox-picker.${browseKey}.tag`, null, inboxNullableIdSchema);
     // Viewport anchor for the portaled panel (the compose window clips
     // overflow, so the menu can't render inside it).
     const [anchor, setAnchor] = React.useState<{ top: number; left: number; up: boolean } | null>(null);
@@ -82,11 +86,7 @@ export default function MailboxPicker({
     }, [isRtl]);
 
     React.useEffect(() => {
-        if (!open) {
-            setSearch("");
-            setTagFilter(null);
-            return;
-        }
+        if (!open) return;
         measure();
         window.addEventListener("scroll", measure, true);
         window.addEventListener("resize", measure);
@@ -244,15 +244,15 @@ export default function MailboxPicker({
                                         className="flex-1 min-w-0 bg-transparent text-[11.5px] text-slate-900 placeholder:text-slate-400 outline-none text-start"
                                     />
                                 </div>
-                                {usedTags.length > 0 && (
+                                {(usedTags.length > 0 || tagFilter) && (
                                     <FilterMenu
                                         icon={TagIcon}
                                         allLabel="כל התגיות"
-                                        options={usedTags.map((t) => ({
+                                        options={(usedTags.map((t) => ({
                                             id: t.id,
                                             label: t.title,
                                             color: t.color,
-                                        }))}
+                                        }))).concat(tagFilter && !usedTags.some((t) => t.id === tagFilter) ? [{ id: tagFilter, label: "תגית לא זמינה", color: "" }] : [])}
                                         value={tagFilter}
                                         onChange={setTagFilter}
                                     />

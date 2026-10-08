@@ -245,15 +245,16 @@ func newNodeAgent(workerID uuid.UUID, bindIP string) *nodeagent.Agent {
 		reportedIP = bindIP
 	}
 	return nodeagent.New(nodeagent.Config{
-		NodeID:         workerID,
-		Role:           models.NodeRoleWorker,
-		Name:           os.Getenv("WARMBLY_NODE_NAME"),
-		Region:         nodeRegion(),
-		Address:        reportedIP,
-		CapacityTarget: workerCapacityTarget(),
-		Version:        buildVersion(),
-		BaseURL:        os.Getenv("ENCRYPTED_KEYS_BACKEND_URL"),
-		Token:          os.Getenv("ENCRYPTED_KEYS_WORKER_TOKEN"),
+		WarmupSendProtocol: 2,
+		NodeID:             workerID,
+		Role:               models.NodeRoleWorker,
+		Name:               os.Getenv("WARMBLY_NODE_NAME"),
+		Region:             nodeRegion(),
+		Address:            reportedIP,
+		CapacityTarget:     workerCapacityTarget(),
+		Version:            buildVersion(),
+		BaseURL:            os.Getenv("ENCRYPTED_KEYS_BACKEND_URL"),
+		Token:              os.Getenv("ENCRYPTED_KEYS_WORKER_TOKEN"),
 		// Written for the host-side updater installed by `warmbly join`.
 		TargetVersionPath: os.Getenv("WARMBLY_TARGET_VERSION_PATH"),
 	})

@@ -25,14 +25,17 @@ export const FOLDER: Record<PlacementFolder, FolderStyle> = {
     promotions: { label: "קידומי מכירות", tone: "violet", dot: "bg-violet-500", text: "text-violet-600", chip: "bg-violet-50 text-violet-700 border-violet-200" },
     other: { label: "לשונית אחרת", tone: "sky", dot: "bg-sky-500", text: "text-sky-600", chip: "bg-sky-50 text-sky-700 border-sky-200" },
     spam: { label: "ספאם", tone: "rose", dot: "bg-rose-500", text: "text-rose-600", chip: "bg-rose-50 text-rose-700 border-rose-200" },
-    missing: { label: "מעולם לא הגיע", tone: "slate", dot: "bg-slate-500", text: "text-slate-600", chip: "bg-slate-100 text-slate-700 border-slate-200" },
+    missing: { label: "לא זוהה עד תום הזמן", tone: "slate", dot: "bg-slate-500", text: "text-slate-600", chip: "bg-slate-100 text-slate-700 border-slate-200" },
+    unknown: { label: "תיקייה לא ידועה", tone: "slate", dot: "bg-slate-400", text: "text-slate-600", chip: "bg-slate-100 text-slate-700 border-slate-200" },
+    archive: { label: "ארכיון", tone: "slate", dot: "bg-slate-400", text: "text-slate-600", chip: "bg-slate-100 text-slate-700 border-slate-200" },
+    custom: { label: "תיקייה מותאמת אישית", tone: "slate", dot: "bg-slate-400", text: "text-slate-600", chip: "bg-slate-100 text-slate-700 border-slate-200" },
     pending: { label: "ממתין", tone: "slate", dot: "bg-slate-300", text: "text-slate-400", chip: "bg-white text-slate-500 border-slate-200" },
     failed: { label: "לא נשלח", tone: "amber", dot: "bg-amber-500", text: "text-amber-600", chip: "bg-amber-50 text-amber-700 border-amber-200" },
     cancelled: { label: "בוטל", tone: "slate", dot: "bg-slate-300", text: "text-slate-400", chip: "bg-slate-50 text-slate-500 border-slate-200" },
 };
 
 // The folders a copy that left can land in, in the order the bars stack.
-export const LANDED_FOLDERS = ["inbox", "promotions", "other", "spam", "missing"] as const;
+export const LANDED_FOLDERS = ["inbox", "promotions", "other", "spam", "missing", "unknown", "archive", "custom"] as const;
 
 export const STATUS: Record<PlacementTestStatus, { label: string; chip: string; dot: string }> = {
     running: { label: "פעיל", chip: "bg-sky-50 text-sky-700 border-sky-200", dot: "bg-sky-500 animate-pulse" },
