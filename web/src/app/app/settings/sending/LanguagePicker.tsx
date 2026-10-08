@@ -48,21 +48,21 @@ export default function LanguagePicker({ value, onChange }: { value: string[]; o
                     <button
                         type="button"
                         onClick={() => setOpen((o) => !o)}
-                        className="w-full text-left px-3 py-2 text-[11.5px] text-slate-400 hover:text-slate-600"
+                        className="w-full text-start px-3 py-2 text-[11.5px] text-slate-400 hover:text-slate-600"
                     >
-                        Only the languages read by default
+                        רק השפות שנקראות כברירת מחדל
                     </button>
                 ) : (
                     <div className="px-2 py-2 flex flex-wrap gap-1">
                         {value.map((code) => (
                             <span
                                 key={code}
-                                className="inline-flex items-center gap-1 h-5 pl-1.5 pr-0.5 rounded bg-sky-50 text-sky-700 text-[11px]"
+                                className="inline-flex items-center gap-1 h-5 ps-1.5 pe-0.5 rounded bg-sky-50 text-sky-700 text-[11px]"
                             >
                                 {NAMES.get(code) ?? code}
                                 <button
                                     type="button"
-                                    aria-label={`Remove ${NAMES.get(code) ?? code}`}
+                                    aria-label={`הסר את ${NAMES.get(code) ?? code}`}
                                     onClick={() => toggle(code)}
                                     className="size-4 rounded inline-flex items-center justify-center hover:bg-sky-100"
                                 >
@@ -76,7 +76,7 @@ export default function LanguagePicker({ value, onChange }: { value: string[]; o
                             className="inline-flex items-center gap-1 h-5 px-1.5 rounded text-[11px] font-medium border border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:text-slate-700"
                         >
                             <PlusIcon className="w-2.5 h-2.5" />
-                            Add
+                            הוסף
                         </button>
                     </div>
                 )}
@@ -98,14 +98,14 @@ export default function LanguagePicker({ value, onChange }: { value: string[]; o
                             <SearchInput
                                 value={query}
                                 onChange={setQuery}
-                                placeholder="Search languages…"
+                                placeholder="חפש שפות…"
                                 autoFocus
                                 className="w-full"
                             />
                         </div>
                         <div className="max-h-56 overflow-y-auto py-1">
                             {filtered.length === 0 && (
-                                <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">No language matches.</div>
+                                <div className="px-3 py-3 text-[11.5px] text-slate-400 text-center">לא נמצאו שפות תואמות.</div>
                             )}
                             {filtered.map((l) => (
                                 <button
@@ -117,7 +117,7 @@ export default function LanguagePicker({ value, onChange }: { value: string[]; o
                                     <CheckSquare checked={value.includes(l.code)} />
                                     <span className="truncate">{l.name}</span>
                                     {!OFFLINE_RULE_LANGUAGES.has(l.code) && (
-                                        <span className="ml-auto text-[10.5px] text-slate-400">classifier hint only</span>
+                                        <span className="ms-auto text-[10.5px] text-slate-400">רמז למסווג בלבד</span>
                                     )}
                                 </button>
                             ))}

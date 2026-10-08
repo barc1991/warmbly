@@ -23,7 +23,7 @@ const DefaultCloudURL = "https://api.warmbly.com"
 
 var (
 	ErrLegacyLink      = errx.NewWithIdentifier(errx.Conflict, "cloud_link_workspace_required", "Connect this workspace separately to add Cloud mailboxes. Existing legacy enrollments continue working.")
-	ErrNotConnected    = errx.NewWithIdentifier(errx.Conflict, "cloud_link_not_connected", "This workspace is not connected to Warmbly Cloud.")
+	ErrNotConnected    = errx.NewWithIdentifier(errx.Conflict, "cloud_link_not_connected", "סביבת עבודה זו אינה מחוברת ל-Warmbly Cloud.")
 	ErrAlreadyLinked   = errx.NewWithIdentifier(errx.Conflict, "cloud_link_connected", "This workspace is already connected. Disconnect first to link a different Cloud workspace.")
 	ErrNoPendingCode   = errx.NewWithIdentifier(errx.NotFound, "cloud_link_no_pending", "No connection in progress. Start again.")
 	ErrCodeExpired     = errx.NewWithIdentifier(errx.NotFound, "cloud_link_code_expired", "The code expired before it was approved. Start again.")

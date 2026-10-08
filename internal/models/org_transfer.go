@@ -118,18 +118,18 @@ type OrgDataGroupInfo struct {
 // import, it would abort it. Nullable crossings need no entry — the importer
 // blanks those when their target is not part of the run.
 var OrgDataGroupCatalog = []OrgDataGroupInfo{
-	{Key: OrgDataGroupCore, Label: "Workspace", Description: "Organization, members, roles, teams, mailboxes, mailbox tags, API keys, webhooks, and settings.", Required: true},
-	{Key: OrgDataGroupContacts, Label: "Contacts", Description: "Contacts, categories, notes, activities, and the suppression list."},
-	{Key: OrgDataGroupCampaigns, Label: "Campaigns", Description: "Campaigns, folders, sequences, senders, attachments, and per-campaign settings.", Requires: []OrgDataGroup{OrgDataGroupContacts}},
-	{Key: OrgDataGroupCRM, Label: "CRM", Description: "Pipelines, deals, tasks, and meeting bookings."},
-	{Key: OrgDataGroupAutomations, Label: "Automations", Description: "Automations, connected integrations, and lead sync sources."},
-	{Key: OrgDataGroupAI, Label: "Assistant", Description: "Assistant sessions and messages, skills, MCP servers, and AI settings."},
-	{Key: OrgDataGroupWarmup, Label: "Warmup", Description: "Warmup participation, routing rules, statistics, and appeals."},
-	{Key: OrgDataGroupInbox, Label: "Inbox", Description: "Unified inbox threads, message bodies, conversation labels, and mailbox sync state.", Heavy: true, Requires: []OrgDataGroup{OrgDataGroupContacts}},
-	{Key: OrgDataGroupSending, Label: "Send history", Description: "Queued and completed send tasks with their payloads.", Heavy: true},
-	{Key: OrgDataGroupEvents, Label: "Delivery events", Description: "Bounces, complaints, opens, clicks, and placement tests.", Heavy: true},
-	{Key: OrgDataGroupLogs, Label: "Logs", Description: "Audit log, campaign logs, and notifications.", Heavy: true, Requires: []OrgDataGroup{OrgDataGroupCampaigns}},
-	{Key: OrgDataGroupBilling, Label: "Billing history", Description: "Subscription, credit ledger, and referral records. Read-only on import: the destination instance owns billing."},
+	{Key: OrgDataGroupCore, Label: "סביבת עבודה", Description: "ארגון, חברי צוות, תפקידים, צוותים, תיבות דואר, תגיות תיבות, מפתחות API, ווב-הוקים והגדרות.", Required: true},
+	{Key: OrgDataGroupContacts, Label: "אנשי קשר", Description: "אנשי קשר, תוויות, הערות, פעילויות ורשימת החסימות (הסרות)."},
+	{Key: OrgDataGroupCampaigns, Label: "קמפיינים", Description: "קמפיינים, תיקיות, רצפים, שולחים, קבצים מצורפים והגדרות לכל קמפיין.", Requires: []OrgDataGroup{OrgDataGroupContacts}},
+	{Key: OrgDataGroupCRM, Label: "CRM", Description: "תהליכי מכירה (Pipelines), עסקאות, משימות ותיאום פגישות."},
+	{Key: OrgDataGroupAutomations, Label: "אוטומציות", Description: "אוטומציות, אינטגרציות מחוברות ומקורות סנכרון לידים."},
+	{Key: OrgDataGroupAI, Label: "עוזר AI", Description: "הפעלות והודעות של העוזר, מיומנויות, שרתי MCP והגדרות AI."},
+	{Key: OrgDataGroupWarmup, Label: "חימום (Warmup)", Description: "השתתפות בחימום, חוקי ניתוב, סטטיסטיקות וערעורים."},
+	{Key: OrgDataGroupInbox, Label: "תיבת דואר נכנס", Description: "שרשורי תיבת דואר מאוחדת, גוף הודעות, תוויות שיחה ומצב סנכרון תיבות דואר.", Heavy: true, Requires: []OrgDataGroup{OrgDataGroupContacts}},
+	{Key: OrgDataGroupSending, Label: "היסטוריית שליחה", Description: "משימות שליחה בתור ומשימות שהושלמו יחד עם התוכן שלהן.", Heavy: true},
+	{Key: OrgDataGroupEvents, Label: "אירועי מסירה", Description: "שגיאות מסירה (Bounces), תלונות, פתיחות, לחיצות ובדיקות מיקום תיבה.", Heavy: true},
+	{Key: OrgDataGroupLogs, Label: "יומני מערכת (Logs)", Description: "יומן ביקורת (Audit log), יומני קמפיינים והתראות.", Heavy: true, Requires: []OrgDataGroup{OrgDataGroupCampaigns}},
+	{Key: OrgDataGroupBilling, Label: "היסטוריית חיוב", Description: "רשומות מנוי, פנקס קרדיטים והפניות. לקריאה בלבד בייבוא: מופע היעד מנהל את החיוב."},
 }
 
 // GroupRequirements indexes the catalog's dependencies for closure walks.

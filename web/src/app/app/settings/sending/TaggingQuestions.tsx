@@ -27,10 +27,10 @@ import {
 } from "@/lib/api/models/app/outreach/OutreachSettings";
 
 const ACTIONS: SelectOption[] = [
-    { value: "", label: "Label only" },
-    { value: "hold", label: "Hold the contact" },
-    { value: "stop", label: "Stop the contact" },
-    { value: "task", label: "Open a task" },
+    { value: "", label: "תווית בלבד" },
+    { value: "hold", label: "השהה את איש הקשר" },
+    { value: "stop", label: "עצור את איש הקשר" },
+    { value: "task", label: "פתח משימה" },
 ];
 
 const SECONDARY =
@@ -63,11 +63,11 @@ function labelsOf(q: InboxTagQuestion): string[] {
 function actionSummary(a: InboxTagQuestionAction): string {
     switch (a.type) {
         case "hold":
-            return `holds ${a.hold_days ?? INBOX_TAG_HOLD_DEFAULT} days`;
+            return `השהיה של ${a.hold_days ?? INBOX_TAG_HOLD_DEFAULT} ימים`;
         case "stop":
-            return "stops the contact";
+            return "עצירת איש הקשר";
         case "task":
-            return "opens a task";
+            return "פתיחת משימה";
         default:
             return "";
     }
@@ -78,28 +78,28 @@ function actionSummary(a: InboxTagQuestionAction): string {
 // saved with, which stay valid even if a built-in label took the name since.
 function problems(q: InboxTagQuestion, taken: Set<string>, kept: Set<string>): string[] {
     const out: string[] = [];
-    if (!q.question.trim()) out.push("Write the question.");
+    if (!q.question.trim()) out.push("יש להזין שאלה.");
     const seen = new Set<string>();
     const checkLabel = (raw: string, where: string) => {
         const name = inboxTagLabelName(raw);
         if (!name) {
-            out.push(`${where} needs a label.`);
+            out.push(`${where} דורשת תווית.`);
             return;
         }
         const key = name.toLowerCase();
-        if ([...name].length > INBOX_TAG_LABEL_MAX_LEN) out.push(`"${name}" is longer than ${INBOX_TAG_LABEL_MAX_LEN} characters.`);
-        if (isAutomaticTag(name) && !kept.has(key)) out.push(`"${name}" is a built-in label. Pick another name.`);
-        else if (taken.has(key) || seen.has(key)) out.push(`"${name}" is already used by another question or option.`);
+        if ([...name].length > INBOX_TAG_LABEL_MAX_LEN) out.push(`"${name}" ארוך מ-${INBOX_TAG_LABEL_MAX_LEN} תווים.`);
+        if (isAutomaticTag(name) && !kept.has(key)) out.push(`"${name}" היא תווית מובנית. בחר שם אחר.`);
+        else if (taken.has(key) || seen.has(key)) out.push(`"${name}" כבר בשימוש בשאלה או באפשרות אחרת.`);
         seen.add(key);
     };
     if (q.type === "yes_no") {
-        checkLabel(q.label ?? "", "The question");
+        checkLabel(q.label ?? "", "השאלה");
     } else {
         const choices = q.choices ?? [];
-        if (choices.length < INBOX_TAG_CHOICES_MIN) out.push(`Add at least ${INBOX_TAG_CHOICES_MIN} options.`);
+        if (choices.length < INBOX_TAG_CHOICES_MIN) out.push(`הוסף לפחות ${INBOX_TAG_CHOICES_MIN} אפשרויות.`);
         choices.forEach((c, i) => {
-            checkLabel(c.label, `Option ${i + 1}`);
-            if (!c.description.trim()) out.push(`Option ${i + 1} needs a description.`);
+            checkLabel(c.label, `אפשרות ${i + 1}`);
+            if (!c.description.trim()) out.push(`אפשרות ${i + 1} דורשת תיאור.`);
         });
     }
     return out;
@@ -152,7 +152,7 @@ export default function TaggingQuestions({
 
     const remove = (q: InboxTagQuestion) => {
         confirm.show(
-            `Remove the question "${q.question}"? Labels it already applied stay on their threads.`,
+            `להסיר את השאלה "${q.question}"? תוויות שכבר הוחלו יישארו בשרשורים שלהן.`,
             async () => {
                 onChange(value.filter((x) => x.id !== q.id));
                 setEditing((prev) => (prev?.draft.id === q.id ? null : prev));
@@ -164,8 +164,8 @@ export default function TaggingQuestions({
         <div className="space-y-2">
             {value.length === 0 && !editing && (
                 <p className="text-[11.5px] text-slate-500">
-                    No questions yet. For example: "The sender says there is no suitable position right now but they will get back later", labelled{" "}
-                    <span className="font-medium text-slate-700">Later maybe</span>, holding the contact for 60 days.
+                    טרם נוספו שאלות. לדוגמה: "השולח מציין כי אין משרה מתאימה כרגע אך יחזור בעתיד", עם תווית{" "}
+                    <span className="font-medium text-slate-700">אולי בהמשך</span>, והשהיית איש הקשר למשך 60 ימים.
                 </p>
             )}
 
@@ -193,7 +193,7 @@ export default function TaggingQuestions({
                                         <span
                                             key={c.label}
                                             className="px-1.5 rounded bg-sky-50 text-sky-700 text-[11px]"
-                                            title={actionSummary(c.action) || "Labels only"}
+                                            title={actionSummary(c.action) || "תווית בלבד"}
                                         >
                                             {c.label}
                                             {actionSummary(c.action) && (
@@ -202,15 +202,15 @@ export default function TaggingQuestions({
                                         </span>
                                     ))}
                                     <span className="text-[11px] text-slate-400">
-                                        {q.type === "choice" ? "pick one" : "yes or no"}
-                                        {q.automated && " · also asked of automated notifications"}
+                                        {q.type === "choice" ? "בחירה יחידה" : "כן או לא"}
+                                        {q.automated && " · נבדק גם בהתראות אוטומטיות"}
                                     </span>
                                 </div>
                             </div>
                             <div className="shrink-0 flex items-center gap-0.5">
                                 <button
                                     type="button"
-                                    aria-label="Edit question"
+                                    aria-label="ערוך שאלה"
                                     disabled={locked}
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -222,7 +222,7 @@ export default function TaggingQuestions({
                                 </button>
                                 <button
                                     type="button"
-                                    aria-label="Remove question"
+                                    aria-label="הסר שאלה"
                                     disabled={locked}
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -265,11 +265,11 @@ export default function TaggingQuestions({
                 <div className="flex items-center gap-2">
                     <button type="button" className={SECONDARY} disabled={atMax} onClick={() => open(null)}>
                         <PlusIcon className="w-3.5 h-3.5" />
-                        Add a question
+                        הוסף שאלה
                     </button>
                     {atMax && (
                         <span className="text-[11.5px] text-slate-500">
-                            {INBOX_TAG_QUESTIONS_MAX} is the most a workspace can ask. Each question is sent with every message.
+                            סביבת עבודה יכולה להגדיר לכל היותר {INBOX_TAG_QUESTIONS_MAX} שאלות. כל שאלה נשלחת עם כל הודעה מסווגת.
                         </span>
                     )}
                 </div>
@@ -316,7 +316,7 @@ function QuestionForm({
 
     const cancel = () => {
         if (!dirty) return onCancel();
-        confirm.show(isNew ? "Discard this question?" : "Discard your changes to this question?", async () => onCancel());
+        confirm.show(isNew ? "לבטל שאלה זו?" : "לבטל את השינויים בשאלה זו?", async () => onCancel());
     };
 
     const save = () => {
@@ -339,8 +339,8 @@ function QuestionForm({
             <div className="flex items-center gap-1">
                 {(
                     [
-                        ["yes_no", "Yes or no"],
-                        ["choice", "Pick one"],
+                        ["yes_no", "כן או לא"],
+                        ["choice", "בחירה יחידה"],
                     ] as const
                 ).map(([type, label]) => (
                     <button
@@ -360,31 +360,31 @@ function QuestionForm({
             </div>
 
             <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">Question</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">שאלה</div>
                 <TextInput
                     value={q.question}
                     onChange={(v) => patch({ question: v.slice(0, INBOX_TAG_QUESTION_MAX_LEN) })}
                     placeholder={
                         q.type === "yes_no"
-                            ? "The sender says there is no suitable position now but they will get back later."
-                            : "Who is replying?"
+                            ? "השולח מציין כי אין משרה מתאימה כרגע אך יחזור בעתיד."
+                            : "מי עונה?"
                     }
                     autoFocus={isNew}
                     className="w-full"
                 />
                 <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
-                    One plain statement about the reply, read literally: no double negatives, one judgment per question. It is sent to TypeSafe with every classified message, in any language your mail is in.
+                    היגד אחד וברור על התגובה, כפשוטו: ללא שלילה כפולה, שיפוט אחד לכל שאלה. השאלה מועברת למסווג בכל הודעה מסווגת, בכל שפה שבה נכתב המייל.
                 </p>
             </div>
 
             {q.type === "yes_no" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <LabelField value={q.label ?? ""} onChange={(label) => patch({ label })} />
-                    <ActionField value={q.action} onChange={(action) => patch({ action })} hint="Acts only at 80% or more." />
+                    <ActionField value={q.action} onChange={(action) => patch({ action })} hint="פועל רק ברמת ודאות של 80% ומעלה." />
                 </div>
             ) : (
                 <div className="space-y-2">
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Options</div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">אפשרויות</div>
                     {choices.map((c, i) => (
                         <div key={i} className="rounded-md border border-slate-200 bg-white p-2 space-y-2">
                             <div className="flex items-start gap-2">
@@ -395,7 +395,7 @@ function QuestionForm({
                                 {choices.length > INBOX_TAG_CHOICES_MIN && (
                                     <button
                                         type="button"
-                                        aria-label={`Remove option ${i + 1}`}
+                                        aria-label={`הסר אפשרות ${i + 1}`}
                                         onClick={() => patch({ choices: choices.filter((_, j) => j !== i) })}
                                         className={`${ICON_BUTTON} mt-4`}
                                     >
@@ -406,7 +406,7 @@ function QuestionForm({
                             <TextInput
                                 value={c.description}
                                 onChange={(v) => patchChoice(i, { description: v.slice(0, INBOX_TAG_CHOICE_DESC_MAX_LEN) })}
-                                placeholder="When this option applies, in one line"
+                                placeholder="מתי אפשרות זו חלה, בשורה אחת"
                                 className="w-full"
                             />
                         </div>
@@ -419,10 +419,10 @@ function QuestionForm({
                             onClick={() => patch({ choices: [...choices, blankChoice()] })}
                         >
                             <PlusIcon className="w-3.5 h-3.5" />
-                            Add an option
+                            הוסף אפשרות
                         </button>
                         <span className="text-[11px] text-slate-500">
-                            A reply that fits none of them gets no label. Options act at 70% or more.
+                            תגובה שאינה מתאימה לאף אחת מהן לא תקבל תווית. אפשרויות פועלות ברמת ודאות של 70% ומעלה.
                         </span>
                     </div>
                 </div>
@@ -436,9 +436,9 @@ function QuestionForm({
                     className="mt-0.5"
                 />
                 <span className="text-[12px] leading-snug text-slate-700">
-                    Also ask about automated notifications
+                    שאל גם לגבי התראות אוטומטיות
                     <span className="block text-[11px] text-slate-500 mt-0.5">
-                        Notifications leave the inbox for the Automated view. A notification this question matches gets its label and stays in the inbox instead. It never holds, stops or opens a task for one; those still apply to replies only.
+                        התראות מועברות מתיבת הדואר הנכנס לתצוגת 'אוטומטי'. התראה ששאלה זו מתאימה לה תקבל את התווית שלה ותישאר בתיבת הדואר הנכנס. השאלה לעולם לא תשהה, תעצור או תפתח משימה עבור התראה; פעולות אלו חלות על תגובות בלבד.
                     </span>
                 </span>
             </label>
@@ -453,10 +453,10 @@ function QuestionForm({
 
             <div className="flex items-center justify-end gap-2">
                 <button type="button" className={SECONDARY} onClick={cancel}>
-                    Cancel
+                    ביטול
                 </button>
                 <button type="button" className={PRIMARY} onClick={save} disabled={tried && issues.length > 0}>
-                    {isNew ? "Add question" : "Save question"}
+                    {isNew ? "הוסף שאלה" : "שמור שאלה"}
                 </button>
             </div>
         </div>
@@ -467,11 +467,11 @@ function LabelField({ value, onChange }: { value: string; onChange: (v: string) 
     const name = inboxTagLabelName(value);
     return (
         <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">Label</div>
-            <TextInput value={value} onChange={onChange} placeholder="Later maybe" className="w-full" />
+            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">תווית</div>
+            <TextInput value={value} onChange={onChange} placeholder="אולי בהמשך" className="w-full" />
             {value && name !== value.trim() && (
                 <p className="mt-1 text-[11px] text-slate-500">
-                    Files as <span className="font-medium text-slate-700">{name || "nothing"}</span>
+                    יתויג כ-<span className="font-medium text-slate-700">{name || "ללא"}</span>
                 </p>
             )}
         </div>
@@ -489,7 +489,7 @@ function ActionField({
 }) {
     return (
         <div>
-            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">Then</div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">פעולה</div>
             <div className="flex items-center gap-1.5">
                 <SelectMenu
                     value={value.type}
@@ -498,7 +498,7 @@ function ActionField({
                         onChange(type === "hold" ? { type, hold_days: value.hold_days ?? INBOX_TAG_HOLD_DEFAULT } : { type });
                     }}
                     options={ACTIONS}
-                    aria-label="What a match does"
+                    aria-label="מה עושה התאמה"
                     minWidth={170}
                 />
                 {value.type === "hold" && (
@@ -513,11 +513,11 @@ function ActionField({
                                     hold_days: Number.isFinite(n)
                                         ? Math.min(INBOX_TAG_HOLD_MAX, Math.max(INBOX_TAG_HOLD_MIN, n))
                                         : INBOX_TAG_HOLD_DEFAULT,
-                                })
+                                    })
                             }
                             className="w-20"
                         />
-                        <span className="text-[11.5px] text-slate-500">days</span>
+                        <span className="text-[11.5px] text-slate-500">ימים</span>
                     </>
                 )}
             </div>

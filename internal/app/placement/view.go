@@ -221,9 +221,9 @@ func (s *service) Overview(ctx context.Context, orgID uuid.UUID) (*Overview, *er
 	}
 	inst := panelInfo(models.PlacementPanelInstance, familySeeds(instance), !config.SelfHosted())
 	if !inst.Available {
-		inst.Reason = "No seed inboxes are on this instance's panel yet."
+		inst.Reason = "אין עדיין תיבות בדיקה בפאנל של מופע זה."
 		if config.SelfHosted() {
-			inst.Reason = "No seed inboxes are on this instance's panel yet. An administrator adds them in the admin panel."
+			inst.Reason = "אין עדיין תיבות בדיקה בפאנל של מופע זה. מנהל מערכת יכול להוסיף אותן בלוח הניהול."
 		}
 	}
 	out.Panels = append(out.Panels, inst)
@@ -235,7 +235,7 @@ func (s *service) Overview(ctx context.Context, orgID uuid.UUID) (*Overview, *er
 	}
 	ws := panelInfo(models.PlacementPanelWorkspace, familySeeds(own), false)
 	if !ws.Available {
-		ws.Reason = "Mark one of this workspace's mailboxes as a seed inbox to test on it."
+		ws.Reason = "סמן אחת מתיבות הדואר של סביבת עבודה זו כתיבת בדיקה כדי לבצע עליה בדיקות."
 	}
 	out.Panels = append(out.Panels, ws)
 	out.WorkspaceSeeds = len(own)
@@ -244,9 +244,9 @@ func (s *service) Overview(ctx context.Context, orgID uuid.UUID) (*Overview, *er
 	switch {
 	case !config.SelfHosted():
 		// The hosted product's own panel is the instance panel.
-		cloud.Reason = "Warmbly Cloud's panel is the instance panel here."
+		cloud.Reason = "הפאנל של Warmbly Cloud הוא פאנל המופע כאן."
 	case s.Cloud == nil:
-		cloud.Reason = "Link this instance to Warmbly Cloud to test on its seed panel."
+		cloud.Reason = "קשר מופע זה ל-Warmbly Cloud כדי לבצע בדיקות על פאנל תיבות הבדיקה שלו."
 	default:
 		if panel, xerr := s.Cloud.PlacementPanel(ctx, orgID); xerr != nil {
 			cloud.Reason = xerr.Message

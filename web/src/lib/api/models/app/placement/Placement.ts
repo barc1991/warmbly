@@ -208,15 +208,15 @@ export const PLACEMENT_MONITOR_INTERVAL_MIN = 1;
 export const PLACEMENT_MONITOR_INTERVAL_MAX = 30;
 
 export const PANEL_LABEL: Record<PlacementPanel, string> = {
-    instance: "Shared panel",
-    workspace: "Your seed inboxes",
-    cloud: "Warmbly Cloud panel",
+    instance: "פאנל משותף",
+    workspace: "תיבות הבדיקה שלך",
+    cloud: "פאנל Warmbly Cloud",
 };
 
 export const PANEL_HINT: Record<PlacementPanel, string> = {
-    instance: "Seed inboxes run for every workspace on this instance.",
-    workspace: "Test mailboxes your workspace marked as seeds.",
-    cloud: "Warmbly Cloud's seed inboxes, reached through your linked account.",
+    instance: "תיבות בדיקה הפועלות עבור כל סביבת עבודה במופע זה.",
+    workspace: "תיבות דואר של סביבת העבודה שסומנו כתיבות בדיקה (Seeds).",
+    cloud: "תיבות הבדיקה של Warmbly Cloud, הזמינות דרך החשבון המקושר שלך.",
 };
 
 // ---- Batches: one placement test run from many senders (internal/app/placement/batch.go).

@@ -29,26 +29,26 @@ export function StatusChip({ status, counts }: { status: PlacementTestStatus; co
 export function TrackingBadge({ test }: { test: Pick<PlacementTest, "open_tracking" | "link_tracking" | "compare_group_id"> }) {
     const tracked = isTracked(test);
     const Icon = tracked ? EyeIcon : EyeOffIcon;
-    const parts = [test.open_tracking && "opens", test.link_tracking && "clicks"].filter(Boolean).join(" and ");
+    const parts = [test.open_tracking && "פתיחות", test.link_tracking && "לחיצות"].filter(Boolean).join(" ו");
     return (
         <span className="inline-flex items-center gap-1">
             <span
-                title={tracked ? `Tracks ${parts}` : "No open pixel or tracked links"}
+                title={tracked ? `עוקב אחר ${parts}` : "ללא פיקסל פתיחה או קישורים במעקב"}
                 className={cn(
                     "inline-flex items-center gap-1 h-5 px-1.5 rounded-md text-[10.5px] font-medium whitespace-nowrap",
                     tracked ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600",
                 )}
             >
                 <Icon className="w-3 h-3" />
-                {tracked ? "Tracked" : "Untracked"}
+                {tracked ? "במעקב" : "ללא מעקב"}
             </span>
             {test.compare_group_id && (
                 <span
-                    title="Half of a with and without tracking comparison"
+                    title="חצי מבדיקת השוואה עם וללא מעקב"
                     className="inline-flex items-center gap-1 h-5 px-1.5 rounded-md bg-sky-50 text-sky-700 text-[10.5px] font-medium"
                 >
                     <SplitIcon className="w-3 h-3" />
-                    <span className="hidden sm:inline">Compare</span>
+                    <span className="hidden sm:inline">השוואה</span>
                 </span>
             )}
         </span>
@@ -110,6 +110,23 @@ export function PlacementCaveat({ className }: { className?: string }) {
     );
 }
 
+const REASON_HEBREW_MAP: [RegExp, string][] = [
+    [/not connected to Warmbly Cloud/i, "סביבת עבודה זו אינה מחוברת ל-Warmbly Cloud."],
+    [/No seed inboxes are on this instance's panel yet\. An administrator/i, "אין עדיין תיבות בדיקה בפאנל של מופע זה. מנהל מערכת יכול להוסיף אותן בלוח הניהול."],
+    [/No seed inboxes are on this instance's panel yet/i, "אין עדיין תיבות בדיקה בפאנל של מופע זה."],
+    [/Mark one of this workspace's mailboxes as a seed inbox/i, "סמן אחת מתיבות הדואר של סביבת עבודה זו כתיבת בדיקה כדי לבצע עליה בדיקות."],
+    [/Link this instance to Warmbly Cloud/i, "קשר מופע זה ל-Warmbly Cloud כדי לבצע בדיקות על פאנל תיבות הבדיקה שלו."],
+    [/Warmbly Cloud's panel is the instance panel here/i, "פאנל Warmbly Cloud הוא פאנל המופע כאן."],
+];
+
+function translateReason(r?: string): string {
+    if (!r) return "לא זמין בסביבת עבודה זו.";
+    for (const [re, heb] of REASON_HEBREW_MAP) {
+        if (re.test(r)) return heb;
+    }
+    return r;
+}
+
 // One card per seed panel: whether it can run a test, how many seeds it has
 // and which providers they cover.
 export function PanelStrip({ overview }: { overview: PlacementOverview }) {
@@ -127,19 +144,19 @@ export function PanelStrip({ overview }: { overview: PlacementOverview }) {
                         key={p.panel}
                         className={cn(
                             "px-5 py-3 min-w-0",
-                            i < overview.panels.length - 1 && "border-b md:border-b-0 md:border-r border-slate-200",
+                            i < overview.panels.length - 1 && "border-b md:border-b-0 md:border-e border-slate-200",
                         )}
                     >
                         <div className="flex items-center gap-2">
                             <span className={cn("size-1.5 rounded-full shrink-0", p.available ? "bg-emerald-500" : "bg-slate-300")} />
                             <span className="text-[12.5px] font-medium text-slate-900 truncate">{PANEL_LABEL[p.panel]}</span>
-                            <span className="ml-auto font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
-                                {p.seeds} seed{p.seeds === 1 ? "" : "s"}
+                            <span className="ms-auto font-mono text-[11px] text-slate-500 tabular-nums shrink-0">
+                                {p.seeds} {p.seeds === 1 ? "תיבת בדיקה" : "תיבות בדיקה"}
                             </span>
                         </div>
                         <p className="mt-0.5 text-[11px] text-slate-400 leading-relaxed">
-                            {p.available ? PANEL_HINT[p.panel] : p.reason || "Not available on this workspace."}
-                            {p.available && (p.metered ? " Counts toward your monthly tests." : " Not counted toward your monthly tests.")}
+                            {p.available ? PANEL_HINT[p.panel] : translateReason(p.reason)}
+                            {p.available && (p.metered ? " נספר במכסת הבדיקות החודשית." : " אינו נספר במכסת הבדיקות החודשית.")}
                         </p>
                         {families.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
