@@ -432,6 +432,9 @@ export default function AgentPanel() {
     }
 
     function closePanel() {
+        if (panelRef.current?.contains(document.activeElement)) {
+            (document.activeElement as HTMLElement)?.blur();
+        }
         setOpen(false);
         setMinimized(false);
     }
@@ -628,7 +631,6 @@ export default function AgentPanel() {
                                   : "w-full sm:w-[min(var(--agent-w),94vw)]",
                           ),
                 )}
-                aria-hidden={!visible}
             >
                 {/* Floating: resize from any edge or corner. */}
                 {isFloat && (

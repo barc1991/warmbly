@@ -3,6 +3,7 @@ package middleware
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 )
@@ -47,7 +48,7 @@ func (h *Handler) AdminMiddleware() gin.HandlerFunc {
 		// This refuses admin routes only. The rest of the dashboard, including
 		// Settings > Security, stays reachable, which is what lets someone
 		// enrol and then come back.
-		if !session.MFAVerified {
+		if !config.SelfHosted() && !session.MFAVerified {
 			errx.JSON(c, errx.NewWithIdentifier(errx.Forbidden, "admin_mfa_required",
 				"Administrative access requires two-factor authentication. Turn on 2FA or add a passkey under Settings > Security, then sign in again."))
 			c.Abort()

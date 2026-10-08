@@ -85,6 +85,23 @@ export default function ProfileSettingsPage() {
             actions={<SaveStatus status={status} onRetry={retry} />}
         >
             <Section eyebrow="זהות" description="השמות מופיעים באימיילים יוצאים.">
+                <Row
+                    label="תמונת פרופיל"
+                    description="מוצגת בסרגל הצד, בתצוגות מקדימות של אימייל ולצד הפעילות שלך. מותאמת לגודל 512px בעת העלאה."
+                    align="start"
+                >
+                    <AvatarUploader
+                        current={user.avatar_url}
+                        fallbackInitials={initials(user.email)}
+                        shape="circle"
+                        onUpload={async (blob) => {
+                            await uploadAvatar.mutateAsync(blob);
+                        }}
+                        onRemove={async () => {
+                            await removeAvatar.mutateAsync();
+                        }}
+                    />
+                </Row>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <FieldLabel>שם פרטי</FieldLabel>
@@ -130,23 +147,6 @@ export default function ProfileSettingsPage() {
                         className="w-[150px]"
                     />
                 </Row>
-            </Section>
-
-            <Section
-                eyebrow="תמונת פרופיל"
-                description="מוצגת בסרגל הצד, בתצוגות מקדימות של אימייל ולצד הפעילות שלך. מותאמת לגודל 512px בעת העלאה."
-            >
-                <AvatarUploader
-                    current={user.avatar_url}
-                    fallbackInitials={initials(user.email)}
-                    shape="circle"
-                    onUpload={async (blob) => {
-                        await uploadAvatar.mutateAsync(blob);
-                    }}
-                    onRemove={async () => {
-                        await removeAvatar.mutateAsync();
-                    }}
-                />
             </Section>
         </SectionShell>
     );
