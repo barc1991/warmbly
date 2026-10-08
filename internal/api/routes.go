@@ -187,13 +187,17 @@ func Run(
 		node.POST("/worker/diagnostic-auth", h.InternalDiagnosticAuth)
 	}
 
+	// The role-agnostic node heartbeat. A node still sending INTERNAL_API_TOKEN
+	// is told its version and nothing else, so it can always update itself.
+	heartbeat := r.Group("/api/v1/internal")
+	heartbeat.Use(m.NodeHeartbeatAuthMiddleware())
+	heartbeat.POST("/fleet/heartbeat", h.FleetHeartbeat)
+
+	// The edge group is what the tracking and forms services call, on
+	// INTERNAL_API_TOKEN.
 	internal := r.Group("/api/v1/internal")
 	internal.Use(m.InternalAuthMiddleware())
 	{
-		internal.GET("/dek/:orgID", h.InternalGetDEK)
-		internal.PUT("/dek/:orgID", h.InternalPutDEK)
-		// No DELETE: a lost DEK is unrecoverable, so nothing holding this token may remove one.
-
 		// Click-link tickets: the tracking service resolves /c/<id> redirects
 		// here instead of touching Postgres (read-only, heavily cached there).
 		internal.GET("/tracked-links/:id", h.InternalGetTrackedLink)
@@ -206,30 +210,6 @@ func Run(
 		// here after its own rate limiting and filtering. Enrichment (user
 		// agent, IP location) and storage happen on this side.
 		internal.POST("/page-hits", h.InternalIngestPageHit)
-
-		// Worker mailbox-sync messageId -> internal email map (replaces the
-		// former DynamoDB EmailMessageData table). Workers read/write it here.
-		internal.GET("/email-message-map", h.InternalGetEmailMessageMap)
-		internal.PUT("/email-message-map", h.InternalPutEmailMessageMap)
-		internal.DELETE("/email-message-map", h.InternalDeleteEmailMessageMap)
-
-		// Sync governor priority lane: "is this new message a reply to
-		// something the mailbox sent?" (tasks, message map, unibox threads).
-		internal.GET("/sync/own-conversation", h.InternalSyncOwnConversation)
-
-		// Expunge reconciliation: what the platform still holds for one IMAP
-		// folder, so the worker can drop the rows the server no longer reports.
-		internal.GET("/sync/folder-messages", h.InternalSyncFolderMessages)
-
-		// Gmail folder reconciliation: the rows the platform believes Gmail
-		// has in a folder, so the worker can report the ones that moved.
-		internal.GET("/sync/provider-folder-messages", h.InternalSyncProviderFolderMessages)
-
-		// Worker bootstrap config + heartbeat. Workers POST their identity
-		// on boot (worker_id + bind_ip + tag) and pull their runtime config
-		// instead of carrying it all in the install-time env file.
-		internal.GET("/worker/config", h.InternalWorkerConfig)
-		internal.POST("/fleet/heartbeat", h.FleetHeartbeat)
 
 		// Hosted forms: the forms service (cmd/forms) resolves published
 		// forms, forwards deduped funnel events and visitor submissions
