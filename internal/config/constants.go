@@ -139,7 +139,7 @@ const (
 	PlacementFamiliesMax               = 32  // provider families one test may name
 	PlacementClassifyTimeoutMinutes    = 120 // after the send, a copy not seen in the seed is missing
 	PlacementRunningPerOrgMax          = 3   // tests one workspace may have in flight at once
-	PlacementSeedsPerWorkspaceMax      = 500 // a workspace's own seed mailboxes
+	PlacementSeedsPerWorkspaceMax      = 50  // a workspace's own seed mailboxes
 	PlacementSeedDailySyncMessages     = 50_000
 	PlacementMonitorIntervalDaysMin    = 1
 	PlacementMonitorIntervalDaysMax    = 30
@@ -237,6 +237,10 @@ const (
 	// not hand its send to a worker. The in-process dispatcher fires a due
 	// task every second, so a retry kept at its old slot would run in a loop.
 	CampaignTickRetrySeconds = 60
+
+	// CampaignSendClaimRetrySeconds is how soon a pass that lost its mailbox to
+	// another campaign looks again, plus up to as much again of spread.
+	CampaignSendClaimRetrySeconds = 10
 
 	// CampaignStaleParkHours is when the reconciler starts distrusting a parked
 	// wakeup. Even-distribution can only push a successor to the end of the
@@ -404,13 +408,13 @@ const (
 	//
 	// Sized far above normally-spaced sending (per-mailbox daily caps + min-gap
 	// spacing); only a runaway loop or a huge per-contact fan-out approaches it.
-	WebhookDispatchBasePerMinute       = 60_000  // generous floor for any org
-	WebhookDispatchPerMailboxPerMinute = 300     // added per mailbox the plan allows
-	WebhookDispatchMaxPerMinute        = 600_000 // hard ceiling for any plan
+	WebhookDispatchBasePerMinute       = 600  // generous floor for any org (10/s)
+	WebhookDispatchPerMailboxPerMinute = 30   // added per mailbox the plan allows
+	WebhookDispatchMaxPerMinute        = 6000 // hard ceiling (100/s) for any plan
 
 	// Unibox
 	UniboxLimitMin     = 1
-	UniboxLimitMax     = 1000
+	UniboxLimitMax     = 100
 	UniboxLimitDefault = 50
 
 	// Account-status list paging (GET /analytics/accounts). The default and
@@ -455,15 +459,15 @@ const (
 	// bounce the delivery counts as evidence the mailbox exists.
 	VerificationDeliveryWindowHours = 72
 	// VerificationBatchSize is how many contacts one scheduler pass checks.
-	VerificationBatchSize = 2000
+	VerificationBatchSize = 200
 	// VerificationIntervalSeconds is how often the scheduler passes. A pass
 	// that finds a full batch runs again immediately, so a large import drains
 	// at the verifier's speed rather than one batch per interval.
 	VerificationIntervalSeconds = 60
 	// VerificationProbeConcurrency bounds parallel in-house SMTP probes.
-	VerificationProbeConcurrency = 32
+	VerificationProbeConcurrency = 4
 	// VerificationProviderConcurrency bounds parallel paid-provider lookups.
-	VerificationProviderConcurrency = 64
+	VerificationProviderConcurrency = 8
 	// VerificationExhaustedCooldownMinutes is how long an out-of-allowance
 	// account is left alone when its provider publishes no balance endpoint.
 	// Nothing but a billable check can tell such an account has been topped up,
@@ -507,11 +511,11 @@ const (
 	// These numbers are deliberately generous enough that ordinary use
 	// never trips them. Mailboxes are not in this list: see
 	// FairUseSendsPerMailbox below.
-	HardCapCampaignsTotal     = 100_000     // total campaigns ever created
-	HardCapCampaignsActive    = 10_000      // simultaneously active campaigns
-	HardCapTeamMembers        = 10_000      // seats per org
-	HardCapContacts           = 100_000_000 // contacts per org
-	HardCapDailyCampaignSends = 10_000_000  // campaign emails per org per day
+	HardCapCampaignsTotal     = 500       // total campaigns ever created
+	HardCapCampaignsActive    = 50        // simultaneously active campaigns
+	HardCapTeamMembers        = 100       // seats per org
+	HardCapContacts           = 1_000_000 // contacts per org
+	HardCapDailyCampaignSends = 1000      // campaign emails per org per day
 
 	// Mailboxes have no hard cap. A paid workspace's allowance is fair use
 	// derived from the daily sends its plan includes: one mailbox for every
@@ -527,15 +531,15 @@ const (
 	// many of them are validated against a worker at the same time. The
 	// dashboard streams a CSV through batches of this size so a 3,000 row
 	// file shows live progress instead of one request that times out.
-	MailboxBulkBatchMax    = 5000
-	MailboxBulkConcurrency = 32
+	MailboxBulkBatchMax    = 50
+	MailboxBulkConcurrency = 8
 
 	// Mailbox import (background job): rows per file, upload size, how many
 	// rows connect at once overall and per mail host (a burst of sign-ins to
 	// one provider from one address earns an auth throttle), how long a row
 	// may run before another pass takes it back, how long failed rows keep
 	// their sealed credentials for a retry, and when a finished import goes.
-	MailboxImportMaxRows            = 10000
+	MailboxImportMaxRows            = 5000
 	MailboxImportMaxBytes           = 10 << 20
 	MailboxImportConcurrency        = 8
 	MailboxImportPerHostConcurrency = 3
@@ -563,7 +567,7 @@ const (
 	// per-org is intentionally not exposed in the override editor
 	// because the per-day shape protects abuse posture rather than
 	// product utility.
-	DailyThrottleNewCampaigns = 10_000 // new campaigns per org per day
+	DailyThrottleNewCampaigns = 20 // new campaigns per org per day
 
 	// Pool link: mailboxes a self-hosted instance may enroll in the hosted
 	// warmup pool without a paid pool plan, and the handshake lifetimes.
@@ -571,11 +575,9 @@ const (
 	PoolLinkPollIntervalSeconds  = 3
 	PoolLinkPlanID               = "00000000-0000-0000-0000-000000000002"
 	PoolLinkPlanPriceUSD         = 15
-	PoolLinkRedirectLimit        = 200    // root redirects Warmbly Cloud serves for one linked instance
-	WarmupPoolTierFallbackFloor  = 10_000 // always borrow fallback recipients
-	WarmupPoolBorrowSeasonedDays = 14     // a borrowed free mailbox this long in the pool ranks ahead of a newer one
-	WarmupPoolFallbackMinAgeDays = 0      // immediately fill in
-	WarmupPoolReturnVisitDays    = 14     // a proven free mailbox may write back to a paying mailbox that wrote to it this recently
+	PoolLinkRedirectLimit        = 200 // root redirects Warmbly Cloud serves for one linked instance
+	WarmupPoolFallbackMinAgeDays = 3   // a free mailbox must have been a pool member this long before premium may borrow it, or write back to one
+	WarmupPoolReturnVisitDays    = 14  // a proven free mailbox may write back to a paying mailbox that wrote to it this recently
 	// What one inbox may receive from the pool in a day: WarmupInboundDailyMultiple
 	// times its own daily sends, never below the floor (a recipient-only mailbox
 	// sends nothing) and never above the ceiling. A recipient at its cap is left
@@ -587,7 +589,14 @@ const (
 	// A free sender stops at this share of an inbox's daily cap, so the rest
 	// of every inbox's day is left for premium senders.
 	WarmupFreeInboundSharePercent = 75
-	DailyThrottleNewOrgs          = 1_000 // new workspaces per owner per day
+	// A recipient is unreachable when this many handed-off warmup sends from at
+	// least this many sender workspaces over seven days never verifiably
+	// arrived. Sends younger than the grace are left out, so a slow sync is
+	// not read as a loss.
+	WarmupRecipientArrivalGraceHours        = 6
+	WarmupRecipientUnreachableMinDelivered  = 5
+	WarmupRecipientUnreachableMinSenderOrgs = 2
+	DailyThrottleNewOrgs                    = 3 // new workspaces per owner per day
 
 	// CLI sign-in handshake (`warmbly auth login`). Shorter-lived than the pool
 	// link handshake because a person is watching the terminal while it runs.
@@ -595,14 +604,31 @@ const (
 	CLIAuthPollIntervalSeconds = 3
 
 	// DailyThrottleNewScheduledSends caps how many NEW scheduled-send
-	// schedules a single user can create in a rolling 24h window.
-	DailyThrottleNewScheduledSends = 100_000
+	// schedules a single user can create in a rolling 24h window. The
+	// real defense against burst abuse — someone writing a loop that
+	// queues thousands of scheduled sends in seconds. Set high enough
+	// that no human-driven volume comes close (a power user replying
+	// to 200 inbound messages a day couldn't hit it organically).
+	DailyThrottleNewScheduledSends = 1000
 
 	// MaxPendingScheduledSendsPerOrg caps how many pending scheduled
 	// email sends one workspace can have queued at once, across all of
-	// its mailboxes.
-	MaxPendingScheduledSendsPerOrg  = 1_000_000
-	MaxPendingScheduledSendsPerUser = 1_000_000
+	// its mailboxes. The DAILY rate (DailyThrottleNewScheduledSends) is
+	// the primary abuse defense; this is the DB-bloat defense — each
+	// pending row carries a body (~5KB), so capping pending count keeps
+	// total scheduled-queue storage bounded per workspace.
+	//
+	// 10,000 is generous: a team scheduling 100 sends/day for the next
+	// 100 days hits this exactly once. The combination of "1K new/day"
+	// + "10K total pending" means legitimate use cannot organically
+	// hit either, while a scripted attacker is bounded on both axes.
+	//
+	// Cloud Tasks cost is negligible at this size — at $0.40/M
+	// operations, 10K pending = 20K ops = $0.008/workspace even at the
+	// hardest abuse. The cap exists for DB sanity, not cost.
+	//
+	// Future: per-plan ceiling lookup. Today: single backstop.
+	MaxPendingScheduledSendsPerOrg = 10000
 
 	// Undo send: instant sends are queued this many seconds in the
 	// future so the sender can still cancel. Per-user setting stored in

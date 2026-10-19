@@ -98,6 +98,10 @@ func (w *WMail) onGraphMessageSeen(ctx context.Context, folder, providerID strin
 	}
 	w.laneCache.forget(providerID)
 	if err := w.graphStore(ctx, msg); err != nil {
+		var mailErr *errx.MailError
+		if errors.As(err, &mailErr) {
+			return false, mailErr
+		}
 		w.controlPlaneError(err, stats)
 		return false, msgraph.ErrStop
 	}
@@ -206,6 +210,10 @@ func (w *WMail) graphBackfill(ctx context.Context, stats *tickStats) *errx.MailE
 					return nil
 				}
 				if err := w.graphStore(ctx, full.ToEmailData(folder)); err != nil {
+					var mailErr *errx.MailError
+					if errors.As(err, &mailErr) {
+						return mailErr
+					}
 					return w.controlPlaneError(err, stats)
 				}
 				st.BackfillSynced++

@@ -83,6 +83,12 @@ var (
 	ErrSSOLinkExpired = NewWithIdentifier(BadRequest, "sso_link_expired",
 		"That sign-in request expired or had too many attempts. Start the sign-in again.")
 
+	// Re-authentication through a linked identity.
+	ErrReauthIdentityMismatch = NewWithIdentifier(BadRequest, "reauth_identity_mismatch",
+		"That account is not the one linked to this Warmbly account. Continue with the account you sign in with.")
+	ErrReauthExpired = NewWithIdentifier(BadRequest, "reauth_expired",
+		"That confirmation expired or was already used. Try again.")
+
 	ErrExternalCode     = New(BadRequest, "Invalid or expired code, please try again.")
 	ErrExternalEmail    = New(BadRequest, "Invalid or unverified email address.")
 	ErrExternalProvider = New(BadRequest, "This sign-in method isn't available on this server.")
@@ -114,6 +120,9 @@ var (
 
 	// Captch
 	ErrCaptcha = New(BadRequest, "We couldn’t verify you’re human. Please try the security check again or reload the page.")
+	// The native app's proof in place of the captcha.
+	ErrAppAttest        = NewWithIdentifier(BadRequest, "app_attest_failed", "We couldn’t verify this copy of the app. Update it from the App Store and try again.")
+	ErrAppAttestUnknown = NewWithIdentifier(BadRequest, "app_attest_key_unknown", "This device needs to verify the app again.")
 
 	// Group
 	ErrGroupTitle = New(BadRequest, "The title length must be between 1 and 50 characters.")

@@ -76,7 +76,6 @@ type ContactService interface {
 	// frequency-ranked then alphabetical, capped at 200. Powers the dashboard
 	// variable picker's real-field suggestions.
 	ListCustomFieldKeys(ctx context.Context, orgID uuid.UUID) ([]string, *errx.Error)
-	ResolveCategories(ctx context.Context, userID uuid.UUID, names []string) (map[string]uuid.UUID, *errx.Error)
 
 	// GetDetail returns the 360 read model used by the contact
 	// slide-over: hydrated contact + engagement summary + suppression.
@@ -223,11 +222,11 @@ func NewService(
 	}
 }
 
-func (s *contactService) publishContactsReload(ctx context.Context, userID string, operationID string) {
+func (s *contactService) publishContactsReload(ctx context.Context, userID string, operationID string, orgID uuid.UUID) {
 	if s.streamingPublisher == nil {
 		return
 	}
-	s.streamingPublisher.PublishContactsReload(ctx, userID, operationID)
+	s.streamingPublisher.PublishContactsReload(ctx, userID, operationID, orgID)
 }
 
 func (s *contactService) SetCampaignWaker(w CampaignWaker) { s.campaignWaker = w }

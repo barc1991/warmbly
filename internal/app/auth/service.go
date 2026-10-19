@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/warmbly/warmbly/internal/app/appattest"
 	"github.com/warmbly/warmbly/internal/app/organization"
 	"github.com/warmbly/warmbly/internal/app/token"
 	"github.com/warmbly/warmbly/internal/app/trial"
@@ -78,6 +79,8 @@ type AuthService interface {
 	LoginConfirm(ctx context.Context, data *ConfirmData, session, ipaddr, userAgent string) (*models.LoginResult, *errx.Error)
 	// WireTwoFA attaches the 2FA challenger (post-construction; nil = 2FA off).
 	WireTwoFA(t TwoFAChallenger)
+	// WireAppAttest accepts native app proofs on the captcha-gated paths (nil = off).
+	WireAppAttest(a *appattest.Service)
 
 	RegistrationStart(ctx context.Context, data *AuthData, origin SignupOrigin) (*models.AuthSession, *errx.Error)
 	RegistrationConfirm(ctx context.Context, data *ConfirmData, session string, origin SignupOrigin) (*models.AuthSession, *errx.Error)
@@ -142,12 +145,21 @@ type AuthService interface {
 	SSOBegin(ctx context.Context, provider string) (*SSORedirect, *errx.Error)
 	// SSOCallbackComplete returns a single-use handoff code, not a session: the
 	// provider redirects a browser here, so the response must be a redirect.
-	SSOCallbackComplete(ctx context.Context, in SSOCallback) (string, *errx.Error)
+	SSOCallbackComplete(ctx context.Context, in SSOCallback) (*SSOCallbackResult, *errx.Error)
 	SSOExchange(ctx context.Context, code, binding string) (*models.LoginResult, *errx.Error)
 	// SSOLinkConfirm completes a federated sign-in that came back with
 	// link_required: the address already belongs to a password account, and
 	// the identity is attached only once that password is presented.
 	SSOLinkConfirm(ctx context.Context, data *SSOLinkData, ipaddr, userAgent string) (*models.LoginResult, *errx.Error)
+
+	// Re-authentication of a signed-in session through an identity linked to
+	// the account. Each succeeds only for (issuer, subject) already bound to
+	// userID, and only for the session that began it; the caller stamps it.
+	ReauthIdentities(ctx context.Context, userID uuid.UUID) (browser, native []string, err *errx.Error)
+	ReauthSSOBegin(ctx context.Context, provider string, userID, sessionID uuid.UUID) (*SSORedirect, *errx.Error)
+	ReauthSSOFinish(ctx context.Context, code, binding string, userID, sessionID uuid.UUID) *errx.Error
+	ReauthNativeBegin(ctx context.Context, sessionID uuid.UUID) (string, *errx.Error)
+	ReauthNativeVerify(ctx context.Context, provider, rawToken string, userID, sessionID uuid.UUID) *errx.Error
 }
 
 // OperatorNotifier is the instance-wide operator alert surface, injected
@@ -173,9 +185,11 @@ type authService struct {
 	organizationService      organization.OrganizationService
 	emailNotificationService notify.EmailNotificationService
 	// opsNotify raises instance-wide operator alerts. Nil is the default.
-	opsNotify      OperatorNotifier
-	cache          *cache.Cache
-	captcha        *captcha.Turnstile
+	opsNotify OperatorNotifier
+	cache     *cache.Cache
+	captcha   *captcha.Turnstile
+	// appAttest takes the native app's proof in place of Turnstile. Nil turns it off.
+	appAttest      *appattest.Service
 	appleIDTokens  IDTokenVerifier
 	googleIDTokens IDTokenVerifier
 	twofa          TwoFAChallenger
@@ -206,6 +220,18 @@ type authService struct {
 }
 
 func (s *authService) WireTwoFA(t TwoFAChallenger) { s.twofa = t }
+
+// WireAppAttest accepts native app proofs on the captcha-gated paths.
+func (s *authService) WireAppAttest(a *appattest.Service) { s.appAttest = a }
+
+// verifyHuman is the anti-automation gate on every unauthenticated auth write:
+// Turnstile for a browser, an App Attest assertion for the native app.
+func (s *authService) verifyHuman(ctx context.Context, action, turnstile string, proof *appattest.Proof, ipaddr string) *errx.Error {
+	if proof != nil && s.captcha.Required() && s.appAttest.Enabled() {
+		return s.appAttest.Verify(ctx, action, proof)
+	}
+	return s.captcha.Verify(ctx, turnstile, ipaddr)
+}
 
 func (s *authService) WireDeployment(policy *config.AuthPolicy, mailDelivers bool) {
 	if policy != nil {

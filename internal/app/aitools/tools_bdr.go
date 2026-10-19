@@ -379,13 +379,7 @@ func (d Deps) updateLeadFields(ctx context.Context, inv Invocation, args json.Ra
 	}
 
 	if in.Tag != "" {
-		resolved, xerr := d.Contacts.ResolveCategories(ctx, inv.UserID, []string{in.Tag})
-		if xerr == nil {
-			for _, catID := range resolved {
-				upd.AddCategories = []string{catID.String()}
-				break
-			}
-		}
+		customFields["tag"] = in.Tag
 	}
 
 	if _, xerr := d.Contacts.Update(ctx, inv.UserID.String(), contactID.String(), inv.OrgID, upd); xerr != nil {

@@ -2,11 +2,13 @@ package contact
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/warmbly/warmbly/internal/config"
 	"github.com/warmbly/warmbly/internal/errx"
 	"github.com/warmbly/warmbly/internal/models"
 	"github.com/warmbly/warmbly/internal/pkg/mailhost"
@@ -15,8 +17,40 @@ import (
 	"github.com/warmbly/warmbly/internal/utils/validate"
 )
 
-func (s *contactService) checkContactLimit(_ context.Context, _ string, _ int) *errx.Error {
-	// Contact limits are disabled.
+// checkContactLimit enforces the plan's contact ceiling for a batch about to
+// be created. Callers that write in chunks (the importer) must ask once for
+// the whole batch, or a rejected chunk turns one plan problem into one error
+// per row.
+//
+// This path reads the plan directly instead of going through the feature
+// gate, so it never saw the self-host short-circuit: every self-hosted org
+// was capped at the seeded Free Trial plan's 100 contacts even though
+// BILLING_PROVIDER=none unlocks every other limit.
+func (s *contactService) checkContactLimit(ctx context.Context, userID string, adding int) *errx.Error {
+	if config.SelfHosted() || s.subRepo == nil || s.planRepo == nil || adding <= 0 {
+		return nil
+	}
+	uid, parseErr := uuid.Parse(userID)
+	if parseErr != nil {
+		return nil
+	}
+	sub, err := s.subRepo.GetByUserID(ctx, uid)
+	if err != nil || sub == nil {
+		return nil
+	}
+	plan, err := s.planRepo.GetByID(ctx, sub.EffectivePlanID())
+	if err != nil || plan == nil || plan.MaxContacts <= 0 {
+		return nil
+	}
+	currentCount, xerr := s.contactRepository.GetContactCount(ctx, userID)
+	if xerr != nil {
+		return nil
+	}
+	if currentCount+adding > int(plan.MaxContacts) {
+		return errx.New(errx.Forbidden, fmt.Sprintf(
+			"adding %d contacts would put you over your plan's limit of %d (you have %d)",
+			adding, plan.MaxContacts, currentCount))
+	}
 	return nil
 }
 
@@ -38,7 +72,7 @@ func (s *contactService) Add(ctx context.Context, userID string, orgID uuid.UUID
 		return nil, xerr
 	}
 
-	s.publishContactsReload(ctx, userID, "contacts:add")
+	s.publishContactsReload(ctx, userID, "contacts:add", orgID)
 	var attached []string
 	for i := range contacts {
 		attached = append(attached, contacts[i].Campaigns...)
@@ -159,7 +193,7 @@ func (s *contactService) BulkUpdate(ctx context.Context, userID string, orgID uu
 		return nil, xerr
 	}
 
-	s.publishContactsReload(ctx, userID, "contacts:bulk_update")
+	s.publishContactsReload(ctx, userID, "contacts:bulk_update", orgID)
 	s.wakeCampaigns(ctx, orgID, data.AddCampaigns)
 	s.syncSegmentCampaigns(ctx, orgID)
 	return updated, nil
@@ -171,7 +205,7 @@ func (s *contactService) Update(ctx context.Context, userID, contactID string, o
 		return nil, xerr
 	}
 
-	s.publishContactsReload(ctx, userID, "contacts:update:"+contactID)
+	s.publishContactsReload(ctx, userID, "contacts:update:"+contactID, orgID)
 	s.wakeCampaigns(ctx, orgID, data.Campaigns)
 	s.syncSegmentCampaigns(ctx, orgID)
 	return updated, nil
@@ -182,7 +216,7 @@ func (s *contactService) BulkDelete(ctx context.Context, userID string, orgID uu
 		return xerr
 	}
 
-	s.publishContactsReload(ctx, userID, "contacts:bulk_delete")
+	s.publishContactsReload(ctx, userID, "contacts:bulk_delete", orgID)
 	return nil
 }
 
@@ -191,7 +225,7 @@ func (s *contactService) Delete(ctx context.Context, userID string, orgID uuid.U
 		return xerr
 	}
 
-	s.publishContactsReload(ctx, userID, "contacts:delete:"+contactID)
+	s.publishContactsReload(ctx, userID, "contacts:delete:"+contactID, orgID)
 	return nil
 }
 
@@ -246,8 +280,4 @@ func (s *contactService) ListSentEmails(ctx context.Context, orgID, contactID uu
 
 func (s *contactService) ListTimeline(ctx context.Context, orgID, contactID uuid.UUID, limit int, cursor *models.ContactTimelineKey) (*models.ContactTimelineResult, *errx.Error) {
 	return s.contactRepository.ListTimeline(ctx, orgID, contactID, limit, cursor)
-}
-
-func (s *contactService) ResolveCategories(ctx context.Context, userID uuid.UUID, names []string) (map[string]uuid.UUID, *errx.Error) {
-	return s.contactRepository.ResolveCategoryNames(ctx, uuid.Nil, userID, names)
 }

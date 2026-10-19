@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/warmbly/warmbly/internal/config"
 )
 
 // WarmupPoolType separates free and paid warmup participation.
@@ -77,6 +78,46 @@ const (
 	// finding the message in any synced folder.
 	WarmupRemovalUnknown = "unknown"
 )
+
+type WarmupActionRequest struct {
+	MailboxID uuid.UUID `json:"mailbox_id"`
+	WorkerID  uuid.UUID `json:"worker_id"`
+	Actions   []string  `json:"actions"`
+	FilingID  string    `json:"filing_id,omitempty"`
+}
+
+type WarmupActionDecision struct {
+	Actions        []string                   `json:"actions"`
+	FilingPending  bool                       `json:"filing_pending,omitempty"`
+	FilingRecovery *WarmupFilingRecoveryProof `json:"filing_recovery,omitempty"`
+}
+
+const WarmupFilingRecoveryProtocol = 1
+
+type WarmupFilingRecoveryProof struct {
+	Protocol        int        `json:"protocol"`
+	MailboxID       uuid.UUID  `json:"mailbox_id"`
+	WorkerID        uuid.UUID  `json:"worker_id"`
+	FilingID        uuid.UUID  `json:"filing_id"`
+	ProviderRetryAt *time.Time `json:"provider_retry_at,omitempty"`
+}
+
+func (p *WarmupFilingRecoveryProof) ValidFor(mailbox, worker, filing uuid.UUID) bool {
+	return p != nil && p.Protocol == WarmupFilingRecoveryProtocol && mailbox != uuid.Nil && worker != uuid.Nil && filing != uuid.Nil &&
+		p.MailboxID == mailbox && p.WorkerID == worker && p.FilingID == filing && (p.ProviderRetryAt == nil || !p.ProviderRetryAt.IsZero())
+}
+
+type WarmupFilingDeferralRequest struct {
+	MailboxID       uuid.UUID `json:"mailbox_id"`
+	WorkerID        uuid.UUID `json:"worker_id"`
+	FilingID        uuid.UUID `json:"filing_id"`
+	ProviderRetryAt time.Time `json:"provider_retry_at"`
+}
+
+type WarmupFilingDeferralDecision struct {
+	FilingRecovery *WarmupFilingRecoveryProof `json:"filing_recovery"`
+	Persisted      bool                       `json:"persisted"`
+}
 
 // WarmupEmailAction represents actions to perform on a detected warmup email.
 //
@@ -176,8 +217,7 @@ type WarmupPartnerOrigin string
 const (
 	// WarmupPartnerOwnTier is a member of the sender's own pool.
 	WarmupPartnerOwnTier WarmupPartnerOrigin = "own"
-	// WarmupPartnerBorrowed is a proven free mailbox filling in a thin premium
-	// tier. Drawn after the sender's own tier.
+	// WarmupPartnerBorrowed is a proven free mailbox available to a premium sender.
 	WarmupPartnerBorrowed WarmupPartnerOrigin = "borrowed"
 	// WarmupPartnerReturn is a paying mailbox that wrote to this free sender
 	// recently. Drawn alongside the sender's own tier: returning the visit is
@@ -210,6 +250,11 @@ type WarmupPartnerCandidate struct {
 	Received7d int
 	// Junked7d is how many of those arrivals its own filter put in spam.
 	Junked7d int
+	// Delivered7d is the pool's warmup mail handed off to this candidate over
+	// seven days (past the arrival grace), and Arrived7d how much of it the
+	// candidate's own sync verified.
+	Delivered7d int
+	Arrived7d   int
 }
 
 // Borrowed reports whether the candidate was drawn from the tier the sender's
@@ -241,6 +286,27 @@ func (c WarmupPartnerCandidate) FilterJunkRate() float64 {
 	return min(1, float64(c.Junked7d)/float64(c.Received7d))
 }
 
+// WarmupRecipientUnreachable reports a recipient whose sync verified none of a
+// sample of handed-off warmup mail from more than one sender workspace, so
+// neither one broken sender nor one slow sync can take it out of the pool.
+func WarmupRecipientUnreachable(delivered, arrived, lostBy int) bool {
+	return arrived == 0 && delivered >= config.WarmupRecipientUnreachableMinDelivered &&
+		lostBy >= config.WarmupRecipientUnreachableMinSenderOrgs
+}
+
+// warmupArrivalFloor keeps a lossy recipient drawable, so it can show it recovered.
+const warmupArrivalFloor = 0.05
+
+// ArrivalRate is the share of warmup mail handed off to this candidate that
+// verifiably arrived (warmupArrivalFloor..1), which is the chance a send to it
+// does any good. 1 below the sample.
+func (c WarmupPartnerCandidate) ArrivalRate() float64 {
+	if c.Delivered7d < config.WarmupRecipientUnreachableMinDelivered {
+		return 1
+	}
+	return max(warmupArrivalFloor, min(1, float64(c.Arrived7d)/float64(c.Delivered7d)))
+}
+
 type WarmupHealthState string
 
 const (
@@ -250,6 +316,11 @@ const (
 	WarmupHealthQuarantined WarmupHealthState = "quarantined"
 	WarmupHealthBlocked     WarmupHealthState = "blocked"
 )
+
+// Holds reports whether s takes a mailbox out of the pool and out of cold rotation.
+func (s WarmupHealthState) Holds() bool {
+	return s == WarmupHealthQuarantined || s == WarmupHealthBlocked
+}
 
 type WarmupParticipantHealth struct {
 	PoolID                uuid.UUID         `json:"pool_id"`

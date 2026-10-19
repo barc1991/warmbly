@@ -38,6 +38,8 @@ type mailboxGate struct {
 	// reopensAt is when a paced mailbox is expected back; zero when unknown,
 	// which the caller reads as "tomorrow".
 	reopensAt time.Time
+	// cloudStatus marks a health hold that is only a missing Warmbly Cloud report.
+	cloudStatus bool
 }
 
 func (g mailboxGate) open() bool { return g.reason == "" }
@@ -53,7 +55,10 @@ const (
 	gateNoWorkday = "no_working_day"
 	// gateNoWorker is a mailbox no heartbeating worker holds: a send handed to
 	// it is refused before it leaves.
-	gateNoWorker = "no_worker"
+	gateNoWorker  = "no_worker"
+	gateRecovery  = "send_recovery"
+	gateCooldown  = "send_cooldown"
+	gateAdmission = "send_authority"
 )
 
 // workerRecheck is when a mailbox without a live worker is looked at again:
@@ -65,6 +70,7 @@ const workerRecheck = 5 * time.Minute
 // availability pre-pass and the placement that follows it cost one query each
 // rather than two.
 type campaignPass struct {
+	locations       map[string]*time.Location
 	campaign        *models.Campaign
 	coldRamp        map[uuid.UUID]repository.ColdRampState
 	lifecycles      map[uuid.UUID]models.SendLifecycleState
@@ -84,7 +90,8 @@ type campaignPass struct {
 	lastSendsRead map[uuid.UUID]bool
 	// gapDraws is each mailbox's gap drawn by gapClearCandidates, reused by
 	// placement so the filter and the send enforce the same gap.
-	gapDraws map[uuid.UUID]int
+	gapDraws  map[uuid.UUID]int
+	sendGates map[uuid.UUID]mailboxGate
 }
 
 // healthRead is one mailbox's warmup health, as the gate reads it.
@@ -92,6 +99,9 @@ type healthRead struct {
 	state        models.WarmupHealthState
 	blockedUntil *time.Time
 	known        bool
+	cloudStatus  bool
+	// cloudMissing holds a quarantine or block open-ended: a missing Cloud report has no end.
+	cloudMissing bool
 }
 
 // newCampaignPass resolves the pool-wide state for one scheduling pass.
@@ -111,6 +121,19 @@ func (s *schedulerService) newCampaignPass(ctx context.Context, campaign *models
 		health:          map[uuid.UUID]healthRead{},
 		workerLive:      map[uuid.UUID]bool{},
 	}
+}
+
+// location keeps timezone parsing local to this scheduling pass.
+func (p *campaignPass) location(zone string) *time.Location {
+	if loc, ok := p.locations[zone]; ok {
+		return loc
+	}
+	loc := loadLocation(zone)
+	if p.locations == nil {
+		p.locations = make(map[string]*time.Location)
+	}
+	p.locations[zone] = loc
+	return loc
 }
 
 // effectiveCap is the per-mailbox cold cap for THIS campaign, after the ramp,
@@ -140,31 +163,10 @@ const (
 // explainCap is effectiveCap with its working shown: the same clamps, each
 // recorded when it is the one that lowers the cap.
 func (p *campaignPass) explainCap(acct models.Email) capClamp {
-	c := p.campaign
-	out := capClamp{Cap: acct.CampaignLimit, LimitedBy: capByMailbox}
-	clamp := func(v int, why string) {
-		if v < out.Cap {
-			out.Cap, out.LimitedBy = v, why
-		}
-	}
-	clamp(c.DailyLimit, capByCampaign)
-	if c.RampEnabled {
-		clamp(campaignRampCeiling(true, c.RampStart, c.RampIncrement, c.RampCeiling, c.RampLevel), capByRamp)
-	}
-	// Graduation ceiling: a mailbox at its warmup ceiling must not reach the
-	// full cold cap the day it joins a campaign.
-	clamp(coldCeilingFor(p.coldRamp[acct.ID], out.Cap), capByGraduation)
-	if m := p.risk.CapMultiplier(); m < 1 {
-		risked := int(float64(out.Cap)*m + 0.5)
-		// A restricted organization still sends, just far less. Zeroing it here
-		// would stop the campaign without ever saying why; suspension is the
-		// band that stops sending, and it does so at the send gate.
-		if risked < 1 {
-			risked = 1
-		}
-		clamp(risked, capByRisk)
-	}
-	return out
+	// One chain: stagedCap (send_plan.go) applies the clamps and keeps each
+	// stage so the plan can show its working; this is its last stage.
+	stages, by := stagedCap(p, acct)
+	return capClamp{Cap: stages[4], LimitedBy: by}
 }
 
 // poolBudget is each mailbox's day as the activity feed reports it: the cap
@@ -247,8 +249,10 @@ func (s *schedulerService) healthFor(ctx context.Context, p *campaignPass, id uu
 	}
 	h := healthRead{}
 	if s.warmupRepo != nil {
-		if state, until, err := s.warmupRepo.GetHealthState(ctx, id); err == nil {
-			h = healthRead{state: state, blockedUntil: until, known: true}
+		if states, err := s.warmupRepo.GetHealthStates(ctx, []uuid.UUID{id}); err == nil {
+			if state, ok := states[id]; ok {
+				h = healthRead{state: state.State, blockedUntil: state.BlockedUntil, known: true, cloudStatus: state.CloudStatusOnly, cloudMissing: state.CloudReportMissing}
+			}
 		}
 	}
 	p.health[id] = h
@@ -265,6 +269,9 @@ func (s *schedulerService) healthFor(ctx context.Context, p *campaignPass, id uu
 // remaining is today's budget left, already read; it is returned adjusted for a
 // health band that dampens rather than blocks.
 func (s *schedulerService) gateFor(ctx context.Context, p *campaignPass, acct models.Email, remaining int) (mailboxGate, int) {
+	if gate := s.sendGate(ctx, p, acct); !gate.open() {
+		return gate, 0
+	}
 	// Sending-domain authentication first, because unauthenticated mail is
 	// rejected outright by Gmail/Yahoo/Outlook: no amount of budget, window or
 	// rotation makes it deliverable. Only a SUSTAINED failure gates — "unknown"
@@ -285,8 +292,8 @@ func (s *schedulerService) gateFor(ctx context.Context, p *campaignPass, acct mo
 	if h := s.healthFor(ctx, p, acct.ID); h.known {
 		switch h.state {
 		case models.WarmupHealthQuarantined, models.WarmupHealthBlocked:
-			if h.blockedUntil == nil || h.blockedUntil.After(time.Now()) {
-				return mailboxGate{reason: gateHealth}, 0
+			if h.cloudMissing || h.blockedUntil == nil || h.blockedUntil.After(time.Now()) {
+				return mailboxGate{reason: gateHealth, cloudStatus: h.cloudStatus}, 0
 			}
 		case models.WarmupHealthWatch, models.WarmupHealthThrottled:
 			remaining = int(float64(remaining) * adjustmentFor(h.state).volumeMultiplier)
@@ -303,6 +310,39 @@ func (s *schedulerService) gateFor(ctx context.Context, p *campaignPass, acct mo
 		return mailboxGate{reason: gateBudget, paced: true}, 0
 	}
 	return mailboxGate{}, remaining
+}
+
+func (s *schedulerService) sendGate(ctx context.Context, p *campaignPass, acct models.Email) mailboxGate {
+	reader, ok := s.taskRepo.(interface {
+		GetSendAdmission(context.Context, uuid.UUID, uuid.UUID, models.InboxProvider, time.Time) (*repository.SendAdmission, error)
+	})
+	if !ok {
+		return mailboxGate{}
+	}
+	if p.sendGates == nil {
+		p.sendGates = map[uuid.UUID]mailboxGate{}
+	}
+	if gate, ok := p.sendGates[acct.ID]; ok {
+		return gate
+	}
+	now := time.Now()
+	if acct.OrganizationID == nil {
+		return mailboxGate{reason: gateAdmission}
+	}
+	a, err := reader.GetSendAdmission(ctx, *acct.OrganizationID, acct.ID, models.InboxProvider(acct.Provider), now)
+	gate := mailboxGate{}
+	switch {
+	case err != nil || a == nil:
+		gate = mailboxGate{reason: gateAdmission, paced: true, reopensAt: now.Add(workerRecheck)}
+	case a.RecoveryHold:
+		gate = mailboxGate{reason: gateRecovery}
+	case a.RetryAt != nil && a.RetryAt.After(now):
+		gate = mailboxGate{reason: gateCooldown, reopensAt: *a.RetryAt}
+	case !a.Allowed:
+		gate = mailboxGate{reason: gateAdmission}
+	}
+	p.sendGates[acct.ID] = gate
+	return gate
 }
 
 // windowFor places a mailbox on its OWN calendar for a send aimed at `at`, and
@@ -343,7 +383,7 @@ func (s *schedulerService) windowFor(ctx context.Context, p *campaignPass, acct 
 	if acct.Timezone == "" || acct.Timezone == p.campaign.ClockTimezone() {
 		return nil, nil, remaining, mailboxGate{}
 	}
-	loc := loadLocation(acct.Timezone)
+	loc := p.location(acct.Timezone)
 	if h := at.In(loc).Hour(); h >= 8 && h < 20 {
 		return nil, nil, remaining, mailboxGate{}
 	}

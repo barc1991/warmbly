@@ -37,6 +37,8 @@ const (
 
 	// Data
 	IntegrationGoogleSheets IntegrationProvider = "google_sheets"
+	IntegrationApollo       IntegrationProvider = "apollo"
+	IntegrationClay         IntegrationProvider = "clay"
 
 	// Verification
 	IntegrationMillionVerifier IntegrationProvider = "millionverifier"
@@ -64,6 +66,8 @@ var AllIntegrationProviders = []IntegrationProvider{
 	IntegrationCalendly,
 	IntegrationCalCom,
 	IntegrationGoogleSheets,
+	IntegrationApollo,
+	IntegrationClay,
 	IntegrationMillionVerifier,
 	IntegrationCleanMyList,
 }
@@ -308,6 +312,9 @@ const (
 	IntegrationActionCloseUpsert        IntegrationAction = "close.upsert_lead"
 	IntegrationActionFrappeCRMUpsert    IntegrationAction = "frappe_crm.upsert_lead"
 	IntegrationActionGenericWebhookPing IntegrationAction = "webhook.ping"
+	// IntegrationActionClaySendRow posts a flat row for the event to a Clay
+	// table's webhook source.
+	IntegrationActionClaySendRow IntegrationAction = "clay.send_row"
 
 	// Native (Warmbly-internal) actions: CRM/contact mutations that need no
 	// external connection. Run against the contact resolved from the event data.

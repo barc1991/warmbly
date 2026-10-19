@@ -19,7 +19,6 @@ import FormBuilderPage from './app/app/forms/[id]/page';
 import ContactsLayout from './app/app/contacts/layout';
 import SegmentsPage from './app/app/contacts/segments/page';
 import LabelsPage from './app/app/contacts/labels/page';
-import CategoriesPage from './app/app/contacts/categories/page';
 import SuppressionsPage from './app/app/contacts/suppressions/page';
 import SegmentPage from './app/app/contacts/segments/[id]/page';
 import CampaignsPage from './app/app/campaigns/page';
@@ -44,6 +43,9 @@ import WebhooksSettingsPage from './app/app/settings/webhooks/page';
 import OAuthLayout from './app/oauth/layout';
 import OAuthConsentPage from './app/oauth/authorize/page';
 import IntegrationsPage from './app/app/integrations/page';
+import ApolloPage from './app/app/integrations/apollo/[id]/page';
+import ClayPage from './app/app/integrations/clay/[id]/page';
+import SalesforcePage from './app/app/integrations/salesforce/[id]/page';
 import AutomationsPage from './app/app/automations/page';
 import AutomationBuilderPage from './app/app/automations/[id]/page';
 import AuditPage from './app/app/audit/page';
@@ -409,7 +411,12 @@ const router = createBrowserRouter([
           },
           {
             path: "integrations",
-            element: <IntegrationsPage />,
+            children: [
+              { index: true, element: <IntegrationsPage /> },
+              { path: "apollo/:id", element: <ApolloPage /> },
+              { path: "clay/:id", element: <ClayPage /> },
+              { path: "salesforce/:id", element: <SalesforcePage /> },
+            ],
           },
           {
             path: "automations",

@@ -192,26 +192,10 @@ func InvalidQuery(err error) *Error {
 func typeMismatch(e *json.UnmarshalTypeError) *Error {
 	want := jsonKind(e.Type)
 	got, _, _ := strings.Cut(e.Value, " ")
-	field := e.Field
-	if idx, rest, ok := strings.Cut(field, "."); ok && isDigit(idx) {
-		field = rest
-	}
-	if field == "" {
+	if e.Field == "" {
 		return New(BadRequest, fmt.Sprintf("The request body must be a JSON %s, not a JSON %s.", want, got))
 	}
-	return New(BadRequest, fmt.Sprintf("Field %q must be a JSON %s, not a JSON %s.", field, want, got))
-}
-
-func isDigit(s string) bool {
-	if s == "" {
-		return false
-	}
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return true
+	return New(BadRequest, fmt.Sprintf("Field %q must be a JSON %s, not a JSON %s.", e.Field, want, got))
 }
 
 // jsonKind names a Go type by the JSON value that decodes into it.

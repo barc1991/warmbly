@@ -237,6 +237,22 @@ func (s *Subscription) ManagedExpired() bool {
 	return time.Now().After(*s.ManagedUntil)
 }
 
+// WarmupPlanID is the Warmup plan: the premium pool and no mailbox cap, nothing else.
+var WarmupPlanID = uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
+// IsWarmupOnly reports the Warmup plan in force; a Stripe subscription to any other plan outranks a Warmup grant.
+func (s *Subscription) IsWarmupOnly() bool {
+	if s == nil || !s.HasPaidSubscription() || s.EffectivePlanID() != WarmupPlanID {
+		return false
+	}
+	return !(s.StripeSubscriptionID != nil && s.Status.IsActive() && s.PlanID != WarmupPlanID)
+}
+
+// HasProductPlan reports a paid plan that includes sending, the inbox, AI and integrations: every one but the Warmup plan.
+func (s *Subscription) HasProductPlan() bool {
+	return s != nil && s.HasPaidSubscription() && !s.IsWarmupOnly()
+}
+
 // CanSendEmails returns true if user can send campaign emails
 func (s *Subscription) CanSendEmails() bool {
 	return true

@@ -261,6 +261,38 @@ func Catalog() []models.IntegrationCatalogEntry {
 			},
 		},
 
+		// Data ----------------------------------------------------------------
+		{
+			Provider:   models.IntegrationApollo,
+			Name:       "Apollo",
+			Tagline:    "ייבוא רשימות Apollo והעשרת אנשי קשר ממאגר הנתונים של Apollo.",
+			Category:   models.IntegrationCategoryData,
+			AuthMethod: string(models.IntegrationAuthAPIKey),
+			DocsURL:    "https://docs.warmbly.com/guides/apollo/",
+			Highlights: []string{
+				"חיבור מאובטח עם מפתח Apollo API שלך",
+				"ייבוא כל רשימת Apollo שמורה, חד-פעמי או בסנכרון שעתי שוטף",
+				"כתובות מאומתות בלבד כברירת מחדל; כתובות מוסרות או שהוסרו נשארות בחוץ",
+				"העשרת אנשי קשר נבחרים עם תפקיד, חברה, לינקדאין ומיקום",
+			},
+		},
+		{
+			Provider:   models.IntegrationClay,
+			Name:       "Clay",
+			Tagline:    "שליחת שורות מועשרות מטבלת Clay לתוך Warmbly, ושליחת מענים בחזרה ל-Clay.",
+			Category:   models.IntegrationCategoryData,
+			AuthMethod: string(models.IntegrationAuthWebhook),
+			DocsURL:    "https://docs.warmbly.com/guides/clay/",
+			Highlights: []string{
+				"יצירת כתובת URL נכנסת עבור עמודת ה-HTTP API ב-Clay",
+				"שורות הופכות לאנשי קשר, נוספות לקמפיין, תווית או פלח",
+				"כל עמודה שנשלחת נשמרת כשדה מותאם אישית (Custom Field)",
+				"מענים, פתיחות, חזרות ופגישות נשלחים בחזרה לטבלת Clay",
+			},
+			Events:      ClayEvents,
+			ActionTypes: []string{string(models.IntegrationActionClaySendRow)},
+		},
+
 		// NOTE: Google Sheets is intentionally NOT a catalog integration. The
 		// google_sheets OAuth connection still exists (it powers the on-demand
 		// Lead Sync feature under Contacts), but it is no longer surfaced as an

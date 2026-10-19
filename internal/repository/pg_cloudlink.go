@@ -59,6 +59,19 @@ type cloudLinkRepository struct {
 
 var errNoLinkEncrypter = errors.New("credential encrypter not configured (set CREDENTIALS_ENCRYPTION_KEY)")
 
+// CloudStatusReader reads what each Cloud-warmed mailbox shows, by the rule GetCloudStandings uses.
+type CloudStatusReader interface {
+	CloudStatuses(ctx context.Context, mailboxes []models.CloudLinkMailbox) (map[uuid.UUID]*models.WarmupHealthInfo, error)
+}
+
+func (r *cloudLinkRepository) CloudStatuses(ctx context.Context, mailboxes []models.CloudLinkMailbox) (map[uuid.UUID]*models.WarmupHealthInfo, error) {
+	linked := make(map[uuid.UUID]*models.CloudLinkMailbox, len(mailboxes))
+	for i := range mailboxes {
+		linked[mailboxes[i].EmailAccountID] = &mailboxes[i]
+	}
+	return cloudStatuses(ctx, r.db, linked)
+}
+
 // NewCloudLinkRepository seals the instance token with the mailbox credential key.
 func NewCloudLinkRepository(db *pgxpool.Pool, enc *encrypt.Encrypter) CloudLinkRepository {
 	return &cloudLinkRepository{db: db, encrypt: enc}
@@ -124,7 +137,8 @@ func (r *cloudLinkRepository) ListLinks(ctx context.Context) ([]models.CloudLink
 func (r *cloudLinkRepository) GetForRedirect(ctx context.Context, orgID uuid.UUID, domain string) (*models.CloudLink, error) {
 	query := `SELECT ` + cloudLinkColumns + ` FROM cloud_link WHERE instance_id = COALESCE(
   (SELECT cloud_link_instance_id FROM domain_redirects WHERE organization_id = $1 AND domain = $2),
-  (SELECT instance_id FROM cloud_link WHERE organization_id = $1 LIMIT 1)
+  (SELECT instance_id FROM cloud_link WHERE organization_id = $1 OR organization_id IS NULL
+   ORDER BY organization_id IS NULL LIMIT 1)
  )`
 	return r.scanLink(r.db.QueryRow(ctx, query, orgID, domain))
 }
@@ -240,7 +254,7 @@ func (r *cloudLinkRepository) IsEnrolled(ctx context.Context, accountID uuid.UUI
 
 const cloudLinkMailboxColumns = `email_account_id, remote_id, enrolled_at, managed,
 	health_state, health_pool_type, health_reason, health_score, blocked_until, health_evaluated_at, instance_id,
-	enrollment_state, standing_observed_at`
+	enrollment_state, standing_observed_at, settings_observed_at`
 
 func scanCloudLinkMailbox(row pgx.Row) (*models.CloudLinkMailbox, error) {
 	var m models.CloudLinkMailbox
@@ -248,7 +262,7 @@ func scanCloudLinkMailbox(row pgx.Row) (*models.CloudLinkMailbox, error) {
 	var score float64
 	var blockedUntil, evaluatedAt *time.Time
 	if err := row.Scan(&m.EmailAccountID, &m.RemoteID, &m.EnrolledAt, &m.Managed,
-		&state, &poolType, &reason, &score, &blockedUntil, &evaluatedAt, &m.InstanceID, &m.EnrollmentState, &m.StandingObservedAt); err != nil {
+		&state, &poolType, &reason, &score, &blockedUntil, &evaluatedAt, &m.InstanceID, &m.EnrollmentState, &m.StandingObservedAt, &m.SettingsObservedAt); err != nil {
 		return nil, err
 	}
 	if state != nil {

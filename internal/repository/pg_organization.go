@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -59,12 +60,21 @@ type OrganizationRepository interface {
 	SetMemberRoles(ctx context.Context, orgID, userID uuid.UUID, roleIDs []uuid.UUID) error
 	GetMemberRoles(ctx context.Context, orgID, userID uuid.UUID) ([]models.MemberRole, error)
 	HydrateMemberRoles(ctx context.Context, orgID uuid.UUID, members []models.OrganizationMember) error
+
+	// Resource scope: which campaigns, folders and mailboxes a restricted member reaches.
+	GetMemberAccess(ctx context.Context, orgID, userID uuid.UUID) (*models.MemberAccess, error)
+	ListMemberAccess(ctx context.Context, orgID uuid.UUID) (map[uuid.UUID]*models.MemberAccess, error)
+	ResolveMemberScope(ctx context.Context, orgID, userID uuid.UUID) (*models.ResourceScope, error)
+	CountOwnedAccessResources(ctx context.Context, orgID uuid.UUID, a *models.MemberAccess) (folders, campaigns, mailboxes int, err error)
+	SetMemberAccess(ctx context.Context, orgID, userID uuid.UUID, a *models.MemberAccess, grantedBy uuid.UUID) error
+	SuggestCampaignSenders(ctx context.Context, orgID uuid.UUID, campaignIDs, folderIDs []uuid.UUID) ([]models.SuggestedSender, error)
 	SetInvitationRoles(ctx context.Context, invitationID uuid.UUID, roleIDs []uuid.UUID) error
 	GetInvitationRoles(ctx context.Context, invitationID uuid.UUID) ([]uuid.UUID, error)
 	RemoveMember(ctx context.Context, orgID, userID uuid.UUID) error
 	GetMemberCount(ctx context.Context, orgID uuid.UUID) (int, error)
 
 	// Invitations
+	CreateInvitedUser(ctx context.Context, tokenHash string, email *mail.Address, passwordHash string) (*models.User, *models.OrganizationMember, error)
 	CreateInvitation(ctx context.Context, inv *models.OrganizationInvitation) error
 	GetInvitationByToken(ctx context.Context, tokenHash string) (*models.OrganizationInvitation, error)
 	SetInvitationLinkToken(ctx context.Context, orgID, invitationID uuid.UUID, linkTokenHash string) (bool, error)
@@ -84,6 +94,7 @@ type OrganizationRepository interface {
 	GetEmailAccountCount(ctx context.Context, orgID uuid.UUID) (int, error)
 	GetContactCount(ctx context.Context, orgID uuid.UUID) (int, error)
 	GetEmailsSentTodayCount(ctx context.Context, orgID uuid.UUID) (int, error)
+	GetScopedOrganizationCounts(ctx context.Context, orgID uuid.UUID, scope *models.ResourceScope) (*models.OrganizationCounts, error)
 
 	// Ownership counts
 	GetUserOwnedOrganizationCount(ctx context.Context, userID uuid.UUID) (int, error)
@@ -236,7 +247,7 @@ func (r *organizationRepository) GetUserOrganizations(ctx context.Context, userI
 	query := `
 		SELECT
 			om.id, om.organization_id, om.user_id, om.role, om.permissions,
-			om.invited_by, om.invited_at, om.accepted_at,
+			om.invited_by, om.invited_at, om.accepted_at, om.access_scope,
 			o.id, o.name, o.slug, o.avatar_url, o.owner_user_id, o.created_at, o.updated_at,
 			o.deletion_scheduled_at, o.deletion_scheduled_for, o.category
 		FROM organization_members om
@@ -256,7 +267,7 @@ func (r *organizationRepository) GetUserOrganizations(ctx context.Context, userI
 		var org models.Organization
 		err := rows.Scan(
 			&m.ID, &m.OrganizationID, &m.UserID, &m.Role, &m.Permissions,
-			&m.InvitedBy, &m.InvitedAt, &m.AcceptedAt,
+			&m.InvitedBy, &m.InvitedAt, &m.AcceptedAt, &m.AccessScope,
 			&org.ID, &org.Name, &org.Slug, &org.AvatarURL, &org.OwnerUserID, &org.CreatedAt, &org.UpdatedAt,
 			&org.DeletionScheduledAt, &org.DeletionScheduledFor, &org.Category,
 		)
@@ -266,7 +277,7 @@ func (r *organizationRepository) GetUserOrganizations(ctx context.Context, userI
 		m.Organization = &org
 		members = append(members, m)
 	}
-	return members, nil
+	return members, rows.Err()
 }
 
 // GetUserDefaultOrganization retrieves the first organization a user owns
@@ -288,7 +299,7 @@ func (r *organizationRepository) GetMembers(ctx context.Context, orgID uuid.UUID
 	query := `
 		SELECT
 			om.id, om.organization_id, om.user_id, om.role, om.role_id, om.permissions,
-			om.invited_by, om.invited_at, om.accepted_at,
+			om.invited_by, om.invited_at, om.accepted_at, om.access_scope,
 			u.id, u.first_name, u.last_name, u.email, u.created_at, u.updated_at
 		FROM organization_members om
 		JOIN users u ON u.id = om.user_id
@@ -307,7 +318,7 @@ func (r *organizationRepository) GetMembers(ctx context.Context, orgID uuid.UUID
 		var u models.User
 		err := rows.Scan(
 			&m.ID, &m.OrganizationID, &m.UserID, &m.Role, &m.RoleID, &m.Permissions,
-			&m.InvitedBy, &m.InvitedAt, &m.AcceptedAt,
+			&m.InvitedBy, &m.InvitedAt, &m.AcceptedAt, &m.AccessScope,
 			&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.CreatedAt, &u.UpdatedAt,
 		)
 		if err != nil {
@@ -324,13 +335,13 @@ func (r *organizationRepository) GetMembers(ctx context.Context, orgID uuid.UUID
 // GetMember retrieves a specific member of an organization
 func (r *organizationRepository) GetMember(ctx context.Context, orgID, userID uuid.UUID) (*models.OrganizationMember, error) {
 	query := `
-		SELECT id, organization_id, user_id, role, role_id, permissions, invited_by, invited_at, accepted_at
+		SELECT id, organization_id, user_id, role, role_id, permissions, invited_by, invited_at, accepted_at, access_scope
 		FROM organization_members
 		WHERE organization_id = $1 AND user_id = $2
 	`
 	row := r.db.QueryRow(ctx, query, orgID, userID)
 	var m models.OrganizationMember
-	err := row.Scan(&m.ID, &m.OrganizationID, &m.UserID, &m.Role, &m.RoleID, &m.Permissions, &m.InvitedBy, &m.InvitedAt, &m.AcceptedAt)
+	err := row.Scan(&m.ID, &m.OrganizationID, &m.UserID, &m.Role, &m.RoleID, &m.Permissions, &m.InvitedBy, &m.InvitedAt, &m.AcceptedAt, &m.AccessScope)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -343,12 +354,12 @@ func (r *organizationRepository) GetMember(ctx context.Context, orgID, userID uu
 // GetMemberByID retrieves a member by their membership ID
 func (r *organizationRepository) GetMemberByID(ctx context.Context, memberID uuid.UUID) (*models.OrganizationMember, error) {
 	query := `
-		SELECT id, organization_id, user_id, role, role_id, permissions, invited_by, invited_at, accepted_at
+		SELECT id, organization_id, user_id, role, role_id, permissions, invited_by, invited_at, accepted_at, access_scope
 		FROM organization_members WHERE id = $1
 	`
 	row := r.db.QueryRow(ctx, query, memberID)
 	var m models.OrganizationMember
-	err := row.Scan(&m.ID, &m.OrganizationID, &m.UserID, &m.Role, &m.RoleID, &m.Permissions, &m.InvitedBy, &m.InvitedAt, &m.AcceptedAt)
+	err := row.Scan(&m.ID, &m.OrganizationID, &m.UserID, &m.Role, &m.RoleID, &m.Permissions, &m.InvitedBy, &m.InvitedAt, &m.AcceptedAt, &m.AccessScope)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -361,12 +372,12 @@ func (r *organizationRepository) GetMemberByID(ctx context.Context, memberID uui
 // AddMember adds a member to an organization
 func (r *organizationRepository) AddMember(ctx context.Context, member *models.OrganizationMember) error {
 	query := `
-		INSERT INTO organization_members (id, organization_id, user_id, role, role_id, permissions, invited_by, invited_at, accepted_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO organization_members (id, organization_id, user_id, role, role_id, permissions, invited_by, invited_at, accepted_at, access_scope)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 	_, err := r.db.Exec(ctx, query,
 		member.ID, member.OrganizationID, member.UserID, member.Role, member.RoleID, member.Permissions,
-		member.InvitedBy, member.InvitedAt, member.AcceptedAt,
+		member.InvitedBy, member.InvitedAt, member.AcceptedAt, memberScope(member),
 	)
 	return err
 }
@@ -397,8 +408,9 @@ func (r *organizationRepository) GetMemberCount(ctx context.Context, orgID uuid.
 // CreateInvitation creates a new invitation
 func (r *organizationRepository) CreateInvitation(ctx context.Context, inv *models.OrganizationInvitation) error {
 	query := `
-		INSERT INTO organization_invitations (id, organization_id, email, role, role_id, permissions, invited_by, token, expires_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO organization_invitations (id, organization_id, email, role, role_id, permissions, invited_by, token, expires_at, created_at,
+			access_scope, access_folder_ids, access_campaign_ids, access_email_account_ids)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		ON CONFLICT (organization_id, email) DO UPDATE SET
 			role = EXCLUDED.role,
 			role_id = EXCLUDED.role_id,
@@ -406,13 +418,24 @@ func (r *organizationRepository) CreateInvitation(ctx context.Context, inv *mode
 			invited_by = EXCLUDED.invited_by,
 			token = EXCLUDED.token,
 			link_token_hash = NULL,
-			expires_at = EXCLUDED.expires_at
+			expires_at = EXCLUDED.expires_at,
+			access_scope = EXCLUDED.access_scope,
+			access_folder_ids = EXCLUDED.access_folder_ids,
+			access_campaign_ids = EXCLUDED.access_campaign_ids,
+			access_email_account_ids = EXCLUDED.access_email_account_ids
+		RETURNING id
 	`
-	_, err := r.db.Exec(ctx, query,
+	access := inv.Access
+	if access == nil {
+		access = models.WorkspaceAccess()
+	}
+	access.Normalize()
+	// A re-invite updates the existing row, so the stored id is the one its roles attach to.
+	return r.db.QueryRow(ctx, query,
 		inv.ID, inv.OrganizationID, inv.Email, inv.Role, inv.RoleID, inv.Permissions,
 		inv.InvitedBy, inv.Token, inv.ExpiresAt, inv.CreatedAt,
-	)
-	return err
+		access.Scope, access.FolderIDs, access.CampaignIDs, access.EmailAccountIDs,
+	).Scan(&inv.ID)
 }
 
 // SetInvitationLinkToken replaces the digest of an invitation's copied-link token.
@@ -431,7 +454,8 @@ func (r *organizationRepository) GetInvitationByToken(ctx context.Context, token
 		SELECT
 			i.id, i.organization_id, i.email, i.role, i.role_id, i.permissions, i.invited_by, i.token, i.expires_at, i.created_at,
 			o.id, o.name, o.slug, o.avatar_url, o.owner_user_id, o.created_at, o.updated_at,
-			o.deletion_scheduled_at, o.deletion_scheduled_for
+			o.deletion_scheduled_at, o.deletion_scheduled_for,
+			` + invitationAccessCols + `
 		FROM organization_invitations i
 		JOIN organizations o ON o.id = i.organization_id
 		WHERE i.token = $1 OR i.link_token_hash = $1
@@ -439,11 +463,13 @@ func (r *organizationRepository) GetInvitationByToken(ctx context.Context, token
 	row := r.db.QueryRow(ctx, query, token)
 	var inv models.OrganizationInvitation
 	var org models.Organization
+	var acc invitationAccess
 	err := row.Scan(
 		&inv.ID, &inv.OrganizationID, &inv.Email, &inv.Role, &inv.RoleID, &inv.Permissions,
 		&inv.InvitedBy, &inv.Token, &inv.ExpiresAt, &inv.CreatedAt,
 		&org.ID, &org.Name, &org.Slug, &org.AvatarURL, &org.OwnerUserID, &org.CreatedAt, &org.UpdatedAt,
 		&org.DeletionScheduledAt, &org.DeletionScheduledFor,
+		&acc.scope, &acc.folders, &acc.campaigns, &acc.mailboxes,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, nil
@@ -451,6 +477,7 @@ func (r *organizationRepository) GetInvitationByToken(ctx context.Context, token
 	if err != nil {
 		return nil, err
 	}
+	inv.Access = acc.access()
 	inv.Organization = &org
 	return &inv, nil
 }
@@ -461,7 +488,8 @@ func (r *organizationRepository) GetInvitationByID(ctx context.Context, id uuid.
 		SELECT
 			i.id, i.organization_id, i.email, i.role, i.role_id, i.permissions, i.invited_by, i.token, i.expires_at, i.created_at,
 			o.id, o.name, o.slug, o.avatar_url, o.owner_user_id, o.created_at, o.updated_at,
-			o.deletion_scheduled_at, o.deletion_scheduled_for
+			o.deletion_scheduled_at, o.deletion_scheduled_for,
+			` + invitationAccessCols + `
 		FROM organization_invitations i
 		JOIN organizations o ON o.id = i.organization_id
 		WHERE i.id = $1
@@ -469,11 +497,13 @@ func (r *organizationRepository) GetInvitationByID(ctx context.Context, id uuid.
 	row := r.db.QueryRow(ctx, query, id)
 	var inv models.OrganizationInvitation
 	var org models.Organization
+	var acc invitationAccess
 	err := row.Scan(
 		&inv.ID, &inv.OrganizationID, &inv.Email, &inv.Role, &inv.RoleID, &inv.Permissions,
 		&inv.InvitedBy, &inv.Token, &inv.ExpiresAt, &inv.CreatedAt,
 		&org.ID, &org.Name, &org.Slug, &org.AvatarURL, &org.OwnerUserID, &org.CreatedAt, &org.UpdatedAt,
 		&org.DeletionScheduledAt, &org.DeletionScheduledFor,
+		&acc.scope, &acc.folders, &acc.campaigns, &acc.mailboxes,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, nil
@@ -481,6 +511,7 @@ func (r *organizationRepository) GetInvitationByID(ctx context.Context, id uuid.
 	if err != nil {
 		return nil, err
 	}
+	inv.Access = acc.access()
 	inv.Organization = &org
 	return &inv, nil
 }
@@ -507,8 +538,9 @@ func (r *organizationRepository) GetInvitationByEmail(ctx context.Context, orgID
 // GetPendingInvitations retrieves all pending invitations for an organization
 func (r *organizationRepository) GetPendingInvitations(ctx context.Context, orgID uuid.UUID) ([]models.OrganizationInvitation, error) {
 	query := `
-		SELECT id, organization_id, email, role, role_id, permissions, invited_by, token, expires_at, created_at
-		FROM organization_invitations
+		SELECT id, organization_id, email, role, role_id, permissions, invited_by, token, expires_at, created_at,
+			` + invitationAccessCols + `
+		FROM organization_invitations i
 		WHERE organization_id = $1 AND expires_at > NOW()
 		ORDER BY created_at DESC
 	`
@@ -521,10 +553,13 @@ func (r *organizationRepository) GetPendingInvitations(ctx context.Context, orgI
 	var invitations []models.OrganizationInvitation
 	for rows.Next() {
 		var inv models.OrganizationInvitation
-		err := rows.Scan(&inv.ID, &inv.OrganizationID, &inv.Email, &inv.Role, &inv.RoleID, &inv.Permissions, &inv.InvitedBy, &inv.Token, &inv.ExpiresAt, &inv.CreatedAt)
+		var acc invitationAccess
+		err := rows.Scan(&inv.ID, &inv.OrganizationID, &inv.Email, &inv.Role, &inv.RoleID, &inv.Permissions, &inv.InvitedBy, &inv.Token, &inv.ExpiresAt, &inv.CreatedAt,
+			&acc.scope, &acc.folders, &acc.campaigns, &acc.mailboxes)
 		if err != nil {
 			return nil, err
 		}
+		inv.Access = acc.access()
 		invitations = append(invitations, inv)
 	}
 	return invitations, nil
@@ -638,6 +673,39 @@ func (r *organizationRepository) GetCampaignCounts(ctx context.Context, orgID uu
 	`
 	err = r.db.QueryRow(ctx, query, orgID).Scan(&total, &active)
 	return
+}
+
+// GetScopedOrganizationCounts intersects every aggregate with grants and organization ownership.
+func (r *organizationRepository) GetScopedOrganizationCounts(ctx context.Context, orgID uuid.UUID, scope *models.ResourceScope) (*models.OrganizationCounts, error) {
+	if scope == nil {
+		return nil, errors.New("member access was not resolved")
+	}
+	counts := &models.OrganizationCounts{}
+	err := r.db.QueryRow(ctx, `
+		WITH campaigns_in_scope AS (
+			SELECT id, status FROM campaigns WHERE organization_id = $1 AND id = ANY($2::uuid[])
+		), mailboxes_in_scope AS (
+			SELECT id FROM email_accounts WHERE organization_id = $1 AND id = ANY($3::uuid[])
+		)
+		SELECT
+			(SELECT COUNT(*) FROM campaigns_in_scope),
+			(SELECT COUNT(*) FROM campaigns_in_scope WHERE status = 'active'),
+			(SELECT COUNT(*) FROM contacts c WHERE c.organization_id = $1 AND EXISTS (
+				SELECT 1 FROM campaign_leads cl JOIN campaigns_in_scope cs ON cs.id = cl.campaign_id
+				WHERE cl.contact_id = c.id)),
+			(SELECT COUNT(*) FROM mailboxes_in_scope),
+			(SELECT COUNT(*) FROM tasks t
+				JOIN campaign_tasks ct ON ct.task_id = t.id
+				JOIN campaigns_in_scope cs ON cs.id = ct.campaign_id
+				JOIN mailboxes_in_scope ms ON ms.id = t.email_account_id
+				WHERE `+campaignSendToday+`)
+	`, orgID, nonNilUUIDs(scope.Campaigns), nonNilUUIDs(scope.Mailboxes)).Scan(
+		&counts.TotalCampaigns, &counts.ActiveCampaigns, &counts.TotalContacts,
+		&counts.EmailAccounts, &counts.EmailsSentToday)
+	if err != nil {
+		return nil, err
+	}
+	return counts, nil
 }
 
 // GetMemberCounts returns the member count for an organization
@@ -781,10 +849,9 @@ const adminOrgListColumns = `
 	(SELECT COUNT(*) FROM campaigns c WHERE c.organization_id = o.id) AS campaign_count,
 	(SELECT COUNT(*) FROM campaigns c WHERE c.organization_id = o.id AND c.status = 'active') AS active_campaigns,
 	o.risk_state,
-	oa.utm_source, oa.utm_medium, oa.utm_campaign, oa.landing_path, o.category`
+	oa.utm_source, oa.utm_medium, oa.utm_campaign, oa.landing_path, oa.referrer_host, o.category`
 
-// adminOrgAcquisitionJoin brings in the signup channel. LEFT because most
-// workspaces have no row: a direct signup carries nothing to record.
+// LEFT JOIN preserves workspaces with no recorded acquisition.
 const adminOrgAcquisitionJoin = `
 		LEFT JOIN organization_acquisition oa ON oa.organization_id = o.id`
 
@@ -906,11 +973,8 @@ func (r *organizationRepository) SearchOrganizationsForAdmin(ctx context.Context
 	addChannel("utm_source", search.UTMSource)
 	addChannel("utm_medium", search.UTMMedium)
 	addChannel("utm_campaign", search.UTMCampaign)
-	// Presence of a record, not presence of a UTM tag: a signup that came from
-	// a marketing page with no campaign parameters still has a landing path,
-	// and calling that "direct" would be wrong. The admin panel's labels and
-	// its Channel column use the same definition (models.AdminOrgSearch).
-	// Mutually exclusive; both set applies only HasAcquisition.
+	addChannel("referrer_host", search.ReferrerHost)
+	// Record presence is not proof of a known source; both set applies only HasAcquisition.
 	if search.HasAcquisition {
 		where += ` AND oa.organization_id IS NOT NULL`
 	} else if search.NoAcquisition {
@@ -1000,6 +1064,7 @@ func (r *organizationRepository) SearchOrganizationsForAdmin(ctx context.Context
 			&item.MemberCount, &item.EmailAccountCount, &item.CampaignCount, &item.ActiveCampaigns,
 			&item.RiskState,
 			&item.UTMSource, &item.UTMMedium, &item.UTMCampaign, &item.LandingPath,
+			&item.ReferrerHost,
 			&item.Category,
 			&planName, &planPublic, &isEnterprise,
 			&managedAt, &managedReason, &managedUntil,
@@ -1064,6 +1129,7 @@ func (r *organizationRepository) GetOrganizationAdminDetail(ctx context.Context,
 		&detail.MemberCount, &detail.EmailAccountCount, &detail.CampaignCount, &detail.ActiveCampaigns,
 		&detail.RiskState,
 		&detail.UTMSource, &detail.UTMMedium, &detail.UTMCampaign, &detail.LandingPath,
+		&detail.ReferrerHost,
 		&detail.Category,
 		&detail.UpdatedAt, &detail.DeletionScheduledAt,
 		&detail.PlanName, &detail.SubscriptionStatus, &isEnterprise, &detail.CurrentPeriodEnd, &detail.TrialEnd,

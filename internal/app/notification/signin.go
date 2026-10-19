@@ -26,14 +26,14 @@ func (a *SignInAlerter) NewSignIn(ctx context.Context, userID uuid.UUID, browser
 	}
 	device := strings.TrimSpace(browser + " on " + os)
 	if device == "on" {
-		device = "מכשיר לא מזוהה"
+		device = "an unrecognized device"
 	}
 	loc := strings.Trim(strings.TrimSpace(city+", "+country), ", ")
-	body := "התחברות זוהתה מ-" + device
+	body := "Signed in from " + device
 	if loc != "" {
 		body += " (" + loc + ")"
 	}
-	body += ". אם זה לא היית אתה, מומלץ לשנות את הסיסמה שלך ולנתק הפעלות אחרות."
+	body += ". If this wasn't you, change your password and sign out other sessions."
 	a.svc.Notify(ctx, userID, nil, models.NotifSecuritySignIn,
-		"התחברות חדשה לחשבונך", body, "/app/settings/security", nil)
+		"New sign-in to your account", body, "/app/settings/security", nil)
 }

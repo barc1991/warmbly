@@ -9,6 +9,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/aitools"
 	"github.com/warmbly/warmbly/internal/app/analytics"
 	"github.com/warmbly/warmbly/internal/app/apikey"
+	"github.com/warmbly/warmbly/internal/app/apollo"
 	"github.com/warmbly/warmbly/internal/app/appdirectory"
 	"github.com/warmbly/warmbly/internal/app/audit"
 	"github.com/warmbly/warmbly/internal/app/auth"
@@ -16,6 +17,7 @@ import (
 	"github.com/warmbly/warmbly/internal/app/bootstrap"
 	"github.com/warmbly/warmbly/internal/app/campaign"
 	"github.com/warmbly/warmbly/internal/app/cipher"
+	"github.com/warmbly/warmbly/internal/app/clay"
 	"github.com/warmbly/warmbly/internal/app/cliauth"
 	"github.com/warmbly/warmbly/internal/app/cloudlink"
 	"github.com/warmbly/warmbly/internal/app/compose"
@@ -43,6 +45,8 @@ import (
 	"github.com/warmbly/warmbly/internal/app/leadsync"
 	"github.com/warmbly/warmbly/internal/app/mailboximport"
 	"github.com/warmbly/warmbly/internal/app/mcp"
+	"github.com/warmbly/warmbly/internal/app/monitoring"
+	"github.com/warmbly/warmbly/internal/app/nodelogs"
 	"github.com/warmbly/warmbly/internal/app/notification"
 	"github.com/warmbly/warmbly/internal/app/oauth"
 	"github.com/warmbly/warmbly/internal/app/opsnotify"
@@ -88,6 +92,7 @@ import (
 	"github.com/warmbly/warmbly/internal/pkg/typesafe"
 
 	"github.com/warmbly/warmbly/internal/infrastructure/encryptedkeys"
+	"github.com/warmbly/warmbly/internal/infrastructure/eventbus"
 	"github.com/warmbly/warmbly/internal/infrastructure/kms"
 	"github.com/warmbly/warmbly/internal/infrastructure/pubsub"
 	"github.com/warmbly/warmbly/internal/infrastructure/storage"
@@ -189,8 +194,10 @@ type Handler struct {
 
 	// Fleet. Nodes enrol with the join token and pull everything else; the
 	// control plane never reaches into a machine.
-	FleetNodes *fleetnode.Service
-	WorkerRepo repository.WorkerRepository
+	FleetNodes        *fleetnode.Service
+	NodeLogs          nodelogs.Store
+	BrokerDiagnostics eventbus.EventBus
+	WorkerRepo        repository.WorkerRepository
 	// UpdatesService backs the admin panel's update indicator and button.
 	UpdatesService *updates.Service
 
@@ -328,6 +335,11 @@ type Handler struct {
 	// activity log and the contact panel.
 	SalesforceService *salesforce.Service
 
+	// ApolloService imports Apollo lists and enriches contacts through Apollo.
+	ApolloService *apollo.Service
+	// ClayService takes rows from Clay tables and sends events back to them.
+	ClayService *clay.Service
+
 	// Public websocket URL used by frontend clients
 	WebsocketURI string
 
@@ -398,6 +410,7 @@ type Handler struct {
 	// Infrastructure liveness probes for the admin System Status page.
 	// Wired in cmd/backend/main.go where the concrete clients live.
 	SystemChecker *sysstatus.Checker
+	Monitoring    *monitoring.Service
 
 	// Admin operations pages: cross-workspace reads of mailbox sync, the send
 	// outcome loop, fleet placement and abuse signals, plus the scheduled job

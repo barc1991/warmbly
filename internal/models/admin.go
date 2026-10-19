@@ -71,6 +71,12 @@ type AdminUserDetail struct {
 	CreatedAt        time.Time       `json:"created_at"`
 	UpdatedAt        time.Time       `json:"updated_at"`
 
+	LoginCodeExempt       bool       `json:"login_code_exempt"`
+	LoginCodeExemptReason *string    `json:"login_code_exempt_reason,omitempty"`
+	LoginCodeExemptAt     *time.Time `json:"login_code_exempt_at,omitempty"`
+	// PasswordExpiresAt is set only on a tester whose password was handed out.
+	PasswordExpiresAt *time.Time `json:"password_expires_at,omitempty"`
+
 	// Statistics
 	OrganizationCount int `json:"organization_count"`
 	EmailAccountCount int `json:"email_account_count"`
@@ -435,6 +441,7 @@ type AdminMailboxesResult struct {
 // All fields optional; empty status = active, "all" returns every
 // status. provider lets ops filter to "all gmail mailboxes" quickly.
 type AdminMailboxSearch struct {
+	MailboxID     *ParamUUID `form:"mailbox_id"`
 	Query         string     `form:"q"`
 	Status        string     `form:"status"`
 	Provider      string     `form:"provider"`
@@ -692,18 +699,12 @@ type AdminOrgSearch struct {
 	UpdatedAfter           *time.Time `form:"updated_after" time_format:"2006-01-02" time_utc:"true"`
 	UpdatedBefore          *time.Time `form:"updated_before" time_format:"2006-01-02" time_utc:"true"`
 
-	// Acquisition channel. UTMSource/UTMMedium/UTMCampaign match exactly.
-	//
-	// HasAcquisition and NoAcquisition select on the presence of an
-	// acquisition record, not on a UTM tag: a signup that came from a
-	// marketing page with no campaign parameters has a landing path and
-	// counts as having acquisition data. "Direct" therefore means "arrived
-	// with nothing at all", which is what the admin list's Channel column
-	// shows too. They are mutually exclusive; setting both applies only
-	// HasAcquisition.
+	// Exact acquisition filters. Presence toggles test the row, not a known source.
+	// Setting both presence toggles applies only HasAcquisition.
 	UTMSource      string `form:"utm_source"`
 	UTMMedium      string `form:"utm_medium"`
 	UTMCampaign    string `form:"utm_campaign"`
+	ReferrerHost   string `form:"referrer_host"`
 	HasAcquisition bool   `form:"has_acquisition"`
 	NoAcquisition  bool   `form:"no_acquisition"`
 
@@ -740,13 +741,12 @@ type AdminOrgListItem struct {
 	// which workspaces a detector has acted on without a call per row.
 	RiskState OrgRiskState `json:"risk_state,omitempty"`
 
-	// Acquisition channel recorded at signup. Inlined so revenue by channel is
-	// readable in the table rather than a separate report. Absent for a direct
-	// signup, which is most of them, and always absent on a self-host.
-	UTMSource   *string `json:"utm_source,omitempty"`
-	UTMMedium   *string `json:"utm_medium,omitempty"`
-	UTMCampaign *string `json:"utm_campaign,omitempty"`
-	LandingPath *string `json:"landing_path,omitempty"`
+	// Acquisition recorded at signup; absent values are unknown, not necessarily direct.
+	UTMSource    *string `json:"utm_source,omitempty"`
+	UTMMedium    *string `json:"utm_medium,omitempty"`
+	UTMCampaign  *string `json:"utm_campaign,omitempty"`
+	LandingPath  *string `json:"landing_path,omitempty"`
+	ReferrerHost *string `json:"referrer_host,omitempty"`
 
 	// Plan summary (LEFT JOINed via the org's single active subscription).
 	PlanName     *string `json:"plan_name,omitempty"`

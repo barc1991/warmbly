@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -17,6 +18,11 @@ import (
 type Client struct {
 	client    *pubsub.Client
 	projectID string
+	mu        sync.Mutex
+	topics    map[string]*pubsub.Topic
+	closed    bool
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // NewClient creates a new Pub/Sub client
@@ -34,19 +40,43 @@ func NewClient(ctx context.Context, projectID string) (*Client, error) {
 
 // Close closes the Pub/Sub client
 func (c *Client) Close() error {
-	return c.client.Close()
+	c.closeOnce.Do(func() {
+		c.mu.Lock()
+		c.closed = true
+		topics := c.topics
+		c.mu.Unlock()
+		for _, topic := range topics {
+			topic.Stop()
+		}
+		c.closeErr = c.client.Close()
+	})
+	return c.closeErr
 }
 
 // getTopic gets or creates a topic
 func (c *Client) getTopic(ctx context.Context, topicID string) (*pubsub.Topic, error) {
-	topic := c.client.Topic(topicID)
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		return nil, pubsub.ErrTopicStopped
+	}
+	topic := c.topics[topicID]
+	if topic == nil {
+		topic = c.client.Topic(topicID)
+		if c.topics == nil {
+			c.topics = make(map[string]*pubsub.Topic)
+		}
+		c.topics[topicID] = topic
+	}
+	c.mu.Unlock()
+	// Keep checking existence so a deleted topic is recreated on the next publish.
 	exists, err := topic.Exists(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	if !exists {
-		topic, err = c.client.CreateTopic(ctx, topicID)
+		_, err = c.client.CreateTopic(ctx, topicID)
 		if err != nil {
 			return nil, err
 		}
@@ -132,14 +162,17 @@ type eventBus interface {
 
 // StreamingPublisher handles real-time streaming to users
 type StreamingPublisher struct {
-	client eventBus
+	client   eventBus
+	audience AudienceResolver
 }
 
 // NewStreamingPublisher creates a new streaming publisher
-func NewStreamingPublisher(client eventBus) *StreamingPublisher {
-	return &StreamingPublisher{
-		client: client,
+func NewStreamingPublisher(client eventBus, audience ...AudienceResolver) *StreamingPublisher {
+	p := &StreamingPublisher{client: client}
+	if len(audience) > 0 {
+		p.audience = audience[0]
 	}
+	return p
 }
 
 // Topic names for real-time updates
@@ -196,7 +229,7 @@ func (p *StreamingPublisher) PublishTaskStatus(ctx context.Context, userID strin
 		"event_type": string(eventType),
 	}
 
-	if err := p.client.Publish(ctx, TopicTaskStatus, event, attrs); err != nil {
+	if err := p.publish(ctx, TopicTaskStatus, event, attrs); err != nil {
 		errs.CaptureException(fmt.Errorf("failed to publish task status: %w", err))
 	}
 }
@@ -226,7 +259,7 @@ func (p *StreamingPublisher) PublishEmailError(ctx context.Context, userID strin
 		"event_type": string(EventError),
 	}
 
-	if err := p.client.Publish(ctx, TopicEmailError, event, attrs); err != nil {
+	if err := p.publish(ctx, TopicEmailError, event, attrs); err != nil {
 		errs.CaptureException(fmt.Errorf("failed to publish email error: %w", err))
 	}
 }
@@ -255,7 +288,7 @@ func (p *StreamingPublisher) PublishEmailWarning(ctx context.Context, userID str
 		"event_type": string(EventWarning),
 	}
 
-	if err := p.client.Publish(ctx, TopicEmailWarning, event, attrs); err != nil {
+	if err := p.publish(ctx, TopicEmailWarning, event, attrs); err != nil {
 		errs.CaptureException(fmt.Errorf("failed to publish email warning: %w", err))
 	}
 }
@@ -280,7 +313,7 @@ func (p *StreamingPublisher) PublishCampaignProgress(ctx context.Context, userID
 		"event_type":  "CAMPAIGN_PROGRESS",
 	}
 
-	if err := p.client.Publish(ctx, TopicCampaignUpdate, event, attrs); err != nil {
+	if err := p.publish(ctx, TopicCampaignUpdate, event, attrs); err != nil {
 		errs.CaptureException(fmt.Errorf("failed to publish campaign progress: %w", err))
 	}
 }
@@ -306,7 +339,7 @@ func (p *StreamingPublisher) PublishWarmupStats(ctx context.Context, userID stri
 		"event_type": "WARMUP_STATS",
 	}
 
-	if err := p.client.Publish(ctx, TopicWarmupUpdate, event, attrs); err != nil {
+	if err := p.publish(ctx, TopicWarmupUpdate, event, attrs); err != nil {
 		errs.CaptureException(fmt.Errorf("failed to publish warmup stats: %w", err))
 	}
 }

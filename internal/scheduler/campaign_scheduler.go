@@ -55,6 +55,9 @@ func (s *schedulerService) CalculateNextCampaignTime(ctx context.Context, campai
 	// the campaign keeps sending, instead of parking every lead behind the
 	// first one whose mailbox is full.
 	pass := s.newCampaignPass(ctx, campaign, accounts)
+	if err := s.prefillPool(ctx, pass, accounts); err != nil {
+		return time.Time{}, nil, uuid.Nil, err
+	}
 	paced := s.pacedSenders(ctx, pass, accounts)
 
 	// STEP 3: Get campaign progress - find next contact/sequence to send.
@@ -251,6 +254,9 @@ func (s *schedulerService) placeCampaignSend(ctx context.Context, campaign *mode
 	campaignID := campaign.ID
 	if pass == nil {
 		pass = s.newCampaignPass(ctx, campaign, accounts)
+		if err := s.prefillPool(ctx, pass, accounts); err != nil {
+			return time.Time{}, nil, uuid.Nil, err
+		}
 	}
 	logDecision := func(eventType, message string, metadata map[string]interface{}) {
 		if !preview {
@@ -331,7 +337,7 @@ func (s *schedulerService) placeCampaignSend(ctx context.Context, campaign *mode
 	// STEP 5: Apply campaign schedule constraints
 	// Fall back to UTC if campaign has no timezone set (account timezone checked later)
 	campaignTZName := campaign.ClockTimezone()
-	campaignTZ := loadLocation(campaignTZName)
+	campaignTZ := pass.location(campaignTZName)
 	// Authoritative per-day sending windows (or derived from the legacy
 	// days/start/end fields). Drives every day-of-week + time-window gate below.
 	windows := effectiveWindows(campaign)
@@ -416,6 +422,9 @@ func (s *schedulerService) placeCampaignSend(ctx context.Context, campaign *mode
 	hoursClosed := 0
 	healthHeld := 0
 	noWorker := 0
+	recoveryHeld := 0
+	cooling := 0
+	var sendRecheck time.Time
 	var reopensAt time.Time
 	gates := map[uuid.UUID]mailboxGate{}
 
@@ -464,6 +473,13 @@ func (s *schedulerService) placeCampaignSend(ctx context.Context, campaign *mode
 				budgetSpent++
 			case gateNoWorker:
 				noWorker++
+			case gateRecovery, gateAdmission:
+				recoveryHeld++
+			case gateCooldown:
+				cooling++
+			}
+			if !gate.reopensAt.IsZero() && (sendRecheck.IsZero() || gate.reopensAt.Before(sendRecheck)) {
+				sendRecheck = gate.reopensAt
 			}
 			continue
 		}
@@ -546,6 +562,16 @@ func (s *schedulerService) placeCampaignSend(ctx context.Context, campaign *mode
 	// until midnight are logged once a day, or the feed drowns in them.
 	if len(candidates) == 0 {
 		switch {
+		case recoveryHeld > 0 || cooling > 0:
+			resume := time.Now().Add(workerRecheck)
+			if !sendRecheck.IsZero() && sendRecheck.Before(resume) {
+				resume = sendRecheck
+			}
+			logDecisionOnce("mailboxes_send_recovery",
+				fmt.Sprintf("No mailbox can send right now: %d require send recovery, %d cooling down", recoveryHeld, cooling),
+				map[string]interface{}{"recovery_held": recoveryHeld, "cooling_down": cooling, "pool_size": len(accounts),
+					"mailboxes": s.poolBudget(pass, accounts, gates, uuid.Nil)})
+			return resume, nil, accounts[0].ID, ErrCampaignDeferred
 		case noWorker > 0:
 			// Mailboxes that could send once a worker holds them again, which
 			// the worker reconciler sees to within minutes, unless a mailbox
@@ -731,7 +757,7 @@ func (s *schedulerService) placeCampaignSend(ctx context.Context, campaign *mode
 					pick = clear
 				}
 			}
-			selected = selectAccountByRotationMode(campaign.RotationMode, pick)
+			selected = selectAccountByRotationMode(campaign.RotationMode, pick, campaign.ID)
 		}
 	}
 	if selected == nil {
@@ -812,19 +838,7 @@ func (s *schedulerService) placeCampaignSend(ctx context.Context, campaign *mode
 	if !preview && remainingEmails > 0 {
 		remainingMinutes, ok := remainingSendMinutes(selected, candidateTime, windows, campaignTZ)
 		if ok && remainingMinutes > 0 {
-			// Vary the pace multiplicatively (bursts and lulls) — evenly
-			// metronomed sends are a pattern even with additive jitter.
-			varied := float64(remainingMinutes/remainingEmails) * (0.55 + rand.Float64()*0.9)
-			idealInterval := time.Duration(varied * float64(time.Minute))
-			// The floor is the POOL's spacing, not the chosen mailbox's. Each
-			// mailbox's own gap is enforced against its own last send at STEP
-			// 10; flooring the chain's next tick at one mailbox's whole gap
-			// held a three-mailbox campaign to one mailbox's rate however many
-			// of them were free.
-			minInterval := time.Second * time.Duration(gapSeconds) / time.Duration(max(1, len(pool)))
-			if idealInterval < minInterval {
-				idealInterval = minInterval
-			}
+			idealInterval := poolSendInterval(remainingMinutes, remainingEmails, gapSeconds, len(pool), rand.Float64())
 			distributedTime := time.Now().Add(idealInterval)
 			if distributedTime.After(candidateTime) {
 				candidateTime = distributedTime
@@ -879,13 +893,16 @@ func (s *schedulerService) placeCampaignSend(ctx context.Context, campaign *mode
 	}
 	candidateTime = notBefore(candidateTime)
 
-	// STEP 12: Check conflicts with other scheduled tasks
+	// STEP 12: Keep clear of sends already booked on this mailbox. Another
+	// campaign's parked wake-up is not one (issue #942): it re-picks its
+	// mailbox when it fires, and the gap is enforced then by STEP 10 and the
+	// send claim, so spacing around it only throttles campaigns sharing a pool.
 	if !preview {
-		scheduledTasks, terr := s.taskRepo.GetScheduledTasksForAccount(ctx, account.ID, candidateTime)
+		booked, terr := s.taskRepo.GetBookedSendsForAccount(ctx, account.ID, candidateTime)
 		if terr != nil {
 			return time.Time{}, nil, uuid.Nil, terr
 		}
-		candidateTime = resolveConflicts(candidateTime, scheduledTasks, gapSeconds)
+		candidateTime = resolveConflicts(candidateTime, booked, gapSeconds)
 	}
 
 	// STEP 13: Apply human-like distribution (favor morning/afternoon peaks).
