@@ -284,6 +284,44 @@ func TestRenderTemplate_NonIdentifierCustomKey(t *testing.T) {
 	}
 }
 
+func TestRenderTemplate_HebrewVariables(t *testing.T) {
+	contact := models.Contact{
+		FirstName: "ישראל",
+		LastName:  "ישראלי",
+		Email:     "israel@example.com",
+		Company:   "טכנולוגיות בע״מ",
+		Phone:     "050-1234567",
+		CustomFields: map[string]string{
+			"עיר":       "תל אביב",
+			"תפקיד":     "סמנכ״ל שיווק",
+			"שם פרויקט": "אלפא",
+		},
+	}
+
+	tests := []struct {
+		name     string
+		template string
+		expected string
+	}{
+		{"Hebrew with dot", "שלום {{.שםפרטי}} {{.שםמשפחה}} מחברת {{.חברה}}!", "שלום ישראל ישראלי מחברת טכנולוגיות בע״מ!"},
+		{"Hebrew without dot", "היי {{שםפרטי}}, נשלח אל {{אימייל}} (טלפון: {{טלפון}})", "היי ישראל, נשלח אל israel@example.com (טלפון: 050-1234567)"},
+		{"Hebrew with underscore", "היי {{.שם_פרטי}} {{שם_משפחה}}", "היי ישראל ישראלי"},
+		{"Hebrew with space", "שלום {{שם פרטי}} מפרויקט {{שם פרויקט}}", "שלום ישראל מפרויקט אלפא"},
+		{"Hebrew custom fields", "גר ב{{.עיר}} ועובד כ{{תפקיד}}", "גר בתל אביב ועובד כסמנכ״ל שיווק"},
+		{"English bare variable without dot", "Hi {{FirstName}} {{LastName}} from {{Company}}", "Hi ישראל ישראלי from טכנולוגיות בע״מ"},
+		{"Hebrew default fallback", `שלום {{.שםפרטי | default "חבר"}}`, "שלום ישראל"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := RenderTemplate(tc.template, contact)
+			if got != tc.expected {
+				t.Errorf("%s: got %q, want %q", tc.name, got, tc.expected)
+			}
+		})
+	}
+}
+
 func TestGenerateConversationEmail_NewEmail(t *testing.T) {
 	conv := Conversation{
 		Theme:       "test",

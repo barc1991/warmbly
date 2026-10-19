@@ -130,21 +130,23 @@ function translateReason(r?: string): string {
 // One card per seed panel: whether it can run a test, how many seeds it has
 // and which providers they cover.
 export function PanelStrip({ overview }: { overview: PlacementOverview }) {
+    const panels = (overview.panels ?? []).filter((p) => p.panel !== "cloud");
+    if (panels.length === 0) return null;
     return (
         <div
             className={cn(
                 "grid grid-cols-1 border-b border-slate-200",
-                overview.panels.length >= 3 ? "md:grid-cols-3" : overview.panels.length === 2 ? "md:grid-cols-2" : "",
+                panels.length >= 3 ? "md:grid-cols-3" : panels.length === 2 ? "md:grid-cols-2" : "",
             )}
         >
-            {overview.panels.map((p, i) => {
+            {panels.map((p, i) => {
                 const families = p.families ?? [];
                 return (
                     <div
                         key={p.panel}
                         className={cn(
                             "px-5 py-3 min-w-0",
-                            i < overview.panels.length - 1 && "border-b md:border-b-0 md:border-e border-slate-200",
+                            i < panels.length - 1 && "border-b md:border-b-0 md:border-e border-slate-200",
                         )}
                     >
                         <div className="flex items-center gap-2">

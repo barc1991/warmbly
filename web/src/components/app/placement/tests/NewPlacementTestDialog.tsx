@@ -176,7 +176,7 @@ function DialogBody({ onClose, prefill }: { onClose: () => void; prefill?: NewPl
     }, [draft.source, draft.campaignId, draft.stepId, emailSteps]);
 
     // Default the panel to the first one that can run a test.
-    const panels = React.useMemo(() => overview.data?.panels ?? [], [overview.data]);
+    const panels = React.useMemo(() => (overview.data?.panels ?? []).filter((p) => p.panel !== "cloud"), [overview.data]);
     const panel = panels.find((p) => p.panel === draft.panel);
     React.useEffect(() => {
         if (panels.length === 0 || panel?.available) return;

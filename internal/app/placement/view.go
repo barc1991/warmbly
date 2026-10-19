@@ -256,7 +256,7 @@ func (s *service) Overview(ctx context.Context, orgID uuid.UUID) (*Overview, *er
 			cloud.Metered = true
 		}
 	}
-	if config.SelfHosted() || cloud.Available {
+	if !config.SelfHosted() && cloud.Available {
 		out.Panels = append(out.Panels, cloud)
 	}
 	return out, nil

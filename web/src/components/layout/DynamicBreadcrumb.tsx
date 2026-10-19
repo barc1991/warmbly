@@ -1,53 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { Fragment } from 'react'
-
-const labelMap: Record<string, string> = {
-  app: 'לוח בקרה',
-  emails: 'תיבות דואר',
-  contacts: 'אנשי קשר',
-  segments: 'סגמנטים',
-  labels: 'תוויות',
-  categories: 'תוויות',
-  campaigns: 'קמפיינים',
-  unibox: 'תיבת דואר נכנס',
-  analytics: 'אנליטיקה',
-  crm: 'CRM',
-  pipelines: 'משפכים',
-  deals: 'עסקאות',
-  tasks: 'משימות',
-  templates: 'תבניות',
-  'api-keys': 'מפתחות API',
-  settings: 'הגדרות',
-  profile: 'פרופיל',
-  notifications: 'התראות',
-  security: 'אבטחה',
-  members: 'חברי צוות',
-  teams: 'צוותים',
-  roles: 'תפקידים והרשאות',
-  workspace: 'סביבת עבודה',
-  sending: 'שליחה',
-  tracking: 'מעקב אתר',
-  ai: 'בינה מלאכותית',
-  'ai-models': 'מודלי AI ומפתחות',
-  'ai-skills': 'מיומנויות AI',
-  'oauth-slots': 'סלוטים לחיבורי מייל (OAuth)',
-  'oauth-apps': 'יישומי OAuth',
-  webhooks: 'וובהוקים',
-  connections: 'חיבורים',
-  data: 'נתונים',
-  danger: 'אזור מסוכן',
-  referral: 'הפנה והרווח',
-  limits: 'מגבלות',
-  'warmbly-cloud': 'ענן Warmbly',
-  forms: 'טפסים',
-  meetings: 'פגישות',
-  billing: 'חיוב ומנוי',
-  team: 'צוות',
-  leads: 'לידים',
-  preferences: 'העדפות',
-  schedule: 'לוח זמנים',
-  steps: 'שלבים',
-}
+import { labelMap } from '@/hooks/useHeaderBreadcrumbs'
 
 export function DynamicBreadcrumb() {
   const location = useLocation()
@@ -66,7 +19,15 @@ export function DynamicBreadcrumb() {
     <div className="flex items-center gap-1.5 text-sm min-w-0">
       {breadcrumbSegments.map((segment, index) => {
         const isLast = index === breadcrumbSegments.length - 1
-        const label = labelMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1)
+        const key = segment.toLowerCase()
+        const normalizedKey = key.replaceAll('-', '_')
+        const words = segment.replaceAll('-', ' ').replaceAll('_', ' ')
+        const label =
+          labelMap[segment] ??
+          labelMap[key] ??
+          labelMap[normalizedKey] ??
+          labelMap[key.replaceAll('_', '-')] ??
+          words.charAt(0).toUpperCase() + words.slice(1)
 
         return (
           <Fragment key={segment + index}>

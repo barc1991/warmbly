@@ -109,17 +109,17 @@ function evalCond(expr: string, ctx: PreviewCtx): boolean {
     const notM = expr.match(/^not\s+([\s\S]+)$/);
     if (notM) return !evalCond(notM[1].replace(/^\(|\)$/g, ""), ctx);
     // Fields may contain spaces/dashes (custom fields), so widen the class.
-    let m = expr.match(/^eq\s+\.([A-Za-z0-9_ -]+?)\s+"([^"]*)"$/);
-    if (m) return (ctx[m[1]] ?? "") === m[2];
-    m = expr.match(/^ne\s+\.([A-Za-z0-9_ -]+?)\s+"([^"]*)"$/);
-    if (m) return (ctx[m[1]] ?? "") !== m[2];
+    let m = expr.match(/^eq\s+\.?([\p{L}\p{N}_ -]+?)\s+"([^"]*)"$/u);
+    if (m) return (ctx[m[1].trim()] ?? "") === m[2];
+    m = expr.match(/^ne\s+\.?([\p{L}\p{N}_ -]+?)\s+"([^"]*)"$/u);
+    if (m) return (ctx[m[1].trim()] ?? "") !== m[2];
     const logical = expr.match(/^(and|or)\s+(.*)$/s);
     if (logical) {
         const vals = splitGroups(logical[2]).map((p) => evalCond(p.replace(/^\(|\)$/g, ""), ctx));
         return logical[1] === "and" ? vals.every(Boolean) : vals.some(Boolean);
     }
-    m = expr.match(/^\.([A-Za-z0-9_ -]+)$/);
-    if (m) return truthy(ctx[m[1]]);
+    m = expr.match(/^\.?([\p{L}\p{N}_ -]+)$/u);
+    if (m) return truthy(ctx[m[1].trim()]);
     return false;
 }
 
@@ -169,7 +169,12 @@ function renderConditionals(s: string, ctx: PreviewCtx): string {
 
 export function renderPreview(s: string, ctx: PreviewCtx = SAMPLE): string {
     let out = renderConditionals(s, ctx);
-    out = out.replace(/\{\{\s*\.([A-Za-z0-9_]+)\s*\}\}/g, (_, k: string) => ctx[k] ?? "");
+    out = out.replace(/\{\{\s*\.?([\p{L}\p{N}_ -]+?)\s*(?:\|\s*default\s+"([^"]*)")?\s*\}\}/gu, (_, k: string, def?: string) => {
+        const val = ctx[k.trim()];
+        if (val !== undefined && val !== "") return val;
+        if (def !== undefined) return def;
+        return "";
+    });
     out = out.replace(/\{([^{}|]+(?:\|[^{}]+)+)\}/g, (_, g: string) => g.split("|")[0]);
     return out;
 }
@@ -198,7 +203,7 @@ export function linkifyUnsubscribe(html: string, url: string = SAMPLE.Unsubscrib
 export function templateIssue(s: string): string | null {
     const ifs = (s.match(/\{\{\s*if\b/g) || []).length;
     const ends = (s.match(/\{\{\s*end\s*\}\}/g) || []).length;
-    if (ifs > ends) return "An {{if}} is missing its {{end}}.";
-    if (ends > ifs) return "There's an {{end}} with no matching {{if}}.";
+    if (ifs > ends) return "התנאי {{if}} חסר סגירת {{end}} תואמת.";
+    if (ends > ifs) return "ישנו תג {{end}} ללא תנאי {{if}} תואם.";
     return null;
 }

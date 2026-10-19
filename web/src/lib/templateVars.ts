@@ -55,6 +55,23 @@ export const SAMPLE: Record<string, string> = {
     ...Object.fromEntries([...STANDARD_VARS, ...LINK_VARS].map((v) => [v.key, v.sample])),
     role: "Engineer",
     city: "Berlin",
+    // Hebrew sample aliases
+    שםפרטי: "אלכס",
+    שם_פרטי: "אלכס",
+    "שם פרטי": "אלכס",
+    שם: "אלכס",
+    שםמשפחה: "כהן",
+    שם_משפחה: "כהן",
+    "שם משפחה": "כהן",
+    אימייל: "alex@acme.com",
+    מייל: "alex@acme.com",
+    דואל: "alex@acme.com",
+    "דוא״ל": "alex@acme.com",
+    חברה: "אקמי",
+    ארגון: "אקמי",
+    טלפון: "050-1234567",
+    עיר: "תל אביב",
+    תפקיד: "מנהל שיווק",
 };
 
 const STANDARD_KEYS = new Set(STANDARD_VARS.map((v) => v.key.toLowerCase()));
@@ -92,7 +109,7 @@ export function buildToken(key: string, fallback?: string | null): string {
 // editing. Returns null when the string is not a plain field-access token (e.g.
 // a conditional or a token with helpers we do not model as a chip).
 export function parseToken(token: string): { key: string; fallback: string | null } | null {
-    const m = token.match(/^\{\{\s*\.([A-Za-z0-9_ -]+?)\s*(?:\|\s*default\s+"([^"]*)")?\s*\}\}$/);
+    const m = token.match(/^\{\{\s*\.?([\p{L}\p{N}_ -]+?)\s*(?:\|\s*default\s+"([^"]*)")?\s*\}\}$/u);
     if (!m) return null;
     return { key: m[1].trim(), fallback: m[2] ?? null };
 }
@@ -125,7 +142,7 @@ export function parseFormLinkToken(token: string): string | null {
 // FIELD_TOKEN_RE matches a bare merge-field token (optionally with a default
 // fallback) but NOT control tokens like {{if .X}} / {{end}} / {{eq ...}}, so
 // legacy plain content can be upgraded to chips without disturbing conditionals.
-export const FIELD_TOKEN_RE = /\{\{\s*\.[A-Za-z0-9_ -]+?(?:\s*\|\s*default\s+"[^"]*")?\s*\}\}/g;
+export const FIELD_TOKEN_RE = /\{\{\s*\.?[\p{L}\p{N}_ -]+?(?:\s*\|\s*default\s+"[^"]*")?\s*\}\}/gu;
 
 // upgradeVariableTokens wraps bare merge-field and form-link tokens in the
 // editor HTML with their chip spans (span[data-var] / span[data-form-link]) so

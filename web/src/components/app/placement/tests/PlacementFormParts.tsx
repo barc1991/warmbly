@@ -218,10 +218,11 @@ export function PanelChoice({
     onChange: (p: PlacementPanel) => void;
     usage?: PlacementUsage;
 }) {
+    const activePanels = panels.filter((p) => p.panel !== "cloud");
     if (loading) return <div className="h-16 rounded-md bg-slate-50 animate-pulse" />;
     return (
         <div role="radiogroup" aria-label="פאנל תיבות בדיקה" className="grid gap-1.5">
-            {panels.map((p) => {
+            {activePanels.map((p) => {
                 const active = p.panel === value;
                 return (
                     <button

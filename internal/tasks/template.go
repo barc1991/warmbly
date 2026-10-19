@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/warmbly/warmbly/internal/app/unsublink"
@@ -38,11 +39,14 @@ var templateAction = regexp.MustCompile(`\{\{[^{}]*\}\}`)
 
 // spacedFieldRefAt matches, anchored at the start of the slice, a dotted field
 // reference whose key contains an internal space or dash (e.g. ".job title" or
-// ".first-name"). Such a key is not a valid Go-template identifier, so it cannot
-// be written as a `.Selector`. We rewrite it to the equivalent `(index . "key")`,
-// which IS valid everywhere — standalone, inside {{if}}, and inside eq/and/... —
-// giving custom fields with spaces full Go-template support.
-var spacedFieldRefAt = regexp.MustCompile(`^\.[A-Za-z0-9_]+(?:[ \-]+[A-Za-z0-9_]+)+`)
+// ".שם פרטי"). Supports Unicode letters (Hebrew etc.).
+var spacedFieldRefAt = regexp.MustCompile(`^\.[\p{L}\p{N}_]+(?:[ \-]+[\p{L}\p{N}_]+)+`)
+
+var reservedKeywords = map[string]bool{
+	"if": true, "else": true, "end": true, "range": true, "with": true,
+	"template": true, "block": true, "define": true, "nil": true,
+	"true": true, "false": true, "not": true, "and": true, "or": true,
+}
 
 // tmplCache caches parsed templates keyed by the raw template string. A stored
 // nil is a "known-bad" sentinel: that body failed to compile, so future renders
@@ -53,7 +57,7 @@ var tmplCache tmplfuncs.Cache
 
 // Standard fields and the typed Sender namespace take precedence over custom fields.
 func buildTemplateData(contact models.Contact, context TemplateContext) map[string]any {
-	data := make(map[string]any, len(contact.CustomFields)+7)
+	data := make(map[string]any, len(contact.CustomFields)+25)
 	for k, v := range contact.CustomFields {
 		data[k] = v
 	}
@@ -64,6 +68,23 @@ func buildTemplateData(contact models.Contact, context TemplateContext) map[stri
 	data["Phone"] = contact.Phone
 	data["Sender"] = context.Sender
 	data[UnsubscribeLinkVar] = context.UnsubscribeLink
+
+	// Hebrew standard aliases so {{.שםפרטי}}, {{שםפרטי}}, {{.שם}}, {{.שםמשפחה}}, {{.חברה}}, {{.אימייל}}, {{.טלפון}} work natively
+	data["שםפרטי"] = contact.FirstName
+	data["שם_פרטי"] = contact.FirstName
+	data["שם פרטי"] = contact.FirstName
+	data["שם"] = contact.FirstName
+	data["שםמשפחה"] = contact.LastName
+	data["שם_משפחה"] = contact.LastName
+	data["שם משפחה"] = contact.LastName
+	data["אימייל"] = contact.Email
+	data["מייל"] = contact.Email
+	data["דואל"] = contact.Email
+	data["דוא״ל"] = contact.Email
+	data["דוא\"ל"] = contact.Email
+	data["חברה"] = contact.Company
+	data["ארגון"] = contact.Company
+	data["טלפון"] = contact.Phone
 	return data
 }
 
@@ -71,10 +92,8 @@ func buildTemplateData(contact models.Contact, context TemplateContext) map[stri
 // a space or dash (`.job title`, `.first-name`) into `(index . "key")` inside
 // each {{ }} action, so those fields work EVERYWHERE — standalone, inside
 // {{if}}, and inside eq/and/printf/... — not just as a literal substitution.
-// Plain identifier selectors ({{.FirstName}}) and any text outside an action are
-// left untouched, and quoted string literals inside an action are skipped so a
-// value like ".NET" is never mangled. No data is needed: the rewrite is purely
-// syntactic, so it works identically at render time and at validation time.
+// Also normalizes bare field names (e.g. {{FirstName}} or {{שםפרטי}}) to their
+// dotted or indexed Go template syntax.
 func rewriteSpacedFieldRefs(tmpl string) string {
 	if !strings.Contains(tmpl, "{{") {
 		return tmpl
@@ -82,7 +101,56 @@ func rewriteSpacedFieldRefs(tmpl string) string {
 	return templateAction.ReplaceAllStringFunc(tmpl, rewriteSpacedInAction)
 }
 
+func normalizeBareAction(action string) string {
+	if len(action) < 4 || !strings.HasPrefix(action, "{{") || !strings.HasSuffix(action, "}}") {
+		return action
+	}
+	inner := strings.TrimSpace(action[2 : len(action)-2])
+	if inner == "" || strings.HasPrefix(inner, ".") || strings.HasPrefix(inner, "$") || strings.HasPrefix(inner, "\"") || strings.HasPrefix(inner, "`") {
+		return action
+	}
+	runes := []rune(inner)
+	if !unicode.IsLetter(runes[0]) && runes[0] != '_' {
+		return action
+	}
+
+	parts := strings.SplitN(inner, "|", 2)
+	head := strings.TrimSpace(parts[0])
+	tail := ""
+	if len(parts) == 2 {
+		tail = " | " + strings.TrimSpace(parts[1])
+	}
+
+	words := strings.Fields(head)
+	if len(words) == 0 {
+		return action
+	}
+	firstWord := words[0]
+
+	if firstWord == "if" || firstWord == "with" {
+		if len(words) == 2 {
+			arg := words[1]
+			if !strings.HasPrefix(arg, ".") && !strings.HasPrefix(arg, "$") && !reservedKeywords[arg] && tmplfuncs.FuncMap()[arg] == nil {
+				return "{{" + firstWord + " ." + arg + tail + "}}"
+			}
+		}
+		return action
+	}
+
+	if reservedKeywords[firstWord] || tmplfuncs.FuncMap()[firstWord] != nil {
+		return action
+	}
+
+	if strings.ContainsAny(head, " -") {
+		head = `(index . "` + head + `")`
+	} else {
+		head = "." + head
+	}
+	return "{{" + head + tail + "}}"
+}
+
 func rewriteSpacedInAction(action string) string {
+	action = normalizeBareAction(action)
 	var b strings.Builder
 	b.Grow(len(action))
 	var quote byte // 0 = not in a string literal; '"' or '`' otherwise
@@ -189,14 +257,18 @@ func RenderTemplateWith(tmpl string, contact models.Contact, context TemplateCon
 func fallbackRenderTemplate(tmpl string, data map[string]any) string {
 	return templateAction.ReplaceAllStringFunc(tmpl, func(action string) string {
 		t := compiledTemplate(rewriteSpacedFieldRefs(action))
-		if t == nil {
-			return action
+		if t != nil {
+			out, err := tmplfuncs.Execute(t, data)
+			if err == nil {
+				return strings.ReplaceAll(out, "<no value>", "")
+			}
 		}
-		out, err := tmplfuncs.Execute(t, data)
-		if err != nil {
-			return action
+		raw := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(action, "{{"), "}}"))
+		raw = strings.TrimPrefix(raw, ".")
+		if v, ok := data[raw]; ok && v != nil {
+			return fmt.Sprint(v)
 		}
-		return strings.ReplaceAll(out, "<no value>", "")
+		return action
 	})
 }
 

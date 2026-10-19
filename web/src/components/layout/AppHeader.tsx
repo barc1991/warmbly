@@ -31,96 +31,19 @@ import { CreditsMeter } from "./CreditsMeter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
-// Pretty labels for path segments. Anything missing falls back to the
-// raw segment with its first letter capitalised.
-const labelMap: Record<string, string> = {
-    app: "בית",
-    emails: "תיבות דואר",
-    unibox: "תיבת דואר מאוחדת",
-    contacts: "אנשי קשר",
-    segments: "סגמנטים",
-    labels: "תוויות",
-    categories: "תוויות",
-    campaigns: "קמפיינים",
-    analytics: "אנליטיקה",
-    crm: "ניהול לקוחות",
-    pipelines: "צינורות מכירה",
-    deals: "עסקאות",
-    tasks: "משימות",
-    templates: "תבניות",
-    "api-keys": "מפתחות API",
-    settings: "הגדרות",
-    profile: "פרופיל",
-    notifications: "התראות",
-    security: "אבטחה",
-    members: "חברי צוות",
-    teams: "צוותים",
-    roles: "תפקידים והרשאות",
-    workspace: "סביבת עבודה",
-    sending: "שליחה",
-    tracking: "מעקב אתר",
-    ai: "בינה מלאכותית",
-    "ai-models": "מודלי AI ומפתחות",
-    "ai-skills": "מיומנויות AI",
-    "oauth-slots": "סלוטים לחיבורי מייל (OAuth)",
-    "oauth-apps": "יישומי OAuth",
-    webhooks: "וובהוקים",
-    connections: "חיבורים",
-    data: "נתונים",
-    danger: "אזור מסוכן",
-    referral: "הפנה והרווח",
-    limits: "מגבלות",
-    "warmbly-cloud": "ענן Warmbly",
-    forms: "טפסים",
-    meetings: "פגישות",
-    billing: "חיוב ומנוי",
-    team: "צוות",
-    admin: "ניהול",
-    workers: "עובדים",
-    credentials: "אישורים",
-    audit: "יומן פעילות",
-    leads: "לידים",
-    preferences: "העדפות",
-    schedule: "לוח זמנים",
-    steps: "שלבים",
-    suppressions: "רשימת חסימה",
-    integrations: "אינטגרציות",
-    automations: "אוטומציות",
-    deliverability: "דיוור",
-    all: "הכל",
-    inbox: "דואר נכנס",
-    unread: "לא נקרא",
-    starred: "מסומן בכוכב",
-    sent: "נשלח",
-    drafts: "טיוטות",
-    scheduled: "מתוזמן",
-    positive: "חיובי",
-    interested: "מתעניין",
-    meeting_booked: "נקבעה פגישה",
-    not_interested: "לא מעוניין",
-    auto_reply: "מענה אוטומטי",
-    bounced: "שגיאות מסירה",
-    spam: "ספאם",
-    archive: "ארכיון",
-    mailbox: "תיבת דואר",
-    trash: "אשפה",
-    today: "היום",
-    week: "השבוע",
-    agent_drafts: "טיוטות סוכן",
-    "agent-drafts": "טיוטות סוכן",
-    agentdrafts: "טיוטות סוכן",
-    snoozed: "נודניק",
-    awaiting: "ממתין לתשובה",
-    awaiting_reply: "ממתין לתשובה",
-    awaiting_agent_draft: "טיוטות סוכן",
-    tag: "תגית",
-    label: "תווית",
-    category: "תווית",
-    followup: "מעקב",
-};
+import { labelMap } from "@/hooks/useHeaderBreadcrumbs";
 
 function pretty(segment: string): string {
-    return labelMap[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
+    const key = segment.toLowerCase();
+    const normalizedKey = key.replaceAll("-", "_");
+    const words = segment.replaceAll("-", " ").replaceAll("_", " ");
+    return (
+        labelMap[segment] ??
+        labelMap[key] ??
+        labelMap[normalizedKey] ??
+        labelMap[key.replaceAll("_", "-")] ??
+        words.charAt(0).toUpperCase() + words.slice(1)
+    );
 }
 
 export function AppHeader({ onMenu }: { onMenu?: () => void }) {
