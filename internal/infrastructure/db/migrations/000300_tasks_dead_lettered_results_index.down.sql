@@ -1,1 +1,1 @@
-DROP INDEX IF EXISTS CONCURRENTLY IF EXISTS public.idx_tasks_dead_lettered_results;
+DROP INDEX CONCURRENTLY IF EXISTS public.idx_tasks_dead_lettered_results;
