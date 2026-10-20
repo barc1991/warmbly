@@ -1,7 +1,7 @@
 -- App Attest keys the native app registered: one per install, verified against
 -- Apple's root, then used to check the assertion on each unauthenticated auth
 -- write. Not tied to a user or a workspace.
-CREATE TABLE app_attest_keys (
+CREATE TABLE IF NOT EXISTS app_attest_keys (
     key_id       TEXT PRIMARY KEY,
     public_key   BYTEA NOT NULL,
     app_id       TEXT NOT NULL,

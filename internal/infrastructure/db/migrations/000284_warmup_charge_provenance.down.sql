@@ -6,7 +6,7 @@ BEGIN
 END $$;
 
 ALTER TABLE warmup_tasks
-    DROP CONSTRAINT warmup_tasks_charge_provenance,
+    DROP CONSTRAINT IF EXISTS warmup_tasks_charge_provenance,
     DROP COLUMN warmup_charged_date,
     DROP COLUMN warmup_reply_charged,
     DROP COLUMN warmup_refunded_at;

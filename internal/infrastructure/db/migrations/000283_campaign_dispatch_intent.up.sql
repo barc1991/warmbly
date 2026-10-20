@@ -1,7 +1,7 @@
 CREATE TYPE campaign_dispatch_intent AS ENUM ('unverified', 'wakeup', 'send');
 
 ALTER TABLE campaign_tasks
-    ADD COLUMN dispatch_intent campaign_dispatch_intent NOT NULL DEFAULT 'unverified';
+    ADD COLUMN IF NOT EXISTS dispatch_intent campaign_dispatch_intent NOT NULL DEFAULT 'unverified';
 
 CREATE FUNCTION retain_campaign_dispatch_intent() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN

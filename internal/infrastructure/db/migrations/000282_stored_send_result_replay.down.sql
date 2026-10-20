@@ -1,1 +1,1 @@
-DROP INDEX CONCURRENTLY tasks_pending_executor_results;
+DROP INDEX IF EXISTS CONCURRENTLY tasks_pending_executor_results;
